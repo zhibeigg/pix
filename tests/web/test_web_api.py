@@ -197,6 +197,36 @@ def test_file_access_rejects_unsafe_paths(client: TestClient) -> None:
     assert forbidden.status_code == 403
 
 
+def test_uploaded_image_can_create_image_jobs(client: TestClient) -> None:
+    image = Image.new("RGB", (4, 4), (40, 50, 60))
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    data = buffer.getvalue()
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})
+    uploaded = client.post(
+        "/uploads/image",
+        headers=headers,
+        files={"file": ("batch.png", data, "image/png")},
+    ).json()
+
+    image_to_image = client.post(
+        "/jobs",
+        headers=headers,
+        json={"job_type": "image_to_image", "prompt": "make it icy", "input_image_path": uploaded["path"]},
+    )
+    assert image_to_image.status_code == 200
+    assert image_to_image.json()["price_credits"] == 20
+
+    local = client.post(
+        "/jobs",
+        headers=headers,
+        json={"job_type": "local_pixelize", "input_image_path": uploaded["path"]},
+    )
+    assert local.status_code == 200
+    assert local.json()["price_credits"] == 0
+
+
 def test_upload_rejects_non_image_extension(client: TestClient) -> None:
     _user, headers = _register_and_login(client)
     uploaded = client.post(

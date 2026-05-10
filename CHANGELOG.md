@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-05-10
+
+### Added
+
+- 批量生产面板新增批量文生图、批量图生图、批量本地像素化三种模式。
+- 支持一次选择多张图片串行上传、展示上传预览/状态，并按上传结果批量创建图生图或本地像素化任务。
+
 ## [0.8.0] - 2026-05-10
 
 ### Added
@@ -131,7 +138,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/zhibeigg/pix/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/zhibeigg/pix/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/zhibeigg/pix/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/zhibeigg/pix/compare/v0.5.0...v0.6.0
