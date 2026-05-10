@@ -9,10 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **像素对齐（smart downsample）**：自动探测输入图片的原生像素格大小，先按整数倍 BOX 聚合再缩到目标尺寸，硬边不再被 BICUBIC 糊化。新增 `--resample smart|box|bicubic|lanczos|nearest` 与 `--snap/--no-snap` 参数。
+- **自动抠背景**：`--remove-bg` 通过四角 flood-fill 把纯色底抠成透明 PNG，带 `--bg-tolerance` 颜色容差与 `--bg-feather` 边缘羽化保护。
+- GUI 参数面板：新增下采样策略下拉、"对齐像素格"勾选、"自动抠背景"勾选 + 容差/羽化两个 spin；9 种语言文案同步。
 - `pix batch <input-dir> <output-dir>`：目录级批量像素化，支持并发与失败重试。
 - CI 接入 `ruff` lint 任务；GitHub Actions 全部升级到支持 Node 24 的版本。
 - Dependabot 依赖升级自动化。
 - CONTRIBUTING / ISSUE / PR 模板。
+
+### Fixed
+
+- `remove_background` 内部距离计算用 `int16` 会溢出（255² > 32767），改成 `int32`，否则主体会被误判为背景全部抠空。
 
 ### Changed
 
