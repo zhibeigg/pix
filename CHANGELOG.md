@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-05-10
+
+### Added
+
+- 新增 prompt 禁词配置和任务创建拦截，支持逗号、中文逗号、分号、换行分隔。
+- 新增上传事件记录和每用户每日上传次数上限，管理员可在运营保护面板配置。
+
 ## [0.20.0] - 2026-05-10
 
 ### Added
@@ -215,7 +222,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/zhibeigg/pix/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/zhibeigg/pix/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/zhibeigg/pix/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/zhibeigg/pix/compare/v0.17.0...v0.18.0
