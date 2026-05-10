@@ -175,6 +175,7 @@ pix run my_photo.png --pixel-size 64x64 --preset gameboy    # 已有图 → 分�
 pix pixelize my_photo.png --colors 8 --preset pico8          # 只做像素化（不走网络）
 pix analyze my_photo.png --model claude-sonnet-4-5           # 只做 VL 分析
 pix gen-only "一只像素风橘猫"                                 # 只做文生图
+pix batch ./photos ./pixelized --workers 8 --preset pico8    # 批量：一个目录进、一个目录出
 pix presets                                                  # 列出所有预设
 pix gui                                                      # 启动图形界面
 ```
@@ -331,12 +332,15 @@ pix pixelize source.png --analysis 02_analysis.json
 
 ```bash
 pip install -e ".[dev]"
-pytest                          # 166 条测试
+pytest                          # 全量测试（当前 179 条）
 pytest --cov=pix                # 带覆盖率
 pytest tests/test_pipeline.py   # 只跑单个模块
+ruff check .                    # 代码风格检查
 ```
 
-测试覆盖：schema 校验、预设加载、像素化管线、缓存、配置合并、API mock（image_gen / vision）、pipeline 集成、CLI、GUI 构造、i18n、右键菜单。
+想贡献代码？请先读 [CONTRIBUTING.md](./CONTRIBUTING.md)，里面有编码规范、提交前自检清单、commit 风格。
+
+测试覆盖：schema 校验、预设加载、像素化管线、批量处理、缓存、配置合并、API mock（image_gen / vision）、pipeline 集成、CLI、GUI 构造、i18n、右键菜单。
 
 ---
 
@@ -364,13 +368,14 @@ Packy `gpt-image-2` 要求每边长 ≤ 3840 且是 16 的倍数，总像素 655
 
 ## 🗺️ Roadmap
 
-- [ ] PyInstaller 一键打包脚本，产出独立 .exe / .app
-- [ ] 批量模式：一个目录进、一个目录出
+- [x] 跨平台自动构建与发布（Windows / macOS Intel / Apple Silicon / Linux）
+- [x] 批量模式：一个目录进、一个目录出（`pix batch`）
+- [ ] PyInstaller 打包体积优化 + 可选的单文件构建
 - [ ] 用户自定义风格预设的 GUI 编辑器
 - [ ] 视觉模型可复用本地小模型（offline 模式）
 - [ ] sprite sheet 输出（多姿势 / 多表情批处理）
 
-欢迎在 [Issues](https://github.com/zhibeigg/pix/issues) 里点单。
+欢迎在 [Issues](https://github.com/zhibeigg/pix/issues) 里点单，或在 [Discussions](https://github.com/zhibeigg/pix/discussions) 交流。
 
 ---
 

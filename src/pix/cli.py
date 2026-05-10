@@ -242,6 +242,66 @@ def cmd_run(
 # ---------- presets ----------
 
 
+# ---------- batch ----------
+
+
+@app.command("batch")
+def cmd_batch(
+    input_dir: Path = typer.Argument(..., exists=True, file_okay=False, readable=True, help="输入目录（递归扫描）"),
+    output_dir: Path = typer.Argument(..., help="输出目录，自动创建"),
+    pixel_size: str = typer.Option("128x128", help="输出像素尺寸"),
+    colors: int = typer.Option(16, min=2, max=256),
+    dither: str = typer.Option("floyd_steinberg"),
+    preset: str = typer.Option("auto"),
+    use_vl: bool = typer.Option(False, "--use-vl/--no-vl", help="是否调用视觉模型分析每张图（成本较高）"),
+    vl_model: Optional[str] = typer.Option(None, help="覆盖 VL 模型名"),
+    workers: int = typer.Option(4, min=1, max=32, help="并发线程数"),
+    overwrite: bool = typer.Option(False, "--overwrite", help="已存在的输出也覆盖；默认跳过"),
+    no_sidecars: bool = typer.Option(False, "--no-sidecars", help="不产出 .analysis.json / .meta.json"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+) -> None:
+    """批量像素化一个目录里的图片（支持并发）。"""
+    cfg = _base_config(config)
+    from pix.batch import BatchItem, run_batch  # 延迟导入，减少 pix --help 的启动开销
+
+    params = PixelizeParams(
+        output_size=_parse_size(pixel_size),
+        colors=colors,
+        dither=dither,  # type: ignore[arg-type]
+        preset=preset,
+    )
+
+    def _on_done(item: BatchItem, done: int, total: int) -> None:
+        mark = {
+            "ok": "[green][OK][/green]",
+            "skipped": "[yellow][skip][/yellow]",
+            "failed": "[red][FAIL][/red]",
+        }.get(item.status, item.status)
+        tail = f" · {item.error}" if item.error else ""
+        console.log(f"[{done}/{total}] {mark} {item.src.name}{tail}")
+
+    result = run_batch(
+        cfg,
+        input_dir,
+        output_dir,
+        pixelize_params=params,
+        use_vl=use_vl,
+        vl_model=vl_model,
+        workers=workers,
+        write_sidecars=not no_sidecars,
+        overwrite=overwrite,
+        on_item_done=_on_done,
+    )
+    console.print(Panel.fit(result.summary(), title="pix batch"))
+    if result.failed:
+        console.print("[red]失败文件：[/red]")
+        for it in result.failed:
+            console.print(f"  - {it.src} · {it.error}")
+
+
+# ---------- presets ----------
+
+
 @app.command("presets")
 def cmd_presets() -> None:
     """列出所有可用预设。"""
