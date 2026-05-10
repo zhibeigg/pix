@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-10
+
+### Added
+
+- 新增网站版前端 MVP：Vite + React 工作台，支持注册/登录、点数查看、任务创建、队列轮询、输出路径展示和管理员加点/价格配置。
+- FastAPI 后端新增本地开发 CORS，允许 `localhost:5173` 前端访问。
+
 ## [0.4.0] - 2026-05-10
 
 ### Added
@@ -103,7 +110,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/zhibeigg/pix/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/zhibeigg/pix/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/zhibeigg/pix/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/zhibeigg/pix/compare/v0.3.0...v0.3.1

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from pix import __version__
 from pix_web.config import WebSettings, load_web_settings
@@ -18,6 +19,13 @@ def create_app(settings: WebSettings | None = None) -> FastAPI:
     session_factory = make_session_factory(engine)
 
     app = FastAPI(title="Pix Web API", version=__version__)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.state.web_settings = settings
     app.state.engine = engine
     app.state.SessionLocal = session_factory
