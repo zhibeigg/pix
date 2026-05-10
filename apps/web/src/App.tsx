@@ -2,12 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, ApiError } from './api'
 import { AdminPanel } from './components/AdminPanel'
 import { AuthPanel } from './components/AuthPanel'
+import { BatchGeneratePanel } from './components/BatchGeneratePanel'
 import { CreditPanel } from './components/CreditPanel'
-import { JobComposer } from './components/JobComposer'
+import { GalleryGrid } from './components/GalleryGrid'
 import { JobList } from './components/JobList'
+import { SingleGeneratePanel } from './components/SingleGeneratePanel'
+import { TuningPanel } from './components/TuningPanel'
 import type { CreditBalance, CreditTransaction, GenerationJob, JobCreateRequest, PricingRule, User } from './types'
 
 const TOKEN_KEY = 'pix_web_token'
+type WorkMode = 'single' | 'batch'
 
 export function App() {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? '')
@@ -19,35 +23,38 @@ export function App() {
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [mode, setMode] = useState<WorkMode>('single')
+  const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
 
   const isAdmin = user?.role === 'admin'
+  const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? null, [jobs, selectedJobId])
+  const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)).length, [jobs])
+  const completedJobs = useMemo(() => jobs.filter((job) => job.status === 'succeeded').length, [jobs])
+  const failedJobs = useMemo(() => jobs.filter((job) => job.status === 'failed').length, [jobs])
 
   const showError = useCallback((error: unknown) => {
-    if (error instanceof ApiError) {
-      setMessage(error.message)
-    } else if (error instanceof Error) {
-      setMessage(error.message)
-    } else {
-      setMessage('发生未知错误')
-    }
+    if (error instanceof ApiError) setMessage(error.message)
+    else if (error instanceof Error) setMessage(error.message)
+    else setMessage('发生未知错误')
   }, [])
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
-    const [me, nextBalance, nextTransactions, nextJobs] = await Promise.all([
+    const [me, nextBalance, nextTransactions, nextJobs, nextPricing] = await Promise.all([
       api.me(activeToken),
       api.balance(activeToken),
       api.transactions(activeToken),
       api.jobs(activeToken),
+      api.pricing(activeToken),
     ])
     setUser(me)
     setBalance(nextBalance)
     setTransactions(nextTransactions)
     setJobs(nextJobs)
+    setPricing(nextPricing)
     if (me.role === 'admin') {
-      const [users, rules] = await Promise.all([api.adminUsers(activeToken), api.pricing(activeToken)])
+      const users = await api.adminUsers(activeToken)
       setAdminUsers(users)
-      setPricing(rules)
     }
   }, [token])
 
@@ -109,6 +116,7 @@ export function App() {
     setJobs([])
     setPricing([])
     setAdminUsers([])
+    setSelectedJobId(null)
     setMessage('已退出')
   }
 
@@ -118,6 +126,7 @@ export function App() {
     setMessage('')
     try {
       const job = await api.createJob(token, payload)
+      setSelectedJobId(job.id)
       setMessage(`任务 #${job.id} 已入队`)
       await refreshCore(token)
     } catch (error) {
@@ -125,6 +134,26 @@ export function App() {
     } finally {
       setBusy(false)
     }
+  }
+
+  async function createJobs(payloads: JobCreateRequest[]) {
+    if (!token || payloads.length === 0) return
+    setBusy(true)
+    setMessage('')
+    try {
+      for (const payload of payloads) await api.createJob(token, payload)
+      setMessage(`${payloads.length} 个任务已加入生产队列`)
+      await refreshCore(token)
+    } catch (error) {
+      showError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function copyPath(path: string) {
+    await navigator.clipboard.writeText(path)
+    setMessage('输出路径已复制')
   }
 
   async function adjustCredits(userId: number, amount: number, note: string) {
@@ -141,53 +170,74 @@ export function App() {
     setMessage('价格规则已更新')
   }
 
-  const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)).length, [jobs])
-
   return (
-    <main className="app-shell">
-      <header className="hero">
+    <main className="app-shell forge-shell">
+      <header className="hero forge-hero">
         <div>
-          <p className="eyebrow">Pix Web MVP</p>
-          <h1>AI 像素图生成工作台</h1>
-          <p>注册、充值点数、创建任务、排队生成。当前版本先用本地路径和管理员加点跑通 SaaS 闭环。</p>
+          <p className="eyebrow">Pix Forge</p>
+          <h1>像素素材工坊</h1>
+          <p>单图快速试想法，批量生产素材包；本地微调免费，AI 微调清楚显示点数消耗。</p>
         </div>
-        <div className="hero-card">
-          <span>队列中</span>
-          <strong>{activeJobs}</strong>
-          <small>pending / running</small>
+        <div className="hero-stats">
+          <Metric label="可用点数" value={balance?.available_credits ?? '—'} />
+          <Metric label="队列中" value={activeJobs} />
+          <Metric label="已完成" value={completedJobs} />
+          <Metric label="失败" value={failedJobs} />
         </div>
       </header>
 
       {message && <div className="toast">{message}</div>}
 
-      <div className="layout-grid">
+      <div className="workbench-grid">
         <aside className="side-column">
           <AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} />
           {user && <CreditPanel balance={balance} transactions={transactions} onRefresh={() => refreshCore()} />}
         </aside>
-        <section className="main-column">
+
+        <section className="gallery-column">
           {user ? (
-            <>
-              <JobComposer pricing={pricing} onSubmit={createJob} loading={busy} />
-              <JobList jobs={jobs} onRefresh={() => refreshCore()} />
-              {isAdmin && (
-                <AdminPanel
-                  users={adminUsers}
-                  pricing={pricing}
-                  onRefresh={() => refreshCore()}
-                  onAdjustCredits={adjustCredits}
-                  onUpdatePricing={updatePricing}
-                />
-              )}
-            </>
+            <GalleryGrid jobs={jobs} selectedJobId={selectedJobId} onSelect={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} />
           ) : (
             <section className="panel empty-panel">
               <h2>先登录或注册</h2>
-              <p>第一个注册用户会自动成为管理员，可进入后台给自己加点并配置价格。</p>
+              <p>第一个注册用户会自动成为管理员，可给自己加点并配置价格。</p>
             </section>
           )}
+          {user && <JobList jobs={jobs.filter((job) => job.status !== 'succeeded')} onRefresh={() => refreshCore()} />}
         </section>
+
+        <aside className="right-column">
+          {user && (
+            <>
+              <section className="panel mode-panel">
+                <p className="eyebrow">Mode</p>
+                <div className="mode-tabs">
+                  <button className={mode === 'single' ? '' : 'ghost'} onClick={() => setMode('single')}>单图生成</button>
+                  <button className={mode === 'batch' ? '' : 'ghost'} onClick={() => setMode('batch')}>批量生产</button>
+                </div>
+              </section>
+              {mode === 'single' ? (
+                <SingleGeneratePanel pricing={pricing} loading={busy} onSubmit={createJob} />
+              ) : (
+                <BatchGeneratePanel pricing={pricing} loading={busy} onSubmitMany={createJobs} />
+              )}
+              <TuningPanel job={selectedJob} pricing={pricing} loading={busy} onSubmit={createJob} />
+              {isAdmin && (
+                <AdminPanel users={adminUsers} pricing={pricing} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} />
+              )}
+            </>
+          )}
+        </aside>
       </div>
     </main>
+  )
+}
+
+function Metric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="metric hero-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   )
 }
