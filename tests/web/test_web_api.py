@@ -87,6 +87,76 @@ def test_create_job_reserves_credits_idempotently(client: TestClient) -> None:
     assert balance["reserved_credits"] == 20
 
 
+def test_batch_create_jobs_reserves_atomically(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})
+    response = client.post(
+        "/jobs/batch",
+        headers=headers,
+        json={
+            "jobs": [
+                {"job_type": "text_to_image", "prompt": "pixel cat", "client_request_id": "batch-a"},
+                {"job_type": "text_to_image", "prompt": "pixel dog", "client_request_id": "batch-b"},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_price_credits"] == 40
+    assert len(body["jobs"]) == 2
+
+    balance = client.get("/credits/balance", headers=headers).json()
+    assert balance["available_credits"] == 10
+    assert balance["reserved_credits"] == 40
+
+
+def test_batch_create_is_atomic_when_credits_are_insufficient(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 20})
+    response = client.post(
+        "/jobs/batch",
+        headers=headers,
+        json={
+            "jobs": [
+                {"job_type": "text_to_image", "prompt": "pixel cat"},
+                {"job_type": "text_to_image", "prompt": "pixel dog"},
+            ]
+        },
+    )
+    assert response.status_code == 402
+    assert client.get("/jobs", headers=headers).json() == []
+    balance = client.get("/credits/balance", headers=headers).json()
+    assert balance["available_credits"] == 20
+    assert balance["reserved_credits"] == 0
+
+
+def test_batch_create_reuses_existing_idempotent_jobs(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 60})
+    first = client.post(
+        "/jobs",
+        headers=headers,
+        json={"job_type": "text_to_image", "prompt": "pixel cat", "client_request_id": "already"},
+    ).json()
+    response = client.post(
+        "/jobs/batch",
+        headers=headers,
+        json={
+            "jobs": [
+                {"job_type": "text_to_image", "prompt": "pixel cat", "client_request_id": "already"},
+                {"job_type": "text_to_image", "prompt": "pixel dog", "client_request_id": "new-one"},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["jobs"][0]["id"] == first["id"]
+    assert body["total_price_credits"] == 20
+    balance = client.get("/credits/balance", headers=headers).json()
+    assert balance["available_credits"] == 20
+    assert balance["reserved_credits"] == 40
+
+
 def test_worker_success_consumes_reserved_credits(client: TestClient, tmp_path, monkeypatch) -> None:
     user, headers = _register_and_login(client)
     client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})

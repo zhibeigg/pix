@@ -141,8 +141,9 @@ export function App() {
     setBusy(true)
     setMessage('')
     try {
-      for (const payload of payloads) await api.createJob(token, payload)
-      setMessage(`${payloads.length} 个任务已加入生产队列`)
+      const created = await api.createJobsBatch(token, payloads)
+      setSelectedJobId(created.jobs[0]?.id ?? null)
+      setMessage(`${created.jobs.length} 个任务已加入生产队列，冻结 ${created.total_price_credits} credits`)
       await refreshCore(token)
     } catch (error) {
       showError(error)

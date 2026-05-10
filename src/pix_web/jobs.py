@@ -10,10 +10,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, reserve_credits
-from pix_web.models import GenerationJob, User
+from pix_web.models import CreditAccount, GenerationJob, User
 from pix_web.pricing import PricingDisabledError, get_price
 from pix_web.schemas import JobCreateRequest
-
 
 AI_JOB_TYPES = {"text_to_image", "image_to_image"}
 IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "repixelize"}
@@ -43,26 +42,34 @@ def params_json_from_request(req: JobCreateRequest) -> dict:
     }
 
 
-def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
-    validate_job_request(req)
-    client_request_id = req.client_request_id.strip()
-    if client_request_id:
-        existing = db.scalar(
-            select(GenerationJob)
-            .options(selectinload(GenerationJob.outputs))
-            .where(
-                GenerationJob.user_id == user.id,
-                GenerationJob.client_request_id == client_request_id,
-            )
+def _existing_job(db: Session, user: User, client_request_id: str) -> GenerationJob | None:
+    if not client_request_id:
+        return None
+    return db.scalar(
+        select(GenerationJob)
+        .options(selectinload(GenerationJob.outputs))
+        .where(
+            GenerationJob.user_id == user.id,
+            GenerationJob.client_request_id == client_request_id,
         )
-        if existing is not None:
-            return existing
+    )
 
+
+def _price_for_request(db: Session, req: JobCreateRequest) -> int:
     try:
-        price = get_price(db, req.job_type)
+        return get_price(db, req.job_type)
     except PricingDisabledError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
+
+def create_job_in_transaction(db: Session, user: User, req: JobCreateRequest, *, reserve: bool = True) -> GenerationJob:
+    validate_job_request(req)
+    client_request_id = req.client_request_id.strip()
+    existing = _existing_job(db, user, client_request_id)
+    if existing is not None:
+        return existing
+
+    price = _price_for_request(db, req)
     job = GenerationJob(
         user_id=user.id,
         client_request_id=client_request_id or uuid4().hex,
@@ -75,12 +82,16 @@ def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
     )
     db.add(job)
     db.flush()
-
-    try:
+    if reserve:
         reserve_credits(db, user, job, price)
+    return job
+
+
+def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
+    try:
+        job = create_job_in_transaction(db, user, req)
     except InsufficientCreditsError as exc:
         raise insufficient_credits_http() from exc
-
     db.commit()
     db.refresh(job)
     return db.scalar(
@@ -88,3 +99,59 @@ def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
         .options(selectinload(GenerationJob.outputs))
         .where(GenerationJob.id == job.id)
     ) or job
+
+
+def create_jobs_batch(db: Session, user: User, reqs: list[JobCreateRequest]) -> tuple[list[GenerationJob], int]:
+    if not reqs:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="批量任务不能为空")
+
+    total_price = 0
+    prices: list[int] = []
+    seen_request_ids: set[str] = set()
+    existing_by_index: dict[int, GenerationJob] = {}
+    for index, req in enumerate(reqs):
+        validate_job_request(req)
+        request_id = req.client_request_id.strip()
+        if request_id:
+            if request_id in seen_request_ids:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="批量任务中存在重复 client_request_id")
+            seen_request_ids.add(request_id)
+        existing = _existing_job(db, user, request_id)
+        if existing is not None:
+            existing_by_index[index] = existing
+            prices.append(0)
+            continue
+        price = _price_for_request(db, req)
+        prices.append(price)
+        total_price += price
+
+    account = db.scalar(select(CreditAccount).where(CreditAccount.user_id == user.id))
+    available = account.available_credits if account is not None else 0
+    if available < total_price:
+        raise insufficient_credits_http()
+
+    jobs: list[GenerationJob] = []
+    try:
+        for index, req in enumerate(reqs):
+            existing = existing_by_index.get(index)
+            if existing is not None:
+                jobs.append(existing)
+                continue
+            job = create_job_in_transaction(db, user, req, reserve=False)
+            reserve_credits(db, user, job, prices[index])
+            jobs.append(job)
+    except InsufficientCreditsError as exc:
+        db.rollback()
+        raise insufficient_credits_http() from exc
+
+    db.commit()
+    ids = [job.id for job in jobs]
+    loaded = list(
+        db.scalars(
+            select(GenerationJob)
+            .options(selectinload(GenerationJob.outputs))
+            .where(GenerationJob.id.in_(ids))
+        )
+    )
+    by_id = {job.id: job for job in loaded}
+    return [by_id.get(job.id, job) for job in jobs], total_price

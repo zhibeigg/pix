@@ -75,6 +75,11 @@ export type JobOutput = {
   meta_json_path: string
 }
 
+export type JobBatchCreateResponse = {
+  jobs: GenerationJob[]
+  total_price_credits: number
+}
+
 export type GenerationJob = {
   id: number
   job_type: string
