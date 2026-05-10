@@ -36,13 +36,16 @@ def _extract_json(text: str) -> str:
 
 
 def _build_messages(data_url: str, user_text: str) -> list[dict[str, Any]]:
-    """构造 OpenAI 兼容的 vision messages。Claude / Gemini / gpt-4o 都接这个结构。"""
+    """构造 OpenAI 兼容的 vision messages。
+
+    部分 OpenAI-compatible Claude 端点会拒绝 system role（只允许 user/assistant），
+    因此把系统约束合并进首条 user 文本，保证 Claude / Gemini / gpt-4o 都能接收。
+    """
     return [
-        {"role": "system", "content": SYSTEM_PROMPT},
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": user_text},
+                {"type": "text", "text": f"{SYSTEM_PROMPT}\n\n{user_text}"},
                 {"type": "image_url", "image_url": {"url": data_url}},
             ],
         },
