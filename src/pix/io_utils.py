@@ -5,11 +5,9 @@ from __future__ import annotations
 import base64
 import hashlib
 import mimetypes
-import time
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import BinaryIO
 
 import httpx
 

@@ -13,7 +13,7 @@ from pix.api.image_gen import generate_image
 from pix.api.vision import VisionParseError, analyze_image
 from pix.cache import Cache
 from pix.config import AppConfig
-from pix.io_utils import ensure_dir, new_run_dir, sha256_of, sha256_of_file
+from pix.io_utils import new_run_dir, sha256_of_file
 from pix.pixelize.core import PixelizeParams, pixelize
 
 

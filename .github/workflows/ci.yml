@@ -6,6 +6,7 @@ on:
     paths-ignore:
       - "**.md"
       - "docs/**"
+      - "CHANGELOG.md"
   pull_request:
     branches: [master, main]
 
@@ -14,6 +15,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install ruff==0.8.6
+      - name: ruff check
+        run: ruff check .
+      - name: ruff format --check
+        run: ruff format --check .
+        continue-on-error: true  # 暂时不强制 format，避免一次性大改
+
   test:
     name: pytest · ${{ matrix.os }} · py${{ matrix.python }}
     runs-on: ${{ matrix.os }}
@@ -27,10 +44,10 @@ jobs:
       PIX_SUPPRESS_FIRST_RUN_DIALOG: "1"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
           cache: pip
