@@ -3,6 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
+from zipfile import ZipFile
 
 import pytest
 from fastapi.testclient import TestClient
@@ -173,6 +174,69 @@ def test_batch_create_reuses_existing_idempotent_jobs(client: TestClient) -> Non
     balance = client.get("/credits/balance", headers=headers).json()
     assert balance["available_credits"] == 20
     assert balance["reserved_credits"] == 40
+
+
+def test_download_batch_zip_includes_successful_outputs(client: TestClient, tmp_path, monkeypatch) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})
+    created = client.post(
+        "/jobs/batch",
+        headers=headers,
+        json={"batch_name": "Download Pack", "jobs": [{"job_type": "text_to_image", "prompt": "pixel cat"}]},
+    ).json()
+
+    run_dir = tmp_path / "download-run"
+    run_dir.mkdir()
+    source = run_dir / "01_source.png"
+    pixel = run_dir / "03_pixelized.png"
+    preview = run_dir / "04_preview.png"
+    analysis = run_dir / "02_analysis.json"
+    meta = run_dir / "meta.json"
+    Image.new("RGBA", (4, 4), (255, 0, 0, 255)).save(source)
+    Image.new("RGBA", (4, 4), (0, 255, 0, 255)).save(pixel)
+    Image.new("RGBA", (4, 4), (0, 0, 255, 255)).save(preview)
+    analysis.write_text("{}", encoding="utf-8")
+    meta.write_text("{}", encoding="utf-8")
+
+    def fake_run(_job, _settings):
+        return SimpleNamespace(
+            run_dir=run_dir,
+            source_path=source,
+            pixel_path=pixel,
+            preview_path=preview,
+            analysis_path=analysis,
+            meta_path=meta,
+        )
+
+    monkeypatch.setattr("pix_web.worker.run_job_pipeline", fake_run)
+    process_next_job(client.app.state.SessionLocal, client.app.state.web_settings)
+
+    response = client.get(f"/batches/{created['batch_id']}/download", headers=headers)
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+    with ZipFile(BytesIO(response.content)) as archive:
+        names = set(archive.namelist())
+    assert any(name.endswith("01_source.png") for name in names)
+    assert any(name.endswith("03_pixelized.png") for name in names)
+    assert any(name.endswith("04_preview.png") for name in names)
+    assert any(name.endswith("02_analysis.json") for name in names)
+    assert any(name.endswith("meta.json") for name in names)
+
+    _other, other_headers = _register_and_login(client, "download-other@example.com")
+    forbidden = client.get(f"/batches/{created['batch_id']}/download", headers=other_headers)
+    assert forbidden.status_code == 404
+
+
+def test_download_batch_zip_requires_successful_outputs(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 20})
+    created = client.post(
+        "/jobs/batch",
+        headers=headers,
+        json={"jobs": [{"job_type": "text_to_image", "prompt": "pixel cat"}]},
+    ).json()
+    response = client.get(f"/batches/{created['batch_id']}/download", headers=headers)
+    assert response.status_code == 409
 
 
 def test_retry_failed_batch_jobs_requeues_into_same_batch(client: TestClient, monkeypatch) -> None:

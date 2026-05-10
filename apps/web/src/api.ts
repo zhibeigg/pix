@@ -44,6 +44,22 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   return body as T
 }
 
+async function downloadBlob(path: string, token: string): Promise<Blob> {
+  const response = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } })
+  if (!response.ok) {
+    const text = await response.text()
+    let body: unknown = null
+    try {
+      body = text ? JSON.parse(text) : null
+    } catch {
+      body = text
+    }
+    const detail = typeof body === 'object' && body && 'detail' in body ? (body as { detail?: unknown }).detail : null
+    throw new ApiError(typeof detail === 'string' ? detail : `请求失败 (${response.status})`, response.status, body)
+  }
+  return response.blob()
+}
+
 export const api = {
   register(email: string, password: string, displayName: string) {
     return request<User>('/auth/register', {
@@ -88,6 +104,9 @@ export const api = {
   },
   retryFailedBatch(token: string, batchId: number) {
     return request<JobBatchCreateResponse>(`/batches/${batchId}/retry-failed`, { method: 'POST' }, token)
+  },
+  downloadBatch(token: string, batchId: number) {
+    return downloadBlob(`/batches/${batchId}/download`, token)
   },
   adminUsers(token: string) {
     return request<User[]>('/admin/users?limit=100', {}, token)

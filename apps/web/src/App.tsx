@@ -25,6 +25,7 @@ export function App() {
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [busy, setBusy] = useState(false)
   const [retryingBatchId, setRetryingBatchId] = useState<number | null>(null)
+  const [downloadingBatchId, setDownloadingBatchId] = useState<number | null>(null)
   const [message, setMessage] = useState('')
   const [mode, setMode] = useState<WorkMode>('single')
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null)
@@ -185,6 +186,28 @@ export function App() {
     setMessage('已显示全部作品')
   }
 
+  async function downloadBatch(batch: GenerationBatch) {
+    if (!token) return
+    setDownloadingBatchId(batch.id)
+    setMessage('')
+    try {
+      const blob = await api.downloadBatch(token, batch.id)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `pix-batch-${batch.id}.zip`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      setMessage(`素材包 ${batch.name} 已开始下载`)
+    } catch (error) {
+      showError(error)
+    } finally {
+      setDownloadingBatchId(null)
+    }
+  }
+
   async function retryFailedBatch(batch: GenerationBatch) {
     if (!token) return
     setRetryingBatchId(batch.id)
@@ -272,7 +295,7 @@ export function App() {
               ) : (
                 <BatchGeneratePanel pricing={pricing} loading={busy} token={token} onSubmitMany={createJobs} />
               )}
-              <BatchPanel batches={batches} selectedBatchId={selectedBatchId} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} retrying={retryingBatchId !== null} onRefresh={() => refreshCore()} />
+              <BatchPanel batches={batches} selectedBatchId={selectedBatchId} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onRefresh={() => refreshCore()} />
               <TuningPanel job={selectedJob} pricing={pricing} loading={busy} onSubmit={createJob} />
               {isAdmin && (
                 <AdminPanel users={adminUsers} pricing={pricing} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} />

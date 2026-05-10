@@ -6,11 +6,13 @@ type BatchPanelProps = {
   onSelectBatch: (batch: GenerationBatch) => void
   onClearSelection: () => void
   onRetryFailed: (batch: GenerationBatch) => void
+  onDownloadBatch: (batch: GenerationBatch) => void
   retrying: boolean
+  downloading: boolean
   onRefresh: () => void
 }
 
-export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSelection, onRetryFailed, retrying, onRefresh }: BatchPanelProps) {
+export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSelection, onRetryFailed, onDownloadBatch, retrying, downloading, onRefresh }: BatchPanelProps) {
   return (
     <section className="panel batch-panel">
       <div className="panel-heading">
@@ -42,6 +44,20 @@ export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSel
               <p className="muted">
                 完成 {batch.succeeded_count} · 失败 {batch.failed_count} · 进行中 {batch.running_count} · 排队 {batch.pending_count}
               </p>
+              <div className="batch-actions">
+                {batch.succeeded_count > 0 && (
+                  <button
+                    className="ghost compact"
+                    type="button"
+                    disabled={downloading}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onDownloadBatch(batch)
+                    }}
+                  >
+                    {downloading ? '下载中…' : '下载素材包'}
+                  </button>
+                )}
               {batch.failed_count > 0 && (
                 <button
                   className="ghost compact"
@@ -55,6 +71,7 @@ export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSel
                   {retrying ? '重试中…' : `重试失败项 ${batch.failed_count}`}
                 </button>
               )}
+              </div>
             </article>
           ))}
         </div>
