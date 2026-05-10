@@ -11,6 +11,7 @@ from PIL import Image
 
 from pix_web.config import WebSettings
 from pix_web.main import create_app
+from pix_web.models import GenerationBatch
 from pix_web.worker import process_next_job
 
 
@@ -174,6 +175,57 @@ def test_batch_create_reuses_existing_idempotent_jobs(client: TestClient) -> Non
     balance = client.get("/credits/balance", headers=headers).json()
     assert balance["available_credits"] == 20
     assert balance["reserved_credits"] == 40
+
+
+def test_update_batch_name_and_archive_status(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 20})
+    created = client.post(
+        "/jobs/batch",
+        headers=headers,
+        json={"batch_name": "Old Name", "jobs": [{"job_type": "text_to_image", "prompt": "pixel cat"}]},
+    ).json()
+
+    renamed = client.patch(f"/batches/{created['batch_id']}", headers=headers, json={"name": "New Name"})
+    assert renamed.status_code == 200
+    assert renamed.json()["name"] == "New Name"
+    assert renamed.json()["status"] == "active"
+
+    archived = client.patch(f"/batches/{created['batch_id']}", headers=headers, json={"status": "archived"})
+    assert archived.status_code == 200
+    assert archived.json()["status"] == "archived"
+
+    restored = client.patch(f"/batches/{created['batch_id']}", headers=headers, json={"status": "active"})
+    assert restored.status_code == 200
+    assert restored.json()["status"] == "active"
+
+    _other, other_headers = _register_and_login(client, "batch-manager-other@example.com")
+    forbidden = client.patch(f"/batches/{created['batch_id']}", headers=other_headers, json={"name": "Hacked"})
+    assert forbidden.status_code == 404
+
+
+def test_delete_batch_allows_only_empty_batches(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 20})
+    created = client.post(
+        "/jobs/batch",
+        headers=headers,
+        json={"jobs": [{"job_type": "text_to_image", "prompt": "pixel cat"}]},
+    ).json()
+    non_empty = client.delete(f"/batches/{created['batch_id']}", headers=headers)
+    assert non_empty.status_code == 409
+
+    session_factory = client.app.state.SessionLocal
+    with session_factory() as db:
+        empty = GenerationBatch(user_id=user["id"], name="Empty Pack", mode="mixed")
+        db.add(empty)
+        db.commit()
+        empty_id = empty.id
+
+    deleted = client.delete(f"/batches/{empty_id}", headers=headers)
+    assert deleted.status_code == 200
+    assert deleted.json() == {"deleted": True}
+    assert client.get(f"/batches/{empty_id}/jobs", headers=headers).status_code == 404
 
 
 def test_download_batch_zip_includes_successful_outputs(client: TestClient, tmp_path, monkeypatch) -> None:

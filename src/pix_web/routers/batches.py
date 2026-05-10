@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from pix_web.jobs import retry_failed_jobs_in_batch
 from pix_web.models import GenerationBatch, GenerationJob, GenerationOutput, User
-from pix_web.schemas import GenerationBatchResponse, JobBatchCreateResponse, JobResponse
+from pix_web.schemas import BatchUpdateRequest, GenerationBatchResponse, JobBatchCreateResponse, JobResponse
 from pix_web.security import get_current_user, get_db
 
 router = APIRouter(prefix="/batches", tags=["batches"])
@@ -58,7 +58,9 @@ def _batch_response(batch: GenerationBatch) -> GenerationBatchResponse:
         id=batch.id,
         name=batch.name,
         mode=batch.mode,
+        status=batch.status,
         created_at=batch.created_at,
+        updated_at=batch.updated_at,
         job_count=len(jobs),
         succeeded_count=sum(1 for job in jobs if job.status == "succeeded"),
         failed_count=sum(1 for job in jobs if job.status == "failed"),
@@ -82,6 +84,52 @@ def list_batches(
         .limit(max(1, min(200, limit)))
     )
     return [_batch_response(batch) for batch in db.scalars(stmt)]
+
+
+def _get_owned_batch(db: Session, user: User, batch_id: int, *, with_jobs: bool = False) -> GenerationBatch:
+    stmt = select(GenerationBatch).where(GenerationBatch.id == batch_id, GenerationBatch.user_id == user.id)
+    if with_jobs:
+        stmt = stmt.options(selectinload(GenerationBatch.jobs))
+    batch = db.scalar(stmt)
+    if batch is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="素材包不存在")
+    return batch
+
+
+@router.patch("/{batch_id}", response_model=GenerationBatchResponse)
+def update_batch(
+    batch_id: int,
+    req: BatchUpdateRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> GenerationBatchResponse:
+    batch = _get_owned_batch(db, user, batch_id, with_jobs=True)
+    if req.name is not None:
+        name = req.name.strip()
+        if not name:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="素材包名称不能为空")
+        batch.name = name
+    if req.status is not None:
+        if req.status not in {"active", "archived"}:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="素材包状态无效")
+        batch.status = req.status
+    db.commit()
+    db.refresh(batch)
+    return _batch_response(batch)
+
+
+@router.delete("/{batch_id}")
+def delete_batch(
+    batch_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    batch = _get_owned_batch(db, user, batch_id, with_jobs=True)
+    if batch.jobs:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只能删除空素材包，请先归档")
+    db.delete(batch)
+    db.commit()
+    return {"deleted": True}
 
 
 @router.get("/{batch_id}/download")
@@ -122,9 +170,7 @@ def list_batch_jobs(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[GenerationJob]:
-    batch = db.scalar(select(GenerationBatch).where(GenerationBatch.id == batch_id, GenerationBatch.user_id == user.id))
-    if batch is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="素材包不存在")
+    batch = _get_owned_batch(db, user, batch_id)
     stmt = (
         select(GenerationJob)
         .options(selectinload(GenerationJob.outputs), selectinload(GenerationJob.batch))
