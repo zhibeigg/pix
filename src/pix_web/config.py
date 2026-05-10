@@ -14,6 +14,7 @@ class WebSettings:
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 60 * 24 * 7
     storage_root: Path = Path("web_outputs")
+    max_upload_bytes: int = 10 * 1024 * 1024
     pix_config_file: Path | None = None
     poll_interval_seconds: float = 2.0
 
@@ -22,6 +23,7 @@ _DEFAULTS = {
     "PIX_WEB_DATABASE_URL": WebSettings.database_url,
     "PIX_WEB_JWT_SECRET": WebSettings.jwt_secret,
     "PIX_WEB_STORAGE_ROOT": str(WebSettings.storage_root),
+    "PIX_WEB_MAX_UPLOAD_BYTES": str(WebSettings.max_upload_bytes),
 }
 
 
@@ -31,6 +33,7 @@ def load_web_settings() -> WebSettings:
     jwt_secret = os.getenv("PIX_WEB_JWT_SECRET", _DEFAULTS["PIX_WEB_JWT_SECRET"])
     storage_root = Path(os.getenv("PIX_WEB_STORAGE_ROOT", _DEFAULTS["PIX_WEB_STORAGE_ROOT"]))
     pix_config_raw = os.getenv("PIX_WEB_PIX_CONFIG")
+    upload_raw = os.getenv("PIX_WEB_MAX_UPLOAD_BYTES", _DEFAULTS["PIX_WEB_MAX_UPLOAD_BYTES"])
     poll_raw = os.getenv("PIX_WEB_POLL_INTERVAL_SECONDS", "2.0")
     token_raw = os.getenv("PIX_WEB_ACCESS_TOKEN_MINUTES", str(WebSettings.access_token_minutes))
     try:
@@ -41,10 +44,15 @@ def load_web_settings() -> WebSettings:
         access_token_minutes = max(1, int(token_raw))
     except ValueError:
         access_token_minutes = WebSettings.access_token_minutes
+    try:
+        max_upload_bytes = max(1024, int(upload_raw))
+    except ValueError:
+        max_upload_bytes = WebSettings.max_upload_bytes
     return WebSettings(
         database_url=database_url,
         jwt_secret=jwt_secret,
         storage_root=storage_root,
+        max_upload_bytes=max_upload_bytes,
         pix_config_file=Path(pix_config_raw) if pix_config_raw else None,
         poll_interval_seconds=poll_interval,
         access_token_minutes=access_token_minutes,

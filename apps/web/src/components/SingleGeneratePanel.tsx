@@ -1,17 +1,21 @@
 import { FormEvent, useMemo, useState } from 'react'
+import { api } from '../api'
 import type { JobCreateRequest, JobType, PricingRule } from '../types'
 import { buildPixelize, parsePixelSize } from '../pixelize'
 
 type SingleGeneratePanelProps = {
   pricing: PricingRule[]
   loading: boolean
+  token: string
   onSubmit: (payload: JobCreateRequest) => Promise<void>
 }
 
-export function SingleGeneratePanel({ pricing, loading, onSubmit }: SingleGeneratePanelProps) {
+export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: SingleGeneratePanelProps) {
   const [jobType, setJobType] = useState<JobType>('text_to_image')
   const [prompt, setPrompt] = useState('A single fantasy RPG item icon, centered, clean silhouette')
   const [inputImagePath, setInputImagePath] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [uploadMessage, setUploadMessage] = useState('')
   const [pixelSize, setPixelSize] = useState('128x128')
   const [colors, setColors] = useState(16)
   const [removeBg, setRemoveBg] = useState(true)
@@ -20,6 +24,21 @@ export function SingleGeneratePanel({ pricing, loading, onSubmit }: SingleGenera
   const price = useMemo(() => pricing.find((item) => item.key === jobType)?.price_credits ?? 0, [pricing, jobType])
   const needsPrompt = jobType === 'text_to_image' || jobType === 'image_to_image'
   const needsImage = jobType !== 'text_to_image'
+
+  async function uploadFile(file: File | undefined) {
+    if (!file) return
+    setUploading(true)
+    setUploadMessage('上传中…')
+    try {
+      const uploaded = await api.uploadImage(token, file)
+      setInputImagePath(uploaded.path)
+      setUploadMessage(`已上传 ${uploaded.filename}`)
+    } catch (error) {
+      setUploadMessage(error instanceof Error ? error.message : '上传失败')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -52,7 +71,24 @@ export function SingleGeneratePanel({ pricing, loading, onSubmit }: SingleGenera
           </select>
         </label>
         {needsPrompt && <label>Prompt<textarea rows={5} value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label>}
-        {needsImage && <label>输入图片路径<input value={inputImagePath} onChange={(event) => setInputImagePath(event.target.value)} placeholder="D:\\images\\source.png" /></label>}
+        {needsImage && (
+          <div className="stack upload-block">
+            <label>
+              上传图片
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={uploading}
+                onChange={(event) => uploadFile(event.target.files?.[0])}
+              />
+            </label>
+            {uploadMessage && <p className="muted">{uploadMessage}</p>}
+            <label>
+              输入图片路径（可手动覆盖）
+              <input value={inputImagePath} onChange={(event) => setInputImagePath(event.target.value)} placeholder="上传后自动填充" />
+            </label>
+          </div>
+        )}
         <div className="two-columns">
           <label>像素尺寸<input value={pixelSize} onChange={(event) => setPixelSize(event.target.value)} /></label>
           <label>颜色数<input type="number" min={2} max={256} value={colors} onChange={(event) => setColors(Number(event.target.value))} /></label>

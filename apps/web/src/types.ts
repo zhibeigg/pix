@@ -88,6 +88,13 @@ export type GenerationJob = {
   outputs: JobOutput[]
 }
 
+export type UploadResponse = {
+  path: string
+  filename: string
+  content_type: string
+  size_bytes: number
+}
+
 export type PricingRule = {
   key: string
   price_credits: number
