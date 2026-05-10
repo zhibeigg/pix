@@ -8,6 +8,7 @@
   <a href="#快速开始">快速开始</a> ·
   <a href="#cli-用法">CLI</a> ·
   <a href="#gui">GUI</a> ·
+  <a href="#网站版-mvp">网站版 MVP</a> ·
   <a href="#配置">配置</a> ·
   <a href="#faq">FAQ</a>
 </p>
@@ -210,6 +211,50 @@ pix gui                                                      # 启动图形界�
 | `--image-size WxH` | 生图尺寸（遵循 Packy 限制） | `1024x1024` |
 | `--image-quality low\|medium\|high\|auto` | 生图 / 图生图质量 | `high` |
 | `pix run IMAGE --prompt TEXT` | 使用 Packy `/v1/images/edits` 图生图编辑，再进入分析和像素化；不传 `--prompt` 时仍直接像素化原图 | - |
+
+### 网站版 MVP
+
+`pix` 现在包含网站版 Phase 1 后端地基：FastAPI API + 点数账户 + 生成任务队列 + 串行 worker。第一版先用管理员手动加点模拟充值，后续可接 Stripe / 微信 / 支付宝。
+
+安装 Web 依赖：
+
+```bash
+pip install -e ".[web]"
+```
+
+配置 `.env`：
+
+```bash
+PIX_WEB_DATABASE_URL=sqlite:///pix_web.db
+PIX_WEB_JWT_SECRET=change-me-to-a-long-random-secret
+PIX_WEB_STORAGE_ROOT=web_outputs
+```
+
+启动 API：
+
+```bash
+pix-web-api
+# 或
+uvicorn pix_web.main:app --reload
+```
+
+启动串行 worker：
+
+```bash
+pix-web-worker          # 持续轮询 pending 任务
+pix-web-worker --once   # 只处理一个任务，适合测试
+```
+
+MVP 计费规则默认：
+
+| 任务类型 | 默认点数 | 说明 |
+|---|---:|---|
+| `text_to_image` | 20 | 文生图 + 分析 + 像素化 |
+| `image_to_image` | 20 | 图生图 + 分析 + 像素化 |
+| `local_pixelize` | 0 | 只做本地像素化 |
+| `repixelize` | 0 | 对历史源图重新像素化 |
+
+任务创建时会先冻结点数；worker 成功后确认消费，失败会自动退款。第一个注册用户会自动成为管理员，可通过 `/admin/users/{id}/adjust-credits` 手动加点。
 
 ### 游戏素材直出
 

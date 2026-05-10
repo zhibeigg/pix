@@ -1,0 +1,170 @@
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import pytest
+from fastapi.testclient import TestClient
+from PIL import Image
+
+from pix_web.config import WebSettings
+from pix_web.main import create_app
+from pix_web.worker import process_next_job
+
+
+@pytest.fixture()
+def client(tmp_path):
+    settings = WebSettings(
+        database_url=f"sqlite:///{tmp_path / 'pix_web_test.db'}",
+        jwt_secret="test-secret",
+        storage_root=tmp_path / "storage",
+    )
+    app = create_app(settings)
+    with TestClient(app) as c:
+        yield c
+
+
+def _register_and_login(client: TestClient, email: str = "admin@example.com") -> tuple[dict, dict]:
+    user = client.post(
+        "/auth/register",
+        json={"email": email, "password": "password123", "display_name": "Admin"},
+    ).json()
+    token = client.post(
+        "/auth/login",
+        json={"email": email, "password": "password123"},
+    ).json()
+    headers = {"Authorization": f"Bearer {token['access_token']}"}
+    return user, headers
+
+
+def test_register_login_and_admin_adjust_credits(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+
+    assert user["role"] == "admin"
+    me = client.get("/auth/me", headers=headers)
+    assert me.status_code == 200
+    assert me.json()["email"] == "admin@example.com"
+
+    adjusted = client.post(
+        f"/admin/users/{user['id']}/adjust-credits",
+        headers=headers,
+        json={"amount": 50, "note": "seed credits"},
+    )
+    assert adjusted.status_code == 200
+    assert adjusted.json()["amount"] == 50
+
+    balance = client.get("/credits/balance", headers=headers).json()
+    assert balance["available_credits"] == 50
+    assert balance["reserved_credits"] == 0
+
+
+def test_create_job_reserves_credits_idempotently(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(
+        f"/admin/users/{user['id']}/adjust-credits",
+        headers=headers,
+        json={"amount": 50},
+    )
+
+    payload = {
+        "job_type": "text_to_image",
+        "prompt": "pixel cat",
+        "client_request_id": "same-click",
+        "pixelize": {"output_size": [16, 16], "colors": 4, "preview_scale": 0},
+    }
+    first = client.post("/jobs", headers=headers, json=payload)
+    second = client.post("/jobs", headers=headers, json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["id"] == second.json()["id"]
+    assert first.json()["price_credits"] == 20
+    assert first.json()["reserved_credits"] == 20
+
+    balance = client.get("/credits/balance", headers=headers).json()
+    assert balance["available_credits"] == 30
+    assert balance["reserved_credits"] == 20
+
+
+def test_worker_success_consumes_reserved_credits(client: TestClient, tmp_path, monkeypatch) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})
+    created = client.post(
+        "/jobs",
+        headers=headers,
+        json={"job_type": "text_to_image", "prompt": "pixel cat"},
+    ).json()
+
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    source = run_dir / "01_source.png"
+    pixel = run_dir / "03_pixelized.png"
+    meta = run_dir / "meta.json"
+    Image.new("RGBA", (4, 4), (255, 0, 0, 255)).save(source)
+    Image.new("RGBA", (4, 4), (0, 255, 0, 255)).save(pixel)
+    meta.write_text("{}", encoding="utf-8")
+
+    def fake_run(_job, _settings):
+        return SimpleNamespace(
+            run_dir=run_dir,
+            source_path=source,
+            pixel_path=pixel,
+            preview_path=None,
+            analysis_path=None,
+            meta_path=meta,
+        )
+
+    monkeypatch.setattr("pix_web.worker.run_job_pipeline", fake_run)
+    processed = process_next_job(client.app.state.SessionLocal, client.app.state.web_settings)
+
+    assert processed is not None
+    assert processed.id == created["id"]
+    assert processed.status == "succeeded"
+    assert processed.outputs[0].pixelized_path == str(pixel)
+
+    balance = client.get("/credits/balance", headers=headers).json()
+    assert balance["available_credits"] == 30
+    assert balance["reserved_credits"] == 0
+    assert balance["total_consumed"] == 20
+
+    txs = client.get("/credits/transactions", headers=headers).json()
+    assert [tx["type"] for tx in txs][:2] == ["consume", "reserve"]
+
+
+def test_worker_failure_refunds_reserved_credits(client: TestClient, monkeypatch) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})
+    client.post("/jobs", headers=headers, json={"job_type": "text_to_image", "prompt": "pixel cat"})
+
+    def fail(_job, _settings):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("pix_web.worker.run_job_pipeline", fail)
+    processed = process_next_job(client.app.state.SessionLocal, client.app.state.web_settings)
+
+    assert processed is not None
+    assert processed.status == "failed"
+    assert "boom" in processed.error_message
+
+    balance = client.get("/credits/balance", headers=headers).json()
+    assert balance["available_credits"] == 50
+    assert balance["reserved_credits"] == 0
+    assert balance["total_consumed"] == 0
+
+
+def test_local_pixelize_job_is_free_and_requires_image(client: TestClient, tmp_path) -> None:
+    _user, headers = _register_and_login(client)
+    image_path = tmp_path / "input.png"
+    Image.new("RGB", (8, 8), (10, 20, 30)).save(image_path)
+
+    created = client.post(
+        "/jobs",
+        headers=headers,
+        json={"job_type": "local_pixelize", "input_image_path": str(image_path)},
+    )
+    assert created.status_code == 200
+    assert created.json()["price_credits"] == 0
+    assert created.json()["reserved_credits"] == 0
+
+    balance = client.get("/credits/balance", headers=headers).json()
+    assert balance["available_credits"] == 0
+    assert balance["reserved_credits"] == 0

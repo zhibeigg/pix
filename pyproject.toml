@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pix"
-version = "0.3.2"
+version = "0.4.0"
 description = "Prompt → AI image → multimodal JSON → pixel art pipeline, with CLI and PySide6 GUI."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -44,10 +44,21 @@ Issues = "https://github.com/zhibeigg/pix/issues"
 
 [project.optional-dependencies]
 gui = ["PySide6>=6.6"]
+web = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "sqlalchemy>=2.0",
+    "PyJWT>=2.8",
+    "argon2-cffi>=23.1",
+    "python-multipart>=0.0.9",
+    "email-validator>=2.0",
+]
 dev = ["pytest>=8.0", "ruff>=0.4"]
 
 [project.scripts]
 pix = "pix.cli:app"
+pix-web-api = "pix_web.main:run_dev"
+pix-web-worker = "pix_web.worker:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
