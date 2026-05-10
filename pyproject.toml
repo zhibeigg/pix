@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pix"
-version = "0.15.0"
+version = "0.16.0"
 description = "Prompt → AI image → multimodal JSON → pixel art pipeline, with CLI and PySide6 GUI."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -52,6 +52,7 @@ web = [
     "argon2-cffi>=23.1",
     "python-multipart>=0.0.9",
     "email-validator>=2.0",
+    "alembic>=1.13",
 ]
 dev = ["pytest>=8.0", "ruff>=0.4"]
 

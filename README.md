@@ -229,6 +229,17 @@ PIX_WEB_DATABASE_URL=sqlite:///pix_web.db
 PIX_WEB_JWT_SECRET=change-me-to-a-long-random-secret
 PIX_WEB_STORAGE_ROOT=web_outputs
 PIX_WEB_MAX_UPLOAD_BYTES=10485760
+PIX_WEB_AUTO_CREATE_DB=true
+```
+
+数据库迁移（生产环境建议先设置 `PIX_WEB_AUTO_CREATE_DB=false`，再手动迁移）：
+
+```bash
+alembic upgrade head
+# 回退上一个迁移
+alembic downgrade -1
+# 指定数据库，例如 PostgreSQL
+PIX_WEB_DATABASE_URL=postgresql+psycopg://user:pass@host/db alembic upgrade head
 ```
 
 启动 API：

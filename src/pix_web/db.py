@@ -21,8 +21,9 @@ def make_session_factory(engine: Engine) -> sessionmaker[Session]:
     return sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 
-def init_db(engine: Engine) -> None:
-    Base.metadata.create_all(engine)
+def init_db(engine: Engine, *, create_schema: bool = True) -> None:
+    if create_schema:
+        Base.metadata.create_all(engine)
     session_factory = make_session_factory(engine)
     with session_factory() as db:
         ensure_default_pricing(db)
