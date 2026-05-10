@@ -296,6 +296,20 @@ PIX_WEB_AUTO_CREATE_DB=false
 PIX_WEB_QUEUE_BACKEND=rq
 ```
 
+上线前检查：
+
+```bash
+pix-web-check
+```
+
+生产上线前确认：
+
+- 已替换 `PIX_WEB_JWT_SECRET`，不要使用默认值。
+- 已配置 `PACKY_API_KEY`。
+- 已执行 `alembic upgrade head`，`pix-web-check` 显示 Alembic 在 head。
+- `PIX_WEB_STORAGE_ROOT` 挂载到持久化卷，避免容器重建丢失上传和结果。
+- 管理员后台已配置生成总开关、每日任务上限、上传上限和 prompt 禁词。
+
 启动前端工作台：
 
 ```bash
