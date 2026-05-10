@@ -112,7 +112,7 @@ def test_history_dialog_opens_non_modal(qapp) -> None:
     try:
         w._on_open_history()
         assert w._history_dialog is not None
-        assert w._history_dialog.isModal() is False
+        assert w._history_dialog.isWindow()
         assert w.isEnabled() is True
         w._history_dialog.close()
     finally:
@@ -172,6 +172,9 @@ def test_load_history_record_updates_main_window(qapp, tmp_path) -> None:
         assert w.remove_bg_chk.isChecked() is True
         assert w._last_result is not None
         assert w._last_result.run_dir == run_dir
+        from PySide6.QtTest import QTest
+
+        QTest.qWait(60)
         assert not w.source_panel._pixmap_item.pixmap().isNull()
         assert not w.pixel_panel._pixmap_item.pixmap().isNull()
     finally:

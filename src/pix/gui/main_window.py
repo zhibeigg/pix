@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QAction, QDesktopServices, QIcon
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -93,6 +93,7 @@ class MainWindow(QMainWindow):
         self._thread: Optional[WorkerThread] = None
         self._last_result: Optional[PipelineResult] = None
         self._history_dialog: HistoryDialog | None = None
+        self._history_loading_run_dir: Path | None = None
         # JSON 视图的占位文案（记录已见过的翻译，切语言时判断是否要覆盖）
         self._known_placeholders: set[str] = set()
 
@@ -599,13 +600,19 @@ class MainWindow(QMainWindow):
             self._history_dialog.activateWindow()
             return
         dlg = HistoryDialog(self.cfg.output.root, limit=self.cfg.history.max_items, parent=self)
-        dlg.setModal(False)
-        dlg.record_selected.connect(self._load_history_record)
-        dlg.finished.connect(lambda _code: setattr(self, "_history_dialog", None))
+        dlg.record_selected.connect(self._schedule_history_record_load)
+        dlg.destroyed.connect(lambda _obj=None: setattr(self, "_history_dialog", None))
         self._history_dialog = dlg
         dlg.show()
         dlg.raise_()
         dlg.activateWindow()
+
+    def _schedule_history_record_load(self, record: HistoryRecord) -> None:
+        if self._history_loading_run_dir == record.run_dir:
+            return
+        self._history_loading_run_dir = record.run_dir
+        self._log(tr("history_loading_record", path=str(record.run_dir)))
+        QTimer.singleShot(50, lambda record=record: self._load_history_record(record))
 
     def _load_history_record(self, record: HistoryRecord) -> None:
         try:
@@ -640,8 +647,6 @@ class MainWindow(QMainWindow):
         if record.vision_model:
             self.vl_model_edit.setText(record.vision_model)
 
-        if record.source_path and record.source_path.exists():
-            self.source_panel.show_image(record.source_path)
         if record.analysis_path and record.analysis_path.exists():
             try:
                 self.json_view.setText(record.analysis_path.read_text(encoding="utf-8"))
@@ -649,8 +654,11 @@ class MainWindow(QMainWindow):
                 self.json_view.setPlainText(tr("json_analysis_failed", error=tr("history_load_failed")))
         else:
             self.json_view.setPlainText(json.dumps(meta, ensure_ascii=False, indent=2) if meta else tr("json_placeholder"))
+
+        if record.source_path and record.source_path.exists():
+            QTimer.singleShot(0, lambda path=record.source_path: self._safe_show_history_image(self.source_panel, path))
         if record.pixel_path and record.pixel_path.exists():
-            self.pixel_panel.show_image(record.pixel_path)
+            QTimer.singleShot(20, lambda path=record.pixel_path: self._safe_show_history_image(self.pixel_panel, path))
             self.tabs.setCurrentIndex(2)
         elif record.source_path and record.source_path.exists():
             self.tabs.setCurrentIndex(0)
@@ -667,6 +675,13 @@ class MainWindow(QMainWindow):
         )
         self.open_dir_btn.setEnabled(True)
         self._log(tr("history_loaded", path=str(record.run_dir)))
+        QTimer.singleShot(200, lambda: setattr(self, "_history_loading_run_dir", None))
+
+    def _safe_show_history_image(self, panel, path: Path) -> None:
+        try:
+            panel.show_image(path)
+        except Exception as exc:
+            self._log(tr("history_image_load_failed", path=str(path), error=str(exc)))
 
     def _on_open_settings(self) -> None:
         # 把主窗口的 config 路径透传给设置对话框，保证两边读写的是同一个文件

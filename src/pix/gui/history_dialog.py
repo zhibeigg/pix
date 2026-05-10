@@ -7,7 +7,6 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
-    QDialog,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -17,19 +16,20 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from pix.history import HistoryRecord, scan_history
 from pix.i18n import tr
 
 
-class HistoryDialog(QDialog):
+class HistoryDialog(QWidget):
     """扫描 outputs 并展示可加载的历史记录。"""
 
     record_selected = Signal(object)
 
     def __init__(self, root: str | Path, *, limit: int = 200, parent=None) -> None:
-        super().__init__(parent)
+        super().__init__(parent, Qt.WindowType.Window)
         self.root = Path(root)
         self.limit = max(1, int(limit))
         self._records: list[HistoryRecord] = []
@@ -79,7 +79,7 @@ class HistoryDialog(QDialog):
         self.open_dir_btn = QPushButton()
         self.open_dir_btn.clicked.connect(self._open_selected_dir)
         self.close_btn = QPushButton()
-        self.close_btn.clicked.connect(self.reject)
+        self.close_btn.clicked.connect(self.close)
         bottom.addWidget(self.status_label, 1)
         bottom.addWidget(self.open_dir_btn)
         bottom.addWidget(self.load_btn)
@@ -142,8 +142,8 @@ class HistoryDialog(QDialog):
             QMessageBox.information(self, tr("dlg_title_hint"), tr("history_no_records"))
             return
         self._selected = record
-        self.record_selected.emit(record)
-        self.accept()
+        self.close()
+        QTimer.singleShot(0, lambda record=record: self.record_selected.emit(record))
 
     def _open_selected_dir(self) -> None:
         record = self._current_record()
