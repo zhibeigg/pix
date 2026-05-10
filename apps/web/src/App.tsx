@@ -219,7 +219,7 @@ export function App() {
               {mode === 'single' ? (
                 <SingleGeneratePanel pricing={pricing} loading={busy} token={token} onSubmit={createJob} />
               ) : (
-                <BatchGeneratePanel pricing={pricing} loading={busy} onSubmitMany={createJobs} />
+                <BatchGeneratePanel pricing={pricing} loading={busy} token={token} onSubmitMany={createJobs} />
               )}
               <TuningPanel job={selectedJob} pricing={pricing} loading={busy} onSubmit={createJob} />
               {isAdmin && (
