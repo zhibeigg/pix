@@ -105,7 +105,9 @@ button.compact { padding: 7px 10px; font-size: 12px; }
 .batch-card { border: 1px solid var(--line); border-radius: 16px; padding: 12px; background: #151a20; cursor: pointer; transition: border-color .18s ease, transform .18s ease; }
 .batch-card:hover { transform: translateY(-1px); border-color: #5f7488; }
 .batch-card.selected { border-color: var(--blue); box-shadow: 0 0 0 2px rgb(103 199 255 / .16); }
+.batch-card.archived { opacity: .62; }
 .batch-card p { margin: 8px 0 0; }
+button.danger { color: #ffb1aa; border-color: #6d3434; }
 .batch-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .batch-upload-list { display: grid; gap: 10px; }
 .batch-upload-item { display: grid; grid-template-columns: 58px 1fr; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 14px; padding: 8px; background: #151a20; }

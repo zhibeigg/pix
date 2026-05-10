@@ -85,7 +85,9 @@ export type GenerationBatch = {
   id: number
   name: string
   mode: string
+  status: string
   created_at: string
+  updated_at: string
   job_count: number
   succeeded_count: number
   failed_count: number

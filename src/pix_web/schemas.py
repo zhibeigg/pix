@@ -172,13 +172,20 @@ class GenerationBatchResponse(BaseModel):
     id: int
     name: str
     mode: str
+    status: str
     created_at: datetime
+    updated_at: datetime
     job_count: int
     succeeded_count: int
     failed_count: int
     running_count: int
     pending_count: int
     total_price_credits: int
+
+
+class BatchUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, max_length=160)
+    status: str | None = Field(default=None, max_length=32)
 
 
 class AdminAdjustCreditsRequest(BaseModel):

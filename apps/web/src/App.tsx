@@ -186,6 +186,49 @@ export function App() {
     setMessage('已显示全部作品')
   }
 
+  async function renameBatch(batch: GenerationBatch) {
+    if (!token) return
+    const name = window.prompt('新的素材包名称', batch.name)
+    if (name === null) return
+    const trimmed = name.trim()
+    if (!trimmed) {
+      setMessage('素材包名称不能为空')
+      return
+    }
+    try {
+      await api.updateBatch(token, batch.id, { name: trimmed })
+      await refreshCore(token)
+      setMessage('素材包已重命名')
+    } catch (error) {
+      showError(error)
+    }
+  }
+
+  async function toggleArchiveBatch(batch: GenerationBatch) {
+    if (!token) return
+    const nextStatus = batch.status === 'archived' ? 'active' : 'archived'
+    try {
+      await api.updateBatch(token, batch.id, { status: nextStatus })
+      await refreshCore(token)
+      setMessage(nextStatus === 'archived' ? '素材包已归档' : '素材包已恢复')
+    } catch (error) {
+      showError(error)
+    }
+  }
+
+  async function deleteBatch(batch: GenerationBatch) {
+    if (!token) return
+    if (!window.confirm(`确认删除空素材包「${batch.name}」？`)) return
+    try {
+      await api.deleteBatch(token, batch.id)
+      if (selectedBatchId === batch.id) clearBatchFilter()
+      await refreshCore(token)
+      setMessage('素材包已删除')
+    } catch (error) {
+      showError(error)
+    }
+  }
+
   async function downloadBatch(batch: GenerationBatch) {
     if (!token) return
     setDownloadingBatchId(batch.id)
@@ -295,7 +338,7 @@ export function App() {
               ) : (
                 <BatchGeneratePanel pricing={pricing} loading={busy} token={token} onSubmitMany={createJobs} />
               )}
-              <BatchPanel batches={batches} selectedBatchId={selectedBatchId} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onRefresh={() => refreshCore()} />
+              <BatchPanel batches={batches} selectedBatchId={selectedBatchId} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onRefresh={() => refreshCore()} />
               <TuningPanel job={selectedJob} pricing={pricing} loading={busy} onSubmit={createJob} />
               {isAdmin && (
                 <AdminPanel users={adminUsers} pricing={pricing} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} />

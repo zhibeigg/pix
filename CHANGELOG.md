@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-05-10
+
+### Added
+
+- 新增素材包管理接口：`PATCH /batches/{id}` 支持重命名与归档/恢复，`DELETE /batches/{id}` 支持删除空素材包。
+- 前端素材包卡片新增重命名、归档/恢复和删除空包操作，归档素材包会弱化显示。
+
 ## [0.14.0] - 2026-05-10
 
 ### Added
@@ -173,7 +180,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/zhibeigg/pix/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/zhibeigg/pix/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/zhibeigg/pix/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/zhibeigg/pix/compare/v0.11.0...v0.12.0

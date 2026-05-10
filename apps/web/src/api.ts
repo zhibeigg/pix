@@ -108,6 +108,12 @@ export const api = {
   downloadBatch(token: string, batchId: number) {
     return downloadBlob(`/batches/${batchId}/download`, token)
   },
+  updateBatch(token: string, batchId: number, payload: { name?: string; status?: string }) {
+    return request<GenerationBatch>(`/batches/${batchId}`, { method: 'PATCH', body: JSON.stringify(payload) }, token)
+  },
+  deleteBatch(token: string, batchId: number) {
+    return request<{ deleted: boolean }>(`/batches/${batchId}`, { method: 'DELETE' }, token)
+  },
   adminUsers(token: string) {
     return request<User[]>('/admin/users?limit=100', {}, token)
   },
