@@ -47,7 +47,7 @@ PROVIDERS: list[Provider] = [
         label="Packy API（推荐，国内可用）",
         base_url="https://www.packyapi.com",
         default_image_model="gpt-image-2",
-        default_vision_model="claude-sonnet-4-5",
+        default_vision_model="claude-opus-4-7",
         description="gpt-image-2 需要 sora 分组令牌；视觉模型用 default 分组令牌。",
     ),
     Provider(
@@ -97,7 +97,7 @@ class UserSettings:
     image_model: str = "gpt-image-2"
     image_size: str = "1024x1024"
     image_quality: str = "high"
-    vision_model: str = "claude-sonnet-4-5"
+    vision_model: str = "claude-opus-4-7"
     language: str = "zh-CN"
 
     def to_config_overrides(self) -> dict[str, Any]:

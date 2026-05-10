@@ -14,8 +14,8 @@ quality        = "high"           # low | medium | high | auto
 output_format  = "png"
 
 [vision]
-# Packy 支持的视觉模型，示例：claude-sonnet-4-5 / gemini-2.5-pro / gpt-4o 等
-model          = "claude-sonnet-4-5"
+# Packy 支持的视觉模型，示例：claude-opus-4-7 / claude-sonnet-4-5 / gemini-2.5-pro / gpt-4o 等
+model          = "claude-opus-4-7"
 temperature    = 0.2
 max_tokens     = 2048
 # 连续 JSON 校验失败时的重试次数
@@ -44,7 +44,9 @@ snap_to_grid   = true
 remove_bg      = false
 # 背景容差（每通道欧氏距离阈值，越大抠越狠；8-24 常用）
 bg_tolerance   = 12
-# 背景羽化：向内收缩抠除区域的像素数，保护主体边缘
+# 边缘风格：hard=硬边，feather=alpha 羽化，outline=外侧描边（三者互斥）
+edge_style     = "hard"
+# 边缘强度：edge_style=feather 时为羽化半径；outline 时为描边宽度；hard 时不生效
 bg_feather     = 0
 # 自动裁剪主体后再缩小，适合图标/物品素材
 auto_crop      = false
@@ -88,6 +90,10 @@ dir            = ".pix_cache"
 [output]
 # 默认输出根目录；最终目录为 {root}/{timestamp}-{short_hash}
 root           = "outputs"
+
+[history]
+# GUI/CLI 历史查询默认最多扫描显示的记录数
+max_items      = 200
 
 [ui]
 # GUI 界面语言：zh-CN | zh-TW | en | ja | ko | fr | de | es | ru

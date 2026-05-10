@@ -90,7 +90,7 @@ def test_context_menu_actions_present(qapp, sample_image: Path) -> None:
 
 
 def test_copy_to_clipboard(qapp, sample_image: Path) -> None:
-    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtGui import QGuiApplication, QImage
 
     from pix.gui.preview_panel import ZoomablePreview
 
@@ -100,9 +100,42 @@ def test_copy_to_clipboard(qapp, sample_image: Path) -> None:
         # 先清掉剪贴板，再触发复制
         QGuiApplication.clipboard().clear()
         p._copy_image_to_clipboard()
-        pix = QGuiApplication.clipboard().pixmap()
-        assert not pix.isNull()
-        assert pix.width() > 0
+        mime = QGuiApplication.clipboard().mimeData()
+        assert mime is not None
+        assert mime.hasImage()
+        assert mime.hasUrls()
+        assert Path(mime.urls()[0].toLocalFile()) == sample_image
+        assert mime.hasFormat("image/png")
+        copied = QImage(mime.imageData())
+        original = QImage(str(sample_image))
+        assert copied.size() == original.size()
+    finally:
+        p.deleteLater()
+
+
+def test_copy_transparent_png_prefers_original_png_bytes(qapp, tmp_path: Path) -> None:
+    from PIL import Image
+    from PySide6.QtGui import QGuiApplication
+
+    from pix.gui.preview_panel import ZoomablePreview
+
+    image_path = tmp_path / "transparent.png"
+    Image.new("RGBA", (8, 8), (0, 0, 0, 0)).save(image_path)
+
+    p = ZoomablePreview(pixel_mode=True)
+    try:
+        p.show_image(image_path)
+        QGuiApplication.clipboard().clear()
+        p._copy_image_to_clipboard()
+        mime = QGuiApplication.clipboard().mimeData()
+        assert mime is not None
+        assert mime.hasUrls()
+        assert Path(mime.urls()[0].toLocalFile()) == image_path
+        assert mime.hasFormat("image/png")
+        assert mime.hasFormat("PNG")
+        assert bytes(mime.data("image/png")) == image_path.read_bytes()
+        # 透明 PNG 不设置 imageData，避免 Windows DIB 路径丢 alpha / 合成背景。
+        assert not mime.hasImage()
     finally:
         p.deleteLater()
 

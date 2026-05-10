@@ -92,11 +92,11 @@ outputs/20260509-142359-a1b2c3d4/
 
 ### 方式一：下载预编译版本（免安装 Python）
 
-到 [Releases](https://github.com/zhibeigg/pix/releases/latest) 页面下载对应平台的压缩包，解压即用。
+到 [Releases](https://github.com/zhibeigg/pix/releases/latest) 页面下载对应平台的压缩包，解压即用。Windows 版是单文件 `pix.exe`，可以复制到任意目录运行；打包程序会使用内置 Pix 项目图标（Windows `.ico` / macOS `.icns` / GUI PNG）。
 
 | 平台 | 文件 |
 |---|---|
-| Windows x64 | `pix-vX.Y.Z-windows-x64.zip` → 解压后双击 `pix.exe` |
+| Windows x64 | `pix-vX.Y.Z-windows-x64.zip` → 解压得到单文件 `pix.exe`，可移动到任意目录运行 |
 | macOS Apple Silicon | `pix-vX.Y.Z-macos-arm64.tar.gz` → 解压后双击 `pix.app` |
 | macOS Intel | `pix-vX.Y.Z-macos-x86_64.tar.gz` → 同上 |
 | Linux x86_64 | `pix-vX.Y.Z-linux-x86_64.tar.gz` → 解压后运行 `./pix/pix` |
@@ -180,6 +180,7 @@ pix asset "血气灵玉" --out 图片/血气灵玉.png                    # 游�
 pix grid-extract source.png --pixel-size 16x16 --colors 12 --out item.grid.json --render item.png
 pix grid-render item.grid.json --out 图片/item.png              # Grid JSON → 精确 PNG
 pix validate 图片/血气灵玉.png --pixel-size 16x16 --max-colors 16 # 检查素材是否可直接进游戏
+pix history --query 血气 --limit 20                         # 查询 outputs 历史记录
 pix batch ./photos ./pixelized --workers 8 --preset pico8    # 批量：一个目录进、一个目录出
 pix presets                                                  # 列出所有预设
 pix gui                                                      # 启动图形界面
@@ -189,15 +190,16 @@ pix gui                                                      # 启动图形界�
 
 | 参数 | 说明 | 默认 |
 |---|---|---|
-| `--pixel-size WxH` | 目标像素图尺寸 | `128x128` |
+| `--pixel-size WxH` | 目标像素图尺寸；GUI 内置 `16/32/48/64/96/128/256` 快速预设，也可手输 | `128x128` |
 | `--colors N` | 调色板颜色数 (2–256) | `16` |
 | `--dither none\|ordered\|floyd_steinberg` | 抖动算法 | `floyd_steinberg` |
-| `--preset auto\|gameboy\|nes\|modern_pixel\|pico8` | 风格预设；`auto` = 由 VL 推荐 | `auto` |
+| `--preset auto\|gameboy\|nes\|modern_pixel\|pico8` | 风格预设；`auto` = 不强制套预设，保留用户参数 | `auto` |
 | `--resample smart\|box\|bicubic\|lanczos\|nearest` | 下采样策略；`smart` 会自动对齐输入像素格 | `smart` |
 | `--snap / --no-snap` | smart 模式下是否探测输入像素格并吸附 | `--snap` |
 | `--remove-bg` | 自动抠背景（四角 flood-fill），输出透明 PNG | 关 |
 | `--bg-tolerance N` | 背景颜色容差（0-128，越大抠越狠） | `12` |
-| `--bg-feather N` | 主体边缘保留几圈像素（抗误伤） | `0` |
+| `--edge-style hard\|feather\|outline` | 互斥边缘风格：硬边 / alpha 羽化 / 外侧描边 | `hard` |
+| `--bg-feather N` | 边缘强度：`feather` 时为羽化半径，`outline` 时为描边宽度 | `0` |
 | `--auto-crop / --no-auto-crop` | 先识别主体 bbox 并裁剪，再缩到目标像素尺寸 | `false` |
 | `--crop-padding N` | 自动裁剪外扩比例 | `0.12` |
 | `--crop-square / --no-crop-square` | 自动裁剪时保持正方形 | `true` |
@@ -228,6 +230,41 @@ pix validate 图片/血气灵玉.png --pixel-size 16x16 --max-colors 16
 ```
 
 默认中间产物仍保存到 `outputs/{timestamp}-{hash}/`。如需回到旧式 resize/quantize 流程，可加 `--no-grid-mode`；默认只做 Grid 清噪，若需要更统一、更厚的深色轮廓，可加 `--grid-outline`；如需关闭清噪，可加 `--no-grid-cleanup`；如需视觉模型参与调色和区域分析，可加 `--use-vl`；如需 AI 审核 Grid JSON，可加 `--grid-review`。
+
+### 边缘风格
+
+`描边` 和 `羽化` 是互斥风格，不会同时叠加：
+
+```bash
+pix pixelize source.png --remove-bg --edge-style hard --bg-feather 0      # 硬边透明
+pix pixelize source.png --remove-bg --edge-style feather --bg-feather 1   # alpha 羽化
+pix pixelize source.png --remove-bg --edge-style outline --bg-feather 1   # 外侧深色描边
+```
+
+GUI 中对应：
+
+```text
+边缘风格：硬边 / 羽化 / 描边
+边缘强度：羽化半径或描边宽度
+```
+
+### 历史查询
+
+所有 `gen` / `run` / GUI 管线都会在 `outputs/{timestamp}-{hash}/meta.json` 写入历史元数据。可以用 CLI 查询：
+
+```bash
+pix history
+pix history --query 血气 --limit 20
+pix history --root outputs --json
+```
+
+GUI 中可通过：
+
+```text
+顶部菜单「历史记录」 或  Ctrl+H
+```
+
+打开历史查询窗口，按 prompt / 模型 / 目录名搜索，选中记录后可加载原图、JSON、像素图并回填主要参数。
 
 ### Pixel Grid JSON 工程图
 
@@ -277,6 +314,7 @@ pix gui
 
 GUI 提供：
 
+- **Pix 项目图标**：窗口、任务栏和打包应用统一使用内置 `pix_logo_64` 图标
 - **三联预览**（原图 / JSON / 像素图），每个支持左键拖拽、滚轮缩放、双击适屏、右键菜单
 - **参数面板**（尺寸、色数、抖动、预设、VL 模型、缓存开关）
 - **设置对话框**：提供商切换（Packy / OpenAI / 自定义）、API key 管理、默认模型、连接测试、**9 语言**实时切换
@@ -336,7 +374,7 @@ size           = "1024x1024"
 quality        = "high"
 
 [vision]
-model          = "claude-sonnet-4-5"
+model          = "claude-opus-4-7"
 temperature    = 0.2
 
 [pixelize]
@@ -347,6 +385,8 @@ preset         = "auto"
 auto_crop      = false
 crop_padding   = 0.12
 crop_square    = true
+edge_style     = "hard" # hard | feather | outline，三者互斥
+bg_feather     = 0      # feather=羽化半径；outline=描边宽度；hard=不生效
 
 [asset]
 output_dir     = "图片"
@@ -370,6 +410,12 @@ prompt_template = "A single fantasy pixel game inventory item icon of {name}. ..
 [cache]
 enabled        = true
 dir            = ".pix_cache"
+
+[output]
+root           = "outputs"
+
+[history]
+max_items      = 200
 
 [ui]
 language       = "zh-CN"    # zh-CN | zh-TW | en | ja | ko | fr | de | es | ru

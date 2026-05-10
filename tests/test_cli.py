@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from typer.testing import CliRunner
 
+from pix import __version__
 from pix.cli import app
 
 
@@ -22,7 +23,7 @@ def test_help() -> None:
 def test_version() -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
-    assert "0.1.0" in result.stdout
+    assert __version__ in result.stdout
 
 
 def test_presets_command() -> None:
@@ -71,6 +72,31 @@ def test_pixelize_with_analysis(
     )
     assert result.exit_code == 0, result.stdout
     assert out.exists()
+
+
+def test_history_cli_json(tmp_path: Path, tmp_cwd: Path) -> None:
+    import json
+
+    run_dir = tmp_path / "20260510-120000-abcd"
+    run_dir.mkdir()
+    (run_dir / "03_pixelized.png").write_bytes(b"x")
+    (run_dir / "meta.json").write_text(
+        json.dumps({
+            "input": {"prompt": "血气灵玉", "image_path": None},
+            "image_gen": {"model": "gpt-image-2"},
+            "vision": {"model": "claude-opus-4-7"},
+            "pixelize": {"effective_params": {"output_size": [16, 16], "colors": 12}},
+            "outputs": {"pixelized": "03_pixelized.png"},
+        }),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["history", "--root", str(tmp_path), "--query", "血气", "--json"])
+
+    assert result.exit_code == 0, result.stdout
+    data = json.loads(result.stdout)
+    assert data[0]["prompt"] == "血气灵玉"
+    assert data[0]["pixel_size"] == [16, 16]
 
 
 def test_validate_cli_game_asset(tmp_path: Path, tmp_cwd: Path) -> None:

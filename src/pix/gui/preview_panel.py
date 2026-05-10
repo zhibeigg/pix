@@ -7,11 +7,12 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import QRectF, Qt, QUrl
+from PySide6.QtCore import QMimeData, QRectF, Qt, QUrl
 from PySide6.QtGui import (
     QAction,
     QDesktopServices,
     QGuiApplication,
+    QImage,
     QMouseEvent,
     QPainter,
     QPixmap,
@@ -155,7 +156,34 @@ class ZoomablePreview(QGraphicsView):
         pix = self._pixmap_item.pixmap()
         if pix.isNull():
             return
-        QGuiApplication.clipboard().setPixmap(pix)
+
+        mime = QMimeData()
+        image = QImage()
+        copied_file_bytes = False
+        if self._current_path is not None and self._current_path.exists():
+            # 从源文件重新读取，避免复制 QGraphicsView 当前显示/缩放状态或 QPixmap 后端格式。
+            image = QImage(str(self._current_path))
+            mime.setUrls([QUrl.fromLocalFile(str(self._current_path))])
+            mime_type = _mime_from_suffix(self._current_path.suffix)
+            if mime_type:
+                try:
+                    raw = self._current_path.read_bytes()
+                    mime.setData(mime_type, raw)
+                    # Windows 剪贴板里不少程序识别注册格式 PNG，而不是 MIME 名 image/png。
+                    if mime_type == "image/png":
+                        mime.setData("PNG", raw)
+                    copied_file_bytes = True
+                except OSError:
+                    pass
+        if image.isNull():
+            image = pix.toImage()
+        if image.isNull():
+            return
+        # 对带 alpha 的 PNG，不再设置 imageData：Qt/Windows 会同时导出 CF_DIB，
+        # 很多目标程序优先读取 DIB，透明通道会被灰/白背景合成。只放原始 PNG 字节。
+        if not (copied_file_bytes and image.hasAlphaChannel()):
+            mime.setImageData(image)
+        QGuiApplication.clipboard().setMimeData(mime)
 
     def _save_as(self) -> None:
         pix = self._pixmap_item.pixmap()
@@ -243,6 +271,19 @@ class ZoomablePreview(QGraphicsView):
         super().showEvent(event)
         if not self._user_zoomed and not self._pixmap_item.pixmap().isNull():
             self.fitInView(self._pixmap_item, Qt.AspectRatioMode.KeepAspectRatio)
+
+
+def _mime_from_suffix(suffix: str) -> str | None:
+    s = suffix.lower().lstrip(".")
+    if s == "png":
+        return "image/png"
+    if s in ("jpg", "jpeg"):
+        return "image/jpeg"
+    if s == "bmp":
+        return "image/bmp"
+    if s == "webp":
+        return "image/webp"
+    return None
 
 
 def _format_from_suffix(suffix: str) -> str:

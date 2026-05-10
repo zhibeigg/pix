@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pix"
-version = "0.1.0"
+version = "0.2.0"
 description = "Prompt → AI image → multimodal JSON → pixel art pipeline, with CLI and PySide6 GUI."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -53,7 +53,7 @@ pix = "pix.cli:app"
 where = ["src"]
 
 [tool.setuptools.package-data]
-pix = ["py.typed"]
+pix = ["py.typed", "assets/icons/*"]
 
 [tool.ruff]
 line-length = 100

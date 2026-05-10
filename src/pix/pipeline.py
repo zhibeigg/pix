@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from pix import __version__
 from pix.analysis.schema import PixAnalysis
 from pix.api.image_gen import generate_image
 from pix.api.vision import VisionParseError, analyze_image
@@ -162,7 +163,7 @@ def run_pipeline(
 
     # 5. meta
     meta = {
-        "version": "0.1.0",
+        "version": __version__,
         "duration_seconds": round(time.time() - start, 3),
         "input": {
             "prompt": inputs.prompt,

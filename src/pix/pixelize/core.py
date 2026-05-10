@@ -20,11 +20,11 @@ from pix.pixelize.palette import (
     swatches_to_rgb_list,
 )
 from pix.pixelize.presets import Preset, load_preset
-from pix.pixelize.roi import apply_semantic_regions
 
 
 Dither = Literal["none", "ordered", "floyd_steinberg"]
 ResampleMode = Literal["smart", "box", "bicubic", "lanczos", "nearest"]
+EdgeStyle = Literal["hard", "feather", "outline"]
 
 
 @dataclass
@@ -41,6 +41,7 @@ class PixelizeParams:
     remove_bg: bool = False
     bg_tolerance: int = 12
     bg_feather: int = 0
+    edge_style: EdgeStyle = "hard"
     auto_crop: bool = False
     crop_padding: float = 0.12
     crop_square: bool = True
@@ -60,6 +61,7 @@ class PixelizeParams:
             remove_bg=getattr(cfg, "remove_bg", False),
             bg_tolerance=getattr(cfg, "bg_tolerance", 12),
             bg_feather=getattr(cfg, "bg_feather", 0),
+            edge_style=getattr(cfg, "edge_style", "hard"),
             auto_crop=getattr(cfg, "auto_crop", False),
             crop_padding=getattr(cfg, "crop_padding", 0.12),
             crop_square=getattr(cfg, "crop_square", True),
@@ -67,13 +69,13 @@ class PixelizeParams:
 
 
 def _resolve_preset(params: PixelizeParams, analysis: PixAnalysis | None) -> Preset | None:
-    """合并预设：显式指定 > analysis 推荐 > None。"""
+    """解析预设。
+
+    只有用户明确选择的预设才会覆盖尺寸、色数等参数；VL 的 recommended_preset
+    仅作为分析信息保留，不再自动改写用户在 GUI / CLI 中填写的值。
+    """
     if params.preset and params.preset != "auto":
         return load_preset(params.preset)
-    if analysis is not None:
-        name = analysis.style.recommended_preset
-        if name and name != "auto":
-            return load_preset(name)
     return None
 
 
@@ -104,6 +106,7 @@ def _effective_params(
         remove_bg=params.remove_bg,
         bg_tolerance=params.bg_tolerance,
         bg_feather=params.bg_feather,
+        edge_style=params.edge_style,
         auto_crop=params.auto_crop,
         crop_padding=params.crop_padding,
         crop_square=params.crop_square,
@@ -120,14 +123,6 @@ def _effective_params(
             eff.edge_enhance = preset.edge_enhance
         if preset.saturation is not None:
             eff.saturation = preset.saturation
-
-    if analysis is not None:
-        if analysis.style.target_color_count:
-            # analysis 提供的色数只在没有 preset 指定时生效
-            if preset is None or preset.colors is None:
-                eff.colors = max(2, min(256, int(analysis.style.target_color_count)))
-        if analysis.style.suggested_dither and (preset is None or preset.dither is None):
-            eff.dither = analysis.style.suggested_dither  # type: ignore[assignment]
 
     return eff
 
@@ -411,7 +406,17 @@ def pixelize(
     preset = _resolve_preset(params, analysis)
     eff = _effective_params(params, preset, analysis)
 
-    # 1. 可选主体裁剪：先把大图裁成图标主体，再缩小，避免 16x16 时主体过小。
+    # 1. 可选前置抠背景：先处理模型画出来的纯色/棋盘格假透明背景，
+    # 避免后续语义区域或量化把背景变成可见色块。
+    if eff.remove_bg:
+        img = remove_background(
+            img,
+            tolerance=max(0, int(eff.bg_tolerance)),
+            feather=0,
+            keep_border_bleed=True,
+        )
+
+    # 2. 可选主体裁剪：先把大图裁成图标主体，再缩小，避免 16x16 时主体过小。
     crop_bbox: tuple[int, int, int, int] | None = None
     if eff.auto_crop:
         img, crop_bbox = _auto_crop(
@@ -428,10 +433,7 @@ def pixelize(
     down = _downsample(img, eff.output_size, mode=eff.resample, snap=eff.snap_to_grid)
     # 2. 轻微增强
     down = _apply_enhancements(down, eff.saturation, eff.edge_enhance)
-    # 3. 语义区域最近邻替换（可选，早期做可以引导后续量化）
-    if analysis and analysis.semantic_regions:
-        down = apply_semantic_regions(down, analysis.semantic_regions)
-    # 4. 构建调色板
+    # 3. 构建调色板。VL 只作为调色板/语义参考，不直接矩形改写像素，避免产生块状伪影。
     palette_rgb = _build_palette(down, eff, preset, analysis)
     # 5. 量化 + 抖动
     pixelized = _quantize(down, palette_rgb, eff.dither)
@@ -442,6 +444,7 @@ def pixelize(
             pixelized,
             tolerance=max(0, int(eff.bg_tolerance)),
             feather=max(0, int(eff.bg_feather)),
+            edge_style=eff.edge_style,
         )
 
     # 7. 可选预览（最近邻放大）
@@ -467,6 +470,7 @@ def pixelize(
             "remove_bg": eff.remove_bg,
             "bg_tolerance": eff.bg_tolerance,
             "bg_feather": eff.bg_feather,
+            "edge_style": eff.edge_style,
             "auto_crop": eff.auto_crop,
             "crop_padding": eff.crop_padding,
             "crop_square": eff.crop_square,

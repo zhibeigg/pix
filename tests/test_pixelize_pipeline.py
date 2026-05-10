@@ -66,8 +66,8 @@ class TestPixelize:
         first_colors = meta["palette"][:4]
         assert "#1E5AB4" in first_colors
         assert "#F0C850" in first_colors
-        # analysis 建议 ordered 抖动，在 preset=auto 时生效
-        assert meta["effective_params"]["dither"] == "ordered"
+        # analysis 只提供调色板参考，不覆盖用户/GUI 参数
+        assert meta["effective_params"]["dither"] == "floyd_steinberg"
 
     def test_user_preset_beats_analysis_recommendation(
         self, sample_image: Path, fake_analysis_dict: dict
@@ -80,15 +80,16 @@ class TestPixelize:
         assert img.size == (160, 144)
         assert meta["effective_params"]["preset"] == "gameboy"
 
-    def test_analysis_auto_preset_recommendation_applied(
+    def test_analysis_auto_preset_recommendation_does_not_override_user_params(
         self, sample_image: Path, fake_analysis_dict: dict
     ) -> None:
         fake_analysis_dict["style"]["recommended_preset"] = "gameboy"
         analysis = PixAnalysis.model_validate(fake_analysis_dict)
-        params = PixelizeParams(preset="auto")
+        params = PixelizeParams(output_size=(64, 64), colors=8, preset="auto")
         img, _, meta = pixelize(sample_image, params, analysis=analysis)
-        assert img.size == (160, 144)  # 由 analysis 推荐触发
-        assert meta["effective_params"]["preset"] == "gameboy"
+        assert img.size == (64, 64)
+        assert meta["effective_params"]["preset"] == "auto"
+        assert meta["effective_params"]["colors"] == 8
 
     def test_colors_clamped(self, sample_image: Path) -> None:
         params = PixelizeParams(colors=2)

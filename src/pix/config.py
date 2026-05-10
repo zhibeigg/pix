@@ -48,7 +48,7 @@ class ImageGenConfig:
 
 @dataclass
 class VisionConfig:
-    model: str = "claude-sonnet-4-5"
+    model: str = "claude-opus-4-7"
     temperature: float = 0.2
     max_tokens: int = 2048
     retry_on_parse: int = 1
@@ -71,6 +71,8 @@ class PixelizeConfig:
     remove_bg: bool = False
     bg_tolerance: int = 12
     bg_feather: int = 0
+    # 边缘风格：hard | feather | outline。bg_feather 表示对应强度。
+    edge_style: str = "hard"
     # 自动裁剪主体，再缩小到目标像素尺寸
     auto_crop: bool = False
     crop_padding: float = 0.12
@@ -122,6 +124,11 @@ class OutputConfig:
 
 
 @dataclass
+class HistoryConfig:
+    max_items: int = 200
+
+
+@dataclass
 class UiConfig:
     language: str = "zh-CN"
 
@@ -135,6 +142,7 @@ class AppConfig:
     asset: AssetConfig = field(default_factory=AssetConfig)
     cache: CacheConfig = field(default_factory=CacheConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
+    history: HistoryConfig = field(default_factory=HistoryConfig)
     ui: UiConfig = field(default_factory=UiConfig)
 
     def to_dict(self) -> dict[str, Any]:
