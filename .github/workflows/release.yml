@@ -81,7 +81,12 @@ jobs:
             echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build with PyInstaller
+      - name: Build with PyInstaller (Windows one-file)
+        if: runner.os == 'Windows'
+        run: pyinstaller --noconfirm --clean build_tools/pix_onefile.spec
+
+      - name: Build with PyInstaller (macOS/Linux one-dir)
+        if: runner.os != 'Windows'
         run: pyinstaller --noconfirm --clean build_tools/pix.spec
 
       - name: List dist (debug)
@@ -94,7 +99,9 @@ jobs:
         shell: pwsh
         run: |
           $name = "pix-${{ steps.tag.outputs.name }}-${{ matrix.label }}"
-          Compress-Archive -Path dist/pix/* -DestinationPath "dist/$name.zip"
+          New-Item -ItemType Directory -Force -Path "dist/$name" | Out-Null
+          Copy-Item "dist/pix.exe" "dist/$name/pix.exe"
+          Compress-Archive -Path "dist/$name/*" -DestinationPath "dist/$name.zip"
           echo "ARTIFACT=dist/$name.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       # ---------- macOS ----------

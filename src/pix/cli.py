@@ -25,6 +25,7 @@ from pix.grid.postprocess import polish_pixel_grid
 from pix.grid.render import render_grid_file, render_pixel_grid
 from pix.grid.review import review_grid_file, review_pixel_grid
 from pix.grid.schema import load_grid, save_grid
+from pix.history import scan_history
 from pix.pipeline import PipelineInput, run_pipeline
 from pix.pixelize.core import PixelizeParams, pixelize as run_pixelize
 from pix.pixelize.presets import list_presets
@@ -78,6 +79,47 @@ def main_callback(
         raise typer.Exit()
 
 
+# ---------- history ----------
+
+
+@app.command("history")
+def cmd_history(
+    query: str = typer.Option("", "--query", "-q", help="按 prompt / 模型 / 目录名搜索"),
+    limit: int = typer.Option(50, "--limit", "-n", min=1, help="最多显示多少条"),
+    root: Optional[Path] = typer.Option(None, "--root", help="历史输出根目录，默认读取配置 output.root"),
+    as_json: bool = typer.Option(False, "--json", help="以 JSON 输出"),
+    config: Optional[Path] = typer.Option(None, "--config", help="TOML 配置文件"),
+) -> None:
+    """查询 outputs 下的历史生成记录。"""
+    cfg = _base_config(config)
+    records = scan_history(root or cfg.output.root, query=query, limit=limit)
+    if as_json:
+        console.print_json(data=[record.to_dict() for record in records])
+        return
+    table = Table(title="pix history")
+    table.add_column("时间", no_wrap=True)
+    table.add_column("Prompt / 输入", overflow="fold")
+    table.add_column("像素", no_wrap=True)
+    table.add_column("色数", justify="right", no_wrap=True)
+    table.add_column("生图模型", no_wrap=True)
+    table.add_column("视觉模型", no_wrap=True)
+    table.add_column("目录", overflow="fold")
+    for record in records:
+        pixel = f"{record.pixel_size[0]}x{record.pixel_size[1]}" if record.pixel_size else "-"
+        table.add_row(
+            record.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            record.prompt_summary or "-",
+            pixel,
+            str(record.colors or "-"),
+            record.image_model or "-",
+            record.vision_model or "-",
+            str(record.run_dir),
+        )
+    console.print(table)
+    if not records:
+        console.print("[yellow]没有找到历史记录[/yellow]")
+
+
 # ---------- gen-only ----------
 
 
@@ -106,7 +148,7 @@ def cmd_gen_only(
 def cmd_analyze(
     image: Path = typer.Argument(..., exists=True, readable=True, help="输入图片"),
     out: Optional[Path] = typer.Option(None, help="输出 JSON 路径，默认与图片同目录"),
-    model: Optional[str] = typer.Option(None, help="VL 模型，如 claude-sonnet-4-5 / gemini-2.5-pro"),
+    model: Optional[str] = typer.Option(None, help="VL 模型，如 claude-opus-4-7 / claude-sonnet-4-5 / gemini-2.5-pro"),
     config: Optional[Path] = typer.Option(None, "--config", help="TOML 配置文件"),
 ) -> None:
     """让多模态模型输出结构化 JSON。"""
@@ -139,7 +181,8 @@ def cmd_pixelize(
     snap_to_grid: bool = typer.Option(True, "--snap/--no-snap", help="smart 模式下探测输入像素格并吸附"),
     remove_bg: bool = typer.Option(False, "--remove-bg", help="自动抠背景（四角 flood-fill，输出 PNG 带 alpha）"),
     bg_tolerance: int = typer.Option(12, min=0, max=128, help="背景颜色容差，越大抠越狠"),
-    bg_feather: int = typer.Option(0, min=0, max=8, help="主体边缘保留的像素圈数"),
+    edge_style: str = typer.Option("hard", help="边缘风格：hard|feather|outline，互斥"),
+    bg_feather: int = typer.Option(0, min=0, max=8, help="边缘强度：feather=羽化半径，outline=描边宽度"),
     auto_crop: bool = typer.Option(False, "--auto-crop/--no-auto-crop", help="自动裁剪主体后再缩小"),
     crop_padding: float = typer.Option(0.12, min=0.0, max=1.0, help="自动裁剪外扩比例"),
     crop_square: bool = typer.Option(True, "--crop-square/--no-crop-square", help="自动裁剪时保持正方形"),
@@ -161,10 +204,12 @@ def cmd_pixelize(
         remove_bg=remove_bg,
         bg_tolerance=bg_tolerance,
         bg_feather=bg_feather,
+        edge_style=edge_style,  # type: ignore[arg-type]
         auto_crop=auto_crop,
         crop_padding=crop_padding,
         crop_square=crop_square,
     )
+
     analysis: PixAnalysis | None = None
     if analysis_json:
         try:
@@ -495,6 +540,8 @@ def cmd_gen(
     colors: int = typer.Option(16, min=2, max=256),
     dither: str = typer.Option("floyd_steinberg"),
     preset: str = typer.Option("auto"),
+    edge_style: str = typer.Option("hard", help="边缘风格：hard|feather|outline，互斥"),
+    bg_feather: int = typer.Option(0, min=0, max=8, help="边缘强度"),
     vl_model: Optional[str] = typer.Option(None, help="VL 模型"),
     no_vl: bool = typer.Option(False, help="跳过多模态分析"),
     no_cache: bool = typer.Option(False, help="禁用缓存"),
@@ -509,6 +556,8 @@ def cmd_gen(
         colors=colors,
         dither=dither,  # type: ignore[arg-type]
         preset=preset,
+        bg_feather=bg_feather,
+        edge_style=edge_style,  # type: ignore[arg-type]
     )
     inputs = PipelineInput(
         prompt=prompt,
@@ -535,6 +584,8 @@ def cmd_run(
     colors: int = typer.Option(16, min=2, max=256),
     dither: str = typer.Option("floyd_steinberg"),
     preset: str = typer.Option("auto"),
+    edge_style: str = typer.Option("hard", help="边缘风格：hard|feather|outline，互斥"),
+    bg_feather: int = typer.Option(0, min=0, max=8, help="边缘强度"),
     vl_model: Optional[str] = typer.Option(None),
     no_vl: bool = typer.Option(False),
     no_cache: bool = typer.Option(False),
@@ -549,6 +600,8 @@ def cmd_run(
         colors=colors,
         dither=dither,  # type: ignore[arg-type]
         preset=preset,
+        bg_feather=bg_feather,
+        edge_style=edge_style,  # type: ignore[arg-type]
     )
     inputs = PipelineInput(
         image_path=image,
@@ -602,7 +655,8 @@ def cmd_batch(
     snap_to_grid: bool = typer.Option(True, "--snap/--no-snap"),
     remove_bg: bool = typer.Option(False, "--remove-bg"),
     bg_tolerance: int = typer.Option(12, min=0, max=128),
-    bg_feather: int = typer.Option(0, min=0, max=8),
+    edge_style: str = typer.Option("hard", help="边缘风格：hard|feather|outline，互斥"),
+    bg_feather: int = typer.Option(0, min=0, max=8, help="边缘强度"),
     auto_crop: bool = typer.Option(False, "--auto-crop/--no-auto-crop"),
     crop_padding: float = typer.Option(0.12, min=0.0, max=1.0),
     crop_square: bool = typer.Option(True, "--crop-square/--no-crop-square"),
@@ -627,6 +681,7 @@ def cmd_batch(
         remove_bg=remove_bg,
         bg_tolerance=bg_tolerance,
         bg_feather=bg_feather,
+        edge_style=edge_style,  # type: ignore[arg-type]
         auto_crop=auto_crop,
         crop_padding=crop_padding,
         crop_square=crop_square,

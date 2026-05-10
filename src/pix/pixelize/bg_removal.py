@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import Iterable
+from typing import Iterable, Literal
 
 import numpy as np
 from PIL import Image
@@ -34,6 +34,45 @@ def _sample_corner_colors(
         dominant = uniq[int(counts.argmax())]
         seeds.append((int(dominant[0]), int(dominant[1]), int(dominant[2])))
     return seeds
+
+
+def _sample_edge_colors(
+    arr: np.ndarray,
+    *,
+    max_colors: int = 4,
+    bin_size: int = 8,
+) -> list[tuple[int, int, int]]:
+    """从整圈边缘抽取主要背景色，兼容白灰棋盘格假透明背景。"""
+    h, w, _ = arr.shape
+    bw = max(1, min(8, min(h, w) // 16 or 1))
+    border = np.concatenate(
+        [
+            arr[:bw, :, :].reshape(-1, 3),
+            arr[h - bw :, :, :].reshape(-1, 3),
+            arr[:, :bw, :].reshape(-1, 3),
+            arr[:, w - bw :, :].reshape(-1, 3),
+        ],
+        axis=0,
+    )
+    if border.size == 0:
+        return []
+    # 轻微分箱后统计，避免抗锯齿/压缩导致同一背景色裂成大量近似色。
+    q = (border.astype(np.uint16) // max(1, bin_size)) * max(1, bin_size)
+    uniq, counts = np.unique(q.astype(np.uint8), axis=0, return_counts=True)
+    order = np.argsort(counts)[::-1]
+    refs: list[tuple[int, int, int]] = []
+    for idx in order:
+        key = uniq[int(idx)]
+        mask = np.all(q == key, axis=1)
+        if not mask.any():
+            continue
+        mean = border[mask].mean(axis=0)
+        rgb = tuple(int(round(v)) for v in mean[:3])
+        if all(sum((rgb[i] - old[i]) ** 2 for i in range(3)) > (bin_size * 2) ** 2 for old in refs):
+            refs.append(rgb)
+        if len(refs) >= max_colors:
+            break
+    return refs
 
 
 def _flood_fill_mask(
@@ -78,6 +117,7 @@ def remove_background(
     *,
     tolerance: int = 12,
     feather: int = 0,
+    edge_style: Literal["hard", "feather", "outline"] = "hard",
     keep_border_bleed: bool = True,
 ) -> Image.Image:
     """把图片四角连通的背景色抠成透明。
@@ -85,18 +125,21 @@ def remove_background(
     Args:
         image: 原图（RGB 或 RGBA）
         tolerance: 每个通道的颜色容差（0 = 只抠完全相同色；12 是默认）
-        feather: 若 > 0，对掩码做腐蚀，让主体边缘保留一圈"不抠"的像素
-            —— 对像素画有奇效：避免抗锯齿被误伤
+        feather: 边缘强度。edge_style=feather 时表示 alpha 羽化半径；
+            edge_style=outline 时表示描边宽度；hard 时不生效。
+        edge_style: hard=硬边透明；feather=主体边缘 alpha 羽化；outline=主体外侧补深色描边。
         keep_border_bleed: True 时如果主体压到边缘（四角色与主体色相近），不硬抠
     """
     if image.mode != "RGBA":
         image = image.convert("RGBA")
     arr = np.asarray(image.convert("RGB"))
-    seeds = _sample_corner_colors(arr)
+    corner_seeds = _sample_corner_colors(arr)
+    edge_refs = _sample_edge_colors(arr)
+    seeds = list(dict.fromkeys(corner_seeds + edge_refs))
 
     if keep_border_bleed:
-        unique_colors = {tuple(int(c) for c in s) for s in seeds}
-        if len(unique_colors) > 2:
+        unique_corners = {tuple(int(c) for c in s) for s in corner_seeds}
+        if len(unique_corners) > 2:
             # 四角色差异大，说明主体可能压到边，贸然抠会毁图
             return image
 
@@ -109,27 +152,87 @@ def remove_background(
     ]
     mask_bg = _flood_fill_mask(arr, seed_points, seeds, tolerance)
 
-    if feather > 0:
-        mask_bg = _erode_mask(mask_bg, feather)
-
-    # 应用透明：背景位置的 alpha 设为 0
     rgba = np.asarray(image).copy()
-    rgba[mask_bg, 3] = 0
+    style = edge_style if edge_style in ("hard", "feather", "outline") else "hard"
+    strength = max(0, int(feather))
+    if style == "outline" and strength > 0:
+        _apply_outline_edge(rgba, mask_bg, strength)
+    else:
+        _apply_alpha_feather(rgba, mask_bg, strength if style == "feather" else 0)
     return Image.fromarray(rgba, mode="RGBA")
 
 
-def _erode_mask(mask: np.ndarray, iterations: int) -> np.ndarray:
-    """对背景掩码做 N 次 1 像素腐蚀，让抠除区域向内收缩。"""
+def _apply_alpha_feather(rgba: np.ndarray, mask_bg: np.ndarray, radius: int) -> None:
+    """把背景设为透明，并对主体边缘做 8 邻域 alpha 羽化。"""
+    original_alpha = rgba[..., 3].copy()
+    rgba[mask_bg, 3] = 0
+    if radius <= 0:
+        return
+
+    foreground = (~mask_bg) & (original_alpha > 0)
+    reached = mask_bg.copy()
+    assigned = np.zeros(mask_bg.shape, dtype=bool)
+    for distance in range(1, radius + 1):
+        reached = _dilate_mask_8(reached)
+        layer = foreground & reached & ~assigned
+        if not layer.any():
+            continue
+        alpha = int(round(255 * distance / (radius + 1)))
+        alpha = max(1, min(254, alpha))
+        rgba[layer, 3] = np.minimum(rgba[layer, 3], alpha)
+        assigned |= layer
+
+
+def _apply_outline_edge(rgba: np.ndarray, mask_bg: np.ndarray, strength: int) -> None:
+    """背景透明，同时在主体外侧补不透明深色描边。"""
+    foreground = (~mask_bg) & (rgba[..., 3] > 0)
+    outline_rgb = _infer_outline_rgb(rgba, foreground)
+    outline_mask = np.zeros(mask_bg.shape, dtype=bool)
+    current = foreground.copy()
+    for _ in range(max(1, strength)):
+        expanded = _dilate_mask_8(current)
+        layer = expanded & mask_bg & ~outline_mask
+        # 避免直接在画布最外圈生成贴边框。
+        if layer.shape[0] > 2 and layer.shape[1] > 2:
+            layer[0, :] = False
+            layer[-1, :] = False
+            layer[:, 0] = False
+            layer[:, -1] = False
+        outline_mask |= layer
+        current = expanded
+    rgba[mask_bg, 3] = 0
+    rgba[outline_mask, :3] = outline_rgb
+    rgba[outline_mask, 3] = 255
+
+
+def _infer_outline_rgb(rgba: np.ndarray, foreground: np.ndarray) -> tuple[int, int, int]:
+    pixels = rgba[foreground, :3]
+    if pixels.size == 0:
+        return (16, 16, 16)
+    luma = pixels[:, 0].astype(np.float32) * 0.2126 + pixels[:, 1].astype(np.float32) * 0.7152 + pixels[:, 2].astype(np.float32) * 0.0722
+    darkest = pixels[int(np.argmin(luma))]
+    if float(luma.min()) < 70:
+        return tuple(int(v) for v in darkest)
+    return tuple(max(0, int(v * 0.36)) for v in darkest)
+
+
+def _dilate_mask_8(mask: np.ndarray) -> np.ndarray:
+    """8 邻域膨胀；图像外侧不参与膨胀，避免引入画布外假背景。"""
     result = mask.copy()
-    for _ in range(iterations):
-        # 邻域 4 方向都为 True 时才保留
-        up = np.roll(result, 1, axis=0)
-        down = np.roll(result, -1, axis=0)
-        left = np.roll(result, 1, axis=1)
-        right = np.roll(result, -1, axis=1)
-        up[0, :] = False
-        down[-1, :] = False
-        left[:, 0] = False
-        right[:, -1] = False
-        result = result & up & down & left & right
+    h, w = mask.shape
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            if dy == 0 and dx == 0:
+                continue
+            shifted = np.zeros_like(mask, dtype=bool)
+            src_y0 = max(0, -dy)
+            src_y1 = min(h, h - dy)
+            src_x0 = max(0, -dx)
+            src_x1 = min(w, w - dx)
+            dst_y0 = max(0, dy)
+            dst_y1 = min(h, h + dy)
+            dst_x0 = max(0, dx)
+            dst_x1 = min(w, w + dx)
+            shifted[dst_y0:dst_y1, dst_x0:dst_x1] = mask[src_y0:src_y1, src_x0:src_x1]
+            result |= shifted
     return result

@@ -20,7 +20,8 @@ _ZH_CN: dict[str, str] = {
     "menu_file": "文件",
     "menu_open_image": "打开图片…",
     "menu_open_output_dir": "打开输出目录",
-    "menu_settings": "设置…",
+    "menu_history": "历史记录",
+    "menu_settings": "设置",
 
     # 分组标题
     "group_input": "输入",
@@ -54,6 +55,14 @@ _ZH_CN: dict[str, str] = {
     "field_resample": "下采样",
     "field_bg_tolerance": "背景容差",
     "field_bg_feather": "边缘羽化",
+    "field_edge_style": "边缘风格",
+    "field_edge_strength": "边缘强度",
+    "edge_style_hard": "硬边",
+    "edge_style_feather": "羽化",
+    "edge_style_outline": "描边",
+    "edge_strength_hard_tip": "硬边模式不使用边缘强度",
+    "edge_strength_feather_tip": "羽化模式：边缘强度表示 alpha 羽化半径",
+    "edge_strength_outline_tip": "描边模式：边缘强度表示外侧描边宽度",
     "chk_snap_to_grid": "对齐输入像素格",
     "chk_remove_bg": "自动抠背景（透明）",
     "resample_smart": "智能（推荐）",
@@ -64,7 +73,7 @@ _ZH_CN: dict[str, str] = {
     "dither_none": "无",
     "dither_ordered": "有序抖动",
     "dither_floyd_steinberg": "Floyd-Steinberg",
-    "preset_auto": "自动（由 AI 推荐）",
+    "preset_auto": "自动（保留参数）",
     "preset_gameboy": "Game Boy",
     "preset_nes": "NES",
     "preset_modern_pixel": "现代像素画",
@@ -129,6 +138,27 @@ _ZH_CN: dict[str, str] = {
     "log_warn_thread_not_exit": "[WARN] 后台线程未在 5 秒内退出,保留引用避免析构崩溃",
     "log_run_ok": "[OK] 运行目录：{path}",
     "log_run_error": "[ERROR] {error}",
+
+    # 历史记录
+    "history_title": "历史记录",
+    "history_search_label": "搜索",
+    "history_search_placeholder": "搜索 prompt / 模型 / 目录名…",
+    "history_refresh": "刷新",
+    "history_load": "加载到主界面",
+    "history_open_dir": "打开目录",
+    "history_close": "关闭",
+    "history_col_time": "时间",
+    "history_col_prompt": "Prompt / 输入",
+    "history_col_pixel": "像素",
+    "history_col_colors": "颜色",
+    "history_col_image_model": "生图模型",
+    "history_col_vision_model": "视觉模型",
+    "history_col_dir": "目录",
+    "history_no_records": "没有找到历史记录",
+    "history_loading": "正在加载历史记录…",
+    "history_count": "共 {count} 条记录",
+    "history_load_failed": "历史记录加载失败",
+    "history_loaded": "[OK] 已加载历史记录：{path}",
 
     # 设置对话框
     "settings_title": "设置",
@@ -209,7 +239,8 @@ _EN: dict[str, str] = {
     "menu_file": "File",
     "menu_open_image": "Open image…",
     "menu_open_output_dir": "Open output folder",
-    "menu_settings": "Settings…",
+    "menu_history": "History",
+    "menu_settings": "Settings",
 
     "group_input": "Input",
     "group_gen_params": "Image generation (prompt mode only)",
@@ -239,6 +270,14 @@ _EN: dict[str, str] = {
     "field_resample": "Downsample",
     "field_bg_tolerance": "BG tolerance",
     "field_bg_feather": "Edge feather",
+    "field_edge_style": "Edge style",
+    "field_edge_strength": "Edge strength",
+    "edge_style_hard": "Hard edge",
+    "edge_style_feather": "Feather",
+    "edge_style_outline": "Outline",
+    "edge_strength_hard_tip": "Hard-edge mode does not use edge strength",
+    "edge_strength_feather_tip": "Feather mode: edge strength is the alpha feather radius",
+    "edge_strength_outline_tip": "Outline mode: edge strength is the outside outline width",
     "chk_snap_to_grid": "Snap to source pixel grid",
     "chk_remove_bg": "Auto remove background (transparent)",
     "resample_smart": "Smart (recommended)",
@@ -249,7 +288,7 @@ _EN: dict[str, str] = {
     "dither_none": "None",
     "dither_ordered": "Ordered",
     "dither_floyd_steinberg": "Floyd-Steinberg",
-    "preset_auto": "Auto (AI-suggested)",
+    "preset_auto": "Auto (keep parameters)",
     "preset_gameboy": "Game Boy",
     "preset_nes": "NES",
     "preset_modern_pixel": "Modern pixel art",
@@ -306,6 +345,26 @@ _EN: dict[str, str] = {
     "log_warn_thread_not_exit": "[WARN] Background thread didn't exit within 5s; keeping reference to avoid crash",
     "log_run_ok": "[OK] Run folder: {path}",
     "log_run_error": "[ERROR] {error}",
+
+    "history_title": "History",
+    "history_search_label": "Search",
+    "history_search_placeholder": "Search prompt / model / folder…",
+    "history_refresh": "Refresh",
+    "history_load": "Load into main window",
+    "history_open_dir": "Open folder",
+    "history_close": "Close",
+    "history_col_time": "Time",
+    "history_col_prompt": "Prompt / input",
+    "history_col_pixel": "Pixels",
+    "history_col_colors": "Colors",
+    "history_col_image_model": "Image model",
+    "history_col_vision_model": "Vision model",
+    "history_col_dir": "Folder",
+    "history_no_records": "No history records found",
+    "history_loading": "Loading history records…",
+    "history_count": "{count} records",
+    "history_load_failed": "Failed to load history record",
+    "history_loaded": "[OK] Loaded history record: {path}",
 
     "settings_title": "Settings",
     "settings_provider": "Provider",
@@ -1565,6 +1624,48 @@ _RU: dict[str, str] = {
     "preview_save_failed_title": "Ошибка сохранения",
     "preview_save_failed_body": "Не удалось сохранить изображение в: {path}",
 }
+
+
+# 新增功能先提供英文兜底，保证所有语言 key 完整；后续可逐步补本地化译文。
+_EDGE_STYLE_KEYS = (
+    "field_edge_style",
+    "field_edge_strength",
+    "edge_style_hard",
+    "edge_style_feather",
+    "edge_style_outline",
+    "edge_strength_hard_tip",
+    "edge_strength_feather_tip",
+    "edge_strength_outline_tip",
+)
+for _mapping in (_ZH_TW, _JA, _KO, _FR, _DE, _ES, _RU):
+    for _key in _EDGE_STYLE_KEYS:
+        _mapping.setdefault(_key, _EN[_key])
+
+_HISTORY_KEYS = (
+    "menu_history",
+    "history_title",
+    "history_search_label",
+    "history_search_placeholder",
+    "history_refresh",
+    "history_load",
+    "history_open_dir",
+    "history_close",
+    "history_col_time",
+    "history_col_prompt",
+    "history_col_pixel",
+    "history_col_colors",
+    "history_col_image_model",
+    "history_col_vision_model",
+    "history_col_dir",
+    "history_no_records",
+    "history_loading",
+    "history_count",
+    "history_load_failed",
+    "history_loaded",
+)
+for _mapping in (_ZH_TW, _JA, _KO, _FR, _DE, _ES, _RU):
+    for _key in _HISTORY_KEYS:
+        _mapping.setdefault(_key, _EN[_key])
 
 
 # ---------------- 汇总 ----------------

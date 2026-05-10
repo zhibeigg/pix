@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QAction, QDesktopServices
+from PySide6.QtGui import QAction, QDesktopServices, QIcon
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -34,13 +34,20 @@ from PySide6.QtWidgets import (
 
 from pix import __version__
 from pix.config import AppConfig, load_config
+from pix.history import HistoryRecord
 from pix.i18n import add_retranslate_hook, set_language, tr
 from pix.pipeline import PipelineInput, PipelineResult
 from pix.pixelize.core import PixelizeParams
+from pix.resources import app_icon_path
 from pix.pixelize.presets import list_presets
+from pix.gui.history_dialog import HistoryDialog
 from pix.gui.combo_keys import (
     DITHER_KEYS,
     DITHER_VALUES,
+    EDGE_STYLE_KEYS,
+    EDGE_STYLE_VALUES,
+    IMAGE_SIZE_PRESETS,
+    PIXEL_SIZE_PRESETS,
     PRESET_KEYS,
     QUALITY_KEYS,
     QUALITY_VALUES,
@@ -59,6 +66,9 @@ _QUALITY_KEYS = QUALITY_KEYS
 _DITHER_VALUES = DITHER_VALUES
 _DITHER_KEYS = DITHER_KEYS
 
+_EDGE_STYLE_VALUES = EDGE_STYLE_VALUES
+_EDGE_STYLE_KEYS = EDGE_STYLE_KEYS
+
 _PRESET_KEYS = PRESET_KEYS
 
 _RESAMPLE_VALUES = RESAMPLE_VALUES
@@ -68,6 +78,9 @@ _RESAMPLE_KEYS = RESAMPLE_KEYS
 class MainWindow(QMainWindow):
     def __init__(self, config_file: Optional[Path] = None):
         super().__init__()
+        icon = QIcon(str(app_icon_path()))
+        if not icon.isNull():
+            self.setWindowIcon(icon)
         self.resize(1280, 800)
 
         self.config_file = config_file
@@ -79,6 +92,7 @@ class MainWindow(QMainWindow):
         self._worker: Optional[PipelineWorker] = None
         self._thread: Optional[WorkerThread] = None
         self._last_result: Optional[PipelineResult] = None
+        self._history_dialog: HistoryDialog | None = None
         # JSON 视图的占位文案（记录已见过的翻译，切语言时判断是否要覆盖）
         self._known_placeholders: set[str] = set()
 
@@ -115,11 +129,16 @@ class MainWindow(QMainWindow):
         self._act_open_out = QAction(self)
         self._act_open_out.triggered.connect(self._on_open_run_dir)
         self._file_menu.addAction(self._act_open_out)
-        self._file_menu.addSeparator()
+
+        self._act_history = QAction(self)
+        self._act_history.setShortcut("Ctrl+H")
+        self._act_history.triggered.connect(self._on_open_history)
+        menu.addAction(self._act_history)
+
         self._act_settings = QAction(self)
         self._act_settings.setShortcut("Ctrl+,")
         self._act_settings.triggered.connect(self._on_open_settings)
-        self._file_menu.addAction(self._act_settings)
+        menu.addAction(self._act_settings)
 
         status = QStatusBar()
         self.setStatusBar(status)
@@ -155,7 +174,8 @@ class MainWindow(QMainWindow):
         # 生图参数
         self._gen_box = QGroupBox()
         gen_lay = QVBoxLayout(self._gen_box)
-        self.image_size_edit = QLineEdit(self.cfg.image_gen.size)
+        self.image_size_edit = QComboBox()
+        self._fill_size_combo(self.image_size_edit, IMAGE_SIZE_PRESETS, self.cfg.image_gen.size)
         self.image_quality_combo = QComboBox()
         self._fill_quality_combo()
         _select_data(self.image_quality_combo, self.cfg.image_gen.quality)
@@ -167,7 +187,12 @@ class MainWindow(QMainWindow):
         # 像素化参数
         self._pix_box = QGroupBox()
         pix_lay = QVBoxLayout(self._pix_box)
-        self.pixel_size_edit = QLineEdit(f"{self.cfg.pixelize.output_size[0]}x{self.cfg.pixelize.output_size[1]}")
+        self.pixel_size_edit = QComboBox()
+        self._fill_size_combo(
+            self.pixel_size_edit,
+            PIXEL_SIZE_PRESETS,
+            f"{self.cfg.pixelize.output_size[0]}x{self.cfg.pixelize.output_size[1]}",
+        )
         self.colors_spin = QSpinBox()
         self.colors_spin.setRange(2, 256)
         self.colors_spin.setValue(self.cfg.pixelize.colors)
@@ -199,6 +224,10 @@ class MainWindow(QMainWindow):
         self.bg_tol_spin = QSpinBox()
         self.bg_tol_spin.setRange(0, 128)
         self.bg_tol_spin.setValue(self.cfg.pixelize.bg_tolerance)
+        self.edge_style_combo = QComboBox()
+        self._fill_edge_style_combo()
+        _select_data(self.edge_style_combo, self.cfg.pixelize.edge_style)
+        self.edge_style_combo.currentIndexChanged.connect(self._on_edge_style_changed)
         self.bg_feather_spin = QSpinBox()
         self.bg_feather_spin.setRange(0, 8)
         self.bg_feather_spin.setValue(self.cfg.pixelize.bg_feather)
@@ -212,6 +241,7 @@ class MainWindow(QMainWindow):
         self._lbl_edge = QLabel()
         self._lbl_resample = QLabel()
         self._lbl_bg_tol = QLabel()
+        self._lbl_edge_style = QLabel()
         self._lbl_bg_feather = QLabel()
         pix_lay.addWidget(self._labeled(self._lbl_pixel_size, self.pixel_size_edit))
         pix_lay.addWidget(self._labeled(self._lbl_colors, self.colors_spin))
@@ -221,6 +251,7 @@ class MainWindow(QMainWindow):
         pix_lay.addWidget(self.snap_chk)
         pix_lay.addWidget(self.remove_bg_chk)
         pix_lay.addWidget(self._labeled(self._lbl_bg_tol, self.bg_tol_spin))
+        pix_lay.addWidget(self._labeled(self._lbl_edge_style, self.edge_style_combo))
         pix_lay.addWidget(self._labeled(self._lbl_bg_feather, self.bg_feather_spin))
         pix_lay.addWidget(self._labeled(self._lbl_preview_scale, self.preview_spin))
         pix_lay.addWidget(self._labeled(self._lbl_saturation, self.sat_spin))
@@ -311,6 +342,21 @@ class MainWindow(QMainWindow):
 
     # ---------- combobox 填充 ----------
 
+    def _fill_size_combo(self, combo: QComboBox, presets: list[str], current: str) -> None:
+        combo.clear()
+        combo.setEditable(True)
+        combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        for value in presets:
+            combo.addItem(value, value)
+        idx = combo.findText(current)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+        else:
+            combo.setEditText(current)
+
+    def _combo_text(self, combo: QComboBox) -> str:
+        return combo.currentText().strip()
+
     def _fill_quality_combo(self) -> None:
         self.image_quality_combo.clear()
         for v in _QUALITY_VALUES:
@@ -333,6 +379,11 @@ class MainWindow(QMainWindow):
         for v in _RESAMPLE_VALUES:
             self.resample_combo.addItem(tr(_RESAMPLE_KEYS[v]), v)
 
+    def _fill_edge_style_combo(self) -> None:
+        self.edge_style_combo.clear()
+        for v in _EDGE_STYLE_VALUES:
+            self.edge_style_combo.addItem(tr(_EDGE_STYLE_KEYS[v]), v)
+
     # ---------- 翻译 ----------
 
     def _retranslate_ui(self) -> None:
@@ -340,6 +391,7 @@ class MainWindow(QMainWindow):
         self._file_menu.setTitle(tr("menu_file"))
         self._act_open.setText(tr("menu_open_image"))
         self._act_open_out.setText(tr("menu_open_output_dir"))
+        self._act_history.setText(tr("menu_history"))
         self._act_settings.setText(tr("menu_settings"))
 
         self._input_box.setTitle(tr("group_input"))
@@ -364,7 +416,8 @@ class MainWindow(QMainWindow):
         self._lbl_edge.setText(tr("field_edge_enhance"))
         self._lbl_resample.setText(tr("field_resample"))
         self._lbl_bg_tol.setText(tr("field_bg_tolerance"))
-        self._lbl_bg_feather.setText(tr("field_bg_feather"))
+        self._lbl_edge_style.setText(tr("field_edge_style"))
+        self._lbl_bg_feather.setText(tr("field_edge_strength"))
         self.snap_chk.setText(tr("chk_snap_to_grid"))
         self.remove_bg_chk.setText(tr("chk_remove_bg"))
         self._lbl_vl_model.setText(tr("field_vl_model"))
@@ -380,6 +433,8 @@ class MainWindow(QMainWindow):
         _refill_combo(self.dither_combo, lambda v: tr(_DITHER_KEYS[v]))
         _refill_combo(self.preset_combo, lambda v: tr(_PRESET_KEYS[v]) if v in _PRESET_KEYS else v)
         _refill_combo(self.resample_combo, lambda v: tr(_RESAMPLE_KEYS[v]))
+        _refill_combo(self.edge_style_combo, lambda v: tr(_EDGE_STYLE_KEYS[v]))
+        self._on_edge_style_changed()
 
         # 右侧 tabs
         self.tabs.setTabText(0, tr("tab_source"))
@@ -403,6 +458,16 @@ class MainWindow(QMainWindow):
         use_prompt = self.rb_prompt.isChecked()
         self.prompt_edit.setEnabled(use_prompt)
         self.image_path_edit.setEnabled(not use_prompt)
+
+    def _on_edge_style_changed(self) -> None:
+        style = self.edge_style_combo.currentData() or "hard"
+        self.bg_feather_spin.setEnabled(style != "hard")
+        if style == "hard":
+            self.bg_feather_spin.setToolTip(tr("edge_strength_hard_tip"))
+        elif style == "feather":
+            self.bg_feather_spin.setToolTip(tr("edge_strength_feather_tip"))
+        else:
+            self.bg_feather_spin.setToolTip(tr("edge_strength_outline_tip"))
 
     def _on_browse_image(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -447,7 +512,7 @@ class MainWindow(QMainWindow):
         if not use_prompt and (image_path is None or not image_path.exists()):
             raise ValueError(tr("err_invalid_image_path"))
 
-        pixel_w, pixel_h = _parse_size(self.pixel_size_edit.text())
+        pixel_w, pixel_h = _parse_size(self._combo_text(self.pixel_size_edit))
         params = PixelizeParams(
             output_size=(pixel_w, pixel_h),
             colors=self.colors_spin.value(),
@@ -461,11 +526,12 @@ class MainWindow(QMainWindow):
             remove_bg=self.remove_bg_chk.isChecked(),
             bg_tolerance=self.bg_tol_spin.value(),
             bg_feather=self.bg_feather_spin.value(),
+            edge_style=self.edge_style_combo.currentData() or "hard",
         )
         return PipelineInput(
             prompt=prompt,
             image_path=image_path,
-            image_size=self.image_size_edit.text().strip() or None,
+            image_size=self._combo_text(self.image_size_edit) or None,
             image_quality=self.image_quality_combo.currentData() or _QUALITY_VALUES[2],
             vl_model=self.vl_model_edit.text().strip() or None,
             skip_vl=self.no_vl_chk.isChecked(),
@@ -527,6 +593,81 @@ class MainWindow(QMainWindow):
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._last_result.run_dir)))
 
+    def _on_open_history(self) -> None:
+        if self._history_dialog is not None and self._history_dialog.isVisible():
+            self._history_dialog.raise_()
+            self._history_dialog.activateWindow()
+            return
+        dlg = HistoryDialog(self.cfg.output.root, limit=self.cfg.history.max_items, parent=self)
+        dlg.setModal(False)
+        dlg.record_selected.connect(self._load_history_record)
+        dlg.finished.connect(lambda _code: setattr(self, "_history_dialog", None))
+        self._history_dialog = dlg
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+
+    def _load_history_record(self, record: HistoryRecord) -> None:
+        try:
+            meta = json.loads(record.meta_path.read_text(encoding="utf-8"))
+        except Exception:
+            meta = {}
+
+        if record.prompt:
+            self.rb_prompt.setChecked(True)
+            self.prompt_edit.setPlainText(record.prompt)
+        elif record.image_path:
+            self.rb_image.setChecked(True)
+            self.image_path_edit.setText(record.image_path)
+
+        if record.pixel_size:
+            self.pixel_size_edit.setEditText(f"{record.pixel_size[0]}x{record.pixel_size[1]}")
+        if record.colors is not None:
+            self.colors_spin.setValue(record.colors)
+        if record.dither:
+            _select_data(self.dither_combo, record.dither)
+        if record.preset:
+            _select_data(self.preset_combo, record.preset)
+        if record.remove_bg is not None:
+            self.remove_bg_chk.setChecked(record.remove_bg)
+        if record.bg_tolerance is not None:
+            self.bg_tol_spin.setValue(record.bg_tolerance)
+        if record.edge_style:
+            _select_data(self.edge_style_combo, record.edge_style)
+        if record.bg_feather is not None:
+            self.bg_feather_spin.setValue(record.bg_feather)
+        self._on_edge_style_changed()
+        if record.vision_model:
+            self.vl_model_edit.setText(record.vision_model)
+
+        if record.source_path and record.source_path.exists():
+            self.source_panel.show_image(record.source_path)
+        if record.analysis_path and record.analysis_path.exists():
+            try:
+                self.json_view.setText(record.analysis_path.read_text(encoding="utf-8"))
+            except Exception:
+                self.json_view.setPlainText(tr("json_analysis_failed", error=tr("history_load_failed")))
+        else:
+            self.json_view.setPlainText(json.dumps(meta, ensure_ascii=False, indent=2) if meta else tr("json_placeholder"))
+        if record.pixel_path and record.pixel_path.exists():
+            self.pixel_panel.show_image(record.pixel_path)
+            self.tabs.setCurrentIndex(2)
+        elif record.source_path and record.source_path.exists():
+            self.tabs.setCurrentIndex(0)
+
+        self._last_result = PipelineResult(
+            run_dir=record.run_dir,
+            source_path=record.source_path or record.run_dir,
+            analysis_path=record.analysis_path,
+            analysis=None,
+            pixel_path=record.pixel_path or record.run_dir,
+            preview_path=record.preview_path,
+            meta_path=record.meta_path,
+            meta=meta,
+        )
+        self.open_dir_btn.setEnabled(True)
+        self._log(tr("history_loaded", path=str(record.run_dir)))
+
     def _on_open_settings(self) -> None:
         # 把主窗口的 config 路径透传给设置对话框，保证两边读写的是同一个文件
         cfg_path = Path(self.config_file) if self.config_file else Path("config.toml")
@@ -553,7 +694,7 @@ class MainWindow(QMainWindow):
 
         # 设置里保存的值就是新默认；强制同步到主窗口对应输入框
         self.vl_model_edit.setText(self.cfg.vision.model)
-        self.image_size_edit.setText(self.cfg.image_gen.size)
+        self.image_size_edit.setEditText(self.cfg.image_gen.size)
         _select_data(self.image_quality_combo, self.cfg.image_gen.quality)
         self._refresh_status_bar()
 

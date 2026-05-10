@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image
 
-from pix.analysis.schema import PixAnalysis, StyleAnalysis
+from pix.analysis.schema import BBoxNorm, PixAnalysis, SemanticRegion, StyleAnalysis
 from pix.pixelize.bg_removal import remove_background
 from pix.pixelize.core import (
     PixelizeParams,
@@ -161,14 +161,19 @@ class TestRemoveBackground:
         arr = np.asarray(out)
         assert arr[0, 0, 3] == 0
 
-    def test_feather_preserves_subject_edge(self) -> None:
+    def test_feather_softens_subject_edge_alpha(self) -> None:
         img = _solid_bg_with_subject(size=64)
         out_no = remove_background(img, tolerance=12, feather=0)
-        out_feather = remove_background(img, tolerance=12, feather=2)
-        # feather 后透明像素应更少（保留了主体边缘一圈）
+        out_feather = remove_background(img, tolerance=12, feather=2, edge_style="feather")
+        # feather 后背景仍全透明，但主体边缘 alpha 会降低成半透明。
         alpha_no = np.asarray(out_no)[..., 3]
         alpha_fe = np.asarray(out_feather)[..., 3]
-        assert (alpha_fe == 0).sum() <= (alpha_no == 0).sum()
+        assert (alpha_fe == 0).sum() == (alpha_no == 0).sum()
+        assert alpha_fe[0, 0] == 0
+        assert (alpha_fe[0, :] == 0).all()
+        assert (alpha_fe[:, 0] == 0).all()
+        assert 0 < alpha_fe[16, 16] < 255
+        assert alpha_fe[32, 32] == 255
 
     def test_keep_border_bleed_when_corners_differ(self) -> None:
         """当四角颜色差异大（主体可能压到边），不硬抠。"""
@@ -182,6 +187,55 @@ class TestRemoveBackground:
         # 四角色不一致，应原样返回（全不透明）
         a = np.asarray(out)[..., 3]
         assert (a == 255).all()
+
+    def test_feather_uses_diagonal_neighbors(self) -> None:
+        img = Image.new("RGB", (5, 5), (240, 240, 240))
+        for x, y in ((2, 2), (1, 2), (2, 1), (3, 2), (2, 3)):
+            img.putpixel((x, y), (20, 20, 20))
+
+        out = remove_background(img, tolerance=4, feather=1, edge_style="feather")
+        alpha = np.asarray(out)[..., 3]
+
+        # 中心像素只有对角方向接触背景；8 邻域羽化应覆盖它。
+        assert 0 < alpha[2, 2] < 255
+
+    def test_outline_edge_style_adds_opaque_outline(self) -> None:
+        img = Image.new("RGB", (8, 8), (240, 240, 240))
+        img.putpixel((3, 3), (120, 200, 240))
+        img.putpixel((4, 3), (120, 200, 240))
+        img.putpixel((3, 4), (120, 200, 240))
+        img.putpixel((4, 4), (120, 200, 240))
+
+        out = remove_background(img, tolerance=4, edge_style="outline", feather=1)
+        arr = np.asarray(out)
+
+        assert arr[0, 0, 3] == 0
+        assert arr[2, 3, 3] == 255
+        assert tuple(arr[2, 3, :3]) != (240, 240, 240)
+        assert arr[3, 3, 3] == 255
+
+    def test_hard_edge_style_ignores_feather_strength(self) -> None:
+        img = _solid_bg_with_subject(size=32)
+        out = remove_background(img, tolerance=12, feather=3, edge_style="hard")
+        alpha = np.asarray(out)[..., 3]
+        assert set(np.unique(alpha)).issubset({0, 255})
+
+    def test_checkerboard_fake_transparency_removed_from_edges(self) -> None:
+        arr = np.zeros((64, 64, 3), dtype=np.uint8)
+        for y in range(64):
+            for x in range(64):
+                arr[y, x] = [255, 255, 255] if ((x // 8 + y // 8) % 2 == 0) else [232, 242, 248]
+        arr[24:40, 24:40] = [0, 120, 255]
+        arr[29:35, 29:35] = [255, 255, 255]  # 主体内部高光，不应因边缘抠背景被删
+        img = Image.fromarray(arr, mode="RGB")
+
+        out = remove_background(img, tolerance=18)
+        a = np.asarray(out)[..., 3]
+
+        assert a[0, 0] == 0
+        assert a[12, 12] == 0
+        assert a[26, 26] == 255
+        assert a[31, 31] == 255
 
 
 class TestPixelizeRemoveBg:
@@ -243,3 +297,42 @@ class TestPixelizeRemoveBg:
         assert meta["effective_params"]["remove_bg"] is True
         assert meta["effective_params"]["bg_tolerance"] == 16
         assert (np.asarray(result.convert("RGBA"))[..., 3] == 0).any()
+
+    def test_remove_bg_before_semantic_regions_handles_fake_checkerboard(self) -> None:
+        arr = np.zeros((128, 128, 3), dtype=np.uint8)
+        for y in range(128):
+            for x in range(128):
+                arr[y, x] = [255, 255, 255] if ((x // 16 + y // 16) % 2 == 0) else [232, 242, 248]
+        arr[44:84, 44:84] = [0, 160, 255]
+        img = Image.fromarray(arr, mode="RGB")
+        analysis = PixAnalysis(
+            description="mock",
+            style=StyleAnalysis(recommended_preset="auto", target_color_count=4, suggested_dither="none"),
+            palette=[],
+            main_subjects=[],
+            semantic_regions=[
+                SemanticRegion(
+                    label="aura",
+                    bbox_norm=BBoxNorm(x=0, y=0, w=1, h=1),
+                    palette_hint=["#80E8FF"],
+                )
+            ],
+        )
+
+        result, _, meta = pixelize(
+            img,
+            PixelizeParams(
+                output_size=(32, 32),
+                colors=4,
+                dither="none",
+                remove_bg=True,
+                bg_tolerance=18,
+                preview_scale=0,
+            ),
+            analysis=analysis,
+        )
+
+        rgba = np.asarray(result.convert("RGBA"))
+        assert meta["effective_params"]["remove_bg"] is True
+        assert (rgba[..., 3] == 0).any()
+        assert rgba[16, 16, 3] == 255

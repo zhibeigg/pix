@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+IMAGE_SIZE_PRESETS: list[str] = ["1024x1024", "1536x1024", "1024x1536"]
+PIXEL_SIZE_PRESETS: list[str] = ["16x16", "32x32", "48x48", "64x64", "96x96", "128x128", "256x256"]
+
 QUALITY_VALUES: list[str] = ["low", "medium", "high", "auto"]
 QUALITY_KEYS: dict[str, str] = {
     "low": "quality_low",
@@ -23,6 +26,13 @@ PRESET_KEYS: dict[str, str] = {
     "nes": "preset_nes",
     "modern_pixel": "preset_modern_pixel",
     "pico8": "preset_pico8",
+}
+
+EDGE_STYLE_VALUES: list[str] = ["hard", "feather", "outline"]
+EDGE_STYLE_KEYS: dict[str, str] = {
+    "hard": "edge_style_hard",
+    "feather": "edge_style_feather",
+    "outline": "edge_style_outline",
 }
 
 RESAMPLE_VALUES: list[str] = ["smart", "box", "bicubic", "lanczos", "nearest"]
