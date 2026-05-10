@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-05-10
+
+### Added
+
+- 前端素材包面板支持点击筛选，作品网格可切换为全部作品或指定素材包任务。
+- 作品网格新增当前筛选提示，轮询会同步刷新素材包任务列表。
+
 ## [0.11.0] - 2026-05-10
 
 ### Added
@@ -152,7 +159,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/zhibeigg/pix/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/zhibeigg/pix/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/zhibeigg/pix/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/zhibeigg/pix/compare/v0.8.0...v0.9.0

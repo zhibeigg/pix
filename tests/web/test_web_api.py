@@ -117,6 +117,7 @@ def test_batch_create_jobs_reserves_atomically(client: TestClient) -> None:
     assert batches[0]["total_price_credits"] == 40
     batch_jobs = client.get(f"/batches/{body['batch_id']}/jobs", headers=headers).json()
     assert len(batch_jobs) == 2
+    assert {job["batch_id"] for job in batch_jobs} == {body["batch_id"]}
 
     _other, other_headers = _register_and_login(client, "other@example.com")
     forbidden = client.get(f"/batches/{body['batch_id']}/jobs", headers=other_headers)

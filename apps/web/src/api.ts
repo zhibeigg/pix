@@ -83,6 +83,9 @@ export const api = {
   batches(token: string) {
     return request<GenerationBatch[]>('/batches?limit=50', {}, token)
   },
+  batchJobs(token: string, batchId: number) {
+    return request<GenerationJob[]>(`/batches/${batchId}/jobs`, {}, token)
+  },
   adminUsers(token: string) {
     return request<User[]>('/admin/users?limit=100', {}, token)
   },

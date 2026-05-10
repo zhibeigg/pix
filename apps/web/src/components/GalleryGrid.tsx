@@ -4,6 +4,7 @@ import { summarizePrompt } from '../pixelize'
 type GalleryGridProps = {
   jobs: GenerationJob[]
   selectedJobId: number | null
+  subtitle?: string
   onSelect: (job: GenerationJob) => void
   onCopyPath: (path: string) => void
 }
@@ -16,7 +17,7 @@ const statusLabels: Record<string, string> = {
   cancelled: '已取消',
 }
 
-export function GalleryGrid({ jobs, selectedJobId, onSelect, onCopyPath }: GalleryGridProps) {
+export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPath }: GalleryGridProps) {
   const ordered = [...jobs].sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at)))
 
   return (
@@ -25,6 +26,7 @@ export function GalleryGrid({ jobs, selectedJobId, onSelect, onCopyPath }: Galle
         <div>
           <p className="eyebrow">Library</p>
           <h2>作品网格</h2>
+          {subtitle && <p className="muted">{subtitle}</p>}
         </div>
         <span className="price-tag">{ordered.length} 件作品/任务</span>
       </div>
