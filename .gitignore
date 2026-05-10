@@ -4,6 +4,7 @@
 # Frontend
 node_modules/
 apps/web/dist/
+apps/web/tsconfig.tsbuildinfo
 
 # Python
 __pycache__/
