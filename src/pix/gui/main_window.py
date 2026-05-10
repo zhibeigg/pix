@@ -528,7 +528,9 @@ class MainWindow(QMainWindow):
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._last_result.run_dir)))
 
     def _on_open_settings(self) -> None:
-        dlg = SettingsDialog(self)
+        # 把主窗口的 config 路径透传给设置对话框，保证两边读写的是同一个文件
+        cfg_path = Path(self.config_file) if self.config_file else Path("config.toml")
+        dlg = SettingsDialog(self, config_path=cfg_path)
         dlg.exec()
         if dlg.was_saved():
             self._reload_config()
@@ -537,10 +539,11 @@ class MainWindow(QMainWindow):
             )
 
     def _reload_config(self) -> None:
-        """重新加载配置：语言同步切换，且输入框/combobox 在未被用户改动时跟随新默认。"""
-        old_vision_model = self.cfg.vision.model
-        old_size = self.cfg.image_gen.size
-        old_quality = self.cfg.image_gen.quality
+        """重新加载配置：语言同步切换，并把主窗口的默认值字段强制同步成新值。
+
+        用户点了设置→保存即表达"用新的默认"，所以这里不再做"等于旧值才同步"的判断，
+        直接覆盖 VL 模型、生图尺寸、生图质量三处。其它像素化参数仍保留用户的临时改动。
+        """
         old_language = self.cfg.ui.language
         self.cfg = load_config(config_file=self.config_file)
 
@@ -548,12 +551,10 @@ class MainWindow(QMainWindow):
         if self.cfg.ui.language != old_language:
             set_language(self.cfg.ui.language)
 
-        if self.vl_model_edit.text().strip() in ("", old_vision_model):
-            self.vl_model_edit.setText(self.cfg.vision.model)
-        if self.image_size_edit.text().strip() in ("", old_size):
-            self.image_size_edit.setText(self.cfg.image_gen.size)
-        if (self.image_quality_combo.currentData() or "") == old_quality:
-            _select_data(self.image_quality_combo, self.cfg.image_gen.quality)
+        # 设置里保存的值就是新默认；强制同步到主窗口对应输入框
+        self.vl_model_edit.setText(self.cfg.vision.model)
+        self.image_size_edit.setText(self.cfg.image_gen.size)
+        _select_data(self.image_quality_combo, self.cfg.image_gen.quality)
         self._refresh_status_bar()
 
     def _refresh_status_bar(self) -> None:
