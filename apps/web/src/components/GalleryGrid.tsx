@@ -62,6 +62,7 @@ export function GalleryGrid({ jobs, selectedJobId, onSelect, onCopyPath }: Galle
                     <span>{job.price_credits} credits</span>
                     <span>{new Date(job.created_at).toLocaleString()}</span>
                   </div>
+                  {job.batch_name && <p className="muted">素材包：{job.batch_name}</p>}
                   {mainPath && (
                     <button
                       className="ghost compact"

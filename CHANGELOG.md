@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-05-10
+
+### Added
+
+- 新增素材包/批次模型，批量创建任务时会生成可命名素材包并关联新任务。
+- 新增 `/batches` 与 `/batches/{id}/jobs` 接口，前端新增素材包摘要面板并在作品卡片显示所属素材包。
+
 ## [0.10.0] - 2026-05-10
 
 ### Added
@@ -145,7 +152,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/zhibeigg/pix/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/zhibeigg/pix/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/zhibeigg/pix/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/zhibeigg/pix/compare/v0.7.0...v0.8.0

@@ -93,6 +93,8 @@ class JobCreateRequest(BaseModel):
 
 class JobBatchCreateRequest(BaseModel):
     jobs: list[JobCreateRequest] = Field(min_length=1, max_length=50)
+    batch_name: str = Field(default="", max_length=160)
+    mode: str = Field(default="mixed", max_length=32)
 
 
 class UploadResponse(BaseModel):
@@ -131,6 +133,7 @@ class JobOutputResponse(BaseModel):
 
 class JobResponse(BaseModel):
     id: int
+    batch_id: int | None
     job_type: str
     status: str
     prompt: str | None
@@ -140,6 +143,13 @@ class JobResponse(BaseModel):
     @property
     def input_image_url(self) -> str | None:
         return file_url(self.input_image_path)
+
+    @computed_field
+    @property
+    def batch_name(self) -> str | None:
+        batch = getattr(self, "batch", None)
+        return getattr(batch, "name", None)
+
     params_json: dict[str, Any]
     price_credits: int
     reserved_credits: int
@@ -154,6 +164,20 @@ class JobResponse(BaseModel):
 
 class JobBatchCreateResponse(BaseModel):
     jobs: list[JobResponse]
+    total_price_credits: int
+    batch_id: int | None = None
+
+
+class GenerationBatchResponse(BaseModel):
+    id: int
+    name: str
+    mode: str
+    created_at: datetime
+    job_count: int
+    succeeded_count: int
+    failed_count: int
+    running_count: int
+    pending_count: int
     total_price_credits: int
 
 

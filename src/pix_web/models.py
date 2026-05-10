@@ -70,12 +70,25 @@ class PricingRule(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class GenerationBatch(Base):
+    __tablename__ = "generation_batches"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(160), default="")
+    mode: Mapped[str] = mapped_column(String(32), default="mixed", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+    jobs: Mapped[list["GenerationJob"]] = relationship(back_populates="batch")
+
+
 class GenerationJob(Base):
     __tablename__ = "generation_jobs"
     __table_args__ = (UniqueConstraint("user_id", "client_request_id", name="uq_job_user_request"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    batch_id: Mapped[int | None] = mapped_column(ForeignKey("generation_batches.id"), nullable=True, index=True)
     client_request_id: Mapped[str] = mapped_column(String(128), default="", index=True)
     job_type: Mapped[str] = mapped_column(String(32), index=True)
     status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
@@ -90,6 +103,7 @@ class GenerationJob(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    batch: Mapped[GenerationBatch | None] = relationship(back_populates="jobs")
     outputs: Mapped[list["GenerationOutput"]] = relationship(back_populates="job")
 
 

@@ -17,11 +17,12 @@ type BatchGeneratePanelProps = {
   pricing: PricingRule[]
   loading: boolean
   token: string
-  onSubmitMany: (payloads: JobCreateRequest[]) => Promise<void>
+  onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void>
 }
 
 export function BatchGeneratePanel({ pricing, loading, token, onSubmitMany }: BatchGeneratePanelProps) {
   const [batchMode, setBatchMode] = useState<BatchMode>('text_to_image')
+  const [batchName, setBatchName] = useState('RPG 材料包')
   const [prompts, setPrompts] = useState('血气灵玉\n紫髓铁\n幽香腐骨菇\n玉石原石\n紫檀木')
   const [sharedPrompt, setSharedPrompt] = useState('保留主体，统一改造成清晰的像素游戏图标风格')
   const [uploads, setUploads] = useState<BatchUpload[]>([])
@@ -89,7 +90,7 @@ export function BatchGeneratePanel({ pricing, loading, token, onSubmitMany }: Ba
         pixelize,
       }))
     }
-    await onSubmitMany(payloads)
+    await onSubmitMany(payloads, batchName, batchMode)
   }
 
   return (
@@ -102,6 +103,10 @@ export function BatchGeneratePanel({ pricing, loading, token, onSubmitMany }: Ba
         <span className="price-tag">{taskCount} 个 · 预计 {totalPrice} credits</span>
       </div>
       <form className="stack" onSubmit={submit}>
+        <label>
+          素材包名称
+          <input value={batchName} onChange={(event) => setBatchName(event.target.value)} placeholder="例如：RPG 材料包" />
+        </label>
         <label>
           批量类型
           <select value={batchMode} onChange={(event) => setBatchMode(event.target.value as BatchMode)}>

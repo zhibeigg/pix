@@ -78,10 +78,26 @@ export type JobOutput = {
 export type JobBatchCreateResponse = {
   jobs: GenerationJob[]
   total_price_credits: number
+  batch_id: number | null
+}
+
+export type GenerationBatch = {
+  id: number
+  name: string
+  mode: string
+  created_at: string
+  job_count: number
+  succeeded_count: number
+  failed_count: number
+  running_count: number
+  pending_count: number
+  total_price_credits: number
 }
 
 export type GenerationJob = {
   id: number
+  batch_id: number | null
+  batch_name: string | null
   job_type: string
   status: string
   prompt: string | null
