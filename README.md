@@ -24,8 +24,8 @@
 
 `pix` 把「想象 → 生图 → 理解 → 像素化」串成一条流水线：
 
-1. 你写一句 prompt（或丢一张图进来）
-2. `gpt-image-2` 按 prompt 生图
+1. 你写一句 prompt（或丢一张图进来；也可以“图片 + prompt”走图生图编辑）
+2. `gpt-image-2` 按 prompt 生图，或通过 Packy `/v1/images/edits` 做图生图
 3. Claude / Gemini / GPT-4o 读图，输出**结构化 JSON**（调色板、主体 ROI、语义区域）
 4. Python 根据 JSON 生成**真正的像素画**：锁定调色板、语义区域调色、抖动、风格预设
 
@@ -35,7 +35,7 @@
 
 ## ✨ 特性
 
-- **两种起点**：一句 prompt 从头生图，或直接丢一张现成图片进来
+- **三种起点**：一句 prompt 从头生图、直接丢一张现成图片像素化，或“图片 + prompt”走 Packy 图生图编辑后再像素化
 - **像素对齐 & 透明背景**：`smart` 下采样自动探测输入像素格并吸附，边缘不再糊；一键 `--remove-bg` 把纯色底抠成透明 PNG
 - **结构化 JSON**：VL 模型不是一句描述就完事，而是输出调色板、主体位置、语义区域建议，严格经 Pydantic 校验，失败自动带修正提示重试
 - **四套内置预设**：`gameboy` · `nes` · `modern_pixel` · `pico8`，支持自定义 TOML
@@ -173,6 +173,7 @@ pix gen "一只像素风橘猫戴着橙色围巾" \
     --preset auto
 
 pix run my_photo.png --pixel-size 64x64 --preset gameboy    # 已有图 → 分析 → 像素化
+pix run my_photo.png --prompt "保留主体，改成冰蓝水晶材质" --pixel-size 64x64 # 图生图编辑 → 像素化
 pix pixelize my_photo.png --colors 8 --preset pico8          # 只做像素化（不走网络）
 pix analyze my_photo.png --model claude-sonnet-4-5           # 只做 VL 分析
 pix gen-only "一只像素风橘猫"                                 # 只做文生图
@@ -207,7 +208,8 @@ pix gui                                                      # 启动图形界�
 | `--no-vl` | 跳过多模态分析（纯 Python 兜底） | `false` |
 | `--no-cache` / `--refresh` | 禁用缓存 / 忽略命中强刷 | `false` |
 | `--image-size WxH` | 生图尺寸（遵循 Packy 限制） | `1024x1024` |
-| `--image-quality low\|medium\|high\|auto` | 生图质量 | `high` |
+| `--image-quality low\|medium\|high\|auto` | 生图 / 图生图质量 | `high` |
+| `pix run IMAGE --prompt TEXT` | 使用 Packy `/v1/images/edits` 图生图编辑，再进入分析和像素化；不传 `--prompt` 时仍直接像素化原图 | - |
 
 ### 游戏素材直出
 

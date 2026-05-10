@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-10
+
+### Added
+
+- 接入 Packy `/v1/images/edits` 图生图编辑：CLI `pix run IMAGE --prompt TEXT` 和 GUI 图片模式填写 prompt 时会先图生图，再进入分析与像素化；留空 prompt 时保持直接像素化原图。
+
 ## [0.2.4] - 2026-05-10
 
 ### Fixed
@@ -78,7 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/zhibeigg/pix/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/zhibeigg/pix/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/zhibeigg/pix/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/zhibeigg/pix/compare/v0.2.1...v0.2.2

@@ -143,6 +143,51 @@ def test_pipeline_skip_vl(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     assert result.pixel_path.exists()
 
 
+def test_pipeline_from_image_edit(
+    tmp_path: Path, sample_image: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    png = _png_bytes()
+    edit_calls = {"n": 0}
+    vl_calls = {"n": 0}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.path == "/v1/images/edits":
+            edit_calls["n"] += 1
+            assert req.headers["content-type"].startswith("multipart/form-data")
+            assert b'name="prompt"' in req.content
+            assert b"make it warmer" in req.content
+            assert b'name="image"' in req.content
+            return httpx.Response(200, json={"data": [{"url": "https://cdn.test/edited.png"}]})
+        if req.url.host == "cdn.test":
+            return httpx.Response(200, content=png)
+        if req.url.path == "/v1/chat/completions":
+            vl_calls["n"] += 1
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": _ANALYSIS_BLOCK}}]},
+            )
+        return httpx.Response(404)
+
+    _install_mock(monkeypatch, handler)
+    cfg = _cfg(tmp_path)
+    inputs = PipelineInput(
+        prompt="make it warmer",
+        image_path=sample_image,
+        pixelize_params=PixelizeParams(output_size=(16, 16), colors=4, preview_scale=0),
+        use_cache=False,
+    )
+    events: list[str] = []
+    result = run_pipeline(cfg, inputs, progress=lambda s, _p: events.append(s))
+
+    assert edit_calls["n"] == 1
+    assert vl_calls["n"] == 1
+    assert result.source_path.exists()
+    assert result.meta["image_gen"]["mode"] == "edited"
+    assert result.meta["image_gen"]["used"] is True
+    assert "image_edit_start" in events
+    assert "source_ready" in events
+
+
 def test_pipeline_from_image(tmp_path: Path, sample_image: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     vl_calls = {"n": 0}
     gen_calls = {"n": 0}

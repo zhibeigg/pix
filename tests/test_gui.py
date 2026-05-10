@@ -46,7 +46,8 @@ def test_main_window_builds(qapp) -> None:
         assert w._act_history in top_actions
         assert w._act_settings in top_actions
         w.rb_image.setChecked(True)
-        assert not w.prompt_edit.isEnabled()
+        # 图片模式下 prompt 仍可填写；有内容时会走图生图编辑，留空则直接像素化原图。
+        assert w.prompt_edit.isEnabled()
         w.rb_prompt.setChecked(True)
         assert w.prompt_edit.isEnabled()
     finally:
@@ -101,6 +102,10 @@ def test_collect_inputs_image_mode_with_real_path(qapp, sample_image) -> None:
         inputs = w._collect_inputs()
         assert inputs.prompt is None
         assert inputs.image_path == sample_image
+        w.prompt_edit.setPlainText("make it warmer")
+        edit_inputs = w._collect_inputs()
+        assert edit_inputs.prompt == "make it warmer"
+        assert edit_inputs.image_path == sample_image
     finally:
         w.deleteLater()
 

@@ -25,14 +25,14 @@ _ZH_CN: dict[str, str] = {
 
     # 分组标题
     "group_input": "输入",
-    "group_gen_params": "生图参数（仅 prompt 模式）",
+    "group_gen_params": "生图 / 图生图参数",
     "group_pixelize": "像素化参数",
     "group_vl_cache": "VL / 缓存",
 
     # 输入控件
     "radio_prompt": "文本 prompt",
-    "radio_image": "本地图片",
-    "prompt_placeholder": "输入一段用于生图的描述，例如:一只橘猫戴着橙色围巾,像素插画风格",
+    "radio_image": "本地图片 / 图生图",
+    "prompt_placeholder": "文本模式:输入生图描述；图片模式:可填写图生图编辑提示,留空则直接像素化原图",
     "image_path_placeholder": "图片文件路径",
     "btn_browse": "浏览…",
 
@@ -245,13 +245,13 @@ _EN: dict[str, str] = {
     "menu_settings": "Settings",
 
     "group_input": "Input",
-    "group_gen_params": "Image generation (prompt mode only)",
+    "group_gen_params": "Image generation / editing",
     "group_pixelize": "Pixelization",
     "group_vl_cache": "VL / Cache",
 
     "radio_prompt": "Text prompt",
-    "radio_image": "Local image",
-    "prompt_placeholder": "Describe what you want to generate, e.g. An orange cat wearing an orange scarf, pixel art illustration.",
+    "radio_image": "Local image / image edit",
+    "prompt_placeholder": "Text mode: describe the image to generate. Image mode: optionally enter an edit prompt; leave empty to pixelize the original.",
     "image_path_placeholder": "Image file path",
     "btn_browse": "Browse…",
 

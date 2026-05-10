@@ -11,7 +11,7 @@ import httpx
 import pytest
 from PIL import Image
 
-from pix.api.image_gen import generate_image
+from pix.api.image_gen import edit_image, generate_image
 from pix.api.packy_client import PackyClient, PackyError
 from pix.api.vision import VisionParseError, analyze_image
 from pix.config import AppConfig
@@ -174,6 +174,35 @@ class TestGenerateImage:
         cfg = _cfg_with_keys()
         with pytest.raises(ValueError):
             generate_image(cfg, "x", tmp_path / "out.png", size="100x100")
+
+    def test_edit_image_posts_multipart_and_saves_b64(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        png = _png_bytes()
+        b64 = base64.b64encode(png).decode("ascii")
+        source = tmp_path / "source.png"
+        source.write_bytes(png)
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            assert req.url.path == "/v1/images/edits"
+            assert req.headers["content-type"].startswith("multipart/form-data")
+            assert req.headers.get("authorization") == "Bearer sk-image"
+            body = req.content
+            assert b'name="model"' in body
+            assert b"gpt-image-2" in body
+            assert b'name="prompt"' in body
+            assert b"make it red" in body
+            assert b'name="image"' in body
+            assert b"source.png" in body
+            assert b'name="input_fidelity"' in body
+            assert b"high" in body
+            return httpx.Response(200, json={"data": [{"b64_json": b64}]})
+
+        _patch_httpx_client(monkeypatch, handler)
+        dest = tmp_path / "edited.png"
+        cfg = _cfg_with_keys()
+        edit_image(cfg, source, "make it red", dest)
+        assert dest.read_bytes() == png
 
 
 _JSON_ANALYSIS_OK = """```json

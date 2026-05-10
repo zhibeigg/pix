@@ -457,7 +457,8 @@ class MainWindow(QMainWindow):
 
     def _on_input_toggle(self) -> None:
         use_prompt = self.rb_prompt.isChecked()
-        self.prompt_edit.setEnabled(use_prompt)
+        # 图片模式下 prompt 也可填写：有内容时走图生图编辑，留空则直接像素化原图。
+        self.prompt_edit.setEnabled(True)
         self.image_path_edit.setEnabled(not use_prompt)
 
     def _on_edge_style_changed(self) -> None:
@@ -505,7 +506,8 @@ class MainWindow(QMainWindow):
 
     def _collect_inputs(self) -> PipelineInput:
         use_prompt = self.rb_prompt.isChecked()
-        prompt = self.prompt_edit.toPlainText().strip() if use_prompt else None
+        prompt_text = self.prompt_edit.toPlainText().strip()
+        prompt = prompt_text if (use_prompt or prompt_text) else None
         image_path_str = self.image_path_edit.text().strip()
         image_path = Path(image_path_str) if (not use_prompt and image_path_str) else None
         if use_prompt and not prompt:
@@ -620,12 +622,14 @@ class MainWindow(QMainWindow):
         except Exception:
             meta = {}
 
-        if record.prompt:
-            self.rb_prompt.setChecked(True)
-            self.prompt_edit.setPlainText(record.prompt)
-        elif record.image_path:
+        if record.image_path:
             self.rb_image.setChecked(True)
             self.image_path_edit.setText(record.image_path)
+            if record.prompt:
+                self.prompt_edit.setPlainText(record.prompt)
+        elif record.prompt:
+            self.rb_prompt.setChecked(True)
+            self.prompt_edit.setPlainText(record.prompt)
 
         if record.pixel_size:
             self.pixel_size_edit.setEditText(f"{record.pixel_size[0]}x{record.pixel_size[1]}")
