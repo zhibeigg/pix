@@ -9,7 +9,7 @@ import { GalleryGrid } from './components/GalleryGrid'
 import { JobList } from './components/JobList'
 import { SingleGeneratePanel } from './components/SingleGeneratePanel'
 import { TuningPanel } from './components/TuningPanel'
-import type { CreditBalance, CreditPackage, CreditTransaction, GenerationBatch, GenerationJob, JobCreateRequest, PaymentOrder, PricingRule, SystemSetting, User } from './types'
+import type { AdminDashboard, CreditBalance, CreditPackage, CreditTransaction, GenerationBatch, GenerationJob, JobCreateRequest, PaymentOrder, PricingRule, SystemSetting, User } from './types'
 
 const TOKEN_KEY = 'pix_web_token'
 type WorkMode = 'single' | 'batch'
@@ -26,6 +26,7 @@ export function App() {
   const [pricing, setPricing] = useState<PricingRule[]>([])
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([])
+  const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(null)
   const [busy, setBusy] = useState(false)
   const [retryingBatchId, setRetryingBatchId] = useState<number | null>(null)
   const [downloadingBatchId, setDownloadingBatchId] = useState<number | null>(null)
@@ -74,9 +75,14 @@ export function App() {
       setSelectedBatchJobs(await api.batchJobs(activeToken, selectedBatchId))
     }
     if (me.role === 'admin') {
-      const [users, settings] = await Promise.all([api.adminUsers(activeToken), api.adminSettings(activeToken)])
+      const [users, settings, dashboard] = await Promise.all([
+        api.adminUsers(activeToken),
+        api.adminSettings(activeToken),
+        api.adminDashboard(activeToken),
+      ])
       setAdminUsers(users)
       setSystemSettings(settings)
+      setAdminDashboard(dashboard)
     }
   }, [selectedBatchId, token])
 
@@ -147,6 +153,7 @@ export function App() {
     setPricing([])
     setAdminUsers([])
     setSystemSettings([])
+    setAdminDashboard(null)
     setSelectedJobId(null)
     setMessage('已退出')
   }
@@ -382,7 +389,7 @@ export function App() {
               <BatchPanel batches={batches} selectedBatchId={selectedBatchId} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onRefresh={() => refreshCore()} />
               <TuningPanel job={selectedJob} pricing={pricing} loading={busy} onSubmit={createJob} />
               {isAdmin && (
-                <AdminPanel users={adminUsers} pricing={pricing} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onUpdateSetting={updateSetting} />
+                <AdminPanel dashboard={adminDashboard} users={adminUsers} pricing={pricing} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onUpdateSetting={updateSetting} />
               )}
             </>
           )}

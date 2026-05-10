@@ -251,3 +251,17 @@ class PaymentOrderResponse(BaseModel):
 class MockWebhookRequest(BaseModel):
     order_id: int
     event_id: str = Field(max_length=160)
+
+
+class AdminDashboardResponse(BaseModel):
+    total_users: int
+    jobs_today: int
+    succeeded_today: int
+    failed_today: int
+    pending_jobs: int
+    running_jobs: int
+    credits_consumed_today: int
+    credits_recharged_today: int
+    orders_paid_today: int
+    uploads_today: int
+    failure_rate: float

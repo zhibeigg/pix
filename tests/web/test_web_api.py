@@ -61,6 +61,35 @@ def test_register_login_and_admin_adjust_credits(client: TestClient) -> None:
     assert balance["reserved_credits"] == 0
 
 
+def test_admin_dashboard_requires_admin_and_reports_counts(client: TestClient) -> None:
+    admin, admin_headers = _register_and_login(client)
+    user, user_headers = _register_and_login(client, "player@example.com")
+
+    assert client.get("/admin/dashboard", headers=user_headers).status_code == 403
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=admin_headers, json={"amount": 50})
+    client.post("/jobs", headers=user_headers, json={"job_type": "text_to_image", "prompt": "pixel cat"})
+    client.post("/jobs", headers=user_headers, json={"job_type": "text_to_image", "prompt": "pixel dog"})
+    client.post(f"/admin/users/{admin['id']}/adjust-credits", headers=admin_headers, json={"amount": 50})
+    order = client.post("/billing/orders", headers=admin_headers, json={"package_key": "starter"}).json()
+    client.post(f"/billing/mock-pay/{order['id']}", headers=admin_headers)
+
+    image = Image.new("RGB", (4, 4), (20, 30, 40))
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    client.post("/uploads/image", headers=admin_headers, files={"file": ("icon.png", buffer.getvalue(), "image/png")})
+
+    dashboard = client.get("/admin/dashboard", headers=admin_headers)
+
+    assert dashboard.status_code == 200
+    body = dashboard.json()
+    assert body["total_users"] == 2
+    assert body["jobs_today"] == 2
+    assert body["pending_jobs"] == 2
+    assert body["orders_paid_today"] == 1
+    assert body["uploads_today"] == 1
+    assert body["credits_recharged_today"] >= order["credits"]
+
+
 def test_billing_order_mock_pay_and_idempotent_webhook(client: TestClient) -> None:
     user, headers = _register_and_login(client)
 

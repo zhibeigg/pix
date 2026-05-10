@@ -156,3 +156,17 @@ export type PaymentOrder = {
   created_at: string
   paid_at: string | null
 }
+
+export type AdminDashboard = {
+  total_users: number
+  jobs_today: number
+  succeeded_today: number
+  failed_today: number
+  pending_jobs: number
+  running_jobs: number
+  credits_consumed_today: number
+  credits_recharged_today: number
+  orders_paid_today: number
+  uploads_today: number
+  failure_rate: number
+}
