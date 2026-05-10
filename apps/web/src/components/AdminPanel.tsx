@@ -77,6 +77,7 @@ export function AdminPanel({ users, pricing, settings, onRefresh, onAdjustCredit
 function SettingRow({ setting, onUpdate }: { setting: SystemSetting; onUpdate: (key: string, value: string) => Promise<void> }) {
   const [value, setValue] = useState(setting.value)
   const isBoolean = setting.key === 'generation_enabled'
+  const isTextArea = setting.key === 'blocked_prompt_terms'
 
   return (
     <div className="pricing-row">
@@ -89,6 +90,8 @@ function SettingRow({ setting, onUpdate }: { setting: SystemSetting; onUpdate: (
           <input type="checkbox" checked={value === 'true'} onChange={(event) => setValue(event.target.checked ? 'true' : 'false')} />
           启用
         </label>
+      ) : isTextArea ? (
+        <textarea rows={3} value={value} onChange={(event) => setValue(event.target.value)} placeholder="每行或逗号分隔一个禁词" />
       ) : (
         <input type="number" min={0} value={value} onChange={(event) => setValue(event.target.value)} />
       )}
@@ -102,6 +105,8 @@ function settingLabel(key: string) {
     generation_enabled: '生成总开关',
     max_pending_jobs_per_user: '每用户排队/运行上限',
     daily_job_limit_per_user: '每用户每日任务上限',
+    blocked_prompt_terms: 'Prompt 禁词',
+    max_uploads_per_user_per_day: '每用户每日上传上限',
   }
   return labels[key] ?? key
 }

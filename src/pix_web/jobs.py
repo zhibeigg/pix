@@ -14,7 +14,7 @@ from pix_web.credits import InsufficientCreditsError, insufficient_credits_http,
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
 from pix_web.pricing import PricingDisabledError, get_price
 from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema
-from pix_web.system_settings import enforce_generation_limits
+from pix_web.system_settings import enforce_generation_limits, enforce_prompt_policy
 
 AI_JOB_TYPES = {"text_to_image", "image_to_image"}
 IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "repixelize"}
@@ -100,6 +100,7 @@ def create_job_in_transaction(
 def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
     request_id = req.client_request_id.strip()
     if _existing_job(db, user, request_id) is None:
+        enforce_prompt_policy(db, req.prompt)
         enforce_generation_limits(db, user, new_jobs=1)
     try:
         job = create_job_in_transaction(db, user, req)
@@ -145,6 +146,7 @@ def create_jobs_batch(
             existing_by_index[index] = existing
             prices.append(0)
             continue
+        enforce_prompt_policy(db, req.prompt)
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price
@@ -221,6 +223,7 @@ def retry_failed_jobs_in_batch(db: Session, user: User, batch_id: int) -> tuple[
     prices: list[int] = []
     for req in reqs:
         validate_job_request(req)
+        enforce_prompt_policy(db, req.prompt)
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price

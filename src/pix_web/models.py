@@ -121,6 +121,17 @@ class PaymentEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class UploadEvent(Base):
+    __tablename__ = "upload_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    filename: Mapped[str] = mapped_column(String(260), default="")
+    content_type: Mapped[str] = mapped_column(String(120), default="")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
 class GenerationBatch(Base):
     __tablename__ = "generation_batches"
 

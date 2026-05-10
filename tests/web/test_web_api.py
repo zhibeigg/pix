@@ -183,6 +183,23 @@ def test_generation_disabled_blocks_job_creation(client: TestClient) -> None:
     assert response.status_code == 403
 
 
+def test_blocked_prompt_terms_reject_jobs(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 100})
+    client.put("/admin/settings/blocked_prompt_terms", headers=headers, json={"value": "blood, forbidden"})
+
+    single = client.post("/jobs", headers=headers, json={"job_type": "text_to_image", "prompt": "tiny blood sword"})
+    assert single.status_code == 422
+
+    batch = client.post(
+        "/jobs/batch",
+        headers=headers,
+        json={"jobs": [{"job_type": "text_to_image", "prompt": "safe cat"}, {"job_type": "text_to_image", "prompt": "forbidden orb"}]},
+    )
+    assert batch.status_code == 422
+    assert client.get("/jobs", headers=headers).json() == []
+
+
 def test_pending_limit_blocks_extra_jobs(client: TestClient) -> None:
     user, headers = _register_and_login(client)
     client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 100})
@@ -657,6 +674,36 @@ def test_uploaded_image_can_create_image_jobs(client: TestClient) -> None:
     )
     assert local.status_code == 200
     assert local.json()["price_credits"] == 0
+
+
+def test_upload_daily_limit_blocks_extra_uploads(client: TestClient) -> None:
+    image = Image.new("RGB", (4, 4), (20, 30, 40))
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    data = buffer.getvalue()
+    _user, headers = _register_and_login(client)
+    client.put("/admin/settings/max_uploads_per_user_per_day", headers=headers, json={"value": "1"})
+
+    first = client.post("/uploads/image", headers=headers, files={"file": ("one.png", data, "image/png")})
+    second = client.post("/uploads/image", headers=headers, files={"file": ("two.png", data, "image/png")})
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
+def test_failed_upload_does_not_count_toward_daily_limit(client: TestClient) -> None:
+    image = Image.new("RGB", (4, 4), (20, 30, 40))
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    data = buffer.getvalue()
+    _user, headers = _register_and_login(client)
+    client.put("/admin/settings/max_uploads_per_user_per_day", headers=headers, json={"value": "1"})
+
+    failed = client.post("/uploads/image", headers=headers, files={"file": ("bad.txt", b"bad", "text/plain")})
+    valid = client.post("/uploads/image", headers=headers, files={"file": ("ok.png", data, "image/png")})
+
+    assert failed.status_code == 400
+    assert valid.status_code == 200
 
 
 def test_upload_rejects_non_image_extension(client: TestClient) -> None:

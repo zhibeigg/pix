@@ -9,12 +9,14 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from pix_web.models import GenerationJob, SystemSetting, User
+from pix_web.models import GenerationJob, SystemSetting, UploadEvent, User
 
 DEFAULT_SYSTEM_SETTINGS: dict[str, str] = {
     "generation_enabled": "true",
     "max_pending_jobs_per_user": "5",
     "daily_job_limit_per_user": "50",
+    "blocked_prompt_terms": "",
+    "max_uploads_per_user_per_day": "50",
 }
 
 ALLOWED_SETTING_KEYS = set(DEFAULT_SYSTEM_SETTINGS)
@@ -26,6 +28,8 @@ class OperationalSettings:
     generation_enabled: bool
     max_pending_jobs_per_user: int
     daily_job_limit_per_user: int
+    blocked_prompt_terms: str
+    max_uploads_per_user_per_day: int
 
 
 def ensure_default_system_settings(db: Session) -> None:
@@ -72,7 +76,7 @@ def update_system_setting(db: Session, key: str, value: str) -> SystemSetting:
     clean = value.strip()
     if key == "generation_enabled":
         clean = "true" if _parse_bool(clean) else "false"
-    else:
+    elif key in {"max_pending_jobs_per_user", "daily_job_limit_per_user", "max_uploads_per_user_per_day"}:
         clean = str(_parse_positive_int(clean, int(DEFAULT_SYSTEM_SETTINGS[key])))
     setting.value = clean
     db.commit()
@@ -93,12 +97,55 @@ def load_operational_settings(db: Session) -> OperationalSettings:
             values.get("daily_job_limit_per_user", DEFAULT_SYSTEM_SETTINGS["daily_job_limit_per_user"]),
             int(DEFAULT_SYSTEM_SETTINGS["daily_job_limit_per_user"]),
         ),
+        blocked_prompt_terms=values.get("blocked_prompt_terms", DEFAULT_SYSTEM_SETTINGS["blocked_prompt_terms"]),
+        max_uploads_per_user_per_day=_parse_positive_int(
+            values.get("max_uploads_per_user_per_day", DEFAULT_SYSTEM_SETTINGS["max_uploads_per_user_per_day"]),
+            int(DEFAULT_SYSTEM_SETTINGS["max_uploads_per_user_per_day"]),
+        ),
     )
 
 
 def _utc_day_start() -> datetime:
     now = datetime.now(timezone.utc)
     return datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
+
+
+def _blocked_terms(raw: str) -> list[str]:
+    normalized = raw.replace("，", ",").replace(";", ",").replace("；", ",").replace("\n", ",")
+    return [part.strip().lower() for part in normalized.split(",") if part.strip()]
+
+
+def enforce_prompt_policy(db: Session, prompt: str | None) -> None:
+    if not prompt:
+        return
+    settings = load_operational_settings(db)
+    text = prompt.lower()
+    for term in _blocked_terms(settings.blocked_prompt_terms):
+        if term in text:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="prompt 包含不允许的内容")
+
+
+def enforce_upload_limit(db: Session, user: User) -> None:
+    settings = load_operational_settings(db)
+    limit = settings.max_uploads_per_user_per_day
+    if limit <= 0:
+        return
+    today_count = db.scalar(
+        select(func.count()).select_from(UploadEvent).where(
+            UploadEvent.user_id == user.id,
+            UploadEvent.created_at >= _utc_day_start(),
+        )
+    ) or 0
+    if today_count >= limit:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="今日上传次数已达上限")
+
+
+def record_upload_event(db: Session, user: User, *, filename: str, content_type: str, size_bytes: int) -> UploadEvent:
+    event = UploadEvent(user_id=user.id, filename=filename, content_type=content_type, size_bytes=size_bytes)
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+    return event
 
 
 def enforce_generation_limits(db: Session, user: User, *, new_jobs: int) -> None:
