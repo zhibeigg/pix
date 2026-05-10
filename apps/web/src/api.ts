@@ -5,6 +5,7 @@ import type {
   GenerationJob,
   JobBatchCreateResponse,
   JobCreateRequest,
+  AdminDashboard,
   PaymentOrder,
   PricingRule,
   CreditPackage,
@@ -128,6 +129,9 @@ export const api = {
   },
   deleteBatch(token: string, batchId: number) {
     return request<{ deleted: boolean }>(`/batches/${batchId}`, { method: 'DELETE' }, token)
+  },
+  adminDashboard(token: string) {
+    return request<AdminDashboard>('/admin/dashboard', {}, token)
   },
   adminUsers(token: string) {
     return request<User[]>('/admin/users?limit=100', {}, token)

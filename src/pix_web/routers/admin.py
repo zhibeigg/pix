@@ -7,9 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.credits import adjust_credits
+from pix_web.dashboard import admin_dashboard
 from pix_web.models import GenerationJob, PricingRule, SystemSetting, User
 from pix_web.schemas import (
     AdminAdjustCreditsRequest,
+    AdminDashboardResponse,
     CreditTransactionResponse,
     JobResponse,
     PricingRuleResponse,
@@ -22,6 +24,11 @@ from pix_web.security import get_db, require_admin
 from pix_web.system_settings import list_system_settings, update_system_setting
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+@router.get("/dashboard", response_model=AdminDashboardResponse)
+def dashboard(_admin: User = Depends(require_admin), db: Session = Depends(get_db)) -> dict[str, int | float]:
+    return admin_dashboard(db)
 
 
 @router.get("/users", response_model=list[UserResponse])

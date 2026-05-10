@@ -1,7 +1,8 @@
 import { FormEvent, useState } from 'react'
-import type { PricingRule, SystemSetting, User } from '../types'
+import type { AdminDashboard, PricingRule, SystemSetting, User } from '../types'
 
 type AdminPanelProps = {
+  dashboard: AdminDashboard | null
   users: User[]
   pricing: PricingRule[]
   settings: SystemSetting[]
@@ -11,7 +12,7 @@ type AdminPanelProps = {
   onUpdateSetting: (key: string, value: string) => Promise<void>
 }
 
-export function AdminPanel({ users, pricing, settings, onRefresh, onAdjustCredits, onUpdatePricing, onUpdateSetting }: AdminPanelProps) {
+export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onAdjustCredits, onUpdatePricing, onUpdateSetting }: AdminPanelProps) {
   const [selectedUser, setSelectedUser] = useState<number>(0)
   const [amount, setAmount] = useState(100)
   const [note, setNote] = useState('seed credits')
@@ -31,6 +32,18 @@ export function AdminPanel({ users, pricing, settings, onRefresh, onAdjustCredit
         </div>
         <button className="ghost" onClick={onRefresh}>刷新</button>
       </div>
+      {dashboard && (
+        <div className="metric-grid">
+          <Metric label="今日任务" value={dashboard.jobs_today} />
+          <Metric label="成功 / 失败" value={`${dashboard.succeeded_today} / ${dashboard.failed_today}`} />
+          <Metric label="排队 / 运行" value={`${dashboard.pending_jobs} / ${dashboard.running_jobs}`} />
+          <Metric label="今日充值" value={dashboard.credits_recharged_today} />
+          <Metric label="今日消费" value={dashboard.credits_consumed_today} />
+          <Metric label="今日上传" value={dashboard.uploads_today} />
+          <Metric label="总用户" value={dashboard.total_users} />
+          <Metric label="失败率" value={`${Math.round(dashboard.failure_rate * 100)}%`} />
+        </div>
+      )}
       <div className="admin-grid">
         <form className="stack" onSubmit={submitAdjust}>
           <h3>手动加点</h3>
@@ -71,6 +84,15 @@ export function AdminPanel({ users, pricing, settings, onRefresh, onAdjustCredit
         </div>
       </div>
     </section>
+  )
+}
+
+function Metric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   )
 }
 
