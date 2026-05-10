@@ -1,6 +1,10 @@
 .narrafork/
 .worktrees/
 
+# Frontend
+node_modules/
+apps/web/dist/
+
 # Python
 __pycache__/
 *.py[cod]

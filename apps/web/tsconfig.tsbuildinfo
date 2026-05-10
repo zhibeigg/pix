@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/components/adminpanel.tsx","./src/components/authpanel.tsx","./src/components/creditpanel.tsx","./src/components/jobcomposer.tsx","./src/components/joblist.tsx"],"version":"6.0.3"}

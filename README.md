@@ -214,7 +214,7 @@ pix gui                                                      # 启动图形界�
 
 ### 网站版 MVP
 
-`pix` 现在包含网站版 Phase 1 后端地基：FastAPI API + 点数账户 + 生成任务队列 + 串行 worker。第一版先用管理员手动加点模拟充值，后续可接 Stripe / 微信 / 支付宝。
+`pix` 现在包含网站版 MVP：FastAPI API + 点数账户 + 生成任务队列 + 串行 worker，以及 Vite + React 前端工作台。第一版先用管理员手动加点模拟充值，后续可接 Stripe / 微信 / 支付宝。
 
 安装 Web 依赖：
 
@@ -243,6 +243,20 @@ uvicorn pix_web.main:app --reload
 ```bash
 pix-web-worker          # 持续轮询 pending 任务
 pix-web-worker --once   # 只处理一个任务，适合测试
+```
+
+启动前端工作台：
+
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+前端默认请求 `http://127.0.0.1:8000`，如需修改：
+
+```bash
+VITE_PIX_API_BASE=http://127.0.0.1:8000 npm run dev
 ```
 
 MVP 计费规则默认：
