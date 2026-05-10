@@ -151,6 +151,27 @@ def test_worker_failure_refunds_reserved_credits(client: TestClient, monkeypatch
     assert balance["total_consumed"] == 0
 
 
+def test_public_pricing_and_repixelize_are_free(client: TestClient, tmp_path) -> None:
+    _user, headers = _register_and_login(client)
+
+    pricing = client.get("/pricing")
+    assert pricing.status_code == 200
+    rules = {rule["key"]: rule for rule in pricing.json()}
+    assert rules["text_to_image"]["price_credits"] == 20
+    assert rules["repixelize"]["price_credits"] == 0
+
+    image_path = tmp_path / "source.png"
+    Image.new("RGB", (8, 8), (10, 20, 30)).save(image_path)
+    created = client.post(
+        "/jobs",
+        headers=headers,
+        json={"job_type": "repixelize", "input_image_path": str(image_path)},
+    )
+    assert created.status_code == 200
+    assert created.json()["price_credits"] == 0
+    assert created.json()["reserved_credits"] == 0
+
+
 def test_local_pixelize_job_is_free_and_requires_image(client: TestClient, tmp_path) -> None:
     _user, headers = _register_and_login(client)
     image_path = tmp_path / "input.png"

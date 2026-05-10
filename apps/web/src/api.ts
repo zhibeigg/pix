@@ -79,7 +79,10 @@ export const api = {
       token,
     )
   },
-  pricing(token: string) {
+  pricing(token?: string | null) {
+    return request<PricingRule[]>('/pricing', {}, token)
+  },
+  adminPricing(token: string) {
     return request<PricingRule[]>('/admin/pricing', {}, token)
   },
   updatePricing(token: string, key: string, priceCredits: number, enabled: boolean) {

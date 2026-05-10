@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-05-10
+
+### Added
+
+- 前端工作台重构为作品网格优先，新增单图生成、批量生产模式切换，以及选中作品后的免费本地微调 / AI 微调面板。
+- 新增公开 `/pricing` 接口，普通用户也能在创建任务前看到预计点数。
+
 ## [0.5.0] - 2026-05-10
 
 ### Added
@@ -110,7 +117,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/zhibeigg/pix/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/zhibeigg/pix/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/zhibeigg/pix/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/zhibeigg/pix/compare/v0.3.1...v0.3.2
