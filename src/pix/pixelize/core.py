@@ -284,16 +284,36 @@ def _downsample(
     mode: ResampleMode = "smart",
     snap: bool = True,
 ) -> Image.Image:
-    """下采样到目标尺寸。
+    """按原始比例适配到目标尺寸。
+
+    输出画布始终是 ``size``，内容按原始宽高比缩放后居中放置，避免非等比目标尺寸
+    把主体横向或纵向拉伸。RGBA 输入会用透明像素补边；RGB 输入用边角主色补边。
 
     - smart: 如果探测到输入有明显像素网格，先按网格 BOX 聚合，再 BOX 缩到目标
-      否则退化到"BICUBIC→BOX"两段式，比纯 bicubic 边缘锐一些
+      否则退化到面积采样，比纯 bicubic 边缘锐一些
     - box: 纯平均采样（对像素画最忠实）
     - bicubic: Pillow 经典平滑缩
     - lanczos: 最锐利的插值，容易有 ringing
     - nearest: 硬采样，保留像素感但会丢细节
     """
     target = size
+    content_size, offset = _aspect_fit_geometry(image.size, target)
+    resized = _resize_exact(image, content_size, mode=mode, snap=snap)
+    if resized.size == target:
+        return resized
+    canvas = Image.new(resized.mode, target, _letterbox_fill(image))
+    canvas.paste(resized, offset)
+    return canvas
+
+
+def _resize_exact(
+    image: Image.Image,
+    size: tuple[int, int],
+    *,
+    mode: ResampleMode,
+    snap: bool,
+) -> Image.Image:
+    """缩放到指定尺寸；调用方保证该尺寸已经保持原始比例。"""
     mode_map = {
         "box": Image.Resampling.BOX,
         "bicubic": Image.Resampling.BICUBIC,
@@ -302,10 +322,10 @@ def _downsample(
     }
 
     if mode != "smart":
-        return image.resize(target, mode_map.get(mode, Image.Resampling.BICUBIC))
+        return image.resize(size, mode_map.get(mode, Image.Resampling.BICUBIC))
 
     w, h = image.size
-    tw, th = target
+    tw, th = size
 
     # smart：先对齐输入像素网格
     if snap:
@@ -319,10 +339,36 @@ def _downsample(
 
     # 若已经小于等于目标，改用 NEAREST 保留像素感
     if w <= tw and h <= th:
-        return image.resize(target, Image.Resampling.NEAREST)
+        return image.resize(size, Image.Resampling.NEAREST)
 
     # 还比目标大：用 BOX 做面积平均（对硬边友好，不会糊）
-    return image.resize(target, Image.Resampling.BOX)
+    return image.resize(size, Image.Resampling.BOX)
+
+
+def _aspect_fit_geometry(
+    source_size: tuple[int, int],
+    target_size: tuple[int, int],
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    """返回保持比例后的内容尺寸和居中偏移。"""
+    sw, sh = max(1, source_size[0]), max(1, source_size[1])
+    tw, th = max(1, target_size[0]), max(1, target_size[1])
+    scale = min(tw / sw, th / sh)
+    cw = max(1, min(tw, int(round(sw * scale))))
+    ch = max(1, min(th, int(round(sh * scale))))
+    return (cw, ch), ((tw - cw) // 2, (th - ch) // 2)
+
+
+def _letterbox_fill(image: Image.Image):
+    """为保持比例产生的补边选择填充色。"""
+    if "A" in image.getbands():
+        return (0, 0, 0, 0)
+    arr = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    if arr.size == 0:
+        return (0, 0, 0)
+    h, w, _ = arr.shape
+    corners = np.asarray([arr[0, 0], arr[0, w - 1], arr[h - 1, 0], arr[h - 1, w - 1]])
+    rgb = np.median(corners, axis=0).astype(np.uint8)
+    return tuple(int(v) for v in rgb)
 
 
 def _apply_enhancements(image: Image.Image, saturation: float, edge: float) -> Image.Image:
@@ -430,6 +476,7 @@ def pixelize(
     detected_grid: int | None = None
     if eff.resample == "smart" and eff.snap_to_grid:
         detected_grid = _detect_grid_size(img)
+    aspect_content_size, aspect_offset = _aspect_fit_geometry(img.size, eff.output_size)
     down = _downsample(img, eff.output_size, mode=eff.resample, snap=eff.snap_to_grid)
     # 2. 轻微增强
     down = _apply_enhancements(down, eff.saturation, eff.edge_enhance)
@@ -480,5 +527,10 @@ def pixelize(
         "used_analysis": analysis is not None,
         "detected_grid": detected_grid,
         "crop_bbox": list(crop_bbox) if crop_bbox else None,
+        "aspect_fit": {
+            "source_size": list(img.size),
+            "content_size": list(aspect_content_size),
+            "offset": list(aspect_offset),
+        },
     }
     return pixelized, preview, meta

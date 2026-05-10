@@ -81,6 +81,17 @@ class TestDownsample:
         out = _downsample(img, (32, 32), mode="nearest")
         assert out.size == (32, 32)
 
+    def test_preserves_aspect_ratio_with_transparent_padding(self) -> None:
+        img = Image.new("RGBA", (40, 20), (255, 0, 0, 255))
+        out = _downsample(img, (20, 20), mode="nearest")
+        arr = np.asarray(out)
+
+        assert out.size == (20, 20)
+        assert (arr[:5, :, 3] == 0).all()
+        assert (arr[15:, :, 3] == 0).all()
+        assert (arr[5:15, :, 3] == 255).all()
+        assert tuple(arr[10, 10, :3]) == (255, 0, 0)
+
 
 class TestPixelizeWithSmart:
     def test_smart_is_default(self) -> None:
@@ -90,6 +101,7 @@ class TestPixelizeWithSmart:
         assert meta["effective_params"]["resample"] == "smart"
         assert meta["detected_grid"] is not None
         assert meta["detected_grid"] >= 2
+        assert meta["aspect_fit"]["content_size"] == [32, 32]
 
     def test_box_mode_runs(self) -> None:
         img = _pixel_art(size_px=256, grid=16)

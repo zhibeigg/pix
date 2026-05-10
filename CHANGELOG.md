@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-05-10
+
+### Fixed
+
+- 修复源图比例与目标像素尺寸比例不一致时被拉伸的问题：现在会按原比例缩放并居中适配目标画布。
+
 ## [0.3.0] - 2026-05-10
 
 ### Added
@@ -84,7 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/zhibeigg/pix/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/zhibeigg/pix/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/zhibeigg/pix/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/zhibeigg/pix/compare/v0.2.2...v0.2.3
