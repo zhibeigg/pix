@@ -1,0 +1,109 @@
+"""SQLAlchemy 数据模型。"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(512))
+    display_name: Mapped[str] = mapped_column(String(120), default="")
+    role: Mapped[str] = mapped_column(String(32), default="user")
+    status: Mapped[str] = mapped_column(String(32), default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    credit_account: Mapped["CreditAccount"] = relationship(back_populates="user", uselist=False)
+
+
+class CreditAccount(Base):
+    __tablename__ = "credit_accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
+    available_credits: Mapped[int] = mapped_column(Integer, default=0)
+    reserved_credits: Mapped[int] = mapped_column(Integer, default=0)
+    total_recharged: Mapped[int] = mapped_column(Integer, default=0)
+    total_consumed: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    user: Mapped[User] = relationship(back_populates="credit_account")
+
+
+class CreditTransaction(Base):
+    __tablename__ = "credit_transactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    type: Mapped[str] = mapped_column(String(32), index=True)
+    amount: Mapped[int] = mapped_column(Integer)
+    balance_after: Mapped[int] = mapped_column(Integer)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("generation_jobs.id"), nullable=True, index=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PricingRule(Base):
+    __tablename__ = "pricing_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    price_credits: Mapped[int] = mapped_column(Integer, default=0)
+    enabled: Mapped[bool] = mapped_column(default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class GenerationJob(Base):
+    __tablename__ = "generation_jobs"
+    __table_args__ = (UniqueConstraint("user_id", "client_request_id", name="uq_job_user_request"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    client_request_id: Mapped[str] = mapped_column(String(128), default="", index=True)
+    job_type: Mapped[str] = mapped_column(String(32), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    input_image_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    params_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    price_credits: Mapped[int] = mapped_column(Integer, default=0)
+    reserved_credits: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[str] = mapped_column(Text, default="")
+    queue_priority: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    outputs: Mapped[list["GenerationOutput"]] = relationship(back_populates="job")
+
+
+class GenerationOutput(Base):
+    __tablename__ = "generation_outputs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("generation_jobs.id"), unique=True, index=True)
+    run_dir: Mapped[str] = mapped_column(Text, default="")
+    source_path: Mapped[str] = mapped_column(Text, default="")
+    pixelized_path: Mapped[str] = mapped_column(Text, default="")
+    preview_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    analysis_json_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    meta_json_path: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    job: Mapped[GenerationJob] = relationship(back_populates="outputs")

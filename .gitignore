@@ -28,6 +28,8 @@ config.toml
 # pix 运行产物与缓存
 outputs/
 .pix_cache/
+web_outputs/
+pix_web.db
 .coverage
 htmlcov/
 
