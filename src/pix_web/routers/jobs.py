@@ -6,10 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from pix_web.config import WebSettings
 from pix_web.jobs import create_job, create_jobs_batch
 from pix_web.models import GenerationJob, User
+from pix_web.queue import enqueue_jobs
 from pix_web.schemas import JobBatchCreateRequest, JobBatchCreateResponse, JobCreateRequest, JobResponse
-from pix_web.security import get_current_user, get_db
+from pix_web.security import get_current_user, get_db, get_settings
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -19,8 +21,11 @@ def create(
     req: JobCreateRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
 ) -> GenerationJob:
-    return create_job(db, user, req)
+    job = create_job(db, user, req)
+    enqueue_jobs(settings, [job.id])
+    return job
 
 
 @router.post("/batch", response_model=JobBatchCreateResponse)
@@ -28,8 +33,10 @@ def create_batch(
     req: JobBatchCreateRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
 ) -> JobBatchCreateResponse:
     jobs, total_price, batch = create_jobs_batch(db, user, req.jobs, batch_name=req.batch_name, mode=req.mode)
+    enqueue_jobs(settings, [job.id for job in jobs if job.status == "pending"])
     return JobBatchCreateResponse(jobs=jobs, total_price_credits=total_price, batch_id=batch.id if batch else None)
 
 

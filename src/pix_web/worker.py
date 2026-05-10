@@ -90,7 +90,7 @@ def main(argv: list[str] | None = None) -> None:
 
     settings = load_web_settings()
     engine = make_engine(settings.database_url)
-    init_db(engine)
+    init_db(engine, create_schema=settings.auto_create_db)
     session_factory = make_session_factory(engine)
     run_loop(session_factory, settings, once=args.once)
 

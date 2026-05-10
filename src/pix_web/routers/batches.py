@@ -10,10 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from pix_web.config import WebSettings
 from pix_web.jobs import retry_failed_jobs_in_batch
 from pix_web.models import GenerationBatch, GenerationJob, GenerationOutput, User
+from pix_web.queue import enqueue_jobs
 from pix_web.schemas import BatchUpdateRequest, GenerationBatchResponse, JobBatchCreateResponse, JobResponse
-from pix_web.security import get_current_user, get_db
+from pix_web.security import get_current_user, get_db, get_settings
 
 router = APIRouter(prefix="/batches", tags=["batches"])
 
@@ -159,8 +161,10 @@ def retry_failed_jobs(
     batch_id: int,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
 ) -> JobBatchCreateResponse:
     jobs, total_price, batch = retry_failed_jobs_in_batch(db, user, batch_id)
+    enqueue_jobs(settings, [job.id for job in jobs if job.status == "pending"])
     return JobBatchCreateResponse(jobs=jobs, total_price_credits=total_price, batch_id=batch.id)
 
 

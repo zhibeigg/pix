@@ -89,9 +89,32 @@ def test_create_job_reserves_credits_idempotently(client: TestClient) -> None:
     assert balance["reserved_credits"] == 20
 
 
-def test_batch_create_jobs_reserves_atomically(client: TestClient) -> None:
+def test_create_job_enqueues_pending_job(client: TestClient, monkeypatch) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 20})
+    calls: list[list[int]] = []
+
+    def fake_enqueue(_settings, job_ids):
+        calls.append(list(job_ids))
+        return len(calls[-1])
+
+    monkeypatch.setattr("pix_web.routers.jobs.enqueue_jobs", fake_enqueue)
+    response = client.post("/jobs", headers=headers, json={"job_type": "text_to_image", "prompt": "pixel cat"})
+
+    assert response.status_code == 200
+    assert calls == [[response.json()["id"]]]
+
+
+def test_batch_create_jobs_reserves_atomically(client: TestClient, monkeypatch) -> None:
     user, headers = _register_and_login(client)
     client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})
+    calls: list[list[int]] = []
+
+    def fake_enqueue(_settings, job_ids):
+        calls.append(list(job_ids))
+        return len(calls[-1])
+
+    monkeypatch.setattr("pix_web.routers.jobs.enqueue_jobs", fake_enqueue)
     response = client.post(
         "/jobs/batch",
         headers=headers,
@@ -110,6 +133,7 @@ def test_batch_create_jobs_reserves_atomically(client: TestClient) -> None:
     assert body["batch_id"] is not None
     assert len(body["jobs"]) == 2
     assert {job["batch_id"] for job in body["jobs"]} == {body["batch_id"]}
+    assert calls == [[job["id"] for job in body["jobs"]]]
 
     batches = client.get("/batches", headers=headers).json()
     assert batches[0]["name"] == "Test Pack"
