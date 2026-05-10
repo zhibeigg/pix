@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-05-10
+
+### Added
+
+- 新增可选 Redis/RQ 队列后端，`PIX_WEB_QUEUE_BACKEND=rq` 时任务创建后会推入 RQ 队列。
+- 新增 `pix-web-rq-worker` 命令处理 RQ 任务；默认 `database` 队列后端仍保留数据库轮询 worker。
+
 ## [0.16.0] - 2026-05-10
 
 ### Added
@@ -187,7 +194,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/zhibeigg/pix/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/zhibeigg/pix/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/zhibeigg/pix/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/zhibeigg/pix/compare/v0.13.0...v0.14.0

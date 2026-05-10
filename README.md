@@ -230,6 +230,10 @@ PIX_WEB_JWT_SECRET=change-me-to-a-long-random-secret
 PIX_WEB_STORAGE_ROOT=web_outputs
 PIX_WEB_MAX_UPLOAD_BYTES=10485760
 PIX_WEB_AUTO_CREATE_DB=true
+PIX_WEB_QUEUE_BACKEND=database
+PIX_WEB_REDIS_URL=redis://localhost:6379/0
+PIX_WEB_RQ_QUEUE=pix-jobs
+PIX_WEB_RQ_WORKER_CLASS=simple
 ```
 
 数据库迁移（生产环境建议先设置 `PIX_WEB_AUTO_CREATE_DB=false`，再手动迁移）：
@@ -250,11 +254,17 @@ pix-web-api
 uvicorn pix_web.main:app --reload
 ```
 
-启动串行 worker：
+启动 worker：
 
 ```bash
-pix-web-worker          # 持续轮询 pending 任务
+# 默认 database 队列后端：轮询 pending 任务
+pix-web-worker
 pix-web-worker --once   # 只处理一个任务，适合测试
+
+# 生产可切换到 Redis/RQ：
+# PIX_WEB_QUEUE_BACKEND=rq
+# PIX_WEB_REDIS_URL=redis://localhost:6379/0
+pix-web-rq-worker
 ```
 
 启动前端工作台：

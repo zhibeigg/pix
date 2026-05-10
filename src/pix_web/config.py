@@ -18,6 +18,10 @@ class WebSettings:
     auto_create_db: bool = True
     pix_config_file: Path | None = None
     poll_interval_seconds: float = 2.0
+    queue_backend: str = "database"
+    redis_url: str = "redis://localhost:6379/0"
+    rq_queue_name: str = "pix-jobs"
+    rq_worker_class: str = "simple"
 
 
 _DEFAULTS = {
@@ -26,6 +30,10 @@ _DEFAULTS = {
     "PIX_WEB_STORAGE_ROOT": str(WebSettings.storage_root),
     "PIX_WEB_MAX_UPLOAD_BYTES": str(WebSettings.max_upload_bytes),
     "PIX_WEB_AUTO_CREATE_DB": "true",
+    "PIX_WEB_QUEUE_BACKEND": WebSettings.queue_backend,
+    "PIX_WEB_REDIS_URL": WebSettings.redis_url,
+    "PIX_WEB_RQ_QUEUE": WebSettings.rq_queue_name,
+    "PIX_WEB_RQ_WORKER_CLASS": WebSettings.rq_worker_class,
 }
 
 
@@ -39,6 +47,10 @@ def load_web_settings() -> WebSettings:
     poll_raw = os.getenv("PIX_WEB_POLL_INTERVAL_SECONDS", "2.0")
     token_raw = os.getenv("PIX_WEB_ACCESS_TOKEN_MINUTES", str(WebSettings.access_token_minutes))
     auto_create_raw = os.getenv("PIX_WEB_AUTO_CREATE_DB", _DEFAULTS["PIX_WEB_AUTO_CREATE_DB"])
+    queue_backend = os.getenv("PIX_WEB_QUEUE_BACKEND", _DEFAULTS["PIX_WEB_QUEUE_BACKEND"]).lower()
+    redis_url = os.getenv("PIX_WEB_REDIS_URL", _DEFAULTS["PIX_WEB_REDIS_URL"])
+    rq_queue_name = os.getenv("PIX_WEB_RQ_QUEUE", _DEFAULTS["PIX_WEB_RQ_QUEUE"])
+    rq_worker_class = os.getenv("PIX_WEB_RQ_WORKER_CLASS", _DEFAULTS["PIX_WEB_RQ_WORKER_CLASS"]).lower()
     try:
         poll_interval = max(0.1, float(poll_raw))
     except ValueError:
@@ -60,4 +72,8 @@ def load_web_settings() -> WebSettings:
         pix_config_file=Path(pix_config_raw) if pix_config_raw else None,
         poll_interval_seconds=poll_interval,
         access_token_minutes=access_token_minutes,
+        queue_backend=queue_backend if queue_backend in {"database", "rq"} else WebSettings.queue_backend,
+        redis_url=redis_url,
+        rq_queue_name=rq_queue_name or WebSettings.rq_queue_name,
+        rq_worker_class=rq_worker_class if rq_worker_class in {"simple", "default"} else WebSettings.rq_worker_class,
     )
