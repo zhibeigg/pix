@@ -8,7 +8,6 @@ import pytest
 from PIL import Image, ImageDraw
 
 from pix.batch import (
-    DEFAULT_EXTS,
     BatchItem,
     iter_inputs,
     run_batch,

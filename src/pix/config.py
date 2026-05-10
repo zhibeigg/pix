@@ -63,6 +63,14 @@ class PixelizeConfig:
     preview_scale: int = 4
     edge_enhance: float = 0.1
     saturation: float = 1.0
+    # 下采样模式：smart（自动对齐像素格）| box | bicubic | lanczos | nearest
+    resample: str = "smart"
+    # 是否在 smart 模式下尝试探测输入像素格并吸附到整数倍
+    snap_to_grid: bool = True
+    # 自动抠背景（flood-fill 从四角连通色）
+    remove_bg: bool = False
+    bg_tolerance: int = 12
+    bg_feather: int = 0
 
 
 @dataclass
@@ -107,7 +115,6 @@ def _update_dataclass(obj: Any, values: Mapping[str, Any]) -> None:
         if key not in annotations:
             continue
         current = getattr(obj, key, None)
-        expected_type = annotations[key]
         # 特殊处理 tuple[int, int]
         if isinstance(current, tuple) and isinstance(value, (list, tuple)):
             try:

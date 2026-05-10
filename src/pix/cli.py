@@ -12,17 +12,6 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-
-def _make_console() -> "Console":
-    """Windows cp936 终端下 rich 用 Unicode 会炸，这里强制 utf-8。"""
-    try:
-        # 强制 sys.stdout 使用 utf-8，避免 cp936 编码 '✓' '→' 这类字符失败
-        if hasattr(sys.stdout, "reconfigure"):
-            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-    return Console()
-
 from pix import __version__
 from pix.analysis.schema import PixAnalysis
 from pix.api.image_gen import generate_image
@@ -31,6 +20,17 @@ from pix.config import AppConfig, load_config
 from pix.pipeline import PipelineInput, run_pipeline
 from pix.pixelize.core import PixelizeParams, pixelize as run_pixelize
 from pix.pixelize.presets import list_presets
+
+
+def _make_console() -> Console:
+    """Windows cp936 终端下 rich 用 Unicode 会炸，这里强制 utf-8。"""
+    try:
+        # 强制 sys.stdout 使用 utf-8，避免 cp936 编码 '✓' '→' 这类字符失败
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    return Console()
 
 
 app = typer.Typer(add_completion=False, help="pix — prompt → AI 图 → JSON → 像素图")
@@ -127,10 +127,15 @@ def cmd_pixelize(
     preview_scale: int = typer.Option(4, help="预览放大倍数，0 关闭"),
     edge_enhance: float = typer.Option(0.1, min=0.0, max=1.0, help="主体锐化强度"),
     saturation: float = typer.Option(1.0, min=0.0, max=2.0, help="饱和度缩放"),
+    resample: str = typer.Option("smart", help="下采样：smart|box|bicubic|lanczos|nearest"),
+    snap_to_grid: bool = typer.Option(True, "--snap/--no-snap", help="smart 模式下探测输入像素格并吸附"),
+    remove_bg: bool = typer.Option(False, "--remove-bg", help="自动抠背景（四角 flood-fill，输出 PNG 带 alpha）"),
+    bg_tolerance: int = typer.Option(12, min=0, max=128, help="背景颜色容差，越大抠越狠"),
+    bg_feather: int = typer.Option(0, min=0, max=8, help="主体边缘保留的像素圈数"),
     config: Optional[Path] = typer.Option(None, "--config", help="TOML 配置文件"),
 ) -> None:
     """把图片像素化（不依赖网络）。"""
-    cfg = _base_config(config)
+    _base_config(config)  # 读一次 .env/config 以保持行为一致（即便不用 cfg 本体）
     size = _parse_size(pixel_size)
     params = PixelizeParams(
         output_size=size,
@@ -140,6 +145,11 @@ def cmd_pixelize(
         preview_scale=preview_scale,
         edge_enhance=edge_enhance,
         saturation=saturation,
+        resample=resample,  # type: ignore[arg-type]
+        snap_to_grid=snap_to_grid,
+        remove_bg=remove_bg,
+        bg_tolerance=bg_tolerance,
+        bg_feather=bg_feather,
     )
     analysis: PixAnalysis | None = None
     if analysis_json:
@@ -253,6 +263,11 @@ def cmd_batch(
     colors: int = typer.Option(16, min=2, max=256),
     dither: str = typer.Option("floyd_steinberg"),
     preset: str = typer.Option("auto"),
+    resample: str = typer.Option("smart", help="下采样：smart|box|bicubic|lanczos|nearest"),
+    snap_to_grid: bool = typer.Option(True, "--snap/--no-snap"),
+    remove_bg: bool = typer.Option(False, "--remove-bg"),
+    bg_tolerance: int = typer.Option(12, min=0, max=128),
+    bg_feather: int = typer.Option(0, min=0, max=8),
     use_vl: bool = typer.Option(False, "--use-vl/--no-vl", help="是否调用视觉模型分析每张图（成本较高）"),
     vl_model: Optional[str] = typer.Option(None, help="覆盖 VL 模型名"),
     workers: int = typer.Option(4, min=1, max=32, help="并发线程数"),
@@ -269,6 +284,11 @@ def cmd_batch(
         colors=colors,
         dither=dither,  # type: ignore[arg-type]
         preset=preset,
+        resample=resample,  # type: ignore[arg-type]
+        snap_to_grid=snap_to_grid,
+        remove_bg=remove_bg,
+        bg_tolerance=bg_tolerance,
+        bg_feather=bg_feather,
     )
 
     def _on_done(item: BatchItem, done: int, total: int) -> None:

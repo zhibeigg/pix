@@ -76,7 +76,6 @@ def test_saving_settings_updates_language(qapp, tmp_cwd: Path, monkeypatch) -> N
     """保存设置对话框里选择的语言，主窗口 reload 后 retranslate 到新语言。"""
     from pix.gui.main_window import MainWindow
     from pix.gui.settings_dialog import SettingsDialog
-    from pix.i18n import set_language
 
     monkeypatch.delenv("PACKY_API_KEY", raising=False)
     env_path = tmp_cwd / ".env"
