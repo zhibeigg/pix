@@ -1,0 +1,50 @@
+# pix 默认配置示例
+# 复制为 config.toml 即可被自动加载；CLI / GUI 参数会覆盖这里的值。
+
+[api]
+base_url       = "https://www.packyapi.com"
+# 连接与读取超时（秒）；生图可能较慢，给足余量
+timeout        = 180.0
+max_retries    = 3
+
+[image_gen]
+model          = "gpt-image-2"
+size           = "1024x1024"      # 见 Packy 文档；auto/1024x1024/1536x1024/1024x1536/2048x2048/... 
+quality        = "high"           # low | medium | high | auto
+output_format  = "png"
+
+[vision]
+# Packy 支持的视觉模型，示例：claude-sonnet-4-5 / gemini-2.5-pro / gpt-4o 等
+model          = "claude-sonnet-4-5"
+temperature    = 0.2
+max_tokens     = 2048
+# 连续 JSON 校验失败时的重试次数
+retry_on_parse = 1
+
+[pixelize]
+# 目标像素图尺寸（宽, 高）
+output_size    = [128, 128]
+# 调色板颜色数（4..256）
+colors         = 16
+# none | ordered | floyd_steinberg
+dither         = "floyd_steinberg"
+# 预设：auto | gameboy | nes | modern_pixel | pico8
+preset         = "auto"
+# 预览放大倍数（0 表示不输出放大预览）
+preview_scale  = 4
+# 主体轻微锐化强度 0..1
+edge_enhance   = 0.1
+# 饱和度缩放 0.5..1.5
+saturation     = 1.0
+
+[cache]
+enabled        = true
+dir            = ".pix_cache"
+
+[output]
+# 默认输出根目录；最终目录为 {root}/{timestamp}-{short_hash}
+root           = "outputs"
+
+[ui]
+# GUI 界面语言：zh-CN | zh-TW | en | ja | ko | fr | de | es | ru
+language       = "zh-CN"

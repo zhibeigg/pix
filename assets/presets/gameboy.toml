@@ -1,0 +1,9 @@
+# Game Boy DMG 四色绿调
+name           = "gameboy"
+description    = "Classic 4-color Game Boy DMG green palette"
+output_size    = [160, 144]
+colors         = 4
+palette_lock   = ["#0f380f", "#306230", "#8bac0f", "#9bbc0f"]
+dither         = "floyd_steinberg"
+edge_enhance   = 0.15
+saturation     = 0.6

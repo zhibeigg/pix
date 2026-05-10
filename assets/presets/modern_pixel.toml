@@ -1,0 +1,9 @@
+# 现代像素画：中等分辨率 + 丰富调色 + 轻抖动
+name           = "modern_pixel"
+description    = "Modern pixel art with richer palette"
+output_size    = [256, 256]
+colors         = 32
+palette_lock   = []
+dither         = "floyd_steinberg"
+edge_enhance   = 0.08
+saturation     = 1.05
