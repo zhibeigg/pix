@@ -15,7 +15,7 @@ from pix_web.routers import admin, auth, batches, credits, files, jobs, pricing,
 def create_app(settings: WebSettings | None = None) -> FastAPI:
     settings = settings or load_web_settings()
     engine = make_engine(settings.database_url)
-    init_db(engine)
+    init_db(engine, create_schema=settings.auto_create_db)
     session_factory = make_session_factory(engine)
 
     app = FastAPI(title="Pix Web API", version=__version__)
