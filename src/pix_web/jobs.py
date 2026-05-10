@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, reserve_credits
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
 from pix_web.pricing import PricingDisabledError, get_price
-from pix_web.schemas import JobCreateRequest
+from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema
 
 AI_JOB_TYPES = {"text_to_image", "image_to_image"}
 IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "repixelize"}
@@ -172,7 +172,73 @@ def create_jobs_batch(
     loaded = list(
         db.scalars(
             select(GenerationJob)
-            .options(selectinload(GenerationJob.outputs))
+            .options(selectinload(GenerationJob.outputs), selectinload(GenerationJob.batch))
+            .where(GenerationJob.id.in_(ids))
+        )
+    )
+    by_id = {job.id: job for job in loaded}
+    return [by_id.get(job.id, job) for job in jobs], total_price, batch
+
+
+def _request_from_failed_job(job: GenerationJob) -> JobCreateRequest:
+    params = job.params_json or {}
+    return JobCreateRequest(
+        job_type=job.job_type,
+        prompt=job.prompt,
+        input_image_path=job.input_image_path,
+        client_request_id=f"retry-{job.id}-{uuid4().hex}",
+        image_size=params.get("image_size"),
+        image_quality=params.get("image_quality"),
+        image_model=params.get("image_model"),
+        vl_model=params.get("vl_model"),
+        skip_vl=bool(params.get("skip_vl", False)),
+        pixelize=PixelizeParamsSchema.model_validate(params.get("pixelize") or {}),
+    )
+
+
+def retry_failed_jobs_in_batch(db: Session, user: User, batch_id: int) -> tuple[list[GenerationJob], int, GenerationBatch]:
+    batch = db.scalar(
+        select(GenerationBatch)
+        .options(selectinload(GenerationBatch.jobs))
+        .where(GenerationBatch.id == batch_id, GenerationBatch.user_id == user.id)
+    )
+    if batch is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="素材包不存在")
+
+    failed_jobs = [job for job in batch.jobs if job.status == "failed"]
+    if not failed_jobs:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="没有可重试的失败任务")
+
+    reqs = [_request_from_failed_job(job) for job in failed_jobs]
+    total_price = 0
+    prices: list[int] = []
+    for req in reqs:
+        validate_job_request(req)
+        price = _price_for_request(db, req)
+        prices.append(price)
+        total_price += price
+
+    account = db.scalar(select(CreditAccount).where(CreditAccount.user_id == user.id))
+    available = account.available_credits if account is not None else 0
+    if available < total_price:
+        raise insufficient_credits_http()
+
+    jobs: list[GenerationJob] = []
+    try:
+        for req, price in zip(reqs, prices, strict=True):
+            job = create_job_in_transaction(db, user, req, reserve=False, batch=batch)
+            reserve_credits(db, user, job, price)
+            jobs.append(job)
+    except InsufficientCreditsError as exc:
+        db.rollback()
+        raise insufficient_credits_http() from exc
+
+    db.commit()
+    ids = [job.id for job in jobs]
+    loaded = list(
+        db.scalars(
+            select(GenerationJob)
+            .options(selectinload(GenerationJob.outputs), selectinload(GenerationJob.batch))
             .where(GenerationJob.id.in_(ids))
         )
     )

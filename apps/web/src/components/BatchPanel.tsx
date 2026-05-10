@@ -5,10 +5,12 @@ type BatchPanelProps = {
   selectedBatchId: number | null
   onSelectBatch: (batch: GenerationBatch) => void
   onClearSelection: () => void
+  onRetryFailed: (batch: GenerationBatch) => void
+  retrying: boolean
   onRefresh: () => void
 }
 
-export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSelection, onRefresh }: BatchPanelProps) {
+export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSelection, onRetryFailed, retrying, onRefresh }: BatchPanelProps) {
   return (
     <section className="panel batch-panel">
       <div className="panel-heading">
@@ -40,6 +42,19 @@ export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSel
               <p className="muted">
                 完成 {batch.succeeded_count} · 失败 {batch.failed_count} · 进行中 {batch.running_count} · 排队 {batch.pending_count}
               </p>
+              {batch.failed_count > 0 && (
+                <button
+                  className="ghost compact"
+                  type="button"
+                  disabled={retrying}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onRetryFailed(batch)
+                  }}
+                >
+                  {retrying ? '重试中…' : `重试失败项 ${batch.failed_count}`}
+                </button>
+              )}
             </article>
           ))}
         </div>
