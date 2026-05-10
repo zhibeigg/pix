@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-05-10
+
+### Added
+
+- 新增 `pix-web-check` 上线前环境检查命令，检查 JWT secret、Packy API key、数据库、Alembic head、存储目录和队列后端。
+- README 新增上线前 checklist，覆盖迁移、配置、存储持久化和生产队列设置。
+
 ## [0.22.0] - 2026-05-10
 
 ### Added
@@ -228,7 +235,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/zhibeigg/pix/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/zhibeigg/pix/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/zhibeigg/pix/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/zhibeigg/pix/compare/v0.19.0...v0.20.0
