@@ -46,6 +46,40 @@ remove_bg      = false
 bg_tolerance   = 12
 # 背景羽化：向内收缩抠除区域的像素数，保护主体边缘
 bg_feather     = 0
+# 自动裁剪主体后再缩小，适合图标/物品素材
+auto_crop      = false
+crop_padding   = 0.12
+crop_square    = true
+
+[asset]
+# 游戏素材直出命令 pix asset 的默认值
+output_dir     = "图片"
+pixel_size     = [16, 16]
+colors         = 12
+dither         = "none"
+preview_scale  = 12
+# 同步复制原始生图源文件到最终目录旁边，便于对比：xxx_source.png
+source_copy    = true
+image_quality  = "low"
+skip_vl        = true
+remove_bg      = true
+bg_tolerance   = 26
+bg_feather     = 0
+auto_crop      = true
+crop_padding   = 0.12
+crop_square    = true
+# 默认启用 Pixel Grid JSON 工程图：先提取 XY 网格 JSON，再精确渲染最终 PNG
+grid_mode      = true
+# 是否让 AI 审核/修正 Grid JSON；默认关闭以节省成本
+grid_review    = false
+# 是否保留 .grid.json 工程文件
+grid_json      = true
+# Grid 后处理：清理孤立噪点、统一主体深色轮廓
+grid_cleanup   = true
+grid_outline   = false
+grid_outline_strength = 1
+grid_min_neighbors = 1
+prompt_template = "A single fantasy pixel game inventory item icon of {name}. Centered object, isolated on plain white background, no text, no UI frame, no shadow outside the item, thick dark outline, high contrast, readable silhouette, designed to become a {width}x{height} RPG inventory sprite."
 
 [cache]
 enabled        = true

@@ -195,9 +195,10 @@ class TestAnalyzeImage:
     ) -> None:
         def handler(req: httpx.Request) -> httpx.Response:
             body = json.loads(req.content.decode())
-            assert body["messages"][0]["role"] == "system"
-            # 用户消息应包含 image_url
-            user = body["messages"][1]
+            assert body["messages"][0]["role"] == "user"
+            # 用户消息应包含系统约束文本与 image_url
+            user = body["messages"][0]
+            assert any(isinstance(p, dict) and p.get("type") == "text" for p in user["content"])
             assert any(isinstance(p, dict) and p.get("type") == "image_url" for p in user["content"])
             return httpx.Response(
                 200,

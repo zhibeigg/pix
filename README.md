@@ -176,6 +176,10 @@ pix run my_photo.png --pixel-size 64x64 --preset gameboy    # 已有图 → 分�
 pix pixelize my_photo.png --colors 8 --preset pico8          # 只做像素化（不走网络）
 pix analyze my_photo.png --model claude-sonnet-4-5           # 只做 VL 分析
 pix gen-only "一只像素风橘猫"                                 # 只做文生图
+pix asset "血气灵玉" --out 图片/血气灵玉.png                    # 游戏素材直出：生图 → Grid JSON → 16x16 透明 PNG
+pix grid-extract source.png --pixel-size 16x16 --colors 12 --out item.grid.json --render item.png
+pix grid-render item.grid.json --out 图片/item.png              # Grid JSON → 精确 PNG
+pix validate 图片/血气灵玉.png --pixel-size 16x16 --max-colors 16 # 检查素材是否可直接进游戏
 pix batch ./photos ./pixelized --workers 8 --preset pico8    # 批量：一个目录进、一个目录出
 pix presets                                                  # 列出所有预设
 pix gui                                                      # 启动图形界面
@@ -194,11 +198,74 @@ pix gui                                                      # 启动图形界�
 | `--remove-bg` | 自动抠背景（四角 flood-fill），输出透明 PNG | 关 |
 | `--bg-tolerance N` | 背景颜色容差（0-128，越大抠越狠） | `12` |
 | `--bg-feather N` | 主体边缘保留几圈像素（抗误伤） | `0` |
+| `--auto-crop / --no-auto-crop` | 先识别主体 bbox 并裁剪，再缩到目标像素尺寸 | `false` |
+| `--crop-padding N` | 自动裁剪外扩比例 | `0.12` |
+| `--crop-square / --no-crop-square` | 自动裁剪时保持正方形 | `true` |
 | `--vl-model` | 视觉模型名 | 从配置读 |
 | `--no-vl` | 跳过多模态分析（纯 Python 兜底） | `false` |
 | `--no-cache` / `--refresh` | 禁用缓存 / 忽略命中强刷 | `false` |
 | `--image-size WxH` | 生图尺寸（遵循 Packy 限制） | `1024x1024` |
 | `--image-quality low\|medium\|high\|auto` | 生图质量 | `high` |
+
+### 游戏素材直出
+
+`pix asset` 是面向游戏资源目录的快捷生产线，默认参数按 16×16 物品图标优化：12 色、自动裁剪主体、自动抠透明背景，并默认启用 **Pixel Grid JSON 工程图**。最终 PNG 不是直接 resize 的伪像素图，而是先提取 `pixels[y][x]` 与 `palette`，再由 Python 精确渲染。
+
+```bash
+pix asset "血气灵玉" --out 图片/血气灵玉.png
+pix asset "幽香腐骨菇" --extra-prompt "purple poisonous mushroom, green spores" --overwrite
+pix asset "紫髓铁" --out 图片/紫髓铁.png --grid-review     # 额外让 AI 审核/修正 Grid JSON
+pix validate 图片/血气灵玉.png --pixel-size 16x16 --max-colors 16
+```
+
+默认会额外保留：
+
+```text
+图片/血气灵玉_source.png     # 原始高清生图源文件，便于对比和重新提取 Grid
+图片/血气灵玉.grid.json      # 像素工程图：调色板 + XY 网格
+图片/血气灵玉_preview.png    # nearest 放大预览
+图片/血气灵玉.asset.json     # 生产元数据
+```
+
+默认中间产物仍保存到 `outputs/{timestamp}-{hash}/`。如需回到旧式 resize/quantize 流程，可加 `--no-grid-mode`；默认只做 Grid 清噪，若需要更统一、更厚的深色轮廓，可加 `--grid-outline`；如需关闭清噪，可加 `--no-grid-cleanup`；如需视觉模型参与调色和区域分析，可加 `--use-vl`；如需 AI 审核 Grid JSON，可加 `--grid-review`。
+
+### Pixel Grid JSON 工程图
+
+可单独使用 Grid 命令调试和批量处理：
+
+```bash
+# 伪像素图 → Grid JSON，可选同时渲染 PNG
+pix grid-extract source.png --pixel-size 16x16 --colors 12 --out item.grid.json --render item.png --preview-scale 12
+
+# Grid JSON → 最终 PNG
+pix grid-render item.grid.json --out 图片/item.png --preview-scale 12
+
+# Grid JSON 后处理：清理孤立噪点、统一深色轮廓、整理调色板
+pix grid-polish item.grid.json --out item.polished.grid.json --render item.polished.png --preview-scale 12
+
+# AI 只审核/修正 JSON，不直接画图
+pix grid-review item.grid.json --out item.reviewed.grid.json --render item.reviewed.png
+```
+
+Grid JSON 结构示例：
+
+```jsonc
+{
+  "version": 1,
+  "canvas": { "width": 16, "height": 16, "transparent_index": -1 },
+  "axes": { "x": [0, 1, 2], "y": [0, 1, 2] },
+  "palette": [
+    { "id": 0, "hex": "#2A1115", "role": "outline" },
+    { "id": 1, "hex": "#C93A45", "role": "primary" }
+  ],
+  "pixels": [
+    [-1, -1, 0],
+    [-1, 0, 1],
+    [-1, -1, 0]
+  ],
+  "metadata": { "source_cell_size": [48.0, 48.0], "grid_confidence": 0.82 }
+}
+```
 
 ---
 
@@ -277,6 +344,28 @@ output_size    = [128, 128]
 colors         = 16
 dither         = "floyd_steinberg"
 preset         = "auto"
+auto_crop      = false
+crop_padding   = 0.12
+crop_square    = true
+
+[asset]
+output_dir     = "图片"
+pixel_size     = [16, 16]
+colors         = 12
+dither         = "none"
+source_copy    = true
+image_quality  = "low"
+skip_vl        = true
+remove_bg      = true
+auto_crop      = true
+grid_mode      = true
+grid_review    = false
+grid_json      = true
+grid_cleanup   = true
+grid_outline   = false   # 默认保守：清噪；需要更强统一轮廓时可用 --grid-outline
+grid_outline_strength = 1
+grid_min_neighbors = 1
+prompt_template = "A single fantasy pixel game inventory item icon of {name}. ..."
 
 [cache]
 enabled        = true

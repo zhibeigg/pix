@@ -29,7 +29,17 @@ def kmeans_palette(image: Image.Image, k: int, sample: int = 16384) -> list[tupl
     if k <= 0:
         return []
     k = max(1, k)
-    arr = np.asarray(image.convert("RGB"), dtype=np.float32).reshape(-1, 3)
+    rgba = np.asarray(image.convert("RGBA"), dtype=np.uint8)
+    alpha = rgba[..., 3]
+    rgb = rgba[..., :3]
+    if (alpha < 255).any():
+        visible = rgb[alpha > 8]
+        if visible.size > 0:
+            arr = visible.astype(np.float32).reshape(-1, 3)
+        else:
+            arr = rgb.reshape(-1, 3).astype(np.float32)
+    else:
+        arr = rgb.reshape(-1, 3).astype(np.float32)
     if arr.shape[0] > sample:
         idx = np.random.default_rng(42).choice(arr.shape[0], size=sample, replace=False)
         arr = arr[idx]

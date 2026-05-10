@@ -71,6 +71,43 @@ class PixelizeConfig:
     remove_bg: bool = False
     bg_tolerance: int = 12
     bg_feather: int = 0
+    # 自动裁剪主体，再缩小到目标像素尺寸
+    auto_crop: bool = False
+    crop_padding: float = 0.12
+    crop_square: bool = True
+
+
+@dataclass
+class AssetConfig:
+    """游戏素材直出默认参数。"""
+
+    output_dir: str = "图片"
+    pixel_size: tuple[int, int] = (16, 16)
+    colors: int = 12
+    dither: str = "none"
+    preview_scale: int = 12
+    source_copy: bool = True
+    image_quality: str = "low"
+    skip_vl: bool = True
+    remove_bg: bool = True
+    bg_tolerance: int = 26
+    bg_feather: int = 0
+    auto_crop: bool = True
+    crop_padding: float = 0.12
+    crop_square: bool = True
+    grid_mode: bool = True
+    grid_review: bool = False
+    grid_json: bool = True
+    grid_cleanup: bool = True
+    grid_outline: bool = False
+    grid_outline_strength: int = 1
+    grid_min_neighbors: int = 1
+    prompt_template: str = (
+        "A single fantasy pixel game inventory item icon of {name}. "
+        "Centered object, isolated on plain white background, no text, no UI frame, "
+        "no shadow outside the item, thick dark outline, high contrast, readable silhouette, "
+        "designed to become a {width}x{height} RPG inventory sprite."
+    )
 
 
 @dataclass
@@ -95,6 +132,7 @@ class AppConfig:
     image_gen: ImageGenConfig = field(default_factory=ImageGenConfig)
     vision: VisionConfig = field(default_factory=VisionConfig)
     pixelize: PixelizeConfig = field(default_factory=PixelizeConfig)
+    asset: AssetConfig = field(default_factory=AssetConfig)
     cache: CacheConfig = field(default_factory=CacheConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
     ui: UiConfig = field(default_factory=UiConfig)

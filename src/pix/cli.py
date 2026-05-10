@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from pathlib import Path
 from typing import Optional
 
 import typer
+from PIL import Image
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -16,7 +18,13 @@ from pix import __version__
 from pix.analysis.schema import PixAnalysis
 from pix.api.image_gen import generate_image
 from pix.api.vision import analyze_image
+from pix.asset import build_asset_prompt, safe_asset_filename, validate_asset_image
 from pix.config import AppConfig, load_config
+from pix.grid.extract import extract_pixel_grid
+from pix.grid.postprocess import polish_pixel_grid
+from pix.grid.render import render_grid_file, render_pixel_grid
+from pix.grid.review import review_grid_file, review_pixel_grid
+from pix.grid.schema import load_grid, save_grid
 from pix.pipeline import PipelineInput, run_pipeline
 from pix.pixelize.core import PixelizeParams, pixelize as run_pixelize
 from pix.pixelize.presets import list_presets
@@ -132,6 +140,9 @@ def cmd_pixelize(
     remove_bg: bool = typer.Option(False, "--remove-bg", help="自动抠背景（四角 flood-fill，输出 PNG 带 alpha）"),
     bg_tolerance: int = typer.Option(12, min=0, max=128, help="背景颜色容差，越大抠越狠"),
     bg_feather: int = typer.Option(0, min=0, max=8, help="主体边缘保留的像素圈数"),
+    auto_crop: bool = typer.Option(False, "--auto-crop/--no-auto-crop", help="自动裁剪主体后再缩小"),
+    crop_padding: float = typer.Option(0.12, min=0.0, max=1.0, help="自动裁剪外扩比例"),
+    crop_square: bool = typer.Option(True, "--crop-square/--no-crop-square", help="自动裁剪时保持正方形"),
     config: Optional[Path] = typer.Option(None, "--config", help="TOML 配置文件"),
 ) -> None:
     """把图片像素化（不依赖网络）。"""
@@ -150,6 +161,9 @@ def cmd_pixelize(
         remove_bg=remove_bg,
         bg_tolerance=bg_tolerance,
         bg_feather=bg_feather,
+        auto_crop=auto_crop,
+        crop_padding=crop_padding,
+        crop_square=crop_square,
     )
     analysis: PixAnalysis | None = None
     if analysis_json:
@@ -167,6 +181,306 @@ def cmd_pixelize(
         preview_target = target.with_name(target.stem + "_preview.png")
         preview_img.save(preview_target)
         console.print(f"预览：{preview_target}")
+
+
+# ---------- grid commands ----------
+
+
+@app.command("grid-extract")
+def cmd_grid_extract(
+    image: Path = typer.Argument(..., exists=True, readable=True, help="输入高清伪像素图"),
+    out: Path = typer.Option(..., help="输出 .grid.json 路径"),
+    render: Optional[Path] = typer.Option(None, help="可选：同时渲染 PNG 到该路径"),
+    pixel_size: str = typer.Option("16x16", help="目标网格尺寸"),
+    colors: int = typer.Option(12, min=2, max=256, help="最大调色板颜色数"),
+    preview_scale: int = typer.Option(0, min=0, help="渲染 PNG 时的预览放大倍数"),
+    auto_crop: bool = typer.Option(True, "--auto-crop/--no-auto-crop", help="提取前自动裁剪主体"),
+    crop_padding: float = typer.Option(0.12, min=0.0, max=1.0, help="自动裁剪外扩比例"),
+    crop_square: bool = typer.Option(True, "--crop-square/--no-crop-square", help="自动裁剪保持正方形"),
+    remove_bg: bool = typer.Option(True, "--remove-bg/--no-remove-bg", help="提取前把四角背景转透明"),
+    bg_tolerance: int = typer.Option(26, min=0, max=128, help="背景容差"),
+) -> None:
+    """从伪像素图提取 Pixel Grid JSON。"""
+    size = _parse_size(pixel_size)
+    grid = extract_pixel_grid(
+        image,
+        output_size=size,
+        max_colors=colors,
+        auto_crop=auto_crop,
+        crop_padding=crop_padding,
+        crop_square=crop_square,
+        remove_bg=remove_bg,
+        bg_tolerance=bg_tolerance,
+    )
+    save_grid(grid, out)
+    rendered: Path | None = None
+    preview: Path | None = None
+    if render is not None:
+        rendered, preview = render_grid_file(out, render, preview_scale=preview_scale)
+    console.print(Panel.fit(
+        f"[green][OK][/green] Grid JSON：{out}\n"
+        f"渲染：{rendered or '未渲染'}\n"
+        f"预览：{preview or '未输出'}",
+        title="grid-extract",
+    ))
+
+
+@app.command("grid-render")
+def cmd_grid_render(
+    grid_json: Path = typer.Argument(..., exists=True, readable=True, help="Pixel Grid JSON"),
+    out: Path = typer.Option(..., help="输出 PNG 路径"),
+    preview_scale: int = typer.Option(0, min=0, help="预览放大倍数"),
+) -> None:
+    """根据 Pixel Grid JSON 精确渲染 PNG。"""
+    rendered, preview = render_grid_file(grid_json, out, preview_scale=preview_scale)
+    console.print(Panel.fit(
+        f"[green][OK][/green] PNG：{rendered}\n预览：{preview or '未输出'}",
+        title="grid-render",
+    ))
+
+
+@app.command("grid-polish")
+def cmd_grid_polish(
+    grid_json: Path = typer.Argument(..., exists=True, readable=True, help="Pixel Grid JSON"),
+    out: Path = typer.Option(..., help="后处理后的 JSON 输出路径"),
+    render: Optional[Path] = typer.Option(None, help="可选：同时渲染 PNG"),
+    preview_scale: int = typer.Option(0, min=0, help="渲染 PNG 时的预览放大倍数"),
+    cleanup: bool = typer.Option(True, "--cleanup/--no-cleanup", help="清理孤立噪点"),
+    outline: bool = typer.Option(True, "--outline/--no-outline", help="统一主体轮廓"),
+    outline_strength: int = typer.Option(1, min=0, max=3, help="轮廓强度"),
+    min_neighbors: int = typer.Option(1, min=0, max=8, help="非透明像素最小邻居数"),
+    max_colors: int = typer.Option(12, min=2, max=256, help="最大调色板颜色数"),
+) -> None:
+    """对 Pixel Grid JSON 做清噪、补轮廓和调色板整理。"""
+    grid = load_grid(grid_json)
+    polished = polish_pixel_grid(
+        grid,
+        cleanup=cleanup,
+        outline=outline,
+        outline_strength=outline_strength,
+        min_neighbors=min_neighbors,
+        max_colors=max_colors,
+    )
+    save_grid(polished, out)
+    rendered: Path | None = None
+    preview: Path | None = None
+    if render is not None:
+        rendered, preview = render_grid_file(out, render, preview_scale=preview_scale)
+    console.print(Panel.fit(
+        f"[green][OK][/green] 后处理 JSON：{out}\n"
+        f"调色板：{len(polished.palette)} 色\n"
+        f"渲染：{rendered or '未渲染'}\n"
+        f"预览：{preview or '未输出'}",
+        title="grid-polish",
+    ))
+
+
+@app.command("grid-review")
+def cmd_grid_review(
+    grid_json: Path = typer.Argument(..., exists=True, readable=True, help="Pixel Grid JSON"),
+    out: Path = typer.Option(..., help="审核后 JSON 输出路径"),
+    model: Optional[str] = typer.Option(None, help="覆盖视觉/LLM 模型"),
+    instruction: str = typer.Option("", help="额外审核要求"),
+    render: Optional[Path] = typer.Option(None, help="可选：同时渲染审核后的 PNG"),
+    preview_scale: int = typer.Option(0, min=0, help="渲染 PNG 时的预览放大倍数"),
+    config: Optional[Path] = typer.Option(None, "--config", help="TOML 配置文件"),
+) -> None:
+    """让 AI 审核/修正 Pixel Grid JSON。"""
+    cfg = _base_config(config)
+    reviewed = review_grid_file(cfg, grid_json, out, model=model, instruction=instruction)
+    rendered: Path | None = None
+    preview: Path | None = None
+    if render is not None:
+        rendered, preview = render_grid_file(out, render, preview_scale=preview_scale)
+    console.print(Panel.fit(
+        f"[green][OK][/green] 审核 JSON：{out}\n"
+        f"尺寸：{reviewed.canvas.width}x{reviewed.canvas.height}\n"
+        f"渲染：{rendered or '未渲染'}\n"
+        f"预览：{preview or '未输出'}",
+        title="grid-review",
+    ))
+
+
+# ---------- asset (game-ready sprite output) ----------
+
+
+@app.command("asset")
+def cmd_asset(
+    name: str = typer.Argument(..., help="素材名称，会注入游戏物品 prompt 模板"),
+    out: Optional[Path] = typer.Option(None, help="最终 PNG 路径；默认写到 [asset].output_dir/name.png"),
+    pixel_size: Optional[str] = typer.Option(None, help="输出像素尺寸，默认读 [asset].pixel_size"),
+    colors: int = typer.Option(0, min=0, max=256, help="可见颜色数；0 表示读 [asset].colors"),
+    extra_prompt: str = typer.Option("", help="追加到内置游戏素材模板后的额外英文/中文提示"),
+    image_size: Optional[str] = typer.Option(None, help="生图尺寸，默认读 [image_gen].size"),
+    image_quality: Optional[str] = typer.Option(None, help="生图质量，默认读 [asset].image_quality"),
+    vl_model: Optional[str] = typer.Option(None, help="启用 --use-vl 时覆盖视觉模型"),
+    use_vl: bool = typer.Option(False, "--use-vl", help="启用多模态分析；默认跳过以节省成本"),
+    no_cache: bool = typer.Option(False, help="禁用缓存"),
+    refresh: bool = typer.Option(False, help="忽略缓存命中，强制刷新"),
+    overwrite: bool = typer.Option(False, "--overwrite", help="允许覆盖已存在的最终 PNG/预览/sidecar"),
+    no_preview: bool = typer.Option(False, "--no-preview", help="不输出放大预览图"),
+    no_sidecars: bool = typer.Option(False, "--no-sidecars", help="不输出 .asset.json 元数据"),
+    source_copy: Optional[bool] = typer.Option(None, "--source-copy/--no-source-copy", help="把原始生图源文件复制到最终目录旁边"),
+    grid_mode: Optional[bool] = typer.Option(None, "--grid-mode/--no-grid-mode", help="用 Pixel Grid JSON 工程图渲染最终 PNG"),
+    grid_review: bool = typer.Option(False, "--grid-review", help="让 AI 审核/修正 Grid JSON 后再渲染"),
+    grid_cleanup: Optional[bool] = typer.Option(None, "--grid-cleanup/--no-grid-cleanup", help="Grid JSON 后处理：清理孤立噪点"),
+    grid_outline: Optional[bool] = typer.Option(None, "--grid-outline/--no-grid-outline", help="Grid JSON 后处理：统一主体轮廓"),
+    grid_json: Optional[Path] = typer.Option(None, help="Grid JSON 输出路径；默认 target.stem + .grid.json"),
+    no_grid_json: bool = typer.Option(False, "--no-grid-json", help="grid-mode 下不保存 .grid.json"),
+    run_root: Optional[Path] = typer.Option(None, help="中间运行目录根；默认使用 [output].root"),
+    config: Optional[Path] = typer.Option(None, "--config", help="TOML 配置文件"),
+) -> None:
+    """生成可直接用于游戏资源目录的透明像素素材。"""
+    cfg = _base_config(config)
+    size = _parse_size(pixel_size) if pixel_size else tuple(cfg.asset.pixel_size)
+    effective_colors = int(colors or cfg.asset.colors)
+    if effective_colors < 2:
+        raise typer.BadParameter("颜色数必须 >= 2；传 0 表示使用配置默认值")
+
+    target = out or Path(cfg.asset.output_dir) / f"{safe_asset_filename(name)}.png"
+    preview_target = target.with_name(target.stem + "_preview.png")
+    source_target = target.with_name(target.stem + "_source.png")
+    sidecar_target = target.with_name(target.stem + ".asset.json")
+    grid_target = grid_json or target.with_name(target.stem + ".grid.json")
+    effective_grid_mode = bool(cfg.asset.grid_mode if grid_mode is None else grid_mode)
+    effective_source_copy = bool(cfg.asset.source_copy if source_copy is None else source_copy)
+    write_targets = [target]
+    if not no_preview:
+        write_targets.append(preview_target)
+    if effective_source_copy:
+        write_targets.append(source_target)
+    if not no_sidecars:
+        write_targets.append(sidecar_target)
+    if effective_grid_mode and cfg.asset.grid_json and not no_grid_json:
+        write_targets.append(grid_target)
+    for p in write_targets:
+        if p.exists() and not overwrite:
+            console.print(f"[red]目标已存在：{p}[/red]\n如需覆盖请加 --overwrite。")
+            raise typer.Exit(code=2)
+
+    prompt = build_asset_prompt(
+        cfg.asset.prompt_template,
+        name,
+        size=size,
+        extra_prompt=extra_prompt,
+    )
+    params = PixelizeParams(
+        output_size=size,
+        colors=effective_colors,
+        dither=cfg.asset.dither,  # type: ignore[arg-type]
+        preset="auto",
+        preview_scale=0 if no_preview else cfg.asset.preview_scale,
+        edge_enhance=cfg.pixelize.edge_enhance,
+        saturation=cfg.pixelize.saturation,
+        resample=cfg.pixelize.resample,  # type: ignore[arg-type]
+        snap_to_grid=cfg.pixelize.snap_to_grid,
+        remove_bg=cfg.asset.remove_bg,
+        bg_tolerance=cfg.asset.bg_tolerance,
+        bg_feather=cfg.asset.bg_feather,
+        auto_crop=cfg.asset.auto_crop,
+        crop_padding=cfg.asset.crop_padding,
+        crop_square=cfg.asset.crop_square,
+    )
+    console.log(f"生成素材：{name!r} → {target}")
+    result = run_pipeline(
+        cfg,
+        PipelineInput(
+            prompt=prompt,
+            image_size=image_size or cfg.image_gen.size,
+            image_quality=image_quality or cfg.asset.image_quality,
+            vl_model=vl_model,
+            skip_vl=(not use_vl) if use_vl else cfg.asset.skip_vl,
+            pixelize_params=params,
+            out_root=run_root or cfg.output.root,
+            use_cache=not no_cache,
+            refresh_cache=refresh,
+        ),
+        progress=_progress_printer,
+    )
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    copied_preview: Path | None = None
+    copied_source: Path | None = None
+    saved_grid: Path | None = None
+    if effective_source_copy:
+        shutil.copyfile(result.source_path, source_target)
+        copied_source = source_target
+    if effective_grid_mode:
+        grid = extract_pixel_grid(
+            result.source_path,
+            output_size=size,
+            max_colors=effective_colors,
+            auto_crop=cfg.asset.auto_crop,
+            crop_padding=cfg.asset.crop_padding,
+            crop_square=cfg.asset.crop_square,
+            remove_bg=cfg.asset.remove_bg,
+            bg_tolerance=cfg.asset.bg_tolerance,
+            metadata={"asset_name": name, "prompt": prompt, "run_dir": str(result.run_dir)},
+        )
+        effective_cleanup = cfg.asset.grid_cleanup if grid_cleanup is None else grid_cleanup
+        effective_outline = cfg.asset.grid_outline if grid_outline is None else grid_outline
+        if effective_cleanup or effective_outline:
+            grid = polish_pixel_grid(
+                grid,
+                cleanup=effective_cleanup,
+                outline=effective_outline,
+                outline_strength=cfg.asset.grid_outline_strength,
+                min_neighbors=cfg.asset.grid_min_neighbors,
+                max_colors=effective_colors,
+            )
+        if grid_review or cfg.asset.grid_review:
+            grid = review_pixel_grid(cfg, grid, model=vl_model)
+        if cfg.asset.grid_json and not no_grid_json:
+            save_grid(grid, grid_target)
+            saved_grid = grid_target
+        final_img = render_pixel_grid(grid)
+        final_img.save(target)
+        if not no_preview:
+            final_img.resize(
+                (final_img.width * cfg.asset.preview_scale, final_img.height * cfg.asset.preview_scale),
+                resample=Image.Resampling.NEAREST,
+            ).save(preview_target)
+            copied_preview = preview_target
+    else:
+        shutil.copyfile(result.pixel_path, target)
+        if result.preview_path is not None and not no_preview:
+            shutil.copyfile(result.preview_path, preview_target)
+            copied_preview = preview_target
+
+    if not no_sidecars:
+        sidecar = {
+            "name": name,
+            "prompt": prompt,
+            "target": str(target),
+            "preview": str(copied_preview) if copied_preview else None,
+            "source_copy": str(copied_source) if copied_source else None,
+            "grid_mode": effective_grid_mode,
+            "grid": str(saved_grid) if saved_grid else None,
+            "run_dir": str(result.run_dir),
+            "source": str(result.source_path),
+            "analysis": str(result.analysis_path) if result.analysis_path else None,
+            "meta": result.meta,
+        }
+        sidecar_target.write_text(json.dumps(sidecar, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    report = validate_asset_image(
+        target,
+        expected_size=size,
+        max_colors=effective_colors,
+        require_alpha=True,
+        require_transparency=params.remove_bg,
+    )
+    _print_validation_report(report)
+    if not report.ok:
+        raise typer.Exit(code=1)
+
+    console.print(Panel.fit(
+        f"[green][OK][/green] 素材已保存：{target}\n"
+        f"原图源文件：{copied_source or result.source_path}\n"
+        f"预览：{copied_preview or '未输出'}\n"
+        f"运行目录：{result.run_dir}",
+        title="asset",
+    ))
 
 
 # ---------- gen (full pipeline from prompt) ----------
@@ -249,7 +563,28 @@ def cmd_run(
     _print_result(result.meta, result.run_dir)
 
 
-# ---------- presets ----------
+# ---------- validate ----------
+
+
+@app.command("validate")
+def cmd_validate(
+    image: Path = typer.Argument(..., exists=True, readable=True, help="要检查的 PNG 素材"),
+    pixel_size: Optional[str] = typer.Option(None, help="期望尺寸，如 16x16；为空则不检查尺寸"),
+    max_colors: int = typer.Option(16, min=0, max=256, help="最大可见颜色数；0 表示不检查"),
+    allow_no_alpha: bool = typer.Option(False, "--allow-no-alpha", help="允许没有 alpha 通道"),
+    allow_opaque: bool = typer.Option(False, "--allow-opaque", help="允许没有透明背景像素"),
+) -> None:
+    """检查 PNG 是否适合作为像素游戏素材。"""
+    expected = _parse_size(pixel_size) if pixel_size else None
+    report = validate_asset_image(
+        image,
+        expected_size=expected,
+        max_colors=max_colors or None,
+        require_alpha=not allow_no_alpha,
+        require_transparency=not allow_opaque,
+    )
+    _print_validation_report(report)
+    raise typer.Exit(code=0 if report.ok else 1)
 
 
 # ---------- batch ----------
@@ -268,6 +603,9 @@ def cmd_batch(
     remove_bg: bool = typer.Option(False, "--remove-bg"),
     bg_tolerance: int = typer.Option(12, min=0, max=128),
     bg_feather: int = typer.Option(0, min=0, max=8),
+    auto_crop: bool = typer.Option(False, "--auto-crop/--no-auto-crop"),
+    crop_padding: float = typer.Option(0.12, min=0.0, max=1.0),
+    crop_square: bool = typer.Option(True, "--crop-square/--no-crop-square"),
     use_vl: bool = typer.Option(False, "--use-vl/--no-vl", help="是否调用视觉模型分析每张图（成本较高）"),
     vl_model: Optional[str] = typer.Option(None, help="覆盖 VL 模型名"),
     workers: int = typer.Option(4, min=1, max=32, help="并发线程数"),
@@ -289,6 +627,9 @@ def cmd_batch(
         remove_bg=remove_bg,
         bg_tolerance=bg_tolerance,
         bg_feather=bg_feather,
+        auto_crop=auto_crop,
+        crop_padding=crop_padding,
+        crop_square=crop_square,
     )
 
     def _on_done(item: BatchItem, done: int, total: int) -> None:
@@ -349,6 +690,22 @@ def cmd_gui(
 
 
 # ---------- helpers ----------
+
+
+def _print_validation_report(report) -> None:
+    tbl = Table(title=f"资源检查：{report.path}")
+    tbl.add_column("项目")
+    tbl.add_column("值")
+    tbl.add_row("尺寸", f"{report.size[0]}x{report.size[1]}" if report.size else "未知")
+    tbl.add_row("模式", report.mode or "未知")
+    tbl.add_row("可见颜色数", str(report.visible_color_count))
+    tbl.add_row("主体 bbox", str(report.alpha_bbox))
+    status = "[green]OK[/green]" if report.ok else "[red]FAILED[/red]"
+    tbl.add_row("结果", status)
+    console.print(tbl)
+    for issue in report.issues:
+        color = "red" if issue.level == "error" else "yellow"
+        console.print(f"[{color}]{issue.level.upper()} {issue.code}[/] {issue.message}")
 
 
 def _print_result(meta: dict, run_dir: Path) -> None:

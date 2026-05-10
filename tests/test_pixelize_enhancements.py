@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image
 
+from pix.analysis.schema import PixAnalysis, StyleAnalysis
 from pix.pixelize.bg_removal import remove_background
 from pix.pixelize.core import (
     PixelizeParams,
@@ -100,6 +101,49 @@ class TestPixelizeWithSmart:
         assert meta["effective_params"]["resample"] == "box"
 
 
+class TestAutoCrop:
+    def test_auto_crop_solid_background_before_downsample(self) -> None:
+        img = _solid_bg_with_subject(size=128)
+        result, _, meta = pixelize(
+            img,
+            PixelizeParams(
+                output_size=(16, 16),
+                colors=4,
+                dither="none",
+                auto_crop=True,
+                crop_padding=0.1,
+                preview_scale=0,
+            ),
+        )
+        assert result.size == (16, 16)
+        assert meta["effective_params"]["auto_crop"] is True
+        assert meta["crop_bbox"] is not None
+        left, top, right, bottom = meta["crop_bbox"]
+        assert right - left < 128
+        assert bottom - top < 128
+
+    def test_auto_crop_transparent_input(self) -> None:
+        img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[20:44, 18:42] = [240, 80, 80, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        result, _, meta = pixelize(
+            img,
+            PixelizeParams(
+                output_size=(16, 16),
+                colors=4,
+                dither="none",
+                auto_crop=True,
+                preview_scale=0,
+            ),
+        )
+
+        assert result.size == (16, 16)
+        assert meta["crop_bbox"] is not None
+        assert result.mode == "RGBA"
+
+
 class TestRemoveBackground:
     def test_corner_bg_becomes_transparent(self) -> None:
         img = _solid_bg_with_subject(size=64)
@@ -168,3 +212,34 @@ class TestPixelizeRemoveBg:
         # 默认不抠，应是 RGB 或 RGBA 但全不透明
         if result.mode == "RGBA":
             assert (np.asarray(result)[..., 3] == 255).all()
+
+    def test_remove_bg_preserved_when_analysis_present(self) -> None:
+        img = _solid_bg_with_subject(size=128)
+        analysis = PixAnalysis(
+            description="mock",
+            style=StyleAnalysis(
+                recommended_preset="auto",
+                target_color_count=4,
+                suggested_dither="none",
+            ),
+            palette=[],
+            main_subjects=[],
+            semantic_regions=[],
+        )
+
+        result, _, meta = pixelize(
+            img,
+            PixelizeParams(
+                output_size=(32, 32),
+                colors=4,
+                dither="none",
+                remove_bg=True,
+                bg_tolerance=16,
+                preview_scale=0,
+            ),
+            analysis=analysis,
+        )
+
+        assert meta["effective_params"]["remove_bg"] is True
+        assert meta["effective_params"]["bg_tolerance"] == 16
+        assert (np.asarray(result.convert("RGBA"))[..., 3] == 0).any()

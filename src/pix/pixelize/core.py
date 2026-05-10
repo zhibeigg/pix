@@ -41,6 +41,9 @@ class PixelizeParams:
     remove_bg: bool = False
     bg_tolerance: int = 12
     bg_feather: int = 0
+    auto_crop: bool = False
+    crop_padding: float = 0.12
+    crop_square: bool = True
 
     @classmethod
     def from_config(cls, cfg: PixelizeConfig) -> "PixelizeParams":
@@ -57,6 +60,9 @@ class PixelizeParams:
             remove_bg=getattr(cfg, "remove_bg", False),
             bg_tolerance=getattr(cfg, "bg_tolerance", 12),
             bg_feather=getattr(cfg, "bg_feather", 0),
+            auto_crop=getattr(cfg, "auto_crop", False),
+            crop_padding=getattr(cfg, "crop_padding", 0.12),
+            crop_square=getattr(cfg, "crop_square", True),
         )
 
 
@@ -93,6 +99,14 @@ def _effective_params(
         preview_scale=params.preview_scale,
         edge_enhance=params.edge_enhance,
         saturation=params.saturation,
+        resample=params.resample,
+        snap_to_grid=params.snap_to_grid,
+        remove_bg=params.remove_bg,
+        bg_tolerance=params.bg_tolerance,
+        bg_feather=params.bg_feather,
+        auto_crop=params.auto_crop,
+        crop_padding=params.crop_padding,
+        crop_square=params.crop_square,
     )
 
     if preset is not None:
@@ -116,6 +130,119 @@ def _effective_params(
             eff.dither = analysis.style.suggested_dither  # type: ignore[assignment]
 
     return eff
+
+
+def _image_mode_for_pixelize(source: Image.Image) -> Image.Image:
+    """转换为像素化工作模式，尽量保留输入透明通道。"""
+    has_alpha = "A" in source.getbands() or "transparency" in source.info
+    return source.convert("RGBA" if has_alpha else "RGB")
+
+
+def _alpha_bbox(image: Image.Image, threshold: int = 8) -> tuple[int, int, int, int] | None:
+    """返回 alpha 中非透明主体 bbox；坐标为 Pillow crop 的右开区间。"""
+    if "A" not in image.getbands():
+        return None
+    alpha = image.getchannel("A")
+    if threshold <= 0:
+        return alpha.getbbox()
+    mask = alpha.point(lambda v: 255 if v > threshold else 0)
+    return mask.getbbox()
+
+
+def _foreground_bbox(image: Image.Image, bg_tolerance: int) -> tuple[int, int, int, int] | None:
+    """优先用 alpha；否则临时四角抠背景来估计主体 bbox。"""
+    bbox = _alpha_bbox(image)
+    if bbox is not None:
+        return bbox
+    probe = remove_background(
+        image,
+        tolerance=max(0, int(bg_tolerance)),
+        feather=0,
+        keep_border_bleed=True,
+    )
+    return _alpha_bbox(probe)
+
+
+def _expand_bbox(
+    bbox: tuple[int, int, int, int],
+    image_size: tuple[int, int],
+    *,
+    padding: float,
+    square: bool,
+) -> tuple[int, int, int, int]:
+    """外扩 bbox，并可保持正方形，最终裁剪范围限制在图片内。"""
+    w, h = image_size
+    left, top, right, bottom = bbox
+    bw = max(1, right - left)
+    bh = max(1, bottom - top)
+    pad = max(0.0, float(padding))
+    left -= int(round(bw * pad))
+    right += int(round(bw * pad))
+    top -= int(round(bh * pad))
+    bottom += int(round(bh * pad))
+
+    if square:
+        cx = (left + right) / 2
+        cy = (top + bottom) / 2
+        side = max(right - left, bottom - top)
+        left = int(round(cx - side / 2))
+        right = left + side
+        top = int(round(cy - side / 2))
+        bottom = top + side
+
+    crop_w = right - left
+    crop_h = bottom - top
+    if left < 0:
+        right -= left
+        left = 0
+    if top < 0:
+        bottom -= top
+        top = 0
+    if right > w:
+        left -= right - w
+        right = w
+    if bottom > h:
+        top -= bottom - h
+        bottom = h
+
+    left = max(0, left)
+    top = max(0, top)
+    right = min(w, max(left + 1, right))
+    bottom = min(h, max(top + 1, bottom))
+
+    # 如果贴边修正导致尺寸塌缩，至少尽量保留原扩展尺寸范围。
+    if square:
+        side = min(max(crop_w, crop_h), w, h)
+        cx = (left + right) / 2
+        cy = (top + bottom) / 2
+        left = int(round(cx - side / 2))
+        top = int(round(cy - side / 2))
+        left = max(0, min(left, w - side))
+        top = max(0, min(top, h - side))
+        right = left + side
+        bottom = top + side
+
+    return int(left), int(top), int(right), int(bottom)
+
+
+def _auto_crop(
+    image: Image.Image,
+    *,
+    bg_tolerance: int,
+    padding: float,
+    square: bool,
+) -> tuple[Image.Image, tuple[int, int, int, int] | None]:
+    """按透明通道或四角背景估计主体并裁剪。"""
+    bbox = _foreground_bbox(image, bg_tolerance)
+    if bbox is None:
+        return image, None
+    w, h = image.size
+    left, top, right, bottom = bbox
+    # 全图都被视作前景时不要裁，避免误伤背景复杂的输入。
+    if left <= 0 and top <= 0 and right >= w and bottom >= h:
+        return image, None
+    expanded = _expand_bbox(bbox, image.size, padding=padding, square=square)
+    return image.crop(expanded), expanded
 
 
 def _detect_grid_size(image: Image.Image, max_probe: int = 24) -> int:
@@ -279,12 +406,22 @@ def pixelize(
     """
     if not isinstance(source, Image.Image):
         source = Image.open(source)
-    img = source.convert("RGB")
+    img = _image_mode_for_pixelize(source)
 
     preset = _resolve_preset(params, analysis)
     eff = _effective_params(params, preset, analysis)
 
-    # 1. 下采样到目标尺寸（smart/box/bicubic/lanczos/nearest）
+    # 1. 可选主体裁剪：先把大图裁成图标主体，再缩小，避免 16x16 时主体过小。
+    crop_bbox: tuple[int, int, int, int] | None = None
+    if eff.auto_crop:
+        img, crop_bbox = _auto_crop(
+            img,
+            bg_tolerance=eff.bg_tolerance,
+            padding=eff.crop_padding,
+            square=eff.crop_square,
+        )
+
+    # 2. 下采样到目标尺寸（smart/box/bicubic/lanczos/nearest）
     detected_grid: int | None = None
     if eff.resample == "smart" and eff.snap_to_grid:
         detected_grid = _detect_grid_size(img)
@@ -330,10 +467,14 @@ def pixelize(
             "remove_bg": eff.remove_bg,
             "bg_tolerance": eff.bg_tolerance,
             "bg_feather": eff.bg_feather,
+            "auto_crop": eff.auto_crop,
+            "crop_padding": eff.crop_padding,
+            "crop_square": eff.crop_square,
         },
         "palette": ["#{:02X}{:02X}{:02X}".format(*c) for c in palette_rgb],
         "palette_size": len(palette_rgb),
         "used_analysis": analysis is not None,
         "detected_grid": detected_grid,
+        "crop_bbox": list(crop_bbox) if crop_bbox else None,
     }
     return pixelized, preview, meta
