@@ -267,6 +267,35 @@ pix-web-worker --once   # 只处理一个任务，适合测试
 pix-web-rq-worker
 ```
 
+Docker Compose 生产预览部署：
+
+```bash
+cp .env.production.example .env.production
+# 编辑 .env.production：至少替换 PACKY_API_KEY、PIX_WEB_JWT_SECRET、POSTGRES_PASSWORD
+
+docker compose --env-file .env.production run --rm migrate
+docker compose --env-file .env.production up --build
+```
+
+默认访问：
+
+```text
+http://localhost:8080
+```
+
+Compose 会启动：
+
+```text
+Postgres / Redis / migrate / api / worker / web
+```
+
+生产建议：
+
+```text
+PIX_WEB_AUTO_CREATE_DB=false
+PIX_WEB_QUEUE_BACKEND=rq
+```
+
 启动前端工作台：
 
 ```bash

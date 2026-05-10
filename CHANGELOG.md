@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-05-10
+
+### Added
+
+- 新增生产 Dockerfile、前端 Nginx 镜像配置、`docker-compose.yml` 和 `.env.production.example`。
+- Compose 部署包含 Postgres、Redis、迁移任务、FastAPI API、RQ worker 和前端静态站点。
+
 ## [0.17.0] - 2026-05-10
 
 ### Added
@@ -194,7 +201,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/zhibeigg/pix/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/zhibeigg/pix/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/zhibeigg/pix/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/zhibeigg/pix/compare/v0.14.0...v0.15.0
