@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from pix.config import AppConfig, load_config, require_image_api_key, require_vl_api_key
+from pix.config import load_config, require_image_api_key, require_vl_api_key
 
 
 def test_defaults(tmp_cwd: Path) -> None:

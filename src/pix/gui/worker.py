@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtCore import QObject, QThread, Signal
 
 from pix.config import AppConfig
-from pix.pipeline import PipelineInput, PipelineResult, run_pipeline
+from pix.pipeline import PipelineInput, run_pipeline
 
 
 class PipelineWorker(QObject):
@@ -26,8 +24,8 @@ class PipelineWorker(QObject):
             self.finished.emit(result)
         except BaseException as exc:  # noqa: BLE001 — 捕获所有以保证线程不会悄无声息地崩
             import traceback
-            tb = traceback.format_exc()
-            self.failed.emit(f"{exc}\n\n{tb}")
+
+            self.failed.emit(f"{exc}\n\n{traceback.format_exc()}")
 
     def _on_progress(self, step: str, payload: dict) -> None:
         self.progress.emit(step, payload)

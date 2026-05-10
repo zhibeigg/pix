@@ -65,16 +65,17 @@ extend-exclude = ["outputs", ".pix_cache", "build", "dist"]
 select = [
     "E",    # pycodestyle errors
     "F",    # pyflakes (unused imports etc.)
-    "I",    # isort
-    "B",    # flake8-bugbear
-    "UP",   # pyupgrade
+    "B",    # flake8-bugbear（潜在 bug，比如可变默认参数）
     "W",    # pycodestyle warnings
 ]
+# 风格类规则（import 排序 / 类型注解现代化）暂不强制，
+# 留给后续 PR 逐步 tidy，避免一次性大改影响 diff 审查。
+# 如果想启用：把 "I" / "UP" 加回来并单独跑 `ruff check --select I --fix`。
 ignore = [
     "E501",  # 行长度交给 formatter 自觉遵循，避免为几个字符频繁打断
     "B008",  # Typer/FastAPI 风格的 Depends()/Argument() 在默认值里调用是惯例
     "B904",  # raise ... from 强制打开后约束太严
-    "UP038", # isinstance(x, (A, B)) 在 3.10 里仍是更易读的写法
+    "B017",  # pytest.raises(Exception) 在 smoke 测试里是合理的
 ]
 
 [tool.ruff.lint.per-file-ignores]

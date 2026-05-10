@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from pix.i18n import (
-    LANGUAGES,
     add_retranslate_hook,
     available_languages,
     clear_hooks,
@@ -32,7 +31,7 @@ def test_default_language_is_zh_cn() -> None:
 
 def test_available_languages_returns_nine() -> None:
     langs = available_languages()
-    codes = [l.code for l in langs]
+    codes = [lang.code for lang in langs]
     assert "zh-CN" in codes
     assert "en" in codes
     assert "ja" in codes
