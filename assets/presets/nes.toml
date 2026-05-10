@@ -1,0 +1,9 @@
+# NES 风格：有限调色 + 较低分辨率 + 微抖动
+name           = "nes"
+description    = "NES-like limited palette, low-res"
+output_size    = [256, 240]
+colors         = 16
+palette_lock   = []
+dither         = "ordered"
+edge_enhance   = 0.2
+saturation     = 0.95

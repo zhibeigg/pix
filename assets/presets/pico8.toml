@@ -1,0 +1,14 @@
+# PICO-8 官方 16 色调色板
+name           = "pico8"
+description    = "PICO-8 fixed 16-color palette"
+output_size    = [128, 128]
+colors         = 16
+palette_lock   = [
+    "#000000", "#1D2B53", "#7E2553", "#008751",
+    "#AB5236", "#5F574F", "#C2C3C7", "#FFF1E8",
+    "#FF004D", "#FFA300", "#FFEC27", "#00E436",
+    "#29ADFF", "#83769C", "#FF77A8", "#FFCCAA",
+]
+dither         = "none"
+edge_enhance   = 0.1
+saturation     = 1.0

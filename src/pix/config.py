@@ -1,0 +1,228 @@
+"""统一的配置加载与合并。
+
+优先级（后者覆盖前者）：
+    默认值 < config.toml < .env < 环境变量 < CLI 显式传入参数
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+from dataclasses import dataclass, field, asdict
+from pathlib import Path
+from typing import Any, Mapping
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # pragma: no cover
+    import tomli as tomllib  # type: ignore[no-redef]
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover
+    def load_dotenv(*_args: Any, **_kwargs: Any) -> bool:  # type: ignore[misc]
+        return False
+
+
+# ---------- dataclass 定义 ----------
+
+
+@dataclass
+class ApiConfig:
+    base_url: str = "https://www.packyapi.com"
+    timeout: float = 180.0
+    max_retries: int = 3
+    # sora 分组 key，用于 gpt-image-2
+    image_api_key: str | None = None
+    # default 分组 key，用于 VL（Claude / Gemini / gpt-4o）
+    vl_api_key: str | None = None
+
+
+@dataclass
+class ImageGenConfig:
+    model: str = "gpt-image-2"
+    size: str = "1024x1024"
+    quality: str = "high"
+    output_format: str = "png"
+
+
+@dataclass
+class VisionConfig:
+    model: str = "claude-sonnet-4-5"
+    temperature: float = 0.2
+    max_tokens: int = 2048
+    retry_on_parse: int = 1
+
+
+@dataclass
+class PixelizeConfig:
+    output_size: tuple[int, int] = (128, 128)
+    colors: int = 16
+    dither: str = "floyd_steinberg"
+    preset: str = "auto"
+    preview_scale: int = 4
+    edge_enhance: float = 0.1
+    saturation: float = 1.0
+
+
+@dataclass
+class CacheConfig:
+    enabled: bool = True
+    dir: str = ".pix_cache"
+
+
+@dataclass
+class OutputConfig:
+    root: str = "outputs"
+
+
+@dataclass
+class UiConfig:
+    language: str = "zh-CN"
+
+
+@dataclass
+class AppConfig:
+    api: ApiConfig = field(default_factory=ApiConfig)
+    image_gen: ImageGenConfig = field(default_factory=ImageGenConfig)
+    vision: VisionConfig = field(default_factory=VisionConfig)
+    pixelize: PixelizeConfig = field(default_factory=PixelizeConfig)
+    cache: CacheConfig = field(default_factory=CacheConfig)
+    output: OutputConfig = field(default_factory=OutputConfig)
+    ui: UiConfig = field(default_factory=UiConfig)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+# ---------- 合并 ----------
+
+
+def _update_dataclass(obj: Any, values: Mapping[str, Any]) -> None:
+    """浅层更新 dataclass 字段；未识别的字段静默忽略。"""
+    if not values:
+        return
+    annotations = getattr(type(obj), "__annotations__", {})
+    for key, value in values.items():
+        if key not in annotations:
+            continue
+        current = getattr(obj, key, None)
+        expected_type = annotations[key]
+        # 特殊处理 tuple[int, int]
+        if isinstance(current, tuple) and isinstance(value, (list, tuple)):
+            try:
+                setattr(obj, key, tuple(int(v) for v in value))
+            except (TypeError, ValueError):
+                setattr(obj, key, current)
+            continue
+        # 特殊处理布尔（避免被 "false" 这种字符串误转）
+        if isinstance(current, bool) and isinstance(value, str):
+            setattr(obj, key, value.strip().lower() in ("1", "true", "yes", "on"))
+            continue
+        # 简单数值转换
+        if isinstance(current, int) and not isinstance(value, bool) and isinstance(value, (int, float, str)):
+            try:
+                setattr(obj, key, int(value))
+                continue
+            except (TypeError, ValueError):
+                pass
+        if isinstance(current, float) and isinstance(value, (int, float, str)):
+            try:
+                setattr(obj, key, float(value))
+                continue
+            except (TypeError, ValueError):
+                pass
+        setattr(obj, key, value)
+
+
+def _load_toml(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    with path.open("rb") as fp:
+        return tomllib.load(fp)
+
+
+def _apply_mapping(cfg: AppConfig, data: Mapping[str, Any]) -> None:
+    for section_name, section_values in data.items():
+        if not isinstance(section_values, Mapping):
+            continue
+        section_obj = getattr(cfg, section_name, None)
+        if section_obj is None:
+            continue
+        _update_dataclass(section_obj, section_values)
+
+
+def _apply_env(cfg: AppConfig) -> None:
+    """从环境变量覆盖关键字段。"""
+    api_key = os.getenv("PACKY_API_KEY")
+    vl_key = os.getenv("PACKY_VL_API_KEY") or api_key
+    base_url = os.getenv("PACKY_BASE_URL")
+
+    if api_key:
+        cfg.api.image_api_key = api_key
+    if vl_key:
+        cfg.api.vl_api_key = vl_key
+    if base_url:
+        cfg.api.base_url = base_url
+
+
+# ---------- 公共入口 ----------
+
+
+def load_config(
+    config_file: Path | str | None = None,
+    overrides: Mapping[str, Any] | None = None,
+    env_file: Path | str | None = ".env",
+) -> AppConfig:
+    """加载配置。
+
+    Args:
+        config_file: 可选 TOML 配置文件路径；默认检索 ./config.toml。
+        overrides: CLI/GUI 传入的覆盖值，结构与 AppConfig 一致（section -> field -> value）。
+        env_file: .env 路径，None 表示跳过。
+    """
+    # 1. 加载 .env
+    if env_file is not None and not os.getenv("PIX_DISABLE_DOTENV"):
+        env_path = Path(env_file)
+        if env_path.exists():
+            load_dotenv(env_path)
+        else:
+            load_dotenv()  # 尝试默认搜索
+
+    cfg = AppConfig()
+
+    # 2. 合并 config.toml
+    candidate_paths: list[Path] = []
+    if config_file is not None:
+        candidate_paths.append(Path(config_file))
+    else:
+        candidate_paths.append(Path("config.toml"))
+    for p in candidate_paths:
+        _apply_mapping(cfg, _load_toml(p))
+
+    # 3. 环境变量
+    _apply_env(cfg)
+
+    # 4. 显式 overrides
+    if overrides:
+        _apply_mapping(cfg, overrides)
+
+    return cfg
+
+
+def require_image_api_key(cfg: AppConfig) -> str:
+    if not cfg.api.image_api_key:
+        raise RuntimeError(
+            "未找到 PACKY_API_KEY。请在 .env 中设置或导出环境变量。"
+            "（gpt-image-2 需要 sora 分组的令牌）"
+        )
+    return cfg.api.image_api_key
+
+
+def require_vl_api_key(cfg: AppConfig) -> str:
+    key = cfg.api.vl_api_key or cfg.api.image_api_key
+    if not key:
+        raise RuntimeError(
+            "未找到 PACKY_VL_API_KEY / PACKY_API_KEY。请在 .env 中设置 VL 分组令牌。"
+        )
+    return key

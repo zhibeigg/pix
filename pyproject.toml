@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pix"
+version = "0.1.0"
+description = "Prompt → AI image → multimodal JSON → pixel art pipeline, with CLI and PySide6 GUI."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "纸杯 (zhibeigg)", email = "785740487@qq.com" }]
+keywords = ["pixel-art", "ai", "image-generation", "multimodal", "packy", "gpt-image"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.6",
+    "Pillow>=10.2",
+    "numpy>=1.26",
+    "scikit-learn>=1.3",
+    "typer>=0.12",
+    "rich>=13.7",
+    "python-dotenv>=1.0",
+    "tomli>=2.0; python_version < '3.11'",
+    "tomli-w>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/zhibeigg/pix"
+Repository = "https://github.com/zhibeigg/pix"
+Issues = "https://github.com/zhibeigg/pix/issues"
+
+[project.optional-dependencies]
+gui = ["PySide6>=6.6"]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+
+[project.scripts]
+pix = "pix.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pix = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
