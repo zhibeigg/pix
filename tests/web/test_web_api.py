@@ -105,6 +105,80 @@ def test_create_job_enqueues_pending_job(client: TestClient, monkeypatch) -> Non
     assert calls == [[response.json()["id"]]]
 
 
+def test_admin_can_update_operational_settings(client: TestClient) -> None:
+    _user, headers = _register_and_login(client)
+
+    settings = client.get("/admin/settings", headers=headers)
+    assert settings.status_code == 200
+    assert {item["key"] for item in settings.json()} >= {
+        "generation_enabled",
+        "max_pending_jobs_per_user",
+        "daily_job_limit_per_user",
+    }
+
+    updated = client.put("/admin/settings/max_pending_jobs_per_user", headers=headers, json={"value": "2"})
+    assert updated.status_code == 200
+    assert updated.json()["value"] == "2"
+
+
+def test_non_admin_cannot_update_operational_settings(client: TestClient) -> None:
+    _admin, _admin_headers = _register_and_login(client)
+    _user, headers = _register_and_login(client, "user@example.com")
+
+    response = client.put("/admin/settings/generation_enabled", headers=headers, json={"value": "false"})
+
+    assert response.status_code == 403
+
+
+def test_generation_disabled_blocks_job_creation(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 20})
+    client.put("/admin/settings/generation_enabled", headers=headers, json={"value": "false"})
+
+    response = client.post("/jobs", headers=headers, json={"job_type": "text_to_image", "prompt": "pixel cat"})
+
+    assert response.status_code == 403
+
+
+def test_pending_limit_blocks_extra_jobs(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 100})
+    client.put("/admin/settings/max_pending_jobs_per_user", headers=headers, json={"value": "1"})
+
+    first = client.post("/jobs", headers=headers, json={"job_type": "text_to_image", "prompt": "pixel cat"})
+    second = client.post("/jobs", headers=headers, json={"job_type": "text_to_image", "prompt": "pixel dog"})
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
+def test_batch_respects_pending_limit_atomically(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 100})
+    client.put("/admin/settings/max_pending_jobs_per_user", headers=headers, json={"value": "1"})
+
+    response = client.post(
+        "/jobs/batch",
+        headers=headers,
+        json={"jobs": [{"job_type": "text_to_image", "prompt": "cat"}, {"job_type": "text_to_image", "prompt": "dog"}]},
+    )
+
+    assert response.status_code == 429
+    assert client.get("/jobs", headers=headers).json() == []
+
+
+def test_daily_limit_blocks_extra_jobs(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 100})
+    client.put("/admin/settings/daily_job_limit_per_user", headers=headers, json={"value": "1"})
+
+    first = client.post("/jobs", headers=headers, json={"job_type": "text_to_image", "prompt": "pixel cat"})
+    second = client.post("/jobs", headers=headers, json={"job_type": "text_to_image", "prompt": "pixel dog"})
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
 def test_batch_create_jobs_reserves_atomically(client: TestClient, monkeypatch) -> None:
     user, headers = _register_and_login(client)
     client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})

@@ -205,3 +205,15 @@ class PricingRuleResponse(BaseModel):
 class PricingRuleUpdateRequest(BaseModel):
     price_credits: int = Field(ge=0)
     enabled: bool = True
+
+
+class SystemSettingResponse(BaseModel):
+    key: str
+    value: str
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SystemSettingUpdateRequest(BaseModel):
+    value: str = Field(max_length=256)

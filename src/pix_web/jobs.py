@@ -14,6 +14,7 @@ from pix_web.credits import InsufficientCreditsError, insufficient_credits_http,
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
 from pix_web.pricing import PricingDisabledError, get_price
 from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema
+from pix_web.system_settings import enforce_generation_limits
 
 AI_JOB_TYPES = {"text_to_image", "image_to_image"}
 IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "repixelize"}
@@ -97,6 +98,9 @@ def create_job_in_transaction(
 
 
 def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
+    request_id = req.client_request_id.strip()
+    if _existing_job(db, user, request_id) is None:
+        enforce_generation_limits(db, user, new_jobs=1)
     try:
         job = create_job_in_transaction(db, user, req)
     except InsufficientCreditsError as exc:
@@ -145,6 +149,9 @@ def create_jobs_batch(
         prices.append(price)
         total_price += price
 
+    new_jobs = len(reqs) - len(existing_by_index)
+    enforce_generation_limits(db, user, new_jobs=new_jobs)
+
     account = db.scalar(select(CreditAccount).where(CreditAccount.user_id == user.id))
     available = account.available_credits if account is not None else 0
     if available < total_price:
@@ -155,13 +162,13 @@ def create_jobs_batch(
     db.flush()
     jobs: list[GenerationJob] = []
     try:
-        for index, req in enumerate(reqs):
+        for index, (req, price) in enumerate(zip(reqs, prices, strict=True)):
             existing = existing_by_index.get(index)
             if existing is not None:
                 jobs.append(existing)
                 continue
             job = create_job_in_transaction(db, user, req, reserve=False, batch=batch)
-            reserve_credits(db, user, job, prices[index])
+            reserve_credits(db, user, job, price)
             jobs.append(job)
     except InsufficientCreditsError as exc:
         db.rollback()
@@ -217,6 +224,8 @@ def retry_failed_jobs_in_batch(db: Session, user: User, batch_id: int) -> tuple[
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price
+
+    enforce_generation_limits(db, user, new_jobs=len(reqs))
 
     account = db.scalar(select(CreditAccount).where(CreditAccount.user_id == user.id))
     available = account.available_credits if account is not None else 0

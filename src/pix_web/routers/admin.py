@@ -7,16 +7,19 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.credits import adjust_credits
-from pix_web.models import GenerationJob, PricingRule, User
+from pix_web.models import GenerationJob, PricingRule, SystemSetting, User
 from pix_web.schemas import (
     AdminAdjustCreditsRequest,
     CreditTransactionResponse,
     JobResponse,
     PricingRuleResponse,
     PricingRuleUpdateRequest,
+    SystemSettingResponse,
+    SystemSettingUpdateRequest,
     UserResponse,
 )
 from pix_web.security import get_db, require_admin
+from pix_web.system_settings import list_system_settings, update_system_setting
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -75,3 +78,18 @@ def update_pricing(
     db.commit()
     db.refresh(rule)
     return rule
+
+
+@router.get("/settings", response_model=list[SystemSettingResponse])
+def settings(_admin: User = Depends(require_admin), db: Session = Depends(get_db)) -> list[SystemSetting]:
+    return list_system_settings(db)
+
+
+@router.put("/settings/{key}", response_model=SystemSettingResponse)
+def update_setting(
+    key: str,
+    req: SystemSettingUpdateRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> SystemSetting:
+    return update_system_setting(db, key, req.value)

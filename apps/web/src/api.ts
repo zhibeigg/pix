@@ -6,6 +6,7 @@ import type {
   JobBatchCreateResponse,
   JobCreateRequest,
   PricingRule,
+  SystemSetting,
   TokenResponse,
   UploadResponse,
   User,
@@ -136,5 +137,11 @@ export const api = {
       { method: 'PUT', body: JSON.stringify({ price_credits: priceCredits, enabled }) },
       token,
     )
+  },
+  adminSettings(token: string) {
+    return request<SystemSetting[]>('/admin/settings', {}, token)
+  },
+  updateSetting(token: string, key: string, value: string) {
+    return request<SystemSetting>(`/admin/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }, token)
   },
 }
