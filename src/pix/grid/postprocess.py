@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import Counter, deque
+from collections import Counter
 from dataclasses import dataclass
 
 from pix.grid.schema import PixelGrid, PixelGridAxes, PixelGridCanvas, PixelGridColor
@@ -264,4 +264,4 @@ def _luma(rgb: tuple[int, int, int]) -> float:
 
 
 def _distance_sq(a: tuple[int, int, int], b: tuple[int, int, int]) -> int:
-    return sum((x - y) ** 2 for x, y in zip(a, b))
+    return sum((x - y) ** 2 for x, y in zip(a, b, strict=True))

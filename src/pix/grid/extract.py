@@ -215,7 +215,7 @@ def _mark_border_background_transparent(
 
     ref = tuple(int(v) for v in np.median(np.asarray(border_colors, dtype=np.float32), axis=0))
     tol_sq = max(0, int(tolerance)) ** 2 * 3
-    visible_colors = [c for c, t in zip(colors, transparent) if not t and c is not None]
+    visible_colors = [c for c, t in zip(colors, transparent, strict=True) if not t and c is not None]
     if visible_colors:
         close_ratio = sum(1 for c in visible_colors if _rgb_distance_sq(c, ref) <= tol_sq) / len(visible_colors)
         # 如果几乎整张图都接近边缘色，说明主体可能已经被裁到铺满画布，
@@ -258,7 +258,7 @@ def _cluster_cell_colors(
     output_size: tuple[int, int],
     max_colors: int,
 ) -> tuple[list[tuple[int, int, int]], list[list[int]]]:
-    visible = [c for c, is_transparent in zip(colors, transparent) if not is_transparent and c is not None]
+    visible = [c for c, is_transparent in zip(colors, transparent, strict=True) if not is_transparent and c is not None]
     if not visible:
         return [(0, 0, 0)], _reshape_pixels([-1 for _ in colors], output_size)
 
@@ -266,7 +266,7 @@ def _cluster_cell_colors(
     k = min(max_colors, len(unique))
     palette = _make_palette(unique, k)
     flat_pixels: list[int] = []
-    for color, is_transparent in zip(colors, transparent):
+    for color, is_transparent in zip(colors, transparent, strict=True):
         if is_transparent or color is None:
             flat_pixels.append(-1)
         else:
