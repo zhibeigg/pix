@@ -61,6 +61,49 @@ def test_register_login_and_admin_adjust_credits(client: TestClient) -> None:
     assert balance["reserved_credits"] == 0
 
 
+def test_billing_order_mock_pay_and_idempotent_webhook(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+
+    packages = client.get("/billing/packages")
+    assert packages.status_code == 200
+    package_key = packages.json()[0]["key"]
+
+    order = client.post("/billing/orders", headers=headers, json={"package_key": package_key})
+    assert order.status_code == 200
+    order_body = order.json()
+    assert order_body["status"] == "pending"
+    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == 0
+
+    paid = client.post(f"/billing/mock-pay/{order_body['id']}", headers=headers)
+    assert paid.status_code == 200
+    assert paid.json()["status"] == "paid"
+    balance_after_pay = client.get("/credits/balance", headers=headers).json()["available_credits"]
+    assert balance_after_pay == order_body["credits"]
+
+    paid_again = client.post(f"/billing/mock-pay/{order_body['id']}", headers=headers)
+    assert paid_again.status_code == 200
+    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == balance_after_pay
+
+    event = {"order_id": order_body["id"], "event_id": "evt_same"}
+    first_event = client.post("/billing/webhook/mock", json=event)
+    second_event = client.post("/billing/webhook/mock", json=event)
+    assert first_event.status_code == 200
+    assert second_event.status_code == 200
+    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == balance_after_pay
+
+
+def test_non_admin_cannot_mock_pay_order(client: TestClient) -> None:
+    _admin, admin_headers = _register_and_login(client)
+    _user, headers = _register_and_login(client, "buyer@example.com")
+    package_key = client.get("/billing/packages").json()[0]["key"]
+    order = client.post("/billing/orders", headers=headers, json={"package_key": package_key}).json()
+
+    response = client.post(f"/billing/mock-pay/{order['id']}", headers=headers)
+
+    assert response.status_code == 403
+    assert client.post(f"/billing/mock-pay/{order['id']}", headers=admin_headers).status_code == 200
+
+
 def test_create_job_reserves_credits_idempotently(client: TestClient) -> None:
     user, headers = _register_and_login(client)
     client.post(

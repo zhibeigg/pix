@@ -1,12 +1,17 @@
-import type { CreditBalance, CreditTransaction } from '../types'
+import type { CreditBalance, CreditPackage, CreditTransaction, PaymentOrder } from '../types'
 
 type CreditPanelProps = {
   balance: CreditBalance | null
   transactions: CreditTransaction[]
+  packages: CreditPackage[]
+  orders: PaymentOrder[]
+  isAdmin: boolean
   onRefresh: () => void
+  onCreateOrder: (packageKey: string) => Promise<void>
+  onMockPayOrder: (orderId: number) => Promise<void>
 }
 
-export function CreditPanel({ balance, transactions, onRefresh }: CreditPanelProps) {
+export function CreditPanel({ balance, transactions, packages, orders, isAdmin, onRefresh, onCreateOrder, onMockPayOrder }: CreditPanelProps) {
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -21,6 +26,30 @@ export function CreditPanel({ balance, transactions, onRefresh }: CreditPanelPro
         <Metric label="冻结" value={balance?.reserved_credits ?? '—'} />
         <Metric label="累计充值" value={balance?.total_recharged ?? '—'} />
         <Metric label="累计消费" value={balance?.total_consumed ?? '—'} />
+      </div>
+      <div className="package-list">
+        {packages.map((item) => (
+          <div className="transaction" key={item.key}>
+            <span className="dot positive" />
+            <div>
+              <strong>{item.name}</strong>
+              <p>{item.credits} credits · {(item.amount_cents / 100).toFixed(2)} {item.currency.toUpperCase()}</p>
+            </div>
+            <button className="ghost" onClick={() => onCreateOrder(item.key)}>创建订单</button>
+          </div>
+        ))}
+      </div>
+      <div className="transaction-list">
+        {orders.length > 0 && orders.map((order) => (
+          <div className="transaction" key={order.id}>
+            <span className={`dot ${order.status === 'paid' ? 'positive' : 'negative'}`} />
+            <div>
+              <strong>订单 #{order.id} · {order.status}</strong>
+              <p>{order.credits} credits · {(order.amount_cents / 100).toFixed(2)} {order.currency.toUpperCase()}</p>
+            </div>
+            {isAdmin && order.status !== 'paid' && <button className="ghost" onClick={() => onMockPayOrder(order.id)}>模拟支付</button>}
+          </div>
+        ))}
       </div>
       <div className="transaction-list">
         {transactions.length === 0 ? (

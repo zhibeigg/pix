@@ -217,3 +217,37 @@ class SystemSettingResponse(BaseModel):
 
 class SystemSettingUpdateRequest(BaseModel):
     value: str = Field(max_length=256)
+
+
+class CreditPackageResponse(BaseModel):
+    key: str
+    name: str
+    credits: int
+    amount_cents: int
+    currency: str
+    enabled: bool
+
+    model_config = {"from_attributes": True}
+
+
+class PaymentOrderCreateRequest(BaseModel):
+    package_key: str = Field(max_length=64)
+
+
+class PaymentOrderResponse(BaseModel):
+    id: int
+    provider: str
+    provider_order_id: str
+    status: str
+    amount_cents: int
+    currency: str
+    credits: int
+    created_at: datetime
+    paid_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class MockWebhookRequest(BaseModel):
+    order_id: int
+    event_id: str = Field(max_length=160)

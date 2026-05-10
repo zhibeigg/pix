@@ -5,7 +5,9 @@ import type {
   GenerationJob,
   JobBatchCreateResponse,
   JobCreateRequest,
+  PaymentOrder,
   PricingRule,
+  CreditPackage,
   SystemSetting,
   TokenResponse,
   UploadResponse,
@@ -82,6 +84,18 @@ export const api = {
   },
   transactions(token: string) {
     return request<CreditTransaction[]>('/credits/transactions?limit=20', {}, token)
+  },
+  packages() {
+    return request<CreditPackage[]>('/billing/packages')
+  },
+  createOrder(token: string, packageKey: string) {
+    return request<PaymentOrder>('/billing/orders', { method: 'POST', body: JSON.stringify({ package_key: packageKey }) }, token)
+  },
+  orders(token: string) {
+    return request<PaymentOrder[]>('/billing/orders?limit=20', {}, token)
+  },
+  mockPayOrder(token: string, orderId: number) {
+    return request<PaymentOrder>(`/billing/mock-pay/${orderId}`, { method: 'POST' }, token)
   },
   uploadImage(token: string, file: File) {
     const form = new FormData()
