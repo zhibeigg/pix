@@ -89,6 +89,13 @@ class JobCreateRequest(BaseModel):
     pixelize: PixelizeParamsSchema = Field(default_factory=PixelizeParamsSchema)
 
 
+class UploadResponse(BaseModel):
+    path: str
+    filename: str
+    content_type: str
+    size_bytes: int
+
+
 class JobOutputResponse(BaseModel):
     run_dir: str
     source_path: str

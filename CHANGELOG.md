@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-10
+
+### Added
+
+- 新增浏览器图片上传接口 `/uploads/image`，登录用户可上传 PNG/JPG/WebP 到 Web 本地存储并用于图生图/本地像素化。
+- 单图生成面板支持选择本地图片上传，上传成功后自动填充任务输入路径，同时保留手动路径输入。
+
 ## [0.6.0] - 2026-05-10
 
 ### Added
@@ -117,7 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/zhibeigg/pix/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/zhibeigg/pix/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/zhibeigg/pix/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/zhibeigg/pix/compare/v0.3.2...v0.4.0

@@ -217,7 +217,7 @@ export function App() {
                 </div>
               </section>
               {mode === 'single' ? (
-                <SingleGeneratePanel pricing={pricing} loading={busy} onSubmit={createJob} />
+                <SingleGeneratePanel pricing={pricing} loading={busy} token={token} onSubmit={createJob} />
               ) : (
                 <BatchGeneratePanel pricing={pricing} loading={busy} onSubmitMany={createJobs} />
               )}

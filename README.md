@@ -228,6 +228,7 @@ pip install -e ".[web]"
 PIX_WEB_DATABASE_URL=sqlite:///pix_web.db
 PIX_WEB_JWT_SECRET=change-me-to-a-long-random-secret
 PIX_WEB_STORAGE_ROOT=web_outputs
+PIX_WEB_MAX_UPLOAD_BYTES=10485760
 ```
 
 启动 API：
@@ -262,9 +263,10 @@ VITE_PIX_API_BASE=http://127.0.0.1:8000 npm run dev
 前端工作台提供：
 
 - 作品网格：优先查看最近作品、任务状态和输出路径。
-- 单图生成：快速文生图、图生图或本地像素化。
+- 单图生成：快速文生图、上传图片图生图或上传图片本地像素化。
 - 批量生产：多行 prompt 批量入队，适合 5-20 个游戏素材。
 - 微调面板：选中作品后可免费重新像素化，或发起消耗点数的 AI 图生图微调。
+- 浏览器上传：支持 PNG/JPG/WebP，默认最大 10 MB，保存到 `web_outputs/uploads/` 后用于生成任务。
 
 MVP 计费规则默认：
 

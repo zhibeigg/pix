@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from io import BytesIO
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -149,6 +151,43 @@ def test_worker_failure_refunds_reserved_credits(client: TestClient, monkeypatch
     assert balance["available_credits"] == 50
     assert balance["reserved_credits"] == 0
     assert balance["total_consumed"] == 0
+
+
+def test_upload_image_requires_auth_and_stores_file(client: TestClient) -> None:
+    image = Image.new("RGB", (4, 4), (20, 30, 40))
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    data = buffer.getvalue()
+
+    unauthorized = client.post(
+        "/uploads/image",
+        files={"file": ("icon.png", data, "image/png")},
+    )
+    assert unauthorized.status_code == 401
+
+    _user, headers = _register_and_login(client)
+    uploaded = client.post(
+        "/uploads/image",
+        headers=headers,
+        files={"file": ("icon.png", data, "image/png")},
+    )
+    assert uploaded.status_code == 200
+    body = uploaded.json()
+    assert body["filename"] == "icon.png"
+    assert body["content_type"] == "image/png"
+    assert body["size_bytes"] == len(data)
+    assert client.app.state.web_settings.storage_root in Path(body["path"]).parents
+    assert Path(body["path"]).exists()
+
+
+def test_upload_rejects_non_image_extension(client: TestClient) -> None:
+    _user, headers = _register_and_login(client)
+    uploaded = client.post(
+        "/uploads/image",
+        headers=headers,
+        files={"file": ("notes.txt", b"hello", "text/plain")},
+    )
+    assert uploaded.status_code == 400
 
 
 def test_public_pricing_and_repixelize_are_free(client: TestClient, tmp_path) -> None:

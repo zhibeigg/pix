@@ -5,6 +5,7 @@ import type {
   JobCreateRequest,
   PricingRule,
   TokenResponse,
+  UploadResponse,
   User,
 } from './types'
 
@@ -62,6 +63,11 @@ export const api = {
   },
   transactions(token: string) {
     return request<CreditTransaction[]>('/credits/transactions?limit=20', {}, token)
+  },
+  uploadImage(token: string, file: File) {
+    const form = new FormData()
+    form.set('file', file)
+    return request<UploadResponse>('/uploads/image', { method: 'POST', body: form }, token)
   },
   createJob(token: string, payload: JobCreateRequest) {
     return request<GenerationJob>('/jobs', { method: 'POST', body: JSON.stringify(payload) }, token)
