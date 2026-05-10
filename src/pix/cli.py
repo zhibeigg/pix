@@ -580,6 +580,10 @@ def cmd_gen(
 @app.command("run")
 def cmd_run(
     image: Path = typer.Argument(..., exists=True, readable=True, help="已有图片"),
+    prompt: Optional[str] = typer.Option(None, "--prompt", "-p", help="图生图编辑提示词；为空则直接像素化已有图片"),
+    image_size: str = typer.Option("1024x1024", help="图生图输出尺寸，仅 --prompt 非空时生效"),
+    image_quality: str = typer.Option("high", help="图生图质量，仅 --prompt 非空时生效"),
+    image_model: Optional[str] = typer.Option(None, help="图生图模型名，默认读配置"),
     pixel_size: str = typer.Option("128x128"),
     colors: int = typer.Option(16, min=2, max=256),
     dither: str = typer.Option("floyd_steinberg"),
@@ -593,7 +597,7 @@ def cmd_run(
     out: Optional[Path] = typer.Option(None),
     config: Optional[Path] = typer.Option(None, "--config"),
 ) -> None:
-    """已有图片 → 分析 → 像素化。"""
+    """已有图片 → 可选图生图编辑 → 分析 → 像素化。"""
     cfg = _base_config(config)
     params = PixelizeParams(
         output_size=_parse_size(pixel_size),
@@ -604,7 +608,11 @@ def cmd_run(
         edge_style=edge_style,  # type: ignore[arg-type]
     )
     inputs = PipelineInput(
+        prompt=prompt.strip() if prompt else None,
         image_path=image,
+        image_size=image_size,
+        image_quality=image_quality,
+        image_model=image_model,
         vl_model=vl_model,
         skip_vl=no_vl,
         pixelize_params=params,

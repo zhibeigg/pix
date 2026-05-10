@@ -12,6 +12,8 @@ model          = "gpt-image-2"
 size           = "1024x1024"      # 见 Packy 文档；auto/1024x1024/1536x1024/1024x1536/2048x2048/... 
 quality        = "high"           # low | medium | high | auto
 output_format  = "png"
+# 图生图编辑时尽量保留原图主体和细节：low | high
+edit_input_fidelity = "high"
 
 [vision]
 # Packy 支持的视觉模型，示例：claude-opus-4-7 / claude-sonnet-4-5 / gemini-2.5-pro / gpt-4o 等

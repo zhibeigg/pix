@@ -13,6 +13,7 @@ def test_defaults(tmp_cwd: Path) -> None:
     cfg = load_config(config_file=None, env_file=None)
     assert cfg.api.base_url == "https://www.packyapi.com"
     assert cfg.image_gen.model == "gpt-image-2"
+    assert cfg.image_gen.edit_input_fidelity == "high"
     assert cfg.pixelize.output_size == (128, 128)
     assert cfg.cache.enabled is True
 

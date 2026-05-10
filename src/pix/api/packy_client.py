@@ -30,20 +30,48 @@ class PackyClient:
         self.timeout = timeout
         self.max_retries = max_retries
 
-    def _headers(self) -> dict[str, str]:
-        return {
+    def _headers(self, *, content_type: str | None = "application/json") -> dict[str, str]:
+        headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
             "Accept": "*/*",
         }
+        if content_type:
+            headers["Content-Type"] = content_type
+        return headers
 
     def post_json(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._post(path, json=payload)
+
+    def post_multipart(
+        self,
+        path: str,
+        *,
+        data: dict[str, Any],
+        files: dict[str, tuple[str, bytes, str]],
+    ) -> dict[str, Any]:
+        return self._post(path, data=data, files=files, content_type=None)
+
+    def _post(
+        self,
+        path: str,
+        *,
+        json: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        files: dict[str, tuple[str, bytes, str]] | None = None,
+        content_type: str | None = "application/json",
+    ) -> dict[str, Any]:
         url = f"{self.base_url}{path if path.startswith('/') else '/' + path}"
         last_exc: Exception | None = None
         for attempt in range(1, self.max_retries + 1):
             try:
                 with httpx.Client(timeout=self.timeout) as client:
-                    resp = client.post(url, headers=self._headers(), json=payload)
+                    resp = client.post(
+                        url,
+                        headers=self._headers(content_type=content_type),
+                        json=json,
+                        data=data,
+                        files=files,
+                    )
                 if resp.status_code >= 500 or resp.status_code == 429:
                     raise PackyError(
                         f"HTTP {resp.status_code} 服务器端错误",

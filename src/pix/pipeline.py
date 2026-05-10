@@ -10,7 +10,7 @@ from typing import Callable
 
 from pix import __version__
 from pix.analysis.schema import PixAnalysis
-from pix.api.image_gen import generate_image
+from pix.api.image_gen import edit_image, generate_image
 from pix.api.vision import VisionParseError, analyze_image
 from pix.cache import Cache
 from pix.config import AppConfig
@@ -70,7 +70,10 @@ def run_pipeline(
         raise ValueError("必须提供 prompt 或 image_path 之一")
 
     # 1. 运行目录
-    seed = inputs.prompt or (str(inputs.image_path) if inputs.image_path else "")
+    seed_parts = [inputs.prompt or ""]
+    if inputs.image_path is not None:
+        seed_parts.append(str(inputs.image_path))
+    seed = "\n".join(p for p in seed_parts if p)
     out_root = Path(inputs.out_root or cfg.output.root)
     run_dir = new_run_dir(out_root, seed=seed)
     notify("run_start", {"run_dir": str(run_dir)})
@@ -83,13 +86,45 @@ def run_pipeline(
 
     cache = Cache(cfg.cache.dir, enabled=cfg.cache.enabled and inputs.use_cache)
 
-    # 2. 生图 or 复用已有图片
+    # 2. 生图 / 图生图 / 复用已有图片
     source_path = run_dir / "01_source.png"
-    if inputs.image_path is not None:
+    source_mode = "upload"
+    if inputs.image_path is not None and inputs.prompt:
+        input_hash = sha256_of_file(inputs.image_path)
+        material = {
+            "prompt": inputs.prompt,
+            "image_sha256": input_hash,
+            "size": inputs.image_size or cfg.image_gen.size,
+            "quality": inputs.image_quality or cfg.image_gen.quality,
+            "model": inputs.image_model or cfg.image_gen.model,
+            "output_format": cfg.image_gen.output_format,
+            "input_fidelity": cfg.image_gen.edit_input_fidelity,
+        }
+        cached = None if inputs.refresh_cache else cache.lookup("imageedit", material, "png")
+        if cached is not None:
+            source_path.write_bytes(cached.read_bytes())
+            source_mode = "edit_cache"
+            notify("source_ready", {"path": str(source_path), "mode": source_mode})
+        else:
+            notify("image_edit_start", {"image_path": str(inputs.image_path), **material})
+            edit_image(
+                cfg,
+                inputs.image_path,
+                inputs.prompt,
+                source_path,
+                size=inputs.image_size,
+                quality=inputs.image_quality,
+                model=inputs.image_model,
+            )
+            cache.store_copy("imageedit", material, "png", source_path)
+            source_mode = "edited"
+            notify("source_ready", {"path": str(source_path), "mode": source_mode})
+    elif inputs.image_path is not None:
         # 复制到 run_dir
         data = Path(inputs.image_path).read_bytes()
         source_path.write_bytes(data)
-        notify("source_ready", {"path": str(source_path), "mode": "upload"})
+        source_mode = "upload"
+        notify("source_ready", {"path": str(source_path), "mode": source_mode})
     else:
         assert inputs.prompt is not None
         material = {
@@ -97,11 +132,13 @@ def run_pipeline(
             "size": inputs.image_size or cfg.image_gen.size,
             "quality": inputs.image_quality or cfg.image_gen.quality,
             "model": inputs.image_model or cfg.image_gen.model,
+            "output_format": cfg.image_gen.output_format,
         }
         cached = None if inputs.refresh_cache else cache.lookup("imagegen", material, "png")
         if cached is not None:
             source_path.write_bytes(cached.read_bytes())
-            notify("source_ready", {"path": str(source_path), "mode": "cache"})
+            source_mode = "cache"
+            notify("source_ready", {"path": str(source_path), "mode": source_mode})
         else:
             notify("image_gen_start", {"prompt": inputs.prompt, **material})
             generate_image(
@@ -113,7 +150,8 @@ def run_pipeline(
                 model=inputs.image_model,
             )
             cache.store_copy("imagegen", material, "png", source_path)
-            notify("source_ready", {"path": str(source_path), "mode": "generated"})
+            source_mode = "generated"
+            notify("source_ready", {"path": str(source_path), "mode": source_mode})
 
     # 3. 多模态分析
     analysis: PixAnalysis | None = None
@@ -173,7 +211,10 @@ def run_pipeline(
             "model": inputs.image_model or cfg.image_gen.model,
             "size": inputs.image_size or cfg.image_gen.size,
             "quality": inputs.image_quality or cfg.image_gen.quality,
+            "output_format": cfg.image_gen.output_format,
+            "input_fidelity": cfg.image_gen.edit_input_fidelity,
             "used": inputs.prompt is not None,
+            "mode": source_mode,
         },
         "vision": {
             "model": inputs.vl_model or cfg.vision.model,

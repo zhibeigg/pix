@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import mimetypes
 import re
 from pathlib import Path
 from typing import Any
@@ -100,3 +101,51 @@ def generate_image(
     if url:
         return download(url, dest_path, timeout=cfg.api.timeout)
     raise PackyError(f"图片生成响应缺少 url 和 b64_json：{str(resp)[:500]}")
+
+
+def edit_image(
+    cfg: AppConfig,
+    image_path: Path,
+    prompt: str,
+    dest_path: Path,
+    *,
+    size: str | None = None,
+    quality: str | None = None,
+    model: str | None = None,
+    output_format: str | None = None,
+    input_fidelity: str | None = None,
+    n: int = 1,
+) -> Path:
+    """调 Packy /v1/images/edits 图生图并落盘。"""
+    api_key = require_image_api_key(cfg)
+    client = PackyClient(
+        base_url=cfg.api.base_url,
+        api_key=api_key,
+        timeout=cfg.api.timeout,
+        max_retries=cfg.api.max_retries,
+    )
+    _size = size or cfg.image_gen.size
+    validate_size(_size)
+    image_path = Path(image_path)
+    mime = mimetypes.guess_type(str(image_path))[0] or "application/octet-stream"
+    data: dict[str, Any] = {
+        "model": model or cfg.image_gen.model,
+        "prompt": prompt,
+        "size": _size,
+        "quality": quality or cfg.image_gen.quality,
+        "output_format": output_format or cfg.image_gen.output_format,
+        "response_format": "url",
+        "n": str(n),
+        "input_fidelity": input_fidelity or cfg.image_gen.edit_input_fidelity,
+    }
+    files = {"image": (image_path.name, image_path.read_bytes(), mime)}
+    resp = client.post_multipart("/v1/images/edits", data=data, files=files)
+    url, b64 = _pick_image_url(resp)
+
+    ensure_dir(dest_path.parent)
+    if b64:
+        write_bytes(dest_path, b64_to_bytes(b64))
+        return dest_path
+    if url:
+        return download(url, dest_path, timeout=cfg.api.timeout)
+    raise PackyError(f"图片编辑响应缺少 url 和 b64_json：{str(resp)[:500]}")

@@ -44,6 +44,8 @@ class ImageGenConfig:
     size: str = "1024x1024"
     quality: str = "high"
     output_format: str = "png"
+    # 图生图编辑时尽量保留原图主体和细节：low | high（Packy/OpenAI 兼容参数）
+    edit_input_fidelity: str = "high"
 
 
 @dataclass
