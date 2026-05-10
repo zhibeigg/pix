@@ -26,10 +26,15 @@ export function App() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [mode, setMode] = useState<WorkMode>('single')
+  const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null)
+  const [selectedBatchJobs, setSelectedBatchJobs] = useState<GenerationJob[]>([])
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
 
   const isAdmin = user?.role === 'admin'
-  const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? null, [jobs, selectedJobId])
+  const selectedBatch = useMemo(() => batches.find((batch) => batch.id === selectedBatchId) ?? null, [batches, selectedBatchId])
+  const visibleJobs = selectedBatchId ? selectedBatchJobs : jobs
+  const selectedJob = useMemo(() => visibleJobs.find((job) => job.id === selectedJobId) ?? null, [visibleJobs, selectedJobId])
+  const gallerySubtitle = selectedBatch ? `素材包：${selectedBatch.name}` : '全部作品'
   const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)).length, [jobs])
   const completedJobs = useMemo(() => jobs.filter((job) => job.status === 'succeeded').length, [jobs])
   const failedJobs = useMemo(() => jobs.filter((job) => job.status === 'failed').length, [jobs])
@@ -56,11 +61,14 @@ export function App() {
     setJobs(nextJobs)
     setBatches(nextBatches)
     setPricing(nextPricing)
+    if (selectedBatchId) {
+      setSelectedBatchJobs(await api.batchJobs(activeToken, selectedBatchId))
+    }
     if (me.role === 'admin') {
       const users = await api.adminUsers(activeToken)
       setAdminUsers(users)
     }
-  }, [token])
+  }, [selectedBatchId, token])
 
   useEffect(() => {
     if (!token) return
@@ -76,10 +84,12 @@ export function App() {
     if (!token) return
     const id = window.setInterval(() => {
       api.jobs(token).then(setJobs).catch(() => undefined)
+      api.batches(token).then(setBatches).catch(() => undefined)
+      if (selectedBatchId) api.batchJobs(token, selectedBatchId).then(setSelectedBatchJobs).catch(() => undefined)
       api.balance(token).then(setBalance).catch(() => undefined)
     }, 3000)
     return () => window.clearInterval(id)
-  }, [token])
+  }, [selectedBatchId, token])
 
   async function login(email: string, password: string) {
     setBusy(true)
@@ -119,6 +129,8 @@ export function App() {
     setTransactions([])
     setJobs([])
     setBatches([])
+    setSelectedBatchId(null)
+    setSelectedBatchJobs([])
     setPricing([])
     setAdminUsers([])
     setSelectedJobId(null)
@@ -155,6 +167,21 @@ export function App() {
     } finally {
       setBusy(false)
     }
+  }
+
+  async function selectBatch(batch: GenerationBatch) {
+    if (!token) return
+    setSelectedBatchId(batch.id)
+    setSelectedBatchJobs(await api.batchJobs(token, batch.id))
+    setSelectedJobId(null)
+    setMessage(`已筛选素材包：${batch.name}`)
+  }
+
+  function clearBatchFilter() {
+    setSelectedBatchId(null)
+    setSelectedBatchJobs([])
+    setSelectedJobId(null)
+    setMessage('已显示全部作品')
   }
 
   async function copyPath(path: string) {
@@ -202,14 +229,14 @@ export function App() {
 
         <section className="gallery-column">
           {user ? (
-            <GalleryGrid jobs={jobs} selectedJobId={selectedJobId} onSelect={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} />
+            <GalleryGrid jobs={visibleJobs} subtitle={gallerySubtitle} selectedJobId={selectedJobId} onSelect={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} />
           ) : (
             <section className="panel empty-panel">
               <h2>先登录或注册</h2>
               <p>第一个注册用户会自动成为管理员，可给自己加点并配置价格。</p>
             </section>
           )}
-          {user && <JobList jobs={jobs.filter((job) => job.status !== 'succeeded')} onRefresh={() => refreshCore()} />}
+          {user && <JobList jobs={visibleJobs.filter((job) => job.status !== 'succeeded')} onRefresh={() => refreshCore()} />}
         </section>
 
         <aside className="right-column">
@@ -227,7 +254,7 @@ export function App() {
               ) : (
                 <BatchGeneratePanel pricing={pricing} loading={busy} token={token} onSubmitMany={createJobs} />
               )}
-              <BatchPanel batches={batches} onRefresh={() => refreshCore()} />
+              <BatchPanel batches={batches} selectedBatchId={selectedBatchId} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRefresh={() => refreshCore()} />
               <TuningPanel job={selectedJob} pricing={pricing} loading={busy} onSubmit={createJob} />
               {isAdmin && (
                 <AdminPanel users={adminUsers} pricing={pricing} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} />
