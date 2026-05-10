@@ -24,6 +24,7 @@ export function App() {
   const [pricing, setPricing] = useState<PricingRule[]>([])
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [busy, setBusy] = useState(false)
+  const [retryingBatchId, setRetryingBatchId] = useState<number | null>(null)
   const [message, setMessage] = useState('')
   const [mode, setMode] = useState<WorkMode>('single')
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null)
@@ -184,6 +185,23 @@ export function App() {
     setMessage('已显示全部作品')
   }
 
+  async function retryFailedBatch(batch: GenerationBatch) {
+    if (!token) return
+    setRetryingBatchId(batch.id)
+    setMessage('')
+    try {
+      const result = await api.retryFailedBatch(token, batch.id)
+      setMessage(`已重新入队 ${result.jobs.length} 个失败任务，冻结 ${result.total_price_credits} credits`)
+      setSelectedBatchId(batch.id)
+      setSelectedBatchJobs(await api.batchJobs(token, batch.id))
+      await refreshCore(token)
+    } catch (error) {
+      showError(error)
+    } finally {
+      setRetryingBatchId(null)
+    }
+  }
+
   async function copyPath(path: string) {
     await navigator.clipboard.writeText(path)
     setMessage('输出路径已复制')
@@ -254,7 +272,7 @@ export function App() {
               ) : (
                 <BatchGeneratePanel pricing={pricing} loading={busy} token={token} onSubmitMany={createJobs} />
               )}
-              <BatchPanel batches={batches} selectedBatchId={selectedBatchId} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRefresh={() => refreshCore()} />
+              <BatchPanel batches={batches} selectedBatchId={selectedBatchId} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} retrying={retryingBatchId !== null} onRefresh={() => refreshCore()} />
               <TuningPanel job={selectedJob} pricing={pricing} loading={busy} onSubmit={createJob} />
               {isAdmin && (
                 <AdminPanel users={adminUsers} pricing={pricing} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} />

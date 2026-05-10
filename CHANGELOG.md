@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-05-10
+
+### Added
+
+- 新增素材包失败项重试接口 `POST /batches/{id}/retry-failed`，失败任务会复制为新的 pending 任务并归入原素材包。
+- 前端素材包卡片在存在失败任务时显示“重试失败项”按钮，并在重试后刷新素材包、余额和任务列表。
+
 ## [0.12.0] - 2026-05-10
 
 ### Added
@@ -159,7 +166,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/zhibeigg/pix/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/zhibeigg/pix/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/zhibeigg/pix/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/zhibeigg/pix/compare/v0.9.0...v0.10.0

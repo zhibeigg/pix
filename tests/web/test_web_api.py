@@ -175,6 +175,93 @@ def test_batch_create_reuses_existing_idempotent_jobs(client: TestClient) -> Non
     assert balance["reserved_credits"] == 40
 
 
+def test_retry_failed_batch_jobs_requeues_into_same_batch(client: TestClient, monkeypatch) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})
+    created = client.post(
+        "/jobs/batch",
+        headers=headers,
+        json={"batch_name": "Retry Pack", "jobs": [{"job_type": "text_to_image", "prompt": "pixel cat"}]},
+    ).json()
+
+    def fail(_job, _settings):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("pix_web.worker.run_job_pipeline", fail)
+    processed = process_next_job(client.app.state.SessionLocal, client.app.state.web_settings)
+    assert processed is not None
+    assert processed.status == "failed"
+
+    retry = client.post(f"/batches/{created['batch_id']}/retry-failed", headers=headers)
+    assert retry.status_code == 200
+    body = retry.json()
+    assert body["batch_id"] == created["batch_id"]
+    assert body["total_price_credits"] == 20
+    assert len(body["jobs"]) == 1
+    assert body["jobs"][0]["batch_id"] == created["batch_id"]
+    assert body["jobs"][0]["status"] == "pending"
+    assert body["jobs"][0]["id"] != created["jobs"][0]["id"]
+
+    balance = client.get("/credits/balance", headers=headers).json()
+    assert balance["available_credits"] == 30
+    assert balance["reserved_credits"] == 20
+
+
+def test_retry_failed_batch_requires_failed_jobs(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 20})
+    created = client.post(
+        "/jobs/batch",
+        headers=headers,
+        json={"jobs": [{"job_type": "text_to_image", "prompt": "pixel cat"}]},
+    ).json()
+    retry = client.post(f"/batches/{created['batch_id']}/retry-failed", headers=headers)
+    assert retry.status_code == 409
+
+
+def test_retry_failed_batch_is_atomic_when_credits_are_insufficient(client: TestClient, monkeypatch) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 20})
+    created = client.post(
+        "/jobs/batch",
+        headers=headers,
+        json={"jobs": [{"job_type": "text_to_image", "prompt": "pixel cat"}]},
+    ).json()
+
+    def fail(_job, _settings):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("pix_web.worker.run_job_pipeline", fail)
+    process_next_job(client.app.state.SessionLocal, client.app.state.web_settings)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": -20})
+
+    retry = client.post(f"/batches/{created['batch_id']}/retry-failed", headers=headers)
+    assert retry.status_code == 402
+    jobs = client.get(f"/batches/{created['batch_id']}/jobs", headers=headers).json()
+    assert len(jobs) == 1
+    assert jobs[0]["status"] == "failed"
+
+
+def test_retry_failed_batch_rejects_other_users(client: TestClient, monkeypatch) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 20})
+    created = client.post(
+        "/jobs/batch",
+        headers=headers,
+        json={"jobs": [{"job_type": "text_to_image", "prompt": "pixel cat"}]},
+    ).json()
+
+    def fail(_job, _settings):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("pix_web.worker.run_job_pipeline", fail)
+    process_next_job(client.app.state.SessionLocal, client.app.state.web_settings)
+
+    _other, other_headers = _register_and_login(client, "retry-other@example.com")
+    retry = client.post(f"/batches/{created['batch_id']}/retry-failed", headers=other_headers)
+    assert retry.status_code == 404
+
+
 def test_worker_success_consumes_reserved_credits(client: TestClient, tmp_path, monkeypatch) -> None:
     user, headers = _register_and_login(client)
     client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})

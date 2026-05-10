@@ -86,6 +86,9 @@ export const api = {
   batchJobs(token: string, batchId: number) {
     return request<GenerationJob[]>(`/batches/${batchId}/jobs`, {}, token)
   },
+  retryFailedBatch(token: string, batchId: number) {
+    return request<JobBatchCreateResponse>(`/batches/${batchId}/retry-failed`, { method: 'POST' }, token)
+  },
   adminUsers(token: string) {
     return request<User[]>('/admin/users?limit=100', {}, token)
   },
