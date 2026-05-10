@@ -9,7 +9,7 @@ import { GalleryGrid } from './components/GalleryGrid'
 import { JobList } from './components/JobList'
 import { SingleGeneratePanel } from './components/SingleGeneratePanel'
 import { TuningPanel } from './components/TuningPanel'
-import type { CreditBalance, CreditTransaction, GenerationBatch, GenerationJob, JobCreateRequest, PricingRule, SystemSetting, User } from './types'
+import type { CreditBalance, CreditPackage, CreditTransaction, GenerationBatch, GenerationJob, JobCreateRequest, PaymentOrder, PricingRule, SystemSetting, User } from './types'
 
 const TOKEN_KEY = 'pix_web_token'
 type WorkMode = 'single' | 'batch'
@@ -19,6 +19,8 @@ export function App() {
   const [user, setUser] = useState<User | null>(null)
   const [balance, setBalance] = useState<CreditBalance | null>(null)
   const [transactions, setTransactions] = useState<CreditTransaction[]>([])
+  const [packages, setPackages] = useState<CreditPackage[]>([])
+  const [orders, setOrders] = useState<PaymentOrder[]>([])
   const [jobs, setJobs] = useState<GenerationJob[]>([])
   const [batches, setBatches] = useState<GenerationBatch[]>([])
   const [pricing, setPricing] = useState<PricingRule[]>([])
@@ -50,10 +52,12 @@ export function App() {
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
-    const [me, nextBalance, nextTransactions, nextJobs, nextBatches, nextPricing] = await Promise.all([
+    const [me, nextBalance, nextTransactions, nextPackages, nextOrders, nextJobs, nextBatches, nextPricing] = await Promise.all([
       api.me(activeToken),
       api.balance(activeToken),
       api.transactions(activeToken),
+      api.packages(),
+      api.orders(activeToken),
       api.jobs(activeToken),
       api.batches(activeToken),
       api.pricing(activeToken),
@@ -61,6 +65,8 @@ export function App() {
     setUser(me)
     setBalance(nextBalance)
     setTransactions(nextTransactions)
+    setPackages(nextPackages)
+    setOrders(nextOrders)
     setJobs(nextJobs)
     setBatches(nextBatches)
     setPricing(nextPricing)
@@ -91,6 +97,7 @@ export function App() {
       api.batches(token).then(setBatches).catch(() => undefined)
       if (selectedBatchId) api.batchJobs(token, selectedBatchId).then(setSelectedBatchJobs).catch(() => undefined)
       api.balance(token).then(setBalance).catch(() => undefined)
+      api.orders(token).then(setOrders).catch(() => undefined)
     }, 3000)
     return () => window.clearInterval(id)
   }, [selectedBatchId, token])
@@ -131,6 +138,8 @@ export function App() {
     setUser(null)
     setBalance(null)
     setTransactions([])
+    setPackages([])
+    setOrders([])
     setJobs([])
     setBatches([])
     setSelectedBatchId(null)
@@ -276,6 +285,28 @@ export function App() {
     setMessage('输出路径已复制')
   }
 
+  async function createPaymentOrder(packageKey: string) {
+    if (!token) return
+    try {
+      const order = await api.createOrder(token, packageKey)
+      await refreshCore(token)
+      setMessage(`充值订单 #${order.id} 已创建，等待支付`)
+    } catch (error) {
+      showError(error)
+    }
+  }
+
+  async function mockPayPaymentOrder(orderId: number) {
+    if (!token) return
+    try {
+      await api.mockPayOrder(token, orderId)
+      await refreshCore(token)
+      setMessage('模拟支付成功，点数已到账')
+    } catch (error) {
+      showError(error)
+    }
+  }
+
   async function adjustCredits(userId: number, amount: number, note: string) {
     if (!token) return
     await api.adjustCredits(token, userId, amount, note)
@@ -318,7 +349,7 @@ export function App() {
       <div className="workbench-grid">
         <aside className="side-column">
           <AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} />
-          {user && <CreditPanel balance={balance} transactions={transactions} onRefresh={() => refreshCore()} />}
+          {user && <CreditPanel balance={balance} transactions={transactions} packages={packages} orders={orders} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onMockPayOrder={mockPayPaymentOrder} />}
         </aside>
 
         <section className="gallery-column">

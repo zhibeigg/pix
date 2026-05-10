@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-05-10
+
+### Added
+
+- 新增充值套餐、支付订单和支付事件表，提供 `GET /billing/packages`、`POST /billing/orders`、`GET /billing/orders` 等接口。
+- 新增管理员 mock pay 和 mock webhook 幂等到账流程，前端点数账户可创建订单并在管理员模式下模拟支付。
+
 ## [0.19.0] - 2026-05-10
 
 ### Added
@@ -208,7 +215,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/zhibeigg/pix/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/zhibeigg/pix/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/zhibeigg/pix/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/zhibeigg/pix/compare/v0.16.0...v0.17.0

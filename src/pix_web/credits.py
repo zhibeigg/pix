@@ -61,6 +61,20 @@ def adjust_credits(db: Session, user: User, amount: int, note: str = "") -> Cred
     )
 
 
+def recharge_credits(db: Session, user: User, amount: int, note: str = "") -> CreditTransaction:
+    account = ensure_credit_account(db, user)
+    account.available_credits += amount
+    account.total_recharged += max(0, amount)
+    return add_transaction(
+        db,
+        user_id=user.id,
+        type="recharge",
+        amount=amount,
+        balance_after=account.available_credits,
+        note=note,
+    )
+
+
 def reserve_credits(db: Session, user: User, job: GenerationJob, amount: int) -> CreditTransaction | None:
     if amount <= 0:
         job.reserved_credits = 0

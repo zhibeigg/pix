@@ -135,3 +135,24 @@ export type SystemSetting = {
   value: string
   updated_at: string
 }
+
+export type CreditPackage = {
+  key: string
+  name: string
+  credits: number
+  amount_cents: number
+  currency: string
+  enabled: boolean
+}
+
+export type PaymentOrder = {
+  id: number
+  provider: string
+  provider_order_id: string
+  status: string
+  amount_cents: number
+  currency: string
+  credits: number
+  created_at: string
+  paid_at: string | null
+}
