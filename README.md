@@ -16,7 +16,8 @@
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
   <img alt="qt" src="https://img.shields.io/badge/GUI-PySide6-41cd52.svg">
-  <img alt="status" src="https://img.shields.io/badge/status-alpha-orange.svg">
+  <img alt="CI" src="https://github.com/zhibeigg/pix/actions/workflows/ci.yml/badge.svg">
+  <a href="https://github.com/zhibeigg/pix/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/zhibeigg/pix?include_prereleases"></a>
 </p>
 
 ---
@@ -88,7 +89,24 @@ outputs/20260509-142359-a1b2c3d4/
 
 ## 🚀 快速开始
 
-### 环境要求
+### 方式一：下载预编译版本（免安装 Python）
+
+到 [Releases](https://github.com/zhibeigg/pix/releases/latest) 页面下载对应平台的压缩包，解压即用。
+
+| 平台 | 文件 |
+|---|---|
+| Windows x64 | `pix-vX.Y.Z-windows-x64.zip` → 解压后双击 `pix.exe` |
+| macOS Apple Silicon | `pix-vX.Y.Z-macos-arm64.tar.gz` → 解压后双击 `pix.app` |
+| macOS Intel | `pix-vX.Y.Z-macos-x86_64.tar.gz` → 同上 |
+| Linux x86_64 | `pix-vX.Y.Z-linux-x86_64.tar.gz` → 解压后运行 `./pix/pix` |
+
+CLI 用法同源码版：`pix.exe gen "一只橘猫"`、`./pix/pix pixelize img.png --preset gameboy` 等。
+
+> macOS 首次运行若被 Gatekeeper 拦截，右键 → 打开，或 `xattr -cr pix.app` 解除隔离。
+
+### 方式二：从源码运行
+
+环境要求：
 
 - Python **3.10+**
 - Windows / macOS / Linux（GUI 依赖 PySide6）
