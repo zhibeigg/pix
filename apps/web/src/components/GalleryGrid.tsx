@@ -38,6 +38,7 @@ export function GalleryGrid({ jobs, selectedJobId, onSelect, onCopyPath }: Galle
           {ordered.map((job) => {
             const output = job.outputs[0]
             const mainPath = output?.pixelized_path || output?.source_path || job.input_image_path || ''
+            const previewUrl = output?.pixelized_url || output?.source_url || job.input_image_url || ''
             return (
               <article
                 className={`gallery-card ${selectedJobId === job.id ? 'selected' : ''}`}
@@ -45,7 +46,11 @@ export function GalleryGrid({ jobs, selectedJobId, onSelect, onCopyPath }: Galle
                 onClick={() => onSelect(job)}
               >
                 <div className="pixel-preview">
-                  <span>{job.status === 'succeeded' ? 'PIX' : statusLabels[job.status] ?? job.status}</span>
+                  {previewUrl ? (
+                    <img src={previewUrl} alt={summarizePrompt(job.prompt || job.input_image_path, '作品预览')} />
+                  ) : (
+                    <span>{job.status === 'succeeded' ? 'PIX' : statusLabels[job.status] ?? job.status}</span>
+                  )}
                 </div>
                 <div className="gallery-card-body">
                   <div className="job-card-top">

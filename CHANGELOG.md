@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-10
+
+### Added
+
+- 新增受保护的 `/files` 图片访问接口，仅允许登录用户预览 `web_outputs` 与 `outputs` 下的图片文件。
+- 上传响应与任务输出响应新增预览 URL，前端作品网格、上传面板和微调面板现在可以直接显示图片预览。
+
 ## [0.7.0] - 2026-05-10
 
 ### Added
@@ -124,7 +131,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/zhibeigg/pix/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/zhibeigg/pix/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/zhibeigg/pix/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/zhibeigg/pix/compare/v0.4.0...v0.5.0

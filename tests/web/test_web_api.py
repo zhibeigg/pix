@@ -123,6 +123,10 @@ def test_worker_success_consumes_reserved_credits(client: TestClient, tmp_path, 
     assert processed.status == "succeeded"
     assert processed.outputs[0].pixelized_path == str(pixel)
 
+    fetched_job = client.get(f"/jobs/{created['id']}", headers=headers).json()
+    assert fetched_job["outputs"][0]["pixelized_url"].startswith("/files?path=")
+    assert fetched_job["outputs"][0]["source_url"].startswith("/files?path=")
+
     balance = client.get("/credits/balance", headers=headers).json()
     assert balance["available_credits"] == 30
     assert balance["reserved_credits"] == 0
@@ -176,8 +180,21 @@ def test_upload_image_requires_auth_and_stores_file(client: TestClient) -> None:
     assert body["filename"] == "icon.png"
     assert body["content_type"] == "image/png"
     assert body["size_bytes"] == len(data)
+    assert body["url"].startswith("/files?path=")
     assert client.app.state.web_settings.storage_root in Path(body["path"]).parents
     assert Path(body["path"]).exists()
+
+    unauthorized_file = client.get(body["url"])
+    assert unauthorized_file.status_code == 401
+    fetched = client.get(body["url"], headers=headers)
+    assert fetched.status_code == 200
+    assert fetched.content == data
+
+
+def test_file_access_rejects_unsafe_paths(client: TestClient) -> None:
+    _user, headers = _register_and_login(client)
+    forbidden = client.get("/files", headers=headers, params={"path": ".env"})
+    assert forbidden.status_code == 403
 
 
 def test_upload_rejects_non_image_extension(client: TestClient) -> None:

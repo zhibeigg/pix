@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, computed_field
+
+from pix_web.storage import file_url
 
 JobType = Literal["text_to_image", "image_to_image", "local_pixelize", "repixelize"]
 JobStatus = Literal["pending", "running", "succeeded", "failed", "cancelled"]
@@ -94,6 +96,7 @@ class UploadResponse(BaseModel):
     filename: str
     content_type: str
     size_bytes: int
+    url: str | None = None
 
 
 class JobOutputResponse(BaseModel):
@@ -104,6 +107,21 @@ class JobOutputResponse(BaseModel):
     analysis_json_path: str | None
     meta_json_path: str
 
+    @computed_field
+    @property
+    def source_url(self) -> str | None:
+        return file_url(self.source_path)
+
+    @computed_field
+    @property
+    def pixelized_url(self) -> str | None:
+        return file_url(self.pixelized_path)
+
+    @computed_field
+    @property
+    def preview_url(self) -> str | None:
+        return file_url(self.preview_path)
+
     model_config = {"from_attributes": True}
 
 
@@ -113,6 +131,11 @@ class JobResponse(BaseModel):
     status: str
     prompt: str | None
     input_image_path: str | None
+
+    @computed_field
+    @property
+    def input_image_url(self) -> str | None:
+        return file_url(self.input_image_path)
     params_json: dict[str, Any]
     price_credits: int
     reserved_credits: int

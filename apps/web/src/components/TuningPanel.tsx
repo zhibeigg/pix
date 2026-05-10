@@ -28,6 +28,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
 
   const output = job.outputs[0]
   const sourcePath = output?.source_path || output?.pixelized_path || job.input_image_path || ''
+  const previewUrl = output?.pixelized_url || output?.source_url || job.input_image_url || ''
 
   async function submitLocal(event: FormEvent) {
     event.preventDefault()
@@ -65,6 +66,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
         </div>
         <span className="pill">{job.status}</span>
       </div>
+      {previewUrl && <img className="inline-preview tune-preview" src={previewUrl} alt="微调对象预览" />}
 
       <form className="stack tune-block" onSubmit={submitLocal}>
         <div>
