@@ -36,6 +36,16 @@ preview_scale  = 4
 edge_enhance   = 0.1
 # 饱和度缩放 0.5..1.5
 saturation     = 1.0
+# 下采样策略：smart（推荐，自动对齐像素格）| box | bicubic | lanczos | nearest
+resample       = "smart"
+# smart 模式下是否探测输入的像素格并吸附到整数倍
+snap_to_grid   = true
+# 自动抠背景：四角连通色变透明，保存为 PNG 带 alpha
+remove_bg      = false
+# 背景容差（每通道欧氏距离阈值，越大抠越狠；8-24 常用）
+bg_tolerance   = 12
+# 背景羽化：向内收缩抠除区域的像素数，保护主体边缘
+bg_feather     = 0
 
 [cache]
 enabled        = true

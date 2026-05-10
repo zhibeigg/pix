@@ -24,3 +24,12 @@ PRESET_KEYS: dict[str, str] = {
     "modern_pixel": "preset_modern_pixel",
     "pico8": "preset_pico8",
 }
+
+RESAMPLE_VALUES: list[str] = ["smart", "box", "bicubic", "lanczos", "nearest"]
+RESAMPLE_KEYS: dict[str, str] = {
+    "smart": "resample_smart",
+    "box": "resample_box",
+    "bicubic": "resample_bicubic",
+    "lanczos": "resample_lanczos",
+    "nearest": "resample_nearest",
+}

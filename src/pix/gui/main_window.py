@@ -44,6 +44,8 @@ from pix.gui.combo_keys import (
     PRESET_KEYS,
     QUALITY_KEYS,
     QUALITY_VALUES,
+    RESAMPLE_KEYS,
+    RESAMPLE_VALUES,
 )
 from pix.gui.preview_panel import ZoomablePreview
 from pix.gui.settings_dialog import SettingsDialog
@@ -58,6 +60,9 @@ _DITHER_VALUES = DITHER_VALUES
 _DITHER_KEYS = DITHER_KEYS
 
 _PRESET_KEYS = PRESET_KEYS
+
+_RESAMPLE_VALUES = RESAMPLE_VALUES
+_RESAMPLE_KEYS = RESAMPLE_KEYS
 
 
 class MainWindow(QMainWindow):
@@ -183,6 +188,21 @@ class MainWindow(QMainWindow):
         self.edge_spin.setRange(0.0, 1.0)
         self.edge_spin.setSingleStep(0.05)
         self.edge_spin.setValue(self.cfg.pixelize.edge_enhance)
+        # 新增：下采样 / 对齐像素 / 抠背景
+        self.resample_combo = QComboBox()
+        self._fill_resample_combo()
+        _select_data(self.resample_combo, self.cfg.pixelize.resample)
+        self.snap_chk = QCheckBox()
+        self.snap_chk.setChecked(self.cfg.pixelize.snap_to_grid)
+        self.remove_bg_chk = QCheckBox()
+        self.remove_bg_chk.setChecked(self.cfg.pixelize.remove_bg)
+        self.bg_tol_spin = QSpinBox()
+        self.bg_tol_spin.setRange(0, 128)
+        self.bg_tol_spin.setValue(self.cfg.pixelize.bg_tolerance)
+        self.bg_feather_spin = QSpinBox()
+        self.bg_feather_spin.setRange(0, 8)
+        self.bg_feather_spin.setValue(self.cfg.pixelize.bg_feather)
+
         self._lbl_pixel_size = QLabel()
         self._lbl_colors = QLabel()
         self._lbl_dither = QLabel()
@@ -190,10 +210,18 @@ class MainWindow(QMainWindow):
         self._lbl_preview_scale = QLabel()
         self._lbl_saturation = QLabel()
         self._lbl_edge = QLabel()
+        self._lbl_resample = QLabel()
+        self._lbl_bg_tol = QLabel()
+        self._lbl_bg_feather = QLabel()
         pix_lay.addWidget(self._labeled(self._lbl_pixel_size, self.pixel_size_edit))
         pix_lay.addWidget(self._labeled(self._lbl_colors, self.colors_spin))
         pix_lay.addWidget(self._labeled(self._lbl_dither, self.dither_combo))
         pix_lay.addWidget(self._labeled(self._lbl_preset, self.preset_combo))
+        pix_lay.addWidget(self._labeled(self._lbl_resample, self.resample_combo))
+        pix_lay.addWidget(self.snap_chk)
+        pix_lay.addWidget(self.remove_bg_chk)
+        pix_lay.addWidget(self._labeled(self._lbl_bg_tol, self.bg_tol_spin))
+        pix_lay.addWidget(self._labeled(self._lbl_bg_feather, self.bg_feather_spin))
         pix_lay.addWidget(self._labeled(self._lbl_preview_scale, self.preview_spin))
         pix_lay.addWidget(self._labeled(self._lbl_saturation, self.sat_spin))
         pix_lay.addWidget(self._labeled(self._lbl_edge, self.edge_spin))
@@ -300,6 +328,11 @@ class MainWindow(QMainWindow):
             label = tr(key) if key else name
             self.preset_combo.addItem(label, name)
 
+    def _fill_resample_combo(self) -> None:
+        self.resample_combo.clear()
+        for v in _RESAMPLE_VALUES:
+            self.resample_combo.addItem(tr(_RESAMPLE_KEYS[v]), v)
+
     # ---------- 翻译 ----------
 
     def _retranslate_ui(self) -> None:
@@ -329,6 +362,11 @@ class MainWindow(QMainWindow):
         self._lbl_preview_scale.setText(tr("field_preview_scale"))
         self._lbl_saturation.setText(tr("field_saturation"))
         self._lbl_edge.setText(tr("field_edge_enhance"))
+        self._lbl_resample.setText(tr("field_resample"))
+        self._lbl_bg_tol.setText(tr("field_bg_tolerance"))
+        self._lbl_bg_feather.setText(tr("field_bg_feather"))
+        self.snap_chk.setText(tr("chk_snap_to_grid"))
+        self.remove_bg_chk.setText(tr("chk_remove_bg"))
         self._lbl_vl_model.setText(tr("field_vl_model"))
 
         self.no_vl_chk.setText(tr("chk_skip_vl"))
@@ -341,6 +379,7 @@ class MainWindow(QMainWindow):
         _refill_combo(self.image_quality_combo, lambda v: tr(_QUALITY_KEYS[v]))
         _refill_combo(self.dither_combo, lambda v: tr(_DITHER_KEYS[v]))
         _refill_combo(self.preset_combo, lambda v: tr(_PRESET_KEYS[v]) if v in _PRESET_KEYS else v)
+        _refill_combo(self.resample_combo, lambda v: tr(_RESAMPLE_KEYS[v]))
 
         # 右侧 tabs
         self.tabs.setTabText(0, tr("tab_source"))
@@ -417,6 +456,11 @@ class MainWindow(QMainWindow):
             preview_scale=self.preview_spin.value(),
             edge_enhance=self.edge_spin.value(),
             saturation=self.sat_spin.value(),
+            resample=self.resample_combo.currentData() or _RESAMPLE_VALUES[0],  # type: ignore[arg-type]
+            snap_to_grid=self.snap_chk.isChecked(),
+            remove_bg=self.remove_bg_chk.isChecked(),
+            bg_tolerance=self.bg_tol_spin.value(),
+            bg_feather=self.bg_feather_spin.value(),
         )
         return PipelineInput(
             prompt=prompt,

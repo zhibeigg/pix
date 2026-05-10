@@ -36,6 +36,7 @@
 ## ✨ 特性
 
 - **两种起点**：一句 prompt 从头生图，或直接丢一张现成图片进来
+- **像素对齐 & 透明背景**：`smart` 下采样自动探测输入像素格并吸附，边缘不再糊；一键 `--remove-bg` 把纯色底抠成透明 PNG
 - **结构化 JSON**：VL 模型不是一句描述就完事，而是输出调色板、主体位置、语义区域建议，严格经 Pydantic 校验，失败自动带修正提示重试
 - **四套内置预设**：`gameboy` · `nes` · `modern_pixel` · `pico8`，支持自定义 TOML
 - **可配置所有参数**：尺寸、色数、抖动、主体锐化、饱和度、VL 模型、预设……CLI 和 GUI 共享同一套
@@ -188,6 +189,11 @@ pix gui                                                      # 启动图形界�
 | `--colors N` | 调色板颜色数 (2–256) | `16` |
 | `--dither none\|ordered\|floyd_steinberg` | 抖动算法 | `floyd_steinberg` |
 | `--preset auto\|gameboy\|nes\|modern_pixel\|pico8` | 风格预设；`auto` = 由 VL 推荐 | `auto` |
+| `--resample smart\|box\|bicubic\|lanczos\|nearest` | 下采样策略；`smart` 会自动对齐输入像素格 | `smart` |
+| `--snap / --no-snap` | smart 模式下是否探测输入像素格并吸附 | `--snap` |
+| `--remove-bg` | 自动抠背景（四角 flood-fill），输出透明 PNG | 关 |
+| `--bg-tolerance N` | 背景颜色容差（0-128，越大抠越狠） | `12` |
+| `--bg-feather N` | 主体边缘保留几圈像素（抗误伤） | `0` |
 | `--vl-model` | 视觉模型名 | 从配置读 |
 | `--no-vl` | 跳过多模态分析（纯 Python 兜底） | `false` |
 | `--no-cache` / `--refresh` | 禁用缓存 / 忽略命中强刷 | `false` |
@@ -332,7 +338,7 @@ pix pixelize source.png --analysis 02_analysis.json
 
 ```bash
 pip install -e ".[dev]"
-pytest                          # 全量测试（当前 179 条）
+pytest                          # 全量测试（当前 193 条）
 pytest --cov=pix                # 带覆盖率
 pytest tests/test_pipeline.py   # 只跑单个模块
 ruff check .                    # 代码风格检查

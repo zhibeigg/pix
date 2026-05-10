@@ -6,10 +6,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter
 
 from pix.analysis.schema import PixAnalysis
 from pix.config import PixelizeConfig
+from pix.pixelize.bg_removal import remove_background
 from pix.pixelize.palette import (
     build_palette_image,
     hex_to_rgb,
@@ -22,6 +24,7 @@ from pix.pixelize.roi import apply_semantic_regions
 
 
 Dither = Literal["none", "ordered", "floyd_steinberg"]
+ResampleMode = Literal["smart", "box", "bicubic", "lanczos", "nearest"]
 
 
 @dataclass
@@ -33,6 +36,11 @@ class PixelizeParams:
     preview_scale: int = 4
     edge_enhance: float = 0.1
     saturation: float = 1.0
+    resample: ResampleMode = "smart"
+    snap_to_grid: bool = True
+    remove_bg: bool = False
+    bg_tolerance: int = 12
+    bg_feather: int = 0
 
     @classmethod
     def from_config(cls, cfg: PixelizeConfig) -> "PixelizeParams":
@@ -44,6 +52,11 @@ class PixelizeParams:
             preview_scale=cfg.preview_scale,
             edge_enhance=cfg.edge_enhance,
             saturation=cfg.saturation,
+            resample=getattr(cfg, "resample", "smart"),  # type: ignore[arg-type]
+            snap_to_grid=getattr(cfg, "snap_to_grid", True),
+            remove_bg=getattr(cfg, "remove_bg", False),
+            bg_tolerance=getattr(cfg, "bg_tolerance", 12),
+            bg_feather=getattr(cfg, "bg_feather", 0),
         )
 
 
@@ -105,13 +118,89 @@ def _effective_params(
     return eff
 
 
-def _downsample(image: Image.Image, size: tuple[int, int]) -> Image.Image:
-    """两段式下采样：先 bicubic 缩到 2x，再 bicubic 缩到目标。"""
+def _detect_grid_size(image: Image.Image, max_probe: int = 24) -> int:
+    """粗略检测输入图的"像素格"边长（多少个原始像素对应 1 个像素块）。
+
+    原理：对亮度通道沿 x / y 各取差分，统计"变化剧烈"行/列之间的间距，
+    取众数近似格子尺寸。对整齐的像素画、大色块图效果很好；对自然照片会返回 1。
+    """
+    small = image.convert("L")
+    w, h = small.size
+    # 大图先统一降到一个工作尺寸，加速且避免长尾极值
+    max_side = 512
+    if max(w, h) > max_side:
+        scale = max_side / max(w, h)
+        small = small.resize((int(w * scale), int(h * scale)), Image.Resampling.BILINEAR)
+        w, h = small.size
+
+    arr = np.asarray(small, dtype=np.int16)
+    # 用邻列差平均值判定"这列是否是色块边界"
+    col_edge = np.abs(np.diff(arr, axis=1)).mean(axis=0)
+    row_edge = np.abs(np.diff(arr, axis=0)).mean(axis=1)
+
+    threshold = max(10.0, float(col_edge.mean() * 1.8))
+
+    def _periods(edge: np.ndarray) -> list[int]:
+        idxs = np.where(edge > threshold)[0]
+        if len(idxs) < 3:
+            return []
+        deltas = np.diff(idxs)
+        return [int(d) for d in deltas if 2 <= d <= max_probe]
+
+    periods = _periods(col_edge) + _periods(row_edge)
+    if not periods:
+        return 1
+    # 取众数
+    vals, counts = np.unique(periods, return_counts=True)
+    best = int(vals[int(counts.argmax())])
+    return max(1, best)
+
+
+def _downsample(
+    image: Image.Image,
+    size: tuple[int, int],
+    mode: ResampleMode = "smart",
+    snap: bool = True,
+) -> Image.Image:
+    """下采样到目标尺寸。
+
+    - smart: 如果探测到输入有明显像素网格，先按网格 BOX 聚合，再 BOX 缩到目标
+      否则退化到"BICUBIC→BOX"两段式，比纯 bicubic 边缘锐一些
+    - box: 纯平均采样（对像素画最忠实）
+    - bicubic: Pillow 经典平滑缩
+    - lanczos: 最锐利的插值，容易有 ringing
+    - nearest: 硬采样，保留像素感但会丢细节
+    """
     target = size
-    intermediate = (target[0] * 2, target[1] * 2)
-    img = image.resize(intermediate, Image.Resampling.BICUBIC)
-    img = img.resize(target, Image.Resampling.BICUBIC)
-    return img
+    mode_map = {
+        "box": Image.Resampling.BOX,
+        "bicubic": Image.Resampling.BICUBIC,
+        "lanczos": Image.Resampling.LANCZOS,
+        "nearest": Image.Resampling.NEAREST,
+    }
+
+    if mode != "smart":
+        return image.resize(target, mode_map.get(mode, Image.Resampling.BICUBIC))
+
+    w, h = image.size
+    tw, th = target
+
+    # smart：先对齐输入像素网格
+    if snap:
+        grid = _detect_grid_size(image)
+        if grid >= 2:
+            # 聚合到"每个 grid 变成 1 个像素"的中间尺寸
+            inter_w = max(1, w // grid)
+            inter_h = max(1, h // grid)
+            image = image.resize((inter_w, inter_h), Image.Resampling.BOX)
+            w, h = image.size
+
+    # 若已经小于等于目标，改用 NEAREST 保留像素感
+    if w <= tw and h <= th:
+        return image.resize(target, Image.Resampling.NEAREST)
+
+    # 还比目标大：用 BOX 做面积平均（对硬边友好，不会糊）
+    return image.resize(target, Image.Resampling.BOX)
 
 
 def _apply_enhancements(image: Image.Image, saturation: float, edge: float) -> Image.Image:
@@ -135,12 +224,18 @@ def _quantize(
         else Image.Dither.ORDERED if dither == "ordered"
         else Image.Dither.NONE
     )
-    # 使用 FLOYDSTEINBERG + 目标调色板把 RGB 图量化到 P 模式
+    # 保留可能的 alpha：先量化 RGB，再把原 alpha 贴回
+    alpha = image.split()[-1] if image.mode == "RGBA" else None
     quantized = image.convert("RGB").quantize(
         palette=pal_img,
         dither=dither_method,
     )
-    return quantized.convert("RGB")
+    rgb = quantized.convert("RGB")
+    if alpha is not None:
+        rgba = rgb.convert("RGBA")
+        rgba.putalpha(alpha)
+        return rgba
+    return rgb
 
 
 def _build_palette(
@@ -189,8 +284,11 @@ def pixelize(
     preset = _resolve_preset(params, analysis)
     eff = _effective_params(params, preset, analysis)
 
-    # 1. 下采样到目标尺寸
-    down = _downsample(img, eff.output_size)
+    # 1. 下采样到目标尺寸（smart/box/bicubic/lanczos/nearest）
+    detected_grid: int | None = None
+    if eff.resample == "smart" and eff.snap_to_grid:
+        detected_grid = _detect_grid_size(img)
+    down = _downsample(img, eff.output_size, mode=eff.resample, snap=eff.snap_to_grid)
     # 2. 轻微增强
     down = _apply_enhancements(down, eff.saturation, eff.edge_enhance)
     # 3. 语义区域最近邻替换（可选，早期做可以引导后续量化）
@@ -201,7 +299,15 @@ def pixelize(
     # 5. 量化 + 抖动
     pixelized = _quantize(down, palette_rgb, eff.dither)
 
-    # 6. 可选预览（最近邻放大）
+    # 6. 可选：抠背景（在量化后做最准——背景块已经是纯色）
+    if eff.remove_bg:
+        pixelized = remove_background(
+            pixelized,
+            tolerance=max(0, int(eff.bg_tolerance)),
+            feather=max(0, int(eff.bg_feather)),
+        )
+
+    # 7. 可选预览（最近邻放大）
     preview: Image.Image | None = None
     scale = max(0, int(eff.preview_scale))
     if scale > 1:
@@ -219,9 +325,15 @@ def pixelize(
             "preview_scale": eff.preview_scale,
             "edge_enhance": eff.edge_enhance,
             "saturation": eff.saturation,
+            "resample": eff.resample,
+            "snap_to_grid": eff.snap_to_grid,
+            "remove_bg": eff.remove_bg,
+            "bg_tolerance": eff.bg_tolerance,
+            "bg_feather": eff.bg_feather,
         },
         "palette": ["#{:02X}{:02X}{:02X}".format(*c) for c in palette_rgb],
         "palette_size": len(palette_rgb),
         "used_analysis": analysis is not None,
+        "detected_grid": detected_grid,
     }
     return pixelized, preview, meta
