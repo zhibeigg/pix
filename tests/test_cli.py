@@ -70,3 +70,27 @@ def test_pixelize_with_analysis(
     )
     assert result.exit_code == 0, result.stdout
     assert out.exists()
+
+
+def test_batch_cli(sample_image: Path, tmp_path: Path, tmp_cwd: Path) -> None:
+    in_dir = tmp_path / "batch_in"
+    in_dir.mkdir()
+    # 拷贝两份
+    import shutil
+    shutil.copy(sample_image, in_dir / "a.png")
+    shutil.copy(sample_image, in_dir / "b.png")
+
+    out_dir = tmp_path / "batch_out"
+    result = runner.invoke(
+        app,
+        [
+            "batch", str(in_dir), str(out_dir),
+            "--pixel-size", "16x16",
+            "--colors", "4",
+            "--workers", "1",
+            "--no-sidecars",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert (out_dir / "a.png").exists()
+    assert (out_dir / "b.png").exists()
