@@ -2,6 +2,7 @@ import type {
   CreditBalance,
   CreditTransaction,
   GenerationJob,
+  JobBatchCreateResponse,
   JobCreateRequest,
   PricingRule,
   TokenResponse,
@@ -71,6 +72,9 @@ export const api = {
   },
   createJob(token: string, payload: JobCreateRequest) {
     return request<GenerationJob>('/jobs', { method: 'POST', body: JSON.stringify(payload) }, token)
+  },
+  createJobsBatch(token: string, payloads: JobCreateRequest[]) {
+    return request<JobBatchCreateResponse>('/jobs/batch', { method: 'POST', body: JSON.stringify({ jobs: payloads }) }, token)
   },
   jobs(token: string) {
     return request<GenerationJob[]>('/jobs?limit=50', {}, token)

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-10
+
+### Added
+
+- 新增原子批量创建接口 `POST /jobs/batch`，批量任务会一次性校验、冻结点数并提交，避免前端循环创建导致半批成功。
+- 前端批量生产改用批量创建接口，提交后显示本批次冻结点数。
+
 ## [0.9.0] - 2026-05-10
 
 ### Added
@@ -138,7 +145,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/zhibeigg/pix/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/zhibeigg/pix/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/zhibeigg/pix/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/zhibeigg/pix/compare/v0.6.0...v0.7.0

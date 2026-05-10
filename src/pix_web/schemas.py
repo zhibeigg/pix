@@ -91,6 +91,10 @@ class JobCreateRequest(BaseModel):
     pixelize: PixelizeParamsSchema = Field(default_factory=PixelizeParamsSchema)
 
 
+class JobBatchCreateRequest(BaseModel):
+    jobs: list[JobCreateRequest] = Field(min_length=1, max_length=50)
+
+
 class UploadResponse(BaseModel):
     path: str
     filename: str
@@ -146,6 +150,11 @@ class JobResponse(BaseModel):
     outputs: list[JobOutputResponse] = []
 
     model_config = {"from_attributes": True}
+
+
+class JobBatchCreateResponse(BaseModel):
+    jobs: list[JobResponse]
+    total_price_credits: int
 
 
 class AdminAdjustCreditsRequest(BaseModel):

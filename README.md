@@ -277,7 +277,7 @@ MVP 计费规则默认：
 | `local_pixelize` | 0 | 只做本地像素化 |
 | `repixelize` | 0 | 对历史源图免费重新像素化 |
 
-任务创建时会先冻结点数；worker 成功后确认消费，失败会自动退款。第一个注册用户会自动成为管理员，可通过 `/admin/users/{id}/adjust-credits` 手动加点。
+任务创建时会先冻结点数；worker 成功后确认消费，失败会自动退款。批量生产使用 `POST /jobs/batch` 原子提交，避免部分任务创建成功后中途失败。第一个注册用户会自动成为管理员，可通过 `/admin/users/{id}/adjust-credits` 手动加点。
 
 ### 游戏素材直出
 
