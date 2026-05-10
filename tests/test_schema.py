@@ -9,7 +9,6 @@ from pix.analysis.schema import (
     BBoxNorm,
     ColorSwatch,
     PixAnalysis,
-    ROI,
     SemanticRegion,
     StyleAnalysis,
 )

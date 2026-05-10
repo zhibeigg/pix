@@ -8,7 +8,6 @@ from typer.testing import CliRunner
 
 from pix.cli import app
 from pix.grid.postprocess import polish_pixel_grid
-from pix.grid.render import render_pixel_grid
 from pix.grid.schema import grid_from_mapping, save_grid
 
 runner = CliRunner()

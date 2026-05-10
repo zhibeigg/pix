@@ -10,7 +10,6 @@ import httpx
 import pytest
 from PIL import Image
 
-from pix.analysis.schema import PixAnalysis
 from pix.config import AppConfig
 from pix.pipeline import PipelineInput, run_pipeline
 from pix.pixelize.core import PixelizeParams
