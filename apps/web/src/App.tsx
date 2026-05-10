@@ -9,7 +9,7 @@ import { GalleryGrid } from './components/GalleryGrid'
 import { JobList } from './components/JobList'
 import { SingleGeneratePanel } from './components/SingleGeneratePanel'
 import { TuningPanel } from './components/TuningPanel'
-import type { CreditBalance, CreditTransaction, GenerationBatch, GenerationJob, JobCreateRequest, PricingRule, User } from './types'
+import type { CreditBalance, CreditTransaction, GenerationBatch, GenerationJob, JobCreateRequest, PricingRule, SystemSetting, User } from './types'
 
 const TOKEN_KEY = 'pix_web_token'
 type WorkMode = 'single' | 'batch'
@@ -23,6 +23,7 @@ export function App() {
   const [batches, setBatches] = useState<GenerationBatch[]>([])
   const [pricing, setPricing] = useState<PricingRule[]>([])
   const [adminUsers, setAdminUsers] = useState<User[]>([])
+  const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([])
   const [busy, setBusy] = useState(false)
   const [retryingBatchId, setRetryingBatchId] = useState<number | null>(null)
   const [downloadingBatchId, setDownloadingBatchId] = useState<number | null>(null)
@@ -67,8 +68,9 @@ export function App() {
       setSelectedBatchJobs(await api.batchJobs(activeToken, selectedBatchId))
     }
     if (me.role === 'admin') {
-      const users = await api.adminUsers(activeToken)
+      const [users, settings] = await Promise.all([api.adminUsers(activeToken), api.adminSettings(activeToken)])
       setAdminUsers(users)
+      setSystemSettings(settings)
     }
   }, [selectedBatchId, token])
 
@@ -135,6 +137,7 @@ export function App() {
     setSelectedBatchJobs([])
     setPricing([])
     setAdminUsers([])
+    setSystemSettings([])
     setSelectedJobId(null)
     setMessage('已退出')
   }
@@ -287,6 +290,13 @@ export function App() {
     setMessage('价格规则已更新')
   }
 
+  async function updateSetting(key: string, value: string) {
+    if (!token) return
+    await api.updateSetting(token, key, value)
+    await refreshCore(token)
+    setMessage('运营保护设置已更新')
+  }
+
   return (
     <main className="app-shell forge-shell">
       <header className="hero forge-hero">
@@ -341,7 +351,7 @@ export function App() {
               <BatchPanel batches={batches} selectedBatchId={selectedBatchId} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onRefresh={() => refreshCore()} />
               <TuningPanel job={selectedJob} pricing={pricing} loading={busy} onSubmit={createJob} />
               {isAdmin && (
-                <AdminPanel users={adminUsers} pricing={pricing} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} />
+                <AdminPanel users={adminUsers} pricing={pricing} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onUpdateSetting={updateSetting} />
               )}
             </>
           )}

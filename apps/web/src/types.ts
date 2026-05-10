@@ -129,3 +129,9 @@ export type PricingRule = {
   enabled: boolean
   updated_at: string
 }
+
+export type SystemSetting = {
+  key: string
+  value: string
+  updated_at: string
+}

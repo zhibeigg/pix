@@ -1,15 +1,17 @@
 import { FormEvent, useState } from 'react'
-import type { PricingRule, User } from '../types'
+import type { PricingRule, SystemSetting, User } from '../types'
 
 type AdminPanelProps = {
   users: User[]
   pricing: PricingRule[]
+  settings: SystemSetting[]
   onRefresh: () => void
   onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>
   onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>
+  onUpdateSetting: (key: string, value: string) => Promise<void>
 }
 
-export function AdminPanel({ users, pricing, onRefresh, onAdjustCredits, onUpdatePricing }: AdminPanelProps) {
+export function AdminPanel({ users, pricing, settings, onRefresh, onAdjustCredits, onUpdatePricing, onUpdateSetting }: AdminPanelProps) {
   const [selectedUser, setSelectedUser] = useState<number>(0)
   const [amount, setAmount] = useState(100)
   const [note, setNote] = useState('seed credits')
@@ -59,9 +61,49 @@ export function AdminPanel({ users, pricing, onRefresh, onAdjustCredits, onUpdat
             ))}
           </div>
         </div>
+        <div>
+          <h3>运营保护</h3>
+          <div className="pricing-list">
+            {settings.map((setting) => (
+              <SettingRow setting={setting} onUpdate={onUpdateSetting} key={setting.key} />
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   )
+}
+
+function SettingRow({ setting, onUpdate }: { setting: SystemSetting; onUpdate: (key: string, value: string) => Promise<void> }) {
+  const [value, setValue] = useState(setting.value)
+  const isBoolean = setting.key === 'generation_enabled'
+
+  return (
+    <div className="pricing-row">
+      <div>
+        <strong>{settingLabel(setting.key)}</strong>
+        <p>{setting.key}</p>
+      </div>
+      {isBoolean ? (
+        <label className="mini-check">
+          <input type="checkbox" checked={value === 'true'} onChange={(event) => setValue(event.target.checked ? 'true' : 'false')} />
+          启用
+        </label>
+      ) : (
+        <input type="number" min={0} value={value} onChange={(event) => setValue(event.target.value)} />
+      )}
+      <button className="ghost" onClick={() => onUpdate(setting.key, value)}>保存</button>
+    </div>
+  )
+}
+
+function settingLabel(key: string) {
+  const labels: Record<string, string> = {
+    generation_enabled: '生成总开关',
+    max_pending_jobs_per_user: '每用户排队/运行上限',
+    daily_job_limit_per_user: '每用户每日任务上限',
+  }
+  return labels[key] ?? key
 }
 
 function PricingRow({ rule, onUpdate }: { rule: PricingRule; onUpdate: (key: string, priceCredits: number, enabled: boolean) => Promise<void> }) {

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from pix_web.models import Base
 from pix_web.pricing import ensure_default_pricing
+from pix_web.system_settings import ensure_default_system_settings
 
 
 def make_engine(database_url: str) -> Engine:
@@ -27,6 +28,7 @@ def init_db(engine: Engine, *, create_schema: bool = True) -> None:
     session_factory = make_session_factory(engine)
     with session_factory() as db:
         ensure_default_pricing(db)
+        ensure_default_system_settings(db)
 
 
 def session_scope(session_factory: sessionmaker[Session]) -> Iterator[Session]:
