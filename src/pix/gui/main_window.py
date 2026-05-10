@@ -741,15 +741,25 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, tr("dlg_title_first_run"), tr("dlg_first_run_body"))
 
     def _cleanup_thread(self) -> None:
-        if self._thread is not None:
-            self._thread.quit()
-            if self._thread.wait(5000):
-                self._thread = None
-                self._worker = None
-            else:
-                self._log(tr("log_warn_thread_not_exit"))
-        else:
+        """非阻塞收尾后台线程，避免完成信号里 wait() 导致窗口短暂未响应。"""
+        thread = self._thread
+        worker = self._worker
+        if thread is None:
             self._worker = None
+            return
+
+        def _clear_refs() -> None:
+            if self._thread is thread:
+                self._thread = None
+            if self._worker is worker:
+                self._worker = None
+            thread.deleteLater()
+
+        if thread.isRunning():
+            thread.finished.connect(_clear_refs, Qt.ConnectionType.SingleShotConnection)
+            thread.quit()
+        else:
+            _clear_refs()
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         if self._thread is not None and self._thread.isRunning():

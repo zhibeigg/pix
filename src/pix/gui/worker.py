@@ -45,6 +45,9 @@ class WorkerThread(QThread):
         super().__init__()
         self.worker = worker
         self.worker.moveToThread(self)
+        # 先安排 worker 自身删除，再退出线程事件循环，避免主线程等待时卡 UI。
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.worker.failed.connect(self.worker.deleteLater)
         self.started.connect(self.worker.run)
         self.worker.finished.connect(self.quit)
         self.worker.failed.connect(lambda _msg: self.quit())
