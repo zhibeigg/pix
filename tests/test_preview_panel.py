@@ -134,8 +134,8 @@ def test_copy_transparent_png_prefers_original_png_bytes(qapp, tmp_path: Path) -
         assert mime.hasFormat("image/png")
         assert mime.hasFormat("PNG")
         assert bytes(mime.data("image/png")) == image_path.read_bytes()
-        # 透明 PNG 不设置 imageData，避免 Windows DIB 路径丢 alpha / 合成背景。
-        assert not mime.hasImage()
+        # 同时提供标准 imageData，保证只识别位图剪贴板格式的目标程序也能粘贴。
+        assert mime.hasImage()
     finally:
         p.deleteLater()
 

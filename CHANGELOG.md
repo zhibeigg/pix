@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-05-10
+
+### Fixed
+
+- 修复透明像素图右键复制后部分目标程序无法粘贴的问题：剪贴板同时写入标准图片数据和原始 PNG 数据。
+
 ## [0.2.3] - 2026-05-10
 
 ### Fixed
@@ -72,7 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/zhibeigg/pix/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/zhibeigg/pix/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/zhibeigg/pix/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/zhibeigg/pix/compare/v0.2.0...v0.2.1
