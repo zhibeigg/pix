@@ -58,3 +58,24 @@ pix = ["py.typed"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+src = ["src", "tests"]
+extend-exclude = ["outputs", ".pix_cache", "build", "dist"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes (unused imports etc.)
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "W",    # pycodestyle warnings
+]
+ignore = [
+    "E501",  # 行长度交给 formatter 自觉遵循，避免为几个字符频繁打断
+    "B008",  # Typer/FastAPI 风格的 Depends()/Argument() 在默认值里调用是惯例
+    "B904",  # raise ... from 强制打开后约束太严
+    "UP038", # isinstance(x, (A, B)) 在 3.10 里仍是更易读的写法
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011", "E712"]  # assert False 在测试里是常见写法
