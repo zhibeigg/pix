@@ -25,8 +25,22 @@ class Preset:
     saturation: float | None = None
 
 
-# 内置预设目录：仓库根的 assets/presets/
-_BUILTIN_DIR = Path(__file__).resolve().parents[3] / "assets" / "presets"
+def _builtin_presets_dir() -> Path:
+    """返回内置预设目录，兼容源码运行和 PyInstaller 冻结后运行。
+
+    - 源码运行：仓库根的 assets/presets/
+    - PyInstaller one-dir/one-file 运行：sys._MEIPASS/assets/presets/
+    """
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidate = Path(meipass) / "assets" / "presets"
+        if candidate.exists():
+            return candidate
+    # 源码布局：src/pix/pixelize/presets.py → ../../../assets/presets
+    return Path(__file__).resolve().parents[3] / "assets" / "presets"
+
+
+_BUILTIN_DIR = _builtin_presets_dir()
 
 
 def list_presets(extra_dir: Path | None = None) -> list[str]:
