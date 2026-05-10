@@ -191,7 +191,7 @@ pix gui                                                      # 启动图形界�
 
 | 参数 | 说明 | 默认 |
 |---|---|---|
-| `--pixel-size WxH` | 目标像素图尺寸；GUI 内置 `16/32/48/64/96/128/256` 快速预设，也可手输 | `128x128` |
+| `--pixel-size WxH` | 目标像素图画布尺寸；源图会按原始比例缩放并居中适配，不会被拉伸 | `128x128` |
 | `--colors N` | 调色板颜色数 (2–256) | `16` |
 | `--dither none\|ordered\|floyd_steinberg` | 抖动算法 | `floyd_steinberg` |
 | `--preset auto\|gameboy\|nes\|modern_pixel\|pico8` | 风格预设；`auto` = 不强制套预设，保留用户参数 | `auto` |
