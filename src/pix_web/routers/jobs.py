@@ -29,8 +29,8 @@ def create_batch(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> JobBatchCreateResponse:
-    jobs, total_price = create_jobs_batch(db, user, req.jobs)
-    return JobBatchCreateResponse(jobs=jobs, total_price_credits=total_price)
+    jobs, total_price, batch = create_jobs_batch(db, user, req.jobs, batch_name=req.batch_name, mode=req.mode)
+    return JobBatchCreateResponse(jobs=jobs, total_price_credits=total_price, batch_id=batch.id if batch else None)
 
 
 @router.get("", response_model=list[JobResponse])

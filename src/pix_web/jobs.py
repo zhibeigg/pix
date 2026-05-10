@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime
 from uuid import uuid4
 
 from fastapi import HTTPException, status
@@ -10,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, reserve_credits
-from pix_web.models import CreditAccount, GenerationJob, User
+from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
 from pix_web.pricing import PricingDisabledError, get_price
 from pix_web.schemas import JobCreateRequest
 
@@ -62,7 +63,14 @@ def _price_for_request(db: Session, req: JobCreateRequest) -> int:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
-def create_job_in_transaction(db: Session, user: User, req: JobCreateRequest, *, reserve: bool = True) -> GenerationJob:
+def create_job_in_transaction(
+    db: Session,
+    user: User,
+    req: JobCreateRequest,
+    *,
+    reserve: bool = True,
+    batch: GenerationBatch | None = None,
+) -> GenerationJob:
     validate_job_request(req)
     client_request_id = req.client_request_id.strip()
     existing = _existing_job(db, user, client_request_id)
@@ -72,6 +80,7 @@ def create_job_in_transaction(db: Session, user: User, req: JobCreateRequest, *,
     price = _price_for_request(db, req)
     job = GenerationJob(
         user_id=user.id,
+        batch_id=batch.id if batch is not None else None,
         client_request_id=client_request_id or uuid4().hex,
         job_type=req.job_type,
         status="pending",
@@ -101,7 +110,18 @@ def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
     ) or job
 
 
-def create_jobs_batch(db: Session, user: User, reqs: list[JobCreateRequest]) -> tuple[list[GenerationJob], int]:
+def _default_batch_name() -> str:
+    return f"Batch {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+
+
+def create_jobs_batch(
+    db: Session,
+    user: User,
+    reqs: list[JobCreateRequest],
+    *,
+    batch_name: str = "",
+    mode: str = "mixed",
+) -> tuple[list[GenerationJob], int, GenerationBatch | None]:
     if not reqs:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="批量任务不能为空")
 
@@ -130,6 +150,9 @@ def create_jobs_batch(db: Session, user: User, reqs: list[JobCreateRequest]) -> 
     if available < total_price:
         raise insufficient_credits_http()
 
+    batch = GenerationBatch(user_id=user.id, name=batch_name.strip() or _default_batch_name(), mode=mode.strip() or "mixed")
+    db.add(batch)
+    db.flush()
     jobs: list[GenerationJob] = []
     try:
         for index, req in enumerate(reqs):
@@ -137,7 +160,7 @@ def create_jobs_batch(db: Session, user: User, reqs: list[JobCreateRequest]) -> 
             if existing is not None:
                 jobs.append(existing)
                 continue
-            job = create_job_in_transaction(db, user, req, reserve=False)
+            job = create_job_in_transaction(db, user, req, reserve=False, batch=batch)
             reserve_credits(db, user, job, prices[index])
             jobs.append(job)
     except InsufficientCreditsError as exc:
@@ -154,4 +177,4 @@ def create_jobs_batch(db: Session, user: User, reqs: list[JobCreateRequest]) -> 
         )
     )
     by_id = {job.id: job for job in loaded}
-    return [by_id.get(job.id, job) for job in jobs], total_price
+    return [by_id.get(job.id, job) for job in jobs], total_price, batch

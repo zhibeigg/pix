@@ -101,6 +101,9 @@ button.compact { padding: 7px 10px; font-size: 12px; }
 .tuning-panel { display: grid; gap: 16px; }
 .tune-block { border: 1px solid var(--line); border-radius: 18px; padding: 14px; background: #151a20; }
 .tune-block h3, .tune-block p { margin: 0 0 6px; }
+.batch-list { display: grid; gap: 10px; }
+.batch-card { border: 1px solid var(--line); border-radius: 16px; padding: 12px; background: #151a20; }
+.batch-card p { margin: 8px 0 0; }
 .batch-upload-list { display: grid; gap: 10px; }
 .batch-upload-item { display: grid; grid-template-columns: 58px 1fr; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 14px; padding: 8px; background: #151a20; }
 .batch-upload-item img, .upload-placeholder { width: 58px; height: 58px; object-fit: contain; image-rendering: pixelated; border-radius: 10px; background: #0f1419; display: grid; place-items: center; color: var(--muted); font-size: 11px; }

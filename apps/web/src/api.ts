@@ -1,5 +1,6 @@
 import type {
   CreditBalance,
+  GenerationBatch,
   CreditTransaction,
   GenerationJob,
   JobBatchCreateResponse,
@@ -73,11 +74,14 @@ export const api = {
   createJob(token: string, payload: JobCreateRequest) {
     return request<GenerationJob>('/jobs', { method: 'POST', body: JSON.stringify(payload) }, token)
   },
-  createJobsBatch(token: string, payloads: JobCreateRequest[]) {
-    return request<JobBatchCreateResponse>('/jobs/batch', { method: 'POST', body: JSON.stringify({ jobs: payloads }) }, token)
+  createJobsBatch(token: string, payloads: JobCreateRequest[], batchName = '', mode = 'mixed') {
+    return request<JobBatchCreateResponse>('/jobs/batch', { method: 'POST', body: JSON.stringify({ jobs: payloads, batch_name: batchName, mode }) }, token)
   },
   jobs(token: string) {
     return request<GenerationJob[]>('/jobs?limit=50', {}, token)
+  },
+  batches(token: string) {
+    return request<GenerationBatch[]>('/batches?limit=50', {}, token)
   },
   adminUsers(token: string) {
     return request<User[]>('/admin/users?limit=100', {}, token)

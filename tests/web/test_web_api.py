@@ -94,16 +94,33 @@ def test_batch_create_jobs_reserves_atomically(client: TestClient) -> None:
         "/jobs/batch",
         headers=headers,
         json={
+            "batch_name": "Test Pack",
+            "mode": "text_to_image",
             "jobs": [
                 {"job_type": "text_to_image", "prompt": "pixel cat", "client_request_id": "batch-a"},
                 {"job_type": "text_to_image", "prompt": "pixel dog", "client_request_id": "batch-b"},
-            ]
+            ],
         },
     )
     assert response.status_code == 200
     body = response.json()
     assert body["total_price_credits"] == 40
+    assert body["batch_id"] is not None
     assert len(body["jobs"]) == 2
+    assert {job["batch_id"] for job in body["jobs"]} == {body["batch_id"]}
+
+    batches = client.get("/batches", headers=headers).json()
+    assert batches[0]["name"] == "Test Pack"
+    assert batches[0]["mode"] == "text_to_image"
+    assert batches[0]["job_count"] == 2
+    assert batches[0]["pending_count"] == 2
+    assert batches[0]["total_price_credits"] == 40
+    batch_jobs = client.get(f"/batches/{body['batch_id']}/jobs", headers=headers).json()
+    assert len(batch_jobs) == 2
+
+    _other, other_headers = _register_and_login(client, "other@example.com")
+    forbidden = client.get(f"/batches/{body['batch_id']}/jobs", headers=other_headers)
+    assert forbidden.status_code == 404
 
     balance = client.get("/credits/balance", headers=headers).json()
     assert balance["available_credits"] == 10

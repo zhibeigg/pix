@@ -3,12 +3,13 @@ import { api, ApiError } from './api'
 import { AdminPanel } from './components/AdminPanel'
 import { AuthPanel } from './components/AuthPanel'
 import { BatchGeneratePanel } from './components/BatchGeneratePanel'
+import { BatchPanel } from './components/BatchPanel'
 import { CreditPanel } from './components/CreditPanel'
 import { GalleryGrid } from './components/GalleryGrid'
 import { JobList } from './components/JobList'
 import { SingleGeneratePanel } from './components/SingleGeneratePanel'
 import { TuningPanel } from './components/TuningPanel'
-import type { CreditBalance, CreditTransaction, GenerationJob, JobCreateRequest, PricingRule, User } from './types'
+import type { CreditBalance, CreditTransaction, GenerationBatch, GenerationJob, JobCreateRequest, PricingRule, User } from './types'
 
 const TOKEN_KEY = 'pix_web_token'
 type WorkMode = 'single' | 'batch'
@@ -19,6 +20,7 @@ export function App() {
   const [balance, setBalance] = useState<CreditBalance | null>(null)
   const [transactions, setTransactions] = useState<CreditTransaction[]>([])
   const [jobs, setJobs] = useState<GenerationJob[]>([])
+  const [batches, setBatches] = useState<GenerationBatch[]>([])
   const [pricing, setPricing] = useState<PricingRule[]>([])
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [busy, setBusy] = useState(false)
@@ -40,17 +42,19 @@ export function App() {
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
-    const [me, nextBalance, nextTransactions, nextJobs, nextPricing] = await Promise.all([
+    const [me, nextBalance, nextTransactions, nextJobs, nextBatches, nextPricing] = await Promise.all([
       api.me(activeToken),
       api.balance(activeToken),
       api.transactions(activeToken),
       api.jobs(activeToken),
+      api.batches(activeToken),
       api.pricing(activeToken),
     ])
     setUser(me)
     setBalance(nextBalance)
     setTransactions(nextTransactions)
     setJobs(nextJobs)
+    setBatches(nextBatches)
     setPricing(nextPricing)
     if (me.role === 'admin') {
       const users = await api.adminUsers(activeToken)
@@ -114,6 +118,7 @@ export function App() {
     setBalance(null)
     setTransactions([])
     setJobs([])
+    setBatches([])
     setPricing([])
     setAdminUsers([])
     setSelectedJobId(null)
@@ -136,12 +141,12 @@ export function App() {
     }
   }
 
-  async function createJobs(payloads: JobCreateRequest[]) {
+  async function createJobs(payloads: JobCreateRequest[], batchName = '', mode = 'mixed') {
     if (!token || payloads.length === 0) return
     setBusy(true)
     setMessage('')
     try {
-      const created = await api.createJobsBatch(token, payloads)
+      const created = await api.createJobsBatch(token, payloads, batchName, mode)
       setSelectedJobId(created.jobs[0]?.id ?? null)
       setMessage(`${created.jobs.length} 个任务已加入生产队列，冻结 ${created.total_price_credits} credits`)
       await refreshCore(token)
@@ -222,6 +227,7 @@ export function App() {
               ) : (
                 <BatchGeneratePanel pricing={pricing} loading={busy} token={token} onSubmitMany={createJobs} />
               )}
+              <BatchPanel batches={batches} onRefresh={() => refreshCore()} />
               <TuningPanel job={selectedJob} pricing={pricing} loading={busy} onSubmit={createJob} />
               {isAdmin && (
                 <AdminPanel users={adminUsers} pricing={pricing} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} />

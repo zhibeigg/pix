@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pix import __version__
 from pix_web.config import WebSettings, load_web_settings
 from pix_web.db import init_db, make_engine, make_session_factory
-from pix_web.routers import admin, auth, credits, files, jobs, pricing, uploads
+from pix_web.routers import admin, auth, batches, credits, files, jobs, pricing, uploads
 
 
 def create_app(settings: WebSettings | None = None) -> FastAPI:
@@ -33,6 +33,7 @@ def create_app(settings: WebSettings | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(credits.router)
     app.include_router(jobs.router)
+    app.include_router(batches.router)
     app.include_router(uploads.router)
     app.include_router(files.router)
     app.include_router(pricing.router)
