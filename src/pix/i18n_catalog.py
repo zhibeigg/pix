@@ -158,6 +158,8 @@ _ZH_CN: dict[str, str] = {
     "history_loading": "正在加载历史记录…",
     "history_count": "共 {count} 条记录",
     "history_load_failed": "历史记录加载失败",
+    "history_loading_record": "正在加载历史记录：{path}",
+    "history_image_load_failed": "历史图片加载失败：{path} - {error}",
     "history_loaded": "[OK] 已加载历史记录：{path}",
 
     # 设置对话框
@@ -364,6 +366,8 @@ _EN: dict[str, str] = {
     "history_loading": "Loading history records…",
     "history_count": "{count} records",
     "history_load_failed": "Failed to load history record",
+    "history_loading_record": "Loading history record: {path}",
+    "history_image_load_failed": "Failed to load history image: {path} - {error}",
     "history_loaded": "[OK] Loaded history record: {path}",
 
     "settings_title": "Settings",
@@ -1661,6 +1665,8 @@ _HISTORY_KEYS = (
     "history_loading",
     "history_count",
     "history_load_failed",
+    "history_loading_record",
+    "history_image_load_failed",
     "history_loaded",
 )
 for _mapping in (_ZH_TW, _JA, _KO, _FR, _DE, _ES, _RU):
