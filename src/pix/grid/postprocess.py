@@ -157,12 +157,13 @@ def _apply_outline_once(
             ]
             if not solid_neighbors:
                 continue
-            # 只补贴着主体的透明格；对角孤立接触也允许，但需要至少两个邻居避免噪点扩散。
+            # 只补贴着主体的上下左右透明格；不再因为对角邻居补色，
+            # 避免斜边/凹角处被填成 2x2 黑块。
             cardinal_solid = any(
                 _safe_get(pixels, nx, ny, transparent) != transparent
                 for nx, ny in _neighbors4(x, y)
             )
-            if cardinal_solid or len(solid_neighbors) >= 2:
+            if cardinal_solid:
                 out[y][x] = outline_id
     return out
 

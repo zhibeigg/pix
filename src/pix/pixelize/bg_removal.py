@@ -187,10 +187,18 @@ def _apply_outline_edge(rgba: np.ndarray, mask_bg: np.ndarray, strength: int) ->
     """背景透明，同时在主体外侧补不透明深色描边。"""
     foreground = (~mask_bg) & (rgba[..., 3] > 0)
     outline_rgb = _infer_outline_rgb(rgba, foreground)
+    # 很多生图本身已经带黑色像素轮廓。旧实现会从这些黑边继续向外膨胀，
+    # 在斜边和凹角处形成 2~3 像素厚的黑块。这里把已存在的暗色边界当作
+    # 屏障，只从非轮廓主体色向透明背景补缺口。
+    existing_outline = _existing_outline_boundary(rgba, foreground, mask_bg, outline_rgb)
+    source = foreground & ~existing_outline
+    if not source.any():
+        source = foreground
+
     outline_mask = np.zeros(mask_bg.shape, dtype=bool)
-    current = foreground.copy()
+    current = source.copy()
     for _ in range(max(1, strength)):
-        expanded = _dilate_mask_8(current)
+        expanded = _dilate_mask_4(current)
         layer = expanded & mask_bg & ~outline_mask
         # 避免直接在画布最外圈生成贴边框。
         if layer.shape[0] > 2 and layer.shape[1] > 2:
@@ -199,7 +207,9 @@ def _apply_outline_edge(rgba: np.ndarray, mask_bg: np.ndarray, strength: int) ->
             layer[:, 0] = False
             layer[:, -1] = False
         outline_mask |= layer
-        current = expanded
+        # 可以穿过本轮新增的外描边继续加宽，但不能穿过输入里已有的黑边，
+        # 否则会把已有轮廓再次加粗。
+        current = (current | layer | (expanded & foreground & ~existing_outline))
     rgba[mask_bg, 3] = 0
     rgba[outline_mask, :3] = outline_rgb
     rgba[outline_mask, 3] = 255
@@ -209,22 +219,33 @@ def _infer_outline_rgb(rgba: np.ndarray, foreground: np.ndarray) -> tuple[int, i
     pixels = rgba[foreground, :3]
     if pixels.size == 0:
         return (16, 16, 16)
-    luma = pixels[:, 0].astype(np.float32) * 0.2126 + pixels[:, 1].astype(np.float32) * 0.7152 + pixels[:, 2].astype(np.float32) * 0.0722
+    luma = _rgb_luma(pixels)
     darkest = pixels[int(np.argmin(luma))]
     if float(luma.min()) < 70:
         return tuple(int(v) for v in darkest)
     return tuple(max(0, int(v * 0.36)) for v in darkest)
 
 
-def _dilate_mask_8(mask: np.ndarray) -> np.ndarray:
-    """8 邻域膨胀；图像外侧不参与膨胀，避免引入画布外假背景。"""
-    result = mask.copy()
-    h, w = mask.shape
+def _existing_outline_boundary(
+    rgba: np.ndarray,
+    foreground: np.ndarray,
+    mask_bg: np.ndarray,
+    outline_rgb: tuple[int, int, int],
+) -> np.ndarray:
+    """找出输入图里已经存在的深色边界，避免对它二次外扩。"""
+    if not foreground.any():
+        return np.zeros(mask_bg.shape, dtype=bool)
+    luma = _rgb_luma(rgba[..., :3])
+    outline_luma = _rgb_luma(np.asarray([outline_rgb], dtype=np.uint8))[0]
+    dark_boundary = foreground & _dilate_mask_8(mask_bg) & (luma <= max(72.0, float(outline_luma) + 28.0))
+    if not dark_boundary.any():
+        return dark_boundary
+    brighter_neighbor = np.zeros(mask_bg.shape, dtype=bool)
+    h, w = mask_bg.shape
     for dy in (-1, 0, 1):
         for dx in (-1, 0, 1):
             if dy == 0 and dx == 0:
                 continue
-            shifted = np.zeros_like(mask, dtype=bool)
             src_y0 = max(0, -dy)
             src_y1 = min(h, h - dy)
             src_x0 = max(0, -dx)
@@ -233,6 +254,48 @@ def _dilate_mask_8(mask: np.ndarray) -> np.ndarray:
             dst_y1 = min(h, h + dy)
             dst_x0 = max(0, dx)
             dst_x1 = min(w, w + dx)
-            shifted[dst_y0:dst_y1, dst_x0:dst_x1] = mask[src_y0:src_y1, src_x0:src_x1]
-            result |= shifted
+            neighbor_fg = foreground[src_y0:src_y1, src_x0:src_x1]
+            neighbor_luma = luma[src_y0:src_y1, src_x0:src_x1]
+            own_luma = luma[dst_y0:dst_y1, dst_x0:dst_x1]
+            brighter_neighbor[dst_y0:dst_y1, dst_x0:dst_x1] |= neighbor_fg & (neighbor_luma >= own_luma + 30.0)
+    return dark_boundary & brighter_neighbor
+
+
+def _rgb_luma(rgb: np.ndarray) -> np.ndarray:
+    arr = rgb.astype(np.float32)
+    return arr[..., 0] * 0.2126 + arr[..., 1] * 0.7152 + arr[..., 2] * 0.0722
+
+
+def _dilate_mask_4(mask: np.ndarray) -> np.ndarray:
+    """4 邻域膨胀；用于外描边，避免斜角处额外变厚。"""
+    return _dilate_mask(mask, offsets=((-1, 0), (1, 0), (0, -1), (0, 1)))
+
+
+def _dilate_mask_8(mask: np.ndarray) -> np.ndarray:
+    """8 邻域膨胀；图像外侧不参与膨胀，避免引入画布外假背景。"""
+    return _dilate_mask(
+        mask,
+        offsets=(
+            (-1, -1), (0, -1), (1, -1),
+            (-1, 0), (1, 0),
+            (-1, 1), (0, 1), (1, 1),
+        ),
+    )
+
+
+def _dilate_mask(mask: np.ndarray, *, offsets: tuple[tuple[int, int], ...]) -> np.ndarray:
+    result = mask.copy()
+    h, w = mask.shape
+    for dx, dy in offsets:
+        shifted = np.zeros_like(mask, dtype=bool)
+        src_y0 = max(0, -dy)
+        src_y1 = min(h, h - dy)
+        src_x0 = max(0, -dx)
+        src_x1 = min(w, w - dx)
+        dst_y0 = max(0, dy)
+        dst_y1 = min(h, h + dy)
+        dst_x0 = max(0, dx)
+        dst_x1 = min(w, w + dx)
+        shifted[dst_y0:dst_y1, dst_x0:dst_x1] = mask[src_y0:src_y1, src_x0:src_x1]
+        result |= shifted
     return result

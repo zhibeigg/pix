@@ -214,6 +214,26 @@ class TestRemoveBackground:
         assert tuple(arr[2, 3, :3]) != (240, 240, 240)
         assert arr[3, 3, 3] == 255
 
+    def test_outline_does_not_thicken_existing_dark_border(self) -> None:
+        img = Image.new("RGB", (7, 7), (240, 240, 240))
+        for x, y in (
+            (2, 2), (3, 2), (4, 2),
+            (2, 3), (4, 3),
+            (2, 4), (3, 4), (4, 4),
+        ):
+            img.putpixel((x, y), (12, 12, 18))
+        img.putpixel((3, 3), (120, 200, 240))
+
+        out = remove_background(img, tolerance=4, edge_style="outline", feather=1)
+        arr = np.asarray(out)
+
+        assert arr[2, 3, 3] == 255
+        assert tuple(arr[2, 3, :3]) == (12, 12, 18)
+        assert arr[1, 3, 3] == 0
+        assert arr[3, 1, 3] == 0
+        assert arr[3, 5, 3] == 0
+        assert arr[5, 3, 3] == 0
+
     def test_hard_edge_style_ignores_feather_strength(self) -> None:
         img = _solid_bg_with_subject(size=32)
         out = remove_background(img, tolerance=12, feather=3, edge_style="hard")

@@ -52,6 +52,31 @@ def test_outline_adds_outer_outline_without_eating_subject() -> None:
     assert out.palette[0].role == "outline"
 
 
+def test_outline_does_not_fill_diagonal_only_gaps() -> None:
+    grid = grid_from_mapping({
+        "canvas": {"width": 5, "height": 5, "transparent_index": -1},
+        "palette": [
+            {"id": 0, "hex": "#101010", "role": "outline"},
+            {"id": 1, "hex": "#DD3344", "role": "primary"},
+        ],
+        "pixels": [
+            [-1, -1, -1, -1, -1],
+            [-1, 1, -1, -1, -1],
+            [-1, -1, -1, -1, -1],
+            [-1, -1, -1, 1, -1],
+            [-1, -1, -1, -1, -1],
+        ],
+    })
+
+    out = polish_pixel_grid(grid, cleanup=False, outline=True, max_colors=4)
+
+    assert out.pixels[2][2] == -1
+    assert out.pixels[1][2] == 0
+    assert out.pixels[2][1] == 0
+    assert out.pixels[2][3] == 0
+    assert out.pixels[3][2] == 0
+
+
 def test_palette_compaction_removes_unused() -> None:
     grid = grid_from_mapping({
         "canvas": {"width": 2, "height": 2, "transparent_index": -1},
