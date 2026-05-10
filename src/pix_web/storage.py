@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile, status
@@ -12,6 +13,16 @@ from pix_web.config import WebSettings
 
 ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 ALLOWED_IMAGE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp"}
+ALLOWED_FILE_ROOTS = ("outputs",)
+
+
+def file_url(path: str | Path | None) -> str | None:
+    if path is None:
+        return None
+    raw = str(path)
+    if not raw:
+        return None
+    return f"/files?path={quote(raw, safe='')}"
 
 
 @dataclass(frozen=True)
@@ -42,3 +53,28 @@ async def store_uploaded_image(settings: WebSettings, user_id: int, file: Upload
     stored_path = upload_dir / f"{uuid4().hex}{suffix}"
     stored_path.write_bytes(data)
     return StoredUpload(path=stored_path, filename=original_name, content_type=content_type, size_bytes=size)
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def resolve_web_file(raw_path: str, settings: WebSettings) -> Path:
+    """解析并限制 Web 可访问文件范围。"""
+    candidate = Path(raw_path).expanduser()
+    if not candidate.is_absolute():
+        candidate = Path.cwd() / candidate
+    resolved = candidate.resolve()
+    allowed_roots = [settings.storage_root.resolve()]
+    allowed_roots.extend((Path.cwd() / root).resolve() for root in ALLOWED_FILE_ROOTS)
+    if not any(_is_relative_to(resolved, root) for root in allowed_roots):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="文件不允许访问")
+    if not resolved.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文件不存在")
+    if resolved.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="仅允许预览图片文件")
+    return resolved

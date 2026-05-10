@@ -66,8 +66,11 @@ export type JobCreateRequest = {
 export type JobOutput = {
   run_dir: string
   source_path: string
+  source_url: string | null
   pixelized_path: string
+  pixelized_url: string | null
   preview_path: string | null
+  preview_url: string | null
   analysis_json_path: string | null
   meta_json_path: string
 }
@@ -78,6 +81,7 @@ export type GenerationJob = {
   status: string
   prompt: string | null
   input_image_path: string | null
+  input_image_url: string | null
   params_json: Record<string, unknown>
   price_credits: number
   reserved_credits: number
@@ -90,6 +94,7 @@ export type GenerationJob = {
 
 export type UploadResponse = {
   path: string
+  url: string | null
   filename: string
   content_type: string
   size_bytes: number

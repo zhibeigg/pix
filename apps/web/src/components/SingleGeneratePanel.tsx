@@ -16,6 +16,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
   const [inputImagePath, setInputImagePath] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
+  const [uploadUrl, setUploadUrl] = useState('')
   const [pixelSize, setPixelSize] = useState('128x128')
   const [colors, setColors] = useState(16)
   const [removeBg, setRemoveBg] = useState(true)
@@ -32,6 +33,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
     try {
       const uploaded = await api.uploadImage(token, file)
       setInputImagePath(uploaded.path)
+      setUploadUrl(uploaded.url ?? '')
       setUploadMessage(`已上传 ${uploaded.filename}`)
     } catch (error) {
       setUploadMessage(error instanceof Error ? error.message : '上传失败')
@@ -83,6 +85,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
               />
             </label>
             {uploadMessage && <p className="muted">{uploadMessage}</p>}
+            {uploadUrl && <img className="inline-preview" src={uploadUrl} alt="上传预览" />}
             <label>
               输入图片路径（可手动覆盖）
               <input value={inputImagePath} onChange={(event) => setInputImagePath(event.target.value)} placeholder="上传后自动填充" />
