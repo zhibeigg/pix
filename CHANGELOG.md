@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-05-11
+
+### Changed
+
+- 生成 12 张 64×64 首页像素素材 PNG，并将首屏素材包看板从 CSS 方块图替换为真实图片资源。
+
 ## [0.33.0] - 2026-05-11
 
 ### Changed
@@ -344,7 +350,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.33.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.34.0...HEAD
+[0.34.0]: https://github.com/zhibeigg/pix/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/zhibeigg/pix/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/zhibeigg/pix/compare/v0.31.1...v0.32.0
 [0.31.1]: https://github.com/zhibeigg/pix/compare/v0.31.0...v0.31.1
