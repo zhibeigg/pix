@@ -34,7 +34,7 @@ export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSel
             </Stack>
           </Stack>
           {batches.length === 0 ? (
-            <Alert severity="info">批量生产后会在这里形成素材包。每个素材包会记录成功、失败、重试和下载状态。</Alert>
+            <Alert severity="info">批量生产后会出现在这里。</Alert>
           ) : (
             <Stack spacing={1.5}>
               {batches.map((batch) => (

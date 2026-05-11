@@ -47,7 +47,7 @@ export function PacksPage({ batches, selectedBatch, selectedBatchId, selectedBat
         <PageHeader
           eyebrow="Packs"
           title={selectedBatch ? selectedBatch.name : '素材包'}
-          description={selectedBatch ? '当前只显示这个素材包里的任务。' : '选择一个素材包，查看该批次的作品、失败项和下载入口。'}
+          description={selectedBatch ? '仅显示当前素材包。' : '选择素材包查看作品和失败项。'}
           tint="mint"
         />
         <GalleryGrid jobs={selectedBatch ? selectedBatchJobs : []} subtitle={selectedBatch ? `素材包：${selectedBatch.name}` : '请选择素材包'} selectedJobId={selectedJobId} onSelect={onSelectJob} onCopyPath={onCopyPath} />

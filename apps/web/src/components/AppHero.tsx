@@ -27,9 +27,9 @@ const pixelTiles = [
 ]
 
 const workflowStats = [
-  { value: '12', label: '一组 RPG 道具', tone: notionTokens.tintYellowBold },
-  { value: '17/20', label: '成功素材可先导出', tone: notionTokens.tintMint },
-  { value: '3', label: '失败项可重试', tone: notionTokens.tintRose },
+  { value: '12', label: 'RPG 道具', tone: notionTokens.tintYellowBold },
+  { value: '17/20', label: '可先导出', tone: notionTokens.tintMint },
+  { value: '3', label: '失败重试', tone: notionTokens.tintRose },
 ]
 
 export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, batchCount = 0 }: AppHeroProps) {
@@ -58,7 +58,7 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.02fr .98fr' }, gap: { xs: 5, lg: 7 }, alignItems: 'center' }}>
           <Stack spacing={3.2}>
             <Chip
-              label={signedIn ? '今日素材工位' : '给独立游戏作者的像素素材工坊'}
+              label={signedIn ? '今日工位' : '像素素材工坊'}
               sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.tintYellowBold, color: notionTokens.ink, borderRadius: 1 }}
             />
             <Box>
@@ -66,15 +66,15 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
                 把一批游戏素材生产到可交付状态
               </Typography>
               <Typography sx={{ mt: 2.5, maxWidth: 650, fontSize: { xs: 16, md: 18 }, lineHeight: 1.65, color: notionTokens.onDarkMuted }}>
-                从素材描述到批量入队，再到挑选、微调、重试失败项和打包下载，Pix Forge 更像一张可控的像素工位台，而不是一次性的生成按钮。
+                批量生成、挑选、微调、重试和下载，都在一个工位里完成。
               </Typography>
             </Box>
 
             <ProductionBrief />
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-              <Button variant="contained" color="primary" href={signedIn ? '#/workspace' : '#auth-panel'}>开始生产素材</Button>
-              <Button variant="outlined" href={signedIn ? '#/packs' : '#workflow'} sx={{ color: notionTokens.onDark, borderColor: 'rgba(255,255,255,.45)' }}>查看素材包流程</Button>
+              <Button variant="contained" color="primary" href={signedIn ? '#/workspace' : '#auth-panel'}>开始生产</Button>
+              <Button variant="outlined" href={signedIn ? '#/packs' : '#workflow'} sx={{ color: notionTokens.onDark, borderColor: 'rgba(255,255,255,.45)' }}>查看流程</Button>
             </Stack>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, max-content)' }, gap: 1.5 }}>
@@ -100,10 +100,10 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
 
 export function DashboardSummary({ balance, activeJobs, completedJobs, failedJobs, batchCount = 0 }: Omit<AppHeroProps, 'user'>) {
   const items = [
-    { label: '可用点数', value: balance?.available_credits ?? '—', tint: notionTokens.tintLavender, action: '余额会在任务入队时冻结，失败后自动退回。' },
-    { label: '队列中', value: activeJobs, tint: notionTokens.tintSky, action: activeJobs ? '后台正在生产，稍后回到作品库挑选。' : '可以开始一组新的素材包。' },
-    { label: '已完成', value: completedJobs, tint: notionTokens.tintMint, action: '完成作品可在作品库继续微调或复制路径。' },
-    { label: '素材包', value: batchCount, tint: notionTokens.tintYellow, action: '批量任务会沉淀为素材包，方便重试和下载。' },
+    { label: '可用点数', value: balance?.available_credits ?? '—', tint: notionTokens.tintLavender, action: '入队冻结，失败退回。' },
+    { label: '队列中', value: activeJobs, tint: notionTokens.tintSky, action: activeJobs ? '生产中。' : '可开始新素材包。' },
+    { label: '已完成', value: completedJobs, tint: notionTokens.tintMint, action: '可微调或复制路径。' },
+    { label: '素材包', value: batchCount, tint: notionTokens.tintYellow, action: '可重试和下载。' },
   ]
 
   return (
@@ -112,8 +112,8 @@ export function DashboardSummary({ balance, activeJobs, completedJobs, failedJob
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2.5} sx={{ alignItems: { xs: 'stretch', md: 'center' }, justifyContent: 'space-between' }}>
           <Box sx={{ maxWidth: 420 }}>
             <Typography variant="overline" color="text.secondary">今日工位</Typography>
-            <Typography variant="h4">继续生产、挑选和打包你的像素素材</Typography>
-            <Typography color="text.secondary" sx={{ mt: .75 }}>先处理失败项，再下载成功素材包；点数冻结和退回会记录在点数中心。</Typography>
+            <Typography variant="h4">继续生产和导出</Typography>
+            <Typography color="text.secondary" sx={{ mt: .75 }}>先处理失败项，再下载成功素材。</Typography>
           </Box>
           <Box sx={{ flex: 1, display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4, 1fr)' }, gap: 1.25 }}>
             {items.map((item) => (
@@ -134,12 +134,12 @@ function ProductionBrief() {
   return (
     <Card sx={{ maxWidth: 660, bgcolor: notionTokens.tintCream, borderColor: 'rgba(255,255,255,.20)', color: notionTokens.ink }}>
       <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
-        <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: '.06em', textTransform: 'uppercase' }}>素材描述示例</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: '.06em', textTransform: 'uppercase' }}>示例</Typography>
         <Box sx={{ mt: 1.5, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr auto' }, gap: 1.2, alignItems: 'center' }}>
           <Box sx={{ border: `1px solid ${notionTokens.hairlineStrong}`, borderRadius: 1.5, bgcolor: notionTokens.canvas, px: 2, py: 1.4 }}>
-            <Typography>RPG 魔法药水图标，一套 12 个，透明背景，适合物品栏</Typography>
+            <Typography>12 个 RPG 药水图标，透明背景</Typography>
           </Box>
-          <Chip label="生成素材包" sx={{ bgcolor: notionTokens.inkDeep, color: notionTokens.onDark, borderRadius: 1 }} />
+          <Chip label="生成包" sx={{ bgcolor: notionTokens.inkDeep, color: notionTokens.onDark, borderRadius: 1 }} />
         </Box>
       </CardContent>
     </Card>
@@ -153,8 +153,8 @@ function PixelBatchBoard({ user, balance, activeJobs, completedJobs, failedJobs,
         <Stack spacing={2}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
             <Box>
-              <Typography variant="caption" color="text.secondary">素材包看板 / RPG Starter Pack</Typography>
-              <Typography variant="h5">{user ? `${user.display_name || user.email} 的素材进度` : '12 个图标从草稿到导出'}</Typography>
+              <Typography variant="caption" color="text.secondary">素材包看板</Typography>
+              <Typography variant="h5">{user ? `${user.display_name || user.email} 的进度` : 'RPG Starter Pack'}</Typography>
             </Box>
             <Chip label={user?.role ?? 'demo'} sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800, borderRadius: 1 }} />
           </Stack>
@@ -173,8 +173,8 @@ function PixelBatchBoard({ user, balance, activeJobs, completedJobs, failedJobs,
           <Box sx={{ border: `1px solid ${notionTokens.hairline}`, bgcolor: notionTokens.canvas, borderRadius: 1.5, p: 1.5 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' } }}>
               <Box>
-                <Typography sx={{ fontWeight: 600 }}>可先交付成功素材</Typography>
-                <Typography variant="body2" color="text.secondary">失败项单独重试，已完成图标可立即打包下载。</Typography>
+                <Typography sx={{ fontWeight: 600 }}>成功素材可先导出</Typography>
+                <Typography variant="body2" color="text.secondary">失败项单独重试。</Typography>
               </Box>
               <Chip label={activeJobs ? '生产中' : 'ZIP 就绪'} sx={{ bgcolor: activeJobs ? notionTokens.tintSky : notionTokens.tintMint, borderRadius: 1 }} />
             </Stack>

@@ -29,7 +29,7 @@ export function JobList({ jobs, onRefresh }: JobListProps) {
             <Button variant="outlined" onClick={onRefresh}>刷新</Button>
           </Stack>
           {jobs.length === 0 ? (
-            <Alert severity="info">还没有正在生产的任务。创建单张试做或素材包后，后台生产服务会自动处理。</Alert>
+            <Alert severity="info">暂无生产中任务。</Alert>
           ) : (
             <Stack spacing={1.5}>
               {jobs.map((job) => <JobCard job={job} key={job.id} />)}

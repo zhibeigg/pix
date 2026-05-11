@@ -77,7 +77,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
             </TextField>
 
             {needsPrompt && (
-              <TextField label="素材描述" helperText="描述道具、材质、用途和风格；越像给美术同伴的创作简报，结果越稳定。" value={prompt} multiline minRows={5} onChange={(event) => setPrompt(event.target.value)} />
+              <TextField label="素材描述" helperText="写清主体、材质和用途。" value={prompt} multiline minRows={5} onChange={(event) => setPrompt(event.target.value)} />
             )}
 
             {needsImage && (
@@ -92,7 +92,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
                     {uploadUrl && (
                       <Box component="img" src={uploadUrl} alt="上传预览" loading="lazy" decoding="async" sx={{ width: '100%', maxHeight: 220, objectFit: 'contain', imageRendering: 'pixelated', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', p: 1 }} />
                     )}
-                    <TextField label="输入图片路径（可手动覆盖）" value={inputImagePath} placeholder="上传后自动填充" onChange={(event) => setInputImagePath(event.target.value)} />
+                    <TextField label="图片路径" value={inputImagePath} placeholder="上传后自动填充" onChange={(event) => setInputImagePath(event.target.value)} />
                   </Stack>
                 </CardContent>
               </Card>
