@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-05-10
+
+### Fixed
+
+- 本地开发 API CORS 支持 Vite 自动切换端口，避免 `5173` 被占用后前端在 `5174+` 注册/登录显示 `Failed to fetch`。
+
 ## [0.26.0] - 2026-05-10
 
 ### Added
@@ -267,7 +273,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.26.1...HEAD
+[0.26.1]: https://github.com/zhibeigg/pix/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/zhibeigg/pix/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/zhibeigg/pix/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/zhibeigg/pix/compare/v0.23.0...v0.24.0
