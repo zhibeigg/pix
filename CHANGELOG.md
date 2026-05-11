@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-05-11
+
+### Added
+
+- 新增首页“像素 UI 套件”展示区，展示背包格、技能按钮、生命条、对话框、任务牌、金币计数器、菜单标签和确认勾选等 UI 作品。
+- 使用项目自带 `pix asset` 管线生成 8 张 64×64 像素 UI PNG，并通过 `pix validate` 校验。
+
 ## [0.34.1] - 2026-05-11
 
 ### Fixed
@@ -356,7 +363,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.34.1...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.35.0...HEAD
+[0.35.0]: https://github.com/zhibeigg/pix/compare/v0.34.1...v0.35.0
 [0.34.1]: https://github.com/zhibeigg/pix/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/zhibeigg/pix/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/zhibeigg/pix/compare/v0.32.0...v0.33.0
