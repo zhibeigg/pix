@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, AppBar, Box, Button, Container, Stack, Toolbar, Typography } from '@mui/material'
-import { notionTokens, type PixThemeMode } from './theme'
+import { notionTokens, type PixThemeMode, type PixThemePreference } from './theme'
 import { api, ApiError } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
 import { AccountMenu } from './components/AccountMenu'
 import { AppHero, DashboardSummary } from './components/AppHero'
 import { AuthPanel } from './components/AuthPanel'
+import { ThemeModeMenu } from './components/ThemeModeMenu'
 import { LandingSections } from './components/LandingSections'
 import { AdminPage } from './pages/AdminPage'
 import { BillingPage } from './pages/BillingPage'
@@ -18,7 +19,9 @@ const TOKEN_KEY = 'pix_web_token'
 
 type AppProps = {
   themeMode: PixThemeMode
-  onToggleTheme: () => void
+  themePreference: PixThemePreference
+  systemThemeMode: PixThemeMode
+  onThemePreferenceChange: (preference: PixThemePreference) => void
 }
 
 function pageFromHash(user: User | null): AppPage {
@@ -28,7 +31,7 @@ function pageFromHash(user: User | null): AppPage {
   return page
 }
 
-export function App({ themeMode, onToggleTheme }: AppProps) {
+export function App({ themeMode, themePreference, systemThemeMode, onThemePreferenceChange }: AppProps) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? '')
   const [user, setUser] = useState<User | null>(null)
   const [balance, setBalance] = useState<CreditBalance | null>(null)
@@ -426,9 +429,7 @@ export function App({ themeMode, onToggleTheme }: AppProps) {
           )}
           <Box sx={{ order: { xs: 2, lg: 3 }, flex: { xs: '0 0 auto', lg: '0 0 auto' }, ml: { lg: 'auto' } }}>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'flex-end' }}>
-              <Button variant="outlined" size="small" onClick={onToggleTheme} aria-label={themeMode === 'dark' ? '切换到亮色模式' : '切换到暗色模式'}>
-                {themeMode === 'dark' ? '亮色' : '暗色'}
-              </Button>
+              <ThemeModeMenu preference={themePreference} resolvedMode={themeMode} systemMode={systemThemeMode} onChange={onThemePreferenceChange} />
               {user ? (
                 <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={() => refreshCore()} onLogout={logout} />
               ) : (
