@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Box, Button, Card, CardActions, CardContent, CardMedia, Chip, Pagination, Stack, Typography } from '@mui/material'
 import type { GenerationJob } from '../types'
+import { jobStatusLabel, jobTypeLabel } from '../labels'
 import { summarizePrompt } from '../pixelize'
 import { notionTokens } from '../theme'
 
@@ -10,14 +11,6 @@ type GalleryGridProps = {
   subtitle?: string
   onSelect: (job: GenerationJob) => void
   onCopyPath: (path: string) => void
-}
-
-const statusLabels: Record<string, string> = {
-  pending: '排队中',
-  running: '生产中',
-  succeeded: '已完成',
-  failed: '失败',
-  cancelled: '已取消',
 }
 
 const statusColors: Record<string, 'default' | 'primary' | 'success' | 'error' | 'warning'> = {
@@ -41,7 +34,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
       <CardContent>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}>
           <Box>
-            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Library</Typography>
+            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>作品库</Typography>
             <Typography variant="h4" sx={{ fontWeight: 600 }}>作品网格</Typography>
             {subtitle && <Typography color="text.secondary">{subtitle}</Typography>}
           </Box>
@@ -79,17 +72,17 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                     {previewUrl ? (
                       <Box component="img" src={previewUrl} alt={summarizePrompt(job.prompt || job.input_image_path, '作品预览')} loading="lazy" decoding="async" sx={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated', p: 1.5 }} />
                     ) : (
-                      <Chip variant="outlined" color="primary" label={job.status === 'succeeded' ? 'PIX' : statusLabels[job.status] ?? job.status} />
+                      <Chip variant="outlined" color="primary" label={job.status === 'succeeded' ? 'PIX' : jobStatusLabel(job.status)} />
                     )}
                   </CardMedia>
                   <CardContent sx={{ display: 'grid', gap: 1.1 }}>
                     <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}>
-                      <Typography sx={{ fontWeight: 600 }}>#{job.id} · {job.job_type}</Typography>
-                      <Chip size="small" color={statusColors[job.status] ?? 'default'} label={statusLabels[job.status] ?? job.status} />
+                      <Typography sx={{ fontWeight: 600 }}>#{job.id} · {jobTypeLabel(job.job_type)}</Typography>
+                      <Chip size="small" color={statusColors[job.status] ?? 'default'} label={jobStatusLabel(job.status)} />
                     </Stack>
                     <Typography color="text.secondary" variant="body2">{summarizePrompt(job.prompt || job.input_image_path)}</Typography>
                     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                      <Chip size="small" variant="outlined" label={`${job.price_credits} credits`} />
+                      <Chip size="small" variant="outlined" label={`${job.price_credits} 点`} />
                       <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />
                     </Stack>
                     {job.batch_name && <Typography color="text.secondary" variant="caption">素材包：{job.batch_name}</Typography>}

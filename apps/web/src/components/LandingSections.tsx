@@ -5,12 +5,12 @@ import { notionTokens } from '../theme'
 const values = [
   { title: '单一工作区', body: '把生成、批量任务、作品库、素材包和点数流水放在同一个操作面板里，减少上下文切换。', tone: notionTokens.tintLavender },
   { title: '批量素材生产', body: '用素材包管理一组任务，失败项可重试，完成后集中查看、筛选和下载。', tone: notionTokens.tintMint },
-  { title: '可控像素化管线', body: '像素尺寸、颜色数、透明背景和 VL 分析开关都可配置，适合稳定复现同一风格。', tone: notionTokens.tintSky },
+  { title: '可控像素化管线', body: '像素尺寸、颜色数、透明背景和参考图理解都可配置，适合稳定复现同一风格。', tone: notionTokens.tintSky },
   { title: '成本可见', body: '所有生成都会预估点数，订单、冻结、退回和手动调整都有流水记录。', tone: notionTokens.tintYellow },
 ]
 
 const workflow = [
-  { step: '01', title: '描述想法', body: '从一句 Prompt 或一组参考图开始，设定像素尺寸、颜色数量和背景处理。' },
+  { step: '01', title: '描述想法', body: '从一句素材描述或一组参考图开始，设定像素尺寸、颜色数量和背景处理。' },
   { step: '02', title: '批量入队', body: '单图任务直接验证方向，批量任务会进入素材包，便于追踪每个结果。' },
   { step: '03', title: '沉淀复用', body: '在作品库中微调、复制路径、打包下载，把可用资产沉淀到项目流程。' },
 ]
@@ -24,7 +24,7 @@ type LandingSectionsProps = {
 export function LandingSections({ authSlot }: LandingSectionsProps) {
   return (
     <>
-      <SectionFrame id="values" eyebrow="核心价值" title="让像素素材生产更像一个稳定控制平面" description="PackyAPI 的骨架强调清晰的价值分层；Pix Forge 也用同样节奏，把创意、队列、成本和资产沉淀拆成可理解的模块。">
+      <SectionFrame id="values" eyebrow="核心价值" title="让像素素材生产更像一张稳定工位台" description="Pix Forge 把创意、队列、成本和资产沉淀拆成可理解的模块，让一组游戏素材从草稿推进到可交付。">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
           {values.map((item) => (
             <Card key={item.title} sx={{ bgcolor: item.tone, overflow: 'hidden', transition: 'transform .22s ease, box-shadow .22s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: 'rgba(15, 15, 15, 0.10) 0px 16px 36px -16px' } }}>
@@ -40,11 +40,11 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
         </Box>
       </SectionFrame>
 
-      <SectionFrame id="workflow" eyebrow="工作流" title="用 3 个步骤把想法变成可交付素材包" description="从 Prompt 到批量入队，再到作品库微调和素材包下载，整个流程保持统一状态和统一成本视图。">
+      <SectionFrame id="workflow" eyebrow="工作流" title="用 3 个步骤把想法变成可交付素材包" description="从素材描述到批量入队，再到作品库微调和素材包下载，整个流程保持统一状态和统一成本视图。">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
           {workflow.map((item) => (
             <Card key={item.step} sx={{ position: 'relative', overflow: 'hidden', minHeight: 230 }}>
-              <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: `linear-gradient(180deg, ${notionTokens.primary}, ${notionTokens.brandTeal}, transparent)` }} />
+              <Box sx={{ position: 'absolute', right: 18, top: 18, width: 28, height: 28, borderRadius: 1, bgcolor: notionTokens.tintYellowBold, opacity: .7 }} />
               <CardContent sx={{ p: { xs: 3, md: 3.5 } }}>
                 <Stack spacing={2}>
                   <Chip label={item.step} sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} />

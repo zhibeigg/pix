@@ -4,7 +4,7 @@ import { notionTokens } from './theme'
 import { api, ApiError } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
 import { AccountMenu } from './components/AccountMenu'
-import { AppHero } from './components/AppHero'
+import { AppHero, DashboardSummary } from './components/AppHero'
 import { AuthPanel } from './components/AuthPanel'
 import { LandingSections } from './components/LandingSections'
 import { AdminPage } from './pages/AdminPage'
@@ -229,7 +229,7 @@ export function App() {
       const created = await api.createJobsBatch(token, payloads, batchName, mode)
       setSelectedJobId(created.jobs[0]?.id ?? null)
       navigate('packs')
-      setMessage(`${created.jobs.length} 个任务已加入生产队列，冻结 ${created.total_price_credits} credits`)
+      setMessage(`${created.jobs.length} 个素材任务已加入生产队列，已冻结 ${created.total_price_credits} 点；失败项会自动退回冻结点数。`)
       await refreshCore(token)
     } catch (error) {
       showError(error)
@@ -275,6 +275,7 @@ export function App() {
   async function toggleArchiveBatch(batch: GenerationBatch) {
     if (!token) return
     const nextStatus = batch.status === 'archived' ? 'active' : 'archived'
+    if (nextStatus === 'archived' && !window.confirm(`归档「${batch.name}」？归档后仍可恢复，但会从活跃素材包中弱化显示。`)) return
     try {
       await api.updateBatch(token, batch.id, { status: nextStatus })
       await refreshCore(token)
@@ -286,7 +287,7 @@ export function App() {
 
   async function deleteBatch(batch: GenerationBatch) {
     if (!token) return
-    if (!window.confirm(`确认删除空素材包「${batch.name}」？`)) return
+    if (!window.confirm(`删除空素材包「${batch.name}」？此操作无法撤销。`)) return
     try {
       await api.deleteBatch(token, batch.id)
       if (selectedBatchId === batch.id) clearBatchFilter()
@@ -321,11 +322,12 @@ export function App() {
 
   async function retryFailedBatch(batch: GenerationBatch) {
     if (!token) return
+    if (!window.confirm(`重试「${batch.name}」中的 ${batch.failed_count} 个失败项？系统会重新冻结对应点数，仍失败的任务会自动退回冻结点数。`)) return
     setRetryingBatchId(batch.id)
     setMessage('')
     try {
       const result = await api.retryFailedBatch(token, batch.id)
-      setMessage(`已重新入队 ${result.jobs.length} 个失败任务，冻结 ${result.total_price_credits} credits`)
+      setMessage(`已重新入队 ${result.jobs.length} 个失败项，重新冻结 ${result.total_price_credits} 点；仍失败会自动退回。`)
       setSelectedBatchId(batch.id)
       setSelectedBatchJobs(await api.batchJobs(token, batch.id))
       await refreshCore(token)
@@ -429,11 +431,11 @@ export function App() {
       {user ? (
         <Container maxWidth={false} sx={{ maxWidth: 1280, py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 }, mx: 'auto' }}>
           <Stack spacing={4}>
-            <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
+            <DashboardSummary balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
             {message && <Alert severity="info" role="status" aria-live="polite">{message}</Alert>}
             <Box sx={{ display: 'grid', gap: 3 }}>
               {page === 'workspace' && (
-                <WorkspacePage mode={mode} pricing={pricing} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onRefresh={() => refreshCore()} />
+                <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onRefresh={() => refreshCore()} />
               )}
               {page === 'gallery' && (
                 <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCreateJob={createJob} onRefresh={() => refreshCore()} />

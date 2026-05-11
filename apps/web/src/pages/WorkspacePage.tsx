@@ -4,13 +4,14 @@ import { BatchGeneratePanel } from '../components/BatchGeneratePanel'
 import { JobList } from '../components/JobList'
 import { PageHeader } from '../components/PageHeader'
 import { SingleGeneratePanel } from '../components/SingleGeneratePanel'
-import type { GenerationJob, JobCreateRequest, PricingRule } from '../types'
+import type { CreditBalance, GenerationJob, JobCreateRequest, PricingRule } from '../types'
 
 export type WorkMode = 'single' | 'batch'
 
 interface WorkspacePageProps {
   mode: WorkMode
   pricing: PricingRule[]
+  balance: CreditBalance | null
   jobs: GenerationJob[]
   loading: boolean
   token: string
@@ -20,11 +21,11 @@ interface WorkspacePageProps {
   onRefresh: () => void
 }
 
-export function WorkspacePage({ mode, pricing, jobs, loading, token, onModeChange, onCreateJob, onCreateJobs, onRefresh }: WorkspacePageProps) {
+export function WorkspacePage({ mode, pricing, balance, jobs, loading, token, onModeChange, onCreateJob, onCreateJobs, onRefresh }: WorkspacePageProps) {
   const activeJobs = jobs.filter((job) => ['pending', 'running'].includes(job.status))
   return (
     <Stack spacing={3}>
-      <PageHeader eyebrow="Create" title="生产工作台" description="在这里创建单图任务或批量素材包。作品查看、微调和素材包管理分别放在独立页面。" tint="yellow" />
+      <PageHeader eyebrow="生产" title="生产工作台" description="先试做单张素材，确认方向后再批量生成素材包。作品挑选、微调和打包下载分别放在作品库与素材包页面。" tint="yellow" />
 
       <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
         <CardContent>
@@ -46,7 +47,7 @@ export function WorkspacePage({ mode, pricing, jobs, loading, token, onModeChang
       {mode === 'single' ? (
         <SingleGeneratePanel pricing={pricing} loading={loading} token={token} onSubmit={onCreateJob} />
       ) : (
-        <BatchGeneratePanel pricing={pricing} loading={loading} token={token} onSubmitMany={onCreateJobs} />
+        <BatchGeneratePanel pricing={pricing} balance={balance} loading={loading} token={token} onSubmitMany={onCreateJobs} />
       )}
 
       <JobList jobs={activeJobs} onRefresh={onRefresh} />

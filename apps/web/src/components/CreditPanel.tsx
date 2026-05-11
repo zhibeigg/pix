@@ -29,7 +29,7 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
         <Stack spacing={3}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
             <Box>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Credits</Typography>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>点数中心</Typography>
               <Typography variant="h4" sx={{ fontWeight: 600 }}>点数账户</Typography>
             </Box>
             <Button variant="outlined" onClick={onRefresh}>刷新</Button>
@@ -49,12 +49,12 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
                   <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between', gap: 2, alignItems: { xs: 'stretch', md: 'center' } }}>
                     <Box>
                       <Typography sx={{ fontWeight: 600 }}>{item.name}</Typography>
-                      <Typography color="text.secondary" variant="body2">{item.credits} credits · ¥{(item.amount_cents / 100).toFixed(2)}</Typography>
+                      <Typography color="text.secondary" variant="body2">{item.credits} 点 · ¥{(item.amount_cents / 100).toFixed(2)}</Typography>
                     </Box>
                     <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
                       <Button variant="contained" color="primary" onClick={() => onCheckout(item.key, 'alipay')}>支付宝</Button>
                       <Button variant="outlined" onClick={() => onCheckout(item.key, 'wechat')}>微信</Button>
-                      {isAdmin && <Button variant="text" onClick={() => onCreateOrder(item.key)}>Mock</Button>}
+                      {isAdmin && <Button variant="text" onClick={() => onCreateOrder(item.key)}>模拟订单</Button>}
                     </Stack>
                   </Stack>
                 </CardContent>
@@ -88,7 +88,7 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
                   <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', gap: 1 }} key={order.id}>
                     <Box>
                       <Typography sx={{ fontWeight: 850 }}>订单 #{order.id}</Typography>
-                      <Typography color="text.secondary" variant="body2">{order.credits} credits · ¥{(order.amount_cents / 100).toFixed(2)}</Typography>
+                      <Typography color="text.secondary" variant="body2">{order.credits} 点 · ¥{(order.amount_cents / 100).toFixed(2)}</Typography>
                     </Box>
                     <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
                       <Chip size="small" label={order.status} color={order.status === 'paid' ? 'success' : 'warning'} />
