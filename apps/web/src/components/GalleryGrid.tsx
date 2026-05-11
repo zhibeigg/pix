@@ -1,3 +1,4 @@
+import { KeyboardEvent, useMemo } from 'react'
 import type { GenerationJob } from '../types'
 import { summarizePrompt } from '../pixelize'
 
@@ -18,7 +19,14 @@ const statusLabels: Record<string, string> = {
 }
 
 export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPath }: GalleryGridProps) {
-  const ordered = [...jobs].sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at)))
+  const ordered = useMemo(() => [...jobs].sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at))), [jobs])
+
+  function activateCard(event: KeyboardEvent<HTMLElement>, job: GenerationJob) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onSelect(job)
+    }
+  }
 
   return (
     <section className="panel gallery-panel">
@@ -45,11 +53,15 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
               <article
                 className={`gallery-card ${selectedJobId === job.id ? 'selected' : ''}`}
                 key={job.id}
+                role="button"
+                tabIndex={0}
+                aria-selected={selectedJobId === job.id}
                 onClick={() => onSelect(job)}
+                onKeyDown={(event) => activateCard(event, job)}
               >
                 <div className="pixel-preview">
                   {previewUrl ? (
-                    <img src={previewUrl} alt={summarizePrompt(job.prompt || job.input_image_path, '作品预览')} />
+                    <img src={previewUrl} alt={summarizePrompt(job.prompt || job.input_image_path, '作品预览')} loading="lazy" decoding="async" />
                   ) : (
                     <span>{job.status === 'succeeded' ? 'PIX' : statusLabels[job.status] ?? job.status}</span>
                   )}

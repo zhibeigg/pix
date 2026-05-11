@@ -47,13 +47,14 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
         ))}
       </div>
       {checkout?.code_url && (
-        <div className="qr-card">
+        <div className="qr-card" role="img" aria-label={`微信支付二维码，订单 ${checkout.order.id}`}>
           <strong>微信扫码支付订单 #{checkout.order.id}</strong>
           <QRCodeSVG value={checkout.code_url} size={160} />
           <p className="muted">支付完成后点击刷新查看到账状态。</p>
+          <code className="qr-code-url">{checkout.code_url}</code>
         </div>
       )}
-      {checkout?.payment_url && <p className="muted">支付宝付款页已在新窗口打开，支付完成后点击刷新。</p>}
+      {checkout?.payment_url && <p className="muted" role="status">支付宝付款页已在新窗口打开，支付完成后点击刷新。</p>}
       <div className="transaction-list">
         {orders.length > 0 && orders.map((order) => (
           <div className="transaction" key={order.id}>

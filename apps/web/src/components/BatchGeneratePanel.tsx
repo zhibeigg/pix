@@ -158,7 +158,7 @@ function UploadList({ uploads }: { uploads: BatchUpload[] }) {
       <p className="muted">已上传 {ok} / {uploads.length}{failed ? `，失败 ${failed}` : ''}</p>
       {uploads.map((item) => (
         <div className="batch-upload-item" key={item.id}>
-          {item.upload?.url ? <img src={item.upload.url} alt={item.name} /> : <span className="upload-placeholder">{item.status}</span>}
+          {item.upload?.url ? <img src={item.upload.url} alt={item.name} loading="lazy" decoding="async" /> : <span className="upload-placeholder">{item.status}</span>}
           <div>
             <strong>{item.name}</strong>
             <p>{item.error || item.upload?.path || item.status}</p>

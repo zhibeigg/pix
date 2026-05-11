@@ -100,10 +100,11 @@ export function App() {
   useEffect(() => {
     if (!token) return
     const id = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return
       api.jobs(token).then(setJobs).catch(() => undefined)
       api.batches(token).then(setBatches).catch(() => undefined)
-      if (selectedBatchId) api.batchJobs(token, selectedBatchId).then(setSelectedBatchJobs).catch(() => undefined)
       api.balance(token).then(setBalance).catch(() => undefined)
+
       api.orders(token).then(setOrders).catch(() => undefined)
     }, 3000)
     return () => window.clearInterval(id)
@@ -368,7 +369,7 @@ export function App() {
         </div>
       </header>
 
-      {message && <div className="toast">{message}</div>}
+      {message && <div className="toast" role="status" aria-live="polite">{message}</div>}
 
       <div className="workbench-grid">
         <aside className="side-column">
