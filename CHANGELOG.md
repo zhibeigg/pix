@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-05-10
+
+### Added
+
+- 前端工作台增加键盘可访问的作品/素材包卡片、可见焦点样式和 aria 状态提示。
+- 图片预览增加懒加载和异步解码，轮询在页面隐藏时暂停。
+- 移动端触控目标和信息顺序优化，新增 reduced-motion 适配。
+- 整理深色像素工坊主题 token 和排版 token，清理未使用旧组件。
+
 ## [0.24.0] - 2026-05-10
 
 ### Added
@@ -244,7 +253,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.25.0...HEAD
+[0.25.0]: https://github.com/zhibeigg/pix/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/zhibeigg/pix/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/zhibeigg/pix/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/zhibeigg/pix/compare/v0.21.0...v0.22.0

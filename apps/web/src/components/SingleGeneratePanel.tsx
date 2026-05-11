@@ -85,7 +85,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
               />
             </label>
             {uploadMessage && <p className="muted">{uploadMessage}</p>}
-            {uploadUrl && <img className="inline-preview" src={uploadUrl} alt="上传预览" />}
+            {uploadUrl && <img className="inline-preview" src={uploadUrl} alt="上传预览" loading="lazy" decoding="async" />}
             <label>
               输入图片路径（可手动覆盖）
               <input value={inputImagePath} onChange={(event) => setInputImagePath(event.target.value)} placeholder="上传后自动填充" />

@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from 'react'
 import type { GenerationBatch } from '../types'
 
 type BatchPanelProps = {
@@ -16,6 +17,13 @@ type BatchPanelProps = {
 }
 
 export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSelection, onRetryFailed, onDownloadBatch, onRenameBatch, onToggleArchive, onDeleteBatch, retrying, downloading, onRefresh }: BatchPanelProps) {
+  function activateBatch(event: KeyboardEvent<HTMLElement>, batch: GenerationBatch) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onSelectBatch(batch)
+    }
+  }
+
   return (
     <section className="panel batch-panel">
       <div className="panel-heading">
@@ -34,7 +42,11 @@ export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSel
             <article
               className={`batch-card ${selectedBatchId === batch.id ? 'selected' : ''} ${batch.status === 'archived' ? 'archived' : ''}`}
               key={batch.id}
+              role="button"
+              tabIndex={0}
+              aria-selected={selectedBatchId === batch.id}
               onClick={() => onSelectBatch(batch)}
+              onKeyDown={(event) => activateBatch(event, batch)}
             >
               <div className="job-card-top">
                 <strong>#{batch.id} · {batch.name}</strong>

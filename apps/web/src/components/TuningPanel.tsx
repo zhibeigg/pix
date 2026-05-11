@@ -66,7 +66,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
         </div>
         <span className="pill">{job.status}</span>
       </div>
-      {previewUrl && <img className="inline-preview tune-preview" src={previewUrl} alt="微调对象预览" />}
+      {previewUrl && <img className="inline-preview tune-preview" src={previewUrl} alt="微调对象预览" loading="lazy" decoding="async" />}
 
       <form className="stack tune-block" onSubmit={submitLocal}>
         <div>
