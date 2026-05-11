@@ -415,8 +415,25 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     <Box component="main" data-pix-theme={themeMode}>
       <AppBar position="sticky" elevation={0} color="inherit" sx={{ bgcolor: notionTokens.canvas, borderBottom: 1, borderColor: 'divider', zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar sx={{ gap: 2, maxWidth: 1280, width: '100%', mx: 'auto', px: { xs: 2, md: 4 }, py: 1, minHeight: 72, alignItems: 'center', flexWrap: { xs: 'wrap', lg: 'nowrap' } }}>
-          <Stack direction="row" spacing={1.25} sx={{ minWidth: 190, flex: { xs: '1 1 auto', lg: '0 0 auto' }, alignItems: 'center' }}>
-            <Box component="img" src="/pix-logo-64.png" alt="Pix Forge logo" width={40} height={40} sx={{ imageRendering: 'pixelated', flex: '0 0 auto' }} />
+          <Stack
+            component="a"
+            href="/"
+            aria-label="返回首页"
+            direction="row"
+            spacing={1.25}
+            sx={{
+              minWidth: 190,
+              flex: { xs: '1 1 auto', lg: '0 0 auto' },
+              alignItems: 'center',
+              color: 'inherit',
+              textDecoration: 'none',
+              borderRadius: 1.2,
+              outlineOffset: 4,
+              transition: 'opacity .18s ease, transform .18s ease',
+              '&:hover': { opacity: .86, transform: 'translateY(-1px)' },
+            }}
+          >
+            <Box component="img" src="/pix-logo-64.png" alt="" width={40} height={40} sx={{ imageRendering: 'pixelated', flex: '0 0 auto' }} />
             <Box>
               <Typography variant="overline" color="text.secondary">Pix Forge</Typography>
               <Typography variant="h5" component="h1">像素素材工坊</Typography>
