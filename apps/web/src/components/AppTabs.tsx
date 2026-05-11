@@ -1,3 +1,4 @@
+import { Box, Tab, Tabs, Typography } from '@mui/material'
 import type { User } from '../types'
 
 export type AppPage = 'workspace' | 'gallery' | 'packs' | 'billing' | 'admin'
@@ -19,19 +20,22 @@ interface AppTabsProps {
 export function AppTabs({ page, user, onChange }: AppTabsProps) {
   const visibleTabs = tabs.filter((tab) => !tab.adminOnly || user?.role === 'admin')
   return (
-    <nav className="app-tabs" aria-label="主导航">
-      {visibleTabs.map((tab) => (
-        <button
-          className={page === tab.page ? 'active' : ''}
-          type="button"
-          key={tab.page}
-          aria-current={page === tab.page ? 'page' : undefined}
-          onClick={() => onChange(tab.page)}
-        >
-          <strong>{tab.label}</strong>
-          <span>{tab.description}</span>
-        </button>
-      ))}
-    </nav>
+    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+      <Tabs value={page} variant="scrollable" scrollButtons="auto" aria-label="主导航" onChange={(_, value: AppPage) => onChange(value)}>
+        {visibleTabs.map((tab) => (
+          <Tab
+            key={tab.page}
+            value={tab.page}
+            aria-current={page === tab.page ? 'page' : undefined}
+            label={(
+              <Box sx={{ textAlign: 'left' }}>
+                <Typography component="span" variant="button" sx={{ display: 'block', fontWeight: 900 }}>{tab.label}</Typography>
+                <Typography component="span" variant="caption" color="text.secondary">{tab.description}</Typography>
+              </Box>
+            )}
+          />
+        ))}
+      </Tabs>
+    </Box>
   )
 }

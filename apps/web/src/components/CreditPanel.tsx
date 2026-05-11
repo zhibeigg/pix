@@ -1,4 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react'
+import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Card, CardContent, Chip, Divider, Stack, Typography } from '@mui/material'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import type { CreditBalance, CreditPackage, CreditTransaction, PaymentCheckout, PaymentOrder } from '../types'
 
 type CreditPanelProps = {
@@ -21,92 +23,109 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
   }
 
   return (
-    <section className="panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Credits</p>
-          <h2>点数账户</h2>
-        </div>
-        <button className="ghost" onClick={onRefresh}>刷新</button>
-      </div>
-      <div className="metric-grid">
-        <Metric label="可用" value={balance?.available_credits ?? '—'} />
-        <Metric label="冻结" value={balance?.reserved_credits ?? '—'} />
-        <Metric label="累计充值" value={balance?.total_recharged ?? '—'} />
-        <Metric label="累计消费" value={balance?.total_consumed ?? '—'} />
-      </div>
-      <div className="package-list">
-        {packages.map((item) => (
-          <div className="transaction" key={item.key}>
-            <span className="dot positive" />
-            <div>
-              <strong>{item.name}</strong>
-              <p>{item.credits} credits · {(item.amount_cents / 100).toFixed(2)} {item.currency.toUpperCase()}</p>
-            </div>
-            <div className="action-row">
-              <button className="ghost" onClick={() => onCheckout(item.key, 'alipay')}>支付宝</button>
-              <button className="ghost" onClick={() => onCheckout(item.key, 'wechat')}>微信</button>
-              {isAdmin && <button className="ghost" onClick={() => onCreateOrder(item.key)}>Mock</button>}
-            </div>
-          </div>
-        ))}
-      </div>
-      {checkout?.code_url && (
-        <div className="qr-card" role="img" aria-label={`微信支付二维码，订单 ${checkout.order.id}`}>
-          <strong>微信扫码支付订单 #{checkout.order.id}</strong>
-          <QRCodeSVG value={checkout.code_url} size={160} />
-          <p className="muted">支付完成后点击刷新查看到账状态。</p>
-          <button className="ghost compact" type="button" onClick={copyWechatLink}>复制微信支付链接</button>
-          <details className="link-details">
-            <summary>查看备用链接</summary>
-            <code className="qr-code-url">{checkout.code_url}</code>
-          </details>
-        </div>
-      )}
-      {checkout?.payment_url && <p className="muted" role="status">支付宝付款页已在新窗口打开，支付完成后点击刷新。</p>}
-      <details className="foldout" open={orders.length > 0}>
-        <summary>充值订单</summary>
-        <div className="transaction-list">
-          {orders.length === 0 ? <p className="muted">暂无充值订单。</p> : orders.map((order) => (
-            <div className="transaction" key={order.id}>
-              <span className={`dot ${order.status === 'paid' ? 'positive' : 'negative'}`} />
-              <div>
-                <strong>订单 #{order.id} · {order.status}</strong>
-                <p>{order.credits} credits · {(order.amount_cents / 100).toFixed(2)} {order.currency.toUpperCase()}</p>
-              </div>
-              {isAdmin && order.status !== 'paid' && <button className="ghost" onClick={() => onMockPayOrder(order.id)}>模拟支付</button>}
-            </div>
-          ))}
-        </div>
-      </details>
-      <details className="foldout">
-        <summary>点数流水</summary>
-        <div className="transaction-list">
-          {transactions.length === 0 ? (
-            <p className="muted">暂无流水。管理员可先给账户加点。</p>
-          ) : (
-            transactions.map((tx) => (
-              <div className="transaction" key={tx.id}>
-                <span className={`dot ${tx.amount >= 0 ? 'positive' : 'negative'}`} />
-                <div>
-                  <strong>{tx.type}</strong>
-                  <p>{tx.note || '—'}</p>
-                </div>
-                <b>{tx.amount > 0 ? `+${tx.amount}` : tx.amount}</b>
-              </div>
-            ))
+    <Card variant="outlined">
+      <CardContent>
+        <Stack spacing={3}>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+            <Box>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Credits</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 950 }}>点数账户</Typography>
+            </Box>
+            <Button variant="outlined" onClick={onRefresh}>刷新</Button>
+          </Stack>
+
+          <Box className="metric-grid">
+            <Metric label="可用" value={balance?.available_credits ?? '—'} />
+            <Metric label="冻结" value={balance?.reserved_credits ?? '—'} />
+            <Metric label="累计充值" value={balance?.total_recharged ?? '—'} />
+            <Metric label="累计消费" value={balance?.total_consumed ?? '—'} />
+          </Box>
+
+          <Stack spacing={1.5}>
+            {packages.map((item) => (
+              <Card variant="outlined" key={item.key} sx={{ bgcolor: 'background.default' }}>
+                <CardContent>
+                  <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between', gap: 2, alignItems: { xs: 'stretch', md: 'center' } }}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 900 }}>{item.name}</Typography>
+                      <Typography color="text.secondary" variant="body2">{item.credits} credits · ¥{(item.amount_cents / 100).toFixed(2)}</Typography>
+                    </Box>
+                    <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+                      <Button variant="outlined" onClick={() => onCheckout(item.key, 'alipay')}>支付宝</Button>
+                      <Button variant="outlined" onClick={() => onCheckout(item.key, 'wechat')}>微信</Button>
+                      {isAdmin && <Button variant="text" onClick={() => onCreateOrder(item.key)}>Mock</Button>}
+                    </Stack>
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
+
+          {checkout?.code_url && (
+            <Card variant="outlined" role="img" aria-label={`微信支付二维码，订单 ${checkout.order.id}`} sx={{ bgcolor: 'background.default' }}>
+              <CardContent>
+                <Stack spacing={1.5} sx={{ alignItems: 'center' }}>
+                  <Typography sx={{ fontWeight: 900 }}>微信扫码支付订单 #{checkout.order.id}</Typography>
+                  <QRCodeSVG value={checkout.code_url} size={180} />
+                  <Typography color="text.secondary" variant="body2">支付完成后点击刷新查看到账状态。</Typography>
+                  <Button variant="outlined" size="small" onClick={copyWechatLink}>复制微信支付链接</Button>
+                  <Accordion sx={{ width: '100%' }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>查看备用链接</AccordionSummary>
+                    <AccordionDetails><code className="qr-code-url">{checkout.code_url}</code></AccordionDetails>
+                  </Accordion>
+                </Stack>
+              </CardContent>
+            </Card>
           )}
-        </div>
-      </details>
-    </section>
+          {checkout?.payment_url && <Alert severity="info">支付宝付款页已在新窗口打开，支付完成后点击刷新。</Alert>}
+
+          <Accordion defaultExpanded={orders.length > 0}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>充值订单</AccordionSummary>
+            <AccordionDetails>
+              <Stack spacing={1}>
+                {orders.length === 0 ? <Typography color="text.secondary">暂无充值订单。</Typography> : orders.map((order) => (
+                  <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', gap: 1 }} key={order.id}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 850 }}>订单 #{order.id}</Typography>
+                      <Typography color="text.secondary" variant="body2">{order.credits} credits · ¥{(order.amount_cents / 100).toFixed(2)}</Typography>
+                    </Box>
+                    <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                      <Chip size="small" label={order.status} color={order.status === 'paid' ? 'success' : 'warning'} />
+                      {isAdmin && order.status !== 'paid' && <Button size="small" onClick={() => onMockPayOrder(order.id)}>模拟支付</Button>}
+                    </Stack>
+                  </Stack>
+                ))}
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>点数流水</AccordionSummary>
+            <AccordionDetails>
+              <Stack spacing={1} divider={<Divider flexItem />}>
+                {transactions.length === 0 ? <Typography color="text.secondary">暂无流水。管理员可先给账户加点。</Typography> : transactions.map((tx) => (
+                  <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 2 }} key={tx.id}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 850 }}>{tx.type}</Typography>
+                      <Typography color="text.secondary" variant="body2">{tx.note || '—'}</Typography>
+                    </Box>
+                    <Typography color={tx.amount >= 0 ? 'success.main' : 'error.main'} sx={{ fontWeight: 900 }}>{tx.amount > 0 ? `+${tx.amount}` : tx.amount}</Typography>
+                  </Stack>
+                ))}
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+        </Stack>
+      </CardContent>
+    </Card>
   )
 }
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
+    <Box className="metric">
+      <Typography variant="caption" color="text.secondary">{label}</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 950 }}>{value}</Typography>
+    </Box>
   )
 }

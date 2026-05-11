@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-05-11
+
+### Added
+
+- 前端接入 MUI 与 Emotion，新增 Pix Forge 深色主题并统一 App Shell / 导航 / 作品卡片 / 点数中心 / 管理后台的组件体系。
+
+### Changed
+
+- 移除 `styles.css` 中对 `button`、`input`、`select`、`textarea` 的全局样式污染，避免覆盖 MUI 组件状态。
+- 点数中心和管理后台改用 MUI Card、Tabs、Accordion、TextField 和 Button 渐进重构，复杂表单逻辑保持不变。
+
 ## [0.27.0] - 2026-05-10
 
 ### Added
@@ -285,7 +296,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.27.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/zhibeigg/pix/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/zhibeigg/pix/compare/v0.26.1...v0.27.0
 [0.26.1]: https://github.com/zhibeigg/pix/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/zhibeigg/pix/compare/v0.25.0...v0.26.0
