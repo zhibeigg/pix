@@ -12,9 +12,9 @@ from pix_web.credits import recharge_credits
 from pix_web.models import CreditPackage, PaymentEvent, PaymentOrder, User, utcnow
 
 DEFAULT_PACKAGES: list[dict[str, object]] = [
-    {"key": "starter", "name": "Starter", "credits": 100, "amount_cents": 990, "currency": "usd", "sort_order": 10},
-    {"key": "studio", "name": "Studio", "credits": 500, "amount_cents": 3900, "currency": "usd", "sort_order": 20},
-    {"key": "pro", "name": "Pro", "credits": 1500, "amount_cents": 9900, "currency": "usd", "sort_order": 30},
+    {"key": "starter", "name": "Starter", "credits": 100, "amount_cents": 990, "currency": "cny", "sort_order": 10},
+    {"key": "studio", "name": "Studio", "credits": 500, "amount_cents": 3900, "currency": "cny", "sort_order": 20},
+    {"key": "pro", "name": "Pro", "credits": 1500, "amount_cents": 9900, "currency": "cny", "sort_order": 30},
 ]
 
 
@@ -40,7 +40,7 @@ def list_enabled_packages(db: Session) -> list[CreditPackage]:
     )
 
 
-def create_payment_order(db: Session, user: User, package_key: str) -> PaymentOrder:
+def create_payment_order(db: Session, user: User, package_key: str, *, provider: str = "mock") -> PaymentOrder:
     ensure_default_packages(db)
     package = db.scalar(
         select(CreditPackage).where(CreditPackage.key == package_key, CreditPackage.enabled.is_(True))
@@ -50,8 +50,8 @@ def create_payment_order(db: Session, user: User, package_key: str) -> PaymentOr
     order = PaymentOrder(
         user_id=user.id,
         package_id=package.id,
-        provider="mock",
-        provider_order_id=f"mock-{uuid4().hex}",
+        provider=provider,
+        provider_order_id=f"{provider}-{uuid4().hex}",
         status="pending",
         amount_cents=package.amount_cents,
         currency=package.currency,

@@ -9,7 +9,7 @@ import { GalleryGrid } from './components/GalleryGrid'
 import { JobList } from './components/JobList'
 import { SingleGeneratePanel } from './components/SingleGeneratePanel'
 import { TuningPanel } from './components/TuningPanel'
-import type { AdminDashboard, CreditBalance, CreditPackage, CreditTransaction, GenerationBatch, GenerationJob, JobCreateRequest, PaymentOrder, PricingRule, SystemSetting, User } from './types'
+import type { AdminDashboard, CreditBalance, CreditPackage, CreditTransaction, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SystemSetting, User } from './types'
 
 const TOKEN_KEY = 'pix_web_token'
 type WorkMode = 'single' | 'batch'
@@ -21,6 +21,7 @@ export function App() {
   const [transactions, setTransactions] = useState<CreditTransaction[]>([])
   const [packages, setPackages] = useState<CreditPackage[]>([])
   const [orders, setOrders] = useState<PaymentOrder[]>([])
+  const [checkout, setCheckout] = useState<PaymentCheckout | null>(null)
   const [jobs, setJobs] = useState<GenerationJob[]>([])
   const [batches, setBatches] = useState<GenerationBatch[]>([])
   const [pricing, setPricing] = useState<PricingRule[]>([])
@@ -296,8 +297,24 @@ export function App() {
     if (!token) return
     try {
       const order = await api.createOrder(token, packageKey)
+      setCheckout(null)
       await refreshCore(token)
       setMessage(`充值订单 #${order.id} 已创建，等待支付`)
+    } catch (error) {
+      showError(error)
+    }
+  }
+
+  async function startCheckout(packageKey: string, provider: string) {
+    if (!token) return
+    try {
+      const result = await api.checkout(token, packageKey, provider)
+      setCheckout(result)
+      if (result.payment_url) {
+        window.open(result.payment_url, '_blank', 'noopener,noreferrer')
+      }
+      await refreshCore(token)
+      setMessage(`充值订单 #${result.order.id} 已创建：${provider}`)
     } catch (error) {
       showError(error)
     }
@@ -356,7 +373,7 @@ export function App() {
       <div className="workbench-grid">
         <aside className="side-column">
           <AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} />
-          {user && <CreditPanel balance={balance} transactions={transactions} packages={packages} orders={orders} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onMockPayOrder={mockPayPaymentOrder} />}
+          {user && <CreditPanel balance={balance} transactions={transactions} packages={packages} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onMockPayOrder={mockPayPaymentOrder} />}
         </aside>
 
         <section className="gallery-column">

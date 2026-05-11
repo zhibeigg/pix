@@ -1,17 +1,20 @@
-import type { CreditBalance, CreditPackage, CreditTransaction, PaymentOrder } from '../types'
+import { QRCodeSVG } from 'qrcode.react'
+import type { CreditBalance, CreditPackage, CreditTransaction, PaymentCheckout, PaymentOrder } from '../types'
 
 type CreditPanelProps = {
   balance: CreditBalance | null
   transactions: CreditTransaction[]
   packages: CreditPackage[]
   orders: PaymentOrder[]
+  checkout: PaymentCheckout | null
   isAdmin: boolean
   onRefresh: () => void
   onCreateOrder: (packageKey: string) => Promise<void>
+  onCheckout: (packageKey: string, provider: string) => Promise<void>
   onMockPayOrder: (orderId: number) => Promise<void>
 }
 
-export function CreditPanel({ balance, transactions, packages, orders, isAdmin, onRefresh, onCreateOrder, onMockPayOrder }: CreditPanelProps) {
+export function CreditPanel({ balance, transactions, packages, orders, checkout, isAdmin, onRefresh, onCreateOrder, onCheckout, onMockPayOrder }: CreditPanelProps) {
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -35,10 +38,22 @@ export function CreditPanel({ balance, transactions, packages, orders, isAdmin, 
               <strong>{item.name}</strong>
               <p>{item.credits} credits · {(item.amount_cents / 100).toFixed(2)} {item.currency.toUpperCase()}</p>
             </div>
-            <button className="ghost" onClick={() => onCreateOrder(item.key)}>创建订单</button>
+            <div className="action-row">
+              <button className="ghost" onClick={() => onCheckout(item.key, 'alipay')}>支付宝</button>
+              <button className="ghost" onClick={() => onCheckout(item.key, 'wechat')}>微信</button>
+              {isAdmin && <button className="ghost" onClick={() => onCreateOrder(item.key)}>Mock</button>}
+            </div>
           </div>
         ))}
       </div>
+      {checkout?.code_url && (
+        <div className="qr-card">
+          <strong>微信扫码支付订单 #{checkout.order.id}</strong>
+          <QRCodeSVG value={checkout.code_url} size={160} />
+          <p className="muted">支付完成后点击刷新查看到账状态。</p>
+        </div>
+      )}
+      {checkout?.payment_url && <p className="muted">支付宝付款页已在新窗口打开，支付完成后点击刷新。</p>}
       <div className="transaction-list">
         {orders.length > 0 && orders.map((order) => (
           <div className="transaction" key={order.id}>

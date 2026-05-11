@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-05-10
+
+### Added
+
+- 接入支付宝电脑网站支付 checkout 和异步通知验签到账。
+- 接入微信支付 API v3 Native checkout、回调验签、AES-GCM 解密和幂等到账。
+- 前端点数中心新增支付宝支付、微信扫码支付入口。
+- `pix-web-check` 增加支付宝/微信支付配置完整性检查。
+
 ## [0.23.0] - 2026-05-10
 
 ### Added
@@ -235,7 +244,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/zhibeigg/pix/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/zhibeigg/pix/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/zhibeigg/pix/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/zhibeigg/pix/compare/v0.20.0...v0.21.0

@@ -234,6 +234,11 @@ class PaymentOrderCreateRequest(BaseModel):
     package_key: str = Field(max_length=64)
 
 
+class PaymentCheckoutRequest(BaseModel):
+    package_key: str = Field(max_length=64)
+    provider: str = Field(default="mock", max_length=32)
+
+
 class PaymentOrderResponse(BaseModel):
     id: int
     provider: str
@@ -246,6 +251,13 @@ class PaymentOrderResponse(BaseModel):
     paid_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class PaymentCheckoutResponse(BaseModel):
+    order: PaymentOrderResponse
+    provider: str
+    payment_url: str | None = None
+    code_url: str | None = None
 
 
 class MockWebhookRequest(BaseModel):
