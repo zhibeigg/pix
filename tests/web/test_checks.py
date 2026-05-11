@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from pix_web.checks import check_database, check_jwt_secret, check_queue, check_storage
+from pix_web.checks import (
+    check_database,
+    check_email_delivery,
+    check_jwt_secret,
+    check_queue,
+    check_storage,
+)
 from pix_web.config import WebSettings
 
 
@@ -33,6 +39,31 @@ def test_database_check_accepts_sqlite(tmp_path) -> None:
 
 def test_queue_database_backend_does_not_require_redis() -> None:
     result = check_queue(WebSettings(queue_backend="database"))
+
+    assert result.ok is True
+
+
+def test_email_check_allows_console_with_warning() -> None:
+    result = check_email_delivery(WebSettings(email_provider="console"))
+
+    assert result.ok is True
+    assert "开发" in result.message
+
+
+def test_email_check_rejects_incomplete_smtp() -> None:
+    result = check_email_delivery(WebSettings(email_provider="smtp", smtp_host="smtp.example.com"))
+
+    assert result.ok is False
+
+
+def test_email_check_accepts_smtp_host_and_from() -> None:
+    result = check_email_delivery(
+        WebSettings(
+            email_provider="smtp",
+            smtp_host="smtp.example.com",
+            smtp_from="Pix <noreply@example.com>",
+        )
+    )
 
     assert result.ok is True
 

@@ -234,6 +234,19 @@ PIX_WEB_QUEUE_BACKEND=database
 PIX_WEB_REDIS_URL=redis://localhost:6379/0
 PIX_WEB_RQ_QUEUE=pix-jobs
 PIX_WEB_RQ_WORKER_CLASS=simple
+
+# 注册邮箱验证码：开发默认 console，生产建议 smtp
+PIX_WEB_EMAIL_PROVIDER=console
+PIX_WEB_SMTP_HOST=
+PIX_WEB_SMTP_PORT=587
+PIX_WEB_SMTP_USER=
+PIX_WEB_SMTP_PASSWORD=
+PIX_WEB_SMTP_FROM=
+PIX_WEB_SMTP_TLS=true
+PIX_WEB_EMAIL_CODE_TTL_SECONDS=600
+PIX_WEB_EMAIL_CODE_RESEND_SECONDS=60
+PIX_WEB_EMAIL_CODE_MAX_ATTEMPTS=5
+PIX_WEB_EMAIL_DEBUG_CODES=false
 ```
 
 数据库迁移（生产环境建议先设置 `PIX_WEB_AUTO_CREATE_DB=false`，再手动迁移）：
@@ -314,6 +327,7 @@ pix-web-check
 - 已替换 `PIX_WEB_JWT_SECRET`，不要使用默认值。
 - 已配置 `PACKY_API_KEY`。
 - 已执行 `alembic upgrade head`，`pix-web-check` 显示 Alembic 在 head。
+- 生产环境已将 `PIX_WEB_EMAIL_PROVIDER` 配为 `smtp`，并填写 `PIX_WEB_SMTP_HOST`、`PIX_WEB_SMTP_FROM` 等邮件配置；`console` 仅适合开发/内测查看验证码日志。
 - `PIX_WEB_STORAGE_ROOT` 挂载到持久化卷，避免容器重建丢失上传和结果。
 - 管理员后台已配置生成总开关、每日任务上限、上传上限和 prompt 禁词。
 
@@ -333,6 +347,7 @@ VITE_PIX_API_BASE=http://127.0.0.1:8000 npm run dev
 
 前端工作台提供：
 
+- 账户注册：注册前需先获取邮箱验证码，再用验证码、邮箱和密码创建账户。
 - 作品网格：优先查看最近作品、任务状态、输出路径和图片预览，并可按素材包筛选。
 - 单图生成：快速文生图、上传图片图生图或上传图片本地像素化。
 - 批量生产：支持多行 prompt 批量文生图，也支持多张图片批量图生图或批量本地像素化，并自动归入可命名素材包；素材包可重命名、归档、删除空包，失败项可一键重新入队，成功项可打包下载 ZIP。
@@ -351,7 +366,7 @@ MVP 计费规则默认：
 | `local_pixelize` | 0 | 只做本地像素化 |
 | `repixelize` | 0 | 对历史源图免费重新像素化 |
 
-任务创建时会先冻结点数；worker 成功后确认消费，失败会自动退款。批量生产使用 `POST /jobs/batch` 原子提交，避免部分任务创建成功后中途失败，并通过 `/batches` 按素材包查看批次统计。第一个注册用户会自动成为管理员，可通过 `/admin/users/{id}/adjust-credits` 手动加点。
+账号注册流程先调用 `POST /auth/register-code` 发送邮箱验证码，再调用 `POST /auth/register` 并携带 `verification_code` 完成注册。任务创建时会先冻结点数；worker 成功后确认消费，失败会自动退款。批量生产使用 `POST /jobs/batch` 原子提交，避免部分任务创建成功后中途失败，并通过 `/batches` 按素材包查看批次统计。第一个注册用户会自动成为管理员，可通过 `/admin/users/{id}/adjust-credits` 手动加点。
 
 ### 游戏素材直出
 

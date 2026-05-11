@@ -34,6 +34,17 @@ class WebSettings:
     wechat_api_v3_key: str = ""
     wechat_platform_cert: str = ""
     wechat_api_base: str = "https://api.mch.weixin.qq.com"
+    email_provider: str = "console"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_tls: bool = True
+    email_code_ttl_seconds: int = 600
+    email_code_resend_seconds: int = 60
+    email_code_max_attempts: int = 5
+    email_debug_codes: bool = False
 
 
 _DEFAULTS = {
@@ -49,7 +60,29 @@ _DEFAULTS = {
     "PIX_WEB_PUBLIC_BASE_URL": WebSettings.public_base_url,
     "ALIPAY_GATEWAY": WebSettings.alipay_gateway,
     "WECHATPAY_API_BASE": WebSettings.wechat_api_base,
+    "PIX_WEB_EMAIL_PROVIDER": WebSettings.email_provider,
+    "PIX_WEB_SMTP_PORT": str(WebSettings.smtp_port),
+    "PIX_WEB_SMTP_TLS": "true",
+    "PIX_WEB_EMAIL_CODE_TTL_SECONDS": str(WebSettings.email_code_ttl_seconds),
+    "PIX_WEB_EMAIL_CODE_RESEND_SECONDS": str(WebSettings.email_code_resend_seconds),
+    "PIX_WEB_EMAIL_CODE_MAX_ATTEMPTS": str(WebSettings.email_code_max_attempts),
+    "PIX_WEB_EMAIL_DEBUG_CODES": "false",
 }
+
+
+def _env_flag(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.lower() not in {"0", "false", "no", "off"}
+
+
+def _env_int(name: str, default: int, minimum: int) -> int:
+    raw = os.getenv(name, str(default))
+    try:
+        return max(minimum, int(raw))
+    except ValueError:
+        return default
 
 
 def load_web_settings() -> WebSettings:
@@ -67,6 +100,7 @@ def load_web_settings() -> WebSettings:
     rq_queue_name = os.getenv("PIX_WEB_RQ_QUEUE", _DEFAULTS["PIX_WEB_RQ_QUEUE"])
     rq_worker_class = os.getenv("PIX_WEB_RQ_WORKER_CLASS", _DEFAULTS["PIX_WEB_RQ_WORKER_CLASS"]).lower()
     public_base_url = os.getenv("PIX_WEB_PUBLIC_BASE_URL", _DEFAULTS["PIX_WEB_PUBLIC_BASE_URL"]).rstrip("/")
+    email_provider = os.getenv("PIX_WEB_EMAIL_PROVIDER", _DEFAULTS["PIX_WEB_EMAIL_PROVIDER"]).lower()
     try:
         poll_interval = max(0.1, float(poll_raw))
     except ValueError:
@@ -104,4 +138,21 @@ def load_web_settings() -> WebSettings:
         wechat_api_v3_key=os.getenv("WECHATPAY_API_V3_KEY", ""),
         wechat_platform_cert=os.getenv("WECHATPAY_PLATFORM_CERT", ""),
         wechat_api_base=os.getenv("WECHATPAY_API_BASE", _DEFAULTS["WECHATPAY_API_BASE"]).rstrip("/"),
+        email_provider=email_provider if email_provider in {"console", "smtp"} else WebSettings.email_provider,
+        smtp_host=os.getenv("PIX_WEB_SMTP_HOST", ""),
+        smtp_port=_env_int("PIX_WEB_SMTP_PORT", WebSettings.smtp_port, 1),
+        smtp_user=os.getenv("PIX_WEB_SMTP_USER", ""),
+        smtp_password=os.getenv("PIX_WEB_SMTP_PASSWORD", ""),
+        smtp_from=os.getenv("PIX_WEB_SMTP_FROM", ""),
+        smtp_tls=_env_flag("PIX_WEB_SMTP_TLS", WebSettings.smtp_tls),
+        email_code_ttl_seconds=_env_int(
+            "PIX_WEB_EMAIL_CODE_TTL_SECONDS", WebSettings.email_code_ttl_seconds, 60
+        ),
+        email_code_resend_seconds=_env_int(
+            "PIX_WEB_EMAIL_CODE_RESEND_SECONDS", WebSettings.email_code_resend_seconds, 0
+        ),
+        email_code_max_attempts=_env_int(
+            "PIX_WEB_EMAIL_CODE_MAX_ATTEMPTS", WebSettings.email_code_max_attempts, 1
+        ),
+        email_debug_codes=_env_flag("PIX_WEB_EMAIL_DEBUG_CODES", WebSettings.email_debug_codes),
     )

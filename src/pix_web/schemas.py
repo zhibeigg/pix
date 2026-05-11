@@ -13,10 +13,22 @@ JobType = Literal["text_to_image", "image_to_image", "local_pixelize", "repixeli
 JobStatus = Literal["pending", "running", "succeeded", "failed", "cancelled"]
 
 
+class EmailCodeRequest(BaseModel):
+    email: EmailStr
+
+
+class EmailCodeResponse(BaseModel):
+    ok: bool = True
+    retry_after_seconds: int
+    expires_in_seconds: int
+    debug_code: str | None = None
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     display_name: str = Field(default="", max_length=120)
+    verification_code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
 
 
 class LoginRequest(BaseModel):

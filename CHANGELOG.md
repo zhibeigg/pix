@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-05-11
+
+### Added
+
+- Web 注册流程新增邮箱验证码：先请求 `/auth/register-code` 发送 6 位验证码，再携带 `verification_code` 完成注册。
+- 新增邮箱验证码表、SMTP/console 邮件发送配置、部署检查和生产环境示例配置。
+
 ## [0.42.5] - 2026-05-11
 
 ### Added
