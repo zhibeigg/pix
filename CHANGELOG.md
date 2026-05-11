@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.42.1] - 2026-05-11
+
+### Fixed
+
+- 修复首页深色模式中 `UI Kit`、`开始` 胶囊标签浅底白字导致对比度不足的问题。
+
 ## [0.42.0] - 2026-05-11
 
 ### Added
