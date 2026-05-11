@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.42.3] - 2026-05-11
+
+### Fixed
+
+- 修正 Web 暗色主题的 `inkDeep` token，避免漏网胶囊或选中态继续渲染成浅底浅字。
+
 ## [0.42.2] - 2026-05-11
 
 ### Fixed
