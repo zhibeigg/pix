@@ -1,4 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react'
+import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, Stack, TextField, Typography } from '@mui/material'
 import type { GenerationJob, JobCreateRequest, PricingRule } from '../types'
 import { buildPixelize, parsePixelSize, summarizePrompt } from '../pixelize'
 
@@ -18,11 +19,15 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
 
   if (!job) {
     return (
-      <section className="panel tuning-panel">
-        <p className="eyebrow">Tune</p>
-        <h2>选择作品进行微调</h2>
-        <p className="muted">点击作品网格中的任意卡片，即可免费重新像素化，或使用 AI 图生图微调。</p>
-      </section>
+      <Card variant="outlined">
+        <CardContent>
+          <Stack spacing={1}>
+            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Tune</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 950 }}>选择作品进行微调</Typography>
+            <Typography color="text.secondary">点击作品网格中的任意卡片，即可免费重新像素化，或使用 AI 图生图微调。</Typography>
+          </Stack>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -57,38 +62,51 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
   }
 
   return (
-    <section className="panel tuning-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Tune</p>
-          <h2>微调 #{job.id}</h2>
-          <p className="muted">{summarizePrompt(job.prompt || job.input_image_path)}</p>
-        </div>
-        <span className="pill">{job.status}</span>
-      </div>
-      {previewUrl && <img className="inline-preview tune-preview" src={previewUrl} alt="微调对象预览" loading="lazy" decoding="async" />}
+    <Card variant="outlined">
+      <CardContent>
+        <Stack spacing={2.5}>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 2, alignItems: 'flex-start' }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Tune</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 950 }}>微调 #{job.id}</Typography>
+              <Typography color="text.secondary" variant="body2">{summarizePrompt(job.prompt || job.input_image_path)}</Typography>
+            </Box>
+            <Chip label={job.status} variant="outlined" color={job.status === 'succeeded' ? 'success' : job.status === 'failed' ? 'error' : 'primary'} />
+          </Stack>
+          {previewUrl && <Box component="img" src={previewUrl} alt="微调对象预览" loading="lazy" decoding="async" sx={{ width: '100%', maxHeight: 180, objectFit: 'contain', imageRendering: 'pixelated', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.default', p: 1 }} />}
 
-      <form className="stack tune-block" onSubmit={submitLocal}>
-        <div>
-          <h3>免费本地微调</h3>
-          <p className="muted">不调用 AI，只重新像素化，因此不消耗点数。</p>
-        </div>
-        <div className="two-columns">
-          <label>像素尺寸<input value={pixelSize} onChange={(event) => setPixelSize(event.target.value)} /></label>
-          <label>颜色数<input type="number" min={2} max={256} value={colors} onChange={(event) => setColors(Number(event.target.value))} /></label>
-        </div>
-        <label className="check-row"><input type="checkbox" checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />透明背景</label>
-        <button disabled={loading || !sourcePath}>免费重新像素化</button>
-      </form>
+          <Card variant="outlined" sx={{ bgcolor: 'background.default' }}>
+            <CardContent>
+              <Stack component="form" spacing={2} onSubmit={submitLocal}>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 900 }}>免费本地微调</Typography>
+                  <Typography color="text.secondary" variant="body2">不调用 AI，只重新像素化，因此不消耗点数。</Typography>
+                </Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <TextField label="像素尺寸" value={pixelSize} onChange={(event) => setPixelSize(event.target.value)} />
+                  <TextField label="颜色数" type="number" value={colors} onChange={(event) => setColors(Number(event.target.value))} />
+                </Box>
+                <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
+                <Button type="submit" variant="contained" disabled={loading || !sourcePath}>免费重新像素化</Button>
+              </Stack>
+            </CardContent>
+          </Card>
 
-      <form className="stack tune-block" onSubmit={submitAi}>
-        <div>
-          <h3>AI 微调</h3>
-          <p className="muted">调用图生图接口，会消耗 {aiPrice} credits。</p>
-        </div>
-        <label>微调描述<textarea rows={4} value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} /></label>
-        <button disabled={loading || !sourcePath}>AI 微调并入队</button>
-      </form>
-    </section>
+          <Card variant="outlined" sx={{ bgcolor: 'background.default' }}>
+            <CardContent>
+              <Stack component="form" spacing={2} onSubmit={submitAi}>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 900 }}>AI 微调</Typography>
+                  <Typography color="text.secondary" variant="body2">调用图生图接口，会消耗 {aiPrice} credits。</Typography>
+                </Box>
+                {!sourcePath && <Alert severity="warning">当前作品没有可用源图路径，暂时无法微调。</Alert>}
+                <TextField label="微调描述" value={aiPrompt} multiline minRows={4} onChange={(event) => setAiPrompt(event.target.value)} />
+                <Button type="submit" variant="outlined" disabled={loading || !sourcePath}>AI 微调并入队</Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Stack>
+      </CardContent>
+    </Card>
   )
 }

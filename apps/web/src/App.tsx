@@ -421,26 +421,26 @@ export function App() {
           {user ? (
             <>
               <AppTabs page={page} user={user} onChange={navigate} />
-              <section className="page-shell">
-            {page === 'workspace' && (
-              <WorkspacePage mode={mode} pricing={pricing} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onRefresh={() => refreshCore()} />
-            )}
-            {page === 'gallery' && (
-              <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCreateJob={createJob} onRefresh={() => refreshCore()} />
-            )}
-            {page === 'packs' && (
-              <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onRefresh={() => refreshCore()} />
-            )}
-            {page === 'billing' && (
-              <BillingPage balance={balance} transactions={transactions} packages={packages} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onMockPayOrder={mockPayPaymentOrder} />
-            )}
-            {page === 'admin' && isAdmin && (
-              <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onUpdateSetting={updateSetting} />
-            )}
-              </section>
+              <Box sx={{ display: 'grid', gap: 3 }}>
+                {page === 'workspace' && (
+                  <WorkspacePage mode={mode} pricing={pricing} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onRefresh={() => refreshCore()} />
+                )}
+                {page === 'gallery' && (
+                  <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCreateJob={createJob} onRefresh={() => refreshCore()} />
+                )}
+                {page === 'packs' && (
+                  <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onRefresh={() => refreshCore()} />
+                )}
+                {page === 'billing' && (
+                  <BillingPage balance={balance} transactions={transactions} packages={packages} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onMockPayOrder={mockPayPaymentOrder} />
+                )}
+                {page === 'admin' && isAdmin && (
+                  <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onUpdateSetting={updateSetting} />
+                )}
+              </Box>
             </>
           ) : (
-            <Alert severity="info" className="landing-panel">
+            <Alert severity="info">
               <Typography variant="h6" gutterBottom>先登录或注册</Typography>
               第一个注册用户会自动成为管理员。登录后可以进入生产工作台、作品库、素材包、点数中心和管理后台。
             </Alert>

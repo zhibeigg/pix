@@ -1,6 +1,7 @@
 import { FormEvent, useMemo, useState } from 'react'
+import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import { api } from '../api'
-import type { JobCreateRequest, JobType, PricingRule, UploadResponse } from '../types'
+import type { JobCreateRequest, PricingRule, UploadResponse } from '../types'
 import { buildPixelize, parsePixelSize } from '../pixelize'
 
 type BatchMode = 'text_to_image' | 'image_to_image' | 'local_pixelize'
@@ -94,77 +95,86 @@ export function BatchGeneratePanel({ pricing, loading, token, onSubmitMany }: Ba
   }
 
   return (
-    <section className="panel composer-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Batch</p>
-          <h2>批量生产</h2>
-        </div>
-        <span className="price-tag">{taskCount} 个 · 预计 {totalPrice} credits</span>
-      </div>
-      <form className="stack" onSubmit={submit}>
-        <label>
-          素材包名称
-          <input value={batchName} onChange={(event) => setBatchName(event.target.value)} placeholder="例如：RPG 材料包" />
-        </label>
-        <label>
-          批量类型
-          <select value={batchMode} onChange={(event) => setBatchMode(event.target.value as BatchMode)}>
-            <option value="text_to_image">批量文生图</option>
-            <option value="image_to_image">批量图生图</option>
-            <option value="local_pixelize">批量本地像素化</option>
-          </select>
-        </label>
+    <Card variant="outlined">
+      <CardContent>
+        <Stack spacing={3}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
+            <Box>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Batch</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 950 }}>批量生产</Typography>
+            </Box>
+            <Chip color="secondary" variant="outlined" label={`${taskCount} 个 · 预计 ${totalPrice} credits`} />
+          </Stack>
 
-        {batchMode === 'text_to_image' ? (
-          <label>
-            批量 Prompt（每行一个素材）
-            <textarea rows={8} value={prompts} onChange={(event) => setPrompts(event.target.value)} />
-          </label>
-        ) : (
-          <div className="stack upload-block">
-            {batchMode === 'image_to_image' && (
-              <label>
-                共用 AI 微调描述
-                <textarea rows={4} value={sharedPrompt} onChange={(event) => setSharedPrompt(event.target.value)} />
-              </label>
+          <Stack component="form" spacing={2.5} onSubmit={submit}>
+            <TextField label="素材包名称" value={batchName} placeholder="例如：RPG 材料包" onChange={(event) => setBatchName(event.target.value)} />
+            <TextField select label="批量类型" value={batchMode} onChange={(event) => setBatchMode(event.target.value as BatchMode)}>
+              <MenuItem value="text_to_image">批量文生图</MenuItem>
+              <MenuItem value="image_to_image">批量图生图</MenuItem>
+              <MenuItem value="local_pixelize">批量本地像素化</MenuItem>
+            </TextField>
+
+            {batchMode === 'text_to_image' ? (
+              <TextField label="批量 Prompt（每行一个素材）" value={prompts} multiline minRows={8} onChange={(event) => setPrompts(event.target.value)} />
+            ) : (
+              <Card variant="outlined" sx={{ bgcolor: 'background.default' }}>
+                <CardContent>
+                  <Stack spacing={2}>
+                    {batchMode === 'image_to_image' && (
+                      <TextField label="共用 AI 微调描述" value={sharedPrompt} multiline minRows={4} onChange={(event) => setSharedPrompt(event.target.value)} />
+                    )}
+                    <Button variant="outlined" component="label" disabled={uploading}>
+                      {uploading ? '上传中…' : '批量上传图片'}
+                      <Box component="input" type="file" multiple accept="image/png,image/jpeg,image/webp" sx={{ display: 'none' }} onChange={(event) => uploadFiles(event.currentTarget.files)} />
+                    </Button>
+                    <UploadList uploads={uploads} />
+                  </Stack>
+                </CardContent>
+              </Card>
             )}
-            <label>
-              批量上传图片
-              <input type="file" multiple accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(event) => uploadFiles(event.target.files)} />
-            </label>
-            <UploadList uploads={uploads} />
-          </div>
-        )}
 
-        <div className="two-columns">
-          <label>像素尺寸<input value={pixelSize} onChange={(event) => setPixelSize(event.target.value)} /></label>
-          <label>颜色数<input type="number" min={2} max={256} value={colors} onChange={(event) => setColors(Number(event.target.value))} /></label>
-        </div>
-        <label className="check-row"><input type="checkbox" checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />透明背景</label>
-        <label className="check-row"><input type="checkbox" checked={skipVl} disabled={batchMode === 'local_pixelize'} onChange={(event) => setSkipVl(event.target.checked)} />跳过 VL 分析</label>
-        <button disabled={loading || uploading || taskCount === 0}>{loading ? '提交中…' : `批量入队 ${taskCount} 个任务`}</button>
-      </form>
-    </section>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <TextField label="像素尺寸" value={pixelSize} onChange={(event) => setPixelSize(event.target.value)} />
+              <TextField label="颜色数" type="number" value={colors} onChange={(event) => setColors(Number(event.target.value))} />
+            </Box>
+            <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
+              <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
+              <FormControlLabel control={<Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize'} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过 VL 分析" />
+            </Stack>
+            <Button type="submit" variant="contained" disabled={loading || uploading || taskCount === 0}>{loading ? '提交中…' : `批量入队 ${taskCount} 个任务`}</Button>
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
   )
 }
 
 function UploadList({ uploads }: { uploads: BatchUpload[] }) {
-  if (uploads.length === 0) return <p className="muted">选择多张图片后会先上传，再批量创建任务。</p>
+  if (uploads.length === 0) return <Alert severity="info">选择多张图片后会先上传，再批量创建任务。</Alert>
   const ok = uploads.filter((item) => item.status === 'uploaded').length
   const failed = uploads.filter((item) => item.status === 'failed').length
   return (
-    <div className="batch-upload-list">
-      <p className="muted">已上传 {ok} / {uploads.length}{failed ? `，失败 ${failed}` : ''}</p>
+    <Stack spacing={1.25}>
+      <Alert severity={failed ? 'warning' : 'success'}>已上传 {ok} / {uploads.length}{failed ? `，失败 ${failed}` : ''}</Alert>
       {uploads.map((item) => (
-        <div className="batch-upload-item" key={item.id}>
-          {item.upload?.url ? <img src={item.upload.url} alt={item.name} loading="lazy" decoding="async" /> : <span className="upload-placeholder">{item.status}</span>}
-          <div>
-            <strong>{item.name}</strong>
-            <p>{item.error || item.upload?.path || item.status}</p>
-          </div>
-        </div>
+        <Card variant="outlined" key={item.id} sx={{ bgcolor: 'background.paper' }}>
+          <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+            <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center' }}>
+              {item.upload?.url ? (
+                <Box component="img" src={item.upload.url} alt={item.name} loading="lazy" decoding="async" sx={{ width: 58, height: 58, objectFit: 'contain', imageRendering: 'pixelated', borderRadius: 1.5, bgcolor: 'background.default' }} />
+              ) : (
+                <Box sx={{ width: 58, height: 58, display: 'grid', placeItems: 'center', borderRadius: 1.5, bgcolor: 'background.default' }}>
+                  <Typography variant="caption" color="text.secondary">{item.status}</Typography>
+                </Box>
+              )}
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 900 }} noWrap>{item.name}</Typography>
+                <Typography variant="body2" color="text.secondary" noWrap>{item.error || item.upload?.path || item.status}</Typography>
+              </Box>
+            </Stack>
+          </CardContent>
+        </Card>
       ))}
-    </div>
+    </Stack>
   )
 }

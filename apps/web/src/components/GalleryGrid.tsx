@@ -36,7 +36,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
   const visible = ordered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   return (
-    <Card className="gallery-panel" variant="outlined">
+    <Card variant="outlined">
       <CardContent>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}>
           <Box>
@@ -48,24 +48,37 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
         </Stack>
 
         {ordered.length === 0 ? (
-          <Box className="empty-gallery" sx={{ mt: 3 }}>
-            <Typography variant="h6">你的像素工坊还是空的</Typography>
+          <Box sx={{ mt: 3, border: 1, borderStyle: 'dashed', borderColor: 'divider', borderRadius: 2.5, p: 4, bgcolor: 'background.default' }}>
+            <Typography variant="h6" sx={{ fontWeight: 900 }}>你的像素工坊还是空的</Typography>
             <Typography color="text.secondary">先用单图生成试一个道具，或粘贴 5-20 行 prompt 开始批量生产。</Typography>
           </Box>
         ) : (
-          <Box className="gallery-grid" sx={{ mt: 3 }}>
+          <Box sx={{ mt: 3, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 1.75 }}>
             {visible.map((job) => {
               const output = job.outputs[0]
               const mainPath = output?.pixelized_path || output?.source_path || job.input_image_path || ''
               const previewUrl = output?.pixelized_url || output?.source_url || job.input_image_url || ''
               const selected = selectedJobId === job.id
               return (
-                <Card className={`gallery-card ${selected ? 'selected' : ''}`} key={job.id} variant="outlined" aria-current={selected ? 'true' : undefined}>
-                  <CardMedia className="pixel-preview" component="div">
+                <Card
+                  key={job.id}
+                  variant="outlined"
+                  aria-current={selected ? 'true' : undefined}
+                  sx={{
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    cursor: 'default',
+                    borderColor: selected ? 'primary.main' : 'divider',
+                    boxShadow: selected ? '0 0 0 2px rgba(103,199,255,.18)' : 'none',
+                    transition: 'transform .18s ease, border-color .18s ease',
+                    '&:hover': { transform: 'translateY(-2px)', borderColor: selected ? 'primary.main' : 'text.secondary' },
+                  }}
+                >
+                  <CardMedia component="div" sx={{ height: 132, display: 'grid', placeItems: 'center', bgcolor: 'background.default', backgroundImage: 'linear-gradient(135deg, rgba(103,199,255,.08), rgba(244,167,220,.06))', imageRendering: 'pixelated' }}>
                     {previewUrl ? (
-                      <img src={previewUrl} alt={summarizePrompt(job.prompt || job.input_image_path, '作品预览')} loading="lazy" decoding="async" />
+                      <Box component="img" src={previewUrl} alt={summarizePrompt(job.prompt || job.input_image_path, '作品预览')} loading="lazy" decoding="async" sx={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated', p: 1.5 }} />
                     ) : (
-                      <span>{job.status === 'succeeded' ? 'PIX' : statusLabels[job.status] ?? job.status}</span>
+                      <Chip variant="outlined" color="primary" label={job.status === 'succeeded' ? 'PIX' : statusLabels[job.status] ?? job.status} />
                     )}
                   </CardMedia>
                   <CardContent sx={{ display: 'grid', gap: 1.1 }}>

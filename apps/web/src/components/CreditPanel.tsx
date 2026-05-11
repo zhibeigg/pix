@@ -34,7 +34,7 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
             <Button variant="outlined" onClick={onRefresh}>刷新</Button>
           </Stack>
 
-          <Box className="metric-grid">
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.25 }}>
             <Metric label="可用" value={balance?.available_credits ?? '—'} />
             <Metric label="冻结" value={balance?.reserved_credits ?? '—'} />
             <Metric label="累计充值" value={balance?.total_recharged ?? '—'} />
@@ -71,7 +71,7 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
                   <Button variant="outlined" size="small" onClick={copyWechatLink}>复制微信支付链接</Button>
                   <Accordion sx={{ width: '100%' }}>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>查看备用链接</AccordionSummary>
-                    <AccordionDetails><code className="qr-code-url">{checkout.code_url}</code></AccordionDetails>
+                    <AccordionDetails><Box component="code" sx={{ display: 'block', maxWidth: '100%', overflowWrap: 'anywhere', color: 'info.light', fontSize: 12 }}>{checkout.code_url}</Box></AccordionDetails>
                   </Accordion>
                 </Stack>
               </CardContent>
@@ -123,7 +123,7 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <Box className="metric">
+    <Box sx={{ bgcolor: 'background.default', border: 1, borderColor: 'divider', borderRadius: 2, p: 1.5, fontVariantNumeric: 'tabular-nums' }}>
       <Typography variant="caption" color="text.secondary">{label}</Typography>
       <Typography variant="h5" sx={{ fontWeight: 950 }}>{value}</Typography>
     </Box>

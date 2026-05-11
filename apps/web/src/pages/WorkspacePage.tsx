@@ -1,5 +1,7 @@
+import { Box, Card, CardContent, Stack, Tab, Tabs, Typography } from '@mui/material'
 import { BatchGeneratePanel } from '../components/BatchGeneratePanel'
 import { JobList } from '../components/JobList'
+import { PageHeader } from '../components/PageHeader'
 import { SingleGeneratePanel } from '../components/SingleGeneratePanel'
 import type { GenerationJob, JobCreateRequest, PricingRule } from '../types'
 
@@ -20,20 +22,20 @@ interface WorkspacePageProps {
 export function WorkspacePage({ mode, pricing, jobs, loading, token, onModeChange, onCreateJob, onCreateJobs, onRefresh }: WorkspacePageProps) {
   const activeJobs = jobs.filter((job) => ['pending', 'running'].includes(job.status))
   return (
-    <section className="page-stack">
-      <header className="page-heading">
-        <p className="eyebrow">Create</p>
-        <h2>生产工作台</h2>
-        <p>在这里创建单图任务或批量素材包。作品查看、微调和素材包管理分别放在独立页面。</p>
-      </header>
+    <Stack spacing={3}>
+      <PageHeader eyebrow="Create" title="生产工作台" description="在这里创建单图任务或批量素材包。作品查看、微调和素材包管理分别放在独立页面。" />
 
-      <section className="panel mode-panel">
-        <p className="eyebrow">创建模式</p>
-        <div className="mode-tabs" role="tablist" aria-label="创建模式">
-          <button className={mode === 'single' ? '' : 'ghost'} type="button" role="tab" aria-selected={mode === 'single'} onClick={() => onModeChange('single')}>单图生成</button>
-          <button className={mode === 'batch' ? '' : 'ghost'} type="button" role="tab" aria-selected={mode === 'batch'} onClick={() => onModeChange('batch')}>批量生产</button>
-        </div>
-      </section>
+      <Card variant="outlined">
+        <CardContent>
+          <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>创建模式</Typography>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 1 }}>
+            <Tabs value={mode} aria-label="创建模式" onChange={(_, value: WorkMode) => onModeChange(value)}>
+              <Tab value="single" label="单图生成" />
+              <Tab value="batch" label="批量生产" />
+            </Tabs>
+          </Box>
+        </CardContent>
+      </Card>
 
       {mode === 'single' ? (
         <SingleGeneratePanel pricing={pricing} loading={loading} token={token} onSubmit={onCreateJob} />
@@ -42,6 +44,6 @@ export function WorkspacePage({ mode, pricing, jobs, loading, token, onModeChang
       )}
 
       <JobList jobs={activeJobs} onRefresh={onRefresh} />
-    </section>
+    </Stack>
   )
 }
