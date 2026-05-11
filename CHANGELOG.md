@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.41.2] - 2026-05-11
+
+### Fixed
+
+- 顶部导航左侧品牌区现在可点击返回首页，并提供可访问标签和 hover 反馈。
+
 ## [0.41.1] - 2026-05-11
 
 ### Changed
@@ -435,7 +441,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.41.1...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.41.2...HEAD
+[0.41.2]: https://github.com/zhibeigg/pix/compare/v0.41.1...v0.41.2
 [0.41.1]: https://github.com/zhibeigg/pix/compare/v0.41.0...v0.41.1
 [0.41.0]: https://github.com/zhibeigg/pix/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/zhibeigg/pix/compare/v0.39.3...v0.40.0
