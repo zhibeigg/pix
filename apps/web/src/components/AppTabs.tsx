@@ -21,7 +21,21 @@ interface AppTabsProps {
 export function AppTabs({ page, user, onChange }: AppTabsProps) {
   const visibleTabs = tabs.filter((tab) => !tab.adminOnly || user?.role === 'admin')
   return (
-    <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', pb: .5 }} aria-label="主导航" role="navigation">
+    <Stack
+      direction="row"
+      spacing={1}
+      sx={{
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        pb: 0,
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
+        scrollSnapType: { xs: 'x proximity', lg: 'none' },
+        '&::-webkit-scrollbar': { display: 'none' },
+      }}
+      aria-label="主导航"
+      role="navigation"
+    >
       {visibleTabs.map((tab) => {
         const active = page === tab.page
         return (
@@ -37,10 +51,11 @@ export function AppTabs({ page, user, onChange }: AppTabsProps) {
               borderRadius: 999,
               bgcolor: active ? notionTokens.inkDeep : notionTokens.canvas,
               color: active ? notionTokens.onDark : notionTokens.ink,
-              px: 2,
-              py: 1,
+              px: { xs: 1.75, lg: 2 },
+              py: .9,
               minHeight: { xs: 44, md: 40 },
-              minWidth: 156,
+              minWidth: { xs: 148, lg: 136, xl: 150 },
+              scrollSnapAlign: 'start',
               cursor: 'pointer',
               textAlign: 'left',
               font: 'inherit',
