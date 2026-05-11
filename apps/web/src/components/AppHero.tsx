@@ -12,18 +12,18 @@ type AppHeroProps = {
 }
 
 const pixelTiles = [
-  { name: '血气灵玉', tint: notionTokens.tintRose, status: '完成', pattern: ['00100', '01110', '11111', '01110', '00100'], color: notionTokens.brandPink },
-  { name: '紫髓铁', tint: notionTokens.tintLavender, status: '完成', pattern: ['11100', '01110', '00111', '01110', '11100'], color: notionTokens.primary },
-  { name: '幽光菇', tint: notionTokens.tintMint, status: '微调', pattern: ['01110', '11111', '10101', '00100', '01110'], color: notionTokens.brandTeal },
-  { name: '古木枝', tint: notionTokens.tintCream, status: '完成', pattern: ['01010', '11100', '01110', '00100', '00100'], color: notionTokens.brandBrown },
-  { name: '冰霜徽章', tint: notionTokens.tintSky, status: '完成', pattern: ['10101', '01110', '11111', '01110', '10101'], color: notionTokens.linkBlue },
-  { name: '熔火碎片', tint: notionTokens.tintPeach, status: '完成', pattern: ['00110', '01111', '11110', '01100', '00100'], color: notionTokens.brandOrange },
-  { name: '藤蔓药剂', tint: notionTokens.tintMint, status: '完成', pattern: ['01110', '01010', '01110', '00100', '01110'], color: notionTokens.brandGreen },
-  { name: '失败项', tint: notionTokens.tintGray, status: '待重试', pattern: ['10001', '01010', '00100', '01010', '10001'], color: notionTokens.error },
-  { name: '月银矿', tint: notionTokens.tintSky, status: '完成', pattern: ['00111', '01110', '11100', '01110', '00111'], color: notionTokens.steel },
-  { name: '雷纹符石', tint: notionTokens.tintYellowBold, status: '完成', pattern: ['00100', '01100', '00110', '00011', '00010'], color: notionTokens.brandOrangeDeep },
-  { name: '毒囊', tint: notionTokens.tintRose, status: '完成', pattern: ['00100', '01110', '10101', '11111', '01110'], color: notionTokens.brandPink },
-  { name: '空瓶', tint: notionTokens.tintCream, status: '排队', pattern: ['01110', '01010', '01010', '01010', '01110'], color: notionTokens.slate },
+  { name: '血气灵玉', tint: notionTokens.tintRose, status: '完成', src: '/hero-icons/blood-jade.png' },
+  { name: '紫髓铁', tint: notionTokens.tintLavender, status: '完成', src: '/hero-icons/violet-iron.png' },
+  { name: '幽光菇', tint: notionTokens.tintMint, status: '微调', src: '/hero-icons/ghost-mushroom.png' },
+  { name: '古木枝', tint: notionTokens.tintCream, status: '完成', src: '/hero-icons/ancient-branch.png' },
+  { name: '冰霜徽章', tint: notionTokens.tintSky, status: '完成', src: '/hero-icons/frost-badge.png' },
+  { name: '熔火碎片', tint: notionTokens.tintPeach, status: '完成', src: '/hero-icons/ember-shard.png' },
+  { name: '藤蔓药剂', tint: notionTokens.tintMint, status: '完成', src: '/hero-icons/vine-potion.png' },
+  { name: '失败项', tint: notionTokens.tintGray, status: '待重试', src: '/hero-icons/retry-cross.png' },
+  { name: '月银矿', tint: notionTokens.tintSky, status: '完成', src: '/hero-icons/moon-silver.png' },
+  { name: '雷纹符石', tint: notionTokens.tintYellowBold, status: '完成', src: '/hero-icons/thunder-rune.png' },
+  { name: '毒囊', tint: notionTokens.tintRose, status: '完成', src: '/hero-icons/poison-sac.png' },
+  { name: '空瓶', tint: notionTokens.tintCream, status: '排队', src: '/hero-icons/empty-bottle.png' },
 ]
 
 const workflowStats = [
@@ -189,7 +189,7 @@ function PixelTile({ tile }: { tile: typeof pixelTiles[number] }) {
   return (
     <Box sx={{ bgcolor: tile.tint, borderRadius: 1.4, border: `1px solid ${notionTokens.hairline}`, p: 1, minWidth: 0 }}>
       <Box sx={{ display: 'grid', placeItems: 'center', minHeight: 72, backgroundColor: notionTokens.canvas, backgroundImage: `linear-gradient(45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(-45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%), linear-gradient(-45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%)`, backgroundSize: '16px 16px', backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0', borderRadius: 1 }}>
-        <PixelIcon pattern={tile.pattern} color={tile.color} />
+        <Box component="img" src={tile.src} alt={`${tile.name} 64×64 像素素材`} width={64} height={64} loading="eager" decoding="async" sx={{ width: 64, height: 64, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </Box>
       <Typography variant="caption" sx={{ display: 'block', mt: .8, fontWeight: 600 }} noWrap>{tile.name}</Typography>
       <Typography variant="caption" color="text.secondary">{tile.status}</Typography>
@@ -197,15 +197,6 @@ function PixelTile({ tile }: { tile: typeof pixelTiles[number] }) {
   )
 }
 
-function PixelIcon({ pattern, color }: { pattern: string[]; color: string }) {
-  return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 8px)', gridTemplateRows: 'repeat(5, 8px)', gap: '2px' }} aria-hidden>
-      {pattern.flatMap((row, rowIndex) => row.split('').map((cell, colIndex) => (
-        <Box key={`${rowIndex}-${colIndex}`} sx={{ width: 8, height: 8, bgcolor: cell === '1' ? color : 'transparent', boxShadow: cell === '1' ? 'inset 0 -1px 0 rgba(0,0,0,.16)' : 'none' }} />
-      )))}
-    </Box>
-  )
-}
 
 function BoardMetric({ label, value }: { label: string; value: number | string }) {
   return (
