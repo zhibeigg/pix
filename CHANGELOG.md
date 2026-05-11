@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-05-11
+
+### Fixed
+
+- 使用项目自带 `pix asset` 管线重新生成首页 12 张 64×64 像素素材，替换先前非 Pix 管线生成的占位 PNG。
+
 ## [0.34.0] - 2026-05-11
 
 ### Changed
@@ -350,7 +356,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.34.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.34.1...HEAD
+[0.34.1]: https://github.com/zhibeigg/pix/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/zhibeigg/pix/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/zhibeigg/pix/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/zhibeigg/pix/compare/v0.31.1...v0.32.0
