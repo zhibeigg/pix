@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-05-11
+
+### Changed
+
+- 按 PackyAPI 首页骨架重构未登录体验，新增固定顶部导航、左右分栏首屏、一屏一章节的落地页结构。
+- 将 Pix 首屏改为产品定位、Prompt 生产管线展示、CTA、指标卡和右侧能力卡组合。
+- 新增核心价值、三步工作流、素材生态和最终登录 CTA sections；登录后仍直接展示控制台摘要与当前工作页。
+
 ## [0.31.1] - 2026-05-11
 
 ### Fixed
@@ -326,7 +334,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.31.1...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/zhibeigg/pix/compare/v0.31.1...v0.32.0
 [0.31.1]: https://github.com/zhibeigg/pix/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/zhibeigg/pix/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/zhibeigg/pix/compare/v0.29.0...v0.30.0

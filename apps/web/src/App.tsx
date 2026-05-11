@@ -6,6 +6,7 @@ import { AppTabs, type AppPage } from './components/AppTabs'
 import { AccountMenu } from './components/AccountMenu'
 import { AppHero } from './components/AppHero'
 import { AuthPanel } from './components/AuthPanel'
+import { LandingSections } from './components/LandingSections'
 import { AdminPage } from './pages/AdminPage'
 import { BillingPage } from './pages/BillingPage'
 import { GalleryPage } from './pages/GalleryPage'
@@ -425,40 +426,47 @@ export function App() {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth={false} sx={{ maxWidth: 1280, py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 }, mx: 'auto' }}>
-        <Stack spacing={4}>
-          <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} />
-          {!user && <Box id="auth-panel"><AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} /></Box>}
-          {message && <Alert severity="info" role="status" aria-live="polite">{message}</Alert>}
-
-          {user ? (
-            <>
-              <Box sx={{ display: 'grid', gap: 3 }}>
-                {page === 'workspace' && (
-                  <WorkspacePage mode={mode} pricing={pricing} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onRefresh={() => refreshCore()} />
-                )}
-                {page === 'gallery' && (
-                  <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCreateJob={createJob} onRefresh={() => refreshCore()} />
-                )}
-                {page === 'packs' && (
-                  <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onRefresh={() => refreshCore()} />
-                )}
-                {page === 'billing' && (
-                  <BillingPage balance={balance} transactions={transactions} packages={packages} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onMockPayOrder={mockPayPaymentOrder} />
-                )}
-                {page === 'admin' && isAdmin && (
-                  <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onUpdateSetting={updateSetting} />
-                )}
-              </Box>
-            </>
-          ) : (
-            <Alert severity="info">
-              <Typography variant="h6" gutterBottom>先登录或注册</Typography>
-              第一个注册用户会自动成为管理员。登录后可以进入生产工作台、作品库、素材包、点数中心和管理后台。
-            </Alert>
-          )}
-        </Stack>
-      </Container>
+      {user ? (
+        <Container maxWidth={false} sx={{ maxWidth: 1280, py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 }, mx: 'auto' }}>
+          <Stack spacing={4}>
+            <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
+            {message && <Alert severity="info" role="status" aria-live="polite">{message}</Alert>}
+            <Box sx={{ display: 'grid', gap: 3 }}>
+              {page === 'workspace' && (
+                <WorkspacePage mode={mode} pricing={pricing} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onRefresh={() => refreshCore()} />
+              )}
+              {page === 'gallery' && (
+                <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCreateJob={createJob} onRefresh={() => refreshCore()} />
+              )}
+              {page === 'packs' && (
+                <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onRefresh={() => refreshCore()} />
+              )}
+              {page === 'billing' && (
+                <BillingPage balance={balance} transactions={transactions} packages={packages} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onMockPayOrder={mockPayPaymentOrder} />
+              )}
+              {page === 'admin' && isAdmin && (
+                <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onUpdateSetting={updateSetting} />
+              )}
+            </Box>
+          </Stack>
+        </Container>
+      ) : (
+        <Box
+          sx={{
+            height: { md: 'calc(100vh - 80px)' },
+            overflowY: { md: 'auto' },
+            scrollSnapType: { md: 'y mandatory' },
+            scrollBehavior: 'smooth',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            '&::-webkit-scrollbar': { display: 'none' },
+          }}
+        >
+          <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
+          {message && <Box sx={{ maxWidth: 1152, mx: 'auto', px: { xs: 2, md: 4 }, py: 2 }}><Alert severity="info" role="status" aria-live="polite">{message}</Alert></Box>}
+          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} />} />
+        </Box>
+      )}
     </Box>
   )
 }
