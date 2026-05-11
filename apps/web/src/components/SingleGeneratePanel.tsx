@@ -1,4 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react'
+import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import { api } from '../api'
 import type { JobCreateRequest, JobType, PricingRule } from '../types'
 import { buildPixelize, parsePixelSize } from '../pixelize'
@@ -55,51 +56,58 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
   }
 
   return (
-    <section className="panel composer-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Single</p>
-          <h2>单图生成</h2>
-        </div>
-        <span className="price-tag">预计 {price} credits</span>
-      </div>
-      <form className="stack" onSubmit={submit}>
-        <label>
-          模式
-          <select value={jobType} onChange={(event) => setJobType(event.target.value as JobType)}>
-            <option value="text_to_image">文生图</option>
-            <option value="image_to_image">图生图 / AI 微调</option>
-            <option value="local_pixelize">本地像素化</option>
-          </select>
-        </label>
-        {needsPrompt && <label>Prompt<textarea rows={5} value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label>}
-        {needsImage && (
-          <div className="stack upload-block">
-            <label>
-              上传图片
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                disabled={uploading}
-                onChange={(event) => uploadFile(event.target.files?.[0])}
-              />
-            </label>
-            {uploadMessage && <p className="muted">{uploadMessage}</p>}
-            {uploadUrl && <img className="inline-preview" src={uploadUrl} alt="上传预览" loading="lazy" decoding="async" />}
-            <label>
-              输入图片路径（可手动覆盖）
-              <input value={inputImagePath} onChange={(event) => setInputImagePath(event.target.value)} placeholder="上传后自动填充" />
-            </label>
-          </div>
-        )}
-        <div className="two-columns">
-          <label>像素尺寸<input value={pixelSize} onChange={(event) => setPixelSize(event.target.value)} /></label>
-          <label>颜色数<input type="number" min={2} max={256} value={colors} onChange={(event) => setColors(Number(event.target.value))} /></label>
-        </div>
-        <label className="check-row"><input type="checkbox" checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />透明背景</label>
-        <label className="check-row"><input type="checkbox" checked={skipVl} onChange={(event) => setSkipVl(event.target.checked)} />跳过 VL 分析</label>
-        <button disabled={loading}>{loading ? '提交中…' : '生成单张作品'}</button>
-      </form>
-    </section>
+    <Card variant="outlined">
+      <CardContent>
+        <Stack spacing={3}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
+            <Box>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Single</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 950 }}>单图生成</Typography>
+            </Box>
+            <Chip color="secondary" variant="outlined" label={`预计 ${price} credits`} />
+          </Stack>
+
+          <Stack component="form" spacing={2.5} onSubmit={submit}>
+            <TextField select label="模式" value={jobType} onChange={(event) => setJobType(event.target.value as JobType)}>
+              <MenuItem value="text_to_image">文生图</MenuItem>
+              <MenuItem value="image_to_image">图生图 / AI 微调</MenuItem>
+              <MenuItem value="local_pixelize">本地像素化</MenuItem>
+            </TextField>
+
+            {needsPrompt && (
+              <TextField label="Prompt" value={prompt} multiline minRows={5} onChange={(event) => setPrompt(event.target.value)} />
+            )}
+
+            {needsImage && (
+              <Card variant="outlined" sx={{ bgcolor: 'background.default' }}>
+                <CardContent>
+                  <Stack spacing={2}>
+                    <Button variant="outlined" component="label" disabled={uploading}>
+                      {uploading ? '上传中…' : '上传图片'}
+                      <Box component="input" type="file" accept="image/png,image/jpeg,image/webp" sx={{ display: 'none' }} onChange={(event) => uploadFile(event.currentTarget.files?.[0])} />
+                    </Button>
+                    {uploadMessage && <Alert severity={uploadMessage.includes('失败') ? 'error' : 'info'}>{uploadMessage}</Alert>}
+                    {uploadUrl && (
+                      <Box component="img" src={uploadUrl} alt="上传预览" loading="lazy" decoding="async" sx={{ width: '100%', maxHeight: 220, objectFit: 'contain', imageRendering: 'pixelated', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', p: 1 }} />
+                    )}
+                    <TextField label="输入图片路径（可手动覆盖）" value={inputImagePath} placeholder="上传后自动填充" onChange={(event) => setInputImagePath(event.target.value)} />
+                  </Stack>
+                </CardContent>
+              </Card>
+            )}
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <TextField label="像素尺寸" value={pixelSize} onChange={(event) => setPixelSize(event.target.value)} />
+              <TextField label="颜色数" type="number" value={colors} onChange={(event) => setColors(Number(event.target.value))} />
+            </Box>
+            <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
+              <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
+              <FormControlLabel control={<Checkbox checked={skipVl} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过 VL 分析" />
+            </Stack>
+            <Button type="submit" variant="contained" disabled={loading}>{loading ? '提交中…' : '生成单张作品'}</Button>
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
   )
 }

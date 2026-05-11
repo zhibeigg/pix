@@ -1,4 +1,6 @@
+import { Stack } from '@mui/material'
 import { AdminPanel } from '../components/AdminPanel'
+import { PageHeader } from '../components/PageHeader'
 import type { AdminDashboard, PricingRule, SystemSetting, User } from '../types'
 
 interface AdminPageProps {
@@ -14,13 +16,9 @@ interface AdminPageProps {
 
 export function AdminPage(props: AdminPageProps) {
   return (
-    <section className="page-stack">
-      <header className="page-heading">
-        <p className="eyebrow">Admin</p>
-        <h2>管理后台</h2>
-        <p>查看运营概览、调整用户点数、配置价格和上线保护策略。</p>
-      </header>
+    <Stack spacing={3}>
+      <PageHeader eyebrow="Admin" title="管理后台" description="查看运营概览、调整用户点数、配置价格和上线保护策略。" />
       <AdminPanel {...props} />
-    </section>
+    </Stack>
   )
 }

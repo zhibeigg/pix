@@ -47,7 +47,7 @@ export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onA
           </Tabs>
 
           {tab === 'dashboard' && dashboard && (
-            <Box className="metric-grid">
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' }, gap: 1.25 }}>
               <Metric label="今日任务" value={dashboard.jobs_today} />
               <Metric label="成功 / 失败" value={`${dashboard.succeeded_today} / ${dashboard.failed_today}`} />
               <Metric label="排队 / 运行" value={`${dashboard.pending_jobs} / ${dashboard.running_jobs}`} />
@@ -93,7 +93,7 @@ export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onA
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <Box className="metric">
+    <Box sx={{ bgcolor: 'background.default', border: 1, borderColor: 'divider', borderRadius: 2, p: 1.5, fontVariantNumeric: 'tabular-nums' }}>
       <Typography variant="caption" color="text.secondary">{label}</Typography>
       <Typography variant="h5" sx={{ fontWeight: 950 }}>{value}</Typography>
     </Box>

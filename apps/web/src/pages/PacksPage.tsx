@@ -1,5 +1,7 @@
+import { Box, Stack } from '@mui/material'
 import { BatchPanel } from '../components/BatchPanel'
 import { GalleryGrid } from '../components/GalleryGrid'
+import { PageHeader } from '../components/PageHeader'
 import type { GenerationBatch, GenerationJob } from '../types'
 
 interface PacksPageProps {
@@ -24,8 +26,8 @@ interface PacksPageProps {
 
 export function PacksPage({ batches, selectedBatch, selectedBatchId, selectedBatchJobs, selectedJobId, retrying, downloading, onSelectBatch, onClearSelection, onRetryFailed, onDownloadBatch, onRenameBatch, onToggleArchive, onDeleteBatch, onSelectJob, onCopyPath, onRefresh }: PacksPageProps) {
   return (
-    <section className="page-grid page-grid-packs">
-      <aside className="page-aside page-aside-wide">
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(300px, 420px) minmax(0, 1fr)' }, gap: 3, alignItems: 'start' }}>
+      <Box sx={{ minWidth: 0 }}>
         <BatchPanel
           batches={batches}
           selectedBatchId={selectedBatchId}
@@ -40,15 +42,15 @@ export function PacksPage({ batches, selectedBatch, selectedBatchId, selectedBat
           downloading={downloading}
           onRefresh={onRefresh}
         />
-      </aside>
-      <div className="page-main">
-        <header className="page-heading">
-          <p className="eyebrow">Packs</p>
-          <h2>{selectedBatch ? selectedBatch.name : '素材包'}</h2>
-          <p>{selectedBatch ? '当前只显示这个素材包里的任务。' : '选择一个素材包，查看该批次的作品、失败项和下载入口。'}</p>
-        </header>
+      </Box>
+      <Stack spacing={3} sx={{ minWidth: 0 }}>
+        <PageHeader
+          eyebrow="Packs"
+          title={selectedBatch ? selectedBatch.name : '素材包'}
+          description={selectedBatch ? '当前只显示这个素材包里的任务。' : '选择一个素材包，查看该批次的作品、失败项和下载入口。'}
+        />
         <GalleryGrid jobs={selectedBatch ? selectedBatchJobs : []} subtitle={selectedBatch ? `素材包：${selectedBatch.name}` : '请选择素材包'} selectedJobId={selectedJobId} onSelect={onSelectJob} onCopyPath={onCopyPath} />
-      </div>
-    </section>
+      </Stack>
+    </Box>
   )
 }

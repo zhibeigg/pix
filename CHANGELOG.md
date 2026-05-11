@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-05-11
+
+### Changed
+
+- 将登录、生产表单、批量上传、任务队列、素材包、微调面板和页面骨架全部迁移到 MUI 组件体系。
+- 将作品网格、点数中心和管理后台中剩余的布局 class 收敛到 MUI `sx`，移除对 legacy panel/grid 样式的依赖。
+- 大幅精简 `styles.css`，只保留页面基础背景、code 色彩和 reduced-motion 兜底。
+
 ## [0.28.0] - 2026-05-11
 
 ### Added
@@ -296,7 +304,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/zhibeigg/pix/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/zhibeigg/pix/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/zhibeigg/pix/compare/v0.26.1...v0.27.0
 [0.26.1]: https://github.com/zhibeigg/pix/compare/v0.26.0...v0.26.1

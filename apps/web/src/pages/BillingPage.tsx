@@ -1,4 +1,6 @@
+import { Stack } from '@mui/material'
 import { CreditPanel } from '../components/CreditPanel'
+import { PageHeader } from '../components/PageHeader'
 import type { CreditBalance, CreditPackage, CreditTransaction, PaymentCheckout, PaymentOrder } from '../types'
 
 interface BillingPageProps {
@@ -16,13 +18,9 @@ interface BillingPageProps {
 
 export function BillingPage(props: BillingPageProps) {
   return (
-    <section className="page-stack">
-      <header className="page-heading">
-        <p className="eyebrow">Credits</p>
-        <h2>点数中心</h2>
-        <p>充值 Credits、查看订单和流水。生成失败会自动退回冻结点数。</p>
-      </header>
+    <Stack spacing={3}>
+      <PageHeader eyebrow="Credits" title="点数中心" description="充值 Credits、查看订单和流水。生成失败会自动退回冻结点数。" />
       <CreditPanel {...props} />
-    </section>
+    </Stack>
   )
 }

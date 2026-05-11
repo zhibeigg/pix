@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react'
+import { Box, Button, Card, CardContent, Chip, Stack, TextField, Typography } from '@mui/material'
 import type { User } from '../types'
 
 type AuthPanelProps = {
@@ -26,46 +27,45 @@ export function AuthPanel({ user, onLogin, onRegister, onLogout, loading }: Auth
 
   if (user) {
     return (
-      <section className="panel identity-panel">
-        <div>
-          <p className="eyebrow">当前账户</p>
-          <h2>{user.display_name || user.email}</h2>
-          <p className="muted">{user.email}</p>
-          <span className="pill">{user.role}</span>
-        </div>
-        <button className="ghost" onClick={onLogout}>退出登录</button>
-      </section>
+      <Card variant="outlined">
+        <CardContent>
+          <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>当前账户</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 950 }}>{user.display_name || user.email}</Typography>
+              <Typography color="text.secondary" sx={{ mb: 1 }}>{user.email}</Typography>
+              <Chip label={user.role} color={user.role === 'admin' ? 'secondary' : 'default'} variant="outlined" />
+            </Box>
+            <Button variant="outlined" onClick={onLogout}>退出登录</Button>
+          </Stack>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <section className="panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">账户</p>
-          <h2>{mode === 'login' ? '登录工作台' : '创建账户'}</h2>
-        </div>
-        <button className="ghost" type="button" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
-          {mode === 'login' ? '注册' : '登录'}
-        </button>
-      </div>
-      <form onSubmit={submit} className="stack">
-        {mode === 'register' && (
-          <label>
-            昵称
-            <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
-          </label>
-        )}
-        <label>
-          邮箱
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-        </label>
-        <label>
-          密码
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-        </label>
-        <button disabled={loading}>{loading ? '处理中…' : mode === 'login' ? '登录' : '注册'}</button>
-      </form>
-    </section>
+    <Card variant="outlined">
+      <CardContent>
+        <Stack spacing={2.5}>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+            <Box>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>账户</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 950 }}>{mode === 'login' ? '登录工作台' : '创建账户'}</Typography>
+            </Box>
+            <Button variant="outlined" type="button" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
+              {mode === 'login' ? '注册' : '登录'}
+            </Button>
+          </Stack>
+          <Stack component="form" spacing={2} onSubmit={submit}>
+            {mode === 'register' && (
+              <TextField label="昵称" value={displayName} autoComplete="name" onChange={(event) => setDisplayName(event.target.value)} />
+            )}
+            <TextField label="邮箱" type="email" value={email} autoComplete="email" onChange={(event) => setEmail(event.target.value)} />
+            <TextField label="密码" type="password" value={password} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} onChange={(event) => setPassword(event.target.value)} />
+            <Button type="submit" variant="contained" disabled={loading}>{loading ? '处理中…' : mode === 'login' ? '登录' : '注册'}</Button>
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
   )
 }
