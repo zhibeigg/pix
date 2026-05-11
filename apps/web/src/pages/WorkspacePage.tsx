@@ -35,7 +35,7 @@ export function WorkspacePage({ mode, pricing, balance, jobs, loading, token, on
               value={mode}
               aria-label="创建模式"
               onChange={(_, value: WorkMode) => onModeChange(value)}
-              sx={{ minHeight: 0, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTabs-flexContainer': { gap: .5 }, '& .MuiTab-root': { minHeight: 36, borderRadius: 999, px: 2 }, '& .Mui-selected': { bgcolor: notionTokens.inkDeep, color: `${notionTokens.onDark} !important` } }}
+              sx={{ minHeight: 0, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTabs-flexContainer': { gap: .5 }, '& .MuiTab-root': { minHeight: 36, borderRadius: 999, px: 2 }, '& .Mui-selected': { bgcolor: notionTokens.brandNavyDeep, color: `${notionTokens.onDark} !important` } }}
             >
               <Tab value="single" label="单图生成" />
               <Tab value="batch" label="批量生产" />

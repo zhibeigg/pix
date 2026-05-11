@@ -47,9 +47,9 @@ export function AppTabs({ page, user, onChange }: AppTabsProps) {
             onClick={() => onChange(tab.page)}
             sx={{
               border: 1,
-              borderColor: active ? notionTokens.inkDeep : notionTokens.hairline,
+              borderColor: active ? notionTokens.brandNavyDeep : notionTokens.hairline,
               borderRadius: 999,
-              bgcolor: active ? notionTokens.inkDeep : notionTokens.canvas,
+              bgcolor: active ? notionTokens.brandNavyDeep : notionTokens.canvas,
               color: active ? notionTokens.onDark : notionTokens.ink,
               px: { xs: 1.75, lg: 2 },
               py: .9,
