@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Alert, AppBar, Box, Chip, Container, Stack, Toolbar, Typography } from '@mui/material'
 import { api, ApiError } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
 import { AuthPanel } from './components/AuthPanel'
@@ -396,28 +397,31 @@ export function App() {
   }
 
   return (
-    <main className="app-shell forge-shell">
-      <header className="hero forge-hero">
-        <div>
-          <p className="eyebrow">Pix Forge</p>
-          <h1>像素素材工坊</h1>
-          <p>单图快速试想法，批量生产素材包；本地微调免费，AI 微调清楚显示点数消耗。</p>
-        </div>
-        <div className="hero-stats">
-          <Metric label="可用点数" value={balance?.available_credits ?? '—'} />
-          <Metric label="队列中" value={activeJobs} />
-          <Metric label="已完成" value={completedJobs} />
-          <Metric label="失败" value={failedJobs} />
-        </div>
-      </header>
+    <Box component="main">
+      <AppBar position="sticky" elevation={0} color="transparent" sx={{ backdropFilter: 'blur(18px)', borderBottom: 1, borderColor: 'divider' }}>
+        <Toolbar sx={{ gap: 2 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Pix Forge</Typography>
+            <Typography variant="h5" component="h1" sx={{ fontWeight: 950 }}>像素素材工坊</Typography>
+          </Box>
+          <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', md: 'flex' } }}>
+            <Chip label={`点数 ${balance?.available_credits ?? '—'}`} color="primary" variant="outlined" />
+            <Chip label={`队列 ${activeJobs}`} variant="outlined" />
+            <Chip label={`完成 ${completedJobs}`} variant="outlined" />
+            <Chip label={`失败 ${failedJobs}`} color={failedJobs ? 'error' : 'default'} variant="outlined" />
+          </Stack>
+        </Toolbar>
+      </AppBar>
 
-      <AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} />
-      {message && <div className="toast" role="status" aria-live="polite">{message}</div>}
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Stack spacing={3}>
+          <AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} />
+          {message && <Alert severity="info" role="status" aria-live="polite">{message}</Alert>}
 
-      {user ? (
-        <>
-          <AppTabs page={page} user={user} onChange={navigate} />
-          <section className="page-shell">
+          {user ? (
+            <>
+              <AppTabs page={page} user={user} onChange={navigate} />
+              <section className="page-shell">
             {page === 'workspace' && (
               <WorkspacePage mode={mode} pricing={pricing} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onRefresh={() => refreshCore()} />
             )}
@@ -433,24 +437,16 @@ export function App() {
             {page === 'admin' && isAdmin && (
               <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onUpdateSetting={updateSetting} />
             )}
-          </section>
-        </>
-      ) : (
-        <section className="panel empty-panel landing-panel">
-          <p className="eyebrow">Start</p>
-          <h2>先登录或注册</h2>
-          <p>第一个注册用户会自动成为管理员。登录后可以进入生产工作台、作品库、素材包、点数中心和管理后台。</p>
-        </section>
-      )}
-    </main>
-  )
-}
-
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="metric hero-metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
+              </section>
+            </>
+          ) : (
+            <Alert severity="info" className="landing-panel">
+              <Typography variant="h6" gutterBottom>先登录或注册</Typography>
+              第一个注册用户会自动成为管理员。登录后可以进入生产工作台、作品库、素材包、点数中心和管理后台。
+            </Alert>
+          )}
+        </Stack>
+      </Container>
+    </Box>
   )
 }

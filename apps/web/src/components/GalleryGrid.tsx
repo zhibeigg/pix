@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Box, Button, Card, CardActions, CardContent, CardMedia, Chip, Pagination, Stack, Typography } from '@mui/material'
 import type { GenerationJob } from '../types'
 import { summarizePrompt } from '../pixelize'
 
@@ -18,6 +19,14 @@ const statusLabels: Record<string, string> = {
   cancelled: '已取消',
 }
 
+const statusColors: Record<string, 'default' | 'primary' | 'success' | 'error' | 'warning'> = {
+  pending: 'warning',
+  running: 'primary',
+  succeeded: 'success',
+  failed: 'error',
+  cancelled: 'default',
+}
+
 export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPath }: GalleryGridProps) {
   const [page, setPage] = useState(1)
   const pageSize = 80
@@ -27,82 +36,67 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
   const visible = ordered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   return (
-    <section className="panel gallery-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Library</p>
-          <h2>作品网格</h2>
-          {subtitle && <p className="muted">{subtitle}</p>}
-        </div>
-        <span className="price-tag">{ordered.length} 件作品/任务</span>
-      </div>
-      {ordered.length === 0 ? (
-        <div className="empty-gallery">
-          <h3>你的像素工坊还是空的</h3>
-          <p>先用单图生成试一个道具，或粘贴 5-20 行 prompt 开始批量生产。</p>
-        </div>
-      ) : (
-        <div className="gallery-grid">
-          {visible.map((job) => {
-            const output = job.outputs[0]
-            const mainPath = output?.pixelized_path || output?.source_path || job.input_image_path || ''
-            const previewUrl = output?.pixelized_url || output?.source_url || job.input_image_url || ''
-            return (
-              <article
-                className={`gallery-card ${selectedJobId === job.id ? 'selected' : ''}`}
-                key={job.id}
-                aria-current={selectedJobId === job.id ? 'true' : undefined}
-              >
-                <div className="pixel-preview">
-                  {previewUrl ? (
-                    <img src={previewUrl} alt={summarizePrompt(job.prompt || job.input_image_path, '作品预览')} loading="lazy" decoding="async" />
-                  ) : (
-                    <span>{job.status === 'succeeded' ? 'PIX' : statusLabels[job.status] ?? job.status}</span>
-                  )}
-                </div>
-                <div className="gallery-card-body">
-                  <div className="job-card-top">
-                    <strong>#{job.id} · {job.job_type}</strong>
-                    <span className={`status ${job.status}`}>{statusLabels[job.status] ?? job.status}</span>
-                  </div>
-                  <p>{summarizePrompt(job.prompt || job.input_image_path)}</p>
-                  <div className="job-meta">
-                    <span>{job.price_credits} credits</span>
-                    <span>{new Date(job.created_at).toLocaleString()}</span>
-                  </div>
-                  {job.batch_name && <p className="muted">素材包：{job.batch_name}</p>}
-                  <div className="card-actions">
-                    <button
-                      className={selectedJobId === job.id ? 'compact' : 'ghost compact'}
-                      type="button"
-                      aria-pressed={selectedJobId === job.id}
-                      onClick={() => onSelect(job)}
-                    >
-                      {selectedJobId === job.id ? '已选中' : '选择作品'}
-                    </button>
-                    {mainPath && (
-                      <button
-                        className="ghost compact"
-                        type="button"
-                        onClick={() => onCopyPath(mainPath)}
-                      >
-                        复制路径
-                      </button>
+    <Card className="gallery-panel" variant="outlined">
+      <CardContent>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}>
+          <Box>
+            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Library</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 950 }}>作品网格</Typography>
+            {subtitle && <Typography color="text.secondary">{subtitle}</Typography>}
+          </Box>
+          <Chip label={`${ordered.length} 件作品/任务`} color="secondary" variant="outlined" />
+        </Stack>
+
+        {ordered.length === 0 ? (
+          <Box className="empty-gallery" sx={{ mt: 3 }}>
+            <Typography variant="h6">你的像素工坊还是空的</Typography>
+            <Typography color="text.secondary">先用单图生成试一个道具，或粘贴 5-20 行 prompt 开始批量生产。</Typography>
+          </Box>
+        ) : (
+          <Box className="gallery-grid" sx={{ mt: 3 }}>
+            {visible.map((job) => {
+              const output = job.outputs[0]
+              const mainPath = output?.pixelized_path || output?.source_path || job.input_image_path || ''
+              const previewUrl = output?.pixelized_url || output?.source_url || job.input_image_url || ''
+              const selected = selectedJobId === job.id
+              return (
+                <Card className={`gallery-card ${selected ? 'selected' : ''}`} key={job.id} variant="outlined" aria-current={selected ? 'true' : undefined}>
+                  <CardMedia className="pixel-preview" component="div">
+                    {previewUrl ? (
+                      <img src={previewUrl} alt={summarizePrompt(job.prompt || job.input_image_path, '作品预览')} loading="lazy" decoding="async" />
+                    ) : (
+                      <span>{job.status === 'succeeded' ? 'PIX' : statusLabels[job.status] ?? job.status}</span>
                     )}
-                  </div>
-                </div>
-              </article>
-            )
-          })}
-        </div>
-      )}
-      {ordered.length > pageSize && (
-        <div className="pager" aria-label="作品分页">
-          <button className="ghost compact" type="button" disabled={safePage <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button>
-          <span className="muted">第 {safePage} / {totalPages} 页</span>
-          <button className="ghost compact" type="button" disabled={safePage >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>下一页</button>
-        </div>
-      )}
-    </section>
+                  </CardMedia>
+                  <CardContent sx={{ display: 'grid', gap: 1.1 }}>
+                    <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}>
+                      <Typography sx={{ fontWeight: 900 }}>#{job.id} · {job.job_type}</Typography>
+                      <Chip size="small" color={statusColors[job.status] ?? 'default'} label={statusLabels[job.status] ?? job.status} />
+                    </Stack>
+                    <Typography color="text.secondary" variant="body2">{summarizePrompt(job.prompt || job.input_image_path)}</Typography>
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                      <Chip size="small" variant="outlined" label={`${job.price_credits} credits`} />
+                      <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />
+                    </Stack>
+                    {job.batch_name && <Typography color="text.secondary" variant="caption">素材包：{job.batch_name}</Typography>}
+                  </CardContent>
+                  <CardActions>
+                    <Button size="small" variant={selected ? 'contained' : 'outlined'} aria-pressed={selected} onClick={() => onSelect(job)}>
+                      {selected ? '已选中' : '选择作品'}
+                    </Button>
+                    {mainPath && <Button size="small" variant="text" onClick={() => onCopyPath(mainPath)}>复制路径</Button>}
+                  </CardActions>
+                </Card>
+              )
+            })}
+          </Box>
+        )}
+        {ordered.length > pageSize && (
+          <Stack sx={{ mt: 3, alignItems: 'center' }}>
+            <Pagination count={totalPages} page={safePage} color="primary" onChange={(_, value) => setPage(value)} />
+          </Stack>
+        )}
+      </CardContent>
+    </Card>
   )
 }
