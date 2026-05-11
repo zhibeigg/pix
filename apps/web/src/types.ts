@@ -157,6 +157,13 @@ export type PaymentOrder = {
   paid_at: string | null
 }
 
+export type PaymentCheckout = {
+  order: PaymentOrder
+  provider: string
+  payment_url: string | null
+  code_url: string | null
+}
+
 export type AdminDashboard = {
   total_users: number
   jobs_today: number

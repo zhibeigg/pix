@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from io import BytesIO
+import base64
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from zipfile import ZipFile
@@ -8,10 +11,14 @@ from zipfile import ZipFile
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from pix_web.config import WebSettings
 from pix_web.main import create_app
 from pix_web.models import GenerationBatch
+from pix_web.payment_providers import _alipay_sign_content, _rsa_sign
 from pix_web.worker import process_next_job
 
 
@@ -88,6 +95,128 @@ def test_admin_dashboard_requires_admin_and_reports_counts(client: TestClient) -
     assert body["orders_paid_today"] == 1
     assert body["uploads_today"] == 1
     assert body["credits_recharged_today"] >= order["credits"]
+
+
+def _rsa_key_pair() -> tuple[str, str]:
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    private_pem = private_key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode("utf-8")
+    public_pem = private_key.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode("utf-8")
+    return private_pem, public_pem
+
+
+def test_alipay_checkout_and_webhook_are_idempotent(client: TestClient) -> None:
+    private_pem, public_pem = _rsa_key_pair()
+    client.app.state.web_settings = replace(
+        client.app.state.web_settings,
+        public_base_url="https://pix.example.com/api",
+        alipay_app_id="app-id",
+        alipay_private_key=private_pem,
+        alipay_public_key=public_pem,
+    )
+    _user, headers = _register_and_login(client)
+    checkout = client.post("/billing/checkout", headers=headers, json={"package_key": "starter", "provider": "alipay"})
+
+    assert checkout.status_code == 200
+    body = checkout.json()
+    assert body["provider"] == "alipay"
+    assert "alipay.trade.page.pay" in body["payment_url"]
+    assert "sign=" in body["payment_url"]
+
+    order = body["order"]
+    form = {
+        "out_trade_no": order["provider_order_id"],
+        "trade_no": "ali-trade-1",
+        "trade_status": "TRADE_SUCCESS",
+        "total_amount": f"{order['amount_cents'] / 100:.2f}",
+        "sign_type": "RSA2",
+    }
+    sign_payload = {key: value for key, value in form.items() if key != "sign_type"}
+    form["sign"] = _rsa_sign(private_pem, _alipay_sign_content(sign_payload))
+    paid = client.post("/billing/webhook/alipay", data=form)
+    again = client.post("/billing/webhook/alipay", data=form)
+
+    assert paid.status_code == 200
+    assert paid.text == "success"
+    assert again.status_code == 200
+    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == order["credits"]
+
+
+def test_wechat_checkout_and_webhook_are_idempotent(client: TestClient, monkeypatch) -> None:
+    merchant_private, _merchant_public = _rsa_key_pair()
+    platform_private, platform_public = _rsa_key_pair()
+    api_v3_key = "a" * 32
+    client.app.state.web_settings = replace(
+        client.app.state.web_settings,
+        public_base_url="https://pix.example.com/api",
+        wechat_app_id="wx-app",
+        wechat_mch_id="mch-id",
+        wechat_private_key=merchant_private,
+        wechat_merchant_serial_no="serial-no",
+        wechat_api_v3_key=api_v3_key,
+        wechat_platform_cert=platform_public,
+    )
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, str]:
+            return {"code_url": "weixin://wxpay/test"}
+
+    monkeypatch.setattr("pix_web.payment_providers.httpx.post", lambda *args, **kwargs: FakeResponse())
+    _user, headers = _register_and_login(client)
+    checkout = client.post("/billing/checkout", headers=headers, json={"package_key": "starter", "provider": "wechat"})
+
+    assert checkout.status_code == 200
+    body = checkout.json()
+    assert body["code_url"] == "weixin://wxpay/test"
+    order = body["order"]
+
+    resource = {
+        "trade_state": "SUCCESS",
+        "out_trade_no": order["provider_order_id"],
+        "transaction_id": "wx-trade-1",
+        "amount": {"total": order["amount_cents"], "currency": "CNY"},
+    }
+    nonce = "nonce-123456"
+    aad = "transaction"
+    ciphertext = AESGCM(api_v3_key.encode("utf-8")).encrypt(
+        nonce.encode("utf-8"),
+        json.dumps(resource, separators=(",", ":")).encode("utf-8"),
+        aad.encode("utf-8"),
+    )
+    payload = {
+        "id": "notify-1",
+        "resource": {
+            "algorithm": "AEAD_AES_256_GCM",
+            "ciphertext": base64.b64encode(ciphertext).decode("ascii"),
+            "nonce": nonce,
+            "associated_data": aad,
+        },
+    }
+    raw = json.dumps(payload, separators=(",", ":"))
+    timestamp = "1700000000"
+    notify_nonce = "notify-nonce"
+    signature = _rsa_sign(platform_private, f"{timestamp}\n{notify_nonce}\n{raw}\n")
+    notify_headers = {
+        "Wechatpay-Timestamp": timestamp,
+        "Wechatpay-Nonce": notify_nonce,
+        "Wechatpay-Signature": signature,
+    }
+    paid = client.post("/billing/webhook/wechat", content=raw, headers=notify_headers)
+    again = client.post("/billing/webhook/wechat", content=raw, headers=notify_headers)
+
+    assert paid.status_code == 200
+    assert paid.json()["code"] == "SUCCESS"
+    assert again.status_code == 200
+    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == order["credits"]
 
 
 def test_billing_order_mock_pay_and_idempotent_webhook(client: TestClient) -> None:

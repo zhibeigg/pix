@@ -296,6 +296,13 @@ PIX_WEB_AUTO_CREATE_DB=false
 PIX_WEB_QUEUE_BACKEND=rq
 ```
 
+支付宝/微信支付配置：
+
+- `PIX_WEB_PUBLIC_BASE_URL` 应配置为公网可访问的 API 基础地址，例如 `https://your-domain.com/api`。
+- 支付宝需要 `ALIPAY_APP_ID`、应用私钥 `ALIPAY_PRIVATE_KEY`、支付宝公钥 `ALIPAY_PUBLIC_KEY`。
+- 微信支付需要 `WECHATPAY_APP_ID`、`WECHATPAY_MCH_ID`、商户私钥、商户证书序列号、API v3 key、微信平台证书。
+- 本地和内测仍可使用 mock pay，不配置真实支付渠道时 `pix-web-check` 会提示未启用真实支付但不会失败。
+
 上线前检查：
 
 ```bash
@@ -332,7 +339,7 @@ VITE_PIX_API_BASE=http://127.0.0.1:8000 npm run dev
 - 微调面板：选中作品后可免费重新像素化，或发起消耗点数的 AI 图生图微调。
 - 浏览器上传：支持 PNG/JPG/WebP，默认最大 10 MB，保存到 `web_outputs/uploads/` 后用于生成任务，并通过受保护的 `/files` 接口预览。
 - 运营保护：管理员可在前端配置生成总开关、每用户 pending/running 上限、每用户每日任务上限、prompt 禁词和每日上传上限，防止队列、内容和成本失控。
-- 充值订单：点数账户可创建充值订单，后端具备套餐、订单、支付事件和幂等到账模型；内测阶段管理员可用 mock pay 模拟支付到账。
+- 充值订单：点数账户可创建充值订单，后端具备套餐、订单、支付事件和幂等到账模型；支持支付宝电脑网站支付、微信支付 API v3 Native 扫码支付，内测阶段管理员仍可用 mock pay 模拟支付到账。
 - 运营 Dashboard：管理员可查看今日任务、成功/失败、排队/运行、充值/消费 credits、上传数、总用户数和失败率。
 
 MVP 计费规则默认：

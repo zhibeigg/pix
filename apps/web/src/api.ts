@@ -6,6 +6,7 @@ import type {
   JobBatchCreateResponse,
   JobCreateRequest,
   AdminDashboard,
+  PaymentCheckout,
   PaymentOrder,
   PricingRule,
   CreditPackage,
@@ -91,6 +92,12 @@ export const api = {
   },
   createOrder(token: string, packageKey: string) {
     return request<PaymentOrder>('/billing/orders', { method: 'POST', body: JSON.stringify({ package_key: packageKey }) }, token)
+  },
+  checkout(token: string, packageKey: string, provider: string) {
+    return request<PaymentCheckout>('/billing/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ package_key: packageKey, provider }),
+    }, token)
   },
   orders(token: string) {
     return request<PaymentOrder[]>('/billing/orders?limit=20', {}, token)

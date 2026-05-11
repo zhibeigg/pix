@@ -76,6 +76,29 @@ def check_storage(settings: WebSettings) -> CheckResult:
     return _result("storage", True, f"可写: {settings.storage_root}")
 
 
+def check_payment_providers(settings: WebSettings) -> CheckResult:
+    alipay_values = [settings.alipay_app_id, settings.alipay_private_key, settings.alipay_public_key]
+    wechat_values = [
+        settings.wechat_app_id,
+        settings.wechat_mch_id,
+        settings.wechat_private_key,
+        settings.wechat_merchant_serial_no,
+        settings.wechat_api_v3_key,
+        settings.wechat_platform_cert,
+    ]
+    alipay_any = any(alipay_values)
+    wechat_any = any(wechat_values)
+    alipay_ok = (not alipay_any) or all(alipay_values)
+    wechat_ok = (not wechat_any) or all(wechat_values)
+    if not alipay_ok:
+        return _result("payments", False, "支付宝配置不完整")
+    if not wechat_ok:
+        return _result("payments", False, "微信支付配置不完整")
+    if alipay_any or wechat_any:
+        return _result("payments", True, "支付渠道配置完整")
+    return _result("payments", True, "未启用真实支付渠道，可使用 mock pay")
+
+
 def check_queue(settings: WebSettings) -> CheckResult:
     if settings.queue_backend == "database":
         return _result("queue", True, "database 后端，无需 Redis")
@@ -99,6 +122,7 @@ def run_checks(settings: WebSettings | None = None) -> list[CheckResult]:
         check_database(loaded),
         check_alembic_head(loaded),
         check_storage(loaded),
+        check_payment_providers(loaded),
         check_queue(loaded),
     ]
 
