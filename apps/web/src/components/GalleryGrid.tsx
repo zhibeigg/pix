@@ -63,7 +63,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                     overflow: 'hidden',
                     cursor: 'default',
                     borderColor: selected ? notionTokens.primary : notionTokens.hairline,
-                    boxShadow: selected ? '0 0 0 2px rgba(108,71,255,.16)' : 'rgba(15, 15, 15, 0.04) 0px 1px 2px 0px',
+                    boxShadow: selected ? notionTokens.focusRing : notionTokens.cardShadow,
                     transition: 'transform .18s ease, border-color .18s ease',
                     '&:hover': { transform: 'translateY(-2px)', borderColor: selected ? 'primary.main' : 'text.secondary' },
                   }}

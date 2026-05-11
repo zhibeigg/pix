@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-05-11
+
+### Added
+
+- Web 端新增暗色工作台主题，支持跟随系统偏好、顶部手动切换和 `localStorage` 持久化。
+- 新增 light/dark 双模式主题变量，让卡片、表单、状态色、阴影和背景在亮色/暗色下统一切换。
+
 ## [0.40.0] - 2026-05-11
 
 ### Changed
@@ -422,7 +429,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.40.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.41.0...HEAD
+[0.41.0]: https://github.com/zhibeigg/pix/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/zhibeigg/pix/compare/v0.39.3...v0.40.0
 [0.39.3]: https://github.com/zhibeigg/pix/compare/v0.39.2...v0.39.3
 [0.39.2]: https://github.com/zhibeigg/pix/compare/v0.39.1...v0.39.2

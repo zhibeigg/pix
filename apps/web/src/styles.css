@@ -1,10 +1,10 @@
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   font-family: "Notion Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-kerning: normal;
   text-rendering: optimizeLegibility;
-  background: #fbfaf7;
-  color: #191711;
+  background: var(--pix-surface-soft, #fbfaf7);
+  color: var(--pix-ink, #191711);
 }
 
 html,
@@ -17,13 +17,13 @@ body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at 8% 0%, rgba(238, 229, 255, .85) 0, rgba(238, 229, 255, 0) 24rem),
-    radial-gradient(circle at 92% 4%, rgba(221, 240, 255, .9) 0, rgba(221, 240, 255, 0) 22rem),
-    #fbfaf7;
+    radial-gradient(circle at 8% 0%, var(--pix-body-gradient-a, rgba(238, 229, 255, .85)) 0, transparent 24rem),
+    radial-gradient(circle at 92% 4%, var(--pix-body-gradient-b, rgba(221, 240, 255, .9)) 0, transparent 22rem),
+    var(--pix-surface-soft, #fbfaf7);
 }
 
 code {
-  color: #0b65d8;
+  color: var(--pix-link-blue, #0b65d8);
 }
 
 @media (prefers-reduced-motion: reduce) {

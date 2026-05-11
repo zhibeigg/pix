@@ -93,7 +93,7 @@ function BatchCard({ batch, selected, retrying, downloading, onSelectBatch, onRe
         bgcolor: batch.status === 'archived' ? notionTokens.tintGray : notionTokens.tintMint,
         opacity: batch.status === 'archived' ? 0.72 : 1,
         borderColor: selected ? notionTokens.primary : notionTokens.hairline,
-        boxShadow: selected ? '0 0 0 2px rgba(108,71,255,.16)' : 'none',
+        boxShadow: selected ? notionTokens.focusRing : 'none',
       }}
     >
       <CardContent>
