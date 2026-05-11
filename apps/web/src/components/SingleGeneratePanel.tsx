@@ -14,7 +14,7 @@ type SingleGeneratePanelProps = {
 
 export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: SingleGeneratePanelProps) {
   const [jobType, setJobType] = useState<JobType>('text_to_image')
-  const [prompt, setPrompt] = useState('A single fantasy RPG item icon, centered, clean silhouette')
+  const [prompt, setPrompt] = useState('一枚幻想 RPG 魔法药水图标，居中构图，轮廓清晰，透明背景')
   const [inputImagePath, setInputImagePath] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
@@ -63,10 +63,10 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
         <Stack spacing={3}>
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
             <Box>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Single</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 600 }}>单图生成</Typography>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>单张试做</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 600 }}>单张素材试做</Typography>
             </Box>
-            <Chip sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} label={`预计 ${price} credits`} />
+            <Chip sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} label={`预计 ${price} 点`} />
           </Stack>
 
           <Stack component="form" spacing={2.5} onSubmit={submit}>
@@ -77,7 +77,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
             </TextField>
 
             {needsPrompt && (
-              <TextField label="Prompt" value={prompt} multiline minRows={5} onChange={(event) => setPrompt(event.target.value)} />
+              <TextField label="素材描述" helperText="描述道具、材质、用途和风格；越像给美术同伴的创作简报，结果越稳定。" value={prompt} multiline minRows={5} onChange={(event) => setPrompt(event.target.value)} />
             )}
 
             {needsImage && (
@@ -104,9 +104,9 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
             </Box>
             <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
               <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
-              <FormControlLabel control={<Checkbox checked={skipVl} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过 VL 分析" />
+              <FormControlLabel control={<Checkbox checked={skipVl} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过参考图理解" />
             </Stack>
-            <Button type="submit" variant="contained" disabled={loading}>{loading ? '提交中…' : '生成单张作品'}</Button>
+            <Button type="submit" variant="contained" disabled={loading}>{loading ? '提交中…' : '生成单张素材'}</Button>
           </Stack>
         </Stack>
       </CardContent>

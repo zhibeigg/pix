@@ -11,19 +11,29 @@ type AppHeroProps = {
   batchCount?: number
 }
 
-const featureCards = [
-  { label: '单图生成', body: '从一句描述快速生成可微调的像素图标，适合验证角色、道具和 UI 元素方向。' },
-  { label: '批量生产', body: '一次上传多张参考图或多条需求，统一入队、计费、追踪和归档。' },
-  { label: 'AI 微调', body: '在作品库中选择结果，继续做本地像素化或图生图微调，保留创作上下文。' },
+const pixelTiles = [
+  { name: '血气灵玉', tint: notionTokens.tintRose, status: '完成', pattern: ['00100', '01110', '11111', '01110', '00100'], color: notionTokens.brandPink },
+  { name: '紫髓铁', tint: notionTokens.tintLavender, status: '完成', pattern: ['11100', '01110', '00111', '01110', '11100'], color: notionTokens.primary },
+  { name: '幽光菇', tint: notionTokens.tintMint, status: '微调', pattern: ['01110', '11111', '10101', '00100', '01110'], color: notionTokens.brandTeal },
+  { name: '古木枝', tint: notionTokens.tintCream, status: '完成', pattern: ['01010', '11100', '01110', '00100', '00100'], color: notionTokens.brandBrown },
+  { name: '冰霜徽章', tint: notionTokens.tintSky, status: '完成', pattern: ['10101', '01110', '11111', '01110', '10101'], color: notionTokens.linkBlue },
+  { name: '熔火碎片', tint: notionTokens.tintPeach, status: '完成', pattern: ['00110', '01111', '11110', '01100', '00100'], color: notionTokens.brandOrange },
+  { name: '藤蔓药剂', tint: notionTokens.tintMint, status: '完成', pattern: ['01110', '01010', '01110', '00100', '01110'], color: notionTokens.brandGreen },
+  { name: '失败项', tint: notionTokens.tintGray, status: '待重试', pattern: ['10001', '01010', '00100', '01010', '10001'], color: notionTokens.error },
+  { name: '月银矿', tint: notionTokens.tintSky, status: '完成', pattern: ['00111', '01110', '11100', '01110', '00111'], color: notionTokens.steel },
+  { name: '雷纹符石', tint: notionTokens.tintYellowBold, status: '完成', pattern: ['00100', '01100', '00110', '00011', '00010'], color: notionTokens.brandOrangeDeep },
+  { name: '毒囊', tint: notionTokens.tintRose, status: '完成', pattern: ['00100', '01110', '10101', '11111', '01110'], color: notionTokens.brandPink },
+  { name: '空瓶', tint: notionTokens.tintCream, status: '排队', pattern: ['01110', '01010', '01010', '01010', '01110'], color: notionTokens.slate },
+]
+
+const workflowStats = [
+  { value: '12', label: '一组 RPG 道具', tone: notionTokens.tintYellowBold },
+  { value: '17/20', label: '成功素材可先导出', tone: notionTokens.tintMint },
+  { value: '3', label: '失败项可重试', tone: notionTokens.tintRose },
 ]
 
 export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, batchCount = 0 }: AppHeroProps) {
-  const compact = Boolean(user)
-  const stats = [
-    { value: activeJobs, label: '队列中', tone: notionTokens.tintSky },
-    { value: completedJobs, label: '已完成', tone: notionTokens.tintMint },
-    { value: balance?.available_credits ?? '—', label: '可用点数', tone: notionTokens.tintLavender },
-  ]
+  const signedIn = Boolean(user)
 
   return (
     <Box
@@ -31,45 +41,49 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
       sx={{
         position: 'relative',
         overflow: 'hidden',
-        scrollSnapAlign: compact ? 'none' : 'start',
-        minHeight: compact ? 'auto' : { md: 'calc(100vh - 80px)' },
+        scrollSnapAlign: signedIn ? 'none' : 'start',
+        minHeight: signedIn ? 'auto' : { md: 'calc(100vh - 80px)' },
         display: 'flex',
         alignItems: 'center',
         bgcolor: notionTokens.brandNavyDeep,
         color: notionTokens.onDark,
-        borderRadius: compact ? 1.5 : 0,
-        mx: compact ? 0 : { xs: -2, md: -4 },
-        px: compact ? { xs: 3, md: 5 } : { xs: 2, md: 4 },
-        py: compact ? { xs: 4, md: 5 } : { xs: 7, md: 9 },
+        mx: signedIn ? 0 : { xs: -2, md: -4 },
+        px: signedIn ? { xs: 2.5, md: 4 } : { xs: 2, md: 4 },
+        py: signedIn ? { xs: 4, md: 5 } : { xs: 7, md: 9 },
+        borderRadius: signedIn ? 1.5 : 0,
       }}
     >
-      <HeroGlow />
+      <PixelAtmosphere />
       <Box sx={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 1152, mx: 'auto' }}>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.08fr .92fr' }, gap: { xs: 5, lg: 7 }, alignItems: 'center' }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.02fr .98fr' }, gap: { xs: 5, lg: 7 }, alignItems: 'center' }}>
           <Stack spacing={3.2}>
             <Chip
-              label={user ? 'Pix Forge 控制平面' : '面向独立开发者的像素素材生产力基座'}
-              sx={{ alignSelf: 'flex-start', bgcolor: 'rgba(255,255,255,.10)', color: notionTokens.onDark, border: '1px solid rgba(255,255,255,.24)', borderRadius: 999 }}
+              label={signedIn ? '今日素材工位' : '给独立游戏作者的像素素材工坊'}
+              sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.tintYellowBold, color: notionTokens.ink, borderRadius: 1 }}
             />
             <Box>
-              <Typography variant="h1" sx={{ maxWidth: 760, fontSize: compact ? { xs: 38, md: 56 } : { xs: 42, sm: 58, md: 76 }, color: notionTokens.onDark }}>
-                一句 Prompt 批量生成像素素材包
+              <Typography variant="h1" sx={{ maxWidth: 760, fontSize: signedIn ? { xs: 36, md: 52 } : { xs: 42, sm: 58, md: 76 }, color: notionTokens.onDark }}>
+                把一批游戏素材生产到可交付状态
               </Typography>
-              <Typography sx={{ mt: 2.5, maxWidth: 640, fontSize: { xs: 16, md: 18 }, lineHeight: 1.65, color: notionTokens.onDarkMuted }}>
-                把单图试验、批量生产、作品库微调和点数成本控制收束到一个工作区，让游戏素材从想法到打包下载更稳定。
+              <Typography sx={{ mt: 2.5, maxWidth: 650, fontSize: { xs: 16, md: 18 }, lineHeight: 1.65, color: notionTokens.onDarkMuted }}>
+                从素材描述到批量入队，再到挑选、微调、重试失败项和打包下载，Pix Forge 更像一张可控的像素工位台，而不是一次性的生成按钮。
               </Typography>
             </Box>
 
-            <PipelineCard />
+            <ProductionBrief />
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-              <Button variant="contained" color="primary" href={user ? '#/workspace' : '#auth-panel'}>开始生产</Button>
-              <Button variant="outlined" href={user ? '#/gallery' : '#workflow'} sx={{ color: notionTokens.onDark, borderColor: 'rgba(255,255,255,.45)' }}>查看流程</Button>
+              <Button variant="contained" color="primary" href={signedIn ? '#/workspace' : '#auth-panel'}>开始生产素材</Button>
+              <Button variant="outlined" href={signedIn ? '#/packs' : '#workflow'} sx={{ color: notionTokens.onDark, borderColor: 'rgba(255,255,255,.45)' }}>查看素材包流程</Button>
             </Stack>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, max-content)' }, gap: 1.5 }}>
-              {stats.map((stat) => (
-                <Box key={stat.label} sx={{ minWidth: 128, border: '1px dashed rgba(255,255,255,.20)', borderRadius: 2, bgcolor: 'rgba(255,255,255,.06)', px: 2, py: 1.5 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, max-content)' }, gap: 1.5 }}>
+              {(signedIn ? [
+                { value: activeJobs, label: '队列中', tone: notionTokens.tintSky },
+                { value: failedJobs, label: '失败待处理', tone: notionTokens.tintRose },
+                { value: balance?.available_credits ?? '—', label: '可用点数', tone: notionTokens.tintLavender },
+              ] : workflowStats).map((stat) => (
+                <Box key={stat.label} sx={{ minWidth: 132, border: '1px solid rgba(255,255,255,.22)', borderRadius: 1.5, bgcolor: 'rgba(11,18,48,.72)', px: 2, py: 1.5 }}>
                   <Typography variant="h4" sx={{ color: stat.tone }}>{stat.value}</Typography>
                   <Typography variant="caption" sx={{ color: notionTokens.onDarkMuted }}>{stat.label}</Typography>
                 </Box>
@@ -77,83 +91,137 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
             </Box>
           </Stack>
 
-          <CapabilityPanel user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batchCount} />
+          <PixelBatchBoard user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batchCount} />
         </Box>
       </Box>
     </Box>
   )
 }
 
-function PipelineCard() {
+export function DashboardSummary({ balance, activeJobs, completedJobs, failedJobs, batchCount = 0 }: Omit<AppHeroProps, 'user'>) {
+  const items = [
+    { label: '可用点数', value: balance?.available_credits ?? '—', tint: notionTokens.tintLavender, action: '余额会在任务入队时冻结，失败后自动退回。' },
+    { label: '队列中', value: activeJobs, tint: notionTokens.tintSky, action: activeJobs ? '后台正在生产，稍后回到作品库挑选。' : '可以开始一组新的素材包。' },
+    { label: '已完成', value: completedJobs, tint: notionTokens.tintMint, action: '完成作品可在作品库继续微调或复制路径。' },
+    { label: '素材包', value: batchCount, tint: notionTokens.tintYellow, action: '批量任务会沉淀为素材包，方便重试和下载。' },
+  ]
+
   return (
-    <Card sx={{ maxWidth: 640, bgcolor: 'rgba(255,255,255,.08)', borderColor: 'rgba(255,255,255,.16)', color: notionTokens.onDark, backdropFilter: 'blur(18px)' }}>
-      <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
-        <Typography variant="caption" sx={{ color: notionTokens.onDarkMuted, letterSpacing: '.08em', textTransform: 'uppercase' }}>输入生产需求即可入队</Typography>
-        <Box sx={{ mt: 1.5, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr auto' }, gap: 1.2, alignItems: 'center' }}>
-          <Box sx={{ border: '1px solid rgba(255,255,255,.18)', borderRadius: 2, bgcolor: 'rgba(255,255,255,.10)', px: 2, py: 1.4 }}>
-            <Typography sx={{ color: notionTokens.onDark }}>RPG 魔法药水图标，一套 12 个，透明背景</Typography>
+    <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
+      <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2.5} sx={{ alignItems: { xs: 'stretch', md: 'center' }, justifyContent: 'space-between' }}>
+          <Box sx={{ maxWidth: 420 }}>
+            <Typography variant="overline" color="text.secondary">今日工位</Typography>
+            <Typography variant="h4">继续生产、挑选和打包你的像素素材</Typography>
+            <Typography color="text.secondary" sx={{ mt: .75 }}>先处理失败项，再下载成功素材包；点数冻结和退回会记录在点数中心。</Typography>
           </Box>
-          <Chip label="批量入队" sx={{ bgcolor: notionTokens.tintYellowBold, color: notionTokens.ink, borderRadius: 999 }} />
+          <Box sx={{ flex: 1, display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4, 1fr)' }, gap: 1.25 }}>
+            {items.map((item) => (
+              <Box key={item.label} sx={{ bgcolor: item.tint, borderRadius: 1.5, border: `1px solid ${notionTokens.hairline}`, p: 1.5, minWidth: 0 }}>
+                <Typography variant="caption" color="text.secondary">{item.label}</Typography>
+                <Typography variant="h5">{item.value}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', xl: 'block' } }}>{item.action}</Typography>
+              </Box>
+            ))}
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ProductionBrief() {
+  return (
+    <Card sx={{ maxWidth: 660, bgcolor: notionTokens.tintCream, borderColor: 'rgba(255,255,255,.20)', color: notionTokens.ink }}>
+      <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+        <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: '.06em', textTransform: 'uppercase' }}>素材描述示例</Typography>
+        <Box sx={{ mt: 1.5, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr auto' }, gap: 1.2, alignItems: 'center' }}>
+          <Box sx={{ border: `1px solid ${notionTokens.hairlineStrong}`, borderRadius: 1.5, bgcolor: notionTokens.canvas, px: 2, py: 1.4 }}>
+            <Typography>RPG 魔法药水图标，一套 12 个，透明背景，适合物品栏</Typography>
+          </Box>
+          <Chip label="生成素材包" sx={{ bgcolor: notionTokens.inkDeep, color: notionTokens.onDark, borderRadius: 1 }} />
         </Box>
       </CardContent>
     </Card>
   )
 }
 
-function CapabilityPanel(props: AppHeroProps) {
+function PixelBatchBoard({ user, balance, activeJobs, completedJobs, failedJobs, batchCount = 0 }: AppHeroProps) {
   return (
-    <Box sx={{ position: 'relative' }}>
-      <Box sx={{ position: 'absolute', inset: -18, borderRadius: 5, opacity: .5, filter: 'blur(40px)', background: `linear-gradient(135deg, ${notionTokens.primary}, ${notionTokens.brandTeal})` }} />
-      <Card sx={{ position: 'relative', borderRadius: 3.5, bgcolor: 'rgba(255,255,255,.10)', borderColor: 'rgba(255,255,255,.18)', color: notionTokens.onDark, backdropFilter: 'blur(20px)', boxShadow: 'rgba(0,0,0,.30) 0 28px 70px -24px' }}>
-        <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
-          <Stack spacing={2.2}>
-            <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 2, alignItems: 'flex-start' }}>
-              <Box>
-                <Typography variant="caption" sx={{ color: notionTokens.onDarkMuted }}>Pix Board</Typography>
-                <Typography variant="h5" sx={{ color: notionTokens.onDark }}>{props.user ? `${props.user.display_name || props.user.email} 的素材控制台` : '像素素材生产线'}</Typography>
-              </Box>
-              <Chip label={props.user?.role ?? 'guest'} sx={{ bgcolor: notionTokens.tintCream, borderRadius: 1, color: notionTokens.ink }} />
-            </Stack>
-
-            {featureCards.map((item, index) => (
-              <Box key={item.label} sx={{ border: '1px solid rgba(255,255,255,.16)', borderRadius: 2.5, bgcolor: 'rgba(255,255,255,.08)', p: 2, transition: 'transform .2s ease, background .2s ease', '&:hover': { transform: 'translateY(-3px)', bgcolor: 'rgba(255,255,255,.12)' } }}>
-                <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start' }}>
-                  <Box sx={{ width: 36, height: 36, borderRadius: 1.5, display: 'grid', placeItems: 'center', bgcolor: index === 0 ? notionTokens.tintYellowBold : index === 1 ? notionTokens.tintMint : notionTokens.tintLavender, color: notionTokens.ink, fontWeight: 700 }}>0{index + 1}</Box>
-                  <Box>
-                    <Typography sx={{ fontWeight: 600, color: notionTokens.onDark }}>{item.label}</Typography>
-                    <Typography variant="body2" sx={{ mt: .4, color: notionTokens.onDarkMuted }}>{item.body}</Typography>
-                  </Box>
-                </Stack>
-              </Box>
-            ))}
-
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
-              <MiniMetric label="素材包" value={props.batchCount ?? 0} />
-              <MiniMetric label="失败" value={props.failedJobs} />
-              <MiniMetric label="点数" value={props.balance?.available_credits ?? '—'} />
+    <Card sx={{ bgcolor: notionTokens.surfaceSoft, borderRadius: 2.5, boxShadow: 'rgba(0,0,0,.32) 0 28px 70px -28px' }}>
+      <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+        <Stack spacing={2}>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">素材包看板 / RPG Starter Pack</Typography>
+              <Typography variant="h5">{user ? `${user.display_name || user.email} 的素材进度` : '12 个图标从草稿到导出'}</Typography>
             </Box>
+            <Chip label={user?.role ?? 'demo'} sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800, borderRadius: 1 }} />
           </Stack>
-        </CardContent>
-      </Card>
-    </Box>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 1.2 }}>
+            {pixelTiles.map((tile) => <PixelTile key={tile.name} tile={tile} />)}
+          </Box>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
+            <BoardMetric label="完成" value={user ? completedJobs : 17} />
+            <BoardMetric label="失败" value={user ? failedJobs : 3} />
+            <BoardMetric label="素材包" value={batchCount} />
+            <BoardMetric label="点数" value={balance?.available_credits ?? '—'} />
+          </Box>
+
+          <Box sx={{ border: `1px solid ${notionTokens.hairline}`, bgcolor: notionTokens.canvas, borderRadius: 1.5, p: 1.5 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' } }}>
+              <Box>
+                <Typography sx={{ fontWeight: 600 }}>可先交付成功素材</Typography>
+                <Typography variant="body2" color="text.secondary">失败项单独重试，已完成图标可立即打包下载。</Typography>
+              </Box>
+              <Chip label={activeJobs ? '生产中' : 'ZIP 就绪'} sx={{ bgcolor: activeJobs ? notionTokens.tintSky : notionTokens.tintMint, borderRadius: 1 }} />
+            </Stack>
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
   )
 }
 
-function MiniMetric({ label, value }: { label: string; value: number | string }) {
+function PixelTile({ tile }: { tile: typeof pixelTiles[number] }) {
   return (
-    <Box sx={{ borderRadius: 2, p: 1.4, bgcolor: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.14)' }}>
-      <Typography sx={{ color: notionTokens.onDark, fontWeight: 600 }}>{value}</Typography>
-      <Typography variant="caption" sx={{ color: notionTokens.onDarkMuted }}>{label}</Typography>
+    <Box sx={{ bgcolor: tile.tint, borderRadius: 1.4, border: `1px solid ${notionTokens.hairline}`, p: 1, minWidth: 0 }}>
+      <Box sx={{ display: 'grid', placeItems: 'center', minHeight: 72, backgroundColor: notionTokens.canvas, backgroundImage: `linear-gradient(45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(-45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%), linear-gradient(-45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%)`, backgroundSize: '16px 16px', backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0', borderRadius: 1 }}>
+        <PixelIcon pattern={tile.pattern} color={tile.color} />
+      </Box>
+      <Typography variant="caption" sx={{ display: 'block', mt: .8, fontWeight: 600 }} noWrap>{tile.name}</Typography>
+      <Typography variant="caption" color="text.secondary">{tile.status}</Typography>
     </Box>
   )
 }
 
-function HeroGlow() {
+function PixelIcon({ pattern, color }: { pattern: string[]; color: string }) {
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 8px)', gridTemplateRows: 'repeat(5, 8px)', gap: '2px' }} aria-hidden>
+      {pattern.flatMap((row, rowIndex) => row.split('').map((cell, colIndex) => (
+        <Box key={`${rowIndex}-${colIndex}`} sx={{ width: 8, height: 8, bgcolor: cell === '1' ? color : 'transparent', boxShadow: cell === '1' ? 'inset 0 -1px 0 rgba(0,0,0,.16)' : 'none' }} />
+      )))}
+    </Box>
+  )
+}
+
+function BoardMetric({ label, value }: { label: string; value: number | string }) {
+  return (
+    <Box sx={{ borderRadius: 1.4, p: 1.2, bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}` }}>
+      <Typography sx={{ fontWeight: 600 }}>{value}</Typography>
+      <Typography variant="caption" color="text.secondary">{label}</Typography>
+    </Box>
+  )
+}
+
+function PixelAtmosphere() {
   return (
     <>
-      <Box sx={{ position: 'absolute', width: 440, height: 440, borderRadius: '50%', top: -180, left: -160, background: 'rgba(108,71,255,.28)', filter: 'blur(70px)' }} />
-      <Box sx={{ position: 'absolute', width: 380, height: 380, borderRadius: '50%', right: -120, bottom: -120, background: 'rgba(24,169,153,.24)', filter: 'blur(70px)' }} />
-      <Box sx={{ position: 'absolute', inset: 0, opacity: .12, backgroundImage: 'linear-gradient(rgba(255,255,255,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.16) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
+      <Box sx={{ position: 'absolute', inset: 0, opacity: .16, backgroundImage: 'linear-gradient(rgba(255,255,255,.18) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.18) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+      <Box sx={{ position: 'absolute', width: 22, height: 22, left: '10%', top: '20%', bgcolor: notionTokens.tintYellowBold, boxShadow: `34px 20px 0 ${notionTokens.tintMint}, 70px -10px 0 ${notionTokens.tintLavender}` }} />
+      <Box sx={{ position: 'absolute', width: 18, height: 18, right: '12%', bottom: '16%', bgcolor: notionTokens.tintRose, boxShadow: `-28px -24px 0 ${notionTokens.tintSky}, -74px 8px 0 ${notionTokens.tintPeach}` }} />
     </>
   )
 }

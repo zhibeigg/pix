@@ -61,8 +61,6 @@ export function AccountMenu({ user, balance, activeJobs, completedJobs, failedJo
         <MenuItem onClick={() => go('gallery')}>作品库</MenuItem>
         {isAdmin && <MenuItem onClick={() => go('admin')}>管理后台</MenuItem>}
         <MenuItem onClick={refresh}>刷新数据</MenuItem>
-        <Divider />
-        <MenuItem onClick={() => { close(); onLogout() }}>退出登录</MenuItem>
       </Menu>
     </Stack>
   )

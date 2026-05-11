@@ -23,7 +23,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
       <Card variant="outlined" sx={{ bgcolor: notionTokens.tintLavender }}>
         <CardContent>
           <Stack spacing={1}>
-            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Tune</Typography>
+            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>微调工位</Typography>
             <Typography variant="h4" sx={{ fontWeight: 600 }}>选择作品进行微调</Typography>
             <Typography color="text.secondary">点击作品网格中的任意卡片，即可免费重新像素化，或使用 AI 图生图微调。</Typography>
           </Stack>
@@ -69,7 +69,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
         <Stack spacing={2.5}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 2, alignItems: 'flex-start' }}>
             <Box sx={{ minWidth: 0 }}>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Tune</Typography>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>微调工位</Typography>
               <Typography variant="h4" sx={{ fontWeight: 600 }}>微调 #{job.id}</Typography>
               <Typography color="text.secondary" variant="body2">{summarizePrompt(job.prompt || job.input_image_path)}</Typography>
             </Box>
@@ -99,7 +99,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
               <Stack component="form" spacing={2} onSubmit={submitAi}>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>AI 微调</Typography>
-                  <Typography color="text.secondary" variant="body2">调用图生图接口，会消耗 {aiPrice} credits。</Typography>
+                  <Typography color="text.secondary" variant="body2">使用 AI 参考图微调，会消耗 {aiPrice} 点。</Typography>
                 </Box>
                 {!sourcePath && <Alert severity="warning">当前作品没有可用源图路径，暂时无法微调。</Alert>}
                 <TextField label="微调描述" value={aiPrompt} multiline minRows={4} onChange={(event) => setAiPrompt(event.target.value)} />

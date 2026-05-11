@@ -19,7 +19,7 @@ interface BillingPageProps {
 export function BillingPage(props: BillingPageProps) {
   return (
     <Stack spacing={3}>
-      <PageHeader eyebrow="Credits" title="点数中心" description="充值 Credits、查看订单和流水。生成失败会自动退回冻结点数。" tint="lavender" />
+      <PageHeader eyebrow="点数" title="点数中心" description="充值点数、查看订单和流水。生成失败会自动退回冻结点数。" tint="lavender" />
       <CreditPanel {...props} />
     </Stack>
   )

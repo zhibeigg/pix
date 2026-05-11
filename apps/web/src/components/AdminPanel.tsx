@@ -20,7 +20,7 @@ export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onA
   const [tab, setTab] = useState<AdminTab>('dashboard')
   const [selectedUser, setSelectedUser] = useState<number>(0)
   const [amount, setAmount] = useState(100)
-  const [note, setNote] = useState('seed credits')
+  const [note, setNote] = useState('运营补点')
 
   async function submitAdjust(event: FormEvent) {
     event.preventDefault()
@@ -130,7 +130,7 @@ function settingLabel(key: string) {
     generation_enabled: '生成总开关',
     max_pending_jobs_per_user: '每用户排队/运行上限',
     daily_job_limit_per_user: '每用户每日任务上限',
-    blocked_prompt_terms: 'Prompt 禁词',
+    blocked_prompt_terms: '素材描述禁词',
     max_uploads_per_user_per_day: '每用户每日上传上限',
   }
   return labels[key] ?? key

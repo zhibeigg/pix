@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-05-11
+
+### Changed
+
+- 将首屏右侧能力卡改为像素素材包看板，加入 RPG 道具缩略图、状态标签、失败重试和 ZIP 导出语境，强化游戏创作者工具调性。
+- 登录后用紧凑工位状态条替代大型营销 Hero，让生产工作台、作品库和素材包内容更快进入首屏。
+- 收敛素材包卡片动作层级，新增完成进度条，并将重命名、归档、删除等次要操作放入更多菜单。
+- 批量生产新增点数冻结摘要、余额不足保护、10 个以上任务提交确认和失败退回说明。
+- 统一用户可见文案，将 Prompt、Credits、VL 分析、worker 等开发态词替换为素材描述、点数、参考图理解和后台生产服务。
+
 ## [0.32.0] - 2026-05-11
 
 ### Changed
@@ -334,7 +344,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.32.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.33.0...HEAD
+[0.33.0]: https://github.com/zhibeigg/pix/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/zhibeigg/pix/compare/v0.31.1...v0.32.0
 [0.31.1]: https://github.com/zhibeigg/pix/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/zhibeigg/pix/compare/v0.30.0...v0.31.0

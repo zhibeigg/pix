@@ -2,7 +2,7 @@ import { FormEvent, useMemo, useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import { api } from '../api'
 import { notionTokens } from '../theme'
-import type { JobCreateRequest, PricingRule, UploadResponse } from '../types'
+import type { CreditBalance, JobCreateRequest, PricingRule, UploadResponse } from '../types'
 import { buildPixelize, parsePixelSize } from '../pixelize'
 
 type BatchMode = 'text_to_image' | 'image_to_image' | 'local_pixelize'
@@ -17,12 +17,13 @@ type BatchUpload = {
 
 type BatchGeneratePanelProps = {
   pricing: PricingRule[]
+  balance: CreditBalance | null
   loading: boolean
   token: string
   onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void>
 }
 
-export function BatchGeneratePanel({ pricing, loading, token, onSubmitMany }: BatchGeneratePanelProps) {
+export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitMany }: BatchGeneratePanelProps) {
   const [batchMode, setBatchMode] = useState<BatchMode>('text_to_image')
   const [batchName, setBatchName] = useState('RPG 材料包')
   const [prompts, setPrompts] = useState('血气灵玉\n紫髓铁\n幽香腐骨菇\n玉石原石\n紫檀木')
@@ -39,6 +40,8 @@ export function BatchGeneratePanel({ pricing, loading, token, onSubmitMany }: Ba
   const unitPrice = pricing.find((item) => item.key === batchMode)?.price_credits ?? 0
   const taskCount = batchMode === 'text_to_image' ? lines.length : uploaded.length
   const totalPrice = taskCount * unitPrice
+  const availableCredits = balance?.available_credits ?? null
+  const insufficientCredits = availableCredits !== null && totalPrice > availableCredits
 
   async function uploadFiles(files: FileList | null) {
     if (!files || files.length === 0) return
@@ -92,6 +95,7 @@ export function BatchGeneratePanel({ pricing, loading, token, onSubmitMany }: Ba
         pixelize,
       }))
     }
+    if (payloads.length >= 10 && !window.confirm(`确认入队 ${payloads.length} 个素材任务？系统会先冻结 ${totalPrice} 点数，失败项会自动退回冻结点数。`)) return
     await onSubmitMany(payloads, batchName, batchMode)
   }
 
@@ -102,13 +106,14 @@ export function BatchGeneratePanel({ pricing, loading, token, onSubmitMany }: Ba
         <Stack spacing={3}>
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
             <Box>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Batch</Typography>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>素材包生产</Typography>
               <Typography variant="h4" sx={{ fontWeight: 600 }}>批量生产</Typography>
             </Box>
-            <Chip sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} label={`${taskCount} 个 · 预计 ${totalPrice} credits`} />
+            <Chip sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} label={`${taskCount} 个 · 预计 ${totalPrice} 点`} />
           </Stack>
 
           <Stack component="form" spacing={2.5} onSubmit={submit}>
+            <BatchCostSummary taskCount={taskCount} unitPrice={unitPrice} totalPrice={totalPrice} availableCredits={availableCredits} insufficientCredits={insufficientCredits} />
             <TextField label="素材包名称" value={batchName} placeholder="例如：RPG 材料包" onChange={(event) => setBatchName(event.target.value)} />
             <TextField select label="批量类型" value={batchMode} onChange={(event) => setBatchMode(event.target.value as BatchMode)}>
               <MenuItem value="text_to_image">批量文生图</MenuItem>
@@ -117,13 +122,13 @@ export function BatchGeneratePanel({ pricing, loading, token, onSubmitMany }: Ba
             </TextField>
 
             {batchMode === 'text_to_image' ? (
-              <TextField label="批量 Prompt（每行一个素材）" value={prompts} multiline minRows={8} onChange={(event) => setPrompts(event.target.value)} />
+              <TextField label="素材描述（每行一个素材）" helperText="建议一行一个道具、材料或装备名称，保持同一批次风格一致。" value={prompts} multiline minRows={8} onChange={(event) => setPrompts(event.target.value)} />
             ) : (
               <Card variant="outlined" sx={{ bgcolor: notionTokens.tintSky }}>
                 <CardContent>
                   <Stack spacing={2}>
                     {batchMode === 'image_to_image' && (
-                      <TextField label="共用 AI 微调描述" value={sharedPrompt} multiline minRows={4} onChange={(event) => setSharedPrompt(event.target.value)} />
+                      <TextField label="共用微调描述" helperText="这段描述会套用到每张参考图，用来统一批次风格。" value={sharedPrompt} multiline minRows={4} onChange={(event) => setSharedPrompt(event.target.value)} />
                     )}
                     <Button variant="outlined" component="label" disabled={uploading}>
                       {uploading ? '上传中…' : '批量上传图片'}
@@ -141,10 +146,32 @@ export function BatchGeneratePanel({ pricing, loading, token, onSubmitMany }: Ba
             </Box>
             <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
               <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
-              <FormControlLabel control={<Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize'} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过 VL 分析" />
+              <FormControlLabel control={<Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize'} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过参考图理解" />
             </Stack>
-            <Button type="submit" variant="contained" color="primary" disabled={loading || uploading || taskCount === 0}>{loading ? '提交中…' : `批量入队 ${taskCount} 个任务`}</Button>
+            {insufficientCredits && <Button variant="outlined" href="#/billing">点数不足，前往点数中心</Button>}
+            <Button type="submit" variant="contained" color="primary" disabled={loading || uploading || taskCount === 0 || insufficientCredits}>{loading ? '提交中…' : `入队 ${taskCount} 个素材任务`}</Button>
           </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
+  )
+}
+
+function BatchCostSummary({ taskCount, unitPrice, totalPrice, availableCredits, insufficientCredits }: { taskCount: number; unitPrice: number; totalPrice: number; availableCredits: number | null; insufficientCredits: boolean }) {
+  return (
+    <Card variant="outlined" sx={{ bgcolor: insufficientCredits ? notionTokens.tintRose : notionTokens.tintCream }}>
+      <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+        <Stack spacing={1.25}>
+          <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
+            <Chip size="small" label={`${taskCount} 个素材`} sx={{ bgcolor: notionTokens.canvas }} />
+            <Chip size="small" label={`单价 ${unitPrice} 点`} sx={{ bgcolor: notionTokens.canvas }} />
+            <Chip size="small" label={`预计冻结 ${totalPrice} 点`} sx={{ bgcolor: notionTokens.canvas }} />
+            <Chip size="small" label={`当前可用 ${availableCredits ?? '—'} 点`} sx={{ bgcolor: notionTokens.canvas }} />
+          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            提交后会先冻结预计点数；成功后扣除，失败项会自动退回冻结点数。10 个以上素材提交前会再次确认。
+          </Typography>
+          {insufficientCredits && <Alert severity="warning">当前可用点数不足。草稿仍会保留，请先充值后再入队。</Alert>}
         </Stack>
       </CardContent>
     </Card>
