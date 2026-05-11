@@ -1,6 +1,7 @@
 import { createTheme } from '@mui/material/styles'
 
 export type PixThemeMode = 'light' | 'dark'
+export type PixThemePreference = PixThemeMode | 'system'
 
 const lightVars = {
   '--pix-primary': '#6C47FF',
