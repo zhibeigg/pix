@@ -20,11 +20,11 @@ const scenarios = ['RPG Icon', 'UI Item', 'Pixel HUD', 'Tileset', 'Avatar', 'Ski
 const uiWorks = [
   { name: '背包格', src: '/hero-ui/inventory-slot.png', note: '物品栏 / 装备槽', width: 96, height: 96, span: 1 },
   { name: '技能按钮', src: '/hero-ui/skill-button.png', note: '技能栏 / 快捷键', width: 96, height: 96, span: 1 },
-  { name: '生命条', src: '/hero-ui/health-bar.png', note: 'HUD / 战斗状态', width: 160, height: 64, span: 2 },
-  { name: '对话框', src: '/hero-ui/dialog-panel.png', note: 'NPC 对话 / 提示窗', width: 160, height: 96, span: 2 },
-  { name: '任务牌', src: '/hero-ui/quest-card.png', note: '任务列表 / 公告板', width: 160, height: 96, span: 2 },
-  { name: '金币计数器', src: '/hero-ui/coin-counter.png', note: '经济系统 / 商店', width: 128, height: 64, span: 2 },
-  { name: '菜单标签', src: '/hero-ui/menu-tab.png', note: '页签 / 设置面板', width: 128, height: 64, span: 2 },
+  { name: '生命条', src: '/hero-ui/health-bar.png', note: 'HUD / 战斗状态', width: 192, height: 64, span: 2 },
+  { name: '对话框', src: '/hero-ui/dialog-panel.png', note: 'NPC 对话 / 提示窗', width: 192, height: 80, span: 2 },
+  { name: '任务牌', src: '/hero-ui/quest-card.png', note: '任务列表 / 公告板', width: 192, height: 80, span: 2 },
+  { name: '金币计数器', src: '/hero-ui/coin-counter.png', note: '经济系统 / 商店', width: 160, height: 24, span: 2 },
+  { name: '菜单标签', src: '/hero-ui/menu-tab.png', note: '页签 / 设置面板', width: 160, height: 40, span: 2 },
   { name: '确认勾选', src: '/hero-ui/check-toggle.png', note: '开关 / 选项状态', width: 96, height: 96, span: 1 },
 ]
 
@@ -68,7 +68,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
         </Box>
       </SectionFrame>
 
-      <SectionFrame id="pixel-ui" eyebrow="像素 UI" title="不只做道具，也覆盖界面素材" description="游戏原型通常同时需要图标、HUD、背包格、按钮和对话面板。首页展示一组由 Pix 生成的多尺寸 UI 作品，让横向条、面板和方形控件都保持清晰比例。">
+      <SectionFrame id="pixel-ui" eyebrow="像素 UI" title="不只做道具，也覆盖界面素材" description="游戏原型通常同时需要图标、HUD、背包格、按钮和对话面板。首页展示一组由 Pix 生成的多尺寸 UI 作品，横向条、面板和方形控件都按有效像素贴合画布。">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '.78fr 1.22fr' }, gap: { xs: 3, lg: 5 }, alignItems: 'center' }}>
           <Card sx={{ bgcolor: notionTokens.tintYellow, minHeight: 340 }}>
             <CardContent sx={{ p: { xs: 3, md: 4 } }}>
