@@ -27,9 +27,9 @@ const pixelTiles = [
 ]
 
 const workflowStats = [
-  { value: '12', label: 'RPG 道具', tone: notionTokens.tintYellowBold },
-  { value: '17/20', label: '可先导出', tone: notionTokens.tintMint },
-  { value: '3', label: '失败重试', tone: notionTokens.tintRose },
+  { value: '12', label: 'RPG 道具', tone: notionTokens.brandOrange },
+  { value: '17/20', label: '可先导出', tone: notionTokens.brandGreen },
+  { value: '3', label: '失败重试', tone: notionTokens.brandPink },
 ]
 
 export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, batchCount = 0 }: AppHeroProps) {
@@ -79,9 +79,9 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, max-content)' }, gap: 1.5 }}>
               {(signedIn ? [
-                { value: activeJobs, label: '队列中', tone: notionTokens.tintSky },
-                { value: failedJobs, label: '失败待处理', tone: notionTokens.tintRose },
-                { value: balance?.available_credits ?? '—', label: '可用点数', tone: notionTokens.tintLavender },
+                { value: activeJobs, label: '队列中', tone: notionTokens.brandTeal },
+                { value: failedJobs, label: '失败待处理', tone: notionTokens.brandPink },
+                { value: balance?.available_credits ?? '—', label: '可用点数', tone: notionTokens.brandOrange },
               ] : workflowStats).map((stat) => (
                 <Box key={stat.label} sx={{ minWidth: 132, border: '1px solid rgba(255,255,255,.22)', borderRadius: 1.5, bgcolor: 'rgba(11,18,48,.72)', px: 2, py: 1.5 }}>
                   <Typography variant="h4" sx={{ color: stat.tone }}>{stat.value}</Typography>
@@ -139,7 +139,7 @@ function ProductionBrief() {
           <Box sx={{ border: `1px solid ${notionTokens.hairlineStrong}`, borderRadius: 1.5, bgcolor: notionTokens.canvas, px: 2, py: 1.4 }}>
             <Typography>12 个 RPG 药水图标，透明背景</Typography>
           </Box>
-          <Chip label="生成包" sx={{ bgcolor: notionTokens.inkDeep, color: notionTokens.onDark, borderRadius: 1 }} />
+          <Chip label="生成包" sx={{ bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, borderRadius: 1 }} />
         </Box>
       </CardContent>
     </Card>

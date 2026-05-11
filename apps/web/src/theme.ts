@@ -26,6 +26,8 @@ const lightVars = {
   '--pix-muted': '#B9B2A7',
   '--pix-on-dark': '#FFFFFF',
   '--pix-on-dark-muted': 'rgba(255,255,255,.72)',
+  '--pix-on-primary': '#FFFFFF',
+  '--pix-on-secondary': '#0F0F0F',
   '--pix-brand-pink': '#FF7AB6',
   '--pix-brand-orange': '#F59A3D',
   '--pix-brand-orange-deep': '#A84E18',
@@ -77,6 +79,8 @@ const darkVars = {
   '--pix-muted': '#625C54',
   '--pix-on-dark': '#FFF8EA',
   '--pix-on-dark-muted': 'rgba(255,248,234,.74)',
+  '--pix-on-primary': '#050915',
+  '--pix-on-secondary': '#050915',
   '--pix-brand-pink': '#FF9AC6',
   '--pix-brand-orange': '#EFA057',
   '--pix-brand-orange-deep': '#FFBE7D',
@@ -128,6 +132,8 @@ export const notionTokens = {
   muted: 'var(--pix-muted)',
   onDark: 'var(--pix-on-dark)',
   onDarkMuted: 'var(--pix-on-dark-muted)',
+  onPrimary: 'var(--pix-on-primary)',
+  onSecondary: 'var(--pix-on-secondary)',
   brandPink: 'var(--pix-brand-pink)',
   brandOrange: 'var(--pix-brand-orange)',
   brandOrangeDeep: 'var(--pix-brand-orange-deep)',
@@ -164,8 +170,8 @@ export function createPixTheme(mode: PixThemeMode) {
   return createTheme({
     palette: {
       mode,
-      primary: { main: vars['--pix-primary'], dark: vars['--pix-primary-pressed'], contrastText: vars['--pix-on-dark'] },
-      secondary: { main: vars['--pix-brand-orange'], dark: vars['--pix-brand-orange-deep'], contrastText: vars['--pix-ink-deep'] },
+      primary: { main: vars['--pix-primary'], dark: vars['--pix-primary-pressed'], contrastText: vars['--pix-on-primary'] },
+      secondary: { main: vars['--pix-brand-orange'], dark: vars['--pix-brand-orange-deep'], contrastText: vars['--pix-on-secondary'] },
       background: { default: vars['--pix-surface-soft'], paper: vars['--pix-canvas'] },
       text: { primary: vars['--pix-ink'], secondary: vars['--pix-slate'] },
       success: { main: vars['--pix-success'] },
@@ -231,7 +237,7 @@ export function createPixTheme(mode: PixThemeMode) {
             boxShadow: 'none',
             '&.MuiButton-containedPrimary': {
               backgroundColor: notionTokens.primary,
-              color: notionTokens.onDark,
+              color: notionTokens.onPrimary,
             },
             transition: 'transform .14s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease',
             '@media (hover: hover)': {

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.42.2] - 2026-05-11
+
+### Fixed
+
+- 系统性修复 Web 暗色模式里深色胶囊、主导航选中态、创建模式选中态和主按钮文字对比度不足的问题。
+
 ## [0.42.1] - 2026-05-11
 
 ### Fixed
