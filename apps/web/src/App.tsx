@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, AppBar, Box, Button, Container, Stack, Toolbar, Typography } from '@mui/material'
-import { notionTokens } from './theme'
+import { notionTokens, type PixThemeMode } from './theme'
 import { api, ApiError } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
 import { AccountMenu } from './components/AccountMenu'
@@ -15,6 +15,12 @@ import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
 import type { AdminDashboard, CreditBalance, CreditPackage, CreditTransaction, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SystemSetting, User } from './types'
 
 const TOKEN_KEY = 'pix_web_token'
+
+type AppProps = {
+  themeMode: PixThemeMode
+  onToggleTheme: () => void
+}
+
 function pageFromHash(user: User | null): AppPage {
   const raw = window.location.hash.replace(/^#\/?/, '')
   const page = ['workspace', 'gallery', 'packs', 'billing', 'admin'].includes(raw) ? raw as AppPage : 'workspace'
@@ -22,7 +28,7 @@ function pageFromHash(user: User | null): AppPage {
   return page
 }
 
-export function App() {
+export function App({ themeMode, onToggleTheme }: AppProps) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? '')
   const [user, setUser] = useState<User | null>(null)
   const [balance, setBalance] = useState<CreditBalance | null>(null)
@@ -403,7 +409,7 @@ export function App() {
   }
 
   return (
-    <Box component="main">
+    <Box component="main" data-pix-theme={themeMode}>
       <AppBar position="sticky" elevation={0} color="inherit" sx={{ bgcolor: notionTokens.canvas, borderBottom: 1, borderColor: 'divider', zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar sx={{ gap: 2, maxWidth: 1280, width: '100%', mx: 'auto', px: { xs: 2, md: 4 }, py: 1, minHeight: 72, alignItems: 'center', flexWrap: { xs: 'wrap', lg: 'nowrap' } }}>
           <Stack direction="row" spacing={1.25} sx={{ minWidth: 190, flex: { xs: '1 1 auto', lg: '0 0 auto' }, alignItems: 'center' }}>
@@ -419,14 +425,19 @@ export function App() {
             </Box>
           )}
           <Box sx={{ order: { xs: 2, lg: 3 }, flex: { xs: '0 0 auto', lg: '0 0 auto' }, ml: { lg: 'auto' } }}>
-            {user ? (
-              <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={() => refreshCore()} onLogout={logout} />
-            ) : (
-              <Stack direction="row" spacing={1}>
-                <Button variant="text" href="#auth-panel">登录</Button>
-                <Button variant="contained" href="#auth-panel">注册</Button>
-              </Stack>
-            )}
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'flex-end' }}>
+              <Button variant="outlined" size="small" onClick={onToggleTheme} aria-label={themeMode === 'dark' ? '切换到亮色模式' : '切换到暗色模式'}>
+                {themeMode === 'dark' ? '亮色' : '暗色'}
+              </Button>
+              {user ? (
+                <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={() => refreshCore()} onLogout={logout} />
+              ) : (
+                <Stack direction="row" spacing={1}>
+                  <Button variant="text" href="#auth-panel">登录</Button>
+                  <Button variant="contained" href="#auth-panel">注册</Button>
+                </Stack>
+              )}
+            </Stack>
           </Box>
         </Toolbar>
       </AppBar>

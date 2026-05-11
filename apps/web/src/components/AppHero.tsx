@@ -148,7 +148,7 @@ function ProductionBrief() {
 
 function PixelBatchBoard({ user, balance, activeJobs, completedJobs, failedJobs, batchCount = 0 }: AppHeroProps) {
   return (
-    <Card sx={{ bgcolor: notionTokens.surfaceSoft, borderRadius: 2.5, boxShadow: 'rgba(0,0,0,.32) 0 28px 70px -28px' }}>
+    <Card sx={{ bgcolor: notionTokens.surfaceSoft, borderRadius: 2.5, boxShadow: notionTokens.mockupShadow }}>
       <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
         <Stack spacing={2}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>

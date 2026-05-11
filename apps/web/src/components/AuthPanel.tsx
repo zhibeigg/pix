@@ -45,7 +45,7 @@ export function AuthPanel({ user, onLogin, onRegister, onLogout, loading }: Auth
   }
 
   return (
-    <Card variant="outlined" sx={{ boxShadow: 'rgba(15, 15, 15, 0.08) 0px 4px 12px 0px' }}>
+    <Card variant="outlined" sx={{ boxShadow: notionTokens.liftShadow }}>
       <CardContent>
         <Stack spacing={2.5}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>

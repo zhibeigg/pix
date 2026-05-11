@@ -36,7 +36,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
       <SectionFrame id="values" eyebrow="核心价值" title="一张可控的像素工位台" description="从想法到素材包，生成、成本和结果都放在同一处。">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
           {values.map((item) => (
-            <Card key={item.title} sx={{ bgcolor: item.tone, overflow: 'hidden', transition: 'transform .22s ease, box-shadow .22s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: 'rgba(15, 15, 15, 0.10) 0px 16px 36px -16px' } }}>
+            <Card key={item.title} sx={{ bgcolor: item.tone, overflow: 'hidden', transition: 'transform .22s ease, box-shadow .22s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: notionTokens.liftShadow } }}>
               <CardContent sx={{ p: { xs: 3, md: 3.5 } }}>
                 <Stack spacing={2}>
                   <Box sx={{ width: 48, height: 48, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, fontWeight: 700 }}>{item.title.slice(0, 1)}</Box>
@@ -79,7 +79,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
           </Card>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(4, minmax(0, 1fr))' }, gap: 1.5 }}>
             {uiWorks.map((item) => (
-              <Box key={item.name} sx={{ gridColumn: { xs: 'span 1', sm: item.span === 2 ? 'span 2' : 'span 1' }, bgcolor: notionTokens.surfaceSoft, border: `1px solid ${notionTokens.hairline}`, borderRadius: 2, p: 1.3, transition: 'transform .22s ease, box-shadow .22s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: 'rgba(15, 15, 15, 0.10) 0px 16px 36px -16px' } }}>
+              <Box key={item.name} sx={{ gridColumn: { xs: 'span 1', sm: item.span === 2 ? 'span 2' : 'span 1' }, bgcolor: notionTokens.surfaceSoft, border: `1px solid ${notionTokens.hairline}`, borderRadius: 2, p: 1.3, transition: 'transform .22s ease, box-shadow .22s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: notionTokens.liftShadow } }}>
                 <Box sx={{ display: 'grid', placeItems: 'center', minHeight: item.height + 28, borderRadius: 1.4, bgcolor: notionTokens.canvas, backgroundImage: `linear-gradient(45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(-45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%), linear-gradient(-45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%)`, backgroundSize: '16px 16px', backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0' }}>
                   <Box component="img" src={item.src} alt={`${item.name} ${item.width}×${item.height} 像素 UI 作品`} width={item.width} height={item.height} loading="lazy" decoding="async" sx={{ width: '100%', maxWidth: item.width, height: 'auto', objectFit: 'contain', imageRendering: 'pixelated' }} />
                 </Box>

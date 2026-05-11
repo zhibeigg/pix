@@ -59,7 +59,7 @@ function JobCard({ job }: { job: GenerationJob }) {
             <Chip size="small" variant="outlined" label={`冻结 ${job.reserved_credits}`} />
             <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />
           </Stack>
-          {job.error_message && <Box component="pre" sx={{ whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto', color: 'error.light', bgcolor: 'rgba(255,124,124,.10)', border: 1, borderColor: 'error.dark', borderRadius: 2, p: 1.25, m: 0 }}>{job.error_message.slice(0, 600)}</Box>}
+          {job.error_message && <Box component="pre" sx={{ whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto', color: 'error.main', bgcolor: notionTokens.errorPanel, border: 1, borderColor: 'error.main', borderRadius: 2, p: 1.25, m: 0 }}>{job.error_message.slice(0, 600)}</Box>}
           {output && (
             <Stack spacing={0.75} divider={<Divider flexItem />}>
               <PathLine label="源图" value={output.source_path} />
