@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, AppBar, Box, Chip, Container, Stack, Toolbar, Typography } from '@mui/material'
+import { notionTokens } from './theme'
 import { api, ApiError } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
+import { AppHero } from './components/AppHero'
 import { AuthPanel } from './components/AuthPanel'
 import { AdminPage } from './pages/AdminPage'
 import { BillingPage } from './pages/BillingPage'
@@ -398,23 +400,24 @@ export function App() {
 
   return (
     <Box component="main">
-      <AppBar position="sticky" elevation={0} color="transparent" sx={{ backdropFilter: 'blur(18px)', borderBottom: 1, borderColor: 'divider' }}>
-        <Toolbar sx={{ gap: 2 }}>
+      <AppBar position="sticky" elevation={0} color="inherit" sx={{ bgcolor: notionTokens.canvas, borderBottom: 1, borderColor: 'divider' }}>
+        <Toolbar sx={{ gap: 2, maxWidth: 1280, width: '100%', mx: 'auto', px: { xs: 2, md: 4 } }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Pix Forge</Typography>
-            <Typography variant="h5" component="h1" sx={{ fontWeight: 950 }}>像素素材工坊</Typography>
+            <Typography variant="overline" color="text.secondary">Pix Forge</Typography>
+            <Typography variant="h5" component="h1">像素素材工坊</Typography>
           </Box>
           <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', md: 'flex' } }}>
-            <Chip label={`点数 ${balance?.available_credits ?? '—'}`} color="primary" variant="outlined" />
-            <Chip label={`队列 ${activeJobs}`} variant="outlined" />
-            <Chip label={`完成 ${completedJobs}`} variant="outlined" />
-            <Chip label={`失败 ${failedJobs}`} color={failedJobs ? 'error' : 'default'} variant="outlined" />
+            <Chip label={`点数 ${balance?.available_credits ?? '—'}`} sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} />
+            <Chip label={`队列 ${activeJobs}`} sx={{ bgcolor: notionTokens.tintSky }} />
+            <Chip label={`完成 ${completedJobs}`} sx={{ bgcolor: notionTokens.tintMint }} />
+            <Chip label={`失败 ${failedJobs}`} sx={{ bgcolor: failedJobs ? notionTokens.tintRose : notionTokens.tintGray }} />
           </Stack>
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Stack spacing={3}>
+      <Container maxWidth={false} sx={{ maxWidth: 1280, py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 }, mx: 'auto' }}>
+        <Stack spacing={4}>
+          <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} />
           <AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} />
           {message && <Alert severity="info" role="status" aria-live="polite">{message}</Alert>}
 

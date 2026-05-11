@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react'
 import { Box, Button, Card, CardContent, Checkbox, FormControlLabel, MenuItem, Stack, Tab, Tabs, TextField, Typography } from '@mui/material'
+import { notionTokens } from '../theme'
 import type { AdminDashboard, PricingRule, SystemSetting, User } from '../types'
 
 type AdminPanelProps = {
@@ -28,13 +29,13 @@ export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onA
   }
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
       <CardContent>
         <Stack spacing={3}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
             <Box>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Admin</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 950 }}>运营控制台</Typography>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Admin</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 600 }}>运营控制台</Typography>
             </Box>
             <Button variant="outlined" onClick={onRefresh}>刷新</Button>
           </Stack>
@@ -61,7 +62,7 @@ export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onA
 
           {tab === 'users' && (
             <Stack component="form" spacing={2} sx={{ maxWidth: 520 }} onSubmit={submitAdjust}>
-              <Typography variant="h6" sx={{ fontWeight: 900 }}>手动加点</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>手动加点</Typography>
               <TextField select label="用户" value={selectedUser} onChange={(event) => setSelectedUser(Number(event.target.value))}>
                 <MenuItem value={0}>选择用户</MenuItem>
                 {users.map((user) => <MenuItem value={user.id} key={user.id}>{user.email} · {user.role}</MenuItem>)}
@@ -74,14 +75,14 @@ export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onA
 
           {tab === 'pricing' && (
             <Stack spacing={1.5}>
-              <Typography variant="h6" sx={{ fontWeight: 900 }}>价格规则</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>价格规则</Typography>
               {pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}
             </Stack>
           )}
 
           {tab === 'settings' && (
             <Stack spacing={1.5}>
-              <Typography variant="h6" sx={{ fontWeight: 900 }}>运营保护</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>运营保护</Typography>
               {settings.map((setting) => <SettingRow setting={setting} onUpdate={onUpdateSetting} key={setting.key} />)}
             </Stack>
           )}
@@ -93,9 +94,9 @@ export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onA
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <Box sx={{ bgcolor: 'background.default', border: 1, borderColor: 'divider', borderRadius: 2, p: 1.5, fontVariantNumeric: 'tabular-nums' }}>
+    <Box sx={{ bgcolor: notionTokens.tintSky, border: 1, borderColor: 'divider', borderRadius: 1.5, p: 1.5, fontVariantNumeric: 'tabular-nums' }}>
       <Typography variant="caption" color="text.secondary">{label}</Typography>
-      <Typography variant="h5" sx={{ fontWeight: 950 }}>{value}</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 600 }}>{value}</Typography>
     </Box>
   )
 }
@@ -105,11 +106,11 @@ function SettingRow({ setting, onUpdate }: { setting: SystemSetting; onUpdate: (
   const isBoolean = setting.key === 'generation_enabled'
   const isTextArea = setting.key === 'blocked_prompt_terms'
   return (
-    <Card variant="outlined" sx={{ bgcolor: 'background.default' }}>
+    <Card variant="outlined" sx={{ bgcolor: notionTokens.tintCream }}>
       <CardContent>
         <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 2, alignItems: { md: 'center' } }}>
           <Box sx={{ flex: 1 }}>
-            <Typography sx={{ fontWeight: 900 }}>{settingLabel(setting.key)}</Typography>
+            <Typography sx={{ fontWeight: 600 }}>{settingLabel(setting.key)}</Typography>
             <Typography variant="caption" color="text.secondary">{setting.key}</Typography>
           </Box>
           {isBoolean ? (
@@ -139,11 +140,11 @@ function PricingRow({ rule, onUpdate }: { rule: PricingRule; onUpdate: (key: str
   const [price, setPrice] = useState(rule.price_credits)
   const [enabled, setEnabled] = useState(rule.enabled)
   return (
-    <Card variant="outlined" sx={{ bgcolor: 'background.default' }}>
+    <Card variant="outlined" sx={{ bgcolor: notionTokens.tintCream }}>
       <CardContent>
         <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 2, alignItems: { md: 'center' } }}>
           <Box sx={{ flex: 1 }}>
-            <Typography sx={{ fontWeight: 900 }}>{rule.key}</Typography>
+            <Typography sx={{ fontWeight: 600 }}>{rule.key}</Typography>
             <Typography variant="caption" color="text.secondary">{rule.enabled ? '启用' : '停用'}</Typography>
           </Box>
           <TextField label="价格" type="number" value={price} onChange={(event) => setPrice(Number(event.target.value))} sx={{ width: { md: 140 } }} />

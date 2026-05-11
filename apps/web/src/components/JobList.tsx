@@ -1,4 +1,5 @@
 import { Alert, Box, Button, Card, CardContent, Chip, Divider, Stack, Typography } from '@mui/material'
+import { notionTokens } from '../theme'
 import type { GenerationJob } from '../types'
 
 type JobListProps = {
@@ -16,13 +17,13 @@ const statusColors: Record<string, 'default' | 'primary' | 'success' | 'error' |
 
 export function JobList({ jobs, onRefresh }: JobListProps) {
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
       <CardContent>
         <Stack spacing={2}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
             <Box>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Queue</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 950 }}>任务队列</Typography>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Queue</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 600 }}>任务队列</Typography>
             </Box>
             <Button variant="outlined" onClick={onRefresh}>刷新</Button>
           </Stack>
@@ -42,15 +43,15 @@ export function JobList({ jobs, onRefresh }: JobListProps) {
 function JobCard({ job }: { job: GenerationJob }) {
   const output = job.outputs[0]
   return (
-    <Card variant="outlined" sx={{ bgcolor: 'background.default' }}>
+    <Card variant="outlined" sx={{ bgcolor: notionTokens.surfaceSoft }}>
       <CardContent>
         <Stack spacing={1.5}>
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', gap: 1.5 }}>
             <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 900 }}>#{job.id} · {job.job_type}</Typography>
+              <Typography sx={{ fontWeight: 600 }}>#{job.id} · {job.job_type}</Typography>
               <Typography color="text.secondary" variant="body2">{job.prompt || job.input_image_path || '无输入摘要'}</Typography>
             </Box>
-            <Chip size="small" color={statusColors[job.status] ?? 'default'} label={job.status} sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }} />
+            <Chip size="small" color={statusColors[job.status] ?? 'default'} label={job.status} sx={{ alignSelf: { xs: 'flex-start', sm: 'center' }, bgcolor: job.status === 'succeeded' ? notionTokens.tintMint : job.status === 'failed' ? notionTokens.tintRose : job.status === 'running' ? notionTokens.tintSky : notionTokens.tintYellow }} />
           </Stack>
           <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
             <Chip size="small" variant="outlined" label={`${job.price_credits} credits`} />

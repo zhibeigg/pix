@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-05-11
+
+### Changed
+
+- 根据 `DESIGN.md` 将前端整体视觉调整为 Notion 式浅色画布、白色 sticky nav、深蓝 hero band 和紫色主 CTA。
+- 重写 MUI theme token，统一 8px 矩形按钮、12px 卡片、Notion-Sans 字体栈、hairline 边框和 pastel feature card 色板。
+- 优化登录、工作台、作品库、素材包、点数中心和管理后台的卡片层级、状态徽章、空态与上传/微调区域。
+
 ## [0.29.0] - 2026-05-11
 
 ### Changed
@@ -304,7 +312,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/zhibeigg/pix/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/zhibeigg/pix/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/zhibeigg/pix/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/zhibeigg/pix/compare/v0.26.1...v0.27.0

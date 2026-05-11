@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Box, Button, Card, CardActions, CardContent, CardMedia, Chip, Pagination, Stack, Typography } from '@mui/material'
 import type { GenerationJob } from '../types'
 import { summarizePrompt } from '../pixelize'
+import { notionTokens } from '../theme'
 
 type GalleryGridProps = {
   jobs: GenerationJob[]
@@ -36,20 +37,20 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
   const visible = ordered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
       <CardContent>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}>
           <Box>
-            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Library</Typography>
-            <Typography variant="h4" sx={{ fontWeight: 950 }}>作品网格</Typography>
+            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Library</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 600 }}>作品网格</Typography>
             {subtitle && <Typography color="text.secondary">{subtitle}</Typography>}
           </Box>
-          <Chip label={`${ordered.length} 件作品/任务`} color="secondary" variant="outlined" />
+          <Chip label={`${ordered.length} 件作品/任务`} sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} />
         </Stack>
 
         {ordered.length === 0 ? (
-          <Box sx={{ mt: 3, border: 1, borderStyle: 'dashed', borderColor: 'divider', borderRadius: 2.5, p: 4, bgcolor: 'background.default' }}>
-            <Typography variant="h6" sx={{ fontWeight: 900 }}>你的像素工坊还是空的</Typography>
+          <Box sx={{ mt: 3, border: 1, borderStyle: 'dashed', borderColor: 'divider', borderRadius: 1.5, p: 4, bgcolor: notionTokens.tintYellowBold }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>你的像素工坊还是空的</Typography>
             <Typography color="text.secondary">先用单图生成试一个道具，或粘贴 5-20 行 prompt 开始批量生产。</Typography>
           </Box>
         ) : (
@@ -68,13 +69,13 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                     minWidth: 0,
                     overflow: 'hidden',
                     cursor: 'default',
-                    borderColor: selected ? 'primary.main' : 'divider',
-                    boxShadow: selected ? '0 0 0 2px rgba(103,199,255,.18)' : 'none',
+                    borderColor: selected ? notionTokens.primary : notionTokens.hairline,
+                    boxShadow: selected ? '0 0 0 2px rgba(108,71,255,.16)' : 'rgba(15, 15, 15, 0.04) 0px 1px 2px 0px',
                     transition: 'transform .18s ease, border-color .18s ease',
                     '&:hover': { transform: 'translateY(-2px)', borderColor: selected ? 'primary.main' : 'text.secondary' },
                   }}
                 >
-                  <CardMedia component="div" sx={{ height: 132, display: 'grid', placeItems: 'center', bgcolor: 'background.default', backgroundImage: 'linear-gradient(135deg, rgba(103,199,255,.08), rgba(244,167,220,.06))', imageRendering: 'pixelated' }}>
+                  <CardMedia component="div" sx={{ height: 132, display: 'grid', placeItems: 'center', bgcolor: notionTokens.tintSky, imageRendering: 'pixelated' }}>
                     {previewUrl ? (
                       <Box component="img" src={previewUrl} alt={summarizePrompt(job.prompt || job.input_image_path, '作品预览')} loading="lazy" decoding="async" sx={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated', p: 1.5 }} />
                     ) : (
@@ -83,7 +84,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                   </CardMedia>
                   <CardContent sx={{ display: 'grid', gap: 1.1 }}>
                     <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}>
-                      <Typography sx={{ fontWeight: 900 }}>#{job.id} · {job.job_type}</Typography>
+                      <Typography sx={{ fontWeight: 600 }}>#{job.id} · {job.job_type}</Typography>
                       <Chip size="small" color={statusColors[job.status] ?? 'default'} label={statusLabels[job.status] ?? job.status} />
                     </Stack>
                     <Typography color="text.secondary" variant="body2">{summarizePrompt(job.prompt || job.input_image_path)}</Typography>

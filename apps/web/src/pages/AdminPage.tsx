@@ -17,7 +17,7 @@ interface AdminPageProps {
 export function AdminPage(props: AdminPageProps) {
   return (
     <Stack spacing={3}>
-      <PageHeader eyebrow="Admin" title="管理后台" description="查看运营概览、调整用户点数、配置价格和上线保护策略。" />
+      <PageHeader eyebrow="Admin" title="管理后台" description="查看运营概览、调整用户点数、配置价格和上线保护策略。" tint="cream" />
       <AdminPanel {...props} />
     </Stack>
   )
