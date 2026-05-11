@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-05-10
+
+### Added
+
+- 前端新增主导航 Tab，将生产工作台、作品库、素材包、点数中心和管理后台拆成独立页面。
+- 管理后台新增内部 Tab：概览、用户与点数、价格规则、运营保护。
+
+### Changed
+
+- `App.tsx` 从单页堆叠式工作台重构为 hash 页面路由。
+- 管理员功能从普通工作台右侧面板中移出，成为独立管理后台页面。
+
 ## [0.26.1] - 2026-05-10
 
 ### Fixed
@@ -273,7 +285,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.26.1...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/zhibeigg/pix/compare/v0.26.1...v0.27.0
 [0.26.1]: https://github.com/zhibeigg/pix/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/zhibeigg/pix/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/zhibeigg/pix/compare/v0.24.0...v0.25.0

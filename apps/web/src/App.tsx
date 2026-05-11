@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, ApiError } from './api'
-import { AdminPanel } from './components/AdminPanel'
+import { AppTabs, type AppPage } from './components/AppTabs'
 import { AuthPanel } from './components/AuthPanel'
-import { BatchGeneratePanel } from './components/BatchGeneratePanel'
-import { BatchPanel } from './components/BatchPanel'
-import { CreditPanel } from './components/CreditPanel'
-import { GalleryGrid } from './components/GalleryGrid'
-import { JobList } from './components/JobList'
-import { SingleGeneratePanel } from './components/SingleGeneratePanel'
-import { TuningPanel } from './components/TuningPanel'
+import { AdminPage } from './pages/AdminPage'
+import { BillingPage } from './pages/BillingPage'
+import { GalleryPage } from './pages/GalleryPage'
+import { PacksPage } from './pages/PacksPage'
+import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
 import type { AdminDashboard, CreditBalance, CreditPackage, CreditTransaction, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SystemSetting, User } from './types'
 
 const TOKEN_KEY = 'pix_web_token'
-type WorkMode = 'single' | 'batch'
+function pageFromHash(user: User | null): AppPage {
+  const raw = window.location.hash.replace(/^#\/?/, '')
+  const page = ['workspace', 'gallery', 'packs', 'billing', 'admin'].includes(raw) ? raw as AppPage : 'workspace'
+  if (page === 'admin' && user?.role !== 'admin') return 'workspace'
+  return page
+}
 
 export function App() {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? '')
@@ -32,6 +35,7 @@ export function App() {
   const [retryingBatchId, setRetryingBatchId] = useState<number | null>(null)
   const [downloadingBatchId, setDownloadingBatchId] = useState<number | null>(null)
   const [message, setMessage] = useState('')
+  const [page, setPage] = useState<AppPage>(() => pageFromHash(null))
   const [mode, setMode] = useState<WorkMode>('single')
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null)
   const [selectedBatchJobs, setSelectedBatchJobs] = useState<GenerationJob[]>([])
@@ -40,9 +44,8 @@ export function App() {
 
   const isAdmin = user?.role === 'admin'
   const selectedBatch = useMemo(() => batches.find((batch) => batch.id === selectedBatchId) ?? null, [batches, selectedBatchId])
-  const visibleJobs = selectedBatchId ? selectedBatchJobs : jobs
-  const selectedJob = useMemo(() => visibleJobs.find((job) => job.id === selectedJobId) ?? null, [visibleJobs, selectedJobId])
-  const gallerySubtitle = selectedBatch ? `素材包：${selectedBatch.name}` : '全部作品'
+  const selectedJobPool = page === 'packs' && selectedBatchId ? selectedBatchJobs : jobs
+  const selectedJob = useMemo(() => selectedJobPool.find((job) => job.id === selectedJobId) ?? null, [selectedJobPool, selectedJobId])
   const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)).length, [jobs])
   const completedJobs = useMemo(() => jobs.filter((job) => job.status === 'succeeded').length, [jobs])
   const failedJobs = useMemo(() => jobs.filter((job) => job.status === 'failed').length, [jobs])
@@ -87,6 +90,15 @@ export function App() {
       setAdminDashboard(dashboard)
     }
   }, [selectedBatchId, token])
+
+  useEffect(() => {
+    function syncHash() {
+      setPage(pageFromHash(user))
+    }
+    window.addEventListener('hashchange', syncHash)
+    syncHash()
+    return () => window.removeEventListener('hashchange', syncHash)
+  }, [user])
 
   useEffect(() => {
     if (!token) return
@@ -162,6 +174,11 @@ export function App() {
     }
   }
 
+  function navigate(nextPage: AppPage) {
+    window.location.hash = `/${nextPage}`
+    setPage(nextPage)
+  }
+
   function logout() {
     localStorage.removeItem(TOKEN_KEY)
     setToken('')
@@ -189,6 +206,7 @@ export function App() {
     try {
       const job = await api.createJob(token, payload)
       setSelectedJobId(job.id)
+      navigate('gallery')
       setMessage(`任务 #${job.id} 已入队`)
       await refreshCore(token)
     } catch (error) {
@@ -205,6 +223,7 @@ export function App() {
     try {
       const created = await api.createJobsBatch(token, payloads, batchName, mode)
       setSelectedJobId(created.jobs[0]?.id ?? null)
+      navigate('packs')
       setMessage(`${created.jobs.length} 个任务已加入生产队列，冻结 ${created.total_price_credits} credits`)
       await refreshCore(token)
     } catch (error) {
@@ -219,6 +238,7 @@ export function App() {
     setSelectedBatchId(batch.id)
     setSelectedBatchJobs(await api.batchJobs(token, batch.id))
     setSelectedJobId(null)
+    navigate('packs')
     setMessage(`已筛选素材包：${batch.name}`)
   }
 
@@ -391,50 +411,37 @@ export function App() {
         </div>
       </header>
 
+      <AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} />
       {message && <div className="toast" role="status" aria-live="polite">{message}</div>}
 
-      <div className="workbench-grid">
-        <aside className="side-column">
-          <AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} />
-          {user && <CreditPanel balance={balance} transactions={transactions} packages={packages} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onMockPayOrder={mockPayPaymentOrder} />}
-        </aside>
-
-        <section className="gallery-column">
-          {user ? (
-            <GalleryGrid jobs={visibleJobs} subtitle={gallerySubtitle} selectedJobId={selectedJobId} onSelect={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} />
-          ) : (
-            <section className="panel empty-panel">
-              <h2>先登录或注册</h2>
-              <p>第一个注册用户会自动成为管理员，可给自己加点并配置价格。</p>
-            </section>
-          )}
-          {user && <JobList jobs={visibleJobs.filter((job) => job.status !== 'succeeded')} onRefresh={() => refreshCore()} />}
+      {user ? (
+        <>
+          <AppTabs page={page} user={user} onChange={navigate} />
+          <section className="page-shell">
+            {page === 'workspace' && (
+              <WorkspacePage mode={mode} pricing={pricing} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onRefresh={() => refreshCore()} />
+            )}
+            {page === 'gallery' && (
+              <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCreateJob={createJob} onRefresh={() => refreshCore()} />
+            )}
+            {page === 'packs' && (
+              <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onRefresh={() => refreshCore()} />
+            )}
+            {page === 'billing' && (
+              <BillingPage balance={balance} transactions={transactions} packages={packages} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onMockPayOrder={mockPayPaymentOrder} />
+            )}
+            {page === 'admin' && isAdmin && (
+              <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onUpdateSetting={updateSetting} />
+            )}
+          </section>
+        </>
+      ) : (
+        <section className="panel empty-panel landing-panel">
+          <p className="eyebrow">Start</p>
+          <h2>先登录或注册</h2>
+          <p>第一个注册用户会自动成为管理员。登录后可以进入生产工作台、作品库、素材包、点数中心和管理后台。</p>
         </section>
-
-        <aside className="right-column">
-          {user && (
-            <>
-              <section className="panel mode-panel">
-                <p className="eyebrow">Mode</p>
-                <div className="mode-tabs">
-                  <button className={mode === 'single' ? '' : 'ghost'} onClick={() => setMode('single')}>单图生成</button>
-                  <button className={mode === 'batch' ? '' : 'ghost'} onClick={() => setMode('batch')}>批量生产</button>
-                </div>
-              </section>
-              {mode === 'single' ? (
-                <SingleGeneratePanel pricing={pricing} loading={busy} token={token} onSubmit={createJob} />
-              ) : (
-                <BatchGeneratePanel pricing={pricing} loading={busy} token={token} onSubmitMany={createJobs} />
-              )}
-              <BatchPanel batches={batches} selectedBatchId={selectedBatchId} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onRefresh={() => refreshCore()} />
-              <TuningPanel job={selectedJob} pricing={pricing} loading={busy} onSubmit={createJob} />
-              {isAdmin && (
-                <AdminPanel dashboard={adminDashboard} users={adminUsers} pricing={pricing} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onUpdateSetting={updateSetting} />
-              )}
-            </>
-          )}
-        </aside>
-      </div>
+      )}
     </main>
   )
 }
