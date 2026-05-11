@@ -95,7 +95,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
         pixelize,
       }))
     }
-    if (payloads.length >= 10 && !window.confirm(`确认入队 ${payloads.length} 个素材任务？系统会先冻结 ${totalPrice} 点数，失败项会自动退回冻结点数。`)) return
+    if (payloads.length >= 10 && !window.confirm(`入队 ${payloads.length} 个任务并冻结 ${totalPrice} 点？`)) return
     await onSubmitMany(payloads, batchName, batchMode)
   }
 
@@ -122,13 +122,13 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
             </TextField>
 
             {batchMode === 'text_to_image' ? (
-              <TextField label="素材描述（每行一个素材）" helperText="建议一行一个道具、材料或装备名称，保持同一批次风格一致。" value={prompts} multiline minRows={8} onChange={(event) => setPrompts(event.target.value)} />
+              <TextField label="素材描述（每行一个）" helperText="一行一个素材名。" value={prompts} multiline minRows={8} onChange={(event) => setPrompts(event.target.value)} />
             ) : (
               <Card variant="outlined" sx={{ bgcolor: notionTokens.tintSky }}>
                 <CardContent>
                   <Stack spacing={2}>
                     {batchMode === 'image_to_image' && (
-                      <TextField label="共用微调描述" helperText="这段描述会套用到每张参考图，用来统一批次风格。" value={sharedPrompt} multiline minRows={4} onChange={(event) => setSharedPrompt(event.target.value)} />
+                      <TextField label="共用微调描述" helperText="套用到每张参考图。" value={sharedPrompt} multiline minRows={4} onChange={(event) => setSharedPrompt(event.target.value)} />
                     )}
                     <Button variant="outlined" component="label" disabled={uploading}>
                       {uploading ? '上传中…' : '批量上传图片'}
@@ -169,9 +169,9 @@ function BatchCostSummary({ taskCount, unitPrice, totalPrice, availableCredits, 
             <Chip size="small" label={`当前可用 ${availableCredits ?? '—'} 点`} sx={{ bgcolor: notionTokens.canvas }} />
           </Stack>
           <Typography variant="body2" color="text.secondary">
-            提交后会先冻结预计点数；成功后扣除，失败项会自动退回冻结点数。10 个以上素材提交前会再次确认。
+            入队冻结点数；失败退回。10 个以上会再次确认。
           </Typography>
-          {insufficientCredits && <Alert severity="warning">当前可用点数不足。草稿仍会保留，请先充值后再入队。</Alert>}
+          {insufficientCredits && <Alert severity="warning">点数不足，请先充值。</Alert>}
         </Stack>
       </CardContent>
     </Card>
@@ -179,7 +179,7 @@ function BatchCostSummary({ taskCount, unitPrice, totalPrice, availableCredits, 
 }
 
 function UploadList({ uploads }: { uploads: BatchUpload[] }) {
-  if (uploads.length === 0) return <Alert severity="info">选择多张图片后会先上传，再批量创建任务。</Alert>
+  if (uploads.length === 0) return <Alert severity="info">先上传图片。</Alert>
   const ok = uploads.filter((item) => item.status === 'uploaded').length
   const failed = uploads.filter((item) => item.status === 'failed').length
   return (

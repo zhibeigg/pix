@@ -229,7 +229,7 @@ export function App() {
       const created = await api.createJobsBatch(token, payloads, batchName, mode)
       setSelectedJobId(created.jobs[0]?.id ?? null)
       navigate('packs')
-      setMessage(`${created.jobs.length} 个素材任务已加入生产队列，已冻结 ${created.total_price_credits} 点；失败项会自动退回冻结点数。`)
+      setMessage(`${created.jobs.length} 个任务已入队，冻结 ${created.total_price_credits} 点。`)
       await refreshCore(token)
     } catch (error) {
       showError(error)
@@ -275,7 +275,7 @@ export function App() {
   async function toggleArchiveBatch(batch: GenerationBatch) {
     if (!token) return
     const nextStatus = batch.status === 'archived' ? 'active' : 'archived'
-    if (nextStatus === 'archived' && !window.confirm(`归档「${batch.name}」？归档后仍可恢复，但会从活跃素材包中弱化显示。`)) return
+    if (nextStatus === 'archived' && !window.confirm(`归档「${batch.name}」？`)) return
     try {
       await api.updateBatch(token, batch.id, { status: nextStatus })
       await refreshCore(token)
@@ -312,7 +312,7 @@ export function App() {
       link.click()
       link.remove()
       URL.revokeObjectURL(url)
-      setMessage(`素材包 ${batch.name} 已开始下载`)
+      setMessage(`${batch.name} 开始下载`)
     } catch (error) {
       showError(error)
     } finally {
@@ -322,12 +322,12 @@ export function App() {
 
   async function retryFailedBatch(batch: GenerationBatch) {
     if (!token) return
-    if (!window.confirm(`重试「${batch.name}」中的 ${batch.failed_count} 个失败项？系统会重新冻结对应点数，仍失败的任务会自动退回冻结点数。`)) return
+    if (!window.confirm(`重试「${batch.name}」的 ${batch.failed_count} 个失败项？`)) return
     setRetryingBatchId(batch.id)
     setMessage('')
     try {
       const result = await api.retryFailedBatch(token, batch.id)
-      setMessage(`已重新入队 ${result.jobs.length} 个失败项，重新冻结 ${result.total_price_credits} 点；仍失败会自动退回。`)
+      setMessage(`${result.jobs.length} 个失败项已重试，冻结 ${result.total_price_credits} 点。`)
       setSelectedBatchId(batch.id)
       setSelectedBatchJobs(await api.batchJobs(token, batch.id))
       await refreshCore(token)
@@ -349,7 +349,7 @@ export function App() {
       const order = await api.createOrder(token, packageKey)
       setCheckout(null)
       await refreshCore(token)
-      setMessage(`充值订单 #${order.id} 已创建，等待支付`)
+      setMessage(`订单 #${order.id} 已创建`)
     } catch (error) {
       showError(error)
     }
@@ -364,7 +364,7 @@ export function App() {
         window.open(result.payment_url, '_blank', 'noopener,noreferrer')
       }
       await refreshCore(token)
-      setMessage(`充值订单 #${result.order.id} 已创建：${provider}`)
+      setMessage(`订单 #${result.order.id} 已创建：${provider}`)
     } catch (error) {
       showError(error)
     }
@@ -406,10 +406,13 @@ export function App() {
     <Box component="main">
       <AppBar position="sticky" elevation={0} color="inherit" sx={{ bgcolor: notionTokens.canvas, borderBottom: 1, borderColor: 'divider', zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar sx={{ gap: 2, maxWidth: 1280, width: '100%', mx: 'auto', px: { xs: 2, md: 4 }, py: 1, minHeight: 72, alignItems: 'center', flexWrap: { xs: 'wrap', lg: 'nowrap' } }}>
-          <Box sx={{ minWidth: 190, flex: { xs: '1 1 auto', lg: '0 0 auto' } }}>
-            <Typography variant="overline" color="text.secondary">Pix Forge</Typography>
-            <Typography variant="h5" component="h1">像素素材工坊</Typography>
-          </Box>
+          <Stack direction="row" spacing={1.25} sx={{ minWidth: 190, flex: { xs: '1 1 auto', lg: '0 0 auto' }, alignItems: 'center' }}>
+            <Box component="img" src="/pix-logo-64.png" alt="Pix Forge logo" width={40} height={40} sx={{ imageRendering: 'pixelated', flex: '0 0 auto' }} />
+            <Box>
+              <Typography variant="overline" color="text.secondary">Pix Forge</Typography>
+              <Typography variant="h5" component="h1">像素素材工坊</Typography>
+            </Box>
+          </Stack>
           {user && (
             <Box sx={{ order: { xs: 3, lg: 2 }, flex: '1 1 auto', minWidth: 0, width: { xs: '100%', lg: 'auto' } }}>
               <AppTabs page={page} user={user} onChange={navigate} />

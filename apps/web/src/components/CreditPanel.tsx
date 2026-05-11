@@ -68,7 +68,7 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
                 <Stack spacing={1.5} sx={{ alignItems: 'center' }}>
                   <Typography sx={{ fontWeight: 600 }}>微信扫码支付订单 #{checkout.order.id}</Typography>
                   <QRCodeSVG value={checkout.code_url} size={180} />
-                  <Typography color="text.secondary" variant="body2">支付完成后点击刷新查看到账状态。</Typography>
+                  <Typography color="text.secondary" variant="body2">支付后点击刷新。</Typography>
                   <Button variant="outlined" size="small" onClick={copyWechatLink}>复制微信支付链接</Button>
                   <Accordion sx={{ width: '100%' }}>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>查看备用链接</AccordionSummary>
@@ -78,7 +78,7 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
               </CardContent>
             </Card>
           )}
-          {checkout?.payment_url && <Alert severity="info">支付宝付款页已在新窗口打开，支付完成后点击刷新。</Alert>}
+          {checkout?.payment_url && <Alert severity="info">支付宝已打开，支付后刷新。</Alert>}
 
           <Accordion defaultExpanded={orders.length > 0}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>充值订单</AccordionSummary>
@@ -104,7 +104,7 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>点数流水</AccordionSummary>
             <AccordionDetails>
               <Stack spacing={1} divider={<Divider flexItem />}>
-                {transactions.length === 0 ? <Typography color="text.secondary">暂无流水。管理员可先给账户加点。</Typography> : transactions.map((tx) => (
+                {transactions.length === 0 ? <Typography color="text.secondary">暂无流水。</Typography> : transactions.map((tx) => (
                   <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 2 }} key={tx.id}>
                     <Box>
                       <Typography sx={{ fontWeight: 850 }}>{tx.type}</Typography>

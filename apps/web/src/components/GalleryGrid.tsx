@@ -44,7 +44,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
         {ordered.length === 0 ? (
           <Box sx={{ mt: 3, border: 1, borderStyle: 'dashed', borderColor: 'divider', borderRadius: 1.5, p: 4, bgcolor: notionTokens.tintYellowBold }}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>你的像素工坊还是空的</Typography>
-            <Typography color="text.secondary">先用单图生成试一个道具，或粘贴 5-20 行 prompt 开始批量生产。</Typography>
+            <Typography color="text.secondary">先生成单图，或直接批量生产。</Typography>
           </Box>
         ) : (
           <Box sx={{ mt: 3, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 1.75 }}>

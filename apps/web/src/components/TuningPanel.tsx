@@ -15,7 +15,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
   const [pixelSize, setPixelSize] = useState('128x128')
   const [colors, setColors] = useState(16)
   const [removeBg, setRemoveBg] = useState(true)
-  const [aiPrompt, setAiPrompt] = useState('保留主体，调整材质和颜色，使其更适合像素游戏图标')
+  const [aiPrompt, setAiPrompt] = useState('保留主体，优化材质和颜色')
   const aiPrice = useMemo(() => pricing.find((item) => item.key === 'image_to_image')?.price_credits ?? 0, [pricing])
 
   if (!job) {
@@ -25,7 +25,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
           <Stack spacing={1}>
             <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>微调工位</Typography>
             <Typography variant="h4" sx={{ fontWeight: 600 }}>选择作品进行微调</Typography>
-            <Typography color="text.secondary">点击作品网格中的任意卡片，即可免费重新像素化，或使用 AI 图生图微调。</Typography>
+            <Typography color="text.secondary">选择作品后可重新像素化或 AI 微调。</Typography>
           </Stack>
         </CardContent>
       </Card>
@@ -82,7 +82,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
               <Stack component="form" spacing={2} onSubmit={submitLocal}>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>免费本地微调</Typography>
-                  <Typography color="text.secondary" variant="body2">不调用 AI，只重新像素化，因此不消耗点数。</Typography>
+                  <Typography color="text.secondary" variant="body2">不消耗点数。</Typography>
                 </Box>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
                   <TextField label="像素尺寸" value={pixelSize} onChange={(event) => setPixelSize(event.target.value)} />
@@ -99,7 +99,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
               <Stack component="form" spacing={2} onSubmit={submitAi}>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>AI 微调</Typography>
-                  <Typography color="text.secondary" variant="body2">使用 AI 参考图微调，会消耗 {aiPrice} 点。</Typography>
+                  <Typography color="text.secondary" variant="body2">消耗 {aiPrice} 点。</Typography>
                 </Box>
                 {!sourcePath && <Alert severity="warning">当前作品没有可用源图路径，暂时无法微调。</Alert>}
                 <TextField label="微调描述" value={aiPrompt} multiline minRows={4} onChange={(event) => setAiPrompt(event.target.value)} />

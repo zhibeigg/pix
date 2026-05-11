@@ -25,7 +25,7 @@ export function WorkspacePage({ mode, pricing, balance, jobs, loading, token, on
   const activeJobs = jobs.filter((job) => ['pending', 'running'].includes(job.status))
   return (
     <Stack spacing={3}>
-      <PageHeader eyebrow="生产" title="生产工作台" description="先试做单张素材，确认方向后再批量生成素材包。作品挑选、微调和打包下载分别放在作品库与素材包页面。" tint="yellow" />
+      <PageHeader eyebrow="生产" title="生产工作台" description="先试单张，再批量成包。" tint="yellow" />
 
       <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
         <CardContent>

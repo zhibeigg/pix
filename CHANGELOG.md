@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-05-11
+
+### Changed
+
+- 简化 Web 端首页、工作台、作品库、素材包、点数中心和管理后台的说明文案，减少重复解释，保留操作必要信息。
+- 使用 `pix_logo_64_v2.png` 作为 Web 站点 favicon、Apple touch icon 和顶部导航 Logo。
+- 跟踪 `DESIGN.md` 设计参考文档，便于后续界面迭代复用设计上下文。
+
 ## [0.39.3] - 2026-05-11
 
 ### Fixed
@@ -414,7 +422,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.39.3...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.40.0...HEAD
+[0.40.0]: https://github.com/zhibeigg/pix/compare/v0.39.3...v0.40.0
 [0.39.3]: https://github.com/zhibeigg/pix/compare/v0.39.2...v0.39.3
 [0.39.2]: https://github.com/zhibeigg/pix/compare/v0.39.1...v0.39.2
 [0.39.1]: https://github.com/zhibeigg/pix/compare/v0.39.0...v0.39.1
