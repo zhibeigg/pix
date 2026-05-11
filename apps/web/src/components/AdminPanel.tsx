@@ -12,7 +12,10 @@ type AdminPanelProps = {
   onUpdateSetting: (key: string, value: string) => Promise<void>
 }
 
+type AdminTab = 'dashboard' | 'users' | 'pricing' | 'settings'
+
 export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onAdjustCredits, onUpdatePricing, onUpdateSetting }: AdminPanelProps) {
+  const [tab, setTab] = useState<AdminTab>('dashboard')
   const [selectedUser, setSelectedUser] = useState<number>(0)
   const [amount, setAmount] = useState(100)
   const [note, setNote] = useState('seed credits')
@@ -32,7 +35,14 @@ export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onA
         </div>
         <button className="ghost" onClick={onRefresh}>刷新</button>
       </div>
-      {dashboard && (
+      <div className="admin-tabs" role="tablist" aria-label="管理后台栏目">
+        <button type="button" role="tab" aria-selected={tab === 'dashboard'} className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}>概览</button>
+        <button type="button" role="tab" aria-selected={tab === 'users'} className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>用户与点数</button>
+        <button type="button" role="tab" aria-selected={tab === 'pricing'} className={tab === 'pricing' ? 'active' : ''} onClick={() => setTab('pricing')}>价格规则</button>
+        <button type="button" role="tab" aria-selected={tab === 'settings'} className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>运营保护</button>
+      </div>
+
+      {tab === 'dashboard' && dashboard && (
         <div className="metric-grid">
           <Metric label="今日任务" value={dashboard.jobs_today} />
           <Metric label="成功 / 失败" value={`${dashboard.succeeded_today} / ${dashboard.failed_today}`} />
@@ -44,8 +54,9 @@ export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onA
           <Metric label="失败率" value={`${Math.round(dashboard.failure_rate * 100)}%`} />
         </div>
       )}
-      <div className="admin-grid">
-        <form className="stack" onSubmit={submitAdjust}>
+
+      {tab === 'users' && (
+        <form className="stack admin-section" onSubmit={submitAdjust}>
           <h3>手动加点</h3>
           <label>
             用户
@@ -66,7 +77,10 @@ export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onA
           </label>
           <button>调整点数</button>
         </form>
-        <div>
+      )}
+
+      {tab === 'pricing' && (
+        <div className="admin-section">
           <h3>价格规则</h3>
           <div className="pricing-list">
             {pricing.map((rule) => (
@@ -74,7 +88,10 @@ export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onA
             ))}
           </div>
         </div>
-        <div>
+      )}
+
+      {tab === 'settings' && (
+        <div className="admin-section">
           <h3>运营保护</h3>
           <div className="pricing-list">
             {settings.map((setting) => (
@@ -82,7 +99,7 @@ export function AdminPanel({ dashboard, users, pricing, settings, onRefresh, onA
             ))}
           </div>
         </div>
-      </div>
+      )}
     </section>
   )
 }
