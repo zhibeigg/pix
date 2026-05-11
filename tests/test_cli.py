@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -194,8 +195,67 @@ def test_asset_cli_direct_output(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> 
     assert out.with_name("血气灵玉_preview.png").exists()
     assert out.with_name("血气灵玉_source.png").exists()
     assert out.with_name("血气灵玉.grid.json").exists()
-    sidecar = out.with_name("血气灵玉.asset.json").read_text(encoding="utf-8")
-    assert "血气灵玉_source.png" in sidecar
+    sidecar_text = out.with_name("血气灵玉.asset.json").read_text(encoding="utf-8")
+    assert "血气灵玉_source.png" in sidecar_text
+
+    sidecar = json.loads(sidecar_text)
+    assert sidecar["fit_canvas"] == {
+        "enabled": True,
+        "mode": "smart",
+        "padding": 1,
+        "min_axis_coverage": 0.7,
+    }
+
+
+def test_asset_cli_fit_canvas_options(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> None:
+    from PIL import Image
+
+    def fake_run_pipeline(cfg, inputs, progress=None):
+        run_dir = tmp_path / "run-fit"
+        run_dir.mkdir()
+        source_path = run_dir / "01_source.png"
+        pixel_path = run_dir / "03_pixelized.png"
+        img = Image.new("RGB", (64, 64), (255, 255, 255))
+        for y in range(24, 40):
+            for x in range(16, 48):
+                img.putpixel((x, y), (180, 20, 40))
+        img.save(source_path)
+        img.resize((16, 8), Image.Resampling.NEAREST).save(pixel_path)
+        return SimpleNamespace(
+            run_dir=run_dir,
+            source_path=source_path,
+            analysis_path=None,
+            meta_path=run_dir / "meta.json",
+            pixel_path=pixel_path,
+            preview_path=None,
+            analysis=None,
+            meta={"vision": {"ok": False}, "pixelize": {"effective_params": {}}},
+        )
+
+    monkeypatch.setattr("pix.cli.run_pipeline", fake_run_pipeline)
+    out = tmp_path / "ui-bar.png"
+    result = runner.invoke(
+        app,
+        [
+            "asset", "UI bar",
+            "--out", str(out),
+            "--pixel-size", "16x8",
+            "--colors", "6",
+            "--fit-mode", "stretch",
+            "--fit-padding", "1",
+            "--fit-min-axis-coverage", "0.9",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert out.exists()
+    sidecar = json.loads(out.with_name("ui-bar.asset.json").read_text(encoding="utf-8"))
+    assert sidecar["fit_canvas"] == {
+        "enabled": True,
+        "mode": "stretch",
+        "padding": 1,
+        "min_axis_coverage": 0.9,
+    }
 
 
 def test_batch_cli(sample_image: Path, tmp_path: Path, tmp_cwd: Path) -> None:

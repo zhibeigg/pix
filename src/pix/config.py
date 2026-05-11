@@ -103,9 +103,13 @@ class AssetConfig:
     grid_review: bool = False
     grid_json: bool = True
     grid_cleanup: bool = True
-    grid_outline: bool = False
+    grid_outline: bool = True
     grid_outline_strength: int = 1
     grid_min_neighbors: int = 1
+    fit_canvas: bool = True
+    fit_mode: str = "smart"
+    fit_padding: int = 1
+    fit_min_axis_coverage: float = 0.7
     prompt_template: str = (
         "A single fantasy pixel game inventory item icon of {name}. "
         "Centered object, isolated on plain white background, no text, no UI frame, "

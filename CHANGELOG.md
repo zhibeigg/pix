@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-05-11
+
+### Added
+
+- `pix asset` 新增 Pixel Grid 画布贴合后处理，支持 `--fit-canvas/--no-fit-canvas`、`--fit-mode smart|contain|stretch`、`--fit-padding` 和 `--fit-min-axis-coverage`，让非方形 UI 元件按目标画布尺寸自适应填充。
+- `pix asset` 默认启用 Grid 轮廓和画布贴合，按钮、条形、面板等 UI 素材会获得更硬的边界和更稳定的有效像素覆盖率。
+
+### Changed
+
+- 使用修复后的 `pix asset` 重新生成首页 8 张像素 UI 素材，生命条、金币计数器、菜单标签和对话框的高度覆盖率显著提升。
+
 ## [0.37.0] - 2026-05-11
 
 ### Changed
@@ -377,7 +388,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.37.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.38.0...HEAD
+[0.38.0]: https://github.com/zhibeigg/pix/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/zhibeigg/pix/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/zhibeigg/pix/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/zhibeigg/pix/compare/v0.34.1...v0.35.0

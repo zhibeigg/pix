@@ -21,7 +21,7 @@ from pix.api.vision import analyze_image
 from pix.asset import build_asset_prompt, safe_asset_filename, validate_asset_image
 from pix.config import AppConfig, load_config
 from pix.grid.extract import extract_pixel_grid
-from pix.grid.postprocess import polish_pixel_grid
+from pix.grid.postprocess import fit_pixel_grid_to_canvas, polish_pixel_grid
 from pix.grid.render import render_grid_file, render_pixel_grid
 from pix.grid.review import review_grid_file, review_pixel_grid
 from pix.grid.schema import load_grid, save_grid
@@ -370,6 +370,10 @@ def cmd_asset(
     grid_review: bool = typer.Option(False, "--grid-review", help="让 AI 审核/修正 Grid JSON 后再渲染"),
     grid_cleanup: Optional[bool] = typer.Option(None, "--grid-cleanup/--no-grid-cleanup", help="Grid JSON 后处理：清理孤立噪点"),
     grid_outline: Optional[bool] = typer.Option(None, "--grid-outline/--no-grid-outline", help="Grid JSON 后处理：统一主体轮廓"),
+    fit_canvas: Optional[bool] = typer.Option(None, "--fit-canvas/--no-fit-canvas", help="Grid JSON 后处理：将主体贴合目标画布"),
+    fit_mode: Optional[str] = typer.Option(None, help="贴合画布模式：smart|contain|stretch"),
+    fit_padding: Optional[int] = typer.Option(None, min=0, help="贴合画布时保留的透明像素边距"),
+    fit_min_axis_coverage: Optional[float] = typer.Option(None, min=0.0, max=1.0, help="smart 模式触发单轴拉伸的最小 bbox 覆盖率"),
     grid_json: Optional[Path] = typer.Option(None, help="Grid JSON 输出路径；默认 target.stem + .grid.json"),
     no_grid_json: bool = typer.Option(False, "--no-grid-json", help="grid-mode 下不保存 .grid.json"),
     run_root: Optional[Path] = typer.Option(None, help="中间运行目录根；默认使用 [output].root"),
@@ -389,6 +393,16 @@ def cmd_asset(
     grid_target = grid_json or target.with_name(target.stem + ".grid.json")
     effective_grid_mode = bool(cfg.asset.grid_mode if grid_mode is None else grid_mode)
     effective_source_copy = bool(cfg.asset.source_copy if source_copy is None else source_copy)
+    effective_fit_canvas = bool(cfg.asset.fit_canvas if fit_canvas is None else fit_canvas)
+    effective_fit_mode = str(fit_mode or cfg.asset.fit_mode).strip().lower()
+    if effective_fit_mode not in {"smart", "contain", "stretch"}:
+        raise typer.BadParameter("fit-mode 必须是 smart、contain 或 stretch")
+    effective_fit_padding = int(cfg.asset.fit_padding if fit_padding is None else fit_padding)
+    effective_fit_min_axis_coverage = float(
+        cfg.asset.fit_min_axis_coverage
+        if fit_min_axis_coverage is None
+        else fit_min_axis_coverage
+    )
     write_targets = [target]
     if not no_preview:
         write_targets.append(preview_target)
@@ -475,6 +489,13 @@ def cmd_asset(
             )
         if grid_review or cfg.asset.grid_review:
             grid = review_pixel_grid(cfg, grid, model=vl_model)
+        if effective_fit_canvas:
+            grid = fit_pixel_grid_to_canvas(
+                grid,
+                padding=effective_fit_padding,
+                mode=effective_fit_mode,
+                min_axis_coverage=effective_fit_min_axis_coverage,
+            )
         if cfg.asset.grid_json and not no_grid_json:
             save_grid(grid, grid_target)
             saved_grid = grid_target
@@ -501,6 +522,12 @@ def cmd_asset(
             "source_copy": str(copied_source) if copied_source else None,
             "grid_mode": effective_grid_mode,
             "grid": str(saved_grid) if saved_grid else None,
+            "fit_canvas": {
+                "enabled": effective_fit_canvas,
+                "mode": effective_fit_mode,
+                "padding": effective_fit_padding,
+                "min_axis_coverage": effective_fit_min_axis_coverage,
+            } if effective_grid_mode else None,
             "run_dir": str(result.run_dir),
             "source": str(result.source_path),
             "analysis": str(result.analysis_path) if result.analysis_path else None,
