@@ -18,14 +18,14 @@ const workflow = [
 const scenarios = ['RPG Icon', 'UI Item', 'Pixel HUD', 'Tileset', 'Avatar', 'Skill Badge', 'Sprite Sheet', 'Inventory', 'Quest Prop', 'Shop Asset', 'Game Jam', 'Prototype', 'Indie Toolkit']
 
 const uiWorks = [
-  { name: '背包格', src: '/hero-ui/inventory-slot.png', note: '物品栏 / 装备槽' },
-  { name: '技能按钮', src: '/hero-ui/skill-button.png', note: '技能栏 / 快捷键' },
-  { name: '生命条', src: '/hero-ui/health-bar.png', note: 'HUD / 战斗状态' },
-  { name: '对话框', src: '/hero-ui/dialog-panel.png', note: 'NPC 对话 / 提示窗' },
-  { name: '任务牌', src: '/hero-ui/quest-card.png', note: '任务列表 / 公告板' },
-  { name: '金币计数器', src: '/hero-ui/coin-counter.png', note: '经济系统 / 商店' },
-  { name: '菜单标签', src: '/hero-ui/menu-tab.png', note: '页签 / 设置面板' },
-  { name: '确认勾选', src: '/hero-ui/check-toggle.png', note: '开关 / 选项状态' },
+  { name: '背包格', src: '/hero-ui/inventory-slot.png', note: '物品栏 / 装备槽', width: 96, height: 96, span: 1 },
+  { name: '技能按钮', src: '/hero-ui/skill-button.png', note: '技能栏 / 快捷键', width: 96, height: 96, span: 1 },
+  { name: '生命条', src: '/hero-ui/health-bar.png', note: 'HUD / 战斗状态', width: 160, height: 64, span: 2 },
+  { name: '对话框', src: '/hero-ui/dialog-panel.png', note: 'NPC 对话 / 提示窗', width: 160, height: 96, span: 2 },
+  { name: '任务牌', src: '/hero-ui/quest-card.png', note: '任务列表 / 公告板', width: 160, height: 96, span: 2 },
+  { name: '金币计数器', src: '/hero-ui/coin-counter.png', note: '经济系统 / 商店', width: 128, height: 64, span: 2 },
+  { name: '菜单标签', src: '/hero-ui/menu-tab.png', note: '页签 / 设置面板', width: 128, height: 64, span: 2 },
+  { name: '确认勾选', src: '/hero-ui/check-toggle.png', note: '开关 / 选项状态', width: 96, height: 96, span: 1 },
 ]
 
 type LandingSectionsProps = {
@@ -68,7 +68,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
         </Box>
       </SectionFrame>
 
-      <SectionFrame id="pixel-ui" eyebrow="像素 UI" title="不只做道具，也覆盖界面素材" description="游戏原型通常同时需要图标、HUD、背包格、按钮和对话面板。首页展示一组由 Pix 生成的 64×64 UI 作品，让素材覆盖面更完整。">
+      <SectionFrame id="pixel-ui" eyebrow="像素 UI" title="不只做道具，也覆盖界面素材" description="游戏原型通常同时需要图标、HUD、背包格、按钮和对话面板。首页展示一组由 Pix 生成的多尺寸 UI 作品，让横向条、面板和方形控件都保持清晰比例。">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '.78fr 1.22fr' }, gap: { xs: 3, lg: 5 }, alignItems: 'center' }}>
           <Card sx={{ bgcolor: notionTokens.tintYellow, minHeight: 340 }}>
             <CardContent sx={{ p: { xs: 3, md: 4 } }}>
@@ -82,11 +82,11 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
               </Stack>
             </CardContent>
           </Card>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 1.5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(4, minmax(0, 1fr))' }, gap: 1.5 }}>
             {uiWorks.map((item) => (
-              <Box key={item.name} sx={{ bgcolor: notionTokens.surfaceSoft, border: `1px solid ${notionTokens.hairline}`, borderRadius: 2, p: 1.3, transition: 'transform .22s ease, box-shadow .22s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: 'rgba(15, 15, 15, 0.10) 0px 16px 36px -16px' } }}>
-                <Box sx={{ display: 'grid', placeItems: 'center', minHeight: 92, borderRadius: 1.4, bgcolor: notionTokens.canvas, backgroundImage: `linear-gradient(45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(-45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%), linear-gradient(-45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%)`, backgroundSize: '16px 16px', backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0' }}>
-                  <Box component="img" src={item.src} alt={`${item.name} 64×64 像素 UI 作品`} width={64} height={64} loading="lazy" decoding="async" sx={{ width: 64, height: 64, objectFit: 'contain', imageRendering: 'pixelated' }} />
+              <Box key={item.name} sx={{ gridColumn: { xs: 'span 1', sm: item.span === 2 ? 'span 2' : 'span 1' }, bgcolor: notionTokens.surfaceSoft, border: `1px solid ${notionTokens.hairline}`, borderRadius: 2, p: 1.3, transition: 'transform .22s ease, box-shadow .22s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: 'rgba(15, 15, 15, 0.10) 0px 16px 36px -16px' } }}>
+                <Box sx={{ display: 'grid', placeItems: 'center', minHeight: item.height + 28, borderRadius: 1.4, bgcolor: notionTokens.canvas, backgroundImage: `linear-gradient(45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(-45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%), linear-gradient(-45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%)`, backgroundSize: '16px 16px', backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0' }}>
+                  <Box component="img" src={item.src} alt={`${item.name} ${item.width}×${item.height} 像素 UI 作品`} width={item.width} height={item.height} loading="lazy" decoding="async" sx={{ width: '100%', maxWidth: item.width, height: 'auto', objectFit: 'contain', imageRendering: 'pixelated' }} />
                 </Box>
                 <Typography variant="body2" sx={{ mt: 1, fontWeight: 600 }}>{item.name}</Typography>
                 <Typography variant="caption" color="text.secondary">{item.note}</Typography>
