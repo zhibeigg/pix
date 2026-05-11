@@ -1,4 +1,4 @@
-import { KeyboardEvent, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { GenerationJob } from '../types'
 import { summarizePrompt } from '../pixelize'
 
@@ -19,14 +19,12 @@ const statusLabels: Record<string, string> = {
 }
 
 export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPath }: GalleryGridProps) {
+  const [page, setPage] = useState(1)
+  const pageSize = 80
   const ordered = useMemo(() => [...jobs].sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at))), [jobs])
-
-  function activateCard(event: KeyboardEvent<HTMLElement>, job: GenerationJob) {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      onSelect(job)
-    }
-  }
+  const totalPages = Math.max(1, Math.ceil(ordered.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const visible = ordered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   return (
     <section className="panel gallery-panel">
@@ -45,7 +43,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
         </div>
       ) : (
         <div className="gallery-grid">
-          {ordered.map((job) => {
+          {visible.map((job) => {
             const output = job.outputs[0]
             const mainPath = output?.pixelized_path || output?.source_path || job.input_image_path || ''
             const previewUrl = output?.pixelized_url || output?.source_url || job.input_image_url || ''
@@ -53,11 +51,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
               <article
                 className={`gallery-card ${selectedJobId === job.id ? 'selected' : ''}`}
                 key={job.id}
-                role="button"
-                tabIndex={0}
-                aria-selected={selectedJobId === job.id}
-                onClick={() => onSelect(job)}
-                onKeyDown={(event) => activateCard(event, job)}
+                aria-current={selectedJobId === job.id ? 'true' : undefined}
               >
                 <div className="pixel-preview">
                   {previewUrl ? (
@@ -77,22 +71,36 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                     <span>{new Date(job.created_at).toLocaleString()}</span>
                   </div>
                   {job.batch_name && <p className="muted">素材包：{job.batch_name}</p>}
-                  {mainPath && (
+                  <div className="card-actions">
                     <button
-                      className="ghost compact"
+                      className={selectedJobId === job.id ? 'compact' : 'ghost compact'}
                       type="button"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        onCopyPath(mainPath)
-                      }}
+                      aria-pressed={selectedJobId === job.id}
+                      onClick={() => onSelect(job)}
                     >
-                      复制输出路径
+                      {selectedJobId === job.id ? '已选中' : '选择作品'}
                     </button>
-                  )}
+                    {mainPath && (
+                      <button
+                        className="ghost compact"
+                        type="button"
+                        onClick={() => onCopyPath(mainPath)}
+                      >
+                        复制路径
+                      </button>
+                    )}
+                  </div>
                 </div>
               </article>
             )
           })}
+        </div>
+      )}
+      {ordered.length > pageSize && (
+        <div className="pager" aria-label="作品分页">
+          <button className="ghost compact" type="button" disabled={safePage <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button>
+          <span className="muted">第 {safePage} / {totalPages} 页</span>
+          <button className="ghost compact" type="button" disabled={safePage >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>下一页</button>
         </div>
       )}
     </section>

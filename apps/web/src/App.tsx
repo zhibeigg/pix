@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, ApiError } from './api'
 import { AdminPanel } from './components/AdminPanel'
 import { AuthPanel } from './components/AuthPanel'
@@ -36,6 +36,7 @@ export function App() {
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null)
   const [selectedBatchJobs, setSelectedBatchJobs] = useState<GenerationJob[]>([])
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
+  const pollFailuresRef = useRef(0)
 
   const isAdmin = user?.role === 'admin'
   const selectedBatch = useMemo(() => batches.find((batch) => batch.id === selectedBatchId) ?? null, [batches, selectedBatchId])
@@ -99,16 +100,37 @@ export function App() {
 
   useEffect(() => {
     if (!token) return
-    const id = window.setInterval(() => {
-      if (document.visibilityState === 'hidden') return
-      api.jobs(token).then(setJobs).catch(() => undefined)
-      api.batches(token).then(setBatches).catch(() => undefined)
-      api.balance(token).then(setBalance).catch(() => undefined)
+    let cancelled = false
+    let timer = 0
 
-      api.orders(token).then(setOrders).catch(() => undefined)
-    }, 3000)
-    return () => window.clearInterval(id)
-  }, [selectedBatchId, token])
+    async function poll() {
+      if (cancelled) return
+      const delay = pollFailuresRef.current >= 4 ? 15000 : pollFailuresRef.current >= 2 ? 6000 : 3000
+      timer = window.setTimeout(poll, delay)
+      if (document.visibilityState === 'hidden') return
+      try {
+        const [nextJobs, nextBatches, nextBalance, nextOrders] = await Promise.all([
+          api.jobs(token),
+          api.batches(token),
+          api.balance(token),
+          api.orders(token),
+        ])
+        setJobs(nextJobs)
+        setBatches(nextBatches)
+        setBalance(nextBalance)
+        setOrders(nextOrders)
+        pollFailuresRef.current = 0
+      } catch {
+        pollFailuresRef.current += 1
+      }
+    }
+
+    poll()
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [token])
 
   async function login(email: string, password: string) {
     setBusy(true)
