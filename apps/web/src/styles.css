@@ -54,18 +54,15 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 1080px; background: radial-gradient(circle at 20% 0%, var(--bg-glow) 0, var(--bg) 36rem); }
-button, input, select, textarea { font: inherit; }
-button:not(.MuiButtonBase-root) { min-height: 42px; border: 0; border-radius: 12px; padding: 10px 14px; background: var(--accent); color: var(--accent-ink); font-weight: 800; cursor: pointer; }
-button:not(.MuiButtonBase-root):disabled { opacity: .55; cursor: not-allowed; }
-button.ghost:not(.MuiButtonBase-root) { background: transparent; color: var(--text); border: 1px solid var(--border); }
-button:not(.MuiButtonBase-root):focus-visible,
-input:not(.MuiInputBase-input):focus-visible,
-select:focus-visible,
-textarea:not(.MuiInputBase-input):focus-visible,
+.panel :where(button, input, select, textarea) { font: inherit; }
+.panel button { min-height: 42px; border: 0; border-radius: 12px; padding: 10px 14px; background: var(--accent); color: var(--accent-ink); font-weight: 800; cursor: pointer; }
+.panel button:disabled { opacity: .55; cursor: not-allowed; }
+.panel button.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.panel :where(button, input, select, textarea):focus-visible,
 [role="button"]:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
-input:not(.MuiInputBase-input), select, textarea:not(.MuiInputBase-input) { width: 100%; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-inset); color: var(--text); padding: 10px 12px; }
-textarea { resize: vertical; }
-label { display: grid; gap: 7px; color: var(--muted); font-size: 13px; }
+.panel :where(input, select, textarea) { width: 100%; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-inset); color: var(--text); padding: 10px 12px; }
+.panel textarea { resize: vertical; }
+.panel label { display: grid; gap: 7px; color: var(--muted); font-size: 13px; }
 code { color: var(--text-code); }
 
 .app-shell { padding: 32px; }
@@ -153,7 +150,7 @@ code { color: var(--text-code); }
 .inline-preview { width: 100%; max-height: 220px; object-fit: contain; image-rendering: pixelated; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-deep); padding: 10px; }
 .tune-preview { max-height: 180px; }
 .gallery-card-body { padding: 14px; display: grid; gap: 10px; }
-button.compact { padding: 7px 10px; font-size: 12px; }
+.panel button.compact { padding: 7px 10px; font-size: 12px; }
 .empty-gallery { border: 1px dashed var(--border); border-radius: 20px; padding: 36px; background: var(--surface-inset); color: var(--muted); }
 .tuning-panel { display: grid; gap: 16px; }
 .tune-block { border: 1px solid var(--border); border-radius: 18px; padding: 14px; background: var(--surface-inset); }
@@ -164,7 +161,7 @@ button.compact { padding: 7px 10px; font-size: 12px; }
 .batch-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgb(103 199 255 / .16); }
 .batch-card.archived { opacity: .62; }
 .batch-card p { margin: 8px 0 0; }
-button.danger { color: var(--text-danger-soft); border-color: var(--border-danger); }
+.panel button.danger { color: var(--text-danger-soft); border-color: var(--border-danger); }
 .action-row { display: flex; gap: var(--space-sm); flex-wrap: wrap; justify-content: flex-end; }
 .card-actions { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
 .pager { display: flex; gap: var(--space-sm); align-items: center; justify-content: center; margin-top: var(--space-lg); }
@@ -194,7 +191,7 @@ button.danger { color: var(--text-danger-soft); border-color: var(--border-dange
   .two-columns { grid-template-columns: 1fr; }
   .app-tabs { display: flex; overflow-x: auto; padding-bottom: 4px; }
   .app-tabs button { min-width: 150px; }
-  button, button.compact { min-height: 44px; padding: 10px 14px; }
+  .panel button, .panel button.compact { min-height: 44px; padding: 10px 14px; }
   .action-row, .batch-actions { justify-content: stretch; }
   .action-row button, .batch-actions button { flex: 1 1 140px; }
   .transaction { grid-template-columns: auto 1fr; }
