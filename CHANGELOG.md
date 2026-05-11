@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-05-11
+
+### Changed
+
+- 重新用 `pix asset` 按真实 UI 用途生成多尺寸首页 UI 作品：方形控件使用 96×96，横向条和标签使用 128×64/160×64，面板类使用 160×96。
+- 更新首页像素 UI 展示区，让不同宽高比的 UI 素材按真实尺寸和跨列布局展示，避免统一压成 64×64 导致细节糊掉。
+
 ## [0.35.0] - 2026-05-11
 
 ### Added
@@ -363,7 +370,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.35.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.36.0...HEAD
+[0.36.0]: https://github.com/zhibeigg/pix/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/zhibeigg/pix/compare/v0.34.1...v0.35.0
 [0.34.1]: https://github.com/zhibeigg/pix/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/zhibeigg/pix/compare/v0.33.0...v0.34.0
