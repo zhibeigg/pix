@@ -70,7 +70,7 @@ const darkVars = {
   '--pix-hairline': '#2C3850',
   '--pix-hairline-soft': '#202B41',
   '--pix-hairline-strong': '#52617B',
-  '--pix-ink-deep': '#F8F1E4',
+  '--pix-ink-deep': '#050915',
   '--pix-ink': '#ECE5D8',
   '--pix-charcoal': '#D7CEBF',
   '--pix-slate': '#AFA695',
