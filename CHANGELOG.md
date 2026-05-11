@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-05-11
+
+### Changed
+
+- 从最近生成的高清源图重新像素化首页 8 张像素 UI 素材，改用更大的目标尺寸与更高颜色数，以更接近原图细节和材质效果。
+- 更新首页像素 UI 展示尺寸：方形控件提升到 128×128，横条、标签和面板提升到 240–256px 级别，避免浏览器按旧尺寸压缩新资源。
+
 ## [0.38.0] - 2026-05-11
 
 ### Added
@@ -388,7 +395,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.38.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.39.0...HEAD
+[0.39.0]: https://github.com/zhibeigg/pix/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/zhibeigg/pix/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/zhibeigg/pix/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/zhibeigg/pix/compare/v0.35.0...v0.36.0
