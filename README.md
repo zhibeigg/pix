@@ -210,7 +210,8 @@ pix gui                                                      # 启动图形界�
 | `--crop-square / --no-crop-square` | 自动裁剪时保持正方形 | `true` |
 | `--vl-model` | 视觉模型名 | 从配置读 |
 | `--no-vl` | 跳过多模态分析（纯 Python 兜底） | `false` |
-| `pix asset --ai-grid` | 可选 AI Grid 直绘：模型结合原始 prompt、源图和源图网格对齐 draft，直接返回 `palette + pixels[y][x]`，后端做 schema 校验、可读性评分、自动返修和 PNG 渲染 | 关 |
+| `pix asset --ai-grid` | 可选 AI Grid 直绘：模型结合原始 prompt、源图和源图网格对齐 draft，直接返回 `palette + pixels[y][x]`，后端做 schema 校验、可读性评分、自动返修和 PNG 渲染；8×8 会强制启用且 fallback 固定为 `fail` | 关 |
+| `pix asset --pixel-size WxH` | 素材尺寸；16×16 以下仅允许 8×8，且 8×8 必须 AI Grid 直绘 | `[asset].pixel_size` |
 | `[asset].ai_grid_draft_max_axis` | 传给 VL 的 Python draft 最大轴；draft 优先使用源图检测出的实际像素格尺寸，而不是最终目标尺寸，避免 16×16 直接压糊 | `64` |
 | `pix asset --ai-grid-retries N` | AI Grid 可读性返修次数；`--grid-review` 会再增加一次模型审核调用 | `1` |
 | `pix asset --ai-grid-fallback extract\|pixelize\|fail` | AI Grid 失败后的回退策略 | `extract` |
@@ -379,7 +380,7 @@ MVP 计费规则默认：
 
 ### 游戏素材直出
 
-`pix asset` 是面向游戏资源目录的快捷生产线，默认参数按 16×16 物品图标优化：12 色、自动裁剪主体、自动抠透明背景，并默认启用 **Pixel Grid JSON 工程图**、Grid 轮廓和画布贴合后处理。最终 PNG 不是直接 resize 的伪像素图，而是先提取 `pixels[y][x]` 与 `palette`，再由 Python 精确渲染。
+`pix asset` 是面向游戏资源目录的快捷生产线，默认参数按 16×16 物品图标优化：12 色、自动裁剪主体、自动抠透明背景，并默认启用 **Pixel Grid JSON 工程图**、Grid 轮廓和画布贴合后处理。image2 生成源图后会直接进入 Pixel Grid extract → cleanup/outline → fit_canvas → render，最终 PNG 不是直接 resize 的伪像素图，而是先提取 `pixels[y][x]` 与 `palette`，再由 Python 精确渲染。16×16 以下默认禁止，唯一例外是 8×8；8×8 必须使用 AI Grid 直绘，失败时不会静默回退。
 
 ```bash
 pix asset "血气灵玉" --out 图片/血气灵玉.png

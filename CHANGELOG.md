@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-05-11
+
+### Changed
+
+- `pix asset` 默认在 image2 源图后直接走 Pixel Grid extract + cleanup/outline + fit_canvas + render，减少普通 resize/量化与 CLI 二次提取的差异。
+- 素材直出新增低尺寸策略：16x16 以下仅允许 8x8，且 8x8 必须使用 AI Grid 直绘并禁止静默回退。
+- Web/API 同步低尺寸校验，前端在 8x8 时自动启用 AI 低像素工程图。
+
 ## [0.45.0] - 2026-05-11
 
 ### Changed

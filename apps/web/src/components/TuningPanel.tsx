@@ -2,7 +2,7 @@ import { FormEvent, useMemo, useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, Stack, TextField, Typography } from '@mui/material'
 import { notionTokens } from '../theme'
 import type { GenerationJob, JobCreateRequest, PricingRule } from '../types'
-import { buildGridDesign, buildPixelize, parsePixelSize, summarizePrompt } from '../pixelize'
+import { buildGridDesign, buildPixelize, hasInvalidSub16Size, isEightPixelSize, parsePixelSize, summarizePrompt } from '../pixelize'
 
 type TuningPanelProps = {
   job: GenerationJob | null
@@ -36,6 +36,9 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
   const output = job.outputs[0]
   const sourcePath = output?.source_path || output?.pixelized_path || job.input_image_path || ''
   const previewUrl = output?.pixelized_url || output?.source_url || job.input_image_url || ''
+  const parsedPixelSize = parsePixelSize(pixelSize)
+  const forceAiGrid = isEightPixelSize(parsedPixelSize)
+  const invalidSub16Size = hasInvalidSub16Size(parsedPixelSize)
 
   async function submitLocal(event: FormEvent) {
     event.preventDefault()
@@ -46,8 +49,8 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
       input_image_path: sourcePath,
       client_request_id: crypto.randomUUID(),
       skip_vl: true,
-      pixelize: buildPixelize({ output_size: parsePixelSize(pixelSize), colors, remove_bg: removeBg }),
-      grid: buildGridDesign(aiGrid),
+      pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg }),
+      grid: buildGridDesign(aiGrid, parsedPixelSize),
     })
   }
 
@@ -60,8 +63,8 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
       input_image_path: sourcePath,
       client_request_id: crypto.randomUUID(),
       skip_vl: false,
-      pixelize: buildPixelize({ output_size: parsePixelSize(pixelSize), colors, remove_bg: removeBg }),
-      grid: buildGridDesign(aiGrid),
+      pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg }),
+      grid: buildGridDesign(aiGrid, parsedPixelSize),
     })
   }
 
@@ -83,9 +86,11 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
           <Card variant="outlined" sx={{ bgcolor: notionTokens.tintYellowBold }}>
             <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
               <Stack spacing={1}>
-                <FormControlLabel control={<Checkbox checked={aiGrid} onChange={(event) => setAiGrid(event.target.checked)} />} label="AI 低像素工程图" />
-                <Typography color="text.secondary" variant="body2">启用后会让模型直接返回 palette + pixels 工程图，再由后端校验、返修和渲染。</Typography>
-                {aiGrid && <Alert severity="warning">这会额外调用视觉模型；默认点数价格不变，但会产生额外模型调用成本，本地微调也不再是纯本地处理。</Alert>}
+                <FormControlLabel control={<Checkbox checked={forceAiGrid || aiGrid} disabled={forceAiGrid} onChange={(event) => setAiGrid(event.target.checked)} />} label="AI 低像素工程图" />
+                <Typography color="text.secondary" variant="body2">启用后会让模型直接返回 palette + pixels 工程图，再由后端校验、返修和渲染；8×8 会强制启用，16×16 以下其它尺寸不允许提交。</Typography>
+                {invalidSub16Size && <Alert severity="error">16×16 以下仅支持 8×8；8×8 会自动使用 AI 低像素工程图。</Alert>}
+                {forceAiGrid && <Alert severity="info">8×8 会强制使用 AI 低像素工程图，失败时不回退到 Python extract。</Alert>}
+                {(forceAiGrid || aiGrid) && <Alert severity="warning">这会额外调用视觉模型；默认点数价格不变，但会产生额外模型调用成本，本地微调也不再是纯本地处理。</Alert>}
               </Stack>
             </CardContent>
           </Card>
@@ -102,7 +107,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
                   <TextField label="颜色数" type="number" value={colors} onChange={(event) => setColors(Number(event.target.value))} />
                 </Box>
                 <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
-                <Button type="submit" variant="contained" color="primary" disabled={loading || !sourcePath}>免费重新像素化</Button>
+                <Button type="submit" variant="contained" color="primary" disabled={loading || !sourcePath || invalidSub16Size}>免费重新像素化</Button>
               </Stack>
             </CardContent>
           </Card>
@@ -116,7 +121,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
                 </Box>
                 {!sourcePath && <Alert severity="warning">当前作品没有可用源图路径，暂时无法微调。</Alert>}
                 <TextField label="微调描述" value={aiPrompt} multiline minRows={4} onChange={(event) => setAiPrompt(event.target.value)} />
-                <Button type="submit" variant="outlined" disabled={loading || !sourcePath}>AI 微调并入队</Button>
+                <Button type="submit" variant="outlined" disabled={loading || !sourcePath || invalidSub16Size}>AI 微调并入队</Button>
               </Stack>
             </CardContent>
           </Card>
