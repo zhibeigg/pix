@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, AppBar, Box, Chip, Container, Stack, Toolbar, Typography } from '@mui/material'
+import { Alert, AppBar, Box, Button, Container, Stack, Toolbar, Typography } from '@mui/material'
 import { notionTokens } from './theme'
 import { api, ApiError } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
+import { AccountMenu } from './components/AccountMenu'
 import { AppHero } from './components/AppHero'
 import { AuthPanel } from './components/AuthPanel'
 import { AdminPage } from './pages/AdminPage'
@@ -400,30 +401,38 @@ export function App() {
 
   return (
     <Box component="main">
-      <AppBar position="sticky" elevation={0} color="inherit" sx={{ bgcolor: notionTokens.canvas, borderBottom: 1, borderColor: 'divider' }}>
-        <Toolbar sx={{ gap: 2, maxWidth: 1280, width: '100%', mx: 'auto', px: { xs: 2, md: 4 } }}>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
+      <AppBar position="sticky" elevation={0} color="inherit" sx={{ bgcolor: notionTokens.canvas, borderBottom: 1, borderColor: 'divider', zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+        <Toolbar sx={{ gap: 2, maxWidth: 1280, width: '100%', mx: 'auto', px: { xs: 2, md: 4 }, py: 1, minHeight: 72, alignItems: 'center', flexWrap: { xs: 'wrap', lg: 'nowrap' } }}>
+          <Box sx={{ minWidth: 190, flex: { xs: '1 1 auto', lg: '0 0 auto' } }}>
             <Typography variant="overline" color="text.secondary">Pix Forge</Typography>
             <Typography variant="h5" component="h1">像素素材工坊</Typography>
           </Box>
-          <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', md: 'flex' } }}>
-            <Chip label={`点数 ${balance?.available_credits ?? '—'}`} sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} />
-            <Chip label={`队列 ${activeJobs}`} sx={{ bgcolor: notionTokens.tintSky }} />
-            <Chip label={`完成 ${completedJobs}`} sx={{ bgcolor: notionTokens.tintMint }} />
-            <Chip label={`失败 ${failedJobs}`} sx={{ bgcolor: failedJobs ? notionTokens.tintRose : notionTokens.tintGray }} />
-          </Stack>
+          {user && (
+            <Box sx={{ order: { xs: 3, lg: 2 }, flex: '1 1 auto', minWidth: 0, width: { xs: '100%', lg: 'auto' } }}>
+              <AppTabs page={page} user={user} onChange={navigate} />
+            </Box>
+          )}
+          <Box sx={{ order: { xs: 2, lg: 3 }, flex: { xs: '0 0 auto', lg: '0 0 auto' }, ml: { lg: 'auto' } }}>
+            {user ? (
+              <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={() => refreshCore()} onLogout={logout} />
+            ) : (
+              <Stack direction="row" spacing={1}>
+                <Button variant="text" href="#auth-panel">登录</Button>
+                <Button variant="contained" href="#auth-panel">注册</Button>
+              </Stack>
+            )}
+          </Box>
         </Toolbar>
       </AppBar>
 
       <Container maxWidth={false} sx={{ maxWidth: 1280, py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 }, mx: 'auto' }}>
         <Stack spacing={4}>
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} />
-          <AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} />
+          {!user && <Box id="auth-panel"><AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} /></Box>}
           {message && <Alert severity="info" role="status" aria-live="polite">{message}</Alert>}
 
           {user ? (
             <>
-              <AppTabs page={page} user={user} onChange={navigate} />
               <Box sx={{ display: 'grid', gap: 3 }}>
                 {page === 'workspace' && (
                   <WorkspacePage mode={mode} pricing={pricing} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onRefresh={() => refreshCore()} />

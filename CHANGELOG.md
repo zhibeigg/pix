@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-05-11
+
+### Changed
+
+- 将主页面切换 Tab 移入顶部 sticky 导航栏，登录后不再在内容区重复显示导航。
+- 将账号管理、可用点数/队列状态与退出登录集中到顶部导航栏右侧，新增账号管理菜单和快捷入口。
+- 登录后隐藏独立账户卡，未登录时保留登录/注册表单并提供顶部登录/注册链接锚点。
+
 ## [0.30.0] - 2026-05-11
 
 ### Changed
@@ -312,7 +320,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/zhibeigg/pix/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/zhibeigg/pix/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/zhibeigg/pix/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/zhibeigg/pix/compare/v0.27.0...v0.28.0
