@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-05-11
+
+### Changed
+
+- 再次使用 `pix asset` 优化首页 UI 作品的有效像素覆盖率，将生命条、金币计数器、菜单标签、对话框和任务牌调整到更贴合内容的画布尺寸。
+- 更新首页 UI 展示元数据和说明文案，强调素材按有效像素贴合画布展示，减少空白浪费。
+
 ## [0.36.0] - 2026-05-11
 
 ### Changed
@@ -370,7 +377,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.36.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.37.0...HEAD
+[0.37.0]: https://github.com/zhibeigg/pix/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/zhibeigg/pix/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/zhibeigg/pix/compare/v0.34.1...v0.35.0
 [0.34.1]: https://github.com/zhibeigg/pix/compare/v0.34.0...v0.34.1
