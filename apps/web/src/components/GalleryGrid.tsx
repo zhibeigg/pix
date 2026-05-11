@@ -42,10 +42,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
         </Stack>
 
         {ordered.length === 0 ? (
-          <Box sx={{ mt: 3, border: 1, borderStyle: 'dashed', borderColor: 'divider', borderRadius: 1.5, p: 4, bgcolor: notionTokens.tintYellowBold }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>你的像素工坊还是空的</Typography>
-            <Typography color="text.secondary">先生成单图，或直接批量生产。</Typography>
-          </Box>
+          <EmptyGalleryState />
         ) : (
           <Box sx={{ mt: 3, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 1.75 }}>
             {visible.map((job) => {
@@ -105,5 +102,48 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function EmptyGalleryState() {
+  return (
+    <Box
+      sx={{
+        mt: 3,
+        border: 1,
+        borderStyle: 'dashed',
+        borderColor: 'divider',
+        borderRadius: 1.5,
+        p: { xs: 3, md: 4 },
+        bgcolor: notionTokens.tintYellowBold,
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', sm: '120px 1fr' },
+        gap: 2.5,
+        alignItems: 'center',
+        overflow: 'hidden',
+      }}
+    >
+      <Box
+        aria-hidden="true"
+        sx={{
+          width: 104,
+          height: 88,
+          position: 'relative',
+          justifySelf: { xs: 'start', sm: 'center' },
+          imageRendering: 'pixelated',
+        }}
+      >
+        <Box sx={{ position: 'absolute', inset: '20px 10px 10px 18px', bgcolor: notionTokens.canvas, border: `2px solid ${notionTokens.inkDeep}`, borderRadius: .8 }} />
+        <Box sx={{ position: 'absolute', left: 30, top: 8, width: 28, height: 18, bgcolor: notionTokens.tintSky, border: `2px solid ${notionTokens.inkDeep}` }} />
+        <Box sx={{ position: 'absolute', right: 16, top: 18, width: 18, height: 18, bgcolor: notionTokens.tintRose, border: `2px solid ${notionTokens.inkDeep}` }} />
+        <Box sx={{ position: 'absolute', left: 43, bottom: 24, width: 18, height: 18, bgcolor: notionTokens.primary }} />
+        <Box sx={{ position: 'absolute', left: 8, top: 34, width: 8, height: 8, bgcolor: notionTokens.brandOrange }} />
+        <Box sx={{ position: 'absolute', right: 4, bottom: 14, width: 8, height: 8, bgcolor: notionTokens.tintMint }} />
+      </Box>
+      <Box>
+        <Typography variant="h6" sx={{ fontWeight: 700 }}>工位台还空着</Typography>
+        <Typography color="text.secondary" sx={{ mt: .5 }}>先生成单图，或直接批量生产一组素材。</Typography>
+      </Box>
+    </Box>
   )
 }
