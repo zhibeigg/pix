@@ -355,7 +355,7 @@ MVP 计费规则默认：
 
 ### 游戏素材直出
 
-`pix asset` 是面向游戏资源目录的快捷生产线，默认参数按 16×16 物品图标优化：12 色、自动裁剪主体、自动抠透明背景，并默认启用 **Pixel Grid JSON 工程图**。最终 PNG 不是直接 resize 的伪像素图，而是先提取 `pixels[y][x]` 与 `palette`，再由 Python 精确渲染。
+`pix asset` 是面向游戏资源目录的快捷生产线，默认参数按 16×16 物品图标优化：12 色、自动裁剪主体、自动抠透明背景，并默认启用 **Pixel Grid JSON 工程图**、Grid 轮廓和画布贴合后处理。最终 PNG 不是直接 resize 的伪像素图，而是先提取 `pixels[y][x]` 与 `palette`，再由 Python 精确渲染。
 
 ```bash
 pix asset "血气灵玉" --out 图片/血气灵玉.png
@@ -373,7 +373,7 @@ pix validate 图片/血气灵玉.png --pixel-size 16x16 --max-colors 16
 图片/血气灵玉.asset.json     # 生产元数据
 ```
 
-默认中间产物仍保存到 `outputs/{timestamp}-{hash}/`。如需回到旧式 resize/quantize 流程，可加 `--no-grid-mode`；默认只做 Grid 清噪，若需要更统一、更厚的深色轮廓，可加 `--grid-outline`；如需关闭清噪，可加 `--no-grid-cleanup`；如需视觉模型参与调色和区域分析，可加 `--use-vl`；如需 AI 审核 Grid JSON，可加 `--grid-review`。
+默认中间产物仍保存到 `outputs/{timestamp}-{hash}/`。如需回到旧式 resize/quantize 流程，可加 `--no-grid-mode`；默认会做 Grid 清噪、统一深色轮廓和画布贴合，若想关闭可分别使用 `--no-grid-cleanup`、`--no-grid-outline`、`--no-fit-canvas`。非方形 UI 素材可用 `--fit-mode smart|contain|stretch` 与 `--fit-padding` 微调贴合方式：`smart` 会在按钮、横条、面板等素材某一轴覆盖率不足时只拉伸该轴，避免生命条/标签高度只有半张画布。如需视觉模型参与调色和区域分析，可加 `--use-vl`；如需 AI 审核 Grid JSON，可加 `--grid-review`。
 
 ### 边缘风格
 
@@ -546,9 +546,13 @@ grid_mode      = true
 grid_review    = false
 grid_json      = true
 grid_cleanup   = true
-grid_outline   = false   # 默认保守：清噪；需要更强统一轮廓时可用 --grid-outline
+grid_outline   = true    # 默认补硬边/描边；需要关闭可用 --no-grid-outline
 grid_outline_strength = 1
 grid_min_neighbors = 1
+fit_canvas      = true    # 默认把主体 bbox 贴合目标画布，改善按钮/横条/面板填充率
+fit_mode        = "smart" # smart | contain | stretch
+fit_padding     = 1
+fit_min_axis_coverage = 0.7
 prompt_template = "A single fantasy pixel game inventory item icon of {name}. ..."
 
 [cache]

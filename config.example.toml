@@ -80,9 +80,14 @@ grid_review    = false
 grid_json      = true
 # Grid 后处理：清理孤立噪点、统一主体深色轮廓
 grid_cleanup   = true
-grid_outline   = false
+grid_outline   = true
 grid_outline_strength = 1
 grid_min_neighbors = 1
+# 生成后把主体 bbox 确定性贴合目标画布，尤其适合按钮、横条、面板等非方形 UI 素材
+fit_canvas      = true
+fit_mode        = "smart"  # smart | contain | stretch
+fit_padding     = 1
+fit_min_axis_coverage = 0.7
 prompt_template = "A single fantasy pixel game inventory item icon of {name}. Centered object, isolated on plain white background, no text, no UI frame, no shadow outside the item, thick dark outline, high contrast, readable silhouette, designed to become a {width}x{height} RPG inventory sprite."
 
 [cache]
