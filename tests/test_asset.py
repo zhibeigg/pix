@@ -4,14 +4,30 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
-from pix.asset import build_asset_prompt, safe_asset_filename, validate_asset_image
+from pix.asset import (
+    AssetSizePolicyError,
+    build_asset_prompt,
+    resolve_asset_generation_policy,
+    safe_asset_filename,
+    validate_asset_image,
+)
 
 
 def test_safe_asset_filename_keeps_chinese_and_removes_invalid_chars() -> None:
     assert safe_asset_filename(' 血气:灵玉* ') == "血气_灵玉"
     assert safe_asset_filename("   ") == "asset"
+
+
+def test_resolve_asset_generation_policy_blocks_sub16_except_8x8() -> None:
+    assert resolve_asset_generation_policy((8, 8)) == "ai_grid_required"
+    assert resolve_asset_generation_policy((16, 16)) == "extract"
+    with pytest.raises(AssetSizePolicyError):
+        resolve_asset_generation_policy((12, 12))
+    with pytest.raises(AssetSizePolicyError):
+        resolve_asset_generation_policy((16, 8))
 
 
 def test_build_asset_prompt_formats_template() -> None:

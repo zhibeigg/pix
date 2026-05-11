@@ -12,6 +12,26 @@ from PIL import Image
 
 
 IssueLevel = Literal["error", "warning"]
+AssetGenerationPolicy = Literal["extract", "ai_grid_required"]
+
+
+class AssetSizePolicyError(ValueError):
+    """素材尺寸不符合直出策略。"""
+
+
+def resolve_asset_generation_policy(size: tuple[int, int]) -> AssetGenerationPolicy:
+    """返回游戏素材直出策略。
+
+    规则：16x16 以下默认禁止，唯一例外是 8x8，且 8x8 必须由 AI Grid 直绘。
+    """
+    width, height = int(size[0]), int(size[1])
+    if width <= 0 or height <= 0:
+        raise AssetSizePolicyError("素材尺寸必须为正整数")
+    if (width, height) == (8, 8):
+        return "ai_grid_required"
+    if width < 16 or height < 16:
+        raise AssetSizePolicyError("16x16 以下仅允许 8x8，且 8x8 必须使用 AI Grid 直绘")
+    return "extract"
 
 
 @dataclass(frozen=True)

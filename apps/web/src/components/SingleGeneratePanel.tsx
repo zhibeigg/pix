@@ -3,7 +3,7 @@ import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel
 import { api } from '../api'
 import { notionTokens } from '../theme'
 import type { JobCreateRequest, JobType, PricingRule } from '../types'
-import { buildGridDesign, buildPixelize, parsePixelSize } from '../pixelize'
+import { buildGridDesign, buildPixelize, hasInvalidSub16Size, isEightPixelSize, parsePixelSize } from '../pixelize'
 
 type SingleGeneratePanelProps = {
   pricing: PricingRule[]
@@ -26,6 +26,9 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
   const [aiGrid, setAiGrid] = useState(false)
 
   const price = useMemo(() => pricing.find((item) => item.key === jobType)?.price_credits ?? 0, [pricing, jobType])
+  const parsedPixelSize = parsePixelSize(pixelSize)
+  const forceAiGrid = isEightPixelSize(parsedPixelSize)
+  const invalidSub16Size = hasInvalidSub16Size(parsedPixelSize)
   const needsPrompt = jobType === 'text_to_image' || jobType === 'image_to_image'
   const needsImage = jobType !== 'text_to_image'
 
@@ -53,8 +56,8 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
       input_image_path: needsImage ? inputImagePath : null,
       client_request_id: crypto.randomUUID(),
       skip_vl: skipVl,
-      pixelize: buildPixelize({ output_size: parsePixelSize(pixelSize), colors, remove_bg: removeBg }),
-      grid: buildGridDesign(aiGrid),
+      pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg }),
+      grid: buildGridDesign(aiGrid, parsedPixelSize),
     })
   }
 
@@ -107,10 +110,12 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
             <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
               <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
               <FormControlLabel control={<Checkbox checked={skipVl} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过参考图理解" />
-              <FormControlLabel control={<Checkbox checked={aiGrid} onChange={(event) => setAiGrid(event.target.checked)} />} label="AI 低像素工程图" />
+              <FormControlLabel control={<Checkbox checked={forceAiGrid || aiGrid} disabled={forceAiGrid} onChange={(event) => setAiGrid(event.target.checked)} />} label="AI 低像素工程图" />
             </Stack>
-            {aiGrid && <Alert severity="warning">AI 低像素工程图会额外调用视觉模型生成并返修像素矩阵；默认点数价格不变，但会产生额外模型调用成本。</Alert>}
-            <Button type="submit" variant="contained" disabled={loading}>{loading ? '提交中…' : '生成单张素材'}</Button>
+            {invalidSub16Size && <Alert severity="error">16×16 以下仅支持 8×8；8×8 会自动使用 AI 低像素工程图。</Alert>}
+            {forceAiGrid && <Alert severity="info">8×8 会强制使用 AI 低像素工程图，失败时不回退到 Python extract。</Alert>}
+            {(forceAiGrid || aiGrid) && <Alert severity="warning">AI 低像素工程图会额外调用视觉模型生成并返修像素矩阵；默认点数价格不变，但会产生额外模型调用成本。</Alert>}
+            <Button type="submit" variant="contained" disabled={loading || invalidSub16Size}>{loading ? '提交中…' : '生成单张素材'}</Button>
           </Stack>
         </Stack>
       </CardContent>

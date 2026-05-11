@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from pix.asset import AssetSizePolicyError, resolve_asset_generation_policy
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, reserve_credits
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
 from pix_web.pricing import PricingDisabledError, get_price
@@ -22,6 +23,15 @@ IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "repixelize"}
 
 def validate_job_request(req: JobCreateRequest) -> None:
     prompt = (req.prompt or "").strip()
+    try:
+        asset_policy = resolve_asset_generation_policy(tuple(req.pixelize.output_size))
+    except AssetSizePolicyError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    if asset_policy == "ai_grid_required" and req.grid.mode != "ai":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="8x8 素材必须使用 AI Grid 直绘",
+        )
     if req.job_type == "text_to_image" and not prompt:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="文生图任务需要 prompt")
     if req.job_type == "image_to_image" and not prompt:

@@ -58,6 +58,7 @@ crop_square    = true
 [asset]
 # 游戏素材直出命令 pix asset 的默认值
 output_dir     = "图片"
+# 16x16 以下仅允许 [8, 8]；8x8 会强制 AI Grid 直绘且失败不回退
 pixel_size     = [16, 16]
 colors         = 12
 dither         = "none"
@@ -78,7 +79,7 @@ grid_mode      = true
 grid_review    = false
 # 是否保留 .grid.json 工程文件
 grid_json      = true
-# AI Grid 直绘默认关闭：开启后让模型直接返回 palette + pixels[y][x] 字符串矩阵，适合 16/22/32 小图标；会增加额外模型调用成本
+# AI Grid 直绘默认关闭：开启后让模型直接返回 palette + pixels[y][x] 字符串矩阵，适合 16/22/32 小图标；8x8 会强制启用；会增加额外模型调用成本
 ai_grid        = false
 ai_grid_retries = 1
 ai_grid_instruction = ""

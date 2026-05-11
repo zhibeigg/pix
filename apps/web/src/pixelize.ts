@@ -28,13 +28,22 @@ export function buildPixelize(overrides: Partial<PixelizeParams> = {}): Pixelize
   return { ...defaultPixelize, ...overrides }
 }
 
-export function buildGridDesign(enabled: boolean): GridDesignParams {
+export function isEightPixelSize(size: [number, number]): boolean {
+  return size[0] === 8 && size[1] === 8
+}
+
+export function hasInvalidSub16Size(size: [number, number]): boolean {
+  return (size[0] < 16 || size[1] < 16) && !isEightPixelSize(size)
+}
+
+export function buildGridDesign(enabled: boolean, outputSize?: [number, number]): GridDesignParams {
+  const forceAiGrid = outputSize ? isEightPixelSize(outputSize) : false
   return {
-    mode: enabled ? 'ai' : 'off',
+    mode: forceAiGrid || enabled ? 'ai' : 'off',
     review: false,
     retries: 1,
     instruction: '',
-    fallback: 'extract',
+    fallback: forceAiGrid ? 'fail' : 'extract',
   }
 }
 
