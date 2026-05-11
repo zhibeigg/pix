@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.42.4] - 2026-05-11
+
+### Changed
+
+- 调整 Web 首页首屏文案，直截了当地突出“AI 驱动、批量生成可用像素资产”的核心卖点。
+
 ## [0.42.3] - 2026-05-11
 
 ### Fixed

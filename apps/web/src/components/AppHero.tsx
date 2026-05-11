@@ -27,8 +27,8 @@ const pixelTiles = [
 ]
 
 const workflowStats = [
-  { value: '12', label: 'RPG 道具', tone: notionTokens.brandOrange },
-  { value: '17/20', label: '可先导出', tone: notionTokens.brandGreen },
+  { value: '12', label: '一批生成', tone: notionTokens.brandOrange },
+  { value: '17/20', label: '可直接用', tone: notionTokens.brandGreen },
   { value: '3', label: '失败重试', tone: notionTokens.brandPink },
 ]
 
@@ -58,22 +58,22 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.02fr .98fr' }, gap: { xs: 5, lg: 7 }, alignItems: 'center' }}>
           <Stack spacing={3.2}>
             <Chip
-              label={signedIn ? '今日工位' : '像素素材工坊'}
+              label={signedIn ? 'AI 批量工位' : 'AI 批量像素资产'}
               sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.tintYellowBold, color: notionTokens.ink, borderRadius: 1 }}
             />
             <Box>
               <Typography variant="h1" sx={{ maxWidth: 760, fontSize: signedIn ? { xs: 36, md: 52 } : { xs: 42, sm: 58, md: 76 }, color: notionTokens.onDark }}>
-                把一批游戏素材生产到可交付状态
+                AI 驱动，批量生成可用像素资产
               </Typography>
               <Typography sx={{ mt: 2.5, maxWidth: 650, fontSize: { xs: 16, md: 18 }, lineHeight: 1.65, color: notionTokens.onDarkMuted }}>
-                批量生成、挑选、微调、重试和下载，都在一个工位里完成。
+                一次输入一组需求，批量生成、挑选、微调、重试和下载，都在一个工位里完成。
               </Typography>
             </Box>
 
             <ProductionBrief />
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-              <Button variant="contained" color="primary" href={signedIn ? '#/workspace' : '#auth-panel'}>开始生产</Button>
+              <Button variant="contained" color="primary" href={signedIn ? '#/workspace' : '#auth-panel'}>开始批量生成</Button>
               <Button variant="outlined" href={signedIn ? '#/packs' : '#workflow'} sx={{ color: notionTokens.onDark, borderColor: 'rgba(255,255,255,.45)' }}>查看流程</Button>
             </Stack>
 
@@ -137,9 +137,9 @@ function ProductionBrief() {
         <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: '.06em', textTransform: 'uppercase' }}>示例</Typography>
         <Box sx={{ mt: 1.5, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr auto' }, gap: 1.2, alignItems: 'center' }}>
           <Box sx={{ border: `1px solid ${notionTokens.hairlineStrong}`, borderRadius: 1.5, bgcolor: notionTokens.canvas, px: 2, py: 1.4 }}>
-            <Typography>12 个 RPG 药水图标，透明背景</Typography>
+            <Typography>AI 批量生成 12 个 RPG 药水图标，透明背景</Typography>
           </Box>
-          <Chip label="生成包" sx={{ bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, borderRadius: 1 }} />
+          <Chip label="批量生成" sx={{ bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, borderRadius: 1 }} />
         </Box>
       </CardContent>
     </Card>
