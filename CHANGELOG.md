@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.39.2] - 2026-05-11
+
+### Fixed
+
+- 修复首页 UI 图片安全抠底时的整数溢出问题，避免深色边框、面板内部和按钮内容被误当作背景扣除。
+- 重新从高清源图生成首页 UI PNG，并同步更新生命条、对话框、任务牌、金币计数器和菜单标签的展示尺寸。
+
 ## [0.39.1] - 2026-05-11
 
 ### Fixed
@@ -401,7 +408,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.39.1...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.39.2...HEAD
+[0.39.2]: https://github.com/zhibeigg/pix/compare/v0.39.1...v0.39.2
 [0.39.1]: https://github.com/zhibeigg/pix/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/zhibeigg/pix/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/zhibeigg/pix/compare/v0.37.0...v0.38.0
