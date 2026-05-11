@@ -71,7 +71,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
           <Card sx={{ bgcolor: notionTokens.tintYellow, minHeight: 340 }}>
             <CardContent sx={{ p: { xs: 3, md: 4 } }}>
               <Stack spacing={2.4}>
-                <Chip label="UI Kit" sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.inkDeep, color: notionTokens.onDark }} />
+                <Chip label="UI Kit" sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark }} />
                 <Typography variant="h4">同一批次补齐道具和 UI</Typography>
                 <Typography color="text.secondary">少切工具，先把原型需要的图标、条、按钮和面板做出来。</Typography>
               </Stack>
@@ -94,7 +94,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
       <Box id="auth-panel" component="section" sx={{ scrollSnapAlign: { md: 'start' }, minHeight: { md: '100vh' }, display: 'flex', alignItems: 'center', bgcolor: notionTokens.surfaceSoft, px: { xs: 2, md: 4 }, py: { xs: 7, md: 9 } }}>
         <Box sx={{ width: '100%', maxWidth: 1152, mx: 'auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '.9fr 1.1fr' }, gap: { xs: 4, lg: 7 }, alignItems: 'center' }}>
           <Stack spacing={2.5}>
-            <Chip label="开始" sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.inkDeep, color: notionTokens.onDark }} />
+            <Chip label="开始" sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark }} />
             <Typography variant="h2" sx={{ fontSize: { xs: 36, md: 56 } }}>进入像素工位台</Typography>
             <Typography color="text.secondary" sx={{ maxWidth: 560, fontSize: { md: 18 } }}>创建单图或素材包，完成后在作品库挑选和导出。</Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
