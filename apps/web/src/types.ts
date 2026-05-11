@@ -12,6 +12,13 @@ export type TokenResponse = {
   token_type: string
 }
 
+export type EmailCodeResponse = {
+  ok: boolean
+  retry_after_seconds: number
+  expires_in_seconds: number
+  debug_code?: string | null
+}
+
 export type CreditBalance = {
   available_credits: number
   reserved_credits: number

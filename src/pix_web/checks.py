@@ -99,6 +99,19 @@ def check_payment_providers(settings: WebSettings) -> CheckResult:
     return _result("payments", True, "未启用真实支付渠道，可使用 mock pay")
 
 
+def check_email_delivery(settings: WebSettings) -> CheckResult:
+    if settings.email_provider == "console":
+        return _result("email", True, "console 邮件验证码仅适合开发/内测，生产建议配置 SMTP")
+    if settings.email_provider != "smtp":
+        return _result("email", False, f"未知邮件发送方式: {settings.email_provider}")
+    required = [settings.smtp_host, settings.smtp_from]
+    if not all(required):
+        return _result("email", False, "SMTP 配置不完整：至少需要 PIX_WEB_SMTP_HOST 和 PIX_WEB_SMTP_FROM")
+    if settings.smtp_port <= 0:
+        return _result("email", False, "SMTP 端口无效")
+    return _result("email", True, "SMTP 邮件验证码已配置")
+
+
 def check_queue(settings: WebSettings) -> CheckResult:
     if settings.queue_backend == "database":
         return _result("queue", True, "database 后端，无需 Redis")
@@ -123,6 +136,7 @@ def run_checks(settings: WebSettings | None = None) -> list[CheckResult]:
         check_alembic_head(loaded),
         check_storage(loaded),
         check_payment_providers(loaded),
+        check_email_delivery(loaded),
         check_queue(loaded),
     ]
 

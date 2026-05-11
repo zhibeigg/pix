@@ -225,6 +225,12 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 **`search-pill`** — Search bar.
 - Background `{colors.surface}`, text `{colors.steel}`, typography `{typography.body-md}`, rounded `{rounded.md}`, height 44px, border `1px solid {colors.hairline}`.
 
+**`register-verification-form`** — Account registration with email verification.
+- Flow: user enters email → clicks `发送验证码` → enters 6-digit code → primary CTA reads `验证并注册`.
+- Code input uses the same `{colors.canvas}` / `{colors.hairline-strong}` input treatment as text fields, with `one-time-code` autocomplete.
+- Helper state copy: success `验证码已发送，请查看邮箱`; error text should be direct and actionable (`验证码错误`, `验证码已过期，请重新获取`).
+- Resend button shows countdown text like `60s 后重发` and must disable while counting down.
+
 ### Tabs
 
 **`pill-tab`** + **`pill-tab-active`** — Pill-style tab nav for top-level switching.

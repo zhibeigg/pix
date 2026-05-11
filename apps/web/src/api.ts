@@ -14,6 +14,7 @@ import type {
   TokenResponse,
   UploadResponse,
   User,
+  EmailCodeResponse,
 } from './types'
 
 export const API_BASE = import.meta.env.VITE_PIX_API_BASE ?? 'http://127.0.0.1:8000'
@@ -66,10 +67,16 @@ async function downloadBlob(path: string, token: string): Promise<Blob> {
 }
 
 export const api = {
-  register(email: string, password: string, displayName: string) {
+  requestRegisterCode(email: string) {
+    return request<EmailCodeResponse>('/auth/register-code', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  },
+  register(email: string, password: string, displayName: string, verificationCode: string) {
     return request<User>('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password, display_name: displayName }),
+      body: JSON.stringify({ email, password, display_name: displayName, verification_code: verificationCode }),
     })
   },
   login(email: string, password: string) {

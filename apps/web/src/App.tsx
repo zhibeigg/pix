@@ -13,7 +13,7 @@ import { BillingPage } from './pages/BillingPage'
 import { GalleryPage } from './pages/GalleryPage'
 import { PacksPage } from './pages/PacksPage'
 import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
-import type { AdminDashboard, CreditBalance, CreditPackage, CreditTransaction, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SystemSetting, User } from './types'
+import type { AdminDashboard, CreditBalance, CreditPackage, CreditTransaction, EmailCodeResponse, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SystemSetting, User } from './types'
 
 const TOKEN_KEY = 'pix_web_token'
 
@@ -174,11 +174,11 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     }
   }
 
-  async function register(email: string, password: string, displayName: string) {
+  async function register(email: string, password: string, displayName: string, verificationCode: string) {
     setBusy(true)
     setMessage('')
     try {
-      await api.register(email, password, displayName)
+      await api.register(email, password, displayName, verificationCode)
       await login(email, password)
       setMessage('注册成功')
     } catch (error) {
@@ -186,6 +186,10 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     } finally {
       setBusy(false)
     }
+  }
+
+  function requestRegisterCode(email: string): Promise<EmailCodeResponse> {
+    return api.requestRegisterCode(email)
   }
 
   function navigate(nextPage: AppPage) {
@@ -518,7 +522,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
         >
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
           {message && <Box sx={{ maxWidth: 1152, mx: 'auto', px: { xs: 2, md: 4 }, py: 2 }}><Alert severity="info" role="status" aria-live="polite">{message}</Alert></Box>}
-          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} />} />
+          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLogout={logout} loading={busy} />} />
           <SiteFooter />
         </Box>
       )}

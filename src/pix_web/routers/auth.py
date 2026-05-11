@@ -2,13 +2,28 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from pix_web.config import WebSettings
 from pix_web.credits import ensure_credit_account
+from pix_web.email_sender import send_verification_email_task
+from pix_web.email_verification import (
+    EmailCodeError,
+    consume_email_code,
+    create_email_code,
+    normalize_email,
+)
 from pix_web.models import User
-from pix_web.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from pix_web.schemas import (
+    EmailCodeRequest,
+    EmailCodeResponse,
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
+)
 from pix_web.security import (
     create_access_token,
     find_user_by_email,
@@ -22,11 +37,51 @@ from pix_web.security import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserResponse)
-def register(req: RegisterRequest, db: Session = Depends(get_db)) -> User:
-    email = req.email.lower()
+def _raise_email_code_error(exc: EmailCodeError) -> None:
+    headers = {}
+    if exc.retry_after_seconds is not None:
+        headers["Retry-After"] = str(exc.retry_after_seconds)
+    raise HTTPException(status_code=exc.status_code, detail=exc.detail, headers=headers)
+
+
+@router.post("/register-code", response_model=EmailCodeResponse)
+def request_register_code(
+    req: EmailCodeRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> EmailCodeResponse:
+    email = normalize_email(str(req.email))
     if find_user_by_email(db, email) is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="邮箱已注册")
+    try:
+        result = create_email_code(db, settings, email)
+    except EmailCodeError as exc:
+        db.rollback()
+        _raise_email_code_error(exc)
+    db.commit()
+    background_tasks.add_task(send_verification_email_task, settings, email, result.code)
+    return EmailCodeResponse(
+        retry_after_seconds=result.retry_after_seconds,
+        expires_in_seconds=settings.email_code_ttl_seconds,
+        debug_code=result.code if settings.email_debug_codes else None,
+    )
+
+
+@router.post("/register", response_model=UserResponse)
+def register(
+    req: RegisterRequest,
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> User:
+    email = normalize_email(str(req.email))
+    if find_user_by_email(db, email) is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="邮箱已注册")
+    try:
+        consume_email_code(db, settings, email, req.verification_code)
+    except EmailCodeError as exc:
+        db.commit()
+        _raise_email_code_error(exc)
     user_count = db.scalar(select(func.count()).select_from(User)) or 0
     user = User(
         email=email,

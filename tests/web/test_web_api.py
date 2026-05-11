@@ -28,6 +28,7 @@ def client(tmp_path):
         database_url=f"sqlite:///{tmp_path / 'pix_web_test.db'}",
         jwt_secret="test-secret",
         storage_root=tmp_path / "storage",
+        email_debug_codes=True,
     )
     app = create_app(settings)
     with TestClient(app) as c:
@@ -35,9 +36,16 @@ def client(tmp_path):
 
 
 def _register_and_login(client: TestClient, email: str = "admin@example.com") -> tuple[dict, dict]:
+    code_response = client.post("/auth/register-code", json={"email": email})
+    code = code_response.json()["debug_code"]
     user = client.post(
         "/auth/register",
-        json={"email": email, "password": "password123", "display_name": "Admin"},
+        json={
+            "email": email,
+            "password": "password123",
+            "display_name": "Admin",
+            "verification_code": code,
+        },
     ).json()
     token = client.post(
         "/auth/login",
@@ -66,6 +74,69 @@ def test_register_login_and_admin_adjust_credits(client: TestClient) -> None:
     balance = client.get("/credits/balance", headers=headers).json()
     assert balance["available_credits"] == 50
     assert balance["reserved_credits"] == 0
+
+
+def test_register_requires_email_verification_code(client: TestClient) -> None:
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": "needs-code@example.com",
+            "password": "password123",
+            "display_name": "Needs Code",
+            "verification_code": "000000",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "验证码" in response.json()["detail"]
+
+
+def test_register_rejects_wrong_email_verification_code(client: TestClient) -> None:
+    code_response = client.post("/auth/register-code", json={"email": "wrong-code@example.com"})
+    code = code_response.json()["debug_code"]
+    wrong_code = "000000" if code != "000000" else "000001"
+
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": "wrong-code@example.com",
+            "password": "password123",
+            "display_name": "Wrong Code",
+            "verification_code": wrong_code,
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "验证码错误"
+
+    ok = client.post(
+        "/auth/register",
+        json={
+            "email": "wrong-code@example.com",
+            "password": "password123",
+            "display_name": "Wrong Code",
+            "verification_code": code,
+        },
+    )
+    assert ok.status_code == 200
+
+
+def test_register_code_rejects_existing_email(client: TestClient) -> None:
+    _user, _headers = _register_and_login(client, "existing@example.com")
+
+    response = client.post("/auth/register-code", json={"email": "existing@example.com"})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "邮箱已注册"
+
+
+def test_register_code_resend_is_throttled(client: TestClient) -> None:
+    first = client.post("/auth/register-code", json={"email": "throttle@example.com"})
+    second = client.post("/auth/register-code", json={"email": "throttle@example.com"})
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert int(second.headers["Retry-After"]) > 0
 
 
 def test_admin_dashboard_requires_admin_and_reports_counts(client: TestClient) -> None:
