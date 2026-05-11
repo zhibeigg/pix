@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Card, CardContent, Chip, Divider, Stack, Typography } from '@mui/material'
+import { Box, Button, Card, CardContent, Chip, Divider, Stack, Typography } from '@mui/material'
 import { jobStatusLabel, jobTypeLabel } from '../labels'
 import { notionTokens } from '../theme'
 import type { GenerationJob } from '../types'
@@ -29,7 +29,7 @@ export function JobList({ jobs, onRefresh }: JobListProps) {
             <Button variant="outlined" onClick={onRefresh}>刷新</Button>
           </Stack>
           {jobs.length === 0 ? (
-            <Alert severity="info">暂无生产中任务。</Alert>
+            <EmptyQueueState />
           ) : (
             <Stack spacing={1.5}>
               {jobs.map((job) => <JobCard job={job} key={job.id} />)}
@@ -38,6 +38,33 @@ export function JobList({ jobs, onRefresh }: JobListProps) {
         </Stack>
       </CardContent>
     </Card>
+  )
+}
+
+function EmptyQueueState() {
+  return (
+    <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: notionTokens.surfaceSoft, p: 2.25 }}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+        <Box
+          aria-hidden="true"
+          sx={{
+            width: 38,
+            height: 38,
+            borderRadius: 1,
+            bgcolor: notionTokens.tintMint,
+            border: `1px solid ${notionTokens.hairlineStrong}`,
+            position: 'relative',
+            flex: '0 0 auto',
+            '&::before': { content: '""', position: 'absolute', left: 10, top: 10, width: 7, height: 7, bgcolor: notionTokens.primary },
+            '&::after': { content: '""', position: 'absolute', right: 9, bottom: 9, width: 10, height: 10, bgcolor: notionTokens.brandOrange },
+          }}
+        />
+        <Box>
+          <Typography sx={{ fontWeight: 700 }}>炉火正安静</Typography>
+          <Typography variant="body2" color="text.secondary">暂无生产中任务，可以开一组新素材。</Typography>
+        </Box>
+      </Stack>
+    </Box>
   )
 }
 

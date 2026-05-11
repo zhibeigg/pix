@@ -429,10 +429,29 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
               textDecoration: 'none',
               borderRadius: 1.2,
               outlineOffset: 4,
+              position: 'relative',
               transition: 'opacity .18s ease, transform .18s ease',
-              '&:hover': { opacity: .86, transform: 'translateY(-1px)' },
+              '&:hover': { opacity: .9, transform: 'translateY(-1px)' },
+              '& .brand-spark': {
+                position: 'absolute',
+                width: 5,
+                height: 5,
+                borderRadius: .3,
+                opacity: .62,
+                transition: 'transform .2s cubic-bezier(.25,1,.5,1), opacity .2s ease',
+                pointerEvents: 'none',
+              },
+              '&:hover .brand-spark-a': { opacity: 1, transform: 'translate(4px, -4px)' },
+              '&:hover .brand-spark-b': { opacity: .94, transform: 'translate(-3px, 3px)' },
+              '&:hover .brand-spark-c': { opacity: .9, transform: 'translate(3px, 2px)' },
+              '@media (prefers-reduced-motion: reduce)': {
+                '&, &:hover, &:hover .brand-spark-a, &:hover .brand-spark-b, &:hover .brand-spark-c': { transform: 'none' },
+              },
             }}
           >
+            <Box component="span" className="brand-spark brand-spark-a" sx={{ left: 30, top: 1, bgcolor: notionTokens.tintYellowBold }} />
+            <Box component="span" className="brand-spark brand-spark-b" sx={{ left: 5, bottom: 4, bgcolor: notionTokens.tintSky }} />
+            <Box component="span" className="brand-spark brand-spark-c" sx={{ left: 40, bottom: 7, bgcolor: notionTokens.tintRose }} />
             <Box component="img" src="/pix-logo-64.png" alt="" width={40} height={40} sx={{ imageRendering: 'pixelated', flex: '0 0 auto' }} />
             <Box>
               <Typography variant="overline" color="text.secondary">Pix Forge</Typography>

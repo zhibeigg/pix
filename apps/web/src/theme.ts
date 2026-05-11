@@ -233,6 +233,14 @@ export function createPixTheme(mode: PixThemeMode) {
               backgroundColor: notionTokens.primary,
               color: notionTokens.onDark,
             },
+            transition: 'transform .14s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease',
+            '@media (hover: hover)': {
+              '&:hover:not(.Mui-disabled)': { transform: 'translateY(-1px)' },
+            },
+            '&:active:not(.Mui-disabled)': { transform: 'translateY(1px)' },
+            '@media (prefers-reduced-motion: reduce)': {
+              '&, &:hover:not(.Mui-disabled), &:active:not(.Mui-disabled)': { transform: 'none' },
+            },
             '&.MuiButton-containedPrimary:active': {
               backgroundColor: notionTokens.primaryPressed,
             },

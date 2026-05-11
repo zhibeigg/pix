@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-05-11
+
+### Added
+
+- 为 Web 端加入克制的像素工坊愉悦细节：品牌区像素火花 hover、主题菜单按压反馈、图标徽章和更有场景感的作品库/队列空状态。
+
 ## [0.41.2] - 2026-05-11
 
 ### Fixed
@@ -441,7 +447,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.41.2...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.42.0...HEAD
+[0.42.0]: https://github.com/zhibeigg/pix/compare/v0.41.2...v0.42.0
 [0.41.2]: https://github.com/zhibeigg/pix/compare/v0.41.1...v0.41.2
 [0.41.1]: https://github.com/zhibeigg/pix/compare/v0.41.0...v0.41.1
 [0.41.0]: https://github.com/zhibeigg/pix/compare/v0.40.0...v0.41.0

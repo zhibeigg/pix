@@ -51,7 +51,18 @@ export function ThemeModeMenu({ preference, resolvedMode, systemMode, onChange }
         aria-haspopup="true"
         aria-expanded={open ? 'true' : undefined}
         aria-label="选择主题模式"
-        sx={{ minWidth: 40, width: 40, height: 40, p: 0, borderRadius: 999, bgcolor: notionTokens.surface }}
+        sx={{
+          minWidth: 40,
+          width: 40,
+          height: 40,
+          p: 0,
+          borderRadius: 999,
+          bgcolor: notionTokens.surface,
+          transition: 'transform .12s ease, box-shadow .18s ease, border-color .18s ease',
+          '&:hover': { transform: 'translateY(-1px)', boxShadow: notionTokens.cardShadow },
+          '&:active': { transform: 'translateY(1px)' },
+          '@media (prefers-reduced-motion: reduce)': { '&, &:hover, &:active': { transform: 'none' } },
+        }}
       >
         <TriggerIcon fontSize="small" />
       </Button>
@@ -96,7 +107,19 @@ export function ThemeModeMenu({ preference, resolvedMode, systemMode, onChange }
                 '&:hover': { bgcolor: active ? notionTokens.brandNavyMid : notionTokens.surface },
               }}
             >
-              <Box sx={{ width: 24, pt: .35, display: 'grid', placeItems: 'center', color: active ? notionTokens.onDark : notionTokens.slate }}>
+              <Box
+                sx={{
+                  width: 28,
+                  height: 28,
+                  mt: .1,
+                  display: 'grid',
+                  placeItems: 'center',
+                  borderRadius: 1,
+                  bgcolor: active ? 'rgba(255,255,255,.14)' : notionTokens.surface,
+                  color: active ? notionTokens.onDark : notionTokens.slate,
+                  boxShadow: active ? 'inset 0 0 0 1px rgba(255,255,255,.18)' : `inset 0 0 0 1px ${notionTokens.hairline}`,
+                }}
+              >
                 <Icon fontSize="small" />
               </Box>
               <Stack spacing={.15}>
