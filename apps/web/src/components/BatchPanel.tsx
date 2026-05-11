@@ -1,4 +1,5 @@
 import { Alert, Box, Button, Card, CardContent, Chip, Stack, Typography } from '@mui/material'
+import { notionTokens } from '../theme'
 import type { GenerationBatch } from '../types'
 
 type BatchPanelProps = {
@@ -18,13 +19,13 @@ type BatchPanelProps = {
 
 export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSelection, onRetryFailed, onDownloadBatch, onRenameBatch, onToggleArchive, onDeleteBatch, retrying, downloading, onRefresh }: BatchPanelProps) {
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
       <CardContent>
         <Stack spacing={2}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
             <Box>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Packs</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 950 }}>素材包</Typography>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Packs</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 600 }}>素材包</Typography>
             </Box>
             <Button variant="outlined" size="small" onClick={onRefresh}>刷新</Button>
           </Stack>
@@ -73,17 +74,17 @@ function BatchCard({ batch, selected, retrying, downloading, onSelectBatch, onRe
       variant="outlined"
       aria-current={selected ? 'true' : undefined}
       sx={{
-        bgcolor: 'background.default',
-        opacity: batch.status === 'archived' ? 0.64 : 1,
-        borderColor: selected ? 'primary.main' : 'divider',
-        boxShadow: selected ? '0 0 0 2px rgba(103,199,255,.18)' : 'none',
+        bgcolor: batch.status === 'archived' ? notionTokens.tintGray : notionTokens.tintMint,
+        opacity: batch.status === 'archived' ? 0.72 : 1,
+        borderColor: selected ? notionTokens.primary : notionTokens.hairline,
+        boxShadow: selected ? '0 0 0 2px rgba(108,71,255,.16)' : 'none',
       }}
     >
       <CardContent>
         <Stack spacing={1.25}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1.5, alignItems: 'flex-start' }}>
-            <Typography sx={{ fontWeight: 900 }}>#{batch.id} · {batch.name}</Typography>
-            <Chip size="small" variant="outlined" color={batch.status === 'archived' ? 'default' : 'secondary'} label={`${batch.mode} · ${batch.status === 'archived' ? '已归档' : '活跃'}`} />
+            <Typography sx={{ fontWeight: 600 }}>#{batch.id} · {batch.name}</Typography>
+            <Chip size="small" sx={{ bgcolor: notionTokens.canvas }} label={`${batch.mode} · ${batch.status === 'archived' ? '已归档' : '活跃'}`} />
           </Stack>
           <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
             <Chip size="small" variant="outlined" label={`${batch.job_count} 个任务`} />

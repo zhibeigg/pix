@@ -1,6 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react'
 import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Card, CardContent, Chip, Divider, Stack, Typography } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { notionTokens } from '../theme'
 import type { CreditBalance, CreditPackage, CreditTransaction, PaymentCheckout, PaymentOrder } from '../types'
 
 type CreditPanelProps = {
@@ -23,13 +24,13 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
   }
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
       <CardContent>
         <Stack spacing={3}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
             <Box>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Credits</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 950 }}>点数账户</Typography>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Credits</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 600 }}>点数账户</Typography>
             </Box>
             <Button variant="outlined" onClick={onRefresh}>刷新</Button>
           </Stack>
@@ -43,15 +44,15 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
 
           <Stack spacing={1.5}>
             {packages.map((item) => (
-              <Card variant="outlined" key={item.key} sx={{ bgcolor: 'background.default' }}>
+              <Card variant="outlined" key={item.key} sx={{ bgcolor: notionTokens.tintCream }}>
                 <CardContent>
                   <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between', gap: 2, alignItems: { xs: 'stretch', md: 'center' } }}>
                     <Box>
-                      <Typography sx={{ fontWeight: 900 }}>{item.name}</Typography>
+                      <Typography sx={{ fontWeight: 600 }}>{item.name}</Typography>
                       <Typography color="text.secondary" variant="body2">{item.credits} credits · ¥{(item.amount_cents / 100).toFixed(2)}</Typography>
                     </Box>
                     <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
-                      <Button variant="outlined" onClick={() => onCheckout(item.key, 'alipay')}>支付宝</Button>
+                      <Button variant="contained" color="primary" onClick={() => onCheckout(item.key, 'alipay')}>支付宝</Button>
                       <Button variant="outlined" onClick={() => onCheckout(item.key, 'wechat')}>微信</Button>
                       {isAdmin && <Button variant="text" onClick={() => onCreateOrder(item.key)}>Mock</Button>}
                     </Stack>
@@ -62,10 +63,10 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
           </Stack>
 
           {checkout?.code_url && (
-            <Card variant="outlined" role="img" aria-label={`微信支付二维码，订单 ${checkout.order.id}`} sx={{ bgcolor: 'background.default' }}>
+            <Card variant="outlined" role="img" aria-label={`微信支付二维码，订单 ${checkout.order.id}`} sx={{ bgcolor: notionTokens.tintMint }}>
               <CardContent>
                 <Stack spacing={1.5} sx={{ alignItems: 'center' }}>
-                  <Typography sx={{ fontWeight: 900 }}>微信扫码支付订单 #{checkout.order.id}</Typography>
+                  <Typography sx={{ fontWeight: 600 }}>微信扫码支付订单 #{checkout.order.id}</Typography>
                   <QRCodeSVG value={checkout.code_url} size={180} />
                   <Typography color="text.secondary" variant="body2">支付完成后点击刷新查看到账状态。</Typography>
                   <Button variant="outlined" size="small" onClick={copyWechatLink}>复制微信支付链接</Button>
@@ -109,7 +110,7 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
                       <Typography sx={{ fontWeight: 850 }}>{tx.type}</Typography>
                       <Typography color="text.secondary" variant="body2">{tx.note || '—'}</Typography>
                     </Box>
-                    <Typography color={tx.amount >= 0 ? 'success.main' : 'error.main'} sx={{ fontWeight: 900 }}>{tx.amount > 0 ? `+${tx.amount}` : tx.amount}</Typography>
+                    <Typography color={tx.amount >= 0 ? 'success.main' : 'error.main'} sx={{ fontWeight: 600 }}>{tx.amount > 0 ? `+${tx.amount}` : tx.amount}</Typography>
                   </Stack>
                 ))}
               </Stack>
@@ -123,9 +124,9 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <Box sx={{ bgcolor: 'background.default', border: 1, borderColor: 'divider', borderRadius: 2, p: 1.5, fontVariantNumeric: 'tabular-nums' }}>
+    <Box sx={{ bgcolor: notionTokens.tintLavender, border: 1, borderColor: 'divider', borderRadius: 1.5, p: 1.5, fontVariantNumeric: 'tabular-nums' }}>
       <Typography variant="caption" color="text.secondary">{label}</Typography>
-      <Typography variant="h5" sx={{ fontWeight: 950 }}>{value}</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 600 }}>{value}</Typography>
     </Box>
   )
 }

@@ -1,6 +1,7 @@
 import { FormEvent, useMemo, useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import { api } from '../api'
+import { notionTokens } from '../theme'
 import type { JobCreateRequest, JobType, PricingRule } from '../types'
 import { buildPixelize, parsePixelSize } from '../pixelize'
 
@@ -56,15 +57,16 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
   }
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ overflow: 'hidden' }}>
+      <Box sx={{ height: 8, bgcolor: notionTokens.tintYellowBold }} />
       <CardContent>
         <Stack spacing={3}>
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
             <Box>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Single</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 950 }}>单图生成</Typography>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Single</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 600 }}>单图生成</Typography>
             </Box>
-            <Chip color="secondary" variant="outlined" label={`预计 ${price} credits`} />
+            <Chip sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} label={`预计 ${price} credits`} />
           </Stack>
 
           <Stack component="form" spacing={2.5} onSubmit={submit}>
@@ -79,7 +81,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
             )}
 
             {needsImage && (
-              <Card variant="outlined" sx={{ bgcolor: 'background.default' }}>
+              <Card variant="outlined" sx={{ bgcolor: notionTokens.tintSky }}>
                 <CardContent>
                   <Stack spacing={2}>
                     <Button variant="outlined" component="label" disabled={uploading}>

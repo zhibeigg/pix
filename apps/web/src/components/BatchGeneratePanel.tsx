@@ -1,6 +1,7 @@
 import { FormEvent, useMemo, useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import { api } from '../api'
+import { notionTokens } from '../theme'
 import type { JobCreateRequest, PricingRule, UploadResponse } from '../types'
 import { buildPixelize, parsePixelSize } from '../pixelize'
 
@@ -95,15 +96,16 @@ export function BatchGeneratePanel({ pricing, loading, token, onSubmitMany }: Ba
   }
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ overflow: 'hidden' }}>
+      <Box sx={{ height: 8, bgcolor: notionTokens.tintMint }} />
       <CardContent>
         <Stack spacing={3}>
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
             <Box>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Batch</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 950 }}>批量生产</Typography>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Batch</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 600 }}>批量生产</Typography>
             </Box>
-            <Chip color="secondary" variant="outlined" label={`${taskCount} 个 · 预计 ${totalPrice} credits`} />
+            <Chip sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} label={`${taskCount} 个 · 预计 ${totalPrice} credits`} />
           </Stack>
 
           <Stack component="form" spacing={2.5} onSubmit={submit}>
@@ -117,7 +119,7 @@ export function BatchGeneratePanel({ pricing, loading, token, onSubmitMany }: Ba
             {batchMode === 'text_to_image' ? (
               <TextField label="批量 Prompt（每行一个素材）" value={prompts} multiline minRows={8} onChange={(event) => setPrompts(event.target.value)} />
             ) : (
-              <Card variant="outlined" sx={{ bgcolor: 'background.default' }}>
+              <Card variant="outlined" sx={{ bgcolor: notionTokens.tintSky }}>
                 <CardContent>
                   <Stack spacing={2}>
                     {batchMode === 'image_to_image' && (
@@ -141,7 +143,7 @@ export function BatchGeneratePanel({ pricing, loading, token, onSubmitMany }: Ba
               <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
               <FormControlLabel control={<Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize'} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过 VL 分析" />
             </Stack>
-            <Button type="submit" variant="contained" disabled={loading || uploading || taskCount === 0}>{loading ? '提交中…' : `批量入队 ${taskCount} 个任务`}</Button>
+            <Button type="submit" variant="contained" color="primary" disabled={loading || uploading || taskCount === 0}>{loading ? '提交中…' : `批量入队 ${taskCount} 个任务`}</Button>
           </Stack>
         </Stack>
       </CardContent>
@@ -168,7 +170,7 @@ function UploadList({ uploads }: { uploads: BatchUpload[] }) {
                 </Box>
               )}
               <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 900 }} noWrap>{item.name}</Typography>
+                <Typography sx={{ fontWeight: 600 }} noWrap>{item.name}</Typography>
                 <Typography variant="body2" color="text.secondary" noWrap>{item.error || item.upload?.path || item.status}</Typography>
               </Box>
             </Stack>

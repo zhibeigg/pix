@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, Stack, TextField, Typography } from '@mui/material'
+import { notionTokens } from '../theme'
 import type { GenerationJob, JobCreateRequest, PricingRule } from '../types'
 import { buildPixelize, parsePixelSize, summarizePrompt } from '../pixelize'
 
@@ -19,11 +20,11 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
 
   if (!job) {
     return (
-      <Card variant="outlined">
+      <Card variant="outlined" sx={{ bgcolor: notionTokens.tintLavender }}>
         <CardContent>
           <Stack spacing={1}>
-            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Tune</Typography>
-            <Typography variant="h4" sx={{ fontWeight: 950 }}>选择作品进行微调</Typography>
+            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Tune</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 600 }}>选择作品进行微调</Typography>
             <Typography color="text.secondary">点击作品网格中的任意卡片，即可免费重新像素化，或使用 AI 图生图微调。</Typography>
           </Stack>
         </CardContent>
@@ -62,24 +63,25 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
   }
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ overflow: 'hidden' }}>
+      <Box sx={{ height: 8, bgcolor: notionTokens.tintLavender }} />
       <CardContent>
         <Stack spacing={2.5}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 2, alignItems: 'flex-start' }}>
             <Box sx={{ minWidth: 0 }}>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>Tune</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 950 }}>微调 #{job.id}</Typography>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Tune</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 600 }}>微调 #{job.id}</Typography>
               <Typography color="text.secondary" variant="body2">{summarizePrompt(job.prompt || job.input_image_path)}</Typography>
             </Box>
-            <Chip label={job.status} variant="outlined" color={job.status === 'succeeded' ? 'success' : job.status === 'failed' ? 'error' : 'primary'} />
+            <Chip label={job.status} sx={{ bgcolor: job.status === 'succeeded' ? notionTokens.tintMint : job.status === 'failed' ? notionTokens.tintRose : notionTokens.tintSky }} />
           </Stack>
           {previewUrl && <Box component="img" src={previewUrl} alt="微调对象预览" loading="lazy" decoding="async" sx={{ width: '100%', maxHeight: 180, objectFit: 'contain', imageRendering: 'pixelated', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.default', p: 1 }} />}
 
-          <Card variant="outlined" sx={{ bgcolor: 'background.default' }}>
+          <Card variant="outlined" sx={{ bgcolor: notionTokens.tintMint }}>
             <CardContent>
               <Stack component="form" spacing={2} onSubmit={submitLocal}>
                 <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 900 }}>免费本地微调</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>免费本地微调</Typography>
                   <Typography color="text.secondary" variant="body2">不调用 AI，只重新像素化，因此不消耗点数。</Typography>
                 </Box>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
@@ -87,16 +89,16 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
                   <TextField label="颜色数" type="number" value={colors} onChange={(event) => setColors(Number(event.target.value))} />
                 </Box>
                 <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
-                <Button type="submit" variant="contained" disabled={loading || !sourcePath}>免费重新像素化</Button>
+                <Button type="submit" variant="contained" color="primary" disabled={loading || !sourcePath}>免费重新像素化</Button>
               </Stack>
             </CardContent>
           </Card>
 
-          <Card variant="outlined" sx={{ bgcolor: 'background.default' }}>
+          <Card variant="outlined" sx={{ bgcolor: notionTokens.tintLavender }}>
             <CardContent>
               <Stack component="form" spacing={2} onSubmit={submitAi}>
                 <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 900 }}>AI 微调</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>AI 微调</Typography>
                   <Typography color="text.secondary" variant="body2">调用图生图接口，会消耗 {aiPrice} credits。</Typography>
                 </Box>
                 {!sourcePath && <Alert severity="warning">当前作品没有可用源图路径，暂时无法微调。</Alert>}

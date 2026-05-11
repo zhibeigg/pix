@@ -21,7 +21,7 @@ export function GalleryPage({ jobs, selectedJob, selectedJobId, pricing, loading
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) minmax(320px, 420px)' }, gap: 3, alignItems: 'start' }}>
       <Stack spacing={3} sx={{ minWidth: 0 }}>
-        <PageHeader eyebrow="Library" title="作品库" description="查看全部生成结果，选择作品后可以免费本地微调或发起 AI 微调。" />
+        <PageHeader eyebrow="Library" title="作品库" description="查看全部生成结果，选择作品后可以免费本地微调或发起 AI 微调。" tint="sky" />
         <GalleryGrid jobs={jobs} subtitle="全部作品" selectedJobId={selectedJobId} onSelect={onSelectJob} onCopyPath={onCopyPath} />
         <JobList jobs={jobs.filter((job) => job.status !== 'succeeded')} onRefresh={onRefresh} />
       </Stack>
