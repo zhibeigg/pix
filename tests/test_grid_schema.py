@@ -27,6 +27,24 @@ def test_grid_schema_normalizes_hex_and_axes() -> None:
     assert grid.axes.y == [0, 1]
 
 
+def test_grid_schema_accepts_string_matrix() -> None:
+    grid = grid_from_mapping({
+        "version": 1,
+        "canvas": {"width": 4, "height": 3, "transparent_index": -9},
+        "palette": [
+            {"id": 0, "hex": "#111111", "role": "outline"},
+            {"id": 1, "hex": "#FF0000", "role": "primary"},
+            {"id": 10, "hex": "#FFFF00", "role": "highlight"},
+        ],
+        "pixels": [".01A", "_110", "...."],
+    })
+    assert grid.pixels == [
+        [-9, 0, 1, 10],
+        [-9, 1, 1, 0],
+        [-9, -9, -9, -9],
+    ]
+
+
 def test_grid_schema_rejects_bad_dimensions() -> None:
     data = _grid_dict()
     data["pixels"] = [[0]]

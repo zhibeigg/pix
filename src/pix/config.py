@@ -102,6 +102,10 @@ class AssetConfig:
     grid_mode: bool = True
     grid_review: bool = False
     grid_json: bool = True
+    ai_grid: bool = False
+    ai_grid_retries: int = 1
+    ai_grid_instruction: str = ""
+    ai_grid_fallback: str = "extract"
     grid_cleanup: bool = True
     grid_outline: bool = True
     grid_outline_strength: int = 1

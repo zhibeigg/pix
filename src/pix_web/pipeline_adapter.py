@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from pix.config import load_config
-from pix.pipeline import PipelineInput, PipelineResult, run_pipeline
+from pix.pipeline import GridDesignInput, PipelineInput, PipelineResult, run_pipeline
 from pix.pixelize.core import PixelizeParams
 from pix_web.config import WebSettings
 from pix_web.models import GenerationJob
@@ -35,6 +35,17 @@ def pixelize_params_from_json(data: dict[str, Any]) -> PixelizeParams:
     )
 
 
+def grid_design_from_json(data: dict[str, Any]) -> GridDesignInput:
+    grid = data.get("grid") or {}
+    return GridDesignInput(
+        mode=str(grid.get("mode", "off")),  # type: ignore[arg-type]
+        review=bool(grid.get("review", False)),
+        retries=int(grid.get("retries", 1)),
+        instruction=str(grid.get("instruction", "")),
+        fallback=str(grid.get("fallback", "extract")),  # type: ignore[arg-type]
+    )
+
+
 def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> PipelineInput:
     data = job.params_json or {}
     image_path = Path(job.input_image_path) if job.input_image_path else None
@@ -49,6 +60,7 @@ def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> Pipeli
         vl_model=data.get("vl_model"),
         skip_vl=bool(data.get("skip_vl", False)),
         pixelize_params=pixelize_params_from_json(data),
+        grid=grid_design_from_json(data),
         out_root=out_root,
         use_cache=True,
         refresh_cache=False,

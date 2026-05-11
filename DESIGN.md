@@ -231,6 +231,12 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 - Helper state copy: success `验证码已发送，请查看邮箱`; error text should be direct and actionable (`验证码错误`, `验证码已过期，请重新获取`).
 - Resend button shows countdown text like `60s 后重发` and must disable while counting down.
 
+**`ai-grid-option`** — Explicit low-pixel engineering toggle.
+- Appears in single generation, batch generation and tuning forms as a checkbox labelled `AI 低像素工程图`.
+- Default is off. When enabled, show a warning alert on `{colors.card-tint-yellow-bold}`/warning surface: default credit pricing stays unchanged, but the job will make extra model calls for `palette + pixels` design and readability repair.
+- Result cards should show compact chips for `AI Grid`/fallback, readability pass/fail, color count, subject coverage and whether auto-repair happened.
+- Do not hide the existing resize+quantize path; AI Grid is a deliberate opt-in for 16×16 / 22×22 / 32×32 assets.
+
 ### Tabs
 
 **`pill-tab`** + **`pill-tab-active`** — Pill-style tab nav for top-level switching.

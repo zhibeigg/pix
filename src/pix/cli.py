@@ -26,7 +26,7 @@ from pix.grid.render import render_grid_file, render_pixel_grid
 from pix.grid.review import review_grid_file, review_pixel_grid
 from pix.grid.schema import load_grid, save_grid
 from pix.history import scan_history
-from pix.pipeline import PipelineInput, run_pipeline
+from pix.pipeline import GridDesignInput, PipelineInput, run_pipeline
 from pix.pixelize.core import PixelizeParams, pixelize as run_pixelize
 from pix.pixelize.presets import list_presets
 
@@ -367,7 +367,11 @@ def cmd_asset(
     no_sidecars: bool = typer.Option(False, "--no-sidecars", help="不输出 .asset.json 元数据"),
     source_copy: Optional[bool] = typer.Option(None, "--source-copy/--no-source-copy", help="把原始生图源文件复制到最终目录旁边"),
     grid_mode: Optional[bool] = typer.Option(None, "--grid-mode/--no-grid-mode", help="用 Pixel Grid JSON 工程图渲染最终 PNG"),
-    grid_review: bool = typer.Option(False, "--grid-review", help="让 AI 审核/修正 Grid JSON 后再渲染"),
+    grid_review: bool = typer.Option(False, "--grid-review", help="让 AI 审核/修正 Grid JSON 后再渲染；与 --ai-grid 同用会额外调用一次模型"),
+    ai_grid: Optional[bool] = typer.Option(None, "--ai-grid/--no-ai-grid", help="让 AI 直接返回 Pixel Grid 像素矩阵，推荐 16x16 小图标"),
+    ai_grid_retries: Optional[int] = typer.Option(None, min=0, max=3, help="AI Grid 可读性返修次数"),
+    ai_grid_instruction: str = typer.Option("", help="AI Grid 额外美术要求"),
+    ai_grid_fallback: Optional[str] = typer.Option(None, help="AI Grid 失败回退：extract|pixelize|fail"),
     grid_cleanup: Optional[bool] = typer.Option(None, "--grid-cleanup/--no-grid-cleanup", help="Grid JSON 后处理：清理孤立噪点"),
     grid_outline: Optional[bool] = typer.Option(None, "--grid-outline/--no-grid-outline", help="Grid JSON 后处理：统一主体轮廓"),
     fit_canvas: Optional[bool] = typer.Option(None, "--fit-canvas/--no-fit-canvas", help="Grid JSON 后处理：将主体贴合目标画布"),
@@ -392,11 +396,19 @@ def cmd_asset(
     sidecar_target = target.with_name(target.stem + ".asset.json")
     grid_target = grid_json or target.with_name(target.stem + ".grid.json")
     effective_grid_mode = bool(cfg.asset.grid_mode if grid_mode is None else grid_mode)
+    effective_ai_grid = bool(cfg.asset.ai_grid if ai_grid is None else ai_grid)
+    if effective_ai_grid:
+        effective_grid_mode = True
     effective_source_copy = bool(cfg.asset.source_copy if source_copy is None else source_copy)
     effective_fit_canvas = bool(cfg.asset.fit_canvas if fit_canvas is None else fit_canvas)
     effective_fit_mode = str(fit_mode or cfg.asset.fit_mode).strip().lower()
     if effective_fit_mode not in {"smart", "contain", "stretch"}:
         raise typer.BadParameter("fit-mode 必须是 smart、contain 或 stretch")
+    effective_ai_grid_fallback = str(ai_grid_fallback or cfg.asset.ai_grid_fallback).strip().lower()
+    if effective_ai_grid_fallback not in {"extract", "pixelize", "fail"}:
+        raise typer.BadParameter("ai-grid-fallback 必须是 extract、pixelize 或 fail")
+    effective_ai_grid_retries = int(cfg.asset.ai_grid_retries if ai_grid_retries is None else ai_grid_retries)
+    effective_ai_grid_instruction = ai_grid_instruction.strip() or cfg.asset.ai_grid_instruction
     effective_fit_padding = int(cfg.asset.fit_padding if fit_padding is None else fit_padding)
     effective_fit_min_axis_coverage = float(
         cfg.asset.fit_min_axis_coverage
@@ -453,6 +465,13 @@ def cmd_asset(
             out_root=run_root or cfg.output.root,
             use_cache=not no_cache,
             refresh_cache=refresh,
+            grid=GridDesignInput(
+                mode="ai" if effective_ai_grid else "off",
+                review=bool(grid_review or cfg.asset.grid_review) if effective_ai_grid else False,
+                retries=effective_ai_grid_retries,
+                instruction=effective_ai_grid_instruction,
+                fallback=effective_ai_grid_fallback,  # type: ignore[arg-type]
+            ),
         ),
         progress=_progress_printer,
     )
@@ -465,48 +484,57 @@ def cmd_asset(
         shutil.copyfile(result.source_path, source_target)
         copied_source = source_target
     if effective_grid_mode:
-        grid = extract_pixel_grid(
-            result.source_path,
-            output_size=size,
-            max_colors=effective_colors,
-            auto_crop=cfg.asset.auto_crop,
-            crop_padding=cfg.asset.crop_padding,
-            crop_square=cfg.asset.crop_square,
-            remove_bg=cfg.asset.remove_bg,
-            bg_tolerance=cfg.asset.bg_tolerance,
-            metadata={"asset_name": name, "prompt": prompt, "run_dir": str(result.run_dir)},
-        )
-        effective_cleanup = cfg.asset.grid_cleanup if grid_cleanup is None else grid_cleanup
-        effective_outline = cfg.asset.grid_outline if grid_outline is None else grid_outline
-        if effective_cleanup or effective_outline:
-            grid = polish_pixel_grid(
-                grid,
-                cleanup=effective_cleanup,
-                outline=effective_outline,
-                outline_strength=cfg.asset.grid_outline_strength,
-                min_neighbors=cfg.asset.grid_min_neighbors,
+        if effective_ai_grid:
+            shutil.copyfile(result.pixel_path, target)
+            if result.grid_path is not None and cfg.asset.grid_json and not no_grid_json:
+                shutil.copyfile(result.grid_path, grid_target)
+                saved_grid = grid_target
+            if result.preview_path is not None and not no_preview:
+                shutil.copyfile(result.preview_path, preview_target)
+                copied_preview = preview_target
+        else:
+            grid = extract_pixel_grid(
+                result.source_path,
+                output_size=size,
                 max_colors=effective_colors,
+                auto_crop=cfg.asset.auto_crop,
+                crop_padding=cfg.asset.crop_padding,
+                crop_square=cfg.asset.crop_square,
+                remove_bg=cfg.asset.remove_bg,
+                bg_tolerance=cfg.asset.bg_tolerance,
+                metadata={"asset_name": name, "prompt": prompt, "run_dir": str(result.run_dir)},
             )
-        if grid_review or cfg.asset.grid_review:
-            grid = review_pixel_grid(cfg, grid, model=vl_model)
-        if effective_fit_canvas:
-            grid = fit_pixel_grid_to_canvas(
-                grid,
-                padding=effective_fit_padding,
-                mode=effective_fit_mode,
-                min_axis_coverage=effective_fit_min_axis_coverage,
-            )
-        if cfg.asset.grid_json and not no_grid_json:
-            save_grid(grid, grid_target)
-            saved_grid = grid_target
-        final_img = render_pixel_grid(grid)
-        final_img.save(target)
-        if not no_preview:
-            final_img.resize(
-                (final_img.width * cfg.asset.preview_scale, final_img.height * cfg.asset.preview_scale),
-                resample=Image.Resampling.NEAREST,
-            ).save(preview_target)
-            copied_preview = preview_target
+            effective_cleanup = cfg.asset.grid_cleanup if grid_cleanup is None else grid_cleanup
+            effective_outline = cfg.asset.grid_outline if grid_outline is None else grid_outline
+            if effective_cleanup or effective_outline:
+                grid = polish_pixel_grid(
+                    grid,
+                    cleanup=effective_cleanup,
+                    outline=effective_outline,
+                    outline_strength=cfg.asset.grid_outline_strength,
+                    min_neighbors=cfg.asset.grid_min_neighbors,
+                    max_colors=effective_colors,
+                )
+            if grid_review or cfg.asset.grid_review:
+                grid = review_pixel_grid(cfg, grid, model=vl_model)
+            if effective_fit_canvas:
+                grid = fit_pixel_grid_to_canvas(
+                    grid,
+                    padding=effective_fit_padding,
+                    mode=effective_fit_mode,
+                    min_axis_coverage=effective_fit_min_axis_coverage,
+                )
+            if cfg.asset.grid_json and not no_grid_json:
+                save_grid(grid, grid_target)
+                saved_grid = grid_target
+            final_img = render_pixel_grid(grid)
+            final_img.save(target)
+            if not no_preview:
+                final_img.resize(
+                    (final_img.width * cfg.asset.preview_scale, final_img.height * cfg.asset.preview_scale),
+                    resample=Image.Resampling.NEAREST,
+                ).save(preview_target)
+                copied_preview = preview_target
     else:
         shutil.copyfile(result.pixel_path, target)
         if result.preview_path is not None and not no_preview:
@@ -522,6 +550,14 @@ def cmd_asset(
             "source_copy": str(copied_source) if copied_source else None,
             "grid_mode": effective_grid_mode,
             "grid": str(saved_grid) if saved_grid else None,
+            "ai_grid": {
+                "enabled": effective_ai_grid,
+                "fallback": effective_ai_grid_fallback,
+                "retries": effective_ai_grid_retries,
+                "instruction": effective_ai_grid_instruction,
+                "used_fallback": bool(result.meta.get("pixelize", {}).get("grid", {}).get("used_fallback", False)),
+                "readability": result.meta.get("pixelize", {}).get("grid", {}).get("readability"),
+            } if effective_grid_mode else None,
             "fit_canvas": {
                 "enabled": effective_fit_canvas,
                 "mode": effective_fit_mode,

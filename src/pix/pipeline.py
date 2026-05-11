@@ -6,7 +6,9 @@ import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal
+
+from PIL import Image
 
 from pix import __version__
 from pix.analysis.schema import PixAnalysis
@@ -14,11 +16,27 @@ from pix.api.image_gen import edit_image, generate_image
 from pix.api.vision import VisionParseError, analyze_image
 from pix.cache import Cache
 from pix.config import AppConfig
+from pix.grid.design import design_pixel_grid
+from pix.grid.extract import extract_pixel_grid
+from pix.grid.postprocess import fit_pixel_grid_to_canvas, polish_pixel_grid
+from pix.grid.readability import evaluate_grid_readability
+from pix.grid.render import render_pixel_grid
+from pix.grid.review import review_pixel_grid
+from pix.grid.schema import PixelGrid, save_grid
 from pix.io_utils import new_run_dir, sha256_of_file
 from pix.pixelize.core import PixelizeParams, pixelize
 
 
 ProgressCb = Callable[[str, dict], None]
+
+
+@dataclass
+class GridDesignInput:
+    mode: Literal["off", "extract", "ai"] = "off"
+    review: bool = False
+    retries: int = 1
+    instruction: str = ""
+    fallback: Literal["extract", "pixelize", "fail"] = "extract"
 
 
 @dataclass
@@ -39,6 +57,8 @@ class PipelineInput:
     # 缓存
     use_cache: bool = True
     refresh_cache: bool = False
+    # Pixel Grid 低像素直绘/提取
+    grid: GridDesignInput = field(default_factory=GridDesignInput)
 
 
 @dataclass
@@ -51,10 +71,117 @@ class PipelineResult:
     preview_path: Path | None
     meta_path: Path
     meta: dict
+    grid_path: Path | None = None
 
 
 def _noop(_step: str, _payload: dict) -> None:
     pass
+
+
+def _extract_grid_from_source(cfg: AppConfig, inputs: PipelineInput, source_path: Path, *, fallback: bool = False) -> PixelGrid:
+    params = inputs.pixelize_params
+    return extract_pixel_grid(
+        source_path,
+        output_size=params.output_size,
+        max_colors=params.colors,
+        auto_crop=params.auto_crop or cfg.asset.auto_crop,
+        crop_padding=params.crop_padding,
+        crop_square=params.crop_square,
+        remove_bg=params.remove_bg,
+        bg_tolerance=params.bg_tolerance,
+        metadata={"generator": "extract_grid_fallback" if fallback else "extract_grid"},
+    )
+
+
+def _run_grid_pixelize(
+    cfg: AppConfig,
+    inputs: PipelineInput,
+    source_path: Path,
+    run_dir: Path,
+    notify: ProgressCb,
+) -> tuple[Image.Image, Image.Image | None, dict, Path]:
+    params = inputs.pixelize_params
+    grid_meta: dict = {
+        "mode": inputs.grid.mode,
+        "review": inputs.grid.review,
+        "fallback": inputs.grid.fallback,
+        "used_fallback": False,
+    }
+    try:
+        if inputs.grid.mode == "ai":
+            notify("grid_design_start", {"size": list(params.output_size), "colors": params.colors})
+            grid = design_pixel_grid(
+                cfg,
+                source_path,
+                output_size=params.output_size,
+                max_colors=params.colors,
+                model=inputs.vl_model,
+                instruction=inputs.grid.instruction,
+                retries=inputs.grid.retries,
+            )
+        else:
+            notify("grid_extract_start", {"size": list(params.output_size), "colors": params.colors})
+            grid = _extract_grid_from_source(cfg, inputs, source_path)
+    except Exception as exc:
+        if inputs.grid.fallback != "extract" or inputs.grid.mode == "extract":
+            raise
+        notify("grid_fallback", {"mode": "extract", "error": str(exc)})
+        grid = _extract_grid_from_source(cfg, inputs, source_path, fallback=True)
+        grid_meta.update({"used_fallback": True, "fallback_reason": str(exc)})
+
+    if cfg.asset.grid_cleanup or cfg.asset.grid_outline:
+        grid = polish_pixel_grid(
+            grid,
+            cleanup=cfg.asset.grid_cleanup,
+            outline=cfg.asset.grid_outline,
+            outline_strength=cfg.asset.grid_outline_strength,
+            min_neighbors=cfg.asset.grid_min_neighbors,
+            max_colors=params.colors,
+        )
+    if cfg.asset.fit_canvas:
+        grid = fit_pixel_grid_to_canvas(
+            grid,
+            padding=cfg.asset.fit_padding,
+            mode=cfg.asset.fit_mode,
+            min_axis_coverage=cfg.asset.fit_min_axis_coverage,
+        )
+    if inputs.grid.review:
+        notify("grid_review_start", {})
+        grid = review_pixel_grid(cfg, grid, model=inputs.vl_model, instruction=inputs.grid.instruction)
+
+    report = evaluate_grid_readability(grid, max_colors=params.colors)
+    grid.metadata["readability"] = report.to_dict()
+    ai_grid_meta = grid.metadata.get("ai_grid")
+    if isinstance(ai_grid_meta, dict):
+        grid_meta["attempts"] = ai_grid_meta.get("attempts")
+        grid_meta["max_attempts"] = ai_grid_meta.get("max_attempts")
+        grid_meta["repaired"] = bool(ai_grid_meta.get("repaired", False))
+    grid_meta["readability"] = report.to_dict()
+    grid_path = run_dir / "03_pixelized.grid.json"
+    save_grid(grid, grid_path)
+    pixel_img = render_pixel_grid(grid)
+    preview_img = None
+    scale = max(0, int(params.preview_scale))
+    if scale > 1:
+        preview_img = pixel_img.resize(
+            (pixel_img.width * scale, pixel_img.height * scale), Image.Resampling.NEAREST
+        )
+    pix_meta = {
+        "effective_params": {
+            "output_size": list(params.output_size),
+            "colors": params.colors,
+            "dither": params.dither,
+            "preset": params.preset or "auto",
+            "preview_scale": params.preview_scale,
+            "remove_bg": params.remove_bg,
+            "auto_crop": params.auto_crop,
+        },
+        "palette": [color.hex for color in grid.palette],
+        "palette_size": len(grid.palette),
+        "used_analysis": False,
+        "grid": grid_meta,
+    }
+    return pixel_img, preview_img, pix_meta, grid_path
 
 
 def run_pipeline(
@@ -186,18 +313,38 @@ def run_pipeline(
                     encoding="utf-8",
                 )
 
-    # 4. 像素化
-    notify("pixelize_start", {})
-    pixel_img, preview_img, pix_meta = pixelize(
-        source_path, inputs.pixelize_params, analysis=analysis
-    )
-    pixel_path = run_dir / "03_pixelized.png"
-    pixel_img.save(pixel_path)
+    # 4. 像素化 / Pixel Grid 直绘
+    notify("pixelize_start", {"grid_mode": inputs.grid.mode})
     preview_path: Path | None = None
+    grid_path: Path | None = None
+    pixel_path = run_dir / "03_pixelized.png"
+    if inputs.grid.mode == "off":
+        pixel_img, preview_img, pix_meta = pixelize(
+            source_path, inputs.pixelize_params, analysis=analysis
+        )
+    else:
+        try:
+            pixel_img, preview_img, pix_meta, grid_path = _run_grid_pixelize(
+                cfg, inputs, source_path, run_dir, notify
+            )
+        except Exception as exc:
+            if inputs.grid.fallback != "pixelize":
+                raise
+            notify("grid_fallback", {"mode": "pixelize", "error": str(exc)})
+            pixel_img, preview_img, pix_meta = pixelize(
+                source_path, inputs.pixelize_params, analysis=analysis
+            )
+            pix_meta["grid"] = {
+                "mode": inputs.grid.mode,
+                "failed": True,
+                "fallback": "pixelize",
+                "error": str(exc),
+            }
+    pixel_img.save(pixel_path)
     if preview_img is not None:
         preview_path = run_dir / "04_pixelized_preview.png"
         preview_img.save(preview_path)
-    notify("pixelize_ready", {"path": str(pixel_path)})
+    notify("pixelize_ready", {"path": str(pixel_path), "grid": str(grid_path) if grid_path else None})
 
     # 5. meta
     meta = {
@@ -228,6 +375,7 @@ def run_pipeline(
             "analysis": analysis_path.name if analysis_path else None,
             "pixelized": pixel_path.name,
             "preview": preview_path.name if preview_path else None,
+            "grid": grid_path.name if grid_path else None,
         },
     }
     meta_path = run_dir / "meta.json"
@@ -242,4 +390,5 @@ def run_pipeline(
         preview_path=preview_path,
         meta_path=meta_path,
         meta=meta,
+        grid_path=grid_path,
     )

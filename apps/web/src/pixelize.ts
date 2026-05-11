@@ -1,4 +1,4 @@
-import type { PixelizeParams } from './types'
+import type { GridDesignParams, PixelizeParams } from './types'
 
 export const defaultPixelize: PixelizeParams = {
   output_size: [128, 128],
@@ -26,6 +26,16 @@ export function parsePixelSize(value: string): [number, number] {
 
 export function buildPixelize(overrides: Partial<PixelizeParams> = {}): PixelizeParams {
   return { ...defaultPixelize, ...overrides }
+}
+
+export function buildGridDesign(enabled: boolean): GridDesignParams {
+  return {
+    mode: enabled ? 'ai' : 'off',
+    review: false,
+    retries: 1,
+    instruction: '',
+    fallback: 'extract',
+  }
 }
 
 export function summarizePrompt(value: string | null | undefined, fallback = '无输入摘要'): string {

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-05-11
+
+### Added
+
+- `pix asset` 新增可选 `--ai-grid` 直绘模式，让模型直接输出 `palette + pixels[y][x]` Pixel Grid，并通过可读性评分自动返修后由 Python 渲染 PNG。
+- Web 单图、批量和微调表单新增 `AI 低像素工程图` 显式开关，并在任务/作品卡展示可读性、返修和回退状态。
+- 新增 Pixel Grid 字符串矩阵 schema、AI Grid 设计和可读性评分测试。
+
 ## [0.43.0] - 2026-05-11
 
 ### Added

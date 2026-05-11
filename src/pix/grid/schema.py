@@ -15,6 +15,16 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 _HEX_RE = re.compile(r"^#?[0-9a-fA-F]{6}$")
+_GRID_DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _decode_grid_char(value: str, transparent: int) -> int:
+    if value in {".", "_"}:
+        return transparent
+    upper = value.upper()
+    if upper in _GRID_DIGITS:
+        return _GRID_DIGITS.index(upper)
+    raise ValueError(f"非法 Pixel Grid 字符：{value}")
 
 
 def normalize_hex(value: str) -> str:
@@ -55,6 +65,20 @@ class PixelGrid(BaseModel):
     palette: list[PixelGridColor] = Field(default_factory=list)
     pixels: list[list[int]]
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _decode_string_pixels(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        value = data.get("pixels")
+        if not isinstance(value, list) or not value or not all(isinstance(row, str) for row in value):
+            return data
+        canvas = data.get("canvas") if isinstance(data.get("canvas"), dict) else {}
+        transparent = int(canvas.get("transparent_index", -1))
+        data = dict(data)
+        data["pixels"] = [[_decode_grid_char(ch, transparent) for ch in row.strip()] for row in value]
+        return data
 
     @model_validator(mode="after")
     def _validate_grid(self) -> "PixelGrid":

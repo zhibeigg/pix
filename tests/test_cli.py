@@ -207,6 +207,75 @@ def test_asset_cli_direct_output(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> 
     }
 
 
+def test_asset_cli_ai_grid_uses_pipeline_grid(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> None:
+    from PIL import Image
+
+    def fake_run_pipeline(cfg, inputs, progress=None):
+        assert inputs.grid.mode == "ai"
+        assert inputs.grid.retries == 2
+        assert inputs.grid.fallback == "pixelize"
+        assert inputs.grid.instruction == "更像红宝石"
+        run_dir = tmp_path / "run-ai-grid"
+        run_dir.mkdir()
+        source_path = run_dir / "01_source.png"
+        pixel_path = run_dir / "03_pixelized.png"
+        preview_path = run_dir / "04_pixelized_preview.png"
+        grid_path = run_dir / "03_pixelized.grid.json"
+        img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+        for y in range(4, 12):
+            for x in range(4, 12):
+                img.putpixel((x, y), (180, 20, 40, 255))
+        img.save(pixel_path)
+        img.resize((128, 128), Image.Resampling.NEAREST).save(source_path)
+        img.resize((192, 192), Image.Resampling.NEAREST).save(preview_path)
+        grid_path.write_text("{}", encoding="utf-8")
+        meta = {
+            "vision": {"ok": False},
+            "pixelize": {
+                "grid": {
+                    "mode": "ai",
+                    "used_fallback": False,
+                    "attempts": 2,
+                    "max_attempts": 3,
+                    "repaired": True,
+                    "readability": {"ok": True},
+                }
+            },
+        }
+        return SimpleNamespace(
+            run_dir=run_dir,
+            source_path=source_path,
+            analysis_path=None,
+            meta_path=run_dir / "meta.json",
+            pixel_path=pixel_path,
+            preview_path=preview_path,
+            grid_path=grid_path,
+            analysis=None,
+            meta=meta,
+        )
+
+    monkeypatch.setattr("pix.cli.run_pipeline", fake_run_pipeline)
+    out = tmp_path / "红宝石.png"
+    result = runner.invoke(
+        app,
+        [
+            "asset", "红宝石",
+            "--out", str(out),
+            "--ai-grid",
+            "--ai-grid-retries", "2",
+            "--ai-grid-fallback", "pixelize",
+            "--ai-grid-instruction", "更像红宝石",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert out.exists()
+    assert out.with_name("红宝石.grid.json").exists()
+    sidecar = json.loads(out.with_name("红宝石.asset.json").read_text(encoding="utf-8"))
+    assert sidecar["ai_grid"]["enabled"] is True
+    assert sidecar["ai_grid"]["readability"] == {"ok": True}
+
+
 def test_asset_cli_fit_canvas_options(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> None:
     from PIL import Image
 

@@ -3,7 +3,7 @@ import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel
 import { api } from '../api'
 import { notionTokens } from '../theme'
 import type { JobCreateRequest, JobType, PricingRule } from '../types'
-import { buildPixelize, parsePixelSize } from '../pixelize'
+import { buildGridDesign, buildPixelize, parsePixelSize } from '../pixelize'
 
 type SingleGeneratePanelProps = {
   pricing: PricingRule[]
@@ -23,6 +23,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
   const [colors, setColors] = useState(16)
   const [removeBg, setRemoveBg] = useState(true)
   const [skipVl, setSkipVl] = useState(false)
+  const [aiGrid, setAiGrid] = useState(false)
 
   const price = useMemo(() => pricing.find((item) => item.key === jobType)?.price_credits ?? 0, [pricing, jobType])
   const needsPrompt = jobType === 'text_to_image' || jobType === 'image_to_image'
@@ -53,6 +54,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
       client_request_id: crypto.randomUUID(),
       skip_vl: skipVl,
       pixelize: buildPixelize({ output_size: parsePixelSize(pixelSize), colors, remove_bg: removeBg }),
+      grid: buildGridDesign(aiGrid),
     })
   }
 
@@ -105,7 +107,9 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
             <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
               <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
               <FormControlLabel control={<Checkbox checked={skipVl} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过参考图理解" />
+              <FormControlLabel control={<Checkbox checked={aiGrid} onChange={(event) => setAiGrid(event.target.checked)} />} label="AI 低像素工程图" />
             </Stack>
+            {aiGrid && <Alert severity="warning">AI 低像素工程图会额外调用视觉模型生成并返修像素矩阵；默认点数价格不变，但会产生额外模型调用成本。</Alert>}
             <Button type="submit" variant="contained" disabled={loading}>{loading ? '提交中…' : '生成单张素材'}</Button>
           </Stack>
         </Stack>
