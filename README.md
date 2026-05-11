@@ -38,6 +38,7 @@
 
 - **三种起点**：一句 prompt 从头生图、直接丢一张现成图片像素化，或“图片 + prompt”走 Packy 图生图编辑后再像素化
 - **像素对齐 & 透明背景**：`smart` 下采样自动探测输入像素格并吸附，边缘不再糊；一键 `--remove-bg` 把纯色底抠成透明 PNG
+- **AI 低像素工程图（可选）**：16×16 / 22×22 / 32×32 小图标可让模型直接返回 `palette + pixels[y][x]` 字符串矩阵，再由 Python 校验、返修、清理和精确渲染
 - **结构化 JSON**：VL 模型不是一句描述就完事，而是输出调色板、主体位置、语义区域建议，严格经 Pydantic 校验，失败自动带修正提示重试
 - **四套内置预设**：`gameboy` · `nes` · `modern_pixel` · `pico8`，支持自定义 TOML
 - **可配置所有参数**：尺寸、色数、抖动、主体锐化、饱和度、VL 模型、预设……CLI 和 GUI 共享同一套
@@ -84,6 +85,7 @@ outputs/20260509-142359-a1b2c3d4/
 ├── 01_source.png           # 原图（生成或上传）
 ├── 02_analysis.json        # VL 结构化分析
 ├── 03_pixelized.png        # 最终像素图
+├── 03_pixelized.grid.json  # 可选 Pixel Grid 工程图（Grid 提取 / AI Grid 时输出）
 └── meta.json               # 模型、参数、耗时、哪步命中缓存
 ```
 
@@ -179,6 +181,7 @@ pix pixelize my_photo.png --colors 8 --preset pico8          # 只做像素化�
 pix analyze my_photo.png --model claude-sonnet-4-5           # 只做 VL 分析
 pix gen-only "一只像素风橘猫"                                 # 只做文生图
 pix asset "血气灵玉" --out 图片/血气灵玉.png                    # 游戏素材直出：生图 → Grid JSON → 16x16 透明 PNG
+pix asset "血气灵玉" --ai-grid --ai-grid-retries 2              # 可选 AI Grid：模型直出 palette + pixels，再自动校验返修
 pix grid-extract source.png --pixel-size 16x16 --colors 12 --out item.grid.json --render item.png
 pix grid-render item.grid.json --out 图片/item.png              # Grid JSON → 精确 PNG
 pix validate 图片/血气灵玉.png --pixel-size 16x16 --max-colors 16 # 检查素材是否可直接进游戏
@@ -207,6 +210,9 @@ pix gui                                                      # 启动图形界�
 | `--crop-square / --no-crop-square` | 自动裁剪时保持正方形 | `true` |
 | `--vl-model` | 视觉模型名 | 从配置读 |
 | `--no-vl` | 跳过多模态分析（纯 Python 兜底） | `false` |
+| `pix asset --ai-grid` | 可选 AI Grid 直绘：模型直接返回 `palette + pixels[y][x]`，后端做 schema 校验、可读性评分、自动返修和 PNG 渲染 | 关 |
+| `pix asset --ai-grid-retries N` | AI Grid 可读性返修次数；`--grid-review` 会再增加一次模型审核调用 | `1` |
+| `pix asset --ai-grid-fallback extract\|pixelize\|fail` | AI Grid 失败后的回退策略 | `extract` |
 | `--no-cache` / `--refresh` | 禁用缓存 / 忽略命中强刷 | `false` |
 | `--image-size WxH` | 生图尺寸（遵循 Packy 限制） | `1024x1024` |
 | `--image-quality low\|medium\|high\|auto` | 生图 / 图生图质量 | `high` |
@@ -214,7 +220,9 @@ pix gui                                                      # 启动图形界�
 
 ### 网站版 MVP
 
-`pix` 现在包含网站版 MVP：FastAPI API + 点数账户 + 生成任务队列 + 串行 worker，以及 Vite + React 前端工作台。工作台以作品网格为中心，支持单图生成、批量生产、免费本地微调和 AI 微调。第一版先用管理员手动加点模拟充值，后续可接 Stripe / 微信 / 支付宝。
+`pix` 现在包含网站版 MVP：FastAPI API + 点数账户 + 生成任务队列 + 串行 worker，以及 Vite + React 前端工作台。工作台以作品网格为中心，支持单图生成、批量生产、免费本地微调和 AI 微调；单图、批量和微调表单都可显式启用 AI 低像素工程图，并在结果里展示可读性评分、自动返修和回退状态。第一版先用管理员手动加点模拟充值，后续可接 Stripe / 微信 / 支付宝。
+
+> AI 低像素工程图默认关闭，不改变现有点数定价；启用后会额外调用视觉模型生成/返修 `palette + pixels`，前端会显示成本提醒。
 
 安装 Web 依赖：
 

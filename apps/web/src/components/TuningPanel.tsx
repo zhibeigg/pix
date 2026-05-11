@@ -2,7 +2,7 @@ import { FormEvent, useMemo, useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, Stack, TextField, Typography } from '@mui/material'
 import { notionTokens } from '../theme'
 import type { GenerationJob, JobCreateRequest, PricingRule } from '../types'
-import { buildPixelize, parsePixelSize, summarizePrompt } from '../pixelize'
+import { buildGridDesign, buildPixelize, parsePixelSize, summarizePrompt } from '../pixelize'
 
 type TuningPanelProps = {
   job: GenerationJob | null
@@ -15,6 +15,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
   const [pixelSize, setPixelSize] = useState('128x128')
   const [colors, setColors] = useState(16)
   const [removeBg, setRemoveBg] = useState(true)
+  const [aiGrid, setAiGrid] = useState(false)
   const [aiPrompt, setAiPrompt] = useState('保留主体，优化材质和颜色')
   const aiPrice = useMemo(() => pricing.find((item) => item.key === 'image_to_image')?.price_credits ?? 0, [pricing])
 
@@ -46,6 +47,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
       client_request_id: crypto.randomUUID(),
       skip_vl: true,
       pixelize: buildPixelize({ output_size: parsePixelSize(pixelSize), colors, remove_bg: removeBg }),
+      grid: buildGridDesign(aiGrid),
     })
   }
 
@@ -59,6 +61,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
       client_request_id: crypto.randomUUID(),
       skip_vl: false,
       pixelize: buildPixelize({ output_size: parsePixelSize(pixelSize), colors, remove_bg: removeBg }),
+      grid: buildGridDesign(aiGrid),
     })
   }
 
@@ -76,6 +79,16 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
             <Chip label={job.status} sx={{ bgcolor: job.status === 'succeeded' ? notionTokens.tintMint : job.status === 'failed' ? notionTokens.tintRose : notionTokens.tintSky }} />
           </Stack>
           {previewUrl && <Box component="img" src={previewUrl} alt="微调对象预览" loading="lazy" decoding="async" sx={{ width: '100%', maxHeight: 180, objectFit: 'contain', imageRendering: 'pixelated', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.default', p: 1 }} />}
+
+          <Card variant="outlined" sx={{ bgcolor: notionTokens.tintYellowBold }}>
+            <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+              <Stack spacing={1}>
+                <FormControlLabel control={<Checkbox checked={aiGrid} onChange={(event) => setAiGrid(event.target.checked)} />} label="AI 低像素工程图" />
+                <Typography color="text.secondary" variant="body2">启用后会让模型直接返回 palette + pixels 工程图，再由后端校验、返修和渲染。</Typography>
+                {aiGrid && <Alert severity="warning">这会额外调用视觉模型；默认点数价格不变，但会产生额外模型调用成本，本地微调也不再是纯本地处理。</Alert>}
+              </Stack>
+            </CardContent>
+          </Card>
 
           <Card variant="outlined" sx={{ bgcolor: notionTokens.tintMint }}>
             <CardContent>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Box, Button, Card, CardActions, CardContent, CardMedia, Chip, Pagination, Stack, Typography } from '@mui/material'
-import type { GenerationJob } from '../types'
+import type { GenerationJob, JobOutput } from '../types'
 import { jobStatusLabel, jobTypeLabel } from '../labels'
 import { summarizePrompt } from '../pixelize'
 import { notionTokens } from '../theme'
@@ -82,6 +82,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                       <Chip size="small" variant="outlined" label={`${job.price_credits} 点`} />
                       <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />
                     </Stack>
+                    {output && <GridQualityChips output={output} />}
                     {job.batch_name && <Typography color="text.secondary" variant="caption">素材包：{job.batch_name}</Typography>}
                   </CardContent>
                   <CardActions>
@@ -102,6 +103,19 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function GridQualityChips({ output }: { output: JobOutput }) {
+  const status = output.grid_status
+  const report = output.grid_readability
+  if (!status && !report) return null
+  return (
+    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+      {status?.mode && <Chip size="small" color={status.used_fallback || status.failed ? 'warning' : 'primary'} variant="outlined" label={status.mode === 'ai' ? 'AI Grid' : 'Grid'} />}
+      {report && <Chip size="small" color={report.ok ? 'success' : 'warning'} variant="outlined" label={report.ok ? '可读性 OK' : '需返修'} />}
+      {status?.repaired && <Chip size="small" color="success" variant="outlined" label="已返修" />}
+    </Stack>
   )
 }
 

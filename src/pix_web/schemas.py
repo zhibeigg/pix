@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field, computed_field
@@ -10,6 +12,27 @@ from pydantic import BaseModel, EmailStr, Field, computed_field
 from pix_web.storage import file_url
 
 JobType = Literal["text_to_image", "image_to_image", "local_pixelize", "repixelize"]
+
+
+def _load_meta_json(path: str | None) -> dict[str, Any]:
+    if not path:
+        return {}
+    try:
+        raw = Path(path).read_text(encoding="utf-8")
+        data = json.loads(raw)
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _grid_meta_from_output_meta(path: str | None) -> dict[str, Any]:
+    pixelize = _load_meta_json(path).get("pixelize")
+    if not isinstance(pixelize, dict):
+        return {}
+    grid = pixelize.get("grid")
+    return grid if isinstance(grid, dict) else {}
+
+
 JobStatus = Literal["pending", "running", "succeeded", "failed", "cancelled"]
 
 
@@ -90,6 +113,14 @@ class PixelizeParamsSchema(BaseModel):
     crop_square: bool = True
 
 
+class GridDesignSchema(BaseModel):
+    mode: Literal["off", "extract", "ai"] = "off"
+    review: bool = False
+    retries: int = Field(default=1, ge=0, le=3)
+    instruction: str = Field(default="", max_length=800)
+    fallback: Literal["extract", "pixelize", "fail"] = "extract"
+
+
 class JobCreateRequest(BaseModel):
     job_type: JobType
     prompt: str | None = None
@@ -101,6 +132,7 @@ class JobCreateRequest(BaseModel):
     vl_model: str | None = None
     skip_vl: bool = False
     pixelize: PixelizeParamsSchema = Field(default_factory=PixelizeParamsSchema)
+    grid: GridDesignSchema = Field(default_factory=GridDesignSchema)
 
 
 class JobBatchCreateRequest(BaseModel):
@@ -124,6 +156,43 @@ class JobOutputResponse(BaseModel):
     preview_path: str | None
     analysis_json_path: str | None
     meta_json_path: str
+
+    @computed_field
+    @property
+    def grid_json_path(self) -> str | None:
+        outputs = _load_meta_json(self.meta_json_path).get("outputs")
+        if not isinstance(outputs, dict):
+            return None
+        grid_name = outputs.get("grid")
+        if not grid_name:
+            return None
+        return str(Path(self.meta_json_path).with_name(str(grid_name)))
+
+    @computed_field
+    @property
+    def grid_status(self) -> dict[str, Any] | None:
+        grid = _grid_meta_from_output_meta(self.meta_json_path)
+        if not grid or grid.get("mode") in (None, "off"):
+            return None
+        keys = (
+            "mode",
+            "review",
+            "fallback",
+            "used_fallback",
+            "fallback_reason",
+            "failed",
+            "error",
+            "attempts",
+            "max_attempts",
+            "repaired",
+        )
+        return {key: grid[key] for key in keys if key in grid}
+
+    @computed_field
+    @property
+    def grid_readability(self) -> dict[str, Any] | None:
+        readability = _grid_meta_from_output_meta(self.meta_json_path).get("readability")
+        return readability if isinstance(readability, dict) else None
 
     @computed_field
     @property

@@ -57,6 +57,14 @@ export type PixelizeParams = {
   crop_square: boolean
 }
 
+export type GridDesignParams = {
+  mode: 'off' | 'extract' | 'ai'
+  review: boolean
+  retries: number
+  instruction: string
+  fallback: 'extract' | 'pixelize' | 'fail'
+}
+
 export type JobCreateRequest = {
   job_type: JobType
   prompt?: string | null
@@ -68,6 +76,42 @@ export type JobCreateRequest = {
   vl_model?: string | null
   skip_vl?: boolean
   pixelize: PixelizeParams
+  grid?: GridDesignParams
+}
+
+export type GridReadabilityIssue = {
+  level: 'blocking' | 'warning' | string
+  code: string
+  message: string
+}
+
+export type GridReadabilityReport = {
+  ok: boolean
+  width: number
+  height: number
+  visible_pixels: number
+  visible_ratio: number
+  bbox: [number, number, number, number] | null
+  bbox_coverage: number
+  color_count: number
+  component_count: number
+  isolated_pixels: number
+  outline_ratio: number
+  highlight_ratio: number
+  issues: GridReadabilityIssue[]
+}
+
+export type GridOutputStatus = {
+  mode?: 'off' | 'extract' | 'ai' | string
+  review?: boolean
+  fallback?: string
+  used_fallback?: boolean
+  fallback_reason?: string
+  failed?: boolean
+  error?: string
+  attempts?: number
+  max_attempts?: number
+  repaired?: boolean
 }
 
 export type JobOutput = {
@@ -80,6 +124,9 @@ export type JobOutput = {
   preview_url: string | null
   analysis_json_path: string | null
   meta_json_path: string
+  grid_json_path: string | null
+  grid_status: GridOutputStatus | null
+  grid_readability: GridReadabilityReport | null
 }
 
 export type JobBatchCreateResponse = {

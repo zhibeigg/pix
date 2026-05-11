@@ -78,6 +78,11 @@ grid_mode      = true
 grid_review    = false
 # 是否保留 .grid.json 工程文件
 grid_json      = true
+# AI Grid 直绘默认关闭：开启后让模型直接返回 palette + pixels[y][x] 字符串矩阵，适合 16/22/32 小图标；会增加额外模型调用成本
+ai_grid        = false
+ai_grid_retries = 1
+ai_grid_instruction = ""
+ai_grid_fallback = "extract"  # extract | pixelize | fail
 # Grid 后处理：清理孤立噪点、统一主体深色轮廓
 grid_cleanup   = true
 grid_outline   = true

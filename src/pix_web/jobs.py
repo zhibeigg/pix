@@ -41,6 +41,7 @@ def params_json_from_request(req: JobCreateRequest) -> dict:
         "vl_model": req.vl_model,
         "skip_vl": req.skip_vl,
         "pixelize": req.pixelize.model_dump(mode="json"),
+        "grid": req.grid.model_dump(mode="json"),
     }
 
 
@@ -202,6 +203,7 @@ def _request_from_failed_job(job: GenerationJob) -> JobCreateRequest:
         vl_model=params.get("vl_model"),
         skip_vl=bool(params.get("skip_vl", False)),
         pixelize=PixelizeParamsSchema.model_validate(params.get("pixelize") or {}),
+        grid=params.get("grid") or {},
     )
 
 
