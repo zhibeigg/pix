@@ -501,6 +501,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
                 <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onUpdateSetting={updateSetting} />
               )}
             </Box>
+            <SiteFooter />
           </Stack>
         </Container>
       ) : (
@@ -518,8 +519,26 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
           {message && <Box sx={{ maxWidth: 1152, mx: 'auto', px: { xs: 2, md: 4 }, py: 2 }}><Alert severity="info" role="status" aria-live="polite">{message}</Alert></Box>}
           <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onLogout={logout} loading={busy} />} />
+          <SiteFooter />
         </Box>
       )}
+    </Box>
+  )
+}
+
+function SiteFooter() {
+  return (
+    <Box component="footer" sx={{ scrollSnapAlign: { md: 'end' }, borderTop: 1, borderColor: 'divider', bgcolor: notionTokens.surfaceSoft, px: { xs: 2, md: 4 }, py: 2.5, textAlign: 'center' }}>
+      <Typography
+        component="a"
+        href="https://beian.miit.gov.cn/"
+        target="_blank"
+        rel="noreferrer"
+        variant="body2"
+        sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'text.primary', textDecoration: 'underline' } }}
+      >
+        鲁ICP备2022023963号
+      </Typography>
     </Box>
   )
 }

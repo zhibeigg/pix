@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.42.5] - 2026-05-11
+
+### Added
+
+- 在 Web 页面底部加入备案号 `鲁ICP备2022023963号`，并链接至工信部备案系统。
+
 ## [0.42.4] - 2026-05-11
 
 ### Changed
