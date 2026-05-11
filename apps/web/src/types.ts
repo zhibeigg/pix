@@ -112,6 +112,12 @@ export type GridOutputStatus = {
   attempts?: number
   max_attempts?: number
   repaired?: boolean
+  source_prompt_used?: boolean
+  draft?: {
+    canvas?: [number, number]
+    palette_size?: number
+    source?: Record<string, unknown>
+  } | null
 }
 
 export type JobOutput = {

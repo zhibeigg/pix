@@ -235,6 +235,7 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 - Appears in single generation, batch generation and tuning forms as a checkbox labelled `AI 低像素工程图`.
 - Default is off. When enabled, show a warning alert on `{colors.card-tint-yellow-bold}`/warning surface: default credit pricing stays unchanged, but the job will make extra model calls for `palette + pixels` design and readability repair.
 - Result cards should show compact chips for `AI Grid`/fallback, readability pass/fail, color count, subject coverage and whether auto-repair happened.
+- Backend VL context includes original prompt, initial source image, a source-grid-aligned Python draft PixelGrid, draft preview image and readability diagnostics; the UI should still present this as one simple opt-in toggle.
 - Do not hide the existing resize+quantize path; AI Grid is a deliberate opt-in for 16×16 / 22×22 / 32×32 assets.
 
 ### Tabs

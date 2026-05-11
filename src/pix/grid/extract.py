@@ -27,7 +27,87 @@ class GridExtractParams:
     sample_ratio: float = 0.62
 
 
+@dataclass(frozen=True)
+class GridAlignedSize:
+    """源图按像素格对齐后的 draft 网格尺寸推断结果。"""
+
+    output_size: tuple[int, int]
+    original_size: tuple[int, int]
+    processed_size: tuple[int, int]
+    crop_bbox: tuple[int, int, int, int] | None
+    detected_grid: int
+    source_cell_size: tuple[float, float]
+    capped: bool
+    fallback: bool
+    max_axis: int
+
+    def to_metadata(self) -> dict:
+        return {
+            "output_size": list(self.output_size),
+            "original_size": list(self.original_size),
+            "processed_size": list(self.processed_size),
+            "crop_bbox": list(self.crop_bbox) if self.crop_bbox else None,
+            "detected_grid": self.detected_grid,
+            "source_cell_size": list(self.source_cell_size),
+            "capped": self.capped,
+            "fallback": self.fallback,
+            "max_axis": self.max_axis,
+        }
+
+
 _ROLE_ORDER = ("outline", "shadow", "primary", "secondary", "accent", "highlight")
+
+
+def infer_grid_aligned_output_size(
+    image_path: str | Path,
+    *,
+    auto_crop: bool = True,
+    crop_padding: float = 0.12,
+    crop_square: bool = True,
+    remove_bg: bool = True,
+    bg_tolerance: int = 26,
+    max_axis: int = 64,
+) -> GridAlignedSize:
+    """从源图推断给 AI Grid 参考用的 draft 网格尺寸。
+
+    优先使用输入图自身的像素格周期：例如 128x128 的源图若由 4x4 网格
+    nearest 放大得到，会推断出 4x4，而不是硬压到最终 16x16。若没有明显
+    像素格，则使用处理后源图比例并限制最大轴，作为比目标尺寸更保真的草图。
+    """
+    _, image, original_size, crop_bbox = _load_preprocessed_image(
+        image_path,
+        auto_crop=auto_crop,
+        crop_padding=crop_padding,
+        crop_square=crop_square,
+        remove_bg=remove_bg,
+        bg_tolerance=bg_tolerance,
+    )
+    detected_grid = _detect_source_grid_size(
+        image.convert("RGB"),
+        max_probe=max(24, int(max_axis) * 4),
+    )
+    fallback = detected_grid <= 1
+    if fallback:
+        raw_size = image.size
+        source_cell_size = (1.0, 1.0)
+    else:
+        raw_size = (
+            max(1, int(round(image.width / detected_grid))),
+            max(1, int(round(image.height / detected_grid))),
+        )
+        source_cell_size = (float(detected_grid), float(detected_grid))
+    output_size, capped = _cap_size_to_max_axis(raw_size, max_axis=max_axis)
+    return GridAlignedSize(
+        output_size=output_size,
+        original_size=original_size,
+        processed_size=image.size,
+        crop_bbox=crop_bbox,
+        detected_grid=detected_grid,
+        source_cell_size=source_cell_size,
+        capped=capped,
+        fallback=fallback,
+        max_axis=max(1, int(max_axis)),
+    )
 
 
 def extract_pixel_grid(
@@ -60,31 +140,19 @@ def extract_pixel_grid(
         alpha_threshold=alpha_threshold,
         sample_ratio=sample_ratio,
     )
-    source_path = Path(image_path)
-    with Image.open(source_path) as opened:
-        image = opened.convert("RGBA" if ("A" in opened.getbands() or "transparency" in opened.info) else "RGB")
+    source_path, image, original_size, crop_bbox = _load_preprocessed_image(
+        image_path,
+        auto_crop=params.auto_crop,
+        crop_padding=params.crop_padding,
+        crop_square=params.crop_square,
+        remove_bg=params.remove_bg,
+        bg_tolerance=params.bg_tolerance,
+    )
 
-    original_size = image.size
-    crop_bbox: tuple[int, int, int, int] | None = None
-    if params.auto_crop:
-        image, crop_bbox = _auto_crop(
-            image,
-            bg_tolerance=params.bg_tolerance,
-            padding=params.crop_padding,
-            square=params.crop_square,
-        )
-
-    if params.remove_bg:
-        image = remove_background(
-            image,
-            tolerance=max(0, int(params.bg_tolerance)),
-            feather=0,
-            keep_border_bleed=True,
-        )
-    else:
-        image = image.convert("RGBA")
-
-    detected_grid = _detect_grid_size(image.convert("RGB"))
+    detected_grid = _detect_source_grid_size(
+        image.convert("RGB"),
+        max_probe=max(24, int(max(image.size) / max(1, min(params.output_size)))),
+    )
     width, height = params.output_size
     colors, transparent_mask = _sample_cells(
         image,
@@ -133,6 +201,83 @@ def extract_pixel_grid(
         pixels=pixels,
         metadata=meta,
     )
+
+
+def _load_preprocessed_image(
+    image_path: str | Path,
+    *,
+    auto_crop: bool,
+    crop_padding: float,
+    crop_square: bool,
+    remove_bg: bool,
+    bg_tolerance: int,
+) -> tuple[Path, Image.Image, tuple[int, int], tuple[int, int, int, int] | None]:
+    source_path = Path(image_path)
+    with Image.open(source_path) as opened:
+        image = opened.convert("RGBA" if ("A" in opened.getbands() or "transparency" in opened.info) else "RGB")
+
+    original_size = image.size
+    crop_bbox: tuple[int, int, int, int] | None = None
+    if auto_crop:
+        image, crop_bbox = _auto_crop(
+            image,
+            bg_tolerance=bg_tolerance,
+            padding=crop_padding,
+            square=crop_square,
+        )
+
+    if remove_bg:
+        image = remove_background(
+            image,
+            tolerance=max(0, int(bg_tolerance)),
+            feather=0,
+            keep_border_bleed=True,
+        )
+    else:
+        image = image.convert("RGBA")
+    return source_path, image, original_size, crop_bbox
+
+
+def _cap_size_to_max_axis(size: tuple[int, int], *, max_axis: int) -> tuple[tuple[int, int], bool]:
+    width, height = max(1, int(size[0])), max(1, int(size[1]))
+    safe_max = max(1, int(max_axis))
+    largest = max(width, height)
+    if largest <= safe_max:
+        return (width, height), False
+    scale = safe_max / largest
+    return (max(1, int(round(width * scale))), max(1, int(round(height * scale)))), True
+
+
+def _detect_source_grid_size(image: Image.Image, *, max_probe: int = 128) -> int:
+    """检测源图像素格边长，并在内部缩放后还原到源图尺度。"""
+    gray = image.convert("L")
+    orig_w, orig_h = gray.size
+    scale = 1.0
+    max_side = 512
+    if max(orig_w, orig_h) > max_side:
+        scale = max_side / max(orig_w, orig_h)
+        gray = gray.resize((int(orig_w * scale), int(orig_h * scale)), Image.Resampling.BILINEAR)
+    arr = np.asarray(gray, dtype=np.int16)
+    if arr.shape[0] < 2 or arr.shape[1] < 2:
+        return 1
+    col_edge = np.abs(np.diff(arr, axis=1)).mean(axis=0)
+    row_edge = np.abs(np.diff(arr, axis=0)).mean(axis=1)
+    threshold = max(10.0, float(max(col_edge.mean(), row_edge.mean()) * 1.8))
+
+    def _periods(edge: np.ndarray) -> list[int]:
+        idxs = np.where(edge > threshold)[0]
+        if len(idxs) < 3:
+            return []
+        max_probe_scaled = max(2, int(round(max_probe * scale)))
+        deltas = np.diff(idxs)
+        return [int(d) for d in deltas if 2 <= d <= max_probe_scaled]
+
+    periods = _periods(col_edge) + _periods(row_edge)
+    if not periods:
+        return _detect_grid_size(image, max_probe=min(max_probe, 24))
+    vals, counts = np.unique(periods, return_counts=True)
+    best_scaled = int(vals[int(counts.argmax())])
+    return max(1, int(round(best_scaled / scale)))
 
 
 def _sample_cells(
