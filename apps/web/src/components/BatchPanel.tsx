@@ -1,4 +1,3 @@
-import type { KeyboardEvent } from 'react'
 import type { GenerationBatch } from '../types'
 
 type BatchPanelProps = {
@@ -17,13 +16,6 @@ type BatchPanelProps = {
 }
 
 export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSelection, onRetryFailed, onDownloadBatch, onRenameBatch, onToggleArchive, onDeleteBatch, retrying, downloading, onRefresh }: BatchPanelProps) {
-  function activateBatch(event: KeyboardEvent<HTMLElement>, batch: GenerationBatch) {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      onSelectBatch(batch)
-    }
-  }
-
   return (
     <section className="panel batch-panel">
       <div className="panel-heading">
@@ -42,11 +34,7 @@ export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSel
             <article
               className={`batch-card ${selectedBatchId === batch.id ? 'selected' : ''} ${batch.status === 'archived' ? 'archived' : ''}`}
               key={batch.id}
-              role="button"
-              tabIndex={0}
-              aria-selected={selectedBatchId === batch.id}
-              onClick={() => onSelectBatch(batch)}
-              onKeyDown={(event) => activateBatch(event, batch)}
+              aria-current={selectedBatchId === batch.id ? 'true' : undefined}
             >
               <div className="job-card-top">
                 <strong>#{batch.id} · {batch.name}</strong>
@@ -61,22 +49,24 @@ export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSel
               </p>
               <div className="batch-actions">
                 <button
+                  className={selectedBatchId === batch.id ? 'compact' : 'ghost compact'}
+                  type="button"
+                  aria-pressed={selectedBatchId === batch.id}
+                  onClick={() => onSelectBatch(batch)}
+                >
+                  {selectedBatchId === batch.id ? '当前素材包' : '查看素材包'}
+                </button>
+                <button
                   className="ghost compact"
                   type="button"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onRenameBatch(batch)
-                  }}
+                  onClick={() => onRenameBatch(batch)}
                 >
                   重命名
                 </button>
                 <button
                   className="ghost compact"
                   type="button"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onToggleArchive(batch)
-                  }}
+                  onClick={() => onToggleArchive(batch)}
                 >
                   {batch.status === 'archived' ? '恢复' : '归档'}
                 </button>
@@ -84,10 +74,7 @@ export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSel
                   <button
                     className="ghost compact danger"
                     type="button"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onDeleteBatch(batch)
-                    }}
+                    onClick={() => onDeleteBatch(batch)}
                   >
                     删除空包
                   </button>
@@ -97,10 +84,7 @@ export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSel
                     className="ghost compact"
                     type="button"
                     disabled={downloading}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onDownloadBatch(batch)
-                    }}
+                    onClick={() => onDownloadBatch(batch)}
                   >
                     {downloading ? '下载中…' : '下载素材包'}
                   </button>
@@ -110,10 +94,7 @@ export function BatchPanel({ batches, selectedBatchId, onSelectBatch, onClearSel
                   className="ghost compact"
                   type="button"
                   disabled={retrying}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onRetryFailed(batch)
-                  }}
+                  onClick={() => onRetryFailed(batch)}
                 >
                   {retrying ? '重试中…' : `重试失败项 ${batch.failed_count}`}
                 </button>

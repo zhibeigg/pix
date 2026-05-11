@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-05-10
+
+### Added
+
+- 作品网格新增本地分页，减少大型作品库一次性渲染压力。
+- 前端轮询增加失败退避，避免后端异常时持续高频请求。
+- 点数账户订单与流水改为渐进折叠，降低移动端信息密度。
+
+### Changed
+
+- 作品和素材包卡片改为显式“选择/查看”按钮，避免可点击卡片内嵌按钮的复合交互语义。
+- 微信支付备用链接改为复制按钮和折叠详情展示。
+- 进一步收敛前端主题色 token，减少硬编码颜色。
+
 ## [0.25.0] - 2026-05-10
 
 ### Added
@@ -253,7 +267,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 跨平台 CI/CD：push 触发多平台 pytest；tag `v*` 触发四平台 PyInstaller 构建并发布 Release。
 - 166 条测试，核心业务覆盖率 ≥ 90%。
 
-[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/zhibeigg/pix/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/zhibeigg/pix/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/zhibeigg/pix/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/zhibeigg/pix/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/zhibeigg/pix/compare/v0.22.0...v0.23.0

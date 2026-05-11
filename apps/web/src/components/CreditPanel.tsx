@@ -15,6 +15,11 @@ type CreditPanelProps = {
 }
 
 export function CreditPanel({ balance, transactions, packages, orders, checkout, isAdmin, onRefresh, onCreateOrder, onCheckout, onMockPayOrder }: CreditPanelProps) {
+  async function copyWechatLink() {
+    if (!checkout?.code_url) return
+    await navigator.clipboard.writeText(checkout.code_url)
+  }
+
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -51,38 +56,48 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
           <strong>微信扫码支付订单 #{checkout.order.id}</strong>
           <QRCodeSVG value={checkout.code_url} size={160} />
           <p className="muted">支付完成后点击刷新查看到账状态。</p>
-          <code className="qr-code-url">{checkout.code_url}</code>
+          <button className="ghost compact" type="button" onClick={copyWechatLink}>复制微信支付链接</button>
+          <details className="link-details">
+            <summary>查看备用链接</summary>
+            <code className="qr-code-url">{checkout.code_url}</code>
+          </details>
         </div>
       )}
       {checkout?.payment_url && <p className="muted" role="status">支付宝付款页已在新窗口打开，支付完成后点击刷新。</p>}
-      <div className="transaction-list">
-        {orders.length > 0 && orders.map((order) => (
-          <div className="transaction" key={order.id}>
-            <span className={`dot ${order.status === 'paid' ? 'positive' : 'negative'}`} />
-            <div>
-              <strong>订单 #{order.id} · {order.status}</strong>
-              <p>{order.credits} credits · {(order.amount_cents / 100).toFixed(2)} {order.currency.toUpperCase()}</p>
-            </div>
-            {isAdmin && order.status !== 'paid' && <button className="ghost" onClick={() => onMockPayOrder(order.id)}>模拟支付</button>}
-          </div>
-        ))}
-      </div>
-      <div className="transaction-list">
-        {transactions.length === 0 ? (
-          <p className="muted">暂无流水。管理员可先给账户加点。</p>
-        ) : (
-          transactions.map((tx) => (
-            <div className="transaction" key={tx.id}>
-              <span className={`dot ${tx.amount >= 0 ? 'positive' : 'negative'}`} />
+      <details className="foldout" open={orders.length > 0}>
+        <summary>充值订单</summary>
+        <div className="transaction-list">
+          {orders.length === 0 ? <p className="muted">暂无充值订单。</p> : orders.map((order) => (
+            <div className="transaction" key={order.id}>
+              <span className={`dot ${order.status === 'paid' ? 'positive' : 'negative'}`} />
               <div>
-                <strong>{tx.type}</strong>
-                <p>{tx.note || '—'}</p>
+                <strong>订单 #{order.id} · {order.status}</strong>
+                <p>{order.credits} credits · {(order.amount_cents / 100).toFixed(2)} {order.currency.toUpperCase()}</p>
               </div>
-              <b>{tx.amount > 0 ? `+${tx.amount}` : tx.amount}</b>
+              {isAdmin && order.status !== 'paid' && <button className="ghost" onClick={() => onMockPayOrder(order.id)}>模拟支付</button>}
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      </details>
+      <details className="foldout">
+        <summary>点数流水</summary>
+        <div className="transaction-list">
+          {transactions.length === 0 ? (
+            <p className="muted">暂无流水。管理员可先给账户加点。</p>
+          ) : (
+            transactions.map((tx) => (
+              <div className="transaction" key={tx.id}>
+                <span className={`dot ${tx.amount >= 0 ? 'positive' : 'negative'}`} />
+                <div>
+                  <strong>{tx.type}</strong>
+                  <p>{tx.note || '—'}</p>
+                </div>
+                <b>{tx.amount > 0 ? `+${tx.amount}` : tx.amount}</b>
+              </div>
+            ))
+          )}
+        </div>
+      </details>
     </section>
   )
 }
