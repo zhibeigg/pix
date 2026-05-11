@@ -9,6 +9,7 @@ import pytest
 
 from pix.config import AppConfig
 from pix.grid.design import design_pixel_grid
+from pix.grid.schema import grid_from_mapping
 
 
 def _cfg() -> AppConfig:
@@ -59,8 +60,20 @@ def test_design_pixel_grid_repairs_until_readable(sample_image, monkeypatch: pyt
         "metadata": {"primary_read": "清晰宝石"},
     }
     responses = [bad_grid, good_grid]
+    requests: list[dict] = []
+    draft_grid = grid_from_mapping({
+        "version": 1,
+        "canvas": {"width": 4, "height": 4, "transparent_index": -1},
+        "palette": [
+            {"id": 0, "hex": "#201010", "role": "outline"},
+            {"id": 1, "hex": "#B84830", "role": "primary"},
+        ],
+        "pixels": ["....", ".00.", ".11.", "...."],
+        "metadata": {"draft_size_source": {"output_size": [4, 4], "detected_grid": 32}},
+    })
 
-    def _handler(_req: httpx.Request) -> httpx.Response:
+    def _handler(req: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(req.content.decode("utf-8")))
         payload = responses.pop(0)
         return httpx.Response(
             200,
@@ -77,9 +90,27 @@ def test_design_pixel_grid_repairs_until_readable(sample_image, monkeypatch: pyt
 
     monkeypatch.setattr("pix.api.packy_client.httpx.Client", _ClientWithMock)
 
-    grid = design_pixel_grid(_cfg(), sample_image, output_size=(8, 8), max_colors=4, retries=1)
+    grid = design_pixel_grid(
+        _cfg(),
+        sample_image,
+        output_size=(8, 8),
+        max_colors=4,
+        source_prompt="血气灵玉，RPG 材料，红色半透明宝石",
+        draft_grid=draft_grid,
+        retries=1,
+    )
 
+    first_content = requests[0]["messages"][0]["content"]
+    first_text = first_content[0]["text"]
+    assert "血气灵玉" in first_text
+    assert "Python draft" in first_text
+    assert "\"pixels\":[\"....\",\".00.\",\".11.\",\"....\"]" in first_text
+    assert sum(1 for item in first_content if item["type"] == "image_url") == 2
     assert grid.metadata["generator"] == "ai_grid"
     assert grid.metadata["readability"]["ok"] is True
-    assert grid.metadata["ai_grid"] == {"attempts": 2, "max_attempts": 2, "repaired": True}
+    assert grid.metadata["ai_grid"]["attempts"] == 2
+    assert grid.metadata["ai_grid"]["max_attempts"] == 2
+    assert grid.metadata["ai_grid"]["repaired"] is True
+    assert grid.metadata["ai_grid"]["source_prompt_used"] is True
+    assert grid.metadata["ai_grid"]["draft"]["canvas"] == [4, 4]
     assert not responses

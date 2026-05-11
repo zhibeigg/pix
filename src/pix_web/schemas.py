@@ -185,6 +185,8 @@ class JobOutputResponse(BaseModel):
             "attempts",
             "max_attempts",
             "repaired",
+            "source_prompt_used",
+            "draft",
         )
         return {key: grid[key] for key in keys if key in grid}
 

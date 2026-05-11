@@ -556,6 +556,8 @@ def cmd_asset(
                 "retries": effective_ai_grid_retries,
                 "instruction": effective_ai_grid_instruction,
                 "used_fallback": bool(result.meta.get("pixelize", {}).get("grid", {}).get("used_fallback", False)),
+                "source_prompt_used": bool(result.meta.get("pixelize", {}).get("grid", {}).get("source_prompt_used", False)),
+                "draft": result.meta.get("pixelize", {}).get("grid", {}).get("draft"),
                 "readability": result.meta.get("pixelize", {}).get("grid", {}).get("readability"),
             } if effective_grid_mode else None,
             "fit_canvas": {

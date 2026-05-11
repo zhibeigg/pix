@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-05-11
+
+### Changed
+
+- AI Grid 的 VL 输入升级为原始 prompt + 初始源图 + 源图网格对齐 draft PixelGrid + draft 预览图 + 可读性诊断，降低小尺寸目标直接下采样导致的糊化和误读。
+- Python draft 不再强制使用最终目标尺寸，而是优先使用源图检测出的实际像素格尺寸，并按最大轴上限等比裁剪输入矩阵长度。
+
 ## [0.44.0] - 2026-05-11
 
 ### Added

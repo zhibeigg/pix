@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from pix.grid.extract import extract_pixel_grid
+from pix.grid.extract import extract_pixel_grid, infer_grid_aligned_output_size
 from pix.grid.render import render_pixel_grid
 
 
@@ -22,6 +22,22 @@ def _scaled_grid(path: Path) -> Path:
     pixels[2, 2] = dark
     base.resize((128, 128), Image.Resampling.NEAREST).save(path)
     return path
+
+
+def test_infer_grid_aligned_output_size_uses_detected_source_grid(tmp_path: Path) -> None:
+    src = _scaled_grid(tmp_path / "source.png")
+
+    inferred = infer_grid_aligned_output_size(
+        src,
+        auto_crop=False,
+        remove_bg=False,
+        max_axis=64,
+    )
+
+    assert inferred.output_size == (4, 4)
+    assert inferred.detected_grid >= 2
+    assert inferred.fallback is False
+    assert inferred.capped is False
 
 
 def test_extract_scaled_pixel_grid(tmp_path: Path) -> None:

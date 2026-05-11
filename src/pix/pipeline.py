@@ -17,7 +17,7 @@ from pix.api.vision import VisionParseError, analyze_image
 from pix.cache import Cache
 from pix.config import AppConfig
 from pix.grid.design import design_pixel_grid
-from pix.grid.extract import extract_pixel_grid
+from pix.grid.extract import extract_pixel_grid, infer_grid_aligned_output_size
 from pix.grid.postprocess import fit_pixel_grid_to_canvas, polish_pixel_grid
 from pix.grid.readability import evaluate_grid_readability
 from pix.grid.render import render_pixel_grid
@@ -93,6 +93,36 @@ def _extract_grid_from_source(cfg: AppConfig, inputs: PipelineInput, source_path
     )
 
 
+def _draft_grid_from_source(cfg: AppConfig, inputs: PipelineInput, source_path: Path) -> PixelGrid | None:
+    if not cfg.asset.ai_grid_draft:
+        return None
+    params = inputs.pixelize_params
+    aligned = infer_grid_aligned_output_size(
+        source_path,
+        auto_crop=params.auto_crop or cfg.asset.auto_crop,
+        crop_padding=params.crop_padding,
+        crop_square=params.crop_square,
+        remove_bg=params.remove_bg,
+        bg_tolerance=params.bg_tolerance,
+        max_axis=cfg.asset.ai_grid_draft_max_axis,
+    )
+    return extract_pixel_grid(
+        source_path,
+        output_size=aligned.output_size,
+        max_colors=params.colors,
+        auto_crop=params.auto_crop or cfg.asset.auto_crop,
+        crop_padding=params.crop_padding,
+        crop_square=params.crop_square,
+        remove_bg=params.remove_bg,
+        bg_tolerance=params.bg_tolerance,
+        metadata={
+            "generator": "ai_grid_draft",
+            "draft_size_source": aligned.to_metadata(),
+            "target_output_size": list(params.output_size),
+        },
+    )
+
+
 def _run_grid_pixelize(
     cfg: AppConfig,
     inputs: PipelineInput,
@@ -109,7 +139,16 @@ def _run_grid_pixelize(
     }
     try:
         if inputs.grid.mode == "ai":
-            notify("grid_design_start", {"size": list(params.output_size), "colors": params.colors})
+            draft_grid = _draft_grid_from_source(cfg, inputs, source_path)
+            draft_report = evaluate_grid_readability(draft_grid, max_colors=params.colors) if draft_grid is not None else None
+            notify(
+                "grid_design_start",
+                {
+                    "size": list(params.output_size),
+                    "colors": params.colors,
+                    "draft_size": [draft_grid.canvas.width, draft_grid.canvas.height] if draft_grid is not None else None,
+                },
+            )
             grid = design_pixel_grid(
                 cfg,
                 source_path,
@@ -117,6 +156,10 @@ def _run_grid_pixelize(
                 max_colors=params.colors,
                 model=inputs.vl_model,
                 instruction=inputs.grid.instruction,
+                source_prompt=inputs.prompt or "",
+                draft_grid=draft_grid,
+                draft_report=draft_report,
+                draft_preview_scale=cfg.asset.ai_grid_draft_preview_scale,
                 retries=inputs.grid.retries,
             )
         else:
@@ -156,6 +199,8 @@ def _run_grid_pixelize(
         grid_meta["attempts"] = ai_grid_meta.get("attempts")
         grid_meta["max_attempts"] = ai_grid_meta.get("max_attempts")
         grid_meta["repaired"] = bool(ai_grid_meta.get("repaired", False))
+        grid_meta["source_prompt_used"] = bool(ai_grid_meta.get("source_prompt_used", False))
+        grid_meta["draft"] = ai_grid_meta.get("draft")
     grid_meta["readability"] = report.to_dict()
     grid_path = run_dir / "03_pixelized.grid.json"
     save_grid(grid, grid_path)

@@ -106,6 +106,9 @@ class AssetConfig:
     ai_grid_retries: int = 1
     ai_grid_instruction: str = ""
     ai_grid_fallback: str = "extract"
+    ai_grid_draft: bool = True
+    ai_grid_draft_max_axis: int = 64
+    ai_grid_draft_preview_scale: int = 8
     grid_cleanup: bool = True
     grid_outline: bool = True
     grid_outline_strength: int = 1

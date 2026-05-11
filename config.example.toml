@@ -83,6 +83,10 @@ ai_grid        = false
 ai_grid_retries = 1
 ai_grid_instruction = ""
 ai_grid_fallback = "extract"  # extract | pixelize | fail
+# AI Grid 会把源图按检测到的实际像素格解析成 draft 工程图，并把原始 prompt + 源图 + draft 预览一起交给 VL；draft 最大轴过大时会等比限制，避免塞入过长矩阵
+ai_grid_draft = true
+ai_grid_draft_max_axis = 64
+ai_grid_draft_preview_scale = 8
 # Grid 后处理：清理孤立噪点、统一主体深色轮廓
 grid_cleanup   = true
 grid_outline   = true
