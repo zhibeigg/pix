@@ -14,6 +14,10 @@ def test_defaults(tmp_cwd: Path) -> None:
     assert cfg.api.base_url == "https://www.packyapi.com"
     assert cfg.image_gen.model == "gpt-image-2"
     assert cfg.image_gen.edit_input_fidelity == "high"
+    assert cfg.image_gen.contact_sheet_enabled is True
+    assert cfg.image_gen.contact_sheet_rows == 3
+    assert cfg.image_gen.green_screen_color == "#00FF00"
+    assert cfg.image_gen.prompt_guard_enabled is True
     assert cfg.pixelize.output_size == (128, 128)
     assert cfg.cache.enabled is True
 

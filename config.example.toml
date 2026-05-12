@@ -1,5 +1,7 @@
 # pix 默认配置示例
 # 复制为 config.toml 即可被自动加载；CLI / GUI 参数会覆盖这里的值。
+# 网站版管理后台也可以覆盖 [api]、[image_gen]、[vision] 和 [asset] 中的常用字段；
+# 后台保存的值优先于本文件，环境级密钥/数据库/队列配置仍建议使用环境变量或密钥管理。
 
 [api]
 base_url       = "https://www.packyapi.com"
@@ -14,6 +16,19 @@ quality        = "high"           # low | medium | high | auto
 output_format  = "png"
 # 图生图编辑时尽量保留原图主体和细节：low | high
 edit_input_fidelity = "high"
+# 默认受控生图：一次生成九宫格候选，后端切图并抠纯绿幕背景。
+contact_sheet_enabled = true
+contact_sheet_rows = 3
+contact_sheet_cols = 3
+green_screen_color = "#00FF00"
+green_screen_tolerance = 48
+contact_sheet_prompt_template = "Create a {rows}x{cols} contact sheet containing exactly {count} distinct variations of: {description}. Each cell contains one centered isolated game asset icon, consistent scale, clear spacing, no overlap. Use a pure green screen background {green} across the entire image for easy chroma-key removal. No text, no watermark, no UI frame, no labels, no extra props outside each item. Readable silhouette, high contrast, thick dark outline, pixel-art friendly details, designed to become a {width}x{height} RPG inventory sprite."
+# 用户描述审核：本地规则默认生效；remote=true 时会尝试用 VL/chat 模型审核用户原始输入，失败默认退回本地规则。
+prompt_guard_enabled = true
+prompt_guard_remote = true
+prompt_guard_model = ""              # 留空使用 [vision].model
+prompt_guard_failure_policy = "local" # local | reject
+prompt_guard_max_chars = 500
 
 [vision]
 # Packy 支持的视觉模型，示例：claude-opus-4-7 / claude-sonnet-4-5 / gemini-2.5-pro / gpt-4o 等
@@ -84,6 +99,10 @@ ai_grid        = false
 ai_grid_retries = 1
 ai_grid_instruction = ""
 ai_grid_fallback = "extract"  # extract | pixelize | fail
+# 可选：手绘图标参考目录。AI Grid 会挑选少量 16x16 人工图标作为风格参考，学习留白、轮廓、色阶和高光，而不是照抄题材。
+# 示例：style_reference_dir = "D:/伏魔录项目/美工/icon"
+style_reference_dir = ""
+style_reference_limit = 3
 # AI Grid 会把源图按检测到的实际像素格解析成 draft 工程图，并把原始 prompt + 源图 + draft 预览一起交给 VL；draft 最大轴过大时会等比限制，避免塞入过长矩阵
 ai_grid_draft = true
 ai_grid_draft_max_axis = 64
@@ -98,7 +117,7 @@ fit_canvas      = true
 fit_mode        = "smart"  # smart | contain | stretch
 fit_padding     = 1
 fit_min_axis_coverage = 0.7
-prompt_template = "A single fantasy pixel game inventory item icon of {name}. Centered object, isolated on plain white background, no text, no UI frame, no shadow outside the item, thick dark outline, high contrast, readable silhouette, designed to become a {width}x{height} RPG inventory sprite."
+prompt_template = "A single fantasy pixel game inventory item icon of {name}. Centered object, isolated on pure green screen background #00FF00, no text, no UI frame, no shadow outside the item, thick dark outline, high contrast, readable silhouette, designed to become a {width}x{height} RPG inventory sprite."
 
 [cache]
 enabled        = true

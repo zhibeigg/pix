@@ -103,15 +103,17 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
         </Box>
       </SectionFrame>
 
-      <Box id="auth-panel" component="section" sx={{ scrollSnapAlign: { md: 'start' }, minHeight: { md: '100vh' }, display: 'flex', alignItems: 'center', bgcolor: notionTokens.surfaceSoft, px: { xs: 2, md: 4 }, py: { xs: 7, md: 9 } }}>
-        <Box sx={{ width: '100%', maxWidth: 1152, mx: 'auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '.9fr 1.1fr' }, gap: { xs: 4, lg: 7 }, alignItems: 'center' }}>
-          <Stack spacing={2.5}>
-            <Chip label="开始" sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark }} />
-            <Typography variant="h2" sx={{ fontSize: { xs: 36, md: 56 } }}>进入像素工位台</Typography>
-            <Typography color="text.secondary" sx={{ maxWidth: 560, fontSize: { md: 18 } }}>创建单图或素材包，完成后在作品库挑选和导出。</Typography>
+      <Box id="auth-panel" component="section" sx={{ scrollSnapAlign: { md: 'start' }, position: 'relative', minHeight: { md: '100vh' }, display: 'flex', alignItems: 'center', bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, px: { xs: 2, md: 4 }, py: { xs: 7, md: 9 }, overflow: 'hidden' }}>
+        <Box sx={{ position: 'absolute', inset: 0, opacity: .2, backgroundImage: 'linear-gradient(oklch(92% .03 248 / .18) 1px, transparent 1px), linear-gradient(90deg, oklch(92% .03 248 / .18) 1px, transparent 1px)', backgroundSize: '32px 32px' }} aria-hidden="true" />
+        <Box sx={{ position: 'absolute', left: { xs: -64, md: 48 }, bottom: { xs: 24, md: 72 }, width: 180, height: 180, opacity: .5, background: 'linear-gradient(135deg, oklch(77% .17 82), oklch(64% .16 322))', clipPath: 'polygon(0 0, 100% 0, 100% 18%, 18% 18%, 18% 100%, 0 100%)' }} aria-hidden="true" />
+        <Box sx={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 1152, mx: 'auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '.9fr 1.1fr' }, gap: { xs: 4, lg: 7 }, alignItems: 'center' }}>
+          <Stack spacing={2.5} sx={{ maxWidth: 560 }}>
+            <Chip label="开始" sx={{ alignSelf: 'flex-start', bgcolor: 'oklch(16% .03 263)', color: notionTokens.onDark, border: '1px solid oklch(45% .06 256)', borderRadius: 1.2 }} />
+            <Typography variant="h2" sx={{ color: notionTokens.onDark, fontSize: { xs: 38, md: 56 }, letterSpacing: '-.06em' }}>进入像素工位台</Typography>
+            <Typography sx={{ color: notionTokens.onDarkMuted, maxWidth: 560, fontSize: { md: 18 }, lineHeight: 1.72 }}>创建单图或素材包，完成后在作品库挑选、重试、打包导出。</Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-              <Button variant="contained" color="primary" href="#auth-panel">登录</Button>
-              <Button variant="outlined" href="#workflow">看优势</Button>
+              <Button variant="contained" color="primary" href="#auth-panel" sx={{ bgcolor: 'oklch(71% .17 296)', color: 'oklch(12% .028 263)', fontWeight: 900, '&:hover': { bgcolor: 'oklch(76% .16 296)' } }}>登录</Button>
+              <Button variant="outlined" href="#workflow" sx={{ borderColor: 'oklch(58% .06 254)', color: notionTokens.onDark, bgcolor: 'oklch(14% .024 263)', '&:hover': { borderColor: 'oklch(78% .07 250)', bgcolor: 'oklch(20% .036 263)' } }}>看优势</Button>
             </Stack>
           </Stack>
           <Box>{authSlot}</Box>

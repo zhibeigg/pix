@@ -6,18 +6,22 @@ import type {
   JobBatchCreateResponse,
   JobCreateRequest,
   AdminDashboard,
+  BootstrapAdminResponse,
+  EmailTestResponse,
   PaymentCheckout,
   PaymentOrder,
   PricingRule,
   CreditPackage,
   SystemSetting,
+  SetupStatus,
   TokenResponse,
   UploadResponse,
   User,
   EmailCodeResponse,
 } from './types'
 
-export const API_BASE = import.meta.env.VITE_PIX_API_BASE ?? 'http://127.0.0.1:8000'
+const configuredApiBase = (import.meta.env.VITE_PIX_API_BASE as string | undefined)?.trim()
+export const API_BASE = (configuredApiBase || '/api').replace(/\/+$/, '')
 
 export class ApiError extends Error {
   status: number
@@ -30,6 +34,39 @@ export class ApiError extends Error {
   }
 }
 
+function apiUrl(path: string) {
+  return `${API_BASE}${path}`
+}
+
+function apiLocationLabel() {
+  return API_BASE || '当前站点'
+}
+
+function networkApiError(error: unknown): ApiError {
+  const detail = error instanceof Error ? error.message : String(error)
+  return new ApiError(
+    `无法连接 Pix API（${apiLocationLabel()}）。请确认后端服务已启动，并检查 VITE_PIX_API_BASE、/api 反向代理或 CORS 允许域名配置。`,
+    0,
+    { detail },
+  )
+}
+
+function parseResponseBody(text: string): unknown {
+  if (!text) return null
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
+}
+
+function responseErrorMessage(body: unknown, status: number): string {
+  const detail = typeof body === 'object' && body && 'detail' in body ? (body as { detail?: unknown }).detail : null
+  if (typeof detail === 'string') return detail
+  if (typeof body === 'string' && body.trim()) return body
+  return `请求失败 (${status})`
+}
+
 async function request<T>(path: string, options: RequestInit = {}, token?: string | null): Promise<T> {
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
@@ -40,33 +77,45 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  const response = await fetch(`${API_BASE}${path}`, { ...options, headers })
+  let response: Response
+  try {
+    response = await fetch(apiUrl(path), { ...options, headers })
+  } catch (error) {
+    throw networkApiError(error)
+  }
   const text = await response.text()
-  const body = text ? JSON.parse(text) : null
+  const body = parseResponseBody(text)
   if (!response.ok) {
-    const message = typeof body?.detail === 'string' ? body.detail : `请求失败 (${response.status})`
-    throw new ApiError(message, response.status, body)
+    throw new ApiError(responseErrorMessage(body, response.status), response.status, body)
   }
   return body as T
 }
 
 async function downloadBlob(path: string, token: string): Promise<Blob> {
-  const response = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } })
+  let response: Response
+  try {
+    response = await fetch(apiUrl(path), { headers: { Authorization: `Bearer ${token}` } })
+  } catch (error) {
+    throw networkApiError(error)
+  }
   if (!response.ok) {
     const text = await response.text()
-    let body: unknown = null
-    try {
-      body = text ? JSON.parse(text) : null
-    } catch {
-      body = text
-    }
-    const detail = typeof body === 'object' && body && 'detail' in body ? (body as { detail?: unknown }).detail : null
-    throw new ApiError(typeof detail === 'string' ? detail : `请求失败 (${response.status})`, response.status, body)
+    const body = parseResponseBody(text)
+    throw new ApiError(responseErrorMessage(body, response.status), response.status, body)
   }
   return response.blob()
 }
 
 export const api = {
+  setupStatus() {
+    return request<SetupStatus>('/auth/setup-status')
+  },
+  bootstrapAdmin(email: string, password: string, displayName: string) {
+    return request<BootstrapAdminResponse>('/auth/bootstrap-admin', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, display_name: displayName }),
+    })
+  },
   requestRegisterCode(email: string) {
     return request<EmailCodeResponse>('/auth/register-code', {
       method: 'POST',
@@ -170,10 +219,22 @@ export const api = {
       token,
     )
   },
+  adminPackages(token: string) {
+    return request<CreditPackage[]>('/admin/packages', {}, token)
+  },
+  createAdminPackage(token: string, payload: CreditPackage) {
+    return request<CreditPackage>('/admin/packages', { method: 'POST', body: JSON.stringify(payload) }, token)
+  },
+  updateAdminPackage(token: string, key: string, payload: Omit<CreditPackage, 'key'>) {
+    return request<CreditPackage>(`/admin/packages/${key}`, { method: 'PUT', body: JSON.stringify(payload) }, token)
+  },
   adminSettings(token: string) {
     return request<SystemSetting[]>('/admin/settings', {}, token)
   },
-  updateSetting(token: string, key: string, value: string) {
-    return request<SystemSetting>(`/admin/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }, token)
+  updateSetting(token: string, key: string, value: string, clear = false) {
+    return request<SystemSetting>(`/admin/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value, clear }) }, token)
+  },
+  testEmailSetting(token: string, email: string) {
+    return request<EmailTestResponse>('/admin/settings/test-email', { method: 'POST', body: JSON.stringify({ email }) }, token)
   },
 }

@@ -16,7 +16,9 @@ from rich.table import Table
 from pix import __version__
 from pix.analysis.schema import PixAnalysis
 from pix.api.image_gen import generate_image
+from pix.api.prompt_guard import PromptPolicyError, validate_user_prompt
 from pix.api.vision import analyze_image
+from pix.contact_sheet import build_contact_sheet_prompt, contact_sheet_enabled, copy_selected_candidate, split_contact_sheet
 from pix.asset import (
     AssetSizePolicyError,
     build_asset_prompt,
@@ -141,9 +143,34 @@ def cmd_gen_only(
     cfg = _base_config(config)
     out.mkdir(parents=True, exist_ok=True)
     dest = out / "01_source.png"
-    console.log(f"开始生图：{prompt!r} → {dest}")
-    generate_image(cfg, prompt, dest, size=size, quality=quality, model=model)
-    console.print(Panel.fit(f"[green][OK][/green] 图片已保存：{dest}", title="gen-only"))
+    try:
+        guard = validate_user_prompt(cfg, prompt)
+    except PromptPolicyError as exc:
+        console.print(f"[red]素材描述被拒绝：{exc}[/red]")
+        raise typer.Exit(code=2) from exc
+    effective_prompt = (
+        build_contact_sheet_prompt(cfg, guard.normalized_description, target_size=cfg.asset.pixel_size)
+        if contact_sheet_enabled(cfg, has_prompt=True)
+        else guard.normalized_description
+    )
+    generated = out / "01_contact_sheet.png" if contact_sheet_enabled(cfg, has_prompt=True) else dest
+    console.log(f"开始生图：{prompt!r} → {generated}")
+    generate_image(cfg, effective_prompt, generated, size=size, quality=quality, model=model)
+    candidates_text = ""
+    if contact_sheet_enabled(cfg, has_prompt=True):
+        result = split_contact_sheet(
+            generated,
+            out / "candidates",
+            rows=cfg.image_gen.contact_sheet_rows,
+            cols=cfg.image_gen.contact_sheet_cols,
+            green_screen_color=cfg.image_gen.green_screen_color,
+            tolerance=cfg.image_gen.green_screen_tolerance,
+            crop_padding=cfg.asset.crop_padding,
+            crop_square=cfg.asset.crop_square,
+        )
+        copy_selected_candidate(result, dest)
+        candidates_text = f"\n九宫格：{generated}\n候选目录：{out / 'candidates'}\n默认候选：{dest}"
+    console.print(Panel.fit(f"[green][OK][/green] 图片已保存：{dest}{candidates_text}", title="gen-only"))
 
 
 # ---------- analyze ----------
@@ -377,6 +404,8 @@ def cmd_asset(
     ai_grid_retries: Optional[int] = typer.Option(None, min=0, max=3, help="AI Grid 可读性返修次数"),
     ai_grid_instruction: str = typer.Option("", help="AI Grid 额外美术要求"),
     ai_grid_fallback: Optional[str] = typer.Option(None, help="AI Grid 失败回退：extract|pixelize|fail"),
+    style_reference_dir: Optional[Path] = typer.Option(None, help="AI Grid 手绘参考图标目录"),
+    style_reference_limit: Optional[int] = typer.Option(None, min=0, max=6, help="传给 VL 的手绘参考图数量"),
     grid_cleanup: Optional[bool] = typer.Option(None, "--grid-cleanup/--no-grid-cleanup", help="Grid JSON 后处理：清理孤立噪点"),
     grid_outline: Optional[bool] = typer.Option(None, "--grid-outline/--no-grid-outline", help="Grid JSON 后处理：统一主体轮廓"),
     fit_canvas: Optional[bool] = typer.Option(None, "--fit-canvas/--no-fit-canvas", help="Grid JSON 后处理：将主体贴合目标画布"),
@@ -422,6 +451,10 @@ def cmd_asset(
         raise typer.BadParameter("ai-grid-fallback 必须是 extract、pixelize 或 fail")
     effective_ai_grid_retries = int(cfg.asset.ai_grid_retries if ai_grid_retries is None else ai_grid_retries)
     effective_ai_grid_instruction = ai_grid_instruction.strip() or cfg.asset.ai_grid_instruction
+    if style_reference_dir is not None:
+        cfg.asset.style_reference_dir = str(style_reference_dir)
+    if style_reference_limit is not None:
+        cfg.asset.style_reference_limit = int(style_reference_limit)
     effective_fit_padding = int(cfg.asset.fit_padding if fit_padding is None else fit_padding)
     effective_fit_min_axis_coverage = float(
         cfg.asset.fit_min_axis_coverage
@@ -533,6 +566,8 @@ def cmd_asset(
                 "fallback": effective_ai_grid_fallback,
                 "retries": effective_ai_grid_retries,
                 "instruction": effective_ai_grid_instruction,
+                "style_reference_dir": cfg.asset.style_reference_dir,
+                "style_references": result.meta.get("pixelize", {}).get("grid", {}).get("style_references"),
                 "used_fallback": bool(result.meta.get("pixelize", {}).get("grid", {}).get("used_fallback", False)),
                 "source_prompt_used": bool(result.meta.get("pixelize", {}).get("grid", {}).get("source_prompt_used", False)),
                 "draft": result.meta.get("pixelize", {}).get("grid", {}).get("draft"),

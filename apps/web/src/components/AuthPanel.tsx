@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react'
-import { Alert, Box, Button, Card, CardContent, Chip, Stack, TextField, Typography } from '@mui/material'
+import { Box, Button, Stack, TextField, Typography } from '@mui/material'
 import { notionTokens } from '../theme'
 import type { EmailCodeResponse, User } from '../types'
+import { AuthCardFrame, AuthInlineAlert, authTextFieldSx } from './AuthWorkbenchKit'
 
 type AuthPanelProps = {
   user: User | null
@@ -30,11 +31,11 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
   }, [countdown])
 
   useEffect(() => {
+    setCodeMessage('')
+    setCodeError('')
     if (mode === 'login') {
       setCountdown(0)
       setVerificationCode('')
-      setCodeMessage('')
-      setCodeError('')
     }
   }, [mode])
 
@@ -69,64 +70,79 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
 
   if (user) {
     return (
-      <Card variant="outlined" sx={{ bgcolor: notionTokens.tintCream }}>
-        <CardContent>
-          <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>当前账户</Typography>
-              <Typography variant="h5" sx={{ fontWeight: 600 }}>{user.display_name || user.email}</Typography>
-              <Typography color="text.secondary" sx={{ mb: 1 }}>{user.email}</Typography>
-              <Chip label={user.role} sx={{ bgcolor: user.role === 'admin' ? notionTokens.tintLavender : notionTokens.tintGray, color: user.role === 'admin' ? notionTokens.brandPurple800 : notionTokens.ink }} />
-            </Box>
-            <Button variant="outlined" onClick={onLogout}>退出登录</Button>
-          </Stack>
-        </CardContent>
-      </Card>
+      <AuthCardFrame
+        eyebrow="账户"
+        title="已进入工位台"
+        subtitle="账户已连接，可以开始创建素材、查看作品和管理点数。"
+        actionLabel="退出"
+        onAction={onLogout}
+      >
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr auto' }, gap: 2, alignItems: 'center' }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ color: notionTokens.onDark, fontWeight: 900, fontSize: 20 }} noWrap>{user.display_name || user.email}</Typography>
+            <Typography sx={{ color: notionTokens.onDarkMuted, mt: .5 }} noWrap>{user.email}</Typography>
+          </Box>
+          <Box sx={{ justifySelf: { xs: 'start', sm: 'end' }, px: 1.4, py: .8, borderRadius: '9px', bgcolor: user.role === 'admin' ? 'oklch(28% .07 295)' : 'oklch(24% .05 250)', color: notionTokens.onDark, fontWeight: 900 }}>
+            {user.role === 'admin' ? '管理员' : '创作者'}
+          </Box>
+        </Box>
+        <AuthInlineAlert severity="success">身份已验证，任务和点数会在后台持续同步。</AuthInlineAlert>
+      </AuthCardFrame>
     )
   }
 
+  const isRegister = mode === 'register'
   const codeButtonText = sendingCode ? '发送中…' : countdown > 0 ? `${countdown}s 后重发` : '发送验证码'
 
   return (
-    <Card variant="outlined" sx={{ boxShadow: notionTokens.liftShadow }}>
-      <CardContent>
-        <Stack spacing={2.5}>
-          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
-            <Box>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>账户</Typography>
-              <Typography variant="h5" sx={{ fontWeight: 600 }}>{mode === 'login' ? '登录工作台' : '邮箱验证注册'}</Typography>
-            </Box>
-            <Button variant="outlined" type="button" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
-              {mode === 'login' ? '注册' : '登录'}
+    <AuthCardFrame
+      eyebrow="账户"
+      title={isRegister ? '邮箱验证注册' : '登录工作台'}
+      subtitle={isRegister ? '验证码用于确认创作者邮箱；开发环境会在 console 模式下直接显示测试码。' : '回到你的像素素材生产线，继续批量生成、筛选和导出。'}
+      actionLabel={isRegister ? '登录' : '注册'}
+      onAction={() => setMode(isRegister ? 'login' : 'register')}
+    >
+      <Stack component="form" spacing={2} onSubmit={submit}>
+        {isRegister && (
+          <TextField label="昵称" value={displayName} autoComplete="name" onChange={(event) => setDisplayName(event.target.value)} sx={authTextFieldSx} />
+        )}
+        <TextField label="邮箱" type="email" value={email} autoComplete="email" onChange={(event) => setEmail(event.target.value)} required sx={authTextFieldSx} />
+        {isRegister && (
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
+            <TextField
+              label="邮箱验证码"
+              value={verificationCode}
+              autoComplete="one-time-code"
+              slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*', maxLength: 6 } }}
+              onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              sx={[authTextFieldSx, { flex: 1 }]}
+              required
+            />
+            <Button
+              type="button"
+              variant="outlined"
+              onClick={requestCode}
+              disabled={loading || sendingCode || countdown > 0}
+              sx={{
+                minHeight: 56,
+                minWidth: 128,
+                borderColor: 'oklch(58% .06 254)',
+                color: notionTokens.onDark,
+                bgcolor: 'oklch(14% .024 263)',
+                '&:hover': { borderColor: 'oklch(78% .07 250)', bgcolor: 'oklch(20% .036 263)' },
+              }}
+            >
+              {codeButtonText}
             </Button>
           </Stack>
-          <Stack component="form" spacing={2} onSubmit={submit}>
-            {mode === 'register' && (
-              <TextField label="昵称" value={displayName} autoComplete="name" onChange={(event) => setDisplayName(event.target.value)} />
-            )}
-            <TextField label="邮箱" type="email" value={email} autoComplete="email" onChange={(event) => setEmail(event.target.value)} />
-            {mode === 'register' && (
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
-                <TextField
-                  label="邮箱验证码"
-                  value={verificationCode}
-                  autoComplete="one-time-code"
-                  slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*', maxLength: 6 } }}
-                  onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                  sx={{ flex: 1 }}
-                />
-                <Button type="button" variant="outlined" onClick={requestCode} disabled={loading || sendingCode || countdown > 0} sx={{ minWidth: 128 }}>
-                  {codeButtonText}
-                </Button>
-              </Stack>
-            )}
-            {codeMessage && <Alert severity="info">{codeMessage}</Alert>}
-            {codeError && <Alert severity="error">{codeError}</Alert>}
-            <TextField label="密码" type="password" value={password} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} onChange={(event) => setPassword(event.target.value)} />
-            <Button type="submit" variant="contained" color="primary" disabled={loading}>{loading ? '处理中…' : mode === 'login' ? '登录' : '验证并注册'}</Button>
-          </Stack>
-        </Stack>
-      </CardContent>
-    </Card>
+        )}
+        {codeMessage && <AuthInlineAlert severity="info">{codeMessage}</AuthInlineAlert>}
+        {codeError && <AuthInlineAlert severity="error">{codeError}</AuthInlineAlert>}
+        <TextField label="密码" type="password" value={password} autoComplete={isRegister ? 'new-password' : 'current-password'} onChange={(event) => setPassword(event.target.value)} required sx={authTextFieldSx} />
+        <Button type="submit" variant="contained" color="primary" disabled={loading} sx={{ minHeight: 48, bgcolor: 'oklch(71% .17 296)', color: 'oklch(12% .028 263)', fontWeight: 900, '&:hover': { bgcolor: 'oklch(76% .16 296)' } }}>
+          {loading ? '处理中…' : isRegister ? '验证并注册' : '进入工作台'}
+        </Button>
+      </Stack>
+    </AuthCardFrame>
   )
 }

@@ -24,6 +24,7 @@ from pix_web.schemas import (
     PaymentOrderResponse,
 )
 from pix_web.security import get_current_user, get_db, require_admin
+from pix_web.system_settings import load_effective_web_settings
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -40,7 +41,8 @@ def checkout(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PaymentCheckoutResponse:
-    result = create_checkout(db, user, req.package_key, req.provider, request.app.state.web_settings)
+    settings = load_effective_web_settings(db, request.app.state.web_settings)
+    result = create_checkout(db, user, req.package_key, req.provider, settings)
     return PaymentCheckoutResponse(
         order=PaymentOrderResponse.model_validate(result.order),
         provider=result.provider,
@@ -93,14 +95,16 @@ def mock_webhook(req: MockWebhookRequest, db: Session = Depends(get_db)) -> Paym
 @router.post("/webhook/alipay")
 async def alipay_webhook(request: Request, db: Session = Depends(get_db)) -> Response:
     form = await request.form()
-    result = handle_alipay_notify(db, {key: str(value) for key, value in form.items()}, request.app.state.web_settings)
+    settings = load_effective_web_settings(db, request.app.state.web_settings)
+    result = handle_alipay_notify(db, {key: str(value) for key, value in form.items()}, settings)
     return Response(content=result, media_type="text/plain")
 
 
 @router.post("/webhook/wechat")
 async def wechat_webhook(request: Request, db: Session = Depends(get_db)) -> dict[str, str]:
     body = await request.body()
-    return handle_wechat_notify(db, dict(request.headers), body, request.app.state.web_settings)
+    settings = load_effective_web_settings(db, request.app.state.web_settings)
+    return handle_wechat_notify(db, dict(request.headers), body, settings)
 
 
 @router.get("/return/alipay")

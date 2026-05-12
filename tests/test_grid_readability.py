@@ -58,3 +58,30 @@ def test_readability_blocks_fragmented_or_tiny_icon() -> None:
     assert "too_fragmented" in blocking_codes
     assert report.isolated_pixels == 5
     assert "too_fragmented" in format_blocking_issues(report)
+
+
+def test_readability_blocks_dense_8x8_scaled_blob() -> None:
+    grid = grid_from_mapping({
+        "canvas": {"width": 8, "height": 8, "transparent_index": -1},
+        "palette": [
+            {"id": 0, "hex": "#201010", "role": "outline"},
+            {"id": 1, "hex": "#B84830", "role": "primary"},
+        ],
+        "pixels": [
+            "00000000",
+            "01111110",
+            "01111110",
+            "01111110",
+            "01111110",
+            "01111110",
+            "01111110",
+            "00000000",
+        ],
+    })
+
+    report = evaluate_grid_readability(grid, max_colors=4)
+    blocking_codes = {issue.code for issue in report.blocking}
+
+    assert report.ok is False
+    assert "tiny_touches_edge" in blocking_codes
+    assert "tiny_bbox_too_large" in blocking_codes

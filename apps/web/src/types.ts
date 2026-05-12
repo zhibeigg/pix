@@ -12,6 +12,18 @@ export type TokenResponse = {
   token_type: string
 }
 
+export type SetupStatus = {
+  needs_admin: boolean
+  user_count: number
+  admin_count: number
+  email_provider: string
+  debug_codes_available: boolean
+}
+
+export type BootstrapAdminResponse = TokenResponse & {
+  user: User
+}
+
 export type EmailCodeResponse = {
   ok: boolean
   retry_after_seconds: number
@@ -120,10 +132,22 @@ export type GridOutputStatus = {
   } | null
 }
 
+export type ContactSheetCandidate = {
+  index: number
+  row: number
+  col: number
+  path: string
+  url: string | null
+  bbox?: [number, number, number, number] | null
+}
+
 export type JobOutput = {
   run_dir: string
   source_path: string
   source_url: string | null
+  contact_sheet_path: string | null
+  contact_sheet_url: string | null
+  candidates: ContactSheetCandidate[]
   pixelized_path: string
   pixelized_url: string | null
   preview_path: string | null
@@ -190,10 +214,23 @@ export type PricingRule = {
   updated_at: string
 }
 
+export type SettingType = 'string' | 'number' | 'boolean' | 'textarea' | 'select' | 'secret' | 'status'
+
 export type SystemSetting = {
   key: string
   value: string
-  updated_at: string
+  updated_at: string | null
+  label: string
+  category: string
+  type: SettingType
+  help: string
+  options: string[]
+  secret: boolean
+  masked: boolean
+  restart_required: boolean
+  editable: boolean
+  env_var: string
+  source: 'database' | 'environment_only' | string
 }
 
 export type CreditPackage = {
@@ -203,6 +240,13 @@ export type CreditPackage = {
   amount_cents: number
   currency: string
   enabled: boolean
+  sort_order: number
+}
+
+export type EmailTestResponse = {
+  ok: boolean
+  message: string
+  debug_code?: string | null
 }
 
 export type PaymentOrder = {

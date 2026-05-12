@@ -8,12 +8,14 @@ import { AppHero, DashboardSummary } from './components/AppHero'
 import { AuthPanel } from './components/AuthPanel'
 import { ThemeModeMenu } from './components/ThemeModeMenu'
 import { LandingSections } from './components/LandingSections'
+import { SetupWizard } from './components/SetupWizard'
 import { AdminPage } from './pages/AdminPage'
 import { BillingPage } from './pages/BillingPage'
 import { GalleryPage } from './pages/GalleryPage'
 import { PacksPage } from './pages/PacksPage'
 import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
-import type { AdminDashboard, CreditBalance, CreditPackage, CreditTransaction, EmailCodeResponse, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SystemSetting, User } from './types'
+import { buildGridDesign, defaultPixelize } from './pixelize'
+import type { AdminDashboard, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, EmailCodeResponse, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SetupStatus, SystemSetting, User } from './types'
 
 const TOKEN_KEY = 'pix_web_token'
 
@@ -37,6 +39,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
   const [balance, setBalance] = useState<CreditBalance | null>(null)
   const [transactions, setTransactions] = useState<CreditTransaction[]>([])
   const [packages, setPackages] = useState<CreditPackage[]>([])
+  const [adminPackages, setAdminPackages] = useState<CreditPackage[]>([])
   const [orders, setOrders] = useState<PaymentOrder[]>([])
   const [checkout, setCheckout] = useState<PaymentCheckout | null>(null)
   const [jobs, setJobs] = useState<GenerationJob[]>([])
@@ -49,6 +52,8 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
   const [retryingBatchId, setRetryingBatchId] = useState<number | null>(null)
   const [downloadingBatchId, setDownloadingBatchId] = useState<number | null>(null)
   const [message, setMessage] = useState('')
+  const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null)
+  const [setupLoading, setSetupLoading] = useState(true)
   const [page, setPage] = useState<AppPage>(() => pageFromHash(null))
   const [mode, setMode] = useState<WorkMode>('single')
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null)
@@ -63,6 +68,14 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
   const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)).length, [jobs])
   const completedJobs = useMemo(() => jobs.filter((job) => job.status === 'succeeded').length, [jobs])
   const failedJobs = useMemo(() => jobs.filter((job) => job.status === 'failed').length, [jobs])
+
+  const refreshSetupStatus = useCallback(async () => {
+    try {
+      setSetupStatus(await api.setupStatus())
+    } finally {
+      setSetupLoading(false)
+    }
+  }, [])
 
   const showError = useCallback((error: unknown) => {
     if (error instanceof ApiError) setMessage(error.message)
@@ -94,16 +107,22 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       setSelectedBatchJobs(await api.batchJobs(activeToken, selectedBatchId))
     }
     if (me.role === 'admin') {
-      const [users, settings, dashboard] = await Promise.all([
+      const [users, settings, dashboard, nextAdminPackages] = await Promise.all([
         api.adminUsers(activeToken),
         api.adminSettings(activeToken),
         api.adminDashboard(activeToken),
+        api.adminPackages(activeToken),
       ])
       setAdminUsers(users)
       setSystemSettings(settings)
       setAdminDashboard(dashboard)
+      setAdminPackages(nextAdminPackages)
     }
   }, [selectedBatchId, token])
+
+  useEffect(() => {
+    refreshSetupStatus().catch(showError)
+  }, [refreshSetupStatus, showError])
 
   useEffect(() => {
     function syncHash() {
@@ -166,6 +185,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       localStorage.setItem(TOKEN_KEY, result.access_token)
       setToken(result.access_token)
       await refreshCore(result.access_token)
+      await refreshSetupStatus()
       setMessage('登录成功')
     } catch (error) {
       showError(error)
@@ -180,7 +200,28 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     try {
       await api.register(email, password, displayName, verificationCode)
       await login(email, password)
+      await refreshSetupStatus()
       setMessage('注册成功')
+    } catch (error) {
+      showError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function bootstrapAdmin(email: string, password: string, displayName: string) {
+    setBusy(true)
+    setMessage('')
+    try {
+      const result = await api.bootstrapAdmin(email, password, displayName)
+      localStorage.setItem(TOKEN_KEY, result.access_token)
+      setToken(result.access_token)
+      setUser(result.user)
+      window.location.hash = '/admin'
+      setPage('admin')
+      await refreshSetupStatus()
+      await refreshCore(result.access_token)
+      setMessage('管理员账户已创建')
     } catch (error) {
       showError(error)
     } finally {
@@ -211,6 +252,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     setSelectedBatchJobs([])
     setPricing([])
     setAdminUsers([])
+    setAdminPackages([])
     setSystemSettings([])
     setAdminDashboard(null)
     setSelectedJobId(null)
@@ -356,6 +398,20 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     setMessage('输出路径已复制')
   }
 
+  async function pixelizeCandidate(job: GenerationJob, candidate: ContactSheetCandidate) {
+    const pixelize = (job.params_json?.pixelize as JobCreateRequest['pixelize'] | undefined) ?? defaultPixelize
+    const grid = (job.params_json?.grid as JobCreateRequest['grid'] | undefined) ?? buildGridDesign(false, pixelize.output_size)
+    await createJob({
+      job_type: 'local_pixelize',
+      prompt: null,
+      input_image_path: candidate.path,
+      client_request_id: crypto.randomUUID(),
+      skip_vl: true,
+      pixelize,
+      grid,
+    })
+  }
+
   async function createPaymentOrder(packageKey: string) {
     if (!token) return
     try {
@@ -408,12 +464,34 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     setMessage('价格规则已更新')
   }
 
-  async function updateSetting(key: string, value: string) {
+  async function updateSetting(key: string, value: string, clear = false) {
     if (!token) return
-    await api.updateSetting(token, key, value)
+    await api.updateSetting(token, key, value, clear)
     await refreshCore(token)
-    setMessage('运营保护设置已更新')
+    setMessage('配置已更新')
   }
+
+  async function createAdminPackage(payload: CreditPackage) {
+    if (!token) return
+    await api.createAdminPackage(token, payload)
+    await refreshCore(token)
+    setMessage('充值套餐已创建')
+  }
+
+  async function updateAdminPackage(key: string, payload: Omit<CreditPackage, 'key'>) {
+    if (!token) return
+    await api.updateAdminPackage(token, key, payload)
+    await refreshCore(token)
+    setMessage('充值套餐已更新')
+  }
+
+  async function testEmailSetting(email: string) {
+    if (!token) return
+    const result = await api.testEmailSetting(token, email)
+    setMessage(result.debug_code ? `${result.message}：${result.debug_code}` : result.message)
+  }
+
+  const needsAdminSetup = setupStatus?.needs_admin && !user
 
   return (
     <Box component="main" data-pix-theme={themeMode}>
@@ -483,26 +561,32 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
         </Toolbar>
       </AppBar>
 
-      {user ? (
+      {setupLoading ? (
+        <Box sx={{ minHeight: 'calc(100vh - 80px)', display: 'grid', placeItems: 'center', bgcolor: notionTokens.surfaceSoft }}>
+          <Typography color="text.secondary">正在检查站点初始化状态…</Typography>
+        </Box>
+      ) : needsAdminSetup && setupStatus ? (
+        <SetupWizard status={setupStatus} loading={busy} onBootstrapAdmin={bootstrapAdmin} />
+      ) : user ? (
         <Container maxWidth={false} sx={{ maxWidth: 1280, py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 }, mx: 'auto' }}>
           <Stack spacing={4}>
             <DashboardSummary balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
             {message && <Alert severity="info" role="status" aria-live="polite">{message}</Alert>}
             <Box sx={{ display: 'grid', gap: 3 }}>
               {page === 'workspace' && (
-                <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onRefresh={() => refreshCore()} />
+                <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />
               )}
               {page === 'gallery' && (
-                <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCreateJob={createJob} onRefresh={() => refreshCore()} />
+                <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRefresh={() => refreshCore()} />
               )}
               {page === 'packs' && (
-                <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onRefresh={() => refreshCore()} />
+                <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />
               )}
               {page === 'billing' && (
                 <BillingPage balance={balance} transactions={transactions} packages={packages} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onMockPayOrder={mockPayPaymentOrder} />
               )}
               {page === 'admin' && isAdmin && (
-                <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onUpdateSetting={updateSetting} />
+                <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onTestEmail={testEmailSetting} />
               )}
             </Box>
             <SiteFooter />
