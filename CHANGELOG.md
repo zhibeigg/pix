@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.53.1] - 2026-05-12
+
+### Fixed
+
+- 调整文本审核提示词，继续使用 VL 模型审核用户原始描述，但避免审核提示本身触发接口内容拦截导致降级。
+
 ## [0.53.0] - 2026-05-12
 
 ### Added
