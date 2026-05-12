@@ -317,6 +317,11 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 - Layout: centered headline `{typography.hero-display}`, subtitle, button row (`button-primary` purple + `button-secondary-on-dark`), `workspace-mockup-card` below.
 - Atmospheric decoration: scattered colorful sticky-note dots and mesh wire illustrations around the hero content (NOT a literal pattern fill — handled per-page via SVG/illustration).
 
+**`asset-pipeline-advantage`** — Merged marketing proof section replacing separate value/workflow pages.
+- One page only: lead with the claim “not an AI image album, a game-asset production line.”
+- Pair a strong narrative card with three proof rows: Pixel Grid engineering, batch packages, and multi-size delivery.
+- Avoid generic “describe / queue / export” cards unless they directly support the production-line argument.
+
 **`asset-scale-bench`** — Compact production proof inside the hero asset board.
 - Shows the same RPG material at 32x, 16x, and 8x so users understand Pix is a delivery workflow, not just a gallery.
 - 32x/16x examples use Pixel Grid extract from existing icon sources; 8x examples use AI Grid direct drawing.

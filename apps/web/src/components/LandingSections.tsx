@@ -2,17 +2,16 @@ import type { ReactNode } from 'react'
 import { Box, Button, Card, CardContent, Chip, Stack, Typography } from '@mui/material'
 import { notionTokens } from '../theme'
 
-const values = [
-  { title: '单一工作区', body: '生成、作品、点数都在一处。', tone: notionTokens.tintLavender },
-  { title: '批量生产', body: '一组素材统一入队、重试、下载。', tone: notionTokens.tintMint },
-  { title: '参数可控', body: '尺寸、颜色、透明背景可调。', tone: notionTokens.tintSky },
-  { title: '成本清楚', body: '入队前看消耗，失败自动退回。', tone: notionTokens.tintYellow },
+const advantageProofs = [
+  { label: '工程图', title: '不只给你一张图', body: '生成后落成 Pixel Grid：palette、pixels、透明 PNG、预览和源图都能追溯。', tone: notionTokens.tintLavender, mark: 'JSON' },
+  { label: '批量包', title: '按素材包生产', body: '一组素材统一入队，失败项单独重试，成功项直接打包下载。', tone: notionTokens.tintMint, mark: 'ZIP' },
+  { label: '多尺寸', title: '交付尺寸可验收', body: '32x / 16x / 8x 有不同策略，低尺寸不是简单缩图，而是工程化重绘。', tone: notionTokens.tintSky, mark: '8×' },
 ]
 
-const workflow = [
-  { step: '01', title: '描述', body: '写素材名，设尺寸和颜色。' },
-  { step: '02', title: '入队', body: '单张试方向，批量成素材包。' },
-  { step: '03', title: '导出', body: '挑选、微调、打包下载。' },
+const pipelineProofs = [
+  { step: '01', title: '先定规格', body: '名称、尺寸、颜色数、透明背景先进入同一张任务单。' },
+  { step: '02', title: '再批量跑', body: '图像模型、Grid 提取、AI 直绘和后处理串成可追踪流水线。' },
+  { step: '03', title: '最后验收', body: '看结果、看点数、看失败原因，导出前就知道哪些能用。' },
 ]
 
 const uiWorks = [
@@ -33,36 +32,49 @@ type LandingSectionsProps = {
 export function LandingSections({ authSlot }: LandingSectionsProps) {
   return (
     <>
-      <SectionFrame id="values" eyebrow="核心价值" title="一张可控的像素工位台" description="从想法到素材包，生成、成本和结果都放在同一处。">
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-          {values.map((item) => (
-            <Card key={item.title} sx={{ bgcolor: item.tone, overflow: 'hidden', transition: 'transform .22s ease, box-shadow .22s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: notionTokens.liftShadow } }}>
-              <CardContent sx={{ p: { xs: 3, md: 3.5 } }}>
-                <Stack spacing={2}>
-                  <Box sx={{ width: 48, height: 48, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, fontWeight: 700 }}>{item.title.slice(0, 1)}</Box>
-                  <Typography variant="h5">{item.title}</Typography>
-                  <Typography color="text.secondary">{item.body}</Typography>
+      <SectionFrame id="workflow" eyebrow="核心优势" title="不是 AI 生图相册，是像素素材生产线" description="Pix 的重点不是把 prompt 变成一张好看的图，而是把一批想法变成可检查、可重试、可导出的游戏素材。">
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '.92fr 1.08fr' }, gap: { xs: 3, lg: 4 }, alignItems: 'stretch' }}>
+          <Card sx={{ bgcolor: notionTokens.tintYellow, minHeight: { md: 420 }, overflow: 'hidden' }}>
+            <CardContent sx={{ p: { xs: 3, md: 4 }, height: '100%' }}>
+              <Stack spacing={3} sx={{ height: '100%', justifyContent: 'space-between' }}>
+                <Stack spacing={2.2}>
+                  <Chip label="为什么是 Pix" sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, borderRadius: 1 }} />
+                  <Typography variant="h3" sx={{ maxWidth: 520 }}>从“生成图片”推进到“交付素材”</Typography>
+                  <Typography color="text.secondary" sx={{ maxWidth: 560, fontSize: { md: 17 }, lineHeight: 1.65 }}>
+                    普通 AI 图像工具停在预览图。Pix 把源图、像素工程图、透明 PNG、任务状态、失败重试和 ZIP 导出放在同一条流水线里，适合独立游戏和 RPG 素材包快速打样。
+                  </Typography>
                 </Stack>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
-      </SectionFrame>
 
-      <SectionFrame id="workflow" eyebrow="工作流" title="三步出素材包" description="描述、入队、导出。失败项单独重试。">
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
-          {workflow.map((item) => (
-            <Card key={item.step} sx={{ position: 'relative', overflow: 'hidden', minHeight: 230 }}>
-              <Box sx={{ position: 'absolute', right: 18, top: 18, width: 28, height: 28, borderRadius: 1, bgcolor: notionTokens.tintYellowBold, opacity: .7 }} />
-              <CardContent sx={{ p: { xs: 3, md: 3.5 } }}>
-                <Stack spacing={2}>
-                  <Chip label={item.step} sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} />
-                  <Typography variant="h5">{item.title}</Typography>
-                  <Typography color="text.secondary">{item.body}</Typography>
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+                  {pipelineProofs.map((item) => (
+                    <Box key={item.step} sx={{ bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.4, p: { xs: 1.2, sm: 1.5 }, minWidth: 0 }}>
+                      <Typography variant="caption" sx={{ color: notionTokens.brandPurple800, fontWeight: 700 }}>{item.step}</Typography>
+                      <Typography sx={{ mt: .7, fontWeight: 700 }} noWrap>{item.title}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' }, mt: .5, lineHeight: 1.35 }}>{item.body}</Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+
+          <Box sx={{ display: 'grid', gridTemplateRows: { xs: 'auto', lg: 'repeat(3, 1fr)' }, gap: 1.6 }}>
+            {advantageProofs.map((item) => (
+              <Card key={item.title} sx={{ bgcolor: item.tone, overflow: 'hidden', transition: 'transform .22s ease, box-shadow .22s ease', '&:hover': { transform: 'translateY(-3px)', boxShadow: notionTokens.liftShadow } }}>
+                <CardContent sx={{ p: { xs: 2.3, md: 2.7 } }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: 2, alignItems: 'center' }}>
+                    <Box sx={{ width: 48, height: 48, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, fontWeight: 800 }}>{item.mark}</Box>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="caption" color="text.secondary">{item.label}</Typography>
+                      <Typography variant="h5" sx={{ mt: .25 }}>{item.title}</Typography>
+                      <Typography color="text.secondary" sx={{ mt: .7 }}>{item.body}</Typography>
+                    </Box>
+                    <Box sx={{ display: { xs: 'none', sm: 'block' }, width: 28, height: 28, borderRadius: 1, bgcolor: notionTokens.tintYellowBold, opacity: .72 }} />
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
         </Box>
       </SectionFrame>
 
@@ -99,7 +111,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
             <Typography color="text.secondary" sx={{ maxWidth: 560, fontSize: { md: 18 } }}>创建单图或素材包，完成后在作品库挑选和导出。</Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
               <Button variant="contained" color="primary" href="#auth-panel">登录</Button>
-              <Button variant="outlined" href="#values">看能力</Button>
+              <Button variant="outlined" href="#workflow">看优势</Button>
             </Stack>
           </Stack>
           <Box>{authSlot}</Box>
