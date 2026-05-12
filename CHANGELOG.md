@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.1] - 2026-05-12
+
+### Fixed
+
+- 低像素描边策略现在也会处理已经带半透明 alpha 的候选图；即使未开启重新抠背景，也会把半透明边缘硬化并补 1px 外描边。
+
 ## [0.54.0] - 2026-05-12
 
 ### Added

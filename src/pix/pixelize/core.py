@@ -128,12 +128,21 @@ def _effective_params(
     return eff
 
 
-def _apply_low_pixel_edge_policy(params: PixelizeParams) -> dict:
+def _has_transparent_alpha(image: Image.Image) -> bool:
+    if "A" not in image.getbands():
+        return False
+    alpha = image.getchannel("A")
+    extrema = alpha.getextrema()
+    return bool(extrema and extrema[0] < 255)
+
+
+def _apply_low_pixel_edge_policy(params: PixelizeParams, *, has_transparency: bool) -> dict:
     """低像素透明素材不使用 alpha 羽化，统一改为 1px+ 外描边。"""
     width, height = params.output_size
     low_pixel = max(int(width), int(height)) <= LOW_PIXEL_OUTLINE_MAX_AXIS
-    if not low_pixel or not params.remove_bg:
-        return {"applied": False, "reason": "not_low_pixel_or_no_background_removal"}
+    needs_transparent_edge_policy = bool(params.remove_bg or has_transparency)
+    if not low_pixel or not needs_transparent_edge_policy:
+        return {"applied": False, "reason": "not_low_pixel_or_no_transparency"}
     before = {"edge_style": params.edge_style, "bg_feather": params.bg_feather}
     params.edge_style = "outline"
     params.bg_feather = max(1, int(params.bg_feather or 0))
@@ -141,6 +150,8 @@ def _apply_low_pixel_edge_policy(params: PixelizeParams) -> dict:
         "applied": before["edge_style"] != params.edge_style or before["bg_feather"] != params.bg_feather,
         "reason": "low_pixel_outline",
         "max_axis": LOW_PIXEL_OUTLINE_MAX_AXIS,
+        "source_alpha": bool(has_transparency),
+        "background_removal": bool(params.remove_bg),
         "before": before,
         "after": {"edge_style": params.edge_style, "bg_feather": params.bg_feather},
     }
@@ -400,6 +411,54 @@ def _apply_enhancements(image: Image.Image, saturation: float, edge: float) -> I
     return img
 
 
+def _dilate_mask_4(mask: np.ndarray) -> np.ndarray:
+    out = mask.copy()
+    out[1:, :] |= mask[:-1, :]
+    out[:-1, :] |= mask[1:, :]
+    out[:, 1:] |= mask[:, :-1]
+    out[:, :-1] |= mask[:, 1:]
+    return out
+
+
+def _outline_rgb_from_foreground(rgba: np.ndarray, foreground: np.ndarray) -> tuple[int, int, int]:
+    pixels = rgba[foreground, :3]
+    if pixels.size == 0:
+        return (16, 16, 16)
+    luma = pixels[:, 0].astype(np.float32) * 0.2126 + pixels[:, 1].astype(np.float32) * 0.7152 + pixels[:, 2].astype(np.float32) * 0.0722
+    darkest = pixels[int(np.argmin(luma))]
+    if float(luma.min()) < 72:
+        return tuple(int(v) for v in darkest)
+    return tuple(max(0, int(v * 0.36)) for v in darkest)
+
+
+def _apply_low_pixel_alpha_outline(image: Image.Image, *, strength: int) -> Image.Image:
+    if image.mode != "RGBA":
+        image = image.convert("RGBA")
+    rgba = np.asarray(image).copy()
+    alpha = rgba[..., 3]
+    foreground = alpha >= 96
+    if not foreground.any() or foreground.all():
+        rgba[..., 3] = np.where(foreground, 255, 0).astype(np.uint8)
+        return Image.fromarray(rgba, mode="RGBA")
+    outline_rgb = _outline_rgb_from_foreground(rgba, foreground)
+    rgba[..., 3] = np.where(foreground, 255, 0).astype(np.uint8)
+    outline_mask = np.zeros(foreground.shape, dtype=bool)
+    current = foreground.copy()
+    for _ in range(max(1, int(strength))):
+        expanded = _dilate_mask_4(current)
+        layer = expanded & ~foreground & ~outline_mask
+        if layer.shape[0] > 2 and layer.shape[1] > 2:
+            layer[0, :] = False
+            layer[-1, :] = False
+            layer[:, 0] = False
+            layer[:, -1] = False
+        outline_mask |= layer
+        current = current | layer
+    rgba[outline_mask, :3] = outline_rgb
+    rgba[outline_mask, 3] = 255
+    return Image.fromarray(rgba, mode="RGBA")
+
+
 def _quantize(
     image: Image.Image,
     palette_rgb: list[tuple[int, int, int]],
@@ -467,10 +526,11 @@ def pixelize(
     if not isinstance(source, Image.Image):
         source = Image.open(source)
     img = _image_mode_for_pixelize(source)
+    input_has_transparency = _has_transparent_alpha(img)
 
     preset = _resolve_preset(params, analysis)
     eff = _effective_params(params, preset, analysis)
-    edge_policy = _apply_low_pixel_edge_policy(eff)
+    edge_policy = _apply_low_pixel_edge_policy(eff, has_transparency=input_has_transparency)
 
     # 1. 可选前置抠背景：先处理模型画出来的纯色/棋盘格假透明背景，
     # 避免后续语义区域或量化把背景变成可见色块。
@@ -513,6 +573,8 @@ def pixelize(
             feather=max(0, int(eff.bg_feather)),
             edge_style=eff.edge_style,
         )
+    elif edge_policy.get("source_alpha") and eff.edge_style == "outline":
+        pixelized = _apply_low_pixel_alpha_outline(pixelized, strength=max(1, int(eff.bg_feather)))
 
     # 7. 可选预览（最近邻放大）
     preview: Image.Image | None = None
