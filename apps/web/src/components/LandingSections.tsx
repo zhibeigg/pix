@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Box, Button, Card, CardContent, Chip, Stack, Typography } from '@mui/material'
 import { notionTokens } from '../theme'
+import { homepageExampleCategories, homepageExamples, type HomepageExample } from '../homepageExamples'
 
 const advantageProofs = [
   { label: '工程图', title: '不只给你一张图', body: '生成后落成 Pixel Grid：palette、pixels、透明 PNG、预览和源图都能追溯。', tone: notionTokens.tintLavender, mark: 'JSON' },
@@ -24,6 +25,11 @@ const uiWorks = [
   { name: '菜单标签', src: '/hero-ui/menu-tab.png', note: '页签 / 设置面板', width: 240, height: 128, span: 2 },
   { name: '确认勾选', src: '/hero-ui/check-toggle.png', note: '开关 / 选项状态', width: 128, height: 128, span: 1 },
 ]
+
+const examplesByCategory = homepageExampleCategories.map((category) => ({
+  category,
+  examples: homepageExamples.filter((example) => example.category === category),
+}))
 
 type LandingSectionsProps = {
   authSlot: ReactNode
@@ -103,6 +109,10 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
         </Box>
       </SectionFrame>
 
+      <SectionFrame id="examples" eyebrow="范例图库" title="76 套题材范例，一屏铺开生产边界" description="物品精灵表和 16:9 UI 展示图都由 Pix 像素化管线生成，适合作为主页上的题材覆盖证明。">
+        <ExampleAtlas />
+      </SectionFrame>
+
       <Box id="auth-panel" component="section" sx={{ scrollSnapAlign: { md: 'start' }, position: 'relative', minHeight: { md: '100vh' }, display: 'flex', alignItems: 'center', bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, px: { xs: 2, md: 4 }, py: { xs: 7, md: 9 }, overflow: 'hidden' }}>
         <Box sx={{ position: 'absolute', inset: 0, opacity: .2, backgroundImage: 'linear-gradient(oklch(92% .03 248 / .18) 1px, transparent 1px), linear-gradient(90deg, oklch(92% .03 248 / .18) 1px, transparent 1px)', backgroundSize: '32px 32px' }} aria-hidden="true" />
         <Box sx={{ position: 'absolute', left: { xs: -64, md: 48 }, bottom: { xs: 24, md: 72 }, width: 180, height: 180, opacity: .5, background: 'linear-gradient(135deg, oklch(77% .17 82), oklch(64% .16 322))', clipPath: 'polygon(0 0, 100% 0, 100% 18%, 18% 18%, 18% 100%, 0 100%)' }} aria-hidden="true" />
@@ -123,6 +133,84 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
   )
 }
 
+function ExampleAtlas() {
+  return (
+    <Stack spacing={4}>
+      <Card sx={{ bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, overflow: 'hidden', borderColor: 'rgba(255,255,255,.14)' }}>
+        <CardContent sx={{ p: { xs: 2.5, md: 3.5 } }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '.92fr 1.08fr' }, gap: { xs: 3, lg: 5 }, alignItems: 'center' }}>
+            <Stack spacing={2.2}>
+              <Chip label="Sample Atlas" sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.tintYellowBold, color: notionTokens.ink, borderRadius: 1 }} />
+              <Box>
+                <Typography variant="h3" sx={{ color: notionTokens.onDark, maxWidth: 560 }}>从东方武侠到多元宇宙，先给玩家看见可能性</Typography>
+                <Typography sx={{ mt: 1.5, maxWidth: 620, color: notionTokens.onDarkMuted, lineHeight: 1.65 }}>
+                  每套范例包含一张透明物品精灵表和一张 1920×1080 UI 展示图。主页不只展示“能生成图”，而是展示题材库可以如何服务游戏原型。
+                </Typography>
+              </Box>
+            </Stack>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 1 }}>
+              {examplesByCategory.map((group) => (
+                <Box key={group.category} sx={{ border: '1px solid rgba(255,255,255,.16)', bgcolor: 'rgba(255,255,255,.055)', borderRadius: 1.4, p: 1.4 }}>
+                  <Typography sx={{ color: notionTokens.onDark, fontWeight: 700 }}>{group.category}</Typography>
+                  <Typography variant="caption" sx={{ color: notionTokens.onDarkMuted }}>{group.examples.length} 套范例</Typography>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {examplesByCategory.map((group, groupIndex) => (
+        <Box key={group.category}>
+          <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+            <Box>
+              <Typography variant="h4">{group.category}</Typography>
+              <Typography color="text.secondary">{group.examples.length} 套物品 + UI 范例</Typography>
+            </Box>
+            <Chip label={`${group.examples[0]?.number ?? ''}—${group.examples[group.examples.length - 1]?.number ?? ''}`} sx={{ bgcolor: notionTokens.tintCream, borderRadius: 1 }} />
+          </Stack>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(3, minmax(0, 1fr))' }, gap: 1.4 }}>
+            {group.examples.map((example, index) => (
+              <ExampleCard key={example.id} example={example} featured={(groupIndex + index) % 11 === 0} />
+            ))}
+          </Box>
+        </Box>
+      ))}
+    </Stack>
+  )
+}
+
+function ExampleCard({ example, featured }: { example: HomepageExample; featured: boolean }) {
+  return (
+    <Box sx={{ gridColumn: { xl: featured ? 'span 2' : 'span 1' }, bgcolor: notionTokens.surfaceSoft, border: `1px solid ${notionTokens.hairline}`, borderRadius: 2, overflow: 'hidden', minWidth: 0, transition: 'transform .2s ease, box-shadow .2s ease', '&:hover': { transform: 'translateY(-3px)', boxShadow: notionTokens.liftShadow }, '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } } }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: featured ? '.9fr 1.1fr' : '1fr' }, gap: 0 }}>
+        <ExampleImage kind="item" src={example.itemSrc} alt={`${example.theme} 透明物品精灵表`} />
+        <ExampleImage kind="ui" src={example.uiSrc} alt={`${example.theme} 像素 UI 展示图`} />
+      </Box>
+      <Box sx={{ p: 1.6 }}>
+        <Stack direction="row" spacing={.8} sx={{ alignItems: 'center', flexWrap: 'wrap', mb: .9 }}>
+          <Chip size="small" label={example.number} sx={{ bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, borderRadius: .8, height: 24 }} />
+          <Chip size="small" label={example.category} sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800, borderRadius: .8, height: 24 }} />
+        </Stack>
+        <Typography variant="h6" sx={{ lineHeight: 1.15 }}>{example.theme}</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: .8, fontFamily: 'monospace' }}>{example.itemFile} · {example.uiFile}</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', mt: .8, lineHeight: 1.35 }}>
+          {example.itemPrompt}
+        </Typography>
+      </Box>
+    </Box>
+  )
+}
+
+function ExampleImage({ kind, src, alt }: { kind: 'item' | 'ui'; src: string; alt: string }) {
+  const isItem = kind === 'item'
+  return (
+    <Box sx={{ minHeight: isItem ? 124 : 166, display: 'grid', placeItems: 'center', bgcolor: notionTokens.canvas, borderBottom: `1px solid ${notionTokens.hairline}`, backgroundImage: `linear-gradient(45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(-45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%), linear-gradient(-45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%)`, backgroundSize: '16px 16px', backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0', p: isItem ? 2 : 0 }}>
+      <Box component="img" src={src} alt={alt} loading="lazy" decoding="async" width={isItem ? 128 : 1920} height={isItem ? 64 : 1080} sx={{ width: isItem ? 'min(100%, 256px)' : '100%', height: 'auto', maxHeight: isItem ? 96 : 220, objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
+    </Box>
+  )
+}
+
 type SectionFrameProps = {
   id: string
   eyebrow: string
@@ -132,8 +220,10 @@ type SectionFrameProps = {
 }
 
 function SectionFrame({ id, eyebrow, title, description, children }: SectionFrameProps) {
+  const isLongSection = id === 'examples'
+
   return (
-    <Box id={id} component="section" sx={{ scrollSnapAlign: { md: 'start' }, minHeight: { md: '100vh' }, display: 'flex', alignItems: 'center', bgcolor: notionTokens.canvas, px: { xs: 2, md: 4 }, py: { xs: 7, md: 9 } }}>
+    <Box id={id} component="section" sx={{ scrollSnapAlign: { md: 'start' }, minHeight: { md: isLongSection ? 'auto' : '100vh' }, display: 'flex', alignItems: isLongSection ? 'flex-start' : 'center', bgcolor: notionTokens.canvas, px: { xs: 2, md: 4 }, py: { xs: 7, md: 9 } }}>
       <Box sx={{ width: '100%', maxWidth: 1152, mx: 'auto' }}>
         <Box sx={{ mb: 5 }}>
           <Typography variant="overline" color="text.secondary">{eyebrow}</Typography>

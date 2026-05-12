@@ -107,7 +107,7 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
               <Button variant="contained" color="primary" href={signedIn ? '#/workspace' : '#auth-panel'}>开始批量生成</Button>
-              <Button variant="outlined" href={signedIn ? '#/packs' : '#workflow'} sx={{ color: notionTokens.onDark, borderColor: 'rgba(255,255,255,.45)' }}>查看流程</Button>
+              <Button variant="outlined" href={signedIn ? '#/packs' : '#examples'} sx={{ color: notionTokens.onDark, borderColor: 'rgba(255,255,255,.45)' }}>{signedIn ? '查看素材包' : '看 76 套范例'}</Button>
             </Stack>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, max-content)' }, gap: 1.5 }}>
