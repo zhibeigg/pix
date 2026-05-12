@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-05-11
+
+### Changed
+
+- 合并首页“核心价值”和“工作流”介绍页为单页“核心优势”，突出 Pix 从 AI 生图到可交付游戏素材生产线的差异化。
+- 重写首页优势文案，强调 Pixel Grid 工程图、素材包批量生产、多尺寸交付和可追踪验收。
+
 ## [0.47.0] - 2026-05-11
 
 ### Added
