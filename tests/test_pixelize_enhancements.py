@@ -310,6 +310,31 @@ class TestPixelizeRemoveBg:
         alpha = np.asarray(result.convert("RGBA"))[..., 3]
         assert set(np.unique(alpha)).issubset({0, 255})
 
+    def test_low_pixel_existing_alpha_uses_outline_without_remove_bg(self) -> None:
+        img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        for y in range(20, 44):
+            for x in range(20, 44):
+                alpha = 128 if x in {20, 43} or y in {20, 43} else 255
+                img.putpixel((x, y), (180, 80, 240, alpha))
+
+        result, _, meta = pixelize(
+            img,
+            PixelizeParams(
+                output_size=(16, 16),
+                colors=4,
+                remove_bg=False,
+                bg_feather=0,
+                edge_style="feather",
+                preview_scale=0,
+            ),
+        )
+
+        assert meta["effective_params"]["edge_style"] == "outline"
+        assert meta["effective_params"]["bg_feather"] == 1
+        assert meta["edge_policy"]["source_alpha"] is True
+        alpha = np.asarray(result.convert("RGBA"))[..., 3]
+        assert set(np.unique(alpha)).issubset({0, 255})
+
     def test_large_pixel_can_still_use_feather(self) -> None:
         img = _solid_bg_with_subject(size=128)
         result, _, meta = pixelize(
