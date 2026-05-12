@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.55.0] - 2026-05-12
+
+### Added
+
+- 网站首页新增 76 套题材范例图库，每套包含 Pix 管线生成的透明物品精灵表和 1920×1080 像素 UI 展示图。
+- 新增 `scripts/generate_homepage_examples.py`，可从题材清单重新生成主页范例 PNG 与前端 manifest。
+
+### Changed
+
+- 首页第二 CTA 改为直达范例图库，未登录访客可快速查看题材覆盖范围。
+
 ## [0.54.1] - 2026-05-12
 
 ### Fixed
