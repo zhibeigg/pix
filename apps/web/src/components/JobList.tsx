@@ -114,12 +114,12 @@ function CandidateStrip({ job, output, onCandidatePixelize }: { job: GenerationJ
         <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(76px, 1fr))', gap: 1 }}>
           {output.candidates.map((candidate) => (
             <Stack key={candidate.path} spacing={0.5} sx={{ alignItems: 'center' }} title={candidate.reason ?? undefined}>
-              <Box component="img" src={candidate.url ?? undefined} alt={`候选 ${candidate.index}`} loading="lazy" decoding="async" sx={{ width: 64, height: 64, objectFit: 'contain', imageRendering: 'pixelated', bgcolor: 'background.paper', border: 1, borderColor: candidate.selected ? 'success.main' : 'divider', borderRadius: 1, p: 0.5 }} />
+              <Box component="img" src={candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined} alt={`候选 ${candidate.index}`} loading="lazy" decoding="async" sx={{ width: 64, height: 64, objectFit: 'contain', imageRendering: 'pixelated', bgcolor: 'background.paper', border: 1, borderColor: candidate.selected ? 'success.main' : 'divider', borderRadius: 1, p: 0.5 }} />
               <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', justifyContent: 'center' }}>
                 <Chip size="small" color={candidate.selected ? 'success' : 'default'} variant="outlined" label={candidate.rank ? `#${candidate.rank}` : `候选${candidate.index}`} />
                 {candidate.score != null && <Chip size="small" variant="outlined" label={`${Math.round(candidate.score)}分`} />}
               </Stack>
-              {onCandidatePixelize && <Button size="small" variant="outlined" onClick={() => onCandidatePixelize(job, candidate)}>像素化</Button>}
+              {onCandidatePixelize && <Button size="small" variant="outlined" onClick={() => onCandidatePixelize(job, candidate)}>重调</Button>}
             </Stack>
           ))}
         </Box>

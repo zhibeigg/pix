@@ -262,7 +262,8 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 - The generated sheet is saved as `01_contact_sheet.png`; candidates are split into `candidates/candidate_XX.png`, chroma-keyed to transparent and cropped with padding.
 - VL receives all candidate images in one scoring request and ranks them by prompt match, single-object clarity, clean transparency/chroma-key edges, low-resolution readability, silhouette contrast and absence of text/watermarks/noise. The score audit is saved as `01_candidate_scores.json`.
 - The highest-ranked candidate becomes the compatible `01_source.png` for the rest of the pipeline. If ranking is disabled or unavailable, the system falls back to candidate 1 unless configured to reject.
-- Result cards expose all candidates ordered by rank, including score/reason/selected status. A candidate can be reused by creating a normal free `local_pixelize` job using the candidate path while inheriting the original pixelize/grid params.
+- In normal resize/quantize mode, every ranked candidate is also pixelized into `candidate_outputs/candidate_XX_pixelized.png` with a preview sibling; the selected candidate is copied to the compatible `03_pixelized.png`/`04_pixelized_preview.png` main outputs.
+- Result cards expose all candidates ordered by rank, including score/reason/selected status and their final pixelized output. A candidate can be reused by creating a normal free `local_pixelize` job using the candidate path while inheriting the original pixelize/grid params.
 
 ### Tabs
 

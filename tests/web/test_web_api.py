@@ -1015,12 +1015,18 @@ def test_worker_success_consumes_reserved_credits(client: TestClient, tmp_path, 
     candidates_dir = run_dir / "candidates"
     candidates_dir.mkdir()
     candidate = candidates_dir / "candidate_05.png"
+    candidate_outputs_dir = run_dir / "candidate_outputs"
+    candidate_outputs_dir.mkdir()
+    candidate_pixel = candidate_outputs_dir / "candidate_05_pixelized.png"
+    candidate_preview = candidate_outputs_dir / "candidate_05_preview.png"
     sheet = run_dir / "01_contact_sheet.png"
     Image.new("RGBA", (4, 4), (255, 0, 0, 255)).save(source)
     Image.new("RGBA", (4, 4), (0, 255, 0, 255)).save(pixel)
     Image.new("RGBA", (4, 4), (0, 0, 255, 255)).save(candidate)
+    Image.new("RGBA", (4, 4), (255, 0, 255, 255)).save(candidate_pixel)
+    Image.new("RGBA", (8, 8), (255, 0, 255, 255)).save(candidate_preview)
     Image.new("RGBA", (8, 8), (0, 255, 0, 255)).save(sheet)
-    meta.write_text(json.dumps({"image_gen": {"contact_sheet": {"sheet": "01_contact_sheet.png", "selected_index": 5, "candidates": [{"index": 5, "row": 1, "col": 1, "path": "candidates/candidate_05.png", "score": 94, "rank": 1, "reason": "最清晰", "selected": True}]}}}, ensure_ascii=False), encoding="utf-8")
+    meta.write_text(json.dumps({"image_gen": {"contact_sheet": {"sheet": "01_contact_sheet.png", "selected_index": 5, "candidates": [{"index": 5, "row": 1, "col": 1, "path": "candidates/candidate_05.png", "pixelized_path": "candidate_outputs/candidate_05_pixelized.png", "preview_path": "candidate_outputs/candidate_05_preview.png", "score": 94, "rank": 1, "reason": "最清晰", "selected": True}]}}}, ensure_ascii=False), encoding="utf-8")
 
     def fake_run(_job, _settings, *, cfg=None):
         return SimpleNamespace(
@@ -1048,6 +1054,8 @@ def test_worker_success_consumes_reserved_credits(client: TestClient, tmp_path, 
     assert fetched_job["outputs"][0]["candidates"][0]["score"] == 94
     assert fetched_job["outputs"][0]["candidates"][0]["rank"] == 1
     assert fetched_job["outputs"][0]["candidates"][0]["selected"] is True
+    assert fetched_job["outputs"][0]["candidates"][0]["pixelized_url"].startswith("/files?path=")
+    assert fetched_job["outputs"][0]["candidates"][0]["preview_url"].startswith("/files?path=")
 
     balance = client.get("/credits/balance", headers=headers).json()
     assert balance["available_credits"] == 30

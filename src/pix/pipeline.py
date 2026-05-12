@@ -187,6 +187,72 @@ def _postprocess_contact_sheet(
     return meta
 
 
+def _render_candidate_pixel_outputs(
+    result_meta: dict | None,
+    run_dir: Path,
+    params: PixelizeParams,
+    analysis: PixAnalysis | None,
+    *,
+    grid_mode: str,
+    notify: ProgressCb,
+) -> dict | None:
+    """为 contact sheet 的每个候选生成最终像素图，并更新候选 meta。"""
+    if not result_meta or not isinstance(result_meta.get("candidates"), list):
+        return None
+    output_dir = run_dir / "candidate_outputs"
+    candidates = result_meta["candidates"]
+    if grid_mode != "off":
+        result_meta["candidate_outputs_skipped_reason"] = "grid_mode"
+        return {"enabled": False, "reason": "grid_mode", "dir": output_dir.name, "count": 0}
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    generated = 0
+    selected_pixelized: str | None = None
+    selected_preview: str | None = None
+    for item in candidates:
+        if not isinstance(item, dict):
+            continue
+        candidate_rel = item.get("path")
+        if not candidate_rel:
+            continue
+        candidate_path = Path(candidate_rel)
+        if not candidate_path.is_absolute():
+            candidate_path = run_dir / candidate_path
+        if not candidate_path.exists():
+            item["pixelized_error"] = "candidate_missing"
+            continue
+        try:
+            index = int(item.get("index") or generated + 1)
+        except (TypeError, ValueError):
+            index = generated + 1
+        pixel_path = output_dir / f"candidate_{index:02d}_pixelized.png"
+        preview_path = output_dir / f"candidate_{index:02d}_preview.png"
+        try:
+            pixel_img, preview_img, pix_meta = pixelize(candidate_path, params, analysis=analysis)
+            pixel_img.save(pixel_path)
+            if preview_img is not None:
+                preview_img.save(preview_path)
+                item["preview_path"] = preview_path.relative_to(run_dir).as_posix()
+            else:
+                item["preview_path"] = None
+            item["pixelized_path"] = pixel_path.relative_to(run_dir).as_posix()
+            item["pixelized_meta"] = pix_meta
+            generated += 1
+            if item.get("selected"):
+                selected_pixelized = item["pixelized_path"]
+                selected_preview = item["preview_path"]
+        except Exception as exc:  # noqa: BLE001 - 单个候选失败不阻断主流程
+            item["pixelized_error"] = str(exc)
+    notify("candidate_pixelize_ready", {"count": generated, "dir": str(output_dir)})
+    return {
+        "enabled": True,
+        "dir": output_dir.name,
+        "count": generated,
+        "selected_pixelized": selected_pixelized,
+        "selected_preview": selected_preview,
+    }
+
+
 def _extract_grid_from_source(cfg: AppConfig, inputs: PipelineInput, source_path: Path, *, fallback: bool = False) -> PixelGrid:
     params = inputs.pixelize_params
     return extract_pixel_grid(
@@ -544,10 +610,39 @@ def run_pipeline(
     preview_path: Path | None = None
     grid_path: Path | None = None
     pixel_path = run_dir / "03_pixelized.png"
-    if inputs.grid.mode == "off":
+    candidate_outputs_meta = _render_candidate_pixel_outputs(
+        contact_sheet_meta,
+        run_dir,
+        inputs.pixelize_params,
+        analysis,
+        grid_mode=inputs.grid.mode,
+        notify=notify,
+    )
+    selected_candidate = None
+    if contact_sheet_meta and isinstance(contact_sheet_meta.get("candidates"), list):
+        selected_candidate = next((item for item in contact_sheet_meta["candidates"] if isinstance(item, dict) and item.get("selected")), None)
+
+    if selected_candidate and selected_candidate.get("pixelized_path"):
+        candidate_pixel_path = run_dir / str(selected_candidate["pixelized_path"])
+        pixel_path.write_bytes(candidate_pixel_path.read_bytes())
+        preview_rel = selected_candidate.get("preview_path")
+        pix_meta = selected_candidate.get("pixelized_meta") if isinstance(selected_candidate.get("pixelized_meta"), dict) else {}
+        pix_meta = dict(pix_meta)
+        pix_meta["candidate_outputs"] = candidate_outputs_meta
+        if preview_rel:
+            preview_src = run_dir / str(preview_rel)
+            if preview_src.exists():
+                preview_path = run_dir / "04_pixelized_preview.png"
+                preview_path.write_bytes(preview_src.read_bytes())
+    elif inputs.grid.mode == "off":
         pixel_img, preview_img, pix_meta = pixelize(
             source_path, inputs.pixelize_params, analysis=analysis
         )
+        pixel_img.save(pixel_path)
+        if preview_img is not None:
+            preview_path = run_dir / "04_pixelized_preview.png"
+            preview_img.save(preview_path)
+        pix_meta["candidate_outputs"] = candidate_outputs_meta
     else:
         try:
             pixel_img, preview_img, pix_meta, grid_path = _run_grid_pixelize(
@@ -566,10 +661,11 @@ def run_pipeline(
                 "fallback": "pixelize",
                 "error": str(exc),
             }
-    pixel_img.save(pixel_path)
-    if preview_img is not None:
-        preview_path = run_dir / "04_pixelized_preview.png"
-        preview_img.save(preview_path)
+        pixel_img.save(pixel_path)
+        if preview_img is not None:
+            preview_path = run_dir / "04_pixelized_preview.png"
+            preview_img.save(preview_path)
+        pix_meta["candidate_outputs"] = candidate_outputs_meta
     notify("pixelize_ready", {"path": str(pixel_path), "grid": str(grid_path) if grid_path else None})
 
     # 5. meta
@@ -603,6 +699,7 @@ def run_pipeline(
             "source": source_path.name,
             "contact_sheet": contact_sheet_path.name if contact_sheet_path.exists() else None,
             "candidate_scores": "01_candidate_scores.json" if (run_dir / "01_candidate_scores.json").exists() else None,
+            "candidate_outputs": "candidate_outputs" if (run_dir / "candidate_outputs").exists() else None,
             "analysis": analysis_path.name if analysis_path else None,
             "pixelized": pixel_path.name,
             "preview": preview_path.name if preview_path else None,

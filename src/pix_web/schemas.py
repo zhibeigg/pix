@@ -258,6 +258,8 @@ class JobOutputResponse(BaseModel):
             path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("path") or ""))
             if not path:
                 continue
+            pixelized_path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("pixelized_path") or ""))
+            preview_path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("preview_path") or ""))
             result.append({
                 "index": item.get("index"),
                 "row": item.get("row"),
@@ -269,6 +271,10 @@ class JobOutputResponse(BaseModel):
                 "rank": item.get("rank"),
                 "reason": item.get("reason"),
                 "selected": bool(item.get("selected")),
+                "pixelized_path": pixelized_path,
+                "pixelized_url": file_url(pixelized_path),
+                "preview_path": preview_path,
+                "preview_url": file_url(preview_path),
             })
         return result
 

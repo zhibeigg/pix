@@ -114,8 +114,16 @@ def test_pipeline_from_prompt(
     assert result.meta["image_gen"]["contact_sheet"]["selected_index"] == 2
     assert result.meta["image_gen"]["contact_sheet"]["candidates"][0]["index"] == 2
     assert result.meta["image_gen"]["contact_sheet"]["candidates"][0]["score"] == 91
+    candidates = result.meta["image_gen"]["contact_sheet"]["candidates"]
+    assert len([item for item in candidates if item.get("pixelized_path")]) == 9
+    selected = candidates[0]
+    assert selected["selected"] is True
+    assert selected["pixelized_path"].startswith("candidate_outputs/")
+    assert (result.run_dir / selected["pixelized_path"]).read_bytes() == result.pixel_path.read_bytes()
+    assert result.meta["pixelize"]["candidate_outputs"]["count"] == 9
     assert result.meta["outputs"]["contact_sheet"] == "01_contact_sheet.png"
     assert result.meta["outputs"]["candidate_scores"] == "01_candidate_scores.json"
+    assert result.meta["outputs"]["candidate_outputs"] == "candidate_outputs"
     assert "source_ready" in events
     assert "analysis_ready" in events
     assert "pixelize_ready" in events
