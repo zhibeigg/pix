@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from pix_web.config import WebSettings
 from pix_web.credits import ensure_credit_account
-from pix_web.email_sender import send_verification_email_task
+from pix_web.email_sender import EmailDeliveryError, send_verification_email
 from pix_web.email_verification import (
     EmailCodeError,
     consume_email_code,
@@ -47,7 +47,6 @@ def _raise_email_code_error(exc: EmailCodeError) -> None:
 @router.post("/register-code", response_model=EmailCodeResponse)
 def request_register_code(
     req: EmailCodeRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> EmailCodeResponse:
@@ -59,12 +58,16 @@ def request_register_code(
     except EmailCodeError as exc:
         db.rollback()
         _raise_email_code_error(exc)
+    try:
+        send_verification_email(settings, email, result.code)
+    except EmailDeliveryError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     db.commit()
-    background_tasks.add_task(send_verification_email_task, settings, email, result.code)
     return EmailCodeResponse(
         retry_after_seconds=result.retry_after_seconds,
         expires_in_seconds=settings.email_code_ttl_seconds,
-        debug_code=result.code if settings.email_debug_codes else None,
+        debug_code=result.code if settings.email_debug_codes or settings.email_provider == "console" else None,
     )
 
 

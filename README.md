@@ -376,7 +376,7 @@ MVP 计费规则默认：
 | `local_pixelize` | 0 | 只做本地像素化 |
 | `repixelize` | 0 | 对历史源图免费重新像素化 |
 
-账号注册流程先调用 `POST /auth/register-code` 发送邮箱验证码，再调用 `POST /auth/register` 并携带 `verification_code` 完成注册。任务创建时会先冻结点数；worker 成功后确认消费，失败会自动退款。批量生产使用 `POST /jobs/batch` 原子提交，避免部分任务创建成功后中途失败，并通过 `/batches` 按素材包查看批次统计。第一个注册用户会自动成为管理员，可通过 `/admin/users/{id}/adjust-credits` 手动加点。
+账号注册流程先调用 `POST /auth/register-code` 发送邮箱验证码，再调用 `POST /auth/register` 并携带 `verification_code` 完成注册。开发/内测默认 `console` 邮件模式会在响应中返回 `debug_code`；生产环境请配置 SMTP，若 SMTP 发送失败接口会返回 503 并提示配置或投递错误。任务创建时会先冻结点数；worker 成功后确认消费，失败会自动退款。批量生产使用 `POST /jobs/batch` 原子提交，避免部分任务创建成功后中途失败，并通过 `/batches` 按素材包查看批次统计。第一个注册用户会自动成为管理员，可通过 `/admin/users/{id}/adjust-credits` 手动加点。
 
 ### 游戏素材直出
 
