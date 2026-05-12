@@ -79,6 +79,13 @@ def test_pipeline_from_prompt(
             return httpx.Response(200, content=png)
         if path == "/v1/chat/completions":
             vl_calls["n"] += 1
+            body = json.loads(req.content.decode("utf-8"))
+            content = body["messages"][0]["content"]
+            if isinstance(content, str):
+                return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"allowed": True, "reason": "", "normalized_description": "a cat"})}}]})
+            image_count = sum(1 for item in content if isinstance(item, dict) and item.get("type") == "image_url")
+            if image_count > 1:
+                return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"selected_index": 2, "candidates": [{"index": 2, "rank": 1, "score": 91, "reason": "best"}, {"index": 1, "rank": 2, "score": 40, "reason": "ok"}]})}}]})
             return httpx.Response(
                 200,
                 json={"choices": [{"message": {"content": _ANALYSIS_BLOCK}}]},
@@ -96,7 +103,7 @@ def test_pipeline_from_prompt(
     result = run_pipeline(cfg, inputs, progress=lambda s, _p: events.append(s))
 
     assert gen_calls["n"] == 1
-    assert vl_calls["n"] == 2  # prompt guard + 图片分析
+    assert vl_calls["n"] == 3  # prompt guard + 候选评分 + 图片分析
     assert result.source_path.exists()
     assert result.analysis is not None
     assert result.analysis.description == "mock"
@@ -104,7 +111,11 @@ def test_pipeline_from_prompt(
     assert result.preview_path is not None and result.preview_path.exists()
     assert result.meta["vision"]["ok"] is True
     assert result.meta["image_gen"]["contact_sheet"]["count"] == 9
+    assert result.meta["image_gen"]["contact_sheet"]["selected_index"] == 2
+    assert result.meta["image_gen"]["contact_sheet"]["candidates"][0]["index"] == 2
+    assert result.meta["image_gen"]["contact_sheet"]["candidates"][0]["score"] == 91
     assert result.meta["outputs"]["contact_sheet"] == "01_contact_sheet.png"
+    assert result.meta["outputs"]["candidate_scores"] == "01_candidate_scores.json"
     assert "source_ready" in events
     assert "analysis_ready" in events
     assert "pixelize_ready" in events
@@ -112,7 +123,7 @@ def test_pipeline_from_prompt(
     # 再跑一次应命中缓存：网络不再被调
     result2 = run_pipeline(cfg, inputs)
     assert gen_calls["n"] == 1  # 没变
-    assert vl_calls["n"] == 3  # 第二次仍会审核用户输入，但图片分析命中缓存
+    assert vl_calls["n"] == 5  # 第二次仍会审核用户输入并重评候选，但图片分析命中缓存
     assert result2.analysis is not None
 
 
@@ -182,7 +193,7 @@ def test_pipeline_from_image_edit(
     result = run_pipeline(cfg, inputs, progress=lambda s, _p: events.append(s))
 
     assert edit_calls["n"] == 1
-    assert vl_calls["n"] == 2
+    assert vl_calls["n"] == 3
     assert result.source_path.exists()
     assert result.meta["image_gen"]["mode"] == "edited_contact_sheet"
     assert result.meta["image_gen"]["used"] is True
