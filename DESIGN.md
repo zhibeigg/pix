@@ -225,20 +225,41 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 **`search-pill`** — Search bar.
 - Background `{colors.surface}`, text `{colors.steel}`, typography `{typography.body-md}`, rounded `{rounded.md}`, height 44px, border `1px solid {colors.hairline}`.
 
+**`auth-workbench-gate`** — Shared dark authentication shell.
+- Use for login, email-code registration and first-run setup. The mood is a guarded pixel workshop entry point rather than a generic SaaS auth card.
+- Layout: deep navy page, subtle 32px grid, asymmetric pixel-corner ornament, left-side intent copy, right-side bordered form module.
+- Form module uses high-contrast dark inputs, visible labels, a small window-dot detail, and one dominant purple CTA. Secondary actions are outlined and compact.
+- Error, info and success messages use full alert surfaces, not side accent stripes; copy must be actionable.
+
+**`setup-wizard`** — First-run administrator bootstrap.
+- Show only when `/auth/setup-status` reports no admin. It replaces the marketing/login flow so first-run intent is unambiguous.
+- Reuse `auth-workbench-gate`; fields are admin email, display name, password and confirm password.
+- Copy must explain that email verification is skipped only for the empty-site bootstrap and the endpoint closes after the first user exists.
+
 **`register-verification-form`** — Account registration with email verification.
 - Flow: user enters email → clicks `发送验证码` → enters 6-digit code → primary CTA reads `验证并注册`.
-- Code input uses the same `{colors.canvas}` / `{colors.hairline-strong}` input treatment as text fields, with `one-time-code` autocomplete.
+- Code input uses the same high-contrast dark input treatment as text fields, with `one-time-code` autocomplete.
 - Helper state copy: success `验证码已发送，请查看邮箱`; error text should be direct and actionable (`验证码错误`, `验证码已过期，请重新获取`).
+- Network failures should not expose raw browser `Failed to fetch`; show an actionable API connectivity message that mentions backend startup, `/api` proxy, `VITE_PIX_API_BASE`, and CORS allowed origins.
 - Resend button shows countdown text like `60s 后重发` and must disable while counting down.
 
 **`ai-grid-option`** — Explicit low-pixel engineering toggle.
 - Appears in single generation, batch generation and tuning forms as a checkbox labelled `AI 低像素工程图`.
 - Default is off. When enabled, show a warning alert on `{colors.card-tint-yellow-bold}`/warning surface: default credit pricing stays unchanged, but the job will make extra model calls for `palette + pixels` design and readability repair.
 - Result cards should show compact chips for `AI Grid`/fallback, readability pass/fail, color count, subject coverage and whether auto-repair happened.
-- Backend VL context includes original prompt, initial source image, a source-grid-aligned Python draft PixelGrid, draft preview image and readability diagnostics; the UI should still present this as one simple opt-in toggle.
+- Backend VL context includes original prompt, initial source image, a source-grid-aligned Python draft PixelGrid, draft preview image, optional hand-drawn style reference icons and readability diagnostics; the UI should still present this as one simple opt-in toggle.
 - For `pix asset`, image2 source output should flow directly into Pixel Grid extract + cleanup/outline + fit_canvas + render; the resize+quantize path remains available only when grid mode is explicitly disabled.
+- To approach hand-drawn quality, 16×16 / 8×8 AI Grid should be allowed to receive a configured style reference directory of real 16×16 icons. The model may learn margin, silhouette, outline, color count and highlight placement, but must not copy the referenced subject.
 - Do not allow arbitrary sub-16 asset sizes: 8×8 is the only supported size below 16×16, and it must use AI Grid direct drawing with no silent extract fallback.
+- 8×8 readability gates must reject dense scaled blobs that touch the full canvas; require transparent breathing room and micro-symbol simplification.
 - Do not hide the existing resize+quantize path; AI Grid is a deliberate opt-in for 16×16 / 22×22 / 32×32 assets, and mandatory only for 8×8.
+
+**`controlled-contact-sheet-generation`** — Default AI image generation guardrail.
+- Text-to-image and image-to-image jobs treat the user input as a short asset description, not as the final model prompt.
+- Backend wraps the description into a server-owned prompt that requests a `{rows}×{cols}` contact sheet on pure `#00FF00` green screen. Users cannot override the contact sheet, green screen, no-text or no-watermark constraints.
+- Prompt guard first runs local injection/template-override checks, then may call a text-only VL/chat model with only the raw user input. If no VL key is configured, it falls back to local policy so CLI and web generation still work.
+- The generated sheet is saved as `01_contact_sheet.png`; candidates are split into `candidates/candidate_XX.png`, chroma-keyed to transparent and cropped with padding. `candidate_01` becomes the compatible `01_source.png` for the rest of the pipeline.
+- Result cards expose all candidates. A candidate can be reused by creating a normal free `local_pixelize` job using the candidate path while inheriting the original pixelize/grid params.
 
 ### Tabs
 
@@ -316,6 +337,12 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 - Background `{colors.brand-navy}`, text `{colors.on-dark}`, padding `{spacing.hero}`.
 - Layout: centered headline `{typography.hero-display}`, subtitle, button row (`button-primary` purple + `button-secondary-on-dark`), `workspace-mockup-card` below.
 - Atmospheric decoration: scattered colorful sticky-note dots and mesh wire illustrations around the hero content (NOT a literal pattern fill — handled per-page via SVG/illustration).
+
+**`admin-control-room`** — Dedicated admin console for site operation.
+- Use task-oriented tabs instead of a flat settings table: overview, users/credits, pricing, packages, operations, email, model/API, asset defaults, payment/site, storage/queue/security.
+- Editable runtime settings use direct controls; secret inputs never echo stored values and should communicate “blank keeps current value”.
+- Environment-only and high-risk settings are read-only status cards with env var names, not editable form fields.
+- Include a test email action inside the email category so SMTP configuration can be verified before opening registration.
 
 **`asset-pipeline-advantage`** — Merged marketing proof section replacing separate value/workflow pages.
 - One page only: lead with the claim “not an AI image album, a game-asset production line.”

@@ -1,11 +1,12 @@
 import { Box, Button, Card, CardContent, Chip, Divider, Stack, Typography } from '@mui/material'
 import { jobStatusLabel, jobTypeLabel } from '../labels'
 import { notionTokens } from '../theme'
-import type { GenerationJob, JobOutput } from '../types'
+import type { ContactSheetCandidate, GenerationJob, JobOutput } from '../types'
 
 type JobListProps = {
   jobs: GenerationJob[]
   onRefresh: () => void
+  onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>
 }
 
 const statusColors: Record<string, 'default' | 'primary' | 'success' | 'error' | 'warning'> = {
@@ -16,7 +17,7 @@ const statusColors: Record<string, 'default' | 'primary' | 'success' | 'error' |
   cancelled: 'default',
 }
 
-export function JobList({ jobs, onRefresh }: JobListProps) {
+export function JobList({ jobs, onRefresh, onCandidatePixelize }: JobListProps) {
   return (
     <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
       <CardContent>
@@ -32,7 +33,7 @@ export function JobList({ jobs, onRefresh }: JobListProps) {
             <EmptyQueueState />
           ) : (
             <Stack spacing={1.5}>
-              {jobs.map((job) => <JobCard job={job} key={job.id} />)}
+              {jobs.map((job) => <JobCard job={job} key={job.id} onCandidatePixelize={onCandidatePixelize} />)}
             </Stack>
           )}
         </Stack>
@@ -68,7 +69,7 @@ function EmptyQueueState() {
   )
 }
 
-function JobCard({ job }: { job: GenerationJob }) {
+function JobCard({ job, onCandidatePixelize }: { job: GenerationJob; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
   const output = job.outputs[0]
   return (
     <Card variant="outlined" sx={{ bgcolor: notionTokens.surfaceSoft }}>
@@ -87,6 +88,7 @@ function JobCard({ job }: { job: GenerationJob }) {
             <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />
           </Stack>
           {output && <GridQualitySummary output={output} />}
+          {output && <CandidateStrip job={job} output={output} onCandidatePixelize={onCandidatePixelize} />}
           {job.error_message && <Box component="pre" sx={{ whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto', color: 'error.main', bgcolor: notionTokens.errorPanel, border: 1, borderColor: 'error.main', borderRadius: 2, p: 1.25, m: 0 }}>{job.error_message.slice(0, 600)}</Box>}
           {output && (
             <Stack spacing={0.75} divider={<Divider flexItem />}>
@@ -98,6 +100,25 @@ function JobCard({ job }: { job: GenerationJob }) {
             </Stack>
           )}
         </Stack>
+      </CardContent>
+    </Card>
+  )
+}
+
+function CandidateStrip({ job, output, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
+  if (!output.candidates?.length) return null
+  return (
+    <Card variant="outlined" sx={{ bgcolor: notionTokens.tintMint }}>
+      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+        <Typography variant="caption" color="text.secondary">九宫格候选</Typography>
+        <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(76px, 1fr))', gap: 1 }}>
+          {output.candidates.map((candidate) => (
+            <Stack key={candidate.path} spacing={0.5} sx={{ alignItems: 'center' }}>
+              <Box component="img" src={candidate.url ?? undefined} alt={`候选 ${candidate.index}`} loading="lazy" decoding="async" sx={{ width: 64, height: 64, objectFit: 'contain', imageRendering: 'pixelated', bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, p: 0.5 }} />
+              {onCandidatePixelize && <Button size="small" variant="outlined" onClick={() => onCandidatePixelize(job, candidate)}>像素化</Button>}
+            </Stack>
+          ))}
+        </Box>
       </CardContent>
     </Card>
   )

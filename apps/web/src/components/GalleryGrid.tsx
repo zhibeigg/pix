@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Box, Button, Card, CardActions, CardContent, CardMedia, Chip, Pagination, Stack, Typography } from '@mui/material'
-import type { GenerationJob, JobOutput } from '../types'
+import type { ContactSheetCandidate, GenerationJob, JobOutput } from '../types'
 import { jobStatusLabel, jobTypeLabel } from '../labels'
 import { summarizePrompt } from '../pixelize'
 import { notionTokens } from '../theme'
@@ -11,6 +11,7 @@ type GalleryGridProps = {
   subtitle?: string
   onSelect: (job: GenerationJob) => void
   onCopyPath: (path: string) => void
+  onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>
 }
 
 const statusColors: Record<string, 'default' | 'primary' | 'success' | 'error' | 'warning'> = {
@@ -21,7 +22,7 @@ const statusColors: Record<string, 'default' | 'primary' | 'success' | 'error' |
   cancelled: 'default',
 }
 
-export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPath }: GalleryGridProps) {
+export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPath, onCandidatePixelize }: GalleryGridProps) {
   const [page, setPage] = useState(1)
   const pageSize = 80
   const ordered = useMemo(() => [...jobs].sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at))), [jobs])
@@ -83,6 +84,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                       <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />
                     </Stack>
                     {output && <GridQualityChips output={output} />}
+                    {output && <CandidateMiniGrid job={job} output={output} onCopyPath={onCopyPath} onCandidatePixelize={onCandidatePixelize} />}
                     {job.batch_name && <Typography color="text.secondary" variant="caption">素材包：{job.batch_name}</Typography>}
                   </CardContent>
                   <CardActions>
@@ -103,6 +105,23 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function CandidateMiniGrid({ job, output, onCopyPath, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; onCopyPath: (path: string) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
+  if (!output.candidates?.length) return null
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.75 }}>
+      {output.candidates.slice(0, 9).map((candidate) => (
+        <Box key={candidate.path} sx={{ minWidth: 0 }}>
+          <Box component="img" src={candidate.url ?? undefined} alt={`候选 ${candidate.index}`} loading="lazy" decoding="async" sx={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'contain', imageRendering: 'pixelated', bgcolor: 'background.default', border: 1, borderColor: 'divider', borderRadius: 1, p: 0.5 }} />
+          <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
+            <Button size="small" variant="text" onClick={() => onCopyPath(candidate.path)}>路径</Button>
+            {onCandidatePixelize && <Button size="small" variant="text" onClick={() => onCandidatePixelize(job, candidate)}>用它</Button>}
+          </Stack>
+        </Box>
+      ))}
+    </Box>
   )
 }
 

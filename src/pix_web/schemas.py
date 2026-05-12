@@ -33,6 +33,23 @@ def _grid_meta_from_output_meta(path: str | None) -> dict[str, Any]:
     return grid if isinstance(grid, dict) else {}
 
 
+def _contact_sheet_meta(path: str | None) -> dict[str, Any]:
+    image_gen = _load_meta_json(path).get("image_gen")
+    if not isinstance(image_gen, dict):
+        return {}
+    contact_sheet = image_gen.get("contact_sheet")
+    return contact_sheet if isinstance(contact_sheet, dict) else {}
+
+
+def _resolve_meta_relative_path(meta_json_path: str | None, value: str | None) -> str | None:
+    if not meta_json_path or not value:
+        return None
+    path = Path(value)
+    if path.is_absolute():
+        return str(path)
+    return str(Path(meta_json_path).with_name(value) if "/" not in value and "\\" not in value else Path(meta_json_path).parent / value)
+
+
 JobStatus = Literal["pending", "running", "succeeded", "failed", "cancelled"]
 
 
@@ -59,9 +76,23 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class BootstrapAdminRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    display_name: str = Field(default="", max_length=120)
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class SetupStatusResponse(BaseModel):
+    needs_admin: bool
+    user_count: int
+    admin_count: int
+    email_provider: str
+    debug_codes_available: bool
 
 
 class UserResponse(BaseModel):
@@ -73,6 +104,12 @@ class UserResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class BootstrapAdminResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
 
 
 class CreditBalanceResponse(BaseModel):
@@ -198,6 +235,41 @@ class JobOutputResponse(BaseModel):
 
     @computed_field
     @property
+    def contact_sheet_path(self) -> str | None:
+        sheet = _contact_sheet_meta(self.meta_json_path).get("sheet")
+        return _resolve_meta_relative_path(self.meta_json_path, str(sheet)) if sheet else None
+
+    @computed_field
+    @property
+    def contact_sheet_url(self) -> str | None:
+        return file_url(self.contact_sheet_path)
+
+    @computed_field
+    @property
+    def candidates(self) -> list[dict[str, Any]]:
+        contact_sheet = _contact_sheet_meta(self.meta_json_path)
+        raw_candidates = contact_sheet.get("candidates")
+        if not isinstance(raw_candidates, list):
+            return []
+        result: list[dict[str, Any]] = []
+        for item in raw_candidates:
+            if not isinstance(item, dict):
+                continue
+            path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("path") or ""))
+            if not path:
+                continue
+            result.append({
+                "index": item.get("index"),
+                "row": item.get("row"),
+                "col": item.get("col"),
+                "path": path,
+                "url": file_url(path),
+                "bbox": item.get("bbox"),
+            })
+        return result
+
+    @computed_field
+    @property
     def source_url(self) -> str | None:
         return file_url(self.source_path)
 
@@ -293,13 +365,35 @@ class PricingRuleUpdateRequest(BaseModel):
 class SystemSettingResponse(BaseModel):
     key: str
     value: str
-    updated_at: datetime
+    updated_at: datetime | None
+    label: str = ""
+    category: str = ""
+    type: str = "string"
+    help: str = ""
+    options: list[str] = Field(default_factory=list)
+    secret: bool = False
+    masked: bool = False
+    restart_required: bool = False
+    editable: bool = True
+    env_var: str = ""
+    source: str = "database"
 
     model_config = {"from_attributes": True}
 
 
 class SystemSettingUpdateRequest(BaseModel):
-    value: str = Field(max_length=256)
+    value: str | None = Field(default=None, max_length=4000)
+    clear: bool = False
+
+
+class EmailTestRequest(BaseModel):
+    email: EmailStr
+
+
+class EmailTestResponse(BaseModel):
+    ok: bool = True
+    message: str
+    debug_code: str | None = None
 
 
 class CreditPackageResponse(BaseModel):
@@ -309,8 +403,28 @@ class CreditPackageResponse(BaseModel):
     amount_cents: int
     currency: str
     enabled: bool
+    sort_order: int = 0
 
     model_config = {"from_attributes": True}
+
+
+class CreditPackageCreateRequest(BaseModel):
+    key: str = Field(min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$")
+    name: str = Field(min_length=1, max_length=120)
+    credits: int = Field(ge=1)
+    amount_cents: int = Field(ge=0)
+    currency: str = Field(default="cny", max_length=12)
+    enabled: bool = True
+    sort_order: int = 0
+
+
+class CreditPackageUpdateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    credits: int = Field(ge=1)
+    amount_cents: int = Field(ge=0)
+    currency: str = Field(default="cny", max_length=12)
+    enabled: bool = True
+    sort_order: int = 0
 
 
 class PaymentOrderCreateRequest(BaseModel):

@@ -96,13 +96,15 @@ def test_pipeline_from_prompt(
     result = run_pipeline(cfg, inputs, progress=lambda s, _p: events.append(s))
 
     assert gen_calls["n"] == 1
-    assert vl_calls["n"] == 1
+    assert vl_calls["n"] == 2  # prompt guard + 图片分析
     assert result.source_path.exists()
     assert result.analysis is not None
     assert result.analysis.description == "mock"
     assert result.pixel_path.exists()
     assert result.preview_path is not None and result.preview_path.exists()
     assert result.meta["vision"]["ok"] is True
+    assert result.meta["image_gen"]["contact_sheet"]["count"] == 9
+    assert result.meta["outputs"]["contact_sheet"] == "01_contact_sheet.png"
     assert "source_ready" in events
     assert "analysis_ready" in events
     assert "pixelize_ready" in events
@@ -110,7 +112,7 @@ def test_pipeline_from_prompt(
     # 再跑一次应命中缓存：网络不再被调
     result2 = run_pipeline(cfg, inputs)
     assert gen_calls["n"] == 1  # 没变
-    assert vl_calls["n"] == 1
+    assert vl_calls["n"] == 3  # 第二次仍会审核用户输入，但图片分析命中缓存
     assert result2.analysis is not None
 
 
@@ -137,7 +139,7 @@ def test_pipeline_skip_vl(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
         use_cache=False,
     )
     result = run_pipeline(cfg, inputs)
-    assert vl_calls["n"] == 0
+    assert vl_calls["n"] == 1  # skip_vl 不跳过用户描述审核
     assert result.analysis is None
     assert result.analysis_path is None
     assert result.pixel_path.exists()
@@ -180,9 +182,9 @@ def test_pipeline_from_image_edit(
     result = run_pipeline(cfg, inputs, progress=lambda s, _p: events.append(s))
 
     assert edit_calls["n"] == 1
-    assert vl_calls["n"] == 1
+    assert vl_calls["n"] == 2
     assert result.source_path.exists()
-    assert result.meta["image_gen"]["mode"] == "edited"
+    assert result.meta["image_gen"]["mode"] == "edited_contact_sheet"
     assert result.meta["image_gen"]["used"] is True
     assert "image_edit_start" in events
     assert "source_ready" in events

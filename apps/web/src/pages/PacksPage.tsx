@@ -2,7 +2,7 @@ import { Box, Stack } from '@mui/material'
 import { BatchPanel } from '../components/BatchPanel'
 import { GalleryGrid } from '../components/GalleryGrid'
 import { PageHeader } from '../components/PageHeader'
-import type { GenerationBatch, GenerationJob } from '../types'
+import type { ContactSheetCandidate, GenerationBatch, GenerationJob } from '../types'
 
 interface PacksPageProps {
   batches: GenerationBatch[]
@@ -21,10 +21,11 @@ interface PacksPageProps {
   onDeleteBatch: (batch: GenerationBatch) => void
   onSelectJob: (job: GenerationJob) => void
   onCopyPath: (path: string) => void
+  onCandidatePixelize: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>
   onRefresh: () => void
 }
 
-export function PacksPage({ batches, selectedBatch, selectedBatchId, selectedBatchJobs, selectedJobId, retrying, downloading, onSelectBatch, onClearSelection, onRetryFailed, onDownloadBatch, onRenameBatch, onToggleArchive, onDeleteBatch, onSelectJob, onCopyPath, onRefresh }: PacksPageProps) {
+export function PacksPage({ batches, selectedBatch, selectedBatchId, selectedBatchJobs, selectedJobId, retrying, downloading, onSelectBatch, onClearSelection, onRetryFailed, onDownloadBatch, onRenameBatch, onToggleArchive, onDeleteBatch, onSelectJob, onCopyPath, onCandidatePixelize, onRefresh }: PacksPageProps) {
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(300px, 420px) minmax(0, 1fr)' }, gap: 3, alignItems: 'start' }}>
       <Box sx={{ minWidth: 0 }}>
@@ -50,7 +51,7 @@ export function PacksPage({ batches, selectedBatch, selectedBatchId, selectedBat
           description={selectedBatch ? '仅显示当前素材包。' : '选择素材包查看作品和失败项。'}
           tint="mint"
         />
-        <GalleryGrid jobs={selectedBatch ? selectedBatchJobs : []} subtitle={selectedBatch ? `素材包：${selectedBatch.name}` : '请选择素材包'} selectedJobId={selectedJobId} onSelect={onSelectJob} onCopyPath={onCopyPath} />
+        <GalleryGrid jobs={selectedBatch ? selectedBatchJobs : []} subtitle={selectedBatch ? `素材包：${selectedBatch.name}` : '请选择素材包'} selectedJobId={selectedJobId} onSelect={onSelectJob} onCopyPath={onCopyPath} onCandidatePixelize={onCandidatePixelize} />
       </Stack>
     </Box>
   )

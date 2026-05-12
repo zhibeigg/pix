@@ -46,6 +46,26 @@ class ImageGenConfig:
     output_format: str = "png"
     # 图生图编辑时尽量保留原图主体和细节：low | high（Packy/OpenAI 兼容参数）
     edit_input_fidelity: str = "high"
+    # 受控生图：默认让模型一次生成九宫格候选，后端再切图和抠绿幕。
+    contact_sheet_enabled: bool = True
+    contact_sheet_rows: int = 3
+    contact_sheet_cols: int = 3
+    green_screen_color: str = "#00FF00"
+    green_screen_tolerance: int = 48
+    contact_sheet_prompt_template: str = (
+        "Create a {rows}x{cols} contact sheet containing exactly {count} distinct variations of: {description}. "
+        "Each cell contains one centered isolated game asset icon, consistent scale, clear spacing, no overlap. "
+        "Use a pure green screen background {green} across the entire image for easy chroma-key removal. "
+        "No text, no watermark, no UI frame, no labels, no extra props outside each item. "
+        "Readable silhouette, high contrast, thick dark outline, pixel-art friendly details, "
+        "designed to become a {width}x{height} RPG inventory sprite."
+    )
+    # Prompt guard 只审核用户原始输入，不把服务端模板暴露给模型。
+    prompt_guard_enabled: bool = True
+    prompt_guard_remote: bool = True
+    prompt_guard_model: str = ""
+    prompt_guard_failure_policy: str = "local"  # local | reject
+    prompt_guard_max_chars: int = 500
 
 
 @dataclass
@@ -106,6 +126,8 @@ class AssetConfig:
     ai_grid_retries: int = 1
     ai_grid_instruction: str = ""
     ai_grid_fallback: str = "extract"
+    style_reference_dir: str = ""
+    style_reference_limit: int = 3
     ai_grid_draft: bool = True
     ai_grid_draft_max_axis: int = 64
     ai_grid_draft_preview_scale: int = 8
@@ -119,7 +141,7 @@ class AssetConfig:
     fit_min_axis_coverage: float = 0.7
     prompt_template: str = (
         "A single fantasy pixel game inventory item icon of {name}. "
-        "Centered object, isolated on plain white background, no text, no UI frame, "
+        "Centered object, isolated on pure green screen background #00FF00, no text, no UI frame, "
         "no shadow outside the item, thick dark outline, high contrast, readable silhouette, "
         "designed to become a {width}x{height} RPG inventory sprite."
     )

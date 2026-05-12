@@ -50,7 +50,7 @@ def test_rq_process_job_id_processes_pending_job(tmp_path, monkeypatch) -> None:
     def fake_settings():
         return settings
 
-    def fake_run(_job, _settings):
+    def fake_run(_job, _settings, *, cfg=None):
         return SimpleNamespace(
             run_dir=run_dir,
             source_path=source,

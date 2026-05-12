@@ -17,13 +17,17 @@ from pix_web.email_verification import (
 )
 from pix_web.models import User
 from pix_web.schemas import (
+    BootstrapAdminRequest,
+    BootstrapAdminResponse,
     EmailCodeRequest,
     EmailCodeResponse,
     LoginRequest,
     RegisterRequest,
+    SetupStatusResponse,
     TokenResponse,
     UserResponse,
 )
+from pix_web.system_settings import load_effective_web_settings
 from pix_web.security import (
     create_access_token,
     find_user_by_email,
@@ -37,11 +41,63 @@ from pix_web.security import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def _user_count(db: Session) -> int:
+    return db.scalar(select(func.count()).select_from(User)) or 0
+
+
+def _admin_count(db: Session) -> int:
+    return db.scalar(select(func.count()).select_from(User).where(User.role == "admin")) or 0
+
+
 def _raise_email_code_error(exc: EmailCodeError) -> None:
     headers = {}
     if exc.retry_after_seconds is not None:
         headers["Retry-After"] = str(exc.retry_after_seconds)
     raise HTTPException(status_code=exc.status_code, detail=exc.detail, headers=headers)
+
+
+@router.get("/setup-status", response_model=SetupStatusResponse)
+def setup_status(
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> SetupStatusResponse:
+    effective = load_effective_web_settings(db, settings)
+    admins = _admin_count(db)
+    users = _user_count(db)
+    return SetupStatusResponse(
+        needs_admin=admins == 0,
+        user_count=users,
+        admin_count=admins,
+        email_provider=effective.email_provider,
+        debug_codes_available=effective.email_debug_codes or effective.email_provider == "console",
+    )
+
+
+@router.post("/bootstrap-admin", response_model=BootstrapAdminResponse)
+def bootstrap_admin(
+    req: BootstrapAdminRequest,
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> BootstrapAdminResponse:
+    if _user_count(db) != 0:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="站点已完成初始化")
+    email = normalize_email(str(req.email))
+    user = User(
+        email=email,
+        password_hash=hash_password(req.password),
+        display_name=req.display_name.strip() or email.split("@", 1)[0],
+        role="admin",
+    )
+    db.add(user)
+    db.flush()
+    ensure_credit_account(db, user)
+    db.commit()
+    db.refresh(user)
+    effective = load_effective_web_settings(db, settings)
+    return BootstrapAdminResponse(
+        access_token=create_access_token(user, effective),
+        user=UserResponse.model_validate(user),
+    )
 
 
 @router.post("/register-code", response_model=EmailCodeResponse)
@@ -50,24 +106,25 @@ def request_register_code(
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> EmailCodeResponse:
+    effective = load_effective_web_settings(db, settings)
     email = normalize_email(str(req.email))
     if find_user_by_email(db, email) is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="邮箱已注册")
     try:
-        result = create_email_code(db, settings, email)
+        result = create_email_code(db, effective, email)
     except EmailCodeError as exc:
         db.rollback()
         _raise_email_code_error(exc)
     try:
-        send_verification_email(settings, email, result.code)
+        send_verification_email(effective, email, result.code)
     except EmailDeliveryError as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     db.commit()
     return EmailCodeResponse(
         retry_after_seconds=result.retry_after_seconds,
-        expires_in_seconds=settings.email_code_ttl_seconds,
-        debug_code=result.code if settings.email_debug_codes or settings.email_provider == "console" else None,
+        expires_in_seconds=effective.email_code_ttl_seconds,
+        debug_code=result.code if effective.email_debug_codes or effective.email_provider == "console" else None,
     )
 
 
@@ -77,15 +134,16 @@ def register(
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> User:
+    effective = load_effective_web_settings(db, settings)
     email = normalize_email(str(req.email))
     if find_user_by_email(db, email) is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="邮箱已注册")
     try:
-        consume_email_code(db, settings, email, req.verification_code)
+        consume_email_code(db, effective, email, req.verification_code)
     except EmailCodeError as exc:
         db.commit()
         _raise_email_code_error(exc)
-    user_count = db.scalar(select(func.count()).select_from(User)) or 0
+    user_count = _user_count(db)
     user = User(
         email=email,
         password_hash=hash_password(req.password),
@@ -106,12 +164,13 @@ def login(
     db: Session = Depends(get_db),
     settings=Depends(get_settings),
 ) -> TokenResponse:
+    effective = load_effective_web_settings(db, settings)
     user = find_user_by_email(db, req.email.lower())
     if user is None or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="邮箱或密码错误")
     if user.status != "active":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账号不可用")
-    return TokenResponse(access_token=create_access_token(user, settings))
+    return TokenResponse(access_token=create_access_token(user, effective))
 
 
 @router.get("/me", response_model=UserResponse)

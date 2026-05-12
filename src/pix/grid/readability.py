@@ -125,6 +125,13 @@ def evaluate_grid_readability(grid: PixelGrid, *, max_colors: int = 8) -> GridRe
         issues.append(GridReadabilityIssue("warning", "isolated_pixels", f"存在 {isolated_pixels} 个孤立像素"))
     if highlight_ratio > 0.16:
         issues.append(GridReadabilityIssue("warning", "highlight_too_much", f"高光像素占比 {highlight_ratio:.0%} 偏高"))
+    if min(width, height) <= 8:
+        if touches_edges:
+            issues.append(GridReadabilityIssue("blocking", "tiny_touches_edge", "8x8 主体触边，缺少手绘图标留白"))
+        if bbox_coverage > 0.82:
+            issues.append(GridReadabilityIssue("blocking", "tiny_bbox_too_large", f"8x8 bbox 占比 {bbox_coverage:.0%}，过满像缩图块"))
+        if visible_ratio > 0.62:
+            issues.append(GridReadabilityIssue("blocking", "tiny_too_dense", f"8x8 可见像素占比 {visible_ratio:.0%}，过密像缩图噪点"))
     if touches_edges:
         issues.append(GridReadabilityIssue("warning", "touches_edge", "主体触碰画布边缘"))
 

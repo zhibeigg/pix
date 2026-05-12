@@ -20,6 +20,7 @@ from pix_web.main import create_app
 from pix_web.models import GenerationBatch
 from pix_web.payment_providers import _alipay_sign_content, _rsa_sign
 from pix_web.worker import process_next_job
+from pix_web.system_settings import managed_pix_overrides_from_db
 
 
 @pytest.fixture()
@@ -33,6 +34,13 @@ def client(tmp_path):
     app = create_app(settings)
     with TestClient(app) as c:
         yield c
+
+
+def _cors_preflight(client: TestClient, origin: str):
+    return client.options(
+        "/auth/register-code",
+        headers={"Origin": origin, "Access-Control-Request-Method": "POST"},
+    )
 
 
 def _register_and_login(client: TestClient, email: str = "admin@example.com") -> tuple[dict, dict]:
@@ -53,6 +61,62 @@ def _register_and_login(client: TestClient, email: str = "admin@example.com") ->
     ).json()
     headers = {"Authorization": f"Bearer {token['access_token']}"}
     return user, headers
+
+
+def test_cors_allows_local_dev_origins(tmp_path) -> None:
+    settings = WebSettings(
+        database_url=f"sqlite:///{tmp_path / 'cors-local.db'}",
+        jwt_secret="test-secret",
+        storage_root=tmp_path / "storage",
+    )
+    app = create_app(settings)
+    with TestClient(app) as c:
+        response = _cors_preflight(c, "http://localhost:5174")
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5174"
+
+
+def test_cors_allows_configured_production_origin(tmp_path) -> None:
+    settings = WebSettings(
+        database_url=f"sqlite:///{tmp_path / 'cors-production.db'}",
+        jwt_secret="test-secret",
+        storage_root=tmp_path / "storage",
+        cors_origins=("https://pix.example.com",),
+    )
+    app = create_app(settings)
+    with TestClient(app) as c:
+        response = _cors_preflight(c, "https://pix.example.com")
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "https://pix.example.com"
+
+
+def test_setup_status_and_bootstrap_admin(tmp_path) -> None:
+    settings = WebSettings(
+        database_url=f"sqlite:///{tmp_path / 'setup.db'}",
+        jwt_secret="test-secret",
+        storage_root=tmp_path / "storage",
+    )
+    app = create_app(settings)
+    with TestClient(app) as c:
+        status_response = c.get("/auth/setup-status")
+        assert status_response.status_code == 200
+        assert status_response.json()["needs_admin"] is True
+
+        bootstrap = c.post(
+            "/auth/bootstrap-admin",
+            json={"email": "owner@example.com", "password": "password123", "display_name": "Owner"},
+        )
+        assert bootstrap.status_code == 200
+        assert bootstrap.json()["user"]["role"] == "admin"
+        headers = {"Authorization": f"Bearer {bootstrap.json()['access_token']}"}
+        assert c.get("/auth/me", headers=headers).json()["email"] == "owner@example.com"
+        assert c.get("/auth/setup-status").json()["needs_admin"] is False
+
+        second = c.post(
+            "/auth/bootstrap-admin",
+            json={"email": "second@example.com", "password": "password123", "display_name": "Second"},
+        )
+        assert second.status_code == 409
 
 
 def test_register_login_and_admin_adjust_credits(client: TestClient) -> None:
@@ -170,6 +234,87 @@ def test_register_code_resend_is_throttled(client: TestClient) -> None:
     assert first.status_code == 200
     assert second.status_code == 429
     assert int(second.headers["Retry-After"]) > 0
+
+
+def test_admin_settings_metadata_secret_masking_and_pix_override(client: TestClient) -> None:
+    _user, headers = _register_and_login(client, "settings-admin@example.com")
+
+    settings_response = client.get("/admin/settings", headers=headers)
+    assert settings_response.status_code == 200
+    settings_payload = settings_response.json()
+    image_key = next(item for item in settings_payload if item["key"] == "pix.api.image_api_key")
+    assert image_key["secret"] is True
+    assert image_key["category"] == "模型与 API"
+    assert image_key["value"] == ""
+
+    update = client.put(
+        "/admin/settings/pix.api.image_api_key",
+        headers=headers,
+        json={"value": "sk-test-managed"},
+    )
+    assert update.status_code == 200
+    assert update.json()["masked"] is True
+    assert update.json()["value"] == ""
+
+    session_factory = client.app.state.SessionLocal
+    with session_factory() as db:
+        overrides = managed_pix_overrides_from_db(db)
+    assert overrides["api"]["image_api_key"] == "sk-test-managed"
+
+
+def test_admin_test_email_uses_effective_settings(client: TestClient) -> None:
+    _admin, headers = _register_and_login(client, "mail-admin@example.com")
+
+    response = client.post("/admin/settings/test-email", headers=headers, json={"email": "mail-target@example.com"})
+
+    assert response.status_code == 200
+    assert response.json()["debug_code"]
+
+
+def test_admin_settings_reject_non_admin(client: TestClient) -> None:
+    _admin, _admin_headers = _register_and_login(client, "settings-owner@example.com")
+    _user, user_headers = _register_and_login(client, "settings-user@example.com")
+
+    response = client.get("/admin/settings", headers=user_headers)
+
+    assert response.status_code == 403
+
+
+def test_admin_can_manage_credit_packages(client: TestClient) -> None:
+    _admin, headers = _register_and_login(client, "packages-admin@example.com")
+
+    created = client.post(
+        "/admin/packages",
+        headers=headers,
+        json={
+            "key": "tiny",
+            "name": "Tiny",
+            "credits": 10,
+            "amount_cents": 100,
+            "currency": "cny",
+            "enabled": True,
+            "sort_order": 5,
+        },
+    )
+    assert created.status_code == 200
+    assert created.json()["key"] == "tiny"
+
+    disabled = client.put(
+        "/admin/packages/tiny",
+        headers=headers,
+        json={
+            "name": "Tiny",
+            "credits": 10,
+            "amount_cents": 100,
+            "currency": "cny",
+            "enabled": False,
+            "sort_order": 5,
+        },
+    )
+    assert disabled.status_code == 200
+    assert disabled.json()["enabled"] is False
+    public_keys = {item["key"] for item in client.get("/billing/packages").json()}
+    assert "tiny" not in public_keys
 
 
 def test_admin_dashboard_requires_admin_and_reports_counts(client: TestClient) -> None:
@@ -725,7 +870,7 @@ def test_download_batch_zip_includes_successful_outputs(client: TestClient, tmp_
     analysis.write_text("{}", encoding="utf-8")
     meta.write_text("{}", encoding="utf-8")
 
-    def fake_run(_job, _settings):
+    def fake_run(_job, _settings, *, cfg=None):
         return SimpleNamespace(
             run_dir=run_dir,
             source_path=source,
@@ -775,7 +920,7 @@ def test_retry_failed_batch_jobs_requeues_into_same_batch(client: TestClient, mo
         json={"batch_name": "Retry Pack", "jobs": [{"job_type": "text_to_image", "prompt": "pixel cat"}]},
     ).json()
 
-    def fail(_job, _settings):
+    def fail(_job, _settings, *, cfg=None):
         raise RuntimeError("boom")
 
     monkeypatch.setattr("pix_web.worker.run_job_pipeline", fail)
@@ -819,7 +964,7 @@ def test_retry_failed_batch_is_atomic_when_credits_are_insufficient(client: Test
         json={"jobs": [{"job_type": "text_to_image", "prompt": "pixel cat"}]},
     ).json()
 
-    def fail(_job, _settings):
+    def fail(_job, _settings, *, cfg=None):
         raise RuntimeError("boom")
 
     monkeypatch.setattr("pix_web.worker.run_job_pipeline", fail)
@@ -842,7 +987,7 @@ def test_retry_failed_batch_rejects_other_users(client: TestClient, monkeypatch)
         json={"jobs": [{"job_type": "text_to_image", "prompt": "pixel cat"}]},
     ).json()
 
-    def fail(_job, _settings):
+    def fail(_job, _settings, *, cfg=None):
         raise RuntimeError("boom")
 
     monkeypatch.setattr("pix_web.worker.run_job_pipeline", fail)
@@ -871,7 +1016,7 @@ def test_worker_success_consumes_reserved_credits(client: TestClient, tmp_path, 
     Image.new("RGBA", (4, 4), (0, 255, 0, 255)).save(pixel)
     meta.write_text("{}", encoding="utf-8")
 
-    def fake_run(_job, _settings):
+    def fake_run(_job, _settings, *, cfg=None):
         return SimpleNamespace(
             run_dir=run_dir,
             source_path=source,
@@ -907,7 +1052,7 @@ def test_worker_failure_refunds_reserved_credits(client: TestClient, monkeypatch
     client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})
     client.post("/jobs", headers=headers, json={"job_type": "text_to_image", "prompt": "pixel cat"})
 
-    def fail(_job, _settings):
+    def fail(_job, _settings, *, cfg=None):
         raise RuntimeError("boom")
 
     monkeypatch.setattr("pix_web.worker.run_job_pipeline", fail)

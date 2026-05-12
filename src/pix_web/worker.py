@@ -14,6 +14,7 @@ from pix_web.credits import consume_reserved, refund_reserved
 from pix_web.db import init_db, make_engine, make_session_factory
 from pix_web.models import GenerationJob, GenerationOutput, utcnow
 from pix_web.pipeline_adapter import run_job_pipeline
+from pix_web.system_settings import load_managed_pix_config
 
 
 def claim_next_job(db: Session) -> GenerationJob | None:
@@ -34,7 +35,8 @@ def claim_next_job(db: Session) -> GenerationJob | None:
 
 def process_job(db: Session, job: GenerationJob, settings: WebSettings) -> GenerationJob:
     try:
-        result = run_job_pipeline(job, settings)
+        cfg = load_managed_pix_config(db, settings)
+        result = run_job_pipeline(job, settings, cfg=cfg)
         output = GenerationOutput(
             job_id=job.id,
             run_dir=str(result.run_dir),

@@ -25,10 +25,11 @@
 
 `pix` 把「想象 → 生图 → 理解 → 像素化」串成一条流水线：
 
-1. 你写一句 prompt（或丢一张图进来；也可以“图片 + prompt”走图生图编辑）
-2. `gpt-image-2` 按 prompt 生图，或通过 Packy `/v1/images/edits` 做图生图
-3. Claude / Gemini / GPT-4o 读图，输出**结构化 JSON**（调色板、主体 ROI、语义区域）
-4. Python 根据 JSON 生成**真正的像素画**：锁定调色板、语义区域调色、抖动、风格预设
+1. 你写一句素材描述（或丢一张图进来；也可以“图片 + 描述”走图生图编辑）
+2. 后端先审核原始描述，再把它包装为受控 prompt：默认生成 **3×3 纯绿幕九宫格候选图**
+3. Python 自动切出 9 个候选，抠掉 `#00FF00` 绿幕并裁剪主体；默认候选继续进入像素化流程
+4. Claude / Gemini / GPT-4o 可选读图，输出**结构化 JSON**（调色板、主体 ROI、语义区域）
+5. Python 根据 JSON 或候选源图生成**真正的像素画**：锁定调色板、语义区域调色、抖动、风格预设
 
 全程产物落盘，随时回看；缓存按内容哈希，重复 prompt 不烧第二次钱。CLI 与 GUI 共用同一套管线。
 
@@ -36,7 +37,8 @@
 
 ## ✨ 特性
 
-- **三种起点**：一句 prompt 从头生图、直接丢一张现成图片像素化，或“图片 + prompt”走 Packy 图生图编辑后再像素化
+- **三种起点**：一句素材描述从头生图、直接丢一张现成图片像素化，或“图片 + 描述”走 Packy 图生图编辑后再像素化
+- **受控九宫格候选**：默认把用户描述包装为服务端 prompt，一次生成 3×3 纯绿幕候选图，自动切图、抠绿幕并让用户挑选继续像素化
 - **像素对齐 & 透明背景**：`smart` 下采样自动探测输入像素格并吸附，边缘不再糊；一键 `--remove-bg` 把纯色底抠成透明 PNG
 - **AI 低像素工程图（可选）**：16×16 / 22×22 / 32×32 小图标可让模型结合原始 prompt、源图、源图实际像素格 draft 和可读性诊断，直接返回 `palette + pixels[y][x]` 字符串矩阵，再由 Python 校验、返修、清理和精确渲染
 - **结构化 JSON**：VL 模型不是一句描述就完事，而是输出调色板、主体位置、语义区域建议，严格经 Pydantic 校验，失败自动带修正提示重试
@@ -81,8 +83,10 @@
 
 ```
 outputs/20260509-142359-a1b2c3d4/
-├── 00_input.txt            # 输入（prompt 或图片路径）
-├── 01_source.png           # 原图（生成或上传）
+├── 00_input.txt            # 输入（素材描述或图片路径）
+├── 01_contact_sheet.png    # 默认受控生图的 3×3 绿幕候选总图
+├── candidates/             # 绿幕抠图后的候选 candidate_01.png ... candidate_09.png
+├── 01_source.png           # 默认候选（或上传图），供后续像素化
 ├── 02_analysis.json        # VL 结构化分析
 ├── 03_pixelized.png        # 最终像素图
 ├── 03_pixelized.grid.json  # 可选 Pixel Grid 工程图（Grid 提取 / AI Grid 时输出）
@@ -182,6 +186,7 @@ pix analyze my_photo.png --model claude-sonnet-4-5           # 只做 VL 分析
 pix gen-only "一只像素风橘猫"                                 # 只做文生图
 pix asset "血气灵玉" --out 图片/血气灵玉.png                    # 游戏素材直出：生图 → Grid JSON → 16x16 透明 PNG
 pix asset "血气灵玉" --ai-grid --ai-grid-retries 2              # 可选 AI Grid：模型直出 palette + pixels，再自动校验返修
+pix asset "血气灵玉" --ai-grid --style-reference-dir "D:/伏魔录项目/美工/icon" # 参考手绘图标目录，提升 16x/8x 美术语言
 pix grid-extract source.png --pixel-size 16x16 --colors 12 --out item.grid.json --render item.png
 pix grid-render item.grid.json --out 图片/item.png              # Grid JSON → 精确 PNG
 pix validate 图片/血气灵玉.png --pixel-size 16x16 --max-colors 16 # 检查素材是否可直接进游戏
@@ -209,11 +214,15 @@ pix gui                                                      # 启动图形界�
 | `--crop-padding N` | 自动裁剪外扩比例 | `0.12` |
 | `--crop-square / --no-crop-square` | 自动裁剪时保持正方形 | `true` |
 | `--vl-model` | 视觉模型名 | 从配置读 |
-| `--no-vl` | 跳过多模态分析（纯 Python 兜底） | `false` |
+| `--no-vl` | 跳过图片多模态分析（不跳过用户描述本地审核） | `false` |
+| `[image_gen].contact_sheet_enabled` | 文生图/图生图默认生成 3×3 绿幕候选；`pix gen-only` 会输出 `01_contact_sheet.png`、`candidates/` 和兼容的 `01_source.png` | `true` |
+| `[image_gen].prompt_guard_enabled` | 审核用户原始素材描述；无 VL key 时退回本地规则，模型失败默认不阻塞 | `true` |
 | `pix asset --ai-grid` | 可选 AI Grid 直绘：模型结合原始 prompt、源图和源图网格对齐 draft，直接返回 `palette + pixels[y][x]`，后端做 schema 校验、可读性评分、自动返修和 PNG 渲染；8×8 会强制启用且 fallback 固定为 `fail` | 关 |
 | `pix asset --pixel-size WxH` | 素材尺寸；16×16 以下仅允许 8×8，且 8×8 必须 AI Grid 直绘 | `[asset].pixel_size` |
 | `[asset].ai_grid_draft_max_axis` | 传给 VL 的 Python draft 最大轴；draft 优先使用源图检测出的实际像素格尺寸，而不是最终目标尺寸，避免 16×16 直接压糊 | `64` |
 | `pix asset --ai-grid-retries N` | AI Grid 可读性返修次数；`--grid-review` 会再增加一次模型审核调用 | `1` |
+| `pix asset --style-reference-dir PATH` | 传入手绘图标目录，AI Grid 会选取少量 16x16 人工图标作为风格参考，学习留白、轮廓、色阶和高光 | `[asset].style_reference_dir` |
+| `pix asset --style-reference-limit N` | 每次传给 VL 的手绘参考图数量 | `3` |
 | `pix asset --ai-grid-fallback extract\|pixelize\|fail` | AI Grid 失败后的回退策略 | `extract` |
 | `--no-cache` / `--refresh` | 禁用缓存 / 忽略命中强刷 | `false` |
 | `--image-size WxH` | 生图尺寸（遵循 Packy 限制） | `1024x1024` |
@@ -222,7 +231,7 @@ pix gui                                                      # 启动图形界�
 
 ### 网站版 MVP
 
-`pix` 现在包含网站版 MVP：FastAPI API + 点数账户 + 生成任务队列 + 串行 worker，以及 Vite + React 前端工作台。工作台以作品网格为中心，支持单图生成、批量生产、免费本地微调和 AI 微调；单图、批量和微调表单都可显式启用 AI 低像素工程图，并在结果里展示可读性评分、自动返修和回退状态。首页把“价值”和“流程”合并为“核心优势”单页，强调 Pix 不是 AI 生图相册，而是从源图、Pixel Grid 工程图、透明 PNG、失败重试到 ZIP 导出的素材生产线；素材包看板还包含“尺寸校准台”，用同一素材的 32x、16x、8x 静态图示例展示多尺寸交付效果。第一版先用管理员手动加点模拟充值，后续可接 Stripe / 微信 / 支付宝。
+`pix` 现在包含网站版 MVP：FastAPI API + 点数账户 + 生成任务队列 + 串行 worker，以及 Vite + React 前端工作台。工作台以作品网格为中心，支持单图生成、批量生产、免费本地微调和 AI 微调；单图、批量和微调表单都可显式启用 AI 低像素工程图，并在结果里展示可读性评分、自动返修和回退状态。首页把“价值”和“流程”合并为“核心优势”单页，强调 Pix 不是 AI 生图相册，而是从源图、Pixel Grid 工程图、透明 PNG、失败重试到 ZIP 导出的素材生产线；素材包看板还包含“尺寸校准台”，用同一素材的 32x、16x、8x 静态图示例展示多尺寸交付效果。首次打开空站点会引导创建第一个管理员账户，随后可在独立管理后台配置运营保护、邮件验证码、模型/API、素材默认值、价格和充值套餐。
 
 > AI 低像素工程图默认关闭，不改变现有点数定价；启用后会额外调用视觉模型生成/返修 `palette + pixels`，前端会显示成本提醒。后端会把原始素材描述、初始源图、按源图实际像素格解析出的 draft PixelGrid、draft 放大预览图和可读性诊断一起交给 VL，用 draft 指导构图与主色，但最终仍要求模型输出目标尺寸。
 
@@ -244,6 +253,8 @@ PIX_WEB_QUEUE_BACKEND=database
 PIX_WEB_REDIS_URL=redis://localhost:6379/0
 PIX_WEB_RQ_QUEUE=pix-jobs
 PIX_WEB_RQ_WORKER_CLASS=simple
+# 前后端分离部署时填写允许访问 API 的前端 Origin，多个用英文逗号分隔；同源 /api 代理可留空
+PIX_WEB_CORS_ORIGINS=
 
 # 注册邮箱验证码：开发默认 console，生产建议 smtp
 PIX_WEB_EMAIL_PROVIDER=console
@@ -338,8 +349,10 @@ pix-web-check
 - 已配置 `PACKY_API_KEY`。
 - 已执行 `alembic upgrade head`，`pix-web-check` 显示 Alembic 在 head。
 - 生产环境已将 `PIX_WEB_EMAIL_PROVIDER` 配为 `smtp`，并填写 `PIX_WEB_SMTP_HOST`、`PIX_WEB_SMTP_FROM` 等邮件配置；`console` 仅适合开发/内测查看验证码日志。
+- 前端与 API 不同源时已配置 `PIX_WEB_CORS_ORIGINS=https://your-frontend-domain`；同源 `/api` 反向代理部署可留空。
 - `PIX_WEB_STORAGE_ROOT` 挂载到持久化卷，避免容器重建丢失上传和结果。
-- 管理员后台已配置生成总开关、每日任务上限、上传上限和 prompt 禁词。
+- 管理员后台已完成：邮件验证码测试、模型/API、素材默认值、价格规则、充值套餐和运营保护配置。
+- `database_url`、`jwt_secret`、`storage_root`、队列/Redis、支付私钥等高风险或启动级配置仍建议通过环境变量/密钥管理维护，后台只显示状态。
 
 启动前端工作台：
 
@@ -349,15 +362,19 @@ npm install
 npm run dev
 ```
 
-前端默认请求 `http://127.0.0.1:8000`，如需修改：
+前端默认请求同源 `/api`；Vite 开发服务器会把 `/api` 代理到 `http://127.0.0.1:8000`，因此从局域网访问前端时不会再把 API 错误指向浏览器本机。若 API 不在本机 8000，可修改代理目标或直接指定 API Base：
 
 ```bash
+VITE_PIX_API_PROXY_TARGET=http://127.0.0.1:8000 npm run dev
+# 或绕过 /api 代理，直接跨域请求指定后端（后端需配置 PIX_WEB_CORS_ORIGINS）
 VITE_PIX_API_BASE=http://127.0.0.1:8000 npm run dev
 ```
 
 前端工作台提供：
 
-- 账户注册：注册前需先获取邮箱验证码，再用验证码、邮箱和密码创建账户。
+- 首次初始化：空用户表时显示深色“像素工坊门禁”管理员创建向导，不依赖 SMTP 验证码，创建后自动进入管理后台。
+- 账户注册：注册前需先获取邮箱验证码，再用验证码、邮箱和密码创建账户；登录、注册和初始化共用一致的深色认证 UI、可操作错误提示和高对比表单控件。
+- 管理后台：管理员可配置运营保护、邮件验证码、模型/API、素材默认值、价格规则和充值套餐；数据库、JWT、队列、支付私钥等环境级配置只显示状态和环境变量名。
 - 作品网格：优先查看最近作品、任务状态、输出路径和图片预览，并可按素材包筛选。
 - 单图生成：快速文生图、上传图片图生图或上传图片本地像素化。
 - 批量生产：支持多行 prompt 批量文生图，也支持多张图片批量图生图或批量本地像素化，并自动归入可命名素材包；素材包可重命名、归档、删除空包，失败项可一键重新入队，成功项可打包下载 ZIP。
@@ -376,16 +393,17 @@ MVP 计费规则默认：
 | `local_pixelize` | 0 | 只做本地像素化 |
 | `repixelize` | 0 | 对历史源图免费重新像素化 |
 
-账号注册流程先调用 `POST /auth/register-code` 发送邮箱验证码，再调用 `POST /auth/register` 并携带 `verification_code` 完成注册。开发/内测默认 `console` 邮件模式会在响应中返回 `debug_code`；生产环境请配置 SMTP，若 SMTP 发送失败接口会返回 503 并提示配置或投递错误。任务创建时会先冻结点数；worker 成功后确认消费，失败会自动退款。批量生产使用 `POST /jobs/batch` 原子提交，避免部分任务创建成功后中途失败，并通过 `/batches` 按素材包查看批次统计。第一个注册用户会自动成为管理员，可通过 `/admin/users/{id}/adjust-credits` 手动加点。
+首次初始化流程先调用 `GET /auth/setup-status`；当 `needs_admin=true` 且用户表为空时，前端会展示初始化向导并调用 `POST /auth/bootstrap-admin` 创建首个管理员。普通账号注册流程仍先调用 `POST /auth/register-code` 发送邮箱验证码，再调用 `POST /auth/register` 并携带 `verification_code` 完成注册。开发/内测默认 `console` 邮件模式会在响应中返回 `debug_code`；生产环境请配置 SMTP，若 SMTP 发送失败接口会返回 503 并提示配置或投递错误。任务创建时会先冻结点数；worker 成功后确认消费，失败会自动退款。批量生产使用 `POST /jobs/batch` 原子提交，避免部分任务创建成功后中途失败，并通过 `/batches` 按素材包查看批次统计。管理员可通过 `/admin/users/{id}/adjust-credits` 手动加点。
 
 ### 游戏素材直出
 
-`pix asset` 是面向游戏资源目录的快捷生产线，默认参数按 16×16 物品图标优化：12 色、自动裁剪主体、自动抠透明背景，并默认启用 **Pixel Grid JSON 工程图**、Grid 轮廓和画布贴合后处理。image2 生成源图后会直接进入 Pixel Grid extract → cleanup/outline → fit_canvas → render，最终 PNG 不是直接 resize 的伪像素图，而是先提取 `pixels[y][x]` 与 `palette`，再由 Python 精确渲染。16×16 以下默认禁止，唯一例外是 8×8；8×8 必须使用 AI Grid 直绘，失败时不会静默回退。
+`pix asset` 是面向游戏资源目录的快捷生产线，默认参数按 16×16 物品图标优化：12 色、自动裁剪主体、自动抠透明背景，并默认启用 **Pixel Grid JSON 工程图**、Grid 轮廓和画布贴合后处理。image2 生成源图后会直接进入 Pixel Grid extract → cleanup/outline → fit_canvas → render，最终 PNG 不是直接 resize 的伪像素图，而是先提取 `pixels[y][x]` 与 `palette`，再由 Python 精确渲染。16×16 以下默认禁止，唯一例外是 8×8；8×8 必须使用 AI Grid 直绘，失败时不会静默回退。若要接近项目美工手画级别，建议为 16×16/8×8 开启 `--ai-grid` 并配置 `[asset].style_reference_dir` 或 `--style-reference-dir` 指向手绘图标目录；模型会额外看到少量人工 16×16 样本，用于学习留白、深色轮廓、斜面高光和色阶密度。
 
 ```bash
 pix asset "血气灵玉" --out 图片/血气灵玉.png
 pix asset "幽香腐骨菇" --extra-prompt "purple poisonous mushroom, green spores" --overwrite
 pix asset "紫髓铁" --out 图片/紫髓铁.png --grid-review     # 额外让 AI 审核/修正 Grid JSON
+pix asset "血气灵玉" --pixel-size 16x16 --ai-grid --style-reference-dir "D:/伏魔录项目/美工/icon" --ai-grid-retries 2
 pix validate 图片/血气灵玉.png --pixel-size 16x16 --max-colors 16
 ```
 

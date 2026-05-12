@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from pix.config import load_config
+from pix.config import AppConfig, load_config
 from pix.pipeline import GridDesignInput, PipelineInput, PipelineResult, run_pipeline
 from pix.pixelize.core import PixelizeParams
 from pix_web.config import WebSettings
@@ -67,7 +67,7 @@ def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> Pipeli
     )
 
 
-def run_job_pipeline(job: GenerationJob, settings: WebSettings) -> PipelineResult:
-    cfg = load_config(config_file=settings.pix_config_file)
+def run_job_pipeline(job: GenerationJob, settings: WebSettings, *, cfg: AppConfig | None = None) -> PipelineResult:
+    resolved_cfg = cfg or load_config(config_file=settings.pix_config_file)
     inputs = pipeline_input_from_job(job, settings)
-    return run_pipeline(cfg, inputs)
+    return run_pipeline(resolved_cfg, inputs)

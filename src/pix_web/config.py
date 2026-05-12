@@ -23,6 +23,7 @@ class WebSettings:
     rq_queue_name: str = "pix-jobs"
     rq_worker_class: str = "simple"
     public_base_url: str = "http://127.0.0.1:8000"
+    cors_origins: tuple[str, ...] = ()
     alipay_app_id: str = ""
     alipay_private_key: str = ""
     alipay_public_key: str = ""
@@ -58,6 +59,7 @@ _DEFAULTS = {
     "PIX_WEB_RQ_QUEUE": WebSettings.rq_queue_name,
     "PIX_WEB_RQ_WORKER_CLASS": WebSettings.rq_worker_class,
     "PIX_WEB_PUBLIC_BASE_URL": WebSettings.public_base_url,
+    "PIX_WEB_CORS_ORIGINS": "",
     "ALIPAY_GATEWAY": WebSettings.alipay_gateway,
     "WECHATPAY_API_BASE": WebSettings.wechat_api_base,
     "PIX_WEB_EMAIL_PROVIDER": WebSettings.email_provider,
@@ -85,6 +87,11 @@ def _env_int(name: str, default: int, minimum: int) -> int:
         return default
 
 
+def _env_csv(name: str) -> tuple[str, ...]:
+    raw = os.getenv(name, _DEFAULTS.get(name, ""))
+    return tuple(item.strip().rstrip("/") for item in raw.split(",") if item.strip())
+
+
 def load_web_settings() -> WebSettings:
     """从环境变量加载 Web 配置。"""
     database_url = os.getenv("PIX_WEB_DATABASE_URL", _DEFAULTS["PIX_WEB_DATABASE_URL"])
@@ -100,6 +107,7 @@ def load_web_settings() -> WebSettings:
     rq_queue_name = os.getenv("PIX_WEB_RQ_QUEUE", _DEFAULTS["PIX_WEB_RQ_QUEUE"])
     rq_worker_class = os.getenv("PIX_WEB_RQ_WORKER_CLASS", _DEFAULTS["PIX_WEB_RQ_WORKER_CLASS"]).lower()
     public_base_url = os.getenv("PIX_WEB_PUBLIC_BASE_URL", _DEFAULTS["PIX_WEB_PUBLIC_BASE_URL"]).rstrip("/")
+    cors_origins = _env_csv("PIX_WEB_CORS_ORIGINS")
     email_provider = os.getenv("PIX_WEB_EMAIL_PROVIDER", _DEFAULTS["PIX_WEB_EMAIL_PROVIDER"]).lower()
     try:
         poll_interval = max(0.1, float(poll_raw))
@@ -127,6 +135,7 @@ def load_web_settings() -> WebSettings:
         rq_queue_name=rq_queue_name or WebSettings.rq_queue_name,
         rq_worker_class=rq_worker_class if rq_worker_class in {"simple", "default"} else WebSettings.rq_worker_class,
         public_base_url=public_base_url,
+        cors_origins=cors_origins,
         alipay_app_id=os.getenv("ALIPAY_APP_ID", ""),
         alipay_private_key=os.getenv("ALIPAY_PRIVATE_KEY", ""),
         alipay_public_key=os.getenv("ALIPAY_PUBLIC_KEY", ""),
