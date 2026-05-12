@@ -121,6 +121,39 @@ def test_register_rejects_wrong_email_verification_code(client: TestClient) -> N
     assert ok.status_code == 200
 
 
+def test_register_code_returns_debug_code_for_console_provider(tmp_path) -> None:
+    settings = WebSettings(
+        database_url=f"sqlite:///{tmp_path / 'console_email.db'}",
+        jwt_secret="test-secret",
+        storage_root=tmp_path / "storage",
+        email_provider="console",
+        email_debug_codes=False,
+    )
+    app = create_app(settings)
+    with TestClient(app) as c:
+        response = c.post("/auth/register-code", json={"email": "console@example.com"})
+
+    assert response.status_code == 200
+    assert response.json()["debug_code"]
+
+
+def test_register_code_reports_smtp_delivery_failure(tmp_path) -> None:
+    settings = WebSettings(
+        database_url=f"sqlite:///{tmp_path / 'smtp_email.db'}",
+        jwt_secret="test-secret",
+        storage_root=tmp_path / "storage",
+        email_provider="smtp",
+        smtp_host="",
+        smtp_from="Pix <noreply@example.com>",
+    )
+    app = create_app(settings)
+    with TestClient(app) as c:
+        response = c.post("/auth/register-code", json={"email": "smtp-fail@example.com"})
+
+    assert response.status_code == 503
+    assert "SMTP 配置不完整" in response.json()["detail"]
+
+
 def test_register_code_rejects_existing_email(client: TestClient) -> None:
     _user, _headers = _register_and_login(client, "existing@example.com")
 

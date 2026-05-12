@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.48.1] - 2026-05-11
+
+### Fixed
+
+- 修复注册验证码发送不可观测的问题：SMTP 发送失败现在会回滚验证码并返回 503，而不是后台吞错导致用户收不到邮件。
+- console 邮件模式会直接返回 `debug_code`，避免开发/内测环境未配置 SMTP 时无法完成注册。
+
 ## [0.48.0] - 2026-05-11
 
 ### Changed

@@ -24,7 +24,13 @@ def _verification_body(code: str) -> str:
     )
 
 
+class EmailDeliveryError(RuntimeError):
+    """验证码邮件发送失败。"""
+
+
 def _send_smtp(settings: WebSettings, email: str, code: str) -> None:
+    if not settings.smtp_host or not settings.smtp_from:
+        raise EmailDeliveryError("SMTP 配置不完整：需要 PIX_WEB_SMTP_HOST 和 PIX_WEB_SMTP_FROM")
     message = EmailMessage()
     message["Subject"] = _verification_subject()
     message["From"] = settings.smtp_from
@@ -39,13 +45,21 @@ def _send_smtp(settings: WebSettings, email: str, code: str) -> None:
         client.send_message(message)
 
 
+def send_verification_email(settings: WebSettings, email: str, code: str) -> None:
+    """发送注册验证码；失败时抛出 EmailDeliveryError。"""
+    if settings.email_provider == "console":
+        logger.warning("Pix 注册验证码 email=%s code=%s", email, code)
+        return
+    if settings.email_provider != "smtp":
+        raise EmailDeliveryError(f"未知邮件发送方式: {settings.email_provider}")
+    try:
+        _send_smtp(settings, email, code)
+    except EmailDeliveryError:
+        raise
+    except Exception as exc:
+        raise EmailDeliveryError(f"SMTP 邮件发送失败: {exc}") from exc
+
+
 async def send_verification_email_task(settings: WebSettings, email: str, code: str) -> None:
     """发送注册验证码；SMTP 阻塞 I/O 在线程中执行。"""
-    if settings.email_provider == "smtp":
-        try:
-            await asyncio.to_thread(_send_smtp, settings, email, code)
-        except Exception:
-            logger.exception("发送注册验证码邮件失败: %s", email)
-        return
-
-    logger.info("Pix 注册验证码 email=%s code=%s", email, code)
+    await asyncio.to_thread(send_verification_email, settings, email, code)
