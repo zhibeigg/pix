@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-05-12
+
+### Added
+
+- Contact sheet 流程现在会为 9 个候选全部生成最终像素产物，保存到 `candidate_outputs/`，并在 Web 候选卡片中直接展示像素结果。
+- `meta.json` 的每个候选记录 `pixelized_path`、`preview_path` 和 `pixelized_meta`，主输出仍兼容指向 VL 最高分候选。
+
 ## [0.53.2] - 2026-05-12
 
 ### Fixed

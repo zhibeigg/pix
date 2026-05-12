@@ -143,6 +143,10 @@ export type ContactSheetCandidate = {
   rank?: number | null
   reason?: string | null
   selected?: boolean
+  pixelized_path?: string | null
+  pixelized_url?: string | null
+  preview_path?: string | null
+  preview_url?: string | null
 }
 
 export type JobOutput = {
