@@ -289,6 +289,47 @@ class TestPixelizeRemoveBg:
         assert (arr[..., 3] == 0).any()
         assert meta["effective_params"]["remove_bg"] is True
 
+    def test_low_pixel_remove_bg_uses_outline_not_feather(self) -> None:
+        img = _solid_bg_with_subject(size=128)
+        result, _, meta = pixelize(
+            img,
+            PixelizeParams(
+                output_size=(16, 16),
+                colors=4,
+                remove_bg=True,
+                bg_tolerance=16,
+                bg_feather=3,
+                edge_style="feather",
+                preview_scale=0,
+            ),
+        )
+
+        assert meta["effective_params"]["edge_style"] == "outline"
+        assert meta["effective_params"]["bg_feather"] == 3
+        assert meta["edge_policy"]["applied"] is True
+        alpha = np.asarray(result.convert("RGBA"))[..., 3]
+        assert set(np.unique(alpha)).issubset({0, 255})
+
+    def test_large_pixel_can_still_use_feather(self) -> None:
+        img = _solid_bg_with_subject(size=128)
+        result, _, meta = pixelize(
+            img,
+            PixelizeParams(
+                output_size=(64, 64),
+                colors=4,
+                remove_bg=True,
+                bg_tolerance=16,
+                bg_feather=2,
+                edge_style="feather",
+                preview_scale=0,
+            ),
+        )
+
+        assert meta["effective_params"]["edge_style"] == "feather"
+        assert meta["edge_policy"]["applied"] is False
+        alpha = np.asarray(result.convert("RGBA"))[..., 3]
+        assert any(0 < value < 255 for value in np.unique(alpha))
+
     def test_remove_bg_default_off(self) -> None:
         img = _solid_bg_with_subject(size=64)
         result, _, _meta = pixelize(

@@ -40,7 +40,7 @@
 
 - **三种起点**：一句素材描述从头生图、直接丢一张现成图片像素化，或“图片 + 描述”走 Packy 图生图编辑后再像素化
 - **受控九宫格候选**：默认把用户描述包装为服务端 prompt，一次生成 3×3 纯绿幕候选图，自动切图、抠绿幕，并由 VL 给 9 个候选评分排序后选择最佳候选继续像素化
-- **像素对齐 & 透明背景**：`smart` 下采样自动探测输入像素格并吸附，边缘不再糊；一键 `--remove-bg` 把纯色底抠成透明 PNG
+- **像素对齐 & 透明背景**：`smart` 下采样自动探测输入像素格并吸附，边缘不再糊；一键 `--remove-bg` 把纯色底抠成透明 PNG；32px 及以下低像素透明素材会自动用外描边替代羽化，避免边缘发虚
 - **AI 低像素工程图（可选）**：16×16 / 22×22 / 32×32 小图标可让模型结合原始 prompt、源图、源图实际像素格 draft 和可读性诊断，直接返回 `palette + pixels[y][x]` 字符串矩阵，再由 Python 校验、返修、清理和精确渲染
 - **结构化 JSON**：VL 模型不是一句描述就完事，而是输出调色板、主体位置、语义区域建议，严格经 Pydantic 校验，失败自动带修正提示重试
 - **四套内置预设**：`gameboy` · `nes` · `modern_pixel` · `pico8`，支持自定义 TOML
@@ -575,8 +575,8 @@ preset         = "auto"
 auto_crop      = false
 crop_padding   = 0.12
 crop_square    = true
-edge_style     = "hard" # hard | feather | outline，三者互斥
-bg_feather     = 0      # feather=羽化半径；outline=描边宽度；hard=不生效
+edge_style     = "hard" # hard | feather | outline，三者互斥；32px 及以下且 remove_bg=true 时会自动改用 outline
+bg_feather     = 0      # feather=羽化半径；outline=描边宽度；hard=不生效；低像素描边至少 1px
 
 [asset]
 output_dir     = "图片"
