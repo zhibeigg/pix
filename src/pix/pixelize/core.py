@@ -25,6 +25,7 @@ from pix.pixelize.presets import Preset, load_preset
 Dither = Literal["none", "ordered", "floyd_steinberg"]
 ResampleMode = Literal["smart", "box", "bicubic", "lanczos", "nearest"]
 EdgeStyle = Literal["hard", "feather", "outline"]
+LOW_PIXEL_OUTLINE_MAX_AXIS = 32
 
 
 @dataclass
@@ -125,6 +126,24 @@ def _effective_params(
             eff.saturation = preset.saturation
 
     return eff
+
+
+def _apply_low_pixel_edge_policy(params: PixelizeParams) -> dict:
+    """低像素透明素材不使用 alpha 羽化，统一改为 1px+ 外描边。"""
+    width, height = params.output_size
+    low_pixel = max(int(width), int(height)) <= LOW_PIXEL_OUTLINE_MAX_AXIS
+    if not low_pixel or not params.remove_bg:
+        return {"applied": False, "reason": "not_low_pixel_or_no_background_removal"}
+    before = {"edge_style": params.edge_style, "bg_feather": params.bg_feather}
+    params.edge_style = "outline"
+    params.bg_feather = max(1, int(params.bg_feather or 0))
+    return {
+        "applied": before["edge_style"] != params.edge_style or before["bg_feather"] != params.bg_feather,
+        "reason": "low_pixel_outline",
+        "max_axis": LOW_PIXEL_OUTLINE_MAX_AXIS,
+        "before": before,
+        "after": {"edge_style": params.edge_style, "bg_feather": params.bg_feather},
+    }
 
 
 def _image_mode_for_pixelize(source: Image.Image) -> Image.Image:
@@ -451,6 +470,7 @@ def pixelize(
 
     preset = _resolve_preset(params, analysis)
     eff = _effective_params(params, preset, analysis)
+    edge_policy = _apply_low_pixel_edge_policy(eff)
 
     # 1. 可选前置抠背景：先处理模型画出来的纯色/棋盘格假透明背景，
     # 避免后续语义区域或量化把背景变成可见色块。
@@ -525,6 +545,7 @@ def pixelize(
         "palette": ["#{:02X}{:02X}{:02X}".format(*c) for c in palette_rgb],
         "palette_size": len(palette_rgb),
         "used_analysis": analysis is not None,
+        "edge_policy": edge_policy,
         "detected_grid": detected_grid,
         "crop_bbox": list(crop_bbox) if crop_bbox else None,
         "aspect_fit": {

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.53.2] - 2026-05-12
+
+### Fixed
+
+- 低像素透明素材（最长边 32px 及以下）不再使用 alpha 羽化；启用透明背景时会自动归一为外描边，避免小图标边缘发虚。
+
 ## [0.53.1] - 2026-05-12
 
 ### Fixed

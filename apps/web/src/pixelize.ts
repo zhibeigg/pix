@@ -25,7 +25,13 @@ export function parsePixelSize(value: string): [number, number] {
 }
 
 export function buildPixelize(overrides: Partial<PixelizeParams> = {}): PixelizeParams {
-  return { ...defaultPixelize, ...overrides }
+  const next = { ...defaultPixelize, ...overrides }
+  const lowPixel = Math.max(next.output_size[0], next.output_size[1]) <= 32
+  if (lowPixel && next.remove_bg) {
+    next.edge_style = 'outline'
+    next.bg_feather = Math.max(1, next.bg_feather || 0)
+  }
+  return next
 }
 
 export function isEightPixelSize(size: [number, number]): boolean {

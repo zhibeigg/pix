@@ -253,6 +253,7 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 - Do not allow arbitrary sub-16 asset sizes: 8×8 is the only supported size below 16×16, and it must use AI Grid direct drawing with no silent extract fallback.
 - 8×8 readability gates must reject dense scaled blobs that touch the full canvas; require transparent breathing room and micro-symbol simplification.
 - Do not hide the existing resize+quantize path; AI Grid is a deliberate opt-in for 16×16 / 22×22 / 32×32 assets, and mandatory only for 8×8.
+- For transparent low-pixel outputs at 32×32 or below, alpha feathering is forbidden because it becomes muddy semi-transparent pixels; normalize to a crisp outside outline with at least 1px strength.
 
 **`controlled-contact-sheet-generation`** — Default AI image generation guardrail.
 - Text-to-image and image-to-image jobs treat the user input as a short asset description, not as the final model prompt.

@@ -66,8 +66,9 @@ remove_bg      = false
 # 背景容差（每通道欧氏距离阈值，越大抠越狠；8-24 常用）
 bg_tolerance   = 12
 # 边缘风格：hard=硬边，feather=alpha 羽化，outline=外侧描边（三者互斥）
+# 32px 及以下低像素透明素材会自动改用 outline，避免羽化导致边缘发虚。
 edge_style     = "hard"
-# 边缘强度：edge_style=feather 时为羽化半径；outline 时为描边宽度；hard 时不生效
+# 边缘强度：edge_style=feather 时为羽化半径；outline 时为描边宽度；hard 时不生效；低像素描边至少 1px
 bg_feather     = 0
 # 自动裁剪主体后再缩小，适合图标/物品素材
 auto_crop      = false
