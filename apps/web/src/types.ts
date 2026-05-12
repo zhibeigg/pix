@@ -139,6 +139,10 @@ export type ContactSheetCandidate = {
   path: string
   url: string | null
   bbox?: [number, number, number, number] | null
+  score?: number | null
+  rank?: number | null
+  reason?: string | null
+  selected?: boolean
 }
 
 export type JobOutput = {

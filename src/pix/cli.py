@@ -15,10 +15,11 @@ from rich.table import Table
 
 from pix import __version__
 from pix.analysis.schema import PixAnalysis
+from pix.api.candidate_ranker import fallback_ranking, rank_candidates
 from pix.api.image_gen import generate_image
 from pix.api.prompt_guard import PromptPolicyError, validate_user_prompt
 from pix.api.vision import analyze_image
-from pix.contact_sheet import build_contact_sheet_prompt, contact_sheet_enabled, copy_selected_candidate, split_contact_sheet
+from pix.contact_sheet import apply_candidate_ranking, build_contact_sheet_prompt, contact_sheet_enabled, copy_selected_candidate, split_contact_sheet
 from pix.asset import (
     AssetSizePolicyError,
     build_asset_prompt,
@@ -168,8 +169,25 @@ def cmd_gen_only(
             crop_padding=cfg.asset.crop_padding,
             crop_square=cfg.asset.crop_square,
         )
+        ranking_model = cfg.image_gen.candidate_vl_ranking_model or cfg.vision.model
+        if cfg.image_gen.candidate_vl_ranking_enabled:
+            try:
+                ranking = rank_candidates(
+                    cfg,
+                    [(candidate.index, candidate.path) for candidate in result.candidates],
+                    user_prompt=prompt,
+                    target_size=cfg.asset.pixel_size,
+                    model=ranking_model,
+                )
+            except Exception as exc:
+                if cfg.image_gen.candidate_vl_ranking_failure_policy == "reject":
+                    raise
+                ranking = fallback_ranking((candidate.index for candidate in result.candidates), model=ranking_model, error=str(exc))
+                console.print(f"[yellow]候选评分失败，已回退候选 1：{exc}[/yellow]")
+            result = apply_candidate_ranking(result, [item.to_metadata() for item in ranking.candidates])
+            (out / "01_candidate_scores.json").write_text(json.dumps(ranking.to_metadata(), ensure_ascii=False, indent=2), encoding="utf-8")
         copy_selected_candidate(result, dest)
-        candidates_text = f"\n九宫格：{generated}\n候选目录：{out / 'candidates'}\n默认候选：{dest}"
+        candidates_text = f"\n九宫格：{generated}\n候选目录：{out / 'candidates'}\n默认候选：{dest}（candidate_{result.selected.index:02d}）"
     console.print(Panel.fit(f"[green][OK][/green] 图片已保存：{dest}{candidates_text}", title="gen-only"))
 
 

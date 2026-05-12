@@ -258,8 +258,10 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 - Text-to-image and image-to-image jobs treat the user input as a short asset description, not as the final model prompt.
 - Backend wraps the description into a server-owned prompt that requests a `{rows}×{cols}` contact sheet on pure `#00FF00` green screen. Users cannot override the contact sheet, green screen, no-text or no-watermark constraints.
 - Prompt guard first runs local injection/template-override checks, then may call a text-only VL/chat model with only the raw user input. If no VL key is configured, it falls back to local policy so CLI and web generation still work.
-- The generated sheet is saved as `01_contact_sheet.png`; candidates are split into `candidates/candidate_XX.png`, chroma-keyed to transparent and cropped with padding. `candidate_01` becomes the compatible `01_source.png` for the rest of the pipeline.
-- Result cards expose all candidates. A candidate can be reused by creating a normal free `local_pixelize` job using the candidate path while inheriting the original pixelize/grid params.
+- The generated sheet is saved as `01_contact_sheet.png`; candidates are split into `candidates/candidate_XX.png`, chroma-keyed to transparent and cropped with padding.
+- VL receives all candidate images in one scoring request and ranks them by prompt match, single-object clarity, clean transparency/chroma-key edges, low-resolution readability, silhouette contrast and absence of text/watermarks/noise. The score audit is saved as `01_candidate_scores.json`.
+- The highest-ranked candidate becomes the compatible `01_source.png` for the rest of the pipeline. If ranking is disabled or unavailable, the system falls back to candidate 1 unless configured to reject.
+- Result cards expose all candidates ordered by rank, including score/reason/selected status. A candidate can be reused by creating a normal free `local_pixelize` job using the candidate path while inheriting the original pixelize/grid params.
 
 ### Tabs
 

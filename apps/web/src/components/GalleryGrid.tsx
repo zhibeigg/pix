@@ -113,8 +113,12 @@ function CandidateMiniGrid({ job, output, onCopyPath, onCandidatePixelize }: { j
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.75 }}>
       {output.candidates.slice(0, 9).map((candidate) => (
-        <Box key={candidate.path} sx={{ minWidth: 0 }}>
-          <Box component="img" src={candidate.url ?? undefined} alt={`候选 ${candidate.index}`} loading="lazy" decoding="async" sx={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'contain', imageRendering: 'pixelated', bgcolor: 'background.default', border: 1, borderColor: 'divider', borderRadius: 1, p: 0.5 }} />
+        <Box key={candidate.path} sx={{ minWidth: 0 }} title={candidate.reason ?? undefined}>
+          <Box component="img" src={candidate.url ?? undefined} alt={`候选 ${candidate.index}`} loading="lazy" decoding="async" sx={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'contain', imageRendering: 'pixelated', bgcolor: 'background.default', border: 1, borderColor: candidate.selected ? 'success.main' : 'divider', borderRadius: 1, p: 0.5 }} />
+          <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: 'wrap' }}>
+            <Chip size="small" color={candidate.selected ? 'success' : 'default'} variant="outlined" label={candidate.rank ? `#${candidate.rank}` : `候选${candidate.index}`} />
+            {candidate.score != null && <Chip size="small" variant="outlined" label={`${Math.round(candidate.score)}分`} />}
+          </Stack>
           <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
             <Button size="small" variant="text" onClick={() => onCopyPath(candidate.path)}>路径</Button>
             {onCandidatePixelize && <Button size="small" variant="text" onClick={() => onCandidatePixelize(job, candidate)}>用它</Button>}

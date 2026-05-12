@@ -66,6 +66,10 @@ class ImageGenConfig:
     prompt_guard_model: str = ""
     prompt_guard_failure_policy: str = "local"  # local | reject
     prompt_guard_max_chars: int = 500
+    # 候选图评分：把切出的候选一次性送入 VL，按像素素材质量排序并选择最高分。
+    candidate_vl_ranking_enabled: bool = True
+    candidate_vl_ranking_model: str = ""
+    candidate_vl_ranking_failure_policy: str = "first"  # first | reject
 
 
 @dataclass

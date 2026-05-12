@@ -27,9 +27,10 @@
 
 1. 你写一句素材描述（或丢一张图进来；也可以“图片 + 描述”走图生图编辑）
 2. 后端先审核原始描述，再把它包装为受控 prompt：默认生成 **3×3 纯绿幕九宫格候选图**
-3. Python 自动切出 9 个候选，抠掉 `#00FF00` 绿幕并裁剪主体；默认候选继续进入像素化流程
-4. Claude / Gemini / GPT-4o 可选读图，输出**结构化 JSON**（调色板、主体 ROI、语义区域）
-5. Python 根据 JSON 或候选源图生成**真正的像素画**：锁定调色板、语义区域调色、抖动、风格预设
+3. Python 自动切出 9 个候选，抠掉 `#00FF00` 绿幕并裁剪主体
+4. VL 一次性查看全部候选，按描述符合度、轮廓、抠图质量和低像素可读性评分排序，最高分候选进入像素化流程
+5. Claude / Gemini / GPT-4o 可选读最终候选，输出**结构化 JSON**（调色板、主体 ROI、语义区域）
+6. Python 根据 JSON 或候选源图生成**真正的像素画**：锁定调色板、语义区域调色、抖动、风格预设
 
 全程产物落盘，随时回看；缓存按内容哈希，重复 prompt 不烧第二次钱。CLI 与 GUI 共用同一套管线。
 
@@ -38,7 +39,7 @@
 ## ✨ 特性
 
 - **三种起点**：一句素材描述从头生图、直接丢一张现成图片像素化，或“图片 + 描述”走 Packy 图生图编辑后再像素化
-- **受控九宫格候选**：默认把用户描述包装为服务端 prompt，一次生成 3×3 纯绿幕候选图，自动切图、抠绿幕并让用户挑选继续像素化
+- **受控九宫格候选**：默认把用户描述包装为服务端 prompt，一次生成 3×3 纯绿幕候选图，自动切图、抠绿幕，并由 VL 给 9 个候选评分排序后选择最佳候选继续像素化
 - **像素对齐 & 透明背景**：`smart` 下采样自动探测输入像素格并吸附，边缘不再糊；一键 `--remove-bg` 把纯色底抠成透明 PNG
 - **AI 低像素工程图（可选）**：16×16 / 22×22 / 32×32 小图标可让模型结合原始 prompt、源图、源图实际像素格 draft 和可读性诊断，直接返回 `palette + pixels[y][x]` 字符串矩阵，再由 Python 校验、返修、清理和精确渲染
 - **结构化 JSON**：VL 模型不是一句描述就完事，而是输出调色板、主体位置、语义区域建议，严格经 Pydantic 校验，失败自动带修正提示重试
@@ -85,8 +86,9 @@
 outputs/20260509-142359-a1b2c3d4/
 ├── 00_input.txt            # 输入（素材描述或图片路径）
 ├── 01_contact_sheet.png    # 默认受控生图的 3×3 绿幕候选总图
+├── 01_candidate_scores.json # VL 对 9 个候选的分数、排序和选择原因
 ├── candidates/             # 绿幕抠图后的候选 candidate_01.png ... candidate_09.png
-├── 01_source.png           # 默认候选（或上传图），供后续像素化
+├── 01_source.png           # VL 评分最高候选（或上传图），供后续像素化
 ├── 02_analysis.json        # VL 结构化分析
 ├── 03_pixelized.png        # 最终像素图
 ├── 03_pixelized.grid.json  # 可选 Pixel Grid 工程图（Grid 提取 / AI Grid 时输出）
@@ -216,6 +218,7 @@ pix gui                                                      # 启动图形界�
 | `--vl-model` | 视觉模型名 | 从配置读 |
 | `--no-vl` | 跳过图片多模态分析（不跳过用户描述本地审核） | `false` |
 | `[image_gen].contact_sheet_enabled` | 文生图/图生图默认生成 3×3 绿幕候选；`pix gen-only` 会输出 `01_contact_sheet.png`、`candidates/` 和兼容的 `01_source.png` | `true` |
+| `[image_gen].candidate_vl_ranking_enabled` | 把 9 个候选一次性送入 VL 评分排序，最高分作为默认候选；失败时默认回退候选 1 | `true` |
 | `[image_gen].prompt_guard_enabled` | 审核用户原始素材描述；无 VL key 时退回本地规则，模型失败默认不阻塞 | `true` |
 | `pix asset --ai-grid` | 可选 AI Grid 直绘：模型结合原始 prompt、源图和源图网格对齐 draft，直接返回 `palette + pixels[y][x]`，后端做 schema 校验、可读性评分、自动返修和 PNG 渲染；8×8 会强制启用且 fallback 固定为 `fail` | 关 |
 | `pix asset --pixel-size WxH` | 素材尺寸；16×16 以下仅允许 8×8，且 8×8 必须 AI Grid 直绘 | `[asset].pixel_size` |

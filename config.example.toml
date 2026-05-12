@@ -29,6 +29,10 @@ prompt_guard_remote = true
 prompt_guard_model = ""              # 留空使用 [vision].model
 prompt_guard_failure_policy = "local" # local | reject
 prompt_guard_max_chars = 500
+# 候选排序：九宫格切出的候选会一次性送入 VL 按效果评分，最高分作为默认 01_source.png。
+candidate_vl_ranking_enabled = true
+candidate_vl_ranking_model = ""              # 留空使用 [vision].model
+candidate_vl_ranking_failure_policy = "first" # first | reject
 
 [vision]
 # Packy 支持的视觉模型，示例：claude-opus-4-7 / claude-sonnet-4-5 / gemini-2.5-pro / gpt-4o 等

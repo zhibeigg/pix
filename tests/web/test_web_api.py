@@ -1012,9 +1012,15 @@ def test_worker_success_consumes_reserved_credits(client: TestClient, tmp_path, 
     source = run_dir / "01_source.png"
     pixel = run_dir / "03_pixelized.png"
     meta = run_dir / "meta.json"
+    candidates_dir = run_dir / "candidates"
+    candidates_dir.mkdir()
+    candidate = candidates_dir / "candidate_05.png"
+    sheet = run_dir / "01_contact_sheet.png"
     Image.new("RGBA", (4, 4), (255, 0, 0, 255)).save(source)
     Image.new("RGBA", (4, 4), (0, 255, 0, 255)).save(pixel)
-    meta.write_text("{}", encoding="utf-8")
+    Image.new("RGBA", (4, 4), (0, 0, 255, 255)).save(candidate)
+    Image.new("RGBA", (8, 8), (0, 255, 0, 255)).save(sheet)
+    meta.write_text(json.dumps({"image_gen": {"contact_sheet": {"sheet": "01_contact_sheet.png", "selected_index": 5, "candidates": [{"index": 5, "row": 1, "col": 1, "path": "candidates/candidate_05.png", "score": 94, "rank": 1, "reason": "最清晰", "selected": True}]}}}, ensure_ascii=False), encoding="utf-8")
 
     def fake_run(_job, _settings, *, cfg=None):
         return SimpleNamespace(
@@ -1037,6 +1043,11 @@ def test_worker_success_consumes_reserved_credits(client: TestClient, tmp_path, 
     fetched_job = client.get(f"/jobs/{created['id']}", headers=headers).json()
     assert fetched_job["outputs"][0]["pixelized_url"].startswith("/files?path=")
     assert fetched_job["outputs"][0]["source_url"].startswith("/files?path=")
+    assert fetched_job["outputs"][0]["contact_sheet_url"].startswith("/files?path=")
+    assert fetched_job["outputs"][0]["candidates"][0]["index"] == 5
+    assert fetched_job["outputs"][0]["candidates"][0]["score"] == 94
+    assert fetched_job["outputs"][0]["candidates"][0]["rank"] == 1
+    assert fetched_job["outputs"][0]["candidates"][0]["selected"] is True
 
     balance = client.get("/credits/balance", headers=headers).json()
     assert balance["available_credits"] == 30

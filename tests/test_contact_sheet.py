@@ -5,7 +5,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from pix.config import AppConfig
-from pix.contact_sheet import build_contact_sheet_prompt, split_contact_sheet
+from pix.contact_sheet import apply_candidate_ranking, build_contact_sheet_prompt, split_contact_sheet
 
 
 def _sheet(path: Path) -> Path:
@@ -58,3 +58,26 @@ def test_split_contact_sheet_removes_green_screen(tmp_path: Path) -> None:
         rgba = opened.convert("RGBA")
         assert rgba.getpixel((0, 0))[3] == 0
         assert any(pixel[3] > 0 for pixel in rgba.getdata())
+
+
+def test_apply_candidate_ranking_sorts_and_marks_selected(tmp_path: Path) -> None:
+    result = split_contact_sheet(
+        _sheet(tmp_path / "sheet.png"),
+        tmp_path / "candidates",
+        rows=3,
+        cols=3,
+        green_screen_color="#00FF00",
+        tolerance=8,
+    )
+
+    ranked = apply_candidate_ranking(result, [
+        {"index": 5, "rank": 1, "score": 93, "reason": "最好"},
+        {"index": 2, "rank": 2, "score": 80, "reason": "次好"},
+    ])
+    meta = ranked.to_metadata(tmp_path, enabled=True, effective_prompt="effective", user_prompt="user")
+
+    assert ranked.selected.index == 5
+    assert meta["selected_index"] == 5
+    assert meta["candidates"][0]["index"] == 5
+    assert meta["candidates"][0]["selected"] is True
+    assert meta["candidates"][0]["score"] == 93

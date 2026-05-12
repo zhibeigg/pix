@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import math
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import numpy as np
 from PIL import Image
@@ -21,19 +21,28 @@ class ContactSheetCandidate:
     col: int
     path: Path
     bbox: tuple[int, int, int, int] | None
+    score: float | None = None
+    rank: int | None = None
+    reason: str = ""
+    selected: bool = False
 
-    def to_metadata(self, run_dir: Path) -> dict[str, Any]:
+    def to_metadata(self, run_dir: Path, *, selected: bool | None = None) -> dict[str, Any]:
         try:
             rel_path = self.path.relative_to(run_dir)
             path_text = rel_path.as_posix()
         except ValueError:
             path_text = str(self.path)
+        is_selected = self.selected if selected is None else selected
         return {
             "index": self.index,
             "row": self.row,
             "col": self.col,
             "path": path_text,
             "bbox": list(self.bbox) if self.bbox else None,
+            "score": self.score,
+            "rank": self.rank,
+            "reason": self.reason,
+            "selected": bool(is_selected),
         }
 
 
@@ -45,7 +54,10 @@ class ContactSheetResult:
 
     @property
     def selected(self) -> ContactSheetCandidate:
-        return self.candidates[self.selected_index]
+        if not self.candidates:
+            raise IndexError("contact sheet 没有候选图")
+        safe_index = min(max(0, self.selected_index), len(self.candidates) - 1)
+        return self.candidates[safe_index]
 
     def to_metadata(self, run_dir: Path, *, enabled: bool, effective_prompt: str, user_prompt: str) -> dict[str, Any]:
         try:
@@ -58,10 +70,10 @@ class ContactSheetResult:
             "rows": self.rows,
             "cols": self.cols,
             "count": len(self.candidates),
-            "selected_index": self.selected_index + 1,
+            "selected_index": self.selected.index if self.candidates else 0,
             "user_prompt": user_prompt,
             "effective_prompt": effective_prompt,
-            "candidates": [candidate.to_metadata(run_dir) for candidate in self.candidates],
+            "candidates": [candidate.to_metadata(run_dir, selected=candidate.index == self.selected.index) for candidate in self.candidates],
         }
 
     @property
@@ -226,6 +238,46 @@ def _crop_with_padding(
     canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
     canvas.alpha_composite(cropped, ((side - cropped.width) // 2, (side - cropped.height) // 2))
     return canvas
+
+
+def apply_candidate_ranking(result: ContactSheetResult, ranking_items: Iterable[dict[str, Any]]) -> ContactSheetResult:
+    """按 VL 排名重排候选，并把最高分候选标记为 selected。"""
+    by_index = {candidate.index: candidate for candidate in result.candidates}
+    ranked: list[ContactSheetCandidate] = []
+    seen: set[int] = set()
+    for position, item in enumerate(ranking_items, start=1):
+        try:
+            index = int(item.get("index"))
+        except (AttributeError, TypeError, ValueError):
+            continue
+        candidate = by_index.get(index)
+        if candidate is None or index in seen:
+            continue
+        seen.add(index)
+        score_value = item.get("score")
+        try:
+            score = float(score_value) if score_value is not None else None
+        except (TypeError, ValueError):
+            score = None
+        try:
+            rank = int(item.get("rank") or position)
+        except (TypeError, ValueError):
+            rank = position
+        ranked.append(replace(
+            candidate,
+            score=score,
+            rank=rank,
+            reason=str(item.get("reason") or "").strip(),
+            selected=False,
+        ))
+    for candidate in result.candidates:
+        if candidate.index not in seen:
+            ranked.append(replace(candidate, selected=False))
+    if not ranked:
+        return result
+    ranked.sort(key=lambda candidate: (candidate.rank if candidate.rank is not None else 9999, -(candidate.score or 0), candidate.index))
+    normalized = [replace(candidate, rank=rank, selected=rank == 1) for rank, candidate in enumerate(ranked, start=1)]
+    return ContactSheetResult(sheet_path=result.sheet_path, candidates=normalized, selected_index=0)
 
 
 def copy_selected_candidate(result: ContactSheetResult, dest_path: str | Path) -> Path:

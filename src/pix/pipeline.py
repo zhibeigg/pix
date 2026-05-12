@@ -12,12 +12,13 @@ from PIL import Image
 
 from pix import __version__
 from pix.analysis.schema import PixAnalysis
+from pix.api.candidate_ranker import fallback_ranking, rank_candidates
 from pix.api.image_gen import edit_image, generate_image
 from pix.api.prompt_guard import PromptPolicyError, validate_user_prompt
 from pix.api.vision import VisionParseError, analyze_image
 from pix.cache import Cache
 from pix.config import AppConfig
-from pix.contact_sheet import build_contact_sheet_prompt, contact_sheet_enabled, copy_selected_candidate, split_contact_sheet
+from pix.contact_sheet import apply_candidate_ranking, build_contact_sheet_prompt, contact_sheet_enabled, copy_selected_candidate, split_contact_sheet
 from pix.grid.design import design_pixel_grid
 from pix.grid.extract import extract_pixel_grid, infer_grid_aligned_output_size
 from pix.grid.postprocess import fit_pixel_grid_to_canvas, polish_pixel_grid
@@ -129,6 +130,8 @@ def _postprocess_contact_sheet(
     *,
     effective_prompt: str,
     user_prompt: str,
+    target_size: tuple[int, int],
+    rank_with_vl: bool,
     notify: ProgressCb,
 ) -> dict | None:
     if not contact_sheet_enabled(cfg, has_prompt=True):
@@ -143,6 +146,32 @@ def _postprocess_contact_sheet(
         crop_padding=cfg.asset.crop_padding,
         crop_square=cfg.asset.crop_square,
     )
+
+    ranking_model = cfg.image_gen.candidate_vl_ranking_model or cfg.vision.model
+    ranking = None
+    if cfg.image_gen.candidate_vl_ranking_enabled and rank_with_vl:
+        try:
+            notify("candidate_ranking_start", {"model": ranking_model, "candidates": len(result.candidates)})
+            ranking = rank_candidates(
+                cfg,
+                [(candidate.index, candidate.path) for candidate in result.candidates],
+                user_prompt=user_prompt,
+                target_size=target_size,
+                model=ranking_model,
+            )
+            notify("candidate_ranking_ready", {"selected_index": ranking.selected_index, "mode": ranking.mode})
+        except Exception as exc:
+            if cfg.image_gen.candidate_vl_ranking_failure_policy == "reject":
+                raise
+            ranking = fallback_ranking((candidate.index for candidate in result.candidates), model=ranking_model, error=str(exc))
+            notify("candidate_ranking_failed", {"error": str(exc), "fallback": "first"})
+    else:
+        mode = "skipped" if not rank_with_vl else "disabled"
+        ranking = fallback_ranking((candidate.index for candidate in result.candidates), model=ranking_model, error=mode)
+
+    result = apply_candidate_ranking(result, [item.to_metadata() for item in ranking.candidates])
+    scores_path = run_dir / "01_candidate_scores.json"
+    scores_path.write_text(json.dumps(ranking.to_metadata(), ensure_ascii=False, indent=2), encoding="utf-8")
     copy_selected_candidate(result, source_path)
     meta = result.to_metadata(
         run_dir,
@@ -152,7 +181,9 @@ def _postprocess_contact_sheet(
     )
     meta["green_screen_color"] = cfg.image_gen.green_screen_color
     meta["green_screen_tolerance"] = cfg.image_gen.green_screen_tolerance
-    notify("contact_sheet_ready", {"sheet": str(sheet_path), "candidates": len(result.candidates), "selected": str(source_path)})
+    meta["ranking"] = ranking.to_metadata()
+    meta["scores"] = scores_path.name
+    notify("contact_sheet_ready", {"sheet": str(sheet_path), "candidates": len(result.candidates), "selected": str(source_path), "selected_index": result.selected.index})
     return meta
 
 
@@ -374,6 +405,8 @@ def run_pipeline(
                     run_dir,
                     effective_prompt=effective_prompt,
                     user_prompt=inputs.prompt,
+                    target_size=inputs.pixelize_params.output_size,
+                    rank_with_vl=not inputs.skip_vl,
                     notify=notify,
                 )
                 source_mode = "edit_contact_sheet_cache"
@@ -400,6 +433,8 @@ def run_pipeline(
                     run_dir,
                     effective_prompt=effective_prompt,
                     user_prompt=inputs.prompt,
+                    target_size=inputs.pixelize_params.output_size,
+                    rank_with_vl=not inputs.skip_vl,
                     notify=notify,
                 )
                 source_mode = "edited_contact_sheet"
@@ -435,6 +470,8 @@ def run_pipeline(
                     run_dir,
                     effective_prompt=effective_prompt,
                     user_prompt=inputs.prompt,
+                    target_size=inputs.pixelize_params.output_size,
+                    rank_with_vl=not inputs.skip_vl,
                     notify=notify,
                 )
                 source_mode = "contact_sheet_cache"
@@ -460,6 +497,8 @@ def run_pipeline(
                     run_dir,
                     effective_prompt=effective_prompt,
                     user_prompt=inputs.prompt,
+                    target_size=inputs.pixelize_params.output_size,
+                    rank_with_vl=not inputs.skip_vl,
                     notify=notify,
                 )
                 source_mode = "generated_contact_sheet"
@@ -563,6 +602,7 @@ def run_pipeline(
         "outputs": {
             "source": source_path.name,
             "contact_sheet": contact_sheet_path.name if contact_sheet_path.exists() else None,
+            "candidate_scores": "01_candidate_scores.json" if (run_dir / "01_candidate_scores.json").exists() else None,
             "analysis": analysis_path.name if analysis_path else None,
             "pixelized": pixel_path.name,
             "preview": preview_path.name if preview_path else None,

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-05-12
+
+### Added
+
+- 九宫格候选新增 VL 评分排序：切出的 9 张候选会一次性送入 VL，按描述符合度、低像素可读性、轮廓、居中和抠图质量打分。
+- Pipeline 会把最高分候选作为默认 `01_source.png`，并保存 `01_candidate_scores.json` 供审计。
+- Web 候选列表显示排名、分数和已选标记，候选仍可手动复用为本地像素化任务。
+
+### Changed
+
+- `meta.json` 中的 contact sheet 候选按 VL 评分从高到低排序，同时保留原始 index/row/col。
+
 ## [0.52.0] - 2026-05-12
 
 ### Added

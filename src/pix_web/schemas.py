@@ -265,6 +265,10 @@ class JobOutputResponse(BaseModel):
                 "path": path,
                 "url": file_url(path),
                 "bbox": item.get("bbox"),
+                "score": item.get("score"),
+                "rank": item.get("rank"),
+                "reason": item.get("reason"),
+                "selected": bool(item.get("selected")),
             })
         return result
 
