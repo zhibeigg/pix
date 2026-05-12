@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-05-11
+
+### Added
+
+- 首页素材包看板新增“尺寸校准台”，展示血气灵玉、紫髓铁、幽光菇的 32x、16x、8x 多尺寸交付效果。
+- 新增首页静态多尺寸图标资源；32x/16x 来自现有首页图标的 Pixel Grid extract，8x 使用 AI Grid 直绘生成。
+
 ## [0.46.0] - 2026-05-11
 
 ### Changed

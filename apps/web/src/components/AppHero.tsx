@@ -32,6 +32,39 @@ const workflowStats = [
   { value: '3', label: '失败重试', tone: notionTokens.brandPink },
 ]
 
+const scaleSamples = [
+  {
+    name: '血气灵玉',
+    note: '32/16 为工程图提取，8 为 AI 直绘',
+    tint: notionTokens.tintRose,
+    sizes: [
+      { label: '32', src: '/hero-icons/scales/blood-jade-32.png' },
+      { label: '16', src: '/hero-icons/scales/blood-jade-16.png' },
+      { label: '8', src: '/hero-icons/scales/blood-jade-8.png' },
+    ],
+  },
+  {
+    name: '紫髓铁',
+    note: '保留晶体斜切与主高光',
+    tint: notionTokens.tintLavender,
+    sizes: [
+      { label: '32', src: '/hero-icons/scales/violet-iron-32.png' },
+      { label: '16', src: '/hero-icons/scales/violet-iron-16.png' },
+      { label: '8', src: '/hero-icons/scales/violet-iron-8.png' },
+    ],
+  },
+  {
+    name: '幽光菇',
+    note: '低尺寸下保留菇伞轮廓',
+    tint: notionTokens.tintMint,
+    sizes: [
+      { label: '32', src: '/hero-icons/scales/ghost-mushroom-32.png' },
+      { label: '16', src: '/hero-icons/scales/ghost-mushroom-16.png' },
+      { label: '8', src: '/hero-icons/scales/ghost-mushroom-8.png' },
+    ],
+  },
+]
+
 export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, batchCount = 0 }: AppHeroProps) {
   const signedIn = Boolean(user)
 
@@ -170,6 +203,8 @@ function PixelBatchBoard({ user, balance, activeJobs, completedJobs, failedJobs,
             <BoardMetric label="点数" value={balance?.available_credits ?? '—'} />
           </Box>
 
+          <ScaleBench />
+
           <Box sx={{ border: `1px solid ${notionTokens.hairline}`, bgcolor: notionTokens.canvas, borderRadius: 1.5, p: 1.5 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' } }}>
               <Box>
@@ -182,6 +217,47 @@ function PixelBatchBoard({ user, balance, activeJobs, completedJobs, failedJobs,
         </Stack>
       </CardContent>
     </Card>
+  )
+}
+
+function ScaleBench() {
+  return (
+    <Box sx={{ border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.6, bgcolor: 'rgba(255,255,255,.035)', p: 1.35 }}>
+      <Stack spacing={1.1}>
+        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+          <Box>
+            <Typography variant="caption" color="text.secondary">尺寸校准台</Typography>
+            <Typography sx={{ fontWeight: 700, lineHeight: 1.15 }}>32 / 16 / 8 同屏验收</Typography>
+          </Box>
+          <Chip size="small" label="8× AI" sx={{ bgcolor: notionTokens.tintYellowBold, color: notionTokens.ink, borderRadius: 1 }} />
+        </Stack>
+
+        <Stack spacing={.85}>
+          {scaleSamples.map((sample) => (
+            <Box key={sample.name} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(88px, .9fr) 1.45fr' }, gap: 1, alignItems: 'center', bgcolor: sample.tint, borderRadius: 1.4, border: `1px solid ${notionTokens.hairline}`, p: .9 }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="caption" sx={{ display: 'block', fontWeight: 700 }} noWrap>{sample.name}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.25 }}>{sample.note}</Typography>
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: .75 }}>
+                {sample.sizes.map((size) => <ScaleCell key={size.label} size={size} />)}
+              </Box>
+            </Box>
+          ))}
+        </Stack>
+      </Stack>
+    </Box>
+  )
+}
+
+function ScaleCell({ size }: { size: typeof scaleSamples[number]['sizes'][number] }) {
+  const px = Number(size.label)
+  const displaySize = size.label === '32' ? 42 : size.label === '16' ? 34 : 28
+  return (
+    <Box sx={{ minWidth: 0, display: 'grid', placeItems: 'center', gap: .35, bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, py: .7, px: .5 }}>
+      <Box component="img" src={size.src} alt={`${size.label}×${size.label} 像素版本`} width={px} height={px} loading="eager" decoding="async" sx={{ width: displaySize, height: displaySize, objectFit: 'contain', imageRendering: 'pixelated' }} />
+      <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>{size.label}×</Typography>
+    </Box>
   )
 }
 
