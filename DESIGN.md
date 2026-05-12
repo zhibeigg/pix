@@ -317,6 +317,11 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 - Layout: centered headline `{typography.hero-display}`, subtitle, button row (`button-primary` purple + `button-secondary-on-dark`), `workspace-mockup-card` below.
 - Atmospheric decoration: scattered colorful sticky-note dots and mesh wire illustrations around the hero content (NOT a literal pattern fill — handled per-page via SVG/illustration).
 
+**`asset-scale-bench`** — Compact production proof inside the hero asset board.
+- Shows the same RPG material at 32x, 16x, and 8x so users understand Pix is a delivery workflow, not just a gallery.
+- 32x/16x examples use Pixel Grid extract from existing icon sources; 8x examples use AI Grid direct drawing.
+- Never hide a size on mobile; stack cards vertically and keep all three size cells visible with `image-rendering: pixelated`.
+
 **`footer-region`** — Multi-column light footer.
 - Background `{colors.canvas}`, padding `{spacing.section} {spacing.xxl}`, top border `1px solid {colors.hairline}`.
 - 6-column link grid (Product / Download / Resources / Notion for / Company / Legal).
