@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-05-14
+
+### Added
+
+- 候选生成新增 `n_sample` 模式：直接用 `generate_image(n=N)` 拿到 N 张独立 full-res 单图，每张单独 chroma-key 抠色，VL 看 full-res 评分。每张候选独立缓存，命中缓存只补齐缺失。
+- `pix.api.image_gen.generate_images_batch` / `edit_images_batch`：优先 `n=N` 单次返回，不足时用 `prompt_variations` 循环补齐，保证最终拿到 N 张。
+- `pix.contact_sheet.collect_independent_candidates` / `build_sample_prompt` / `candidate_mode` / `candidate_count`：把 `ContactSheetResult` 的合同复用给 n_sample，下游 ranking、candidate_outputs、GUI/Web 完全不需要改。
+- 新增 `[image_gen].candidate_mode` (`n_sample` | `contact_sheet`，默认 `n_sample`)、`n_sample_count`、`n_sample_prompt_variations`、`n_sample_prompt_template` 四个配置项；Web 管理后台新增对应开关。
+- 新增 4 个测试：`test_pipeline_n_sample_from_prompt`、`test_collect_independent_candidates`、`test_candidate_mode_*`、`test_generate_images_batch_*`。
+
+### Changed
+
+- 默认候选生成改为 `n_sample`：每张候选都是 full-res，主体细节比 1024² 切 9 格清晰得多，VL 评分更稳定。原 3×3 contact sheet 路径仍保留并默认在测试里锁定，可通过 `candidate_mode = "contact_sheet"` 回切。
+- CLI `gen-only` 同步支持 n_sample；输出目录里 `_samples/sample_NN.png` 是独立单图原图，`candidates/` 仍是抠完色的候选。
+- 现有 9 张 contact_sheet 测试在 fixture 中显式 `cfg.image_gen.candidate_mode = "contact_sheet"`，行为不变；新增 n_sample 集成测试覆盖 fallback 单图补齐。
+
 ## [0.56.0] - 2026-05-14
 
 ### Added

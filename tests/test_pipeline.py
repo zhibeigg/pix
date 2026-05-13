@@ -43,6 +43,8 @@ def _cfg(tmp_path: Path) -> AppConfig:
     cfg.api.timeout = 2.0
     cfg.cache.dir = str(tmp_path / "cache")
     cfg.output.root = str(tmp_path / "outs")
+    # 这些用例锁定旧 3x3 contact sheet 行为，n_sample 路径有专门测试。
+    cfg.image_gen.candidate_mode = "contact_sheet"
     return cfg
 
 
@@ -270,3 +272,58 @@ def test_pipeline_vl_failure_falls_back(
     assert result.analysis_path is not None
     err_payload = json.loads(result.analysis_path.read_text(encoding="utf-8"))
     assert "error" in err_payload
+
+
+def test_pipeline_n_sample_from_prompt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """n_sample 模式：每次生图返回 1 张，应循环补齐到 n=4 张候选。"""
+    png = _png_bytes()
+    gen_calls = {"n": 0, "requested_n": []}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        path = req.url.path
+        if path == "/v1/images/generations":
+            body = json.loads(req.content.decode("utf-8"))
+            gen_calls["n"] += 1
+            gen_calls["requested_n"].append(int(body.get("n", 1)))
+            return httpx.Response(200, json={"data": [{"url": "https://cdn.test/sample.png"}]})
+        if req.url.host == "cdn.test":
+            return httpx.Response(200, content=png)
+        if path == "/v1/chat/completions":
+            body = json.loads(req.content.decode("utf-8"))
+            content = body["messages"][0]["content"]
+            if isinstance(content, str):
+                return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"allowed": True, "reason": "", "normalized_description": "a sword"})}}]})
+            image_count = sum(1 for item in content if isinstance(item, dict) and item.get("type") == "image_url")
+            if image_count > 1:
+                return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"selected_index": 1, "candidates": [{"index": 1, "rank": 1, "score": 88, "reason": "best"}]})}}]})
+            return httpx.Response(200, json={"choices": [{"message": {"content": _ANALYSIS_BLOCK}}]})
+        return httpx.Response(404)
+
+    _install_mock(monkeypatch, handler)
+    cfg = AppConfig()
+    cfg.api.base_url = "https://packy.test"
+    cfg.api.image_api_key = "sk-i"
+    cfg.api.vl_api_key = "sk-v"
+    cfg.api.max_retries = 1
+    cfg.api.timeout = 2.0
+    cfg.cache.dir = str(tmp_path / "cache")
+    cfg.output.root = str(tmp_path / "outs")
+    cfg.image_gen.candidate_mode = "n_sample"
+    cfg.image_gen.n_sample_count = 4
+
+    inputs = PipelineInput(
+        prompt="a sword",
+        pixelize_params=PixelizeParams(output_size=(16, 16), colors=4, preview_scale=0),
+        use_cache=False,
+        skip_vl=True,  # 简化：跳过图片分析 VL
+    )
+    result = run_pipeline(cfg, inputs)
+    # 第一次 n=4，由于每次只返回 1 张，需要 fallback 3 次单图
+    assert gen_calls["requested_n"][0] == 4
+    assert sum(1 for n in gen_calls["requested_n"] if n == 1) == 3
+    sheet_meta = result.meta["image_gen"]["contact_sheet"]
+    assert sheet_meta["candidate_mode"] == "n_sample"
+    assert sheet_meta["count"] == 4
+    assert result.meta["pixelize"]["candidate_outputs"]["count"] == 4

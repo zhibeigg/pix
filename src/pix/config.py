@@ -70,6 +70,28 @@ class ImageGenConfig:
     candidate_vl_ranking_enabled: bool = True
     candidate_vl_ranking_model: str = ""
     candidate_vl_ranking_failure_policy: str = "first"  # first | reject
+    # 候选生成策略：
+    #   n_sample     —— 直接调用 n=N 让模型返回 N 张独立 full-res 图，每张单独抠色评分（默认）
+    #   contact_sheet —— 旧路径：生成 RxC 九宫格再切图
+    candidate_mode: str = "n_sample"
+    # n-sample 候选数量；经验值 4 个；成本随 N 线性增长
+    n_sample_count: int = 4
+    # 若 provider 不支持 n=N 单次返回，fallback 循环调用时追加的 prompt 变体（非强约束，仅鼓励差异）
+    n_sample_prompt_variations: list[str] = field(default_factory=lambda: [
+        "slight variation in color tone.",
+        "slight variation in lighting and highlight.",
+        "slight variation in material texture emphasis.",
+        "slight variation in silhouette pose.",
+    ])
+    # n-sample 单图 prompt 模板；与 contact_sheet_prompt_template 类似但不含 rows/cols
+    n_sample_prompt_template: str = (
+        "Create a single game asset icon of: {description}. "
+        "One centered isolated object, consistent scale, clear spacing, no overlap. "
+        "Use a pure solid key-color background {green} for easy chroma-key removal. "
+        "No text, no watermark, no UI frame, no labels, no extra props outside the item. "
+        "Readable silhouette, high contrast, thick dark outline, pixel-art friendly details, "
+        "designed to become a {width}x{height} RPG inventory sprite."
+    )
 
 
 @dataclass

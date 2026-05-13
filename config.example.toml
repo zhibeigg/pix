@@ -35,6 +35,20 @@ prompt_guard_max_chars = 500
 candidate_vl_ranking_enabled = true
 candidate_vl_ranking_model = ""              # 留空使用 [vision].model
 candidate_vl_ranking_failure_policy = "first" # first | reject
+# 候选生成模式：
+#   n_sample     —— 直接让模型返回 N 张独立 full-res 图，每张单独抠色，VL 看 full-res 评分（推荐）
+#   contact_sheet —— 旧路径：生成 RxC 九宫格再切图；候选细节更少
+candidate_mode = "n_sample"
+# n_sample 模式下的候选数量，建议 3~6
+n_sample_count = 4
+# 若 provider 单次 n=N 不够 N 张，fallback 循环补齐时追加的 prompt 变体（非强约束，仅鼓励差异）
+n_sample_prompt_variations = [
+    "slight variation in color tone.",
+    "slight variation in lighting and highlight.",
+    "slight variation in material texture emphasis.",
+    "slight variation in silhouette pose.",
+]
+n_sample_prompt_template = "Create a single game asset icon of: {description}. One centered isolated object, consistent scale, clear spacing, no overlap. Use a pure solid key-color background {green} for easy chroma-key removal. No text, no watermark, no UI frame, no labels, no extra props outside the item. Readable silhouette, high contrast, thick dark outline, pixel-art friendly details, designed to become a {width}x{height} RPG inventory sprite."
 
 [vision]
 # Packy 支持的视觉模型，示例：claude-opus-4-7 / claude-sonnet-4-5 / gemini-2.5-pro / gpt-4o 等

@@ -44,7 +44,7 @@ def validate_size(size: str) -> None:
 
 
 def _pick_image_url(resp: dict[str, Any]) -> tuple[str | None, str | None]:
-    """从响应中取出 (url, b64)；两者可能只有其一。"""
+    """从响应中取出 (url, b64)；两者可能只有其一（仅第一张）。"""
     data = resp.get("data") or []
     if not data:
         return None, None
@@ -52,6 +52,28 @@ def _pick_image_url(resp: dict[str, Any]) -> tuple[str | None, str | None]:
     url = first.get("url")
     b64 = first.get("b64_json")
     return url, b64
+
+
+def _collect_image_entries(resp: dict[str, Any]) -> list[tuple[str | None, str | None]]:
+    """收集响应里所有图片条目，按顺序返回 (url, b64)。"""
+    data = resp.get("data") or []
+    entries: list[tuple[str | None, str | None]] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        entries.append((item.get("url"), item.get("b64_json")))
+    return entries
+
+
+def _write_entry(entry: tuple[str | None, str | None], dest: Path, *, timeout: float) -> Path:
+    url, b64 = entry
+    ensure_dir(dest.parent)
+    if b64:
+        write_bytes(dest, b64_to_bytes(b64))
+        return dest
+    if url:
+        return download(url, dest, timeout=timeout)
+    raise PackyError("图片响应条目缺少 url 和 b64_json")
 
 
 def generate_image(
@@ -149,3 +171,143 @@ def edit_image(
     if url:
         return download(url, dest_path, timeout=cfg.api.timeout)
     raise PackyError(f"图片编辑响应缺少 url 和 b64_json：{str(resp)[:500]}")
+
+
+def generate_images_batch(
+    cfg: AppConfig,
+    prompt: str,
+    dest_dir: Path,
+    *,
+    n: int,
+    size: str | None = None,
+    quality: str | None = None,
+    model: str | None = None,
+    output_format: str | None = None,
+    filename_template: str = "sample_{index:02d}.png",
+    prompt_variations: list[str] | None = None,
+) -> list[Path]:
+    """n-sample 文生图：优先用 provider 的 n=N 单次返回；若响应不足 N 张再循环补齐。
+
+    Args:
+        prompt: 基础 prompt；若 prompt_variations 非空，则每次 fallback 追加一句变体。
+        filename_template: 支持 {index} / {index:02d} 占位。
+    """
+    assert n >= 1
+    ensure_dir(dest_dir)
+    api_key = require_image_api_key(cfg)
+    client = PackyClient(
+        base_url=cfg.api.base_url,
+        api_key=api_key,
+        timeout=cfg.api.timeout,
+        max_retries=cfg.api.max_retries,
+    )
+    _size = size or cfg.image_gen.size
+    validate_size(_size)
+
+    collected: list[tuple[str | None, str | None]] = []
+
+    # 1. 先尝试单次 n=N
+    payload: dict[str, Any] = {
+        "model": model or cfg.image_gen.model,
+        "prompt": prompt,
+        "size": _size,
+        "quality": quality or cfg.image_gen.quality,
+        "output_format": output_format or cfg.image_gen.output_format,
+        "response_format": "url",
+        "n": n,
+    }
+    resp = client.post_json("/v1/images/generations", payload)
+    collected.extend(_collect_image_entries(resp))
+
+    # 2. 如果返回不足，用单次调用补齐；可选带 prompt 变体
+    variations = [v for v in (prompt_variations or []) if v.strip()]
+    attempt = 0
+    while len(collected) < n and attempt < n * 2:  # 安全上限
+        attempt += 1
+        var_suffix = f" {variations[(attempt - 1) % len(variations)]}" if variations else ""
+        variant_prompt = (prompt + var_suffix).strip()
+        single_payload = dict(payload)
+        single_payload["prompt"] = variant_prompt
+        single_payload["n"] = 1
+        resp = client.post_json("/v1/images/generations", single_payload)
+        collected.extend(_collect_image_entries(resp))
+
+    if not collected:
+        raise PackyError("n-sample 文生图没有任何返回数据")
+
+    collected = collected[:n]
+    paths: list[Path] = []
+    for index, entry in enumerate(collected, start=1):
+        name = filename_template.format(index=index)
+        paths.append(_write_entry(entry, dest_dir / name, timeout=cfg.api.timeout))
+    return paths
+
+
+def edit_images_batch(
+    cfg: AppConfig,
+    image_path: Path,
+    prompt: str,
+    dest_dir: Path,
+    *,
+    n: int,
+    size: str | None = None,
+    quality: str | None = None,
+    model: str | None = None,
+    output_format: str | None = None,
+    input_fidelity: str | None = None,
+    filename_template: str = "sample_{index:02d}.png",
+    prompt_variations: list[str] | None = None,
+) -> list[Path]:
+    """n-sample 图生图：保持与 `generate_images_batch` 相同的合同。"""
+    assert n >= 1
+    ensure_dir(dest_dir)
+    api_key = require_image_api_key(cfg)
+    client = PackyClient(
+        base_url=cfg.api.base_url,
+        api_key=api_key,
+        timeout=cfg.api.timeout,
+        max_retries=cfg.api.max_retries,
+    )
+    _size = size or cfg.image_gen.size
+    validate_size(_size)
+    image_path = Path(image_path)
+    mime = mimetypes.guess_type(str(image_path))[0] or "application/octet-stream"
+    image_bytes = image_path.read_bytes()
+
+    collected: list[tuple[str | None, str | None]] = []
+
+    base_data: dict[str, Any] = {
+        "model": model or cfg.image_gen.model,
+        "prompt": prompt,
+        "size": _size,
+        "quality": quality or cfg.image_gen.quality,
+        "output_format": output_format or cfg.image_gen.output_format,
+        "response_format": "url",
+        "n": str(n),
+        "input_fidelity": input_fidelity or cfg.image_gen.edit_input_fidelity,
+    }
+    files = {"image": (image_path.name, image_bytes, mime)}
+    resp = client.post_multipart("/v1/images/edits", data=base_data, files=files)
+    collected.extend(_collect_image_entries(resp))
+
+    variations = [v for v in (prompt_variations or []) if v.strip()]
+    attempt = 0
+    while len(collected) < n and attempt < n * 2:
+        attempt += 1
+        var_suffix = f" {variations[(attempt - 1) % len(variations)]}" if variations else ""
+        variant_prompt = (prompt + var_suffix).strip()
+        data = dict(base_data)
+        data["prompt"] = variant_prompt
+        data["n"] = "1"
+        resp = client.post_multipart("/v1/images/edits", data=data, files=files)
+        collected.extend(_collect_image_entries(resp))
+
+    if not collected:
+        raise PackyError("n-sample 图生图没有任何返回数据")
+
+    collected = collected[:n]
+    paths: list[Path] = []
+    for index, entry in enumerate(collected, start=1):
+        name = filename_template.format(index=index)
+        paths.append(_write_entry(entry, dest_dir / name, timeout=cfg.api.timeout))
+    return paths
