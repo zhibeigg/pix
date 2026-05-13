@@ -125,6 +125,9 @@ ai_grid        = false
 ai_grid_retries = 1
 ai_grid_instruction = ""
 ai_grid_fallback = "extract"  # extract | pixelize | fail
+# AI Grid 局部修补：auto 仅在 draft 有 warning 但无 blocking 时让 VL 输出像素 patches
+# off | auto（默认）| force
+ai_grid_repair_mode = "auto"
 # 可选：手绘图标参考目录。AI Grid 会挑选少量 16x16 人工图标作为风格参考，学习留白、轮廓、色阶和高光，而不是照抄题材。
 # 示例：style_reference_dir = "D:/伏魔录项目/美工/icon"
 style_reference_dir = ""

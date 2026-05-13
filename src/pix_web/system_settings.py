@@ -125,6 +125,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.asset.ai_grid", "默认 AI Grid", "素材默认值", "boolean", ""),
     SettingDefinition("pix.asset.ai_grid_retries", "AI Grid 返修次数", "素材默认值", "number", ""),
     SettingDefinition("pix.asset.ai_grid_fallback", "AI Grid 失败策略", "素材默认值", "select", "", options=("extract", "fail")),
+    SettingDefinition("pix.asset.ai_grid_repair_mode", "AI Grid 修补模式", "素材默认值", "select", "auto 仅在 draft 有 warning 但无 blocking 时调用 VL 修补；force 强制修补；off 关闭。", options=("off", "auto", "force")),
     SettingDefinition("pix.asset.style_reference_dir", "手绘参考图标目录", "素材默认值", "string", "", "AI Grid 会从该目录选取少量 16x16 手绘图标作为风格参考。"),
     SettingDefinition("pix.asset.style_reference_limit", "手绘参考图数量", "素材默认值", "number", ""),
     SettingDefinition("pix.asset.ai_grid_draft", "传入源图 draft", "素材默认值", "boolean", ""),

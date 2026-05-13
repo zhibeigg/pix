@@ -44,6 +44,7 @@ def grid_design_from_json(data: dict[str, Any]) -> GridDesignInput:
         retries=int(grid.get("retries", 1)),
         instruction=str(grid.get("instruction", "")),
         fallback=str(grid.get("fallback", "extract")),  # type: ignore[arg-type]
+        repair_mode=str(grid.get("repair_mode", "auto")),  # type: ignore[arg-type]
     )
 
 
