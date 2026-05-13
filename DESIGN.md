@@ -258,7 +258,9 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 
 **`controlled-contact-sheet-generation`** — Default AI image generation guardrail.
 - Text-to-image and image-to-image jobs treat the user input as a short asset description, not as the final model prompt.
-- Backend wraps the description into a server-owned prompt that requests a `{rows}×{cols}` contact sheet on a dynamically selected pure chroma-key background. Users cannot override the contact sheet, key-color background, no-text or no-watermark constraints.
+- Default candidate mode is now `n_sample`: backend asks the image model for N independent full-resolution images via a single `n=N` request (or fallback single calls with `prompt_variations` if the provider returns fewer). Each sample is chroma-keyed and cropped on its own; VL scores the full-resolution candidates. Result cards still iterate the same `ContactSheetResult` shape so the existing UI is unchanged.
+- Legacy `contact_sheet` mode (3×3 grid + chroma-key split) remains available for backwards compatibility but produces lower-detail candidates because each cell only carries ~340 px of effective resolution.
+- Backend wraps the description into a server-owned prompt that requests either a single icon (n_sample) or a `{rows}×{cols}` contact sheet (legacy) on a dynamically selected pure chroma-key background. Users cannot override key-color background, no-text or no-watermark constraints.
 - Prompt guard first runs local injection/template-override checks, then may call a text-only VL/chat model with only the raw user input. If no VL key is configured, it falls back to local policy so CLI and web generation still work.
 - The generated sheet is saved as `01_contact_sheet.png`; candidates are split into `candidates/candidate_XX.png`, chroma-keyed to transparent and cropped with padding.
 - VL receives all candidate images in one scoring request and ranks them by prompt match, single-object clarity, clean transparency/chroma-key edges, low-resolution readability, silhouette contrast and absence of text/watermarks/noise. The score audit is saved as `01_candidate_scores.json`.

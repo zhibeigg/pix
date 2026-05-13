@@ -16,10 +16,21 @@ from rich.table import Table
 from pix import __version__
 from pix.analysis.schema import PixAnalysis
 from pix.api.candidate_ranker import fallback_ranking, rank_candidates
-from pix.api.image_gen import generate_image
+from pix.api.image_gen import generate_image, generate_images_batch
 from pix.api.prompt_guard import PromptPolicyError, validate_user_prompt
 from pix.api.vision import analyze_image
-from pix.contact_sheet import apply_candidate_ranking, build_contact_sheet_prompt, contact_sheet_enabled, copy_selected_candidate, resolve_key_color, split_contact_sheet
+from pix.contact_sheet import (
+    apply_candidate_ranking,
+    build_contact_sheet_prompt,
+    build_sample_prompt,
+    candidate_count,
+    candidate_mode,
+    collect_independent_candidates,
+    contact_sheet_enabled,
+    copy_selected_candidate,
+    resolve_key_color,
+    split_contact_sheet,
+)
 from pix.asset import (
     AssetSizePolicyError,
     build_asset_prompt,
@@ -149,16 +160,39 @@ def cmd_gen_only(
     except PromptPolicyError as exc:
         console.print(f"[red]素材描述被拒绝：{exc}[/red]")
         raise typer.Exit(code=2) from exc
-    effective_prompt = (
-        build_contact_sheet_prompt(cfg, guard.normalized_description, target_size=cfg.asset.pixel_size)
-        if contact_sheet_enabled(cfg, has_prompt=True)
-        else guard.normalized_description
-    )
-    generated = out / "01_contact_sheet.png" if contact_sheet_enabled(cfg, has_prompt=True) else dest
-    console.log(f"开始生图：{prompt!r} → {generated}")
-    generate_image(cfg, effective_prompt, generated, size=size, quality=quality, model=model)
-    candidates_text = ""
-    if contact_sheet_enabled(cfg, has_prompt=True):
+
+    use_candidates = contact_sheet_enabled(cfg, has_prompt=True)
+    mode = candidate_mode(cfg) if use_candidates else "single"
+
+    if use_candidates and mode == "n_sample":
+        effective_prompt = build_sample_prompt(cfg, guard.normalized_description, target_size=cfg.asset.pixel_size)
+        n = candidate_count(cfg)
+        samples_dir = out / "_samples"
+        console.log(f"开始 n-sample 生图：{prompt!r}（n={n}）→ {samples_dir}")
+        sample_paths = generate_images_batch(
+            cfg,
+            effective_prompt,
+            samples_dir,
+            n=n,
+            size=size,
+            quality=quality,
+            model=model,
+            prompt_variations=list(getattr(cfg.image_gen, "n_sample_prompt_variations", []) or []),
+        )
+        key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, guard.normalized_description)
+        result = collect_independent_candidates(
+            sample_paths,
+            out / "candidates",
+            green_screen_color=key_hex,
+            tolerance=cfg.image_gen.green_screen_tolerance,
+            crop_padding=cfg.asset.crop_padding,
+            crop_square=cfg.asset.crop_square,
+        )
+    elif use_candidates:
+        effective_prompt = build_contact_sheet_prompt(cfg, guard.normalized_description, target_size=cfg.asset.pixel_size)
+        generated = out / "01_contact_sheet.png"
+        console.log(f"开始生图：{prompt!r} → {generated}")
+        generate_image(cfg, effective_prompt, generated, size=size, quality=quality, model=model)
         key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, guard.normalized_description)
         result = split_contact_sheet(
             generated,
@@ -170,25 +204,36 @@ def cmd_gen_only(
             crop_padding=cfg.asset.crop_padding,
             crop_square=cfg.asset.crop_square,
         )
-        ranking_model = cfg.image_gen.candidate_vl_ranking_model or cfg.vision.model
-        if cfg.image_gen.candidate_vl_ranking_enabled:
-            try:
-                ranking = rank_candidates(
-                    cfg,
-                    [(candidate.index, candidate.path) for candidate in result.candidates],
-                    user_prompt=prompt,
-                    target_size=cfg.asset.pixel_size,
-                    model=ranking_model,
-                )
-            except Exception as exc:
-                if cfg.image_gen.candidate_vl_ranking_failure_policy == "reject":
-                    raise
-                ranking = fallback_ranking((candidate.index for candidate in result.candidates), model=ranking_model, error=str(exc))
-                console.print(f"[yellow]候选评分失败，已回退候选 1：{exc}[/yellow]")
-            result = apply_candidate_ranking(result, [item.to_metadata() for item in ranking.candidates])
-            (out / "01_candidate_scores.json").write_text(json.dumps(ranking.to_metadata(), ensure_ascii=False, indent=2), encoding="utf-8")
-        copy_selected_candidate(result, dest)
-        candidates_text = f"\n九宫格：{generated}\n候选目录：{out / 'candidates'}\n默认候选：{dest}（candidate_{result.selected.index:02d}）"
+    else:
+        effective_prompt = guard.normalized_description
+        console.log(f"开始生图：{prompt!r} → {dest}")
+        generate_image(cfg, effective_prompt, dest, size=size, quality=quality, model=model)
+        console.print(Panel.fit(f"[green][OK][/green] 图片已保存：{dest}", title="gen-only"))
+        return
+
+    candidates_text = ""
+    ranking_model = cfg.image_gen.candidate_vl_ranking_model or cfg.vision.model
+    if cfg.image_gen.candidate_vl_ranking_enabled:
+        try:
+            ranking = rank_candidates(
+                cfg,
+                [(candidate.index, candidate.path) for candidate in result.candidates],
+                user_prompt=prompt,
+                target_size=cfg.asset.pixel_size,
+                model=ranking_model,
+            )
+        except Exception as exc:
+            if cfg.image_gen.candidate_vl_ranking_failure_policy == "reject":
+                raise
+            ranking = fallback_ranking((candidate.index for candidate in result.candidates), model=ranking_model, error=str(exc))
+            console.print(f"[yellow]候选评分失败，已回退候选 1：{exc}[/yellow]")
+        result = apply_candidate_ranking(result, [item.to_metadata() for item in ranking.candidates])
+        (out / "01_candidate_scores.json").write_text(json.dumps(ranking.to_metadata(), ensure_ascii=False, indent=2), encoding="utf-8")
+    copy_selected_candidate(result, dest)
+    if mode == "n_sample":
+        candidates_text = f"\n候选目录：{out / 'candidates'}\n默认候选：{dest}（candidate_{result.selected.index:02d}）（mode=n_sample）"
+    else:
+        candidates_text = f"\n九宫格：{out / '01_contact_sheet.png'}\n候选目录：{out / 'candidates'}\n默认候选：{dest}（candidate_{result.selected.index:02d}）"
     console.print(Panel.fit(f"[green][OK][/green] 图片已保存：{dest}{candidates_text}", title="gen-only"))
 
 

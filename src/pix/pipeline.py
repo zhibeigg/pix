@@ -13,12 +13,23 @@ from PIL import Image
 from pix import __version__
 from pix.analysis.schema import PixAnalysis
 from pix.api.candidate_ranker import fallback_ranking, rank_candidates
-from pix.api.image_gen import edit_image, generate_image
+from pix.api.image_gen import edit_image, edit_images_batch, generate_image, generate_images_batch
 from pix.api.prompt_guard import PromptPolicyError, validate_user_prompt
 from pix.api.vision import VisionParseError, analyze_image
 from pix.cache import Cache
 from pix.config import AppConfig
-from pix.contact_sheet import apply_candidate_ranking, build_contact_sheet_prompt, contact_sheet_enabled, copy_selected_candidate, resolve_key_color, split_contact_sheet
+from pix.contact_sheet import (
+    apply_candidate_ranking,
+    build_contact_sheet_prompt,
+    build_sample_prompt,
+    candidate_count,
+    candidate_mode,
+    collect_independent_candidates,
+    contact_sheet_enabled,
+    copy_selected_candidate,
+    resolve_key_color,
+    split_contact_sheet,
+)
 from pix.grid.design import design_pixel_grid
 from pix.grid.extract import extract_pixel_grid, infer_grid_aligned_output_size
 from pix.grid.postprocess import fit_pixel_grid_to_canvas, polish_pixel_grid
@@ -94,11 +105,18 @@ def _prepare_prompt(cfg: AppConfig, inputs: PipelineInput, notify: ProgressCb) -
     notify("prompt_guard_ready", guard.to_metadata())
     description = guard.normalized_description or inputs.prompt
     if contact_sheet_enabled(cfg, has_prompt=True):
-        effective = build_contact_sheet_prompt(
-            cfg,
-            description,
-            target_size=inputs.pixelize_params.output_size,
-        )
+        if candidate_mode(cfg) == "n_sample":
+            effective = build_sample_prompt(
+                cfg,
+                description,
+                target_size=inputs.pixelize_params.output_size,
+            )
+        else:
+            effective = build_contact_sheet_prompt(
+                cfg,
+                description,
+                target_size=inputs.pixelize_params.output_size,
+            )
     else:
         effective = description
     return effective, guard.to_metadata()
@@ -113,15 +131,21 @@ def _material_prompt_fields(
     if not contact_sheet_enabled(cfg, has_prompt=True):
         return {"prompt": effective_prompt}
     key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, user_prompt)
-    return {
+    mode = candidate_mode(cfg)
+    base = {
         "user_prompt": user_prompt,
         "effective_prompt": effective_prompt,
-        "contact_sheet_rows": max(1, int(cfg.image_gen.contact_sheet_rows)),
-        "contact_sheet_cols": max(1, int(cfg.image_gen.contact_sheet_cols)),
         "green_screen_color": key_hex,
         "background_key_color": key_hex,
         "green_screen_tolerance": cfg.image_gen.green_screen_tolerance,
+        "candidate_mode": mode,
     }
+    if mode == "n_sample":
+        base["n_sample_count"] = int(getattr(cfg.image_gen, "n_sample_count", 4))
+    else:
+        base["contact_sheet_rows"] = max(1, int(cfg.image_gen.contact_sheet_rows))
+        base["contact_sheet_cols"] = max(1, int(cfg.image_gen.contact_sheet_cols))
+    return base
 
 
 def _postprocess_contact_sheet(
@@ -149,12 +173,87 @@ def _postprocess_contact_sheet(
         crop_padding=cfg.asset.crop_padding,
         crop_square=cfg.asset.crop_square,
     )
+    return _finalize_candidate_result(
+        cfg,
+        result,
+        source_path,
+        run_dir,
+        effective_prompt=effective_prompt,
+        user_prompt=user_prompt,
+        target_size=target_size,
+        rank_with_vl=rank_with_vl,
+        notify=notify,
+        candidate_mode_name="contact_sheet",
+        sheet_path=sheet_path,
+    )
 
+
+def _postprocess_n_sample_candidates(
+    cfg: AppConfig,
+    sample_paths: list[Path],
+    source_path: Path,
+    run_dir: Path,
+    *,
+    effective_prompt: str,
+    user_prompt: str,
+    target_size: tuple[int, int],
+    rank_with_vl: bool,
+    notify: ProgressCb,
+) -> dict | None:
+    if not contact_sheet_enabled(cfg, has_prompt=True):
+        return None
+    key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, user_prompt)
+    result = collect_independent_candidates(
+        sample_paths,
+        run_dir / "candidates",
+        green_screen_color=key_hex,
+        tolerance=cfg.image_gen.green_screen_tolerance,
+        crop_padding=cfg.asset.crop_padding,
+        crop_square=cfg.asset.crop_square,
+    )
+    return _finalize_candidate_result(
+        cfg,
+        result,
+        source_path,
+        run_dir,
+        effective_prompt=effective_prompt,
+        user_prompt=user_prompt,
+        target_size=target_size,
+        rank_with_vl=rank_with_vl,
+        notify=notify,
+        candidate_mode_name="n_sample",
+        sheet_path=None,
+    )
+
+
+def _finalize_candidate_result(
+    cfg: AppConfig,
+    result,
+    source_path: Path,
+    run_dir: Path,
+    *,
+    effective_prompt: str,
+    user_prompt: str,
+    target_size: tuple[int, int],
+    rank_with_vl: bool,
+    notify: ProgressCb,
+    candidate_mode_name: str,
+    sheet_path: Path | None,
+) -> dict:
+    """共用流程：评分 → 选最优 → 复制到 source_path → 落 meta。"""
+    key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, user_prompt)
     ranking_model = cfg.image_gen.candidate_vl_ranking_model or cfg.vision.model
     ranking = None
     if cfg.image_gen.candidate_vl_ranking_enabled and rank_with_vl:
         try:
-            notify("candidate_ranking_start", {"model": ranking_model, "candidates": len(result.candidates)})
+            notify(
+                "candidate_ranking_start",
+                {
+                    "model": ranking_model,
+                    "candidates": len(result.candidates),
+                    "mode": candidate_mode_name,
+                },
+            )
             ranking = rank_candidates(
                 cfg,
                 [(candidate.index, candidate.path) for candidate in result.candidates],
@@ -187,7 +286,19 @@ def _postprocess_contact_sheet(
     meta["green_screen_tolerance"] = cfg.image_gen.green_screen_tolerance
     meta["ranking"] = ranking.to_metadata()
     meta["scores"] = scores_path.name
-    notify("contact_sheet_ready", {"sheet": str(sheet_path), "candidates": len(result.candidates), "selected": str(source_path), "selected_index": result.selected.index})
+    meta["candidate_mode"] = candidate_mode_name
+    if sheet_path is not None:
+        meta.setdefault("sheet", sheet_path.name)
+    notify(
+        "contact_sheet_ready",
+        {
+            "sheet": str(sheet_path) if sheet_path else None,
+            "candidates": len(result.candidates),
+            "selected": str(source_path),
+            "selected_index": result.selected.index,
+            "mode": candidate_mode_name,
+        },
+    )
     return meta
 
 
@@ -457,68 +568,162 @@ def run_pipeline(
     # 2. 生图 / 图生图 / 复用已有图片
     source_path = run_dir / "01_source.png"
     contact_sheet_path = run_dir / "01_contact_sheet.png"
+    samples_dir = run_dir / "_samples"
     source_mode = "upload"
-    if inputs.image_path is not None and effective_prompt:
-        assert inputs.prompt is not None
-        input_hash = sha256_of_file(inputs.image_path)
-        use_sheet = contact_sheet_enabled(cfg, has_prompt=True)
-        generated_path = contact_sheet_path if use_sheet else source_path
-        material = {
-            **_material_prompt_fields(cfg, user_prompt=inputs.prompt, effective_prompt=effective_prompt),
-            "image_sha256": input_hash,
+    use_sheet_overall = contact_sheet_enabled(cfg, has_prompt=True)
+    candidate_mode_name = candidate_mode(cfg) if use_sheet_overall else "single"
+
+    def _run_n_sample_generation(*, do_edit: bool, image_path: Path | None) -> list[Path]:
+        """根据 mode 生成 N 张独立单图；命中缓存的逐张复用，缺失的用一次 batch 调用补齐。"""
+        n = candidate_count(cfg)
+        samples_dir.mkdir(parents=True, exist_ok=True)
+        cached_paths: list[Path | None] = [None] * n
+        material_base = {
+            **_material_prompt_fields(cfg, user_prompt=inputs.prompt or "", effective_prompt=effective_prompt or ""),
             "size": inputs.image_size or cfg.image_gen.size,
             "quality": inputs.image_quality or cfg.image_gen.quality,
             "model": inputs.image_model or cfg.image_gen.model,
             "output_format": cfg.image_gen.output_format,
-            "input_fidelity": cfg.image_gen.edit_input_fidelity,
         }
-        cached = None if inputs.refresh_cache else cache.lookup("imageedit", material, "png")
-        if cached is not None:
-            generated_path.write_bytes(cached.read_bytes())
-            if use_sheet:
-                contact_sheet_meta = _postprocess_contact_sheet(
+        if do_edit:
+            assert image_path is not None
+            material_base["input_fidelity"] = cfg.image_gen.edit_input_fidelity
+            material_base["image_sha256"] = sha256_of_file(image_path)
+        cache_kind = "imageedit_n" if do_edit else "imagegen_n"
+        # 1) 逐张查缓存
+        for i in range(n):
+            material = {**material_base, "index": i + 1}
+            cached = None if inputs.refresh_cache else cache.lookup(cache_kind, material, "png")
+            if cached is not None:
+                dest = samples_dir / f"sample_{i + 1:02d}.png"
+                dest.write_bytes(cached.read_bytes())
+                cached_paths[i] = dest
+        missing = [i for i, p in enumerate(cached_paths) if p is None]
+        if missing:
+            need = len(missing)
+            tmp_dir = samples_dir / "_pending"
+            tmp_dir.mkdir(parents=True, exist_ok=True)
+            variations = list(getattr(cfg.image_gen, "n_sample_prompt_variations", []) or [])
+            assert effective_prompt is not None
+            if do_edit:
+                assert image_path is not None
+                generated = edit_images_batch(
                     cfg,
-                    generated_path,
-                    source_path,
-                    run_dir,
-                    effective_prompt=effective_prompt,
-                    user_prompt=inputs.prompt,
-                    target_size=inputs.pixelize_params.output_size,
-                    rank_with_vl=not inputs.skip_vl,
-                    notify=notify,
+                    image_path,
+                    effective_prompt,
+                    tmp_dir,
+                    n=need,
+                    size=inputs.image_size,
+                    quality=inputs.image_quality,
+                    model=inputs.image_model,
+                    prompt_variations=variations,
                 )
-                source_mode = "edit_contact_sheet_cache"
             else:
-                source_mode = "edit_cache"
+                generated = generate_images_batch(
+                    cfg,
+                    effective_prompt,
+                    tmp_dir,
+                    n=need,
+                    size=inputs.image_size,
+                    quality=inputs.image_quality,
+                    model=inputs.image_model,
+                    prompt_variations=variations,
+                )
+            for slot_index, src in zip(missing, generated, strict=False):
+                target = samples_dir / f"sample_{slot_index + 1:02d}.png"
+                target.write_bytes(Path(src).read_bytes())
+                cached_paths[slot_index] = target
+                # 写入缓存
+                cache.store_copy(cache_kind, {**material_base, "index": slot_index + 1}, "png", target)
+            # 清理 _pending 临时目录
+            for p in tmp_dir.glob("*"):
+                try:
+                    p.unlink()
+                except OSError:
+                    pass
+            try:
+                tmp_dir.rmdir()
+            except OSError:
+                pass
+        return [p for p in cached_paths if p is not None]
+
+    if inputs.image_path is not None and effective_prompt:
+        assert inputs.prompt is not None
+        if use_sheet_overall and candidate_mode_name == "n_sample":
+            sample_paths = _run_n_sample_generation(do_edit=True, image_path=inputs.image_path)
+            contact_sheet_meta = _postprocess_n_sample_candidates(
+                cfg,
+                sample_paths,
+                source_path,
+                run_dir,
+                effective_prompt=effective_prompt,
+                user_prompt=inputs.prompt,
+                target_size=inputs.pixelize_params.output_size,
+                rank_with_vl=not inputs.skip_vl,
+                notify=notify,
+            )
+            source_mode = "edited_n_sample"
             notify("source_ready", {"path": str(source_path), "mode": source_mode})
         else:
-            notify("image_edit_start", {"image_path": str(inputs.image_path), **material})
-            edit_image(
-                cfg,
-                inputs.image_path,
-                effective_prompt,
-                generated_path,
-                size=inputs.image_size,
-                quality=inputs.image_quality,
-                model=inputs.image_model,
-            )
-            cache.store_copy("imageedit", material, "png", generated_path)
-            if use_sheet:
-                contact_sheet_meta = _postprocess_contact_sheet(
-                    cfg,
-                    generated_path,
-                    source_path,
-                    run_dir,
-                    effective_prompt=effective_prompt,
-                    user_prompt=inputs.prompt,
-                    target_size=inputs.pixelize_params.output_size,
-                    rank_with_vl=not inputs.skip_vl,
-                    notify=notify,
-                )
-                source_mode = "edited_contact_sheet"
+            input_hash = sha256_of_file(inputs.image_path)
+            use_sheet = use_sheet_overall and candidate_mode_name == "contact_sheet"
+            generated_path = contact_sheet_path if use_sheet else source_path
+            material = {
+                **_material_prompt_fields(cfg, user_prompt=inputs.prompt, effective_prompt=effective_prompt),
+                "image_sha256": input_hash,
+                "size": inputs.image_size or cfg.image_gen.size,
+                "quality": inputs.image_quality or cfg.image_gen.quality,
+                "model": inputs.image_model or cfg.image_gen.model,
+                "output_format": cfg.image_gen.output_format,
+                "input_fidelity": cfg.image_gen.edit_input_fidelity,
+            }
+            cached = None if inputs.refresh_cache else cache.lookup("imageedit", material, "png")
+            if cached is not None:
+                generated_path.write_bytes(cached.read_bytes())
+                if use_sheet:
+                    contact_sheet_meta = _postprocess_contact_sheet(
+                        cfg,
+                        generated_path,
+                        source_path,
+                        run_dir,
+                        effective_prompt=effective_prompt,
+                        user_prompt=inputs.prompt,
+                        target_size=inputs.pixelize_params.output_size,
+                        rank_with_vl=not inputs.skip_vl,
+                        notify=notify,
+                    )
+                    source_mode = "edit_contact_sheet_cache"
+                else:
+                    source_mode = "edit_cache"
+                notify("source_ready", {"path": str(source_path), "mode": source_mode})
             else:
-                source_mode = "edited"
-            notify("source_ready", {"path": str(source_path), "mode": source_mode})
+                notify("image_edit_start", {"image_path": str(inputs.image_path), **material})
+                edit_image(
+                    cfg,
+                    inputs.image_path,
+                    effective_prompt,
+                    generated_path,
+                    size=inputs.image_size,
+                    quality=inputs.image_quality,
+                    model=inputs.image_model,
+                )
+                cache.store_copy("imageedit", material, "png", generated_path)
+                if use_sheet:
+                    contact_sheet_meta = _postprocess_contact_sheet(
+                        cfg,
+                        generated_path,
+                        source_path,
+                        run_dir,
+                        effective_prompt=effective_prompt,
+                        user_prompt=inputs.prompt,
+                        target_size=inputs.pixelize_params.output_size,
+                        rank_with_vl=not inputs.skip_vl,
+                        notify=notify,
+                    )
+                    source_mode = "edited_contact_sheet"
+                else:
+                    source_mode = "edited"
+                notify("source_ready", {"path": str(source_path), "mode": source_mode})
     elif inputs.image_path is not None:
         # 复制到 run_dir
         data = Path(inputs.image_path).read_bytes()
@@ -528,61 +733,77 @@ def run_pipeline(
     else:
         assert inputs.prompt is not None
         assert effective_prompt is not None
-        use_sheet = contact_sheet_enabled(cfg, has_prompt=True)
-        generated_path = contact_sheet_path if use_sheet else source_path
-        material = {
-            **_material_prompt_fields(cfg, user_prompt=inputs.prompt, effective_prompt=effective_prompt),
-            "size": inputs.image_size or cfg.image_gen.size,
-            "quality": inputs.image_quality or cfg.image_gen.quality,
-            "model": inputs.image_model or cfg.image_gen.model,
-            "output_format": cfg.image_gen.output_format,
-        }
-        cached = None if inputs.refresh_cache else cache.lookup("imagegen", material, "png")
-        if cached is not None:
-            generated_path.write_bytes(cached.read_bytes())
-            if use_sheet:
-                contact_sheet_meta = _postprocess_contact_sheet(
-                    cfg,
-                    generated_path,
-                    source_path,
-                    run_dir,
-                    effective_prompt=effective_prompt,
-                    user_prompt=inputs.prompt,
-                    target_size=inputs.pixelize_params.output_size,
-                    rank_with_vl=not inputs.skip_vl,
-                    notify=notify,
-                )
-                source_mode = "contact_sheet_cache"
-            else:
-                source_mode = "cache"
+        if use_sheet_overall and candidate_mode_name == "n_sample":
+            sample_paths = _run_n_sample_generation(do_edit=False, image_path=None)
+            contact_sheet_meta = _postprocess_n_sample_candidates(
+                cfg,
+                sample_paths,
+                source_path,
+                run_dir,
+                effective_prompt=effective_prompt,
+                user_prompt=inputs.prompt,
+                target_size=inputs.pixelize_params.output_size,
+                rank_with_vl=not inputs.skip_vl,
+                notify=notify,
+            )
+            source_mode = "n_sample_generated"
             notify("source_ready", {"path": str(source_path), "mode": source_mode})
         else:
-            notify("image_gen_start", {"prompt": effective_prompt, "user_prompt": inputs.prompt, **material})
-            generate_image(
-                cfg,
-                effective_prompt,
-                generated_path,
-                size=inputs.image_size,
-                quality=inputs.image_quality,
-                model=inputs.image_model,
-            )
-            cache.store_copy("imagegen", material, "png", generated_path)
-            if use_sheet:
-                contact_sheet_meta = _postprocess_contact_sheet(
-                    cfg,
-                    generated_path,
-                    source_path,
-                    run_dir,
-                    effective_prompt=effective_prompt,
-                    user_prompt=inputs.prompt,
-                    target_size=inputs.pixelize_params.output_size,
-                    rank_with_vl=not inputs.skip_vl,
-                    notify=notify,
-                )
-                source_mode = "generated_contact_sheet"
+            use_sheet = use_sheet_overall and candidate_mode_name == "contact_sheet"
+            generated_path = contact_sheet_path if use_sheet else source_path
+            material = {
+                **_material_prompt_fields(cfg, user_prompt=inputs.prompt, effective_prompt=effective_prompt),
+                "size": inputs.image_size or cfg.image_gen.size,
+                "quality": inputs.image_quality or cfg.image_gen.quality,
+                "model": inputs.image_model or cfg.image_gen.model,
+                "output_format": cfg.image_gen.output_format,
+            }
+            cached = None if inputs.refresh_cache else cache.lookup("imagegen", material, "png")
+            if cached is not None:
+                generated_path.write_bytes(cached.read_bytes())
+                if use_sheet:
+                    contact_sheet_meta = _postprocess_contact_sheet(
+                        cfg,
+                        generated_path,
+                        source_path,
+                        run_dir,
+                        effective_prompt=effective_prompt,
+                        user_prompt=inputs.prompt,
+                        target_size=inputs.pixelize_params.output_size,
+                        rank_with_vl=not inputs.skip_vl,
+                        notify=notify,
+                    )
+                    source_mode = "contact_sheet_cache"
+                else:
+                    source_mode = "cache"
+                notify("source_ready", {"path": str(source_path), "mode": source_mode})
             else:
-                source_mode = "generated"
-            notify("source_ready", {"path": str(source_path), "mode": source_mode})
+                notify("image_gen_start", {"prompt": effective_prompt, "user_prompt": inputs.prompt, **material})
+                generate_image(
+                    cfg,
+                    effective_prompt,
+                    generated_path,
+                    size=inputs.image_size,
+                    quality=inputs.image_quality,
+                    model=inputs.image_model,
+                )
+                cache.store_copy("imagegen", material, "png", generated_path)
+                if use_sheet:
+                    contact_sheet_meta = _postprocess_contact_sheet(
+                        cfg,
+                        generated_path,
+                        source_path,
+                        run_dir,
+                        effective_prompt=effective_prompt,
+                        user_prompt=inputs.prompt,
+                        target_size=inputs.pixelize_params.output_size,
+                        rank_with_vl=not inputs.skip_vl,
+                        notify=notify,
+                    )
+                    source_mode = "generated_contact_sheet"
+                else:
+                    source_mode = "generated"
+                notify("source_ready", {"path": str(source_path), "mode": source_mode})
 
     # 3. 多模态分析
     analysis: PixAnalysis | None = None

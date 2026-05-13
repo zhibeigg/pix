@@ -1,4 +1,4 @@
-"""受控生图 contact sheet 与绿幕后处理工具。"""
+"""受控生图 contact sheet 与动态 key-color 后处理工具。"""
 
 from __future__ import annotations
 
@@ -12,6 +12,18 @@ import numpy as np
 from PIL import Image
 
 from pix.config import AppConfig
+
+
+KEY_COLOR_CANDIDATES = (
+    ("#FF00FF", (255, 0, 255), {"pink", "magenta", "purple", "violet", "rose", "romance", "otome", "cyberpunk", "neon", "粉", "品红", "紫", "玫瑰", "赛博", "霓虹"}),
+    ("#FF0000", (255, 0, 0), {"red", "crimson", "blood", "fire", "flame", "ruby", "warning", "红", "赤", "绯", "血", "火", "猩红"}),
+    ("#00FFFF", (0, 255, 255), {"cyan", "teal", "blue", "ice", "ocean", "sea", "sci-fi", "holographic", "青", "蓝", "冰", "海", "深海", "科幻", "全息"}),
+    ("#00FF00", (0, 255, 0), {"green", "jade", "leaf", "grass", "jungle", "toxic", "poison", "solar", "forest", "绿", "玉", "叶", "草", "森林", "丛林", "毒", "太阳朋克"}),
+    ("#FFFF00", (255, 255, 0), {"yellow", "gold", "sun", "lightning", "amber", "brass", "黄", "金", "太阳", "闪电", "琥珀", "黄铜"}),
+    ("#0000FF", (0, 0, 255), {"blue", "cyan", "ocean", "ice", "sky", "lapis", "蓝", "青", "海", "冰", "天空", "青金石"}),
+    ("#FF7F00", (255, 127, 0), {"orange", "gold", "fire", "flame", "brass", "copper", "desert", "sun", "橙", "金", "火", "铜", "沙", "太阳"}),
+    ("#7F00FF", (127, 0, 255), {"purple", "violet", "lavender", "nebula", "cosmic", "dream", "紫", "薰衣草", "星云", "宇宙", "梦"}),
+)
 
 
 @dataclass(frozen=True)
@@ -90,10 +102,131 @@ class ContactSheetResult:
 
 
 def contact_sheet_enabled(cfg: AppConfig, *, has_prompt: bool) -> bool:
+    """是否启用"候选生成 + VL 评分"模式（与 n_sample / contact_sheet 子模式独立）。"""
     return bool(has_prompt and cfg.image_gen.contact_sheet_enabled)
 
 
-def parse_hex_color(value: str, fallback: tuple[int, int, int] = (0, 255, 0)) -> tuple[int, int, int]:
+def candidate_mode(cfg: AppConfig) -> str:
+    """返回 `n_sample` 或 `contact_sheet`；默认 n_sample。"""
+    mode = str(getattr(cfg.image_gen, "candidate_mode", "n_sample") or "n_sample").lower().strip()
+    if mode not in ("n_sample", "contact_sheet"):
+        return "n_sample"
+    return mode
+
+
+def candidate_count(cfg: AppConfig) -> int:
+    if candidate_mode(cfg) == "n_sample":
+        return max(1, int(getattr(cfg.image_gen, "n_sample_count", 4)))
+    return max(1, int(cfg.image_gen.contact_sheet_rows) * int(cfg.image_gen.contact_sheet_cols))
+
+
+def build_sample_prompt(
+    cfg: AppConfig,
+    description: str,
+    *,
+    target_size: tuple[int, int] | None = None,
+) -> str:
+    """n_sample 模式下的单图 prompt（不含 rows/cols）。"""
+    width, height = target_size or cfg.asset.pixel_size
+    template = (getattr(cfg.image_gen, "n_sample_prompt_template", "") or "").strip()
+    key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, description)
+    values = {
+        "description": description.strip(),
+        "name": description.strip(),
+        "green": key_hex,
+        "key_color": key_hex,
+        "width": int(width),
+        "height": int(height),
+    }
+    if template:
+        try:
+            return template.format(**values).strip()
+        except Exception:
+            pass
+    return (
+        f"Create a single game asset icon of: {values['description']}. "
+        f"One centered isolated object on pure solid {values['green']} background. "
+        f"No text, no watermark, thick dark outline, readable silhouette, "
+        f"designed to become a {values['width']}x{values['height']} RPG inventory sprite."
+    )
+
+
+def collect_independent_candidates(
+    image_paths: Iterable[Path],
+    dest_dir: str | Path,
+    *,
+    green_screen_color: str,
+    tolerance: int,
+    crop_padding: float = 0.12,
+    crop_square: bool = True,
+) -> ContactSheetResult:
+    """把一组独立单图当作候选：每张单独做 chroma-key + 裁剪，走和 split_contact_sheet 相同的结构。
+
+    用于 n_sample 模式替代 split_contact_sheet；保持 ContactSheetResult 不变，
+    下游（ranking、render_candidate_pixel_outputs）零改动。
+    """
+    dest = Path(dest_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    green = parse_hex_color(green_screen_color)
+    candidates: list[ContactSheetCandidate] = []
+    first_source: Path | None = None
+    for index, image_path in enumerate(image_paths, start=1):
+        image_path = Path(image_path)
+        if first_source is None:
+            first_source = image_path
+        with Image.open(image_path) as opened:
+            image = opened.convert("RGBA")
+        processed, bbox = remove_green_screen(
+            image,
+            green_rgb=green,
+            tolerance=tolerance,
+            crop_padding=crop_padding,
+            crop_square=crop_square,
+        )
+        candidate_path = dest / f"candidate_{index:02d}.png"
+        processed.save(candidate_path)
+        candidates.append(
+            ContactSheetCandidate(
+                index=index,
+                row=0,
+                col=index - 1,
+                path=candidate_path,
+                bbox=bbox,
+            )
+        )
+    if not candidates:
+        raise ValueError("n-sample 模式下没有任何候选图片")
+    # sheet_path 用第一张原图，仅为 meta 展示；与 split_contact_sheet 保持合同
+    return ContactSheetResult(
+        sheet_path=first_source if first_source is not None else candidates[0].path,
+        candidates=candidates,
+        selected_index=0,
+    )
+
+
+def normalize_hex_color(rgb: tuple[int, int, int]) -> str:
+    return "#{:02X}{:02X}{:02X}".format(*rgb)
+
+
+def resolve_key_color(value: str, description: str = "") -> tuple[str, tuple[int, int, int]]:
+    """解析或按 prompt 动态选择背景抠色。
+
+    `auto` / `dynamic` 会避开 prompt 中出现的颜色语义，降低素材本体和背景色撞色的概率。
+    """
+    text = (value or "").strip().lower()
+    if text in {"auto", "dynamic", ""}:
+        lowered = (description or "").lower()
+        scored = []
+        for order, (hex_value, rgb, conflicts) in enumerate(KEY_COLOR_CANDIDATES):
+            conflict_count = sum(1 for word in conflicts if word in lowered)
+            scored.append((conflict_count, order, hex_value, rgb))
+        _score, _order, hex_value, rgb = min(scored, key=lambda item: (item[0], item[1]))
+        return hex_value, rgb
+    rgb = parse_hex_color(value, fallback=KEY_COLOR_CANDIDATES[0][1])
+    return normalize_hex_color(rgb), rgb
+
+
+def parse_hex_color(value: str, fallback: tuple[int, int, int] = (255, 0, 255)) -> tuple[int, int, int]:
     text = (value or "").strip()
     if text.startswith("#"):
         text = text[1:]
@@ -117,13 +250,15 @@ def build_contact_sheet_prompt(
     cols = max(1, int(cfg.image_gen.contact_sheet_cols))
     width, height = target_size or cfg.asset.pixel_size
     template = cfg.image_gen.contact_sheet_prompt_template.strip()
+    key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, description)
     values = {
         "description": description.strip(),
         "name": description.strip(),
         "rows": rows,
         "cols": cols,
         "count": rows * cols,
-        "green": cfg.image_gen.green_screen_color.strip() or "#00FF00",
+        "green": key_hex,
+        "key_color": key_hex,
         "width": int(width),
         "height": int(height),
     }
@@ -136,7 +271,7 @@ def build_contact_sheet_prompt(
 def _fallback_prompt(**values: Any) -> str:
     return (
         f"Create a {values['rows']}x{values['cols']} contact sheet with {values['count']} distinct "
-        f"game item icon variations of: {values['description']}. Use a pure green screen "
+        f"game item icon variations of: {values['description']}. Use a pure solid key-color "
         f"background {values['green']}. No text, no watermark, no UI frame. Each cell contains "
         f"one centered isolated object with clear spacing, readable silhouette and pixel-art friendly "
         f"details for a {values['width']}x{values['height']} RPG inventory sprite."
@@ -154,7 +289,7 @@ def split_contact_sheet(
     crop_padding: float = 0.12,
     crop_square: bool = True,
 ) -> ContactSheetResult:
-    """把一张 contact sheet 等分为候选，并把绿幕背景转为透明。"""
+    """把一张 contact sheet 等分为候选，并把纯色 key background 转为透明。"""
     sheet_path = Path(image_path)
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
@@ -195,7 +330,7 @@ def remove_green_screen(
     crop_padding: float = 0.12,
     crop_square: bool = True,
 ) -> tuple[Image.Image, tuple[int, int, int, int] | None]:
-    """针对纯绿幕背景做透明化，并按主体 bbox 裁剪留白。"""
+    """针对纯色 key background 做透明化，并按主体 bbox 裁剪留白。"""
     rgba = np.asarray(image.convert("RGBA")).copy()
     rgb = rgba[..., :3].astype(np.int32)
     ref = np.array(green_rgb, dtype=np.int32)

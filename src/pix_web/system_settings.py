@@ -104,6 +104,8 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.image_gen.candidate_vl_ranking_enabled", "候选 VL 评分排序", "模型与 API", "boolean", ""),
     SettingDefinition("pix.image_gen.candidate_vl_ranking_model", "候选评分模型", "模型与 API", "string", "", "留空使用 VL 模型。"),
     SettingDefinition("pix.image_gen.candidate_vl_ranking_failure_policy", "候选评分失败策略", "模型与 API", "select", "", options=("first", "reject")),
+    SettingDefinition("pix.image_gen.candidate_mode", "候选生成模式", "模型与 API", "select", "n_sample 直接调用 n=N 拿独立 full-res 图（推荐，质量更高）；contact_sheet 走旧 RxC 九宫格切图。", options=("n_sample", "contact_sheet")),
+    SettingDefinition("pix.image_gen.n_sample_count", "n-sample 候选数", "模型与 API", "number", "n_sample 模式下生成的独立图片数；建议 4~6。"),
     SettingDefinition("pix.vision.model", "VL 模型", "模型与 API", "string", ""),
     SettingDefinition("pix.vision.temperature", "VL 温度", "模型与 API", "number", ""),
     SettingDefinition("pix.vision.max_tokens", "VL 最大输出 tokens", "模型与 API", "number", ""),
