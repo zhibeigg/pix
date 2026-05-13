@@ -154,6 +154,11 @@ class AssetConfig:
     ai_grid_retries: int = 1
     ai_grid_instruction: str = ""
     ai_grid_fallback: str = "extract"
+    # AI Grid 修补模式：
+    #   off    —— 不修补
+    #   auto   —— 仅当 draft readability 有 warning 但无 blocking 时调用 VL 局部修补（默认）
+    #   force  —— 强制修补
+    ai_grid_repair_mode: str = "auto"
     style_reference_dir: str = ""
     style_reference_limit: int = 3
     ai_grid_draft: bool = True

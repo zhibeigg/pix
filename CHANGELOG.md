@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.58.0] - 2026-05-14
+
+### Added
+
+- AI Grid 新增 `repair_mode` 局部修补：当 draft readability 仅有 warning（无 blocking）时，VL 只返回少量像素 patches，Python 合并回 draft，避免整图重画。`pix.grid.repair` 含 `repair_pixel_grid` / `repair_or_passthrough` / `build_repair_mask`。
+- `[asset].ai_grid_repair_mode`（off | auto | force，默认 auto）配置项；`GridDesignInput.repair_mode` 同步暴露给 web 入口。Web 管理后台新增对应开关。
+- pipeline 在 grid 模式 `ai` 时按 `repair_mode` 走 auto/force 修补；`pix_meta.grid.repair` 落 before/after 报告与失败原因。
+
+### Changed
+
+- 修补总数超过画布 25% 时自动回退（不应用 patch），由上层决定是否走整图重画。
 ## [0.57.0] - 2026-05-14
 
 ### Added

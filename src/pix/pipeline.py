@@ -52,6 +52,7 @@ class GridDesignInput:
     retries: int = 1
     instruction: str = ""
     fallback: Literal["extract", "pixelize", "fail"] = "extract"
+    repair_mode: Literal["off", "auto", "force"] = "auto"
 
 
 @dataclass
@@ -493,6 +494,23 @@ def _run_grid_pixelize(
             mode=cfg.asset.fit_mode,
             min_axis_coverage=cfg.asset.fit_min_axis_coverage,
         )
+
+    # 4. 局部修补（auto/force）：只在 readability 有 warning 但无 blocking 时调用 VL
+    repair_mode = inputs.grid.repair_mode or cfg.asset.ai_grid_repair_mode
+    if repair_mode != "off" and inputs.grid.mode == "ai":
+        from pix.grid.repair import repair_or_passthrough
+
+        grid, repair_info = repair_or_passthrough(
+            cfg,
+            grid,
+            image_path=source_path,
+            model=inputs.vl_model,
+            max_colors=params.colors,
+            repair_mode=repair_mode,
+        )
+        grid_meta["repair"] = repair_info
+        notify("grid_repair_done", repair_info)
+
     if inputs.grid.review:
         notify("grid_review_start", {})
         grid = review_pixel_grid(cfg, grid, model=inputs.vl_model, instruction=inputs.grid.instruction)
