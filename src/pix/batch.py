@@ -110,7 +110,7 @@ def _process_one(
                 item.meta["vl_error"] = str(exc)
 
         img = Image.open(src)
-        pixel_img, preview_img, pix_meta = pixelize(img, params, analysis=analysis)
+        pixel_img, preview_img, pix_meta = pixelize(img, params, analysis=analysis, cfg=cfg)
 
         dest.parent.mkdir(parents=True, exist_ok=True)
         pixel_img.save(dest)

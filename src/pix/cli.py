@@ -19,7 +19,7 @@ from pix.api.candidate_ranker import fallback_ranking, rank_candidates
 from pix.api.image_gen import generate_image
 from pix.api.prompt_guard import PromptPolicyError, validate_user_prompt
 from pix.api.vision import analyze_image
-from pix.contact_sheet import apply_candidate_ranking, build_contact_sheet_prompt, contact_sheet_enabled, copy_selected_candidate, split_contact_sheet
+from pix.contact_sheet import apply_candidate_ranking, build_contact_sheet_prompt, contact_sheet_enabled, copy_selected_candidate, resolve_key_color, split_contact_sheet
 from pix.asset import (
     AssetSizePolicyError,
     build_asset_prompt,
@@ -159,12 +159,13 @@ def cmd_gen_only(
     generate_image(cfg, effective_prompt, generated, size=size, quality=quality, model=model)
     candidates_text = ""
     if contact_sheet_enabled(cfg, has_prompt=True):
+        key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, guard.normalized_description)
         result = split_contact_sheet(
             generated,
             out / "candidates",
             rows=cfg.image_gen.contact_sheet_rows,
             cols=cfg.image_gen.contact_sheet_cols,
-            green_screen_color=cfg.image_gen.green_screen_color,
+            green_screen_color=key_hex,
             tolerance=cfg.image_gen.green_screen_tolerance,
             crop_padding=cfg.asset.crop_padding,
             crop_square=cfg.asset.crop_square,
@@ -523,6 +524,7 @@ def cmd_asset(
         auto_crop=cfg.asset.auto_crop,
         crop_padding=cfg.asset.crop_padding,
         crop_square=cfg.asset.crop_square,
+        palette_mode=cfg.asset.palette_mode,  # type: ignore[arg-type]
     )
     console.log(f"生成素材：{name!r} → {target}")
     result = run_pipeline(

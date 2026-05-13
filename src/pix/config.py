@@ -46,16 +46,16 @@ class ImageGenConfig:
     output_format: str = "png"
     # 图生图编辑时尽量保留原图主体和细节：low | high（Packy/OpenAI 兼容参数）
     edit_input_fidelity: str = "high"
-    # 受控生图：默认让模型一次生成九宫格候选，后端再切图和抠绿幕。
+    # 受控生图：默认让模型一次生成九宫格候选，后端再切图和抠动态纯色 key background。
     contact_sheet_enabled: bool = True
     contact_sheet_rows: int = 3
     contact_sheet_cols: int = 3
-    green_screen_color: str = "#00FF00"
+    green_screen_color: str = "auto"
     green_screen_tolerance: int = 48
     contact_sheet_prompt_template: str = (
         "Create a {rows}x{cols} contact sheet containing exactly {count} distinct variations of: {description}. "
         "Each cell contains one centered isolated game asset icon, consistent scale, clear spacing, no overlap. "
-        "Use a pure green screen background {green} across the entire image for easy chroma-key removal. "
+        "Use a pure solid key-color background {green} across the entire image for easy chroma-key removal. "
         "No text, no watermark, no UI frame, no labels, no extra props outside each item. "
         "Readable silhouette, high contrast, thick dark outline, pixel-art friendly details, "
         "designed to become a {width}x{height} RPG inventory sprite."
@@ -103,6 +103,8 @@ class PixelizeConfig:
     auto_crop: bool = False
     crop_padding: float = 0.12
     crop_square: bool = True
+    # 调色板策略：auto（保持原 K-means） | ramp（VL/本地色相阶梯） | kmeans（强制 K-means）
+    palette_mode: str = "auto"
 
 
 @dataclass
@@ -143,9 +145,11 @@ class AssetConfig:
     fit_mode: str = "smart"
     fit_padding: int = 1
     fit_min_axis_coverage: float = 0.7
+    # Asset 直出默认改用 ramp 调色板，手绘质感更强
+    palette_mode: str = "ramp"
     prompt_template: str = (
         "A single fantasy pixel game inventory item icon of {name}. "
-        "Centered object, isolated on pure green screen background #00FF00, no text, no UI frame, "
+        "Centered object, isolated on a pure solid chroma-key background color that does not appear in the item, no text, no UI frame, "
         "no shadow outside the item, thick dark outline, high contrast, readable silhouette, "
         "designed to become a {width}x{height} RPG inventory sprite."
     )

@@ -7,11 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-05-14
+
+### Added
+
+- 新增 Ramp 调色板 `pix.pixelize.ramp`：`outline → shadow → mid → highlight` 按 CIELAB 明度阶梯排布，VL 失败时按 HSL 色相聚类本地兜底，量化走 Lab 空间最近色，RGBA 透明通道完整保留。
+- `PixelizeParams.palette_mode`（`auto|ramp|kmeans`）与 `[pixelize].palette_mode` / `[asset].palette_mode` 配置；Asset 直出默认切到 `ramp`，手绘层次感显著增强。
+- `meta.json.pixelize` 新增 `ramp` / `ramp_info` 字段：落盘 ramp 结构、色相、每个 step 的 role、VL/本地来源与失败原因。
+- Web 系统设置新增"调色板模式"开关，支持在管理后台切换。
+
+### Changed
+
+- `pixelize()` 新增 `cfg` / `source_description` 可选关键字参数，用于在 ramp 模式下调用 VL；现有调用点无需修改，不传即走本地兜底。
+- CLI `asset`、GUI 单次像素化、Web 生成都会尊重 `palette_mode`，旧用户默认值 `auto` 保持 K-means 行为不变。
+
+## [0.55.1] - 2026-05-13
+
+### Fixed
+
+- 生图模型无法直接输出透明 PNG 时，受控生图改用按 prompt 动态选择的纯色抠色背景，并全局移除 key color，修复封闭孔洞和边缘残留底色问题。
+- 量化后贴着透明边界的 key-color 同色相紫边会被继续清理，避免纯色背景在物品轮廓外残留。
+- 透明像素的 RGB 会在抠色后清零，避免忽略 alpha 的预览器显示残留背景色。
+
+### Changed
+
+- 默认 `[image_gen].green_screen_color` 改为 `auto`，避免固定 `#00FF00` 与玉石、草地、毒液等绿色题材撞色。
+
 ## [0.55.0] - 2026-05-12
 
 ### Added
 
-- 网站首页新增 76 套题材范例图库，每套包含 Pix 管线生成的透明物品精灵表和 1920×1080 像素 UI 展示图。
+- 网站首页新增 76 套题材范例图库，每套包含真实 Pix 全流程生成的透明物品精灵表和 1920×1080 像素 UI 展示图；物品图按大精灵表输出，保证单格至少 32×32 级可读空间。
 - 新增 `scripts/generate_homepage_examples.py`，可从题材清单重新生成主页范例 PNG 与前端 manifest。
 
 ### Changed
@@ -59,14 +85,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- 默认受控生图：文生图/图生图会由后端包装为 3x3 绿幕九宫格 contact sheet，并自动切出 9 个透明候选图。
+- 默认受控生图：文生图/图生图会由后端包装为 3x3 动态纯色抠色背景九宫格 contact sheet，并自动切出 9 个透明候选图。
 - 新增用户描述 prompt guard：先执行本地注入/模板覆盖规则，再可选调用文本模型审核，且模型只接收用户原始输入。
 - Web 作品和任务卡展示九宫格候选，支持复制候选路径并用候选创建免费的本地像素化任务。
 
 ### Changed
 
-- 生图缓存 key 改为基于服务端 effective prompt、九宫格参数和绿幕参数，避免用户描述与模板版本混淆。
-- 默认素材 prompt 从白底改为纯绿幕背景，便于后处理稳定抠图。
+- 生图缓存 key 改为基于服务端 effective prompt、九宫格参数和抠色背景参数，避免用户描述与模板版本混淆。
+- 默认素材 prompt 从白底改为纯色抠色背景，便于后处理稳定抠图。
 
 ## [0.51.0] - 2026-05-12
 

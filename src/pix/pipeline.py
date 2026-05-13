@@ -18,7 +18,7 @@ from pix.api.prompt_guard import PromptPolicyError, validate_user_prompt
 from pix.api.vision import VisionParseError, analyze_image
 from pix.cache import Cache
 from pix.config import AppConfig
-from pix.contact_sheet import apply_candidate_ranking, build_contact_sheet_prompt, contact_sheet_enabled, copy_selected_candidate, split_contact_sheet
+from pix.contact_sheet import apply_candidate_ranking, build_contact_sheet_prompt, contact_sheet_enabled, copy_selected_candidate, resolve_key_color, split_contact_sheet
 from pix.grid.design import design_pixel_grid
 from pix.grid.extract import extract_pixel_grid, infer_grid_aligned_output_size
 from pix.grid.postprocess import fit_pixel_grid_to_canvas, polish_pixel_grid
@@ -112,12 +112,14 @@ def _material_prompt_fields(
 ) -> dict:
     if not contact_sheet_enabled(cfg, has_prompt=True):
         return {"prompt": effective_prompt}
+    key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, user_prompt)
     return {
         "user_prompt": user_prompt,
         "effective_prompt": effective_prompt,
         "contact_sheet_rows": max(1, int(cfg.image_gen.contact_sheet_rows)),
         "contact_sheet_cols": max(1, int(cfg.image_gen.contact_sheet_cols)),
-        "green_screen_color": cfg.image_gen.green_screen_color,
+        "green_screen_color": key_hex,
+        "background_key_color": key_hex,
         "green_screen_tolerance": cfg.image_gen.green_screen_tolerance,
     }
 
@@ -136,12 +138,13 @@ def _postprocess_contact_sheet(
 ) -> dict | None:
     if not contact_sheet_enabled(cfg, has_prompt=True):
         return None
+    key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, user_prompt)
     result = split_contact_sheet(
         sheet_path,
         run_dir / "candidates",
         rows=cfg.image_gen.contact_sheet_rows,
         cols=cfg.image_gen.contact_sheet_cols,
-        green_screen_color=cfg.image_gen.green_screen_color,
+        green_screen_color=key_hex,
         tolerance=cfg.image_gen.green_screen_tolerance,
         crop_padding=cfg.asset.crop_padding,
         crop_square=cfg.asset.crop_square,
@@ -179,7 +182,8 @@ def _postprocess_contact_sheet(
         effective_prompt=effective_prompt,
         user_prompt=user_prompt,
     )
-    meta["green_screen_color"] = cfg.image_gen.green_screen_color
+    meta["green_screen_color"] = key_hex
+    meta["background_key_color"] = key_hex
     meta["green_screen_tolerance"] = cfg.image_gen.green_screen_tolerance
     meta["ranking"] = ranking.to_metadata()
     meta["scores"] = scores_path.name
@@ -195,6 +199,8 @@ def _render_candidate_pixel_outputs(
     *,
     grid_mode: str,
     notify: ProgressCb,
+    cfg: AppConfig | None = None,
+    source_description: str = "",
 ) -> dict | None:
     """为 contact sheet 的每个候选生成最终像素图，并更新候选 meta。"""
     if not result_meta or not isinstance(result_meta.get("candidates"), list):
@@ -228,7 +234,13 @@ def _render_candidate_pixel_outputs(
         pixel_path = output_dir / f"candidate_{index:02d}_pixelized.png"
         preview_path = output_dir / f"candidate_{index:02d}_preview.png"
         try:
-            pixel_img, preview_img, pix_meta = pixelize(candidate_path, params, analysis=analysis)
+            pixel_img, preview_img, pix_meta = pixelize(
+                candidate_path,
+                params,
+                analysis=analysis,
+                cfg=cfg,
+                source_description=source_description,
+            )
             pixel_img.save(pixel_path)
             if preview_img is not None:
                 preview_img.save(preview_path)
@@ -617,6 +629,8 @@ def run_pipeline(
         analysis,
         grid_mode=inputs.grid.mode,
         notify=notify,
+        cfg=cfg,
+        source_description=inputs.prompt or "",
     )
     selected_candidate = None
     if contact_sheet_meta and isinstance(contact_sheet_meta.get("candidates"), list):
@@ -636,7 +650,11 @@ def run_pipeline(
                 preview_path.write_bytes(preview_src.read_bytes())
     elif inputs.grid.mode == "off":
         pixel_img, preview_img, pix_meta = pixelize(
-            source_path, inputs.pixelize_params, analysis=analysis
+            source_path,
+            inputs.pixelize_params,
+            analysis=analysis,
+            cfg=cfg,
+            source_description=inputs.prompt or "",
         )
         pixel_img.save(pixel_path)
         if preview_img is not None:
@@ -653,7 +671,11 @@ def run_pipeline(
                 raise
             notify("grid_fallback", {"mode": "pixelize", "error": str(exc)})
             pixel_img, preview_img, pix_meta = pixelize(
-                source_path, inputs.pixelize_params, analysis=analysis
+                source_path,
+                inputs.pixelize_params,
+                analysis=analysis,
+                cfg=cfg,
+                source_description=inputs.prompt or "",
             )
             pix_meta["grid"] = {
                 "mode": inputs.grid.mode,

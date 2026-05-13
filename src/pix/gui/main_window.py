@@ -530,6 +530,7 @@ class MainWindow(QMainWindow):
             bg_tolerance=self.bg_tol_spin.value(),
             bg_feather=self.bg_feather_spin.value(),
             edge_style=self.edge_style_combo.currentData() or "hard",
+            palette_mode=getattr(self.cfg.pixelize, "palette_mode", "auto"),  # type: ignore[arg-type]
         )
         return PipelineInput(
             prompt=prompt,
