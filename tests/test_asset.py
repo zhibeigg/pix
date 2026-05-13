@@ -9,8 +9,10 @@ from PIL import Image
 
 from pix.asset import (
     AssetSizePolicyError,
+    AssetSizeStrategy,
     build_asset_prompt,
     resolve_asset_generation_policy,
+    resolve_size_strategy,
     safe_asset_filename,
     validate_asset_image,
 )
@@ -28,6 +30,22 @@ def test_resolve_asset_generation_policy_blocks_sub16_except_8x8() -> None:
         resolve_asset_generation_policy((12, 12))
     with pytest.raises(AssetSizePolicyError):
         resolve_asset_generation_policy((16, 8))
+
+
+def test_resolve_size_strategy_per_size() -> None:
+    s8 = resolve_size_strategy((8, 8))
+    assert s8.grid_mode == "ai" and s8.ai_grid is True and s8.repair_mode == "force"
+    s16 = resolve_size_strategy((16, 16))
+    assert s16.grid_mode == "ai" and s16.ai_grid is True and s16.repair_mode == "auto"
+    s32 = resolve_size_strategy((32, 32))
+    assert s32.grid_mode == "extract" and s32.ai_grid is False and s32.repair_mode == "auto"
+    s64 = resolve_size_strategy((64, 64))
+    assert s64.grid_mode == "off" and s64.repair_mode == "off"
+    # 全部启用 ramp
+    for s in (s8, s16, s32, s64):
+        assert s.palette_mode == "ramp"
+    assert isinstance(s8, AssetSizeStrategy)
+    assert "8x8" in s8.notes
 
 
 def test_build_asset_prompt_formats_template() -> None:

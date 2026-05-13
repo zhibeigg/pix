@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.59.0] - 2026-05-14
+
+### Added
+
+- 新增 `pix.asset.resolve_size_strategy(size) -> AssetSizeStrategy`，给出按目标尺寸推荐的 pipeline 组合：
+  - 8×8：AI Grid 直绘 + force 修补 + ramp
+  - 16×16：AI Grid + auto 修补 + ramp
+  - 32×32：extract Pixel Grid + auto 修补 + ramp
+  - 64+：普通像素化（grid off）+ ramp
+- README 与文档同步推荐"尺寸 → 策略"对照表，方便用户与集成方组合 palette_mode / grid_mode / repair_mode。
+
+### Changed
+
+- 现有 CLI 命令默认值不变，新增 helper 不会自动覆盖；后续上层（GUI / Web 表单）可选择主动调用 `resolve_size_strategy` 填充推荐默认值。
 ## [0.58.0] - 2026-05-14
 
 ### Added

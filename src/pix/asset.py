@@ -13,6 +13,7 @@ from PIL import Image
 
 IssueLevel = Literal["error", "warning"]
 AssetGenerationPolicy = Literal["extract", "ai_grid_required"]
+AssetPaletteMode = Literal["auto", "ramp", "kmeans"]
 
 
 class AssetSizePolicyError(ValueError):
@@ -32,6 +33,67 @@ def resolve_asset_generation_policy(size: tuple[int, int]) -> AssetGenerationPol
     if width < 16 or height < 16:
         raise AssetSizePolicyError("16x16 以下仅允许 8x8，且 8x8 必须使用 AI Grid 直绘")
     return "extract"
+
+
+@dataclass(frozen=True)
+class AssetSizeStrategy:
+    """按目标尺寸推荐的 pipeline 策略；调用方仍可显式覆盖。"""
+
+    palette_mode: str
+    grid_mode: str  # off | extract | ai
+    ai_grid: bool
+    repair_mode: str  # off | auto | force
+    notes: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "palette_mode": self.palette_mode,
+            "grid_mode": self.grid_mode,
+            "ai_grid": self.ai_grid,
+            "repair_mode": self.repair_mode,
+            "notes": self.notes,
+        }
+
+
+def resolve_size_strategy(size: tuple[int, int]) -> AssetSizeStrategy:
+    """根据目标尺寸推荐：
+    - 8x8: AI Grid 直绘 + 整图修补 + ramp（避免 K-means 噪点）
+    - 16x16: AI Grid + auto 修补 + ramp
+    - 32x32: extract Pixel Grid + auto 修补 + ramp
+    - 64+: 普通像素化流程 + ramp（grid_mode=off）
+    """
+    short = max(1, min(int(size[0]), int(size[1])))
+    if short <= 8:
+        return AssetSizeStrategy(
+            palette_mode="ramp",
+            grid_mode="ai",
+            ai_grid=True,
+            repair_mode="force",
+            notes="8x8 强制 AI Grid 直绘 + 整图修补 + ramp",
+        )
+    if short <= 16:
+        return AssetSizeStrategy(
+            palette_mode="ramp",
+            grid_mode="ai",
+            ai_grid=True,
+            repair_mode="auto",
+            notes="16x16 推荐 AI Grid + auto 修补 + ramp",
+        )
+    if short <= 32:
+        return AssetSizeStrategy(
+            palette_mode="ramp",
+            grid_mode="extract",
+            ai_grid=False,
+            repair_mode="auto",
+            notes="32x32 推荐 extract Pixel Grid + auto 修补 + ramp",
+        )
+    return AssetSizeStrategy(
+        palette_mode="ramp",
+        grid_mode="off",
+        ai_grid=False,
+        repair_mode="off",
+        notes="64+ 推荐普通像素化 + ramp（无需 grid 或修补）",
+    )
 
 
 @dataclass(frozen=True)
