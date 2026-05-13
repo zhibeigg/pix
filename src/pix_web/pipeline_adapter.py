@@ -32,6 +32,7 @@ def pixelize_params_from_json(data: dict[str, Any]) -> PixelizeParams:
         auto_crop=bool(pix.get("auto_crop", False)),
         crop_padding=float(pix.get("crop_padding", 0.12)),
         crop_square=bool(pix.get("crop_square", True)),
+        palette_mode=str(pix.get("palette_mode", "auto")),  # type: ignore[arg-type]
     )
 
 

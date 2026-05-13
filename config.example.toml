@@ -16,13 +16,15 @@ quality        = "high"           # low | medium | high | auto
 output_format  = "png"
 # 图生图编辑时尽量保留原图主体和细节：low | high
 edit_input_fidelity = "high"
-# 默认受控生图：一次生成九宫格候选，后端切图并抠纯绿幕背景。
+# 默认受控生图：一次生成九宫格候选，后端切图并抠纯色 key background。
 contact_sheet_enabled = true
 contact_sheet_rows = 3
 contact_sheet_cols = 3
-green_screen_color = "#00FF00"
+# auto 会按 prompt 动态选择不易撞色的纯色背景（如 #FF00FF/#00FFFF/#00FF00），也可固定为某个 HEX。
+# 绿色背景不适合所有题材：玉石/毒液/草地等会和 #00FF00 撞色。
+green_screen_color = "auto"
 green_screen_tolerance = 48
-contact_sheet_prompt_template = "Create a {rows}x{cols} contact sheet containing exactly {count} distinct variations of: {description}. Each cell contains one centered isolated game asset icon, consistent scale, clear spacing, no overlap. Use a pure green screen background {green} across the entire image for easy chroma-key removal. No text, no watermark, no UI frame, no labels, no extra props outside each item. Readable silhouette, high contrast, thick dark outline, pixel-art friendly details, designed to become a {width}x{height} RPG inventory sprite."
+contact_sheet_prompt_template = "Create a {rows}x{cols} contact sheet containing exactly {count} distinct variations of: {description}. Each cell contains one centered isolated game asset icon, consistent scale, clear spacing, no overlap. Use a pure solid key-color background {green} across the entire image for easy chroma-key removal. No text, no watermark, no UI frame, no labels, no extra props outside each item. Readable silhouette, high contrast, thick dark outline, pixel-art friendly details, designed to become a {width}x{height} RPG inventory sprite."
 # 用户描述审核：本地规则默认生效；remote=true 时会尝试用 VL/chat 模型审核用户原始输入，失败默认退回本地规则。
 prompt_guard_enabled = true
 prompt_guard_remote = true
@@ -74,6 +76,11 @@ bg_feather     = 0
 auto_crop      = false
 crop_padding   = 0.12
 crop_square    = true
+# 调色板策略：
+#   auto   —— 保持经典 K-means 量化（默认，兼容旧行为）
+#   ramp   —— VL（失败时本地按 HSL 聚合兜底）给出 outline→shadow→mid→highlight 色相阶梯，Lab 最近色量化
+#   kmeans —— 强制 K-means，禁止 VL 介入
+palette_mode   = "auto"
 
 [asset]
 # 游戏素材直出命令 pix asset 的默认值
@@ -122,7 +129,10 @@ fit_canvas      = true
 fit_mode        = "smart"  # smart | contain | stretch
 fit_padding     = 1
 fit_min_axis_coverage = 0.7
-prompt_template = "A single fantasy pixel game inventory item icon of {name}. Centered object, isolated on pure green screen background #00FF00, no text, no UI frame, no shadow outside the item, thick dark outline, high contrast, readable silhouette, designed to become a {width}x{height} RPG inventory sprite."
+# Asset 直出默认启用 ramp 调色板（VL 失败时本地兜底），手绘质感比 K-means 更强。
+# 可选：auto | ramp | kmeans；建议保持 ramp。
+palette_mode    = "ramp"
+prompt_template = "A single fantasy pixel game inventory item icon of {name}. Centered object, isolated on a pure solid chroma-key background color that does not appear in the item, no text, no UI frame, no shadow outside the item, thick dark outline, high contrast, readable silhouette, designed to become a {width}x{height} RPG inventory sprite."
 
 [cache]
 enabled        = true

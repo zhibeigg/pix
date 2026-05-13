@@ -20,11 +20,20 @@ from pix.pixelize.palette import (
     swatches_to_rgb_list,
 )
 from pix.pixelize.presets import Preset, load_preset
+from pix.pixelize.ramp import (
+    RampPalette,
+    RampValidationError,
+    build_local_ramp,
+    quantize_to_ramp,
+    ramp_from_vl,
+    ramp_to_meta,
+)
 
 
 Dither = Literal["none", "ordered", "floyd_steinberg"]
 ResampleMode = Literal["smart", "box", "bicubic", "lanczos", "nearest"]
 EdgeStyle = Literal["hard", "feather", "outline"]
+PaletteMode = Literal["auto", "ramp", "kmeans"]
 LOW_PIXEL_OUTLINE_MAX_AXIS = 32
 
 
@@ -46,6 +55,7 @@ class PixelizeParams:
     auto_crop: bool = False
     crop_padding: float = 0.12
     crop_square: bool = True
+    palette_mode: PaletteMode = "auto"
 
     @classmethod
     def from_config(cls, cfg: PixelizeConfig) -> "PixelizeParams":
@@ -66,6 +76,7 @@ class PixelizeParams:
             auto_crop=getattr(cfg, "auto_crop", False),
             crop_padding=getattr(cfg, "crop_padding", 0.12),
             crop_square=getattr(cfg, "crop_square", True),
+            palette_mode=getattr(cfg, "palette_mode", "auto"),  # type: ignore[arg-type]
         )
 
 
@@ -111,6 +122,7 @@ def _effective_params(
         auto_crop=params.auto_crop,
         crop_padding=params.crop_padding,
         crop_square=params.crop_square,
+        palette_mode=params.palette_mode,
     )
 
     if preset is not None:
@@ -513,18 +525,75 @@ def _build_palette(
     return palette
 
 
+def _resolve_ramp_palette(
+    image: Image.Image,
+    params: PixelizeParams,
+    analysis: PixAnalysis | None,
+    *,
+    cfg=None,  # AppConfig，避免此处循环引入
+    image_path=None,
+    description: str = "",
+) -> tuple[RampPalette, dict]:
+    """尝试获取 Ramp 调色板。先 VL，再本地兜底。
+
+    Returns:
+        (ramp_palette, ramp_meta_extra)
+        ramp_meta_extra 里含 source / 错误信息 / 用了哪些底色提示。
+    """
+    info: dict = {"source": "local", "vl_error": None, "requested": params.palette_mode}
+    draft_hex = [
+        "#{:02X}{:02X}{:02X}".format(*rgb) for rgb in kmeans_palette(image, max(4, min(8, params.colors)))
+    ]
+    info["draft_palette"] = draft_hex
+    if description:
+        info["description"] = description
+
+    want_vl = params.palette_mode in ("ramp",) and cfg is not None and image_path is not None
+    if want_vl:
+        try:
+            ramp = ramp_from_vl(
+                cfg,
+                image_path,
+                max_colors=max(3, params.colors),
+                output_size=params.output_size,
+                description=description,
+                draft_palette_hex=draft_hex,
+            )
+            info["source"] = "vl"
+            return ramp, info
+        except (RampValidationError, Exception) as exc:  # noqa: BLE001 - 兜底到本地 ramp
+            info["vl_error"] = str(exc)
+            info["source"] = "local_fallback"
+
+    ramp = build_local_ramp(image, max_colors=max(3, params.colors))
+    info.setdefault("source", "local")
+    return ramp, info
+
+
 def pixelize(
     source: Image.Image | str | Path,
     params: PixelizeParams,
     analysis: PixAnalysis | None = None,
+    *,
+    cfg=None,
+    source_description: str = "",
 ) -> tuple[Image.Image, Image.Image | None, dict]:
     """执行像素化。
+
+    Args:
+        source: 输入图片路径或 PIL Image。
+        params: 像素化参数，`palette_mode` 控制走 kmeans 还是 ramp。
+        analysis: 可选的 VL 分析 JSON。
+        cfg: 若使用 VL ramp，需要传入 AppConfig（否则自动回退到本地 ramp）。
+        source_description: 用户原始语义描述，辅助 VL ramp 判断题材。
 
     Returns:
         (pixel_image, preview_image_or_None, meta_dict)
     """
+    source_path: Path | None = None
     if not isinstance(source, Image.Image):
-        source = Image.open(source)
+        source_path = Path(source)
+        source = Image.open(source_path)
     img = _image_mode_for_pixelize(source)
     input_has_transparency = _has_transparent_alpha(img)
 
@@ -560,10 +629,33 @@ def pixelize(
     down = _downsample(img, eff.output_size, mode=eff.resample, snap=eff.snap_to_grid)
     # 2. 轻微增强
     down = _apply_enhancements(down, eff.saturation, eff.edge_enhance)
-    # 3. 构建调色板。VL 只作为调色板/语义参考，不直接矩形改写像素，避免产生块状伪影。
-    palette_rgb = _build_palette(down, eff, preset, analysis)
+
+    # 3. 构建调色板。
+    #   palette_mode=ramp: VL（或本地兜底）给 Ramp → Lab 最近色量化
+    #   palette_mode=kmeans / auto: 保留原 K-means 路径
+    #   auto：默认走 kmeans，后续可改为按尺寸自动启用 ramp（M4 做）
+    ramp_palette: RampPalette | None = None
+    ramp_info: dict | None = None
+    use_ramp = eff.palette_mode == "ramp"
+    if use_ramp:
+        ramp_palette, ramp_info = _resolve_ramp_palette(
+            down,
+            eff,
+            analysis,
+            cfg=cfg,
+            image_path=source_path,
+            description=source_description,
+        )
+        palette_rgb = ramp_palette.rgb_list
+    else:
+        palette_rgb = _build_palette(down, eff, preset, analysis)
+
     # 5. 量化 + 抖动
-    pixelized = _quantize(down, palette_rgb, eff.dither)
+    if ramp_palette is not None:
+        dither_mode = "floyd_steinberg" if eff.dither == "floyd_steinberg" else "none"
+        pixelized = quantize_to_ramp(down, ramp_palette, dither=dither_mode)
+    else:
+        pixelized = _quantize(down, palette_rgb, eff.dither)
 
     # 6. 可选：抠背景（在量化后做最准——背景块已经是纯色）
     if eff.remove_bg:
@@ -603,6 +695,7 @@ def pixelize(
             "auto_crop": eff.auto_crop,
             "crop_padding": eff.crop_padding,
             "crop_square": eff.crop_square,
+            "palette_mode": eff.palette_mode,
         },
         "palette": ["#{:02X}{:02X}{:02X}".format(*c) for c in palette_rgb],
         "palette_size": len(palette_rgb),
@@ -616,4 +709,7 @@ def pixelize(
             "offset": list(aspect_offset),
         },
     }
+    if ramp_palette is not None:
+        meta["ramp"] = ramp_to_meta(ramp_palette)
+        meta["ramp_info"] = ramp_info
     return pixelized, preview, meta

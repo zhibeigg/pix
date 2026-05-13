@@ -41,6 +41,7 @@ htmlcov/
 
 # 本地图片素材与生成/测试产物
 图片/
+scripts/_smoke_*.py
 
 # IDE
 .idea/

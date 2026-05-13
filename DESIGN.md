@@ -258,7 +258,7 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 
 **`controlled-contact-sheet-generation`** — Default AI image generation guardrail.
 - Text-to-image and image-to-image jobs treat the user input as a short asset description, not as the final model prompt.
-- Backend wraps the description into a server-owned prompt that requests a `{rows}×{cols}` contact sheet on pure `#00FF00` green screen. Users cannot override the contact sheet, green screen, no-text or no-watermark constraints.
+- Backend wraps the description into a server-owned prompt that requests a `{rows}×{cols}` contact sheet on a dynamically selected pure chroma-key background. Users cannot override the contact sheet, key-color background, no-text or no-watermark constraints.
 - Prompt guard first runs local injection/template-override checks, then may call a text-only VL/chat model with only the raw user input. If no VL key is configured, it falls back to local policy so CLI and web generation still work.
 - The generated sheet is saved as `01_contact_sheet.png`; candidates are split into `candidates/candidate_XX.png`, chroma-keyed to transparent and cropped with padding.
 - VL receives all candidate images in one scoring request and ranks them by prompt match, single-object clarity, clean transparency/chroma-key edges, low-resolution readability, silhouette contrast and absence of text/watermarks/noise. The score audit is saved as `01_candidate_scores.json`.
@@ -353,6 +353,12 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 - One page only: lead with the claim “not an AI image album, a game-asset production line.”
 - Pair a strong narrative card with three proof rows: Pixel Grid engineering, batch packages, and multi-size delivery.
 - Avoid generic “describe / queue / export” cards unless they directly support the production-line argument.
+
+**`ramp-palette-mode`** — Structured palette strategy for pixelize / asset.
+- Default mode for asset pipeline is `ramp`: VL designs a hue-grouped palette (outline → shadow → mid → highlight) constrained by CIELAB steps; Python quantizes the source via nearest-Lab lookup.
+- Fallback path: when VL is unavailable, a local HSL clustering builds the ramp from the source image and guarantees monotonic lightness steps; the rest of the pipeline is unchanged.
+- Meta.json surfaces `pixelize.ramp` (ramps, steps, roles, source) so admins can audit whether a job hit VL or fell back to local ramp.
+- Mode choice: `auto` keeps the legacy K-means path for backwards compatibility; `ramp` opts into the new path; `kmeans` forces legacy even when asset defaults change.
 
 **`asset-scale-bench`** — Compact production proof inside the hero asset board.
 - Shows the same RPG material at 32x, 16x, and 8x so users understand Pix is a delivery workflow, not just a gallery.
