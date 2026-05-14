@@ -78,6 +78,11 @@ export type SpriteParams = {
   loop: number
   rows: number
   cols: number
+  key_mode?: 'hard' | 'soft' | null
+  key_tolerance?: number | null
+  key_softness?: number | null
+  key_alpha_floor?: number | null
+  key_despill?: boolean | null
 }
 
 export type SpriteFrameOutput = {

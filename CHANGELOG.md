@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-05-14
+
+### Added
+
+- `pix sprite` 新增 soft chroma key 抠色模式，可估算半透明边缘 alpha，并通过 despill 去掉纯色背景对魔气、烟雾、爆炸等 VFX 边缘的染色。
+- 新增 `[sprite].key_mode`、`key_softness`、`key_alpha_floor`、`key_despill` 配置，并在 CLI/Web 任务参数中支持覆盖。
+
 ## [1.1.0] - 2026-05-14
 
 ### Added

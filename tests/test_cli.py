@@ -226,6 +226,11 @@ def test_sprite_cli_direct_output(tmp_path: Path, tmp_cwd: Path, monkeypatch) ->
         assert inputs.pixelize_params.output_size == (16, 16)
         assert inputs.pixelize_params.colors == 6
         assert inputs.duration_ms == 80
+        assert inputs.key_mode == "soft"
+        assert inputs.key_tolerance == 24
+        assert inputs.key_softness == 160
+        assert inputs.key_alpha_floor == 4
+        assert inputs.key_despill is False
         run_dir = tmp_path / "sprite-run"
         run_dir.mkdir()
         source_path = run_dir / "01_sprite_grid.png"
@@ -260,6 +265,11 @@ def test_sprite_cli_direct_output(tmp_path: Path, tmp_cwd: Path, monkeypatch) ->
             "--pixel-size", "16x16",
             "--colors", "6",
             "--duration-ms", "80",
+            "--key-mode", "soft",
+            "--key-tolerance", "24",
+            "--key-softness", "160",
+            "--key-alpha-floor", "4",
+            "--no-despill",
         ],
     )
 

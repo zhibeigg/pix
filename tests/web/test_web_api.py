@@ -1039,10 +1039,22 @@ def test_sprite_sheet_job_outputs_gif_and_frames(client: TestClient, tmp_path, m
             "job_type": "sprite_sheet",
             "prompt": "暗黑骑士挥剑动画",
             "pixelize": {"output_size": [16, 16], "colors": 6},
-            "sprite": {"duration_ms": 80, "loop": 0, "rows": 3, "cols": 3},
+            "sprite": {
+                "duration_ms": 80,
+                "loop": 0,
+                "rows": 3,
+                "cols": 3,
+                "key_mode": "soft",
+                "key_tolerance": 24,
+                "key_softness": 160,
+                "key_alpha_floor": 4,
+                "key_despill": True,
+            },
         },
     )
     assert created.status_code == 200, created.text
+    assert created.json()["params_json"]["sprite"]["key_mode"] == "soft"
+    assert created.json()["params_json"]["sprite"]["key_despill"] is True
 
     run_dir = tmp_path / "sprite-run"
     run_dir.mkdir()

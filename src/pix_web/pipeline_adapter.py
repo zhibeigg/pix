@@ -82,6 +82,11 @@ def sprite_input_from_job(job: GenerationJob, settings: WebSettings) -> SpritePi
         loop=int(sprite.get("loop", 0)),
         rows=int(sprite.get("rows", 3)),
         cols=int(sprite.get("cols", 3)),
+        key_mode=sprite.get("key_mode"),
+        key_tolerance=sprite.get("key_tolerance"),
+        key_softness=sprite.get("key_softness"),
+        key_alpha_floor=sprite.get("key_alpha_floor"),
+        key_despill=sprite.get("key_despill"),
     )
 
 
