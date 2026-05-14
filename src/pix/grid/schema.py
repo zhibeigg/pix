@@ -72,12 +72,36 @@ class PixelGrid(BaseModel):
         if not isinstance(data, dict):
             return data
         value = data.get("pixels")
-        if not isinstance(value, list) or not value or not all(isinstance(row, str) for row in value):
+        if not isinstance(value, list) or not value:
             return data
         canvas = data.get("canvas") if isinstance(data.get("canvas"), dict) else {}
         transparent = int(canvas.get("transparent_index", -1))
-        data = dict(data)
-        data["pixels"] = [[_decode_grid_char(ch, transparent) for ch in row.strip()] for row in value]
+
+        # 形态 1：list[str]，每行是一整段字符串
+        if all(isinstance(row, str) for row in value):
+            data = dict(data)
+            data["pixels"] = [[_decode_grid_char(ch, transparent) for ch in row.strip()] for row in value]
+            return data
+
+        # 形态 2：list[list[str]]，每个 cell 是单字符或字符串
+        if all(isinstance(row, list) for row in value) and any(
+            isinstance(cell, str) for row in value for cell in row
+        ):
+            data = dict(data)
+            decoded: list[list[int]] = []
+            for row in value:
+                decoded_row: list[int] = []
+                for cell in row:
+                    if isinstance(cell, str):
+                        decoded_row.append(_decode_grid_char(cell, transparent))
+                    elif isinstance(cell, int):
+                        decoded_row.append(cell)
+                    else:
+                        # 非法 cell：交给后续 schema 报错
+                        decoded_row.append(transparent)
+                decoded.append(decoded_row)
+            data["pixels"] = decoded
+            return data
         return data
 
     @model_validator(mode="after")

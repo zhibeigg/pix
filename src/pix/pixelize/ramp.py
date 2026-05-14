@@ -11,7 +11,7 @@ from __future__ import annotations
 import colorsys
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Sequence
 
@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from pix.api.packy_client import PackyClient, PackyError
+from pix.api.packy_client import PackyClient
 from pix.api.vision import _extract_content, _extract_json
 from pix.config import AppConfig, require_vl_api_key
 from pix.io_utils import image_to_base64_data_url
@@ -464,7 +464,6 @@ def build_local_ramp(
     # HLS 分簇
     hls = np.array([colorsys.rgb_to_hls(r / 255.0, g / 255.0, b / 255.0) for r, g, b in visible], dtype=np.float32)
     hue = hls[:, 0] * 360.0
-    light = hls[:, 1]
     sat = hls[:, 2]
 
     n_ramps = max(1, min(int(max_ramps), max(1, max_colors // 3)))
@@ -561,7 +560,6 @@ def _build_ramp_steps_from_pixels(pixels: np.ndarray, count: int) -> list[RampSt
     lab = _rgb_array_to_lab(pixels)
     order = np.argsort(lab[:, 0])
     pixels_sorted = pixels[order]
-    lab_sorted = lab[order]
     indices = np.linspace(0, pixels_sorted.shape[0] - 1, count).astype(int)
 
     # 对首尾略作拓展：outline/highlight 往两端再压一步，制造明度阶梯感。
@@ -692,4 +690,21 @@ def ramp_from_dict(data: dict[str, Any]) -> RampPalette:
         hue = (ramp_model.hue or name).strip() or "unknown"
         ramps.append(ColorRamp(name=name, hue=hue, steps=tuple(_order_steps(steps))))
     return RampPalette(ramps=tuple(ramps), source="manual")
+
+
+def remap_palette_to_ramp(rgb_palette: list[tuple[int, int, int]], ramp: RampPalette) -> list[tuple[int, int, int]]:
+    """把 K-means 出的扁平 palette 按 Lab 最近色映射到 ramp 颜色。
+
+    用途：PixelGrid 走 extract 路径出来后，palette 是 K-means 聚出来的；
+    我们保留 pixels 索引不变，只把 palette 颜色替换成 ramp 上最近的色，
+    立刻获得"手绘色阶感"而不需要重新生成像素布局。
+    """
+    if not rgb_palette or not ramp.rgb_list:
+        return list(rgb_palette)
+    palette_lab = np.asarray([rgb_to_lab(rgb) for rgb in rgb_palette], dtype=np.float32)
+    ramp_lab = np.asarray([rgb_to_lab(rgb) for rgb in ramp.rgb_list], dtype=np.float32)
+    diff = palette_lab[:, None, :] - ramp_lab[None, :, :]
+    dist = (diff * diff).sum(axis=-1)
+    indices = dist.argmin(axis=1)
+    return [ramp.rgb_list[int(i)] for i in indices]
 

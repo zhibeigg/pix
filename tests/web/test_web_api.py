@@ -542,56 +542,19 @@ def test_create_job_reserves_credits_idempotently(client: TestClient) -> None:
 def test_create_job_rejects_sub16_asset_sizes(client: TestClient) -> None:
     _user, headers = _register_and_login(client)
 
-    response = client.post(
-        "/jobs",
-        headers=headers,
-        json={
-            "job_type": "text_to_image",
-            "prompt": "tiny mushroom",
-            "pixelize": {"output_size": [12, 12], "colors": 8},
-        },
-    )
+    for size in ([12, 12], [8, 8], [16, 8]):
+        response = client.post(
+            "/jobs",
+            headers=headers,
+            json={
+                "job_type": "text_to_image",
+                "prompt": "tiny mushroom",
+                "pixelize": {"output_size": size, "colors": 8},
+            },
+        )
 
-    assert response.status_code == 422
-    assert "16x16 以下仅允许 8x8" in response.json()["detail"]
-
-
-def test_create_job_requires_ai_grid_for_8x8(client: TestClient) -> None:
-    _user, headers = _register_and_login(client)
-
-    response = client.post(
-        "/jobs",
-        headers=headers,
-        json={
-            "job_type": "text_to_image",
-            "prompt": "tiny mushroom",
-            "pixelize": {"output_size": [8, 8], "colors": 8},
-            "grid": {"mode": "off"},
-        },
-    )
-
-    assert response.status_code == 422
-    assert response.json()["detail"] == "8x8 素材必须使用 AI Grid 直绘"
-
-
-def test_create_job_allows_8x8_with_ai_grid(client: TestClient, monkeypatch) -> None:
-    user, headers = _register_and_login(client)
-    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 20})
-    monkeypatch.setattr("pix_web.routers.jobs.enqueue_jobs", lambda _settings, job_ids: len(job_ids))
-
-    response = client.post(
-        "/jobs",
-        headers=headers,
-        json={
-            "job_type": "text_to_image",
-            "prompt": "tiny mushroom",
-            "pixelize": {"output_size": [8, 8], "colors": 8},
-            "grid": {"mode": "ai", "fallback": "fail"},
-        },
-    )
-
-    assert response.status_code == 200
-    assert response.json()["params_json"]["grid"]["mode"] == "ai"
+        assert response.status_code == 422
+        assert "16x16" in response.json()["detail"]
 
 
 def test_create_job_enqueues_pending_job(client: TestClient, monkeypatch) -> None:

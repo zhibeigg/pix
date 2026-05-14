@@ -70,11 +70,7 @@ export type PixelizeParams = {
 }
 
 export type GridDesignParams = {
-  mode: 'off' | 'extract' | 'ai'
-  review: boolean
-  retries: number
-  instruction: string
-  fallback: 'extract' | 'pixelize' | 'fail'
+  mode: 'off' | 'extract'
 }
 
 export type JobCreateRequest = {
@@ -114,21 +110,11 @@ export type GridReadabilityReport = {
 }
 
 export type GridOutputStatus = {
-  mode?: 'off' | 'extract' | 'ai' | string
-  review?: boolean
-  fallback?: string
-  used_fallback?: boolean
-  fallback_reason?: string
-  failed?: boolean
-  error?: string
-  attempts?: number
-  max_attempts?: number
-  repaired?: boolean
-  source_prompt_used?: boolean
-  draft?: {
-    canvas?: [number, number]
-    palette_size?: number
-    source?: Record<string, unknown>
+  mode?: 'off' | 'extract' | string
+  readability?: GridReadabilityReport | null
+  ramp_info?: {
+    source?: string
+    vl_error?: string | null
   } | null
 }
 

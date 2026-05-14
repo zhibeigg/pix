@@ -132,17 +132,13 @@ function GridQualitySummary({ output }: { output: JobOutput }) {
   const status = output.grid_status
   const report = output.grid_readability
   if (!status && !report) return null
-  const mode = status?.mode === 'ai' ? 'AI Grid' : status?.mode === 'extract' ? 'Grid 提取' : status?.mode
-  const attempts = status?.attempts && status?.max_attempts ? `返修 ${status.attempts}/${status.max_attempts}` : null
+  const mode = status?.mode === 'extract' ? 'Grid 提取' : status?.mode
   const blocking = report?.issues?.filter((issue) => issue.level === 'blocking').length ?? 0
   return (
     <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
-      {mode && <Chip size="small" color={status?.used_fallback || status?.failed ? 'warning' : 'primary'} variant="outlined" label={mode} />}
+      {mode && <Chip size="small" color="primary" variant="outlined" label={mode} />}
       {report && <Chip size="small" color={report.ok ? 'success' : 'warning'} variant="outlined" label={report.ok ? '可读性通过' : `阻塞 ${blocking}`} />}
       {report && <Chip size="small" variant="outlined" label={`${report.color_count} 色 · 主体 ${Math.round(report.bbox_coverage * 100)}%`} />}
-      {attempts && <Chip size="small" variant="outlined" label={attempts} />}
-      {status?.repaired && <Chip size="small" color="success" variant="outlined" label="已自动返修" />}
-      {status?.used_fallback && <Chip size="small" color="warning" variant="outlined" label="已回退" />}
     </Stack>
   )
 }

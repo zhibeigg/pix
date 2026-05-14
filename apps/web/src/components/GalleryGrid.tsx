@@ -135,9 +135,8 @@ function GridQualityChips({ output }: { output: JobOutput }) {
   if (!status && !report) return null
   return (
     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-      {status?.mode && <Chip size="small" color={status.used_fallback || status.failed ? 'warning' : 'primary'} variant="outlined" label={status.mode === 'ai' ? 'AI Grid' : 'Grid'} />}
+      {status?.mode && <Chip size="small" color="primary" variant="outlined" label="Grid" />}
       {report && <Chip size="small" color={report.ok ? 'success' : 'warning'} variant="outlined" label={report.ok ? '可读性 OK' : '需返修'} />}
-      {status?.repaired && <Chip size="small" color="success" variant="outlined" label="已返修" />}
     </Stack>
   )
 }

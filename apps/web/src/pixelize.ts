@@ -34,23 +34,12 @@ export function buildPixelize(overrides: Partial<PixelizeParams> = {}): Pixelize
   return next
 }
 
-export function isEightPixelSize(size: [number, number]): boolean {
-  return size[0] === 8 && size[1] === 8
+export function hasInvalidSubAssetSize(size: [number, number]): boolean {
+  return size[0] < 16 || size[1] < 16
 }
 
-export function hasInvalidSub16Size(size: [number, number]): boolean {
-  return (size[0] < 16 || size[1] < 16) && !isEightPixelSize(size)
-}
-
-export function buildGridDesign(enabled: boolean, outputSize?: [number, number]): GridDesignParams {
-  const forceAiGrid = outputSize ? isEightPixelSize(outputSize) : false
-  return {
-    mode: forceAiGrid || enabled ? 'ai' : 'off',
-    review: false,
-    retries: 1,
-    instruction: '',
-    fallback: forceAiGrid ? 'fail' : 'extract',
-  }
+export function buildGridDesign(): GridDesignParams {
+  return { mode: 'extract' }
 }
 
 export function summarizePrompt(value: string | null | undefined, fallback = '无输入摘要'): string {

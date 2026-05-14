@@ -21,7 +21,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/01_wuxia_ui.png",
     "itemFile": "01_wuxia_item.png",
     "uiFile": "01_wuxia_ui.png",
-    "itemPrompt": "pixel art wuxia items, ink-wash sword, bamboo flute, jade pendant, silk scroll, iron fan, copper coins, tea set, muted ink black red jade green palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art wuxia items, ink-wash sword, bamboo flute, jade pendant, silk scroll, iron fan, copper coins, tea set, muted ink black red jade green palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art wuxia UI, rice paper texture, ink brush borders, bamboo frames, red seal icons, calligraphy fonts, jade green accents, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -33,7 +33,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/02_xianxia_ui.png",
     "itemFile": "02_xianxia_item.png",
     "uiFile": "02_xianxia_ui.png",
-    "itemPrompt": "pixel art cultivation items, glowing spirit stones, jade pill bottles, flying sword, taoist talismans, bagua mirror, celestial robe, cyan purple gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art cultivation items, glowing spirit stones, jade pill bottles, flying sword, taoist talismans, bagua mirror, celestial robe, cyan purple gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art xianxia UI, cloud pattern borders, golden immortal frames, bagua symbols, nebula background, jade buttons, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -45,7 +45,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/03_xuanhuan_ui.png",
     "itemFile": "03_xuanhuan_item.png",
     "uiFile": "03_xuanhuan_ui.png",
-    "itemPrompt": "pixel art xuanhuan items, flaming heavenly sword, dragon scale armor, phoenix feather, pill cauldron, soul orb, ancient tome, red gold black palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art xuanhuan items, flaming heavenly sword, dragon scale armor, phoenix feather, pill cauldron, soul orb, ancient tome, red gold black palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art xuanhuan UI, dragon-carved frames, fire lightning borders, gold ancient script, crimson panels, beast totem icons, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -57,7 +57,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/04_palace_ui.png",
     "itemFile": "04_palace_item.png",
     "uiFile": "04_palace_ui.png",
-    "itemPrompt": "pixel art palace items, phoenix hairpin, jade seal, silk fan, porcelain vase, incense burner, embroidered robe, crimson gold ivory palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art palace items, phoenix hairpin, jade seal, silk fan, porcelain vase, incense burner, embroidered robe, crimson gold ivory palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art palace UI, ornate gold dragon phoenix borders, red lacquer panels, pearl ornaments, silk curtain frames, imperial yellow, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -69,7 +69,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/05_myth_ui.png",
     "itemFile": "05_myth_item.png",
     "uiFile": "05_myth_ui.png",
-    "itemPrompt": "pixel art Shan Hai Jing items, nine-tailed fox charm, jade rabbit, bronze mask, mystic gourd, peach of immortality, ghost lantern, teal gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art Shan Hai Jing items, nine-tailed fox charm, jade rabbit, bronze mask, mystic gourd, peach of immortality, ghost lantern, teal gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art mythology UI, bronze oracle bone borders, mountain silhouette, star constellation icons, mystic fog, jade copper accents, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -81,7 +81,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/06_sanguo_ui.png",
     "itemFile": "06_sanguo_item.png",
     "uiFile": "06_sanguo_ui.png",
-    "itemPrompt": "pixel art Three Kingdoms items, guandao halberd, general helmet, war drum, strategy scroll, command seal, wine jug, earth red black bronze palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art Three Kingdoms items, guandao halberd, general helmet, war drum, strategy scroll, command seal, wine jug, earth red black bronze palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art war UI, wooden camp borders, leather map panels, bronze seal icons, crimson banners, ink strategy script, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -93,7 +93,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/07_wafu_ui.png",
     "itemFile": "07_wafu_item.png",
     "uiFile": "07_wafu_ui.png",
-    "itemPrompt": "pixel art wafu items, katana, oni mask, paper lantern, folding fan, sake bottle, tatami, sakura branch, red black white sakura pink palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art wafu items, katana, oni mask, paper lantern, folding fan, sake bottle, tatami, sakura branch, red black white sakura pink palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art Japanese UI, shoji paper frames, torii gate borders, sakura petals, ink brush headers, red seal buttons, washi texture, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -105,7 +105,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/08_urbanxian_ui.png",
     "itemFile": "08_urbanxian_item.png",
     "uiFile": "08_urbanxian_ui.png",
-    "itemPrompt": "pixel art urban cultivation items, smartphone with taoist app, glowing jade bracelet, talisman card, briefcase sword, neon jade city grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art urban cultivation items, smartphone with taoist app, glowing jade bracelet, talisman card, briefcase sword, neon jade city grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art modern xianxia UI, holographic taoist symbols, neon jade frames, city skyline, modern app icons with ancient patterns, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -117,7 +117,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/09_highfantasy_ui.png",
     "itemFile": "09_highfantasy_item.png",
     "uiFile": "09_highfantasy_ui.png",
-    "itemPrompt": "pixel art high fantasy items, enchanted longsword, spellbook, mana potion, crystal staff, elven bow, dwarven hammer, dragon shield, blue gold emerald palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art high fantasy items, enchanted longsword, spellbook, mana potion, crystal staff, elven bow, dwarven hammer, dragon shield, blue gold emerald palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art high fantasy UI, ornate gold filigree borders, parchment panels, gem buttons, mythical creature icons, tavern warm colors, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -129,7 +129,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/10_lowfantasy_ui.png",
     "itemFile": "10_lowfantasy_item.png",
     "uiFile": "10_lowfantasy_ui.png",
-    "itemPrompt": "pixel art low fantasy items, worn iron sword, leather journal, rusty dagger, bread cheese, tin cup, crude map, oil lantern, muted brown grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art low fantasy items, worn iron sword, leather journal, rusty dagger, bread cheese, tin cup, crude map, oil lantern, muted brown grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art low fantasy UI, worn leather borders, ink-stained paper, iron rivets, dark wood panels, faded heraldry, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -141,7 +141,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/11_swordsorcery_ui.png",
     "itemFile": "11_swordsorcery_item.png",
     "uiFile": "11_swordsorcery_ui.png",
-    "itemPrompt": "pixel art sword sorcery items, barbarian broadsword, bone amulet, skull cup, tribal axe, fur cloak, crude idol, blood red bronze bone palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art sword sorcery items, barbarian broadsword, bone amulet, skull cup, tribal axe, fur cloak, crude idol, blood red bronze bone palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art barbarian UI, carved bone borders, blood-stained parchment, tribal totem icons, rough stone panels, primitive feel, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -153,7 +153,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/12_darkfantasy_ui.png",
     "itemFile": "12_darkfantasy_item.png",
     "uiFile": "12_darkfantasy_ui.png",
-    "itemPrompt": "pixel art dark fantasy items, cursed greatsword, bloody chalice, rotting tome, tarnished crown, black candle, plague mask, desaturated blood red black palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art dark fantasy items, cursed greatsword, bloody chalice, rotting tome, tarnished crown, black candle, plague mask, desaturated blood red black palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art dark fantasy UI, rusted iron borders, blood-splattered panels, gothic cathedral arches, bone ornaments, hollow eye icons, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -165,7 +165,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/13_medieval_ui.png",
     "itemFile": "13_medieval_item.png",
     "uiFile": "13_medieval_ui.png",
-    "itemPrompt": "pixel art realistic medieval items, arming sword, chainmail, wooden shield, leather boots, iron helm, bread, barrel, realistic earth tone palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art realistic medieval items, arming sword, chainmail, wooden shield, leather boots, iron helm, bread, barrel, realistic earth tone palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art medieval UI, wooden plank borders, parchment scrolls, heraldic shields, iron buckles, leather straps, historical feel, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -177,7 +177,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/14_fairytale_ui.png",
     "itemFile": "14_fairytale_item.png",
     "uiFile": "14_fairytale_ui.png",
-    "itemPrompt": "pixel art fairytale items, glass slipper, magic beanstalk seed, red riding hood cape, poisoned apple, fairy wand, gingerbread, pastel pink mint gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art fairytale items, glass slipper, magic beanstalk seed, red riding hood cape, poisoned apple, fairy wand, gingerbread, pastel pink mint gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art storybook UI, pop-up book frames, pastel ribbon borders, flower buttons, fairy icons, whimsical soft colors, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -189,7 +189,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/15_norse_ui.png",
     "itemFile": "15_norse_item.png",
     "uiFile": "15_norse_ui.png",
-    "itemPrompt": "pixel art Norse items, Mjolnir hammer, rune stone, drinking horn, viking axe, wolf pelt, gold arm ring, yggdrasil branch, icy blue bronze red palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art Norse items, Mjolnir hammer, rune stone, drinking horn, viking axe, wolf pelt, gold arm ring, yggdrasil branch, icy blue bronze red palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art Norse UI, carved wooden rune borders, knotwork patterns, viking shield panels, frost textures, bronze rivets, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -201,7 +201,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/16_celtic_ui.png",
     "itemFile": "16_celtic_item.png",
     "uiFile": "16_celtic_ui.png",
-    "itemPrompt": "pixel art celtic druid items, twisted wooden staff, mistletoe, celtic knot amulet, wicker basket, ogham stones, cauldron, forest green gold brown palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art celtic druid items, twisted wooden staff, mistletoe, celtic knot amulet, wicker basket, ogham stones, cauldron, forest green gold brown palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art celtic UI, knotwork spiral borders, ivy-covered frames, stone circle panels, oak leaf ornaments, mossy green, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -213,7 +213,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/17_greek_ui.png",
     "itemFile": "17_greek_item.png",
     "uiFile": "17_greek_ui.png",
-    "itemPrompt": "pixel art Greek items, laurel wreath, golden trident, olive branch, marble bust, wine amphora, bronze shield, spartan helmet, marble white gold ocean blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art Greek items, laurel wreath, golden trident, olive branch, marble bust, wine amphora, bronze shield, spartan helmet, marble white gold ocean blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art Greek UI, marble column borders, laurel leaf frames, gold meander pattern, classical statue icons, Mediterranean blue, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -225,7 +225,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/18_egyptian_ui.png",
     "itemFile": "18_egyptian_item.png",
     "uiFile": "18_egyptian_ui.png",
-    "itemPrompt": "pixel art Egyptian items, ankh key, scarab amulet, canopic jar, golden mask, pharaoh crown, papyrus scroll, was scepter, gold lapis turquoise sand palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art Egyptian items, ankh key, scarab amulet, canopic jar, golden mask, pharaoh crown, papyrus scroll, was scepter, gold lapis turquoise sand palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art Egyptian UI, hieroglyph borders, pyramid frames, gold sun disk icons, papyrus texture, obelisk panels, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -237,7 +237,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/19_hardscifi_ui.png",
     "itemFile": "19_hardscifi_item.png",
     "uiFile": "19_hardscifi_ui.png",
-    "itemPrompt": "pixel art hard sci-fi items, plasma rifle, magnetic boots, data chip, oxygen tank, EVA helmet, fusion cell, white steel blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art hard sci-fi items, plasma rifle, magnetic boots, data chip, oxygen tank, EVA helmet, fusion cell, white steel blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art hard sci-fi UI, minimalist HUD, white steel panels, blue holographic borders, scientific readouts, grid background, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -249,7 +249,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/20_spaceopera_ui.png",
     "itemFile": "20_spaceopera_item.png",
     "uiFile": "20_spaceopera_ui.png",
-    "itemPrompt": "pixel art space opera items, laser sword, starship key, alien artifact, cosmic gem, commander badge, plasma blaster, deep purple gold chrome palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art space opera items, laser sword, starship key, alien artifact, cosmic gem, commander badge, plasma blaster, deep purple gold chrome palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art space opera UI, starship bridge borders, galactic map backgrounds, glowing blue panels, alien symbol icons, chrome frames, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -261,7 +261,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/21_cyberpunk_ui.png",
     "itemFile": "21_cyberpunk_item.png",
     "uiFile": "21_cyberpunk_ui.png",
-    "itemPrompt": "pixel art cyberpunk items, cyber katana, neural implant chip, holo-phone, energy drink, cyber arm, data shard, neon pink cyan purple black palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art cyberpunk items, cyber katana, neural implant chip, holo-phone, energy drink, cyber arm, data shard, neon pink cyan purple black palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art cyberpunk UI, glitchy neon borders, holographic panels, pink cyan glow, hexagonal tech frames, scrolling code background, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -273,7 +273,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/22_steampunk_ui.png",
     "itemFile": "22_steampunk_item.png",
     "uiFile": "22_steampunk_ui.png",
-    "itemPrompt": "pixel art steampunk items, brass goggles, gear mechanism, pocket watch, steam pistol, pressure gauge, leather top hat, brass copper leather palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art steampunk items, brass goggles, gear mechanism, pocket watch, steam pistol, pressure gauge, leather top hat, brass copper leather palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art steampunk UI, brass gear borders, pressure gauge meters, riveted copper panels, victorian filigree, clockwork icons, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -285,7 +285,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/23_dieselpunk_ui.png",
     "itemFile": "23_dieselpunk_item.png",
     "uiFile": "23_dieselpunk_ui.png",
-    "itemPrompt": "pixel art dieselpunk items, tommy gun, gas mask, zeppelin key, leather aviator cap, propaganda poster, fuel canister, military olive rust orange palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art dieselpunk items, tommy gun, gas mask, zeppelin key, leather aviator cap, propaganda poster, fuel canister, military olive rust orange palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art dieselpunk UI, riveted metal borders, industrial warning stripes, art deco frames, stenciled fonts, oil-stained panels, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -297,7 +297,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/24_biopunk_ui.png",
     "itemFile": "24_biopunk_item.png",
     "uiFile": "24_biopunk_ui.png",
-    "itemPrompt": "pixel art biopunk items, pulsating flesh sword, DNA vial, organic implant, bio-syringe, eyeball jar, sickly green flesh pink purple palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art biopunk items, pulsating flesh sword, DNA vial, organic implant, bio-syringe, eyeball jar, sickly green flesh pink purple palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art biopunk UI, veiny pulsing borders, organic membrane panels, DNA helix icons, flesh-textured frames, sickly glow, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -309,7 +309,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/25_atompunk_ui.png",
     "itemFile": "25_atompunk_item.png",
     "uiFile": "25_atompunk_ui.png",
-    "itemPrompt": "pixel art atompunk items, ray gun, vacuum tube radio, atomic soda bottle, 50s lunchbox, geiger counter, chrome robot, retro turquoise red chrome palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art atompunk items, ray gun, vacuum tube radio, atomic soda bottle, 50s lunchbox, geiger counter, chrome robot, retro turquoise red chrome palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art atompunk UI, chrome rounded borders, atomic symbol icons, retro-futuristic panels, turquoise red accents, 1950s feel, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -321,7 +321,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/26_solarpunk_ui.png",
     "itemFile": "26_solarpunk_item.png",
     "uiFile": "26_solarpunk_ui.png",
-    "itemPrompt": "pixel art solarpunk items, vine-wrapped solar panel, seed pouch, clean water flask, bamboo bicycle, eco-phone, lush green gold sky blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art solarpunk items, vine-wrapped solar panel, seed pouch, clean water flask, bamboo bicycle, eco-phone, lush green gold sky blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art solarpunk UI, living vine borders, leaf-shaped frames, solar panel icons, clean panels, nature-tech fusion, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -333,7 +333,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/27_wasteland_ui.png",
     "itemFile": "27_wasteland_item.png",
     "uiFile": "27_wasteland_ui.png",
-    "itemPrompt": "pixel art wasteland items, rusty pipe wrench, scrap armor, contaminated water bottle, gas mask, makeshift rifle, radiation pill, rust brown grey toxic green palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art wasteland items, rusty pipe wrench, scrap armor, contaminated water bottle, gas mask, makeshift rifle, radiation pill, rust brown grey toxic green palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art wasteland UI, rusted metal borders, duct tape patches, cracked screen panels, hazard icons, scavenged feel, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -345,7 +345,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/28_nearfuture_ui.png",
     "itemFile": "28_nearfuture_item.png",
     "uiFile": "28_nearfuture_ui.png",
-    "itemPrompt": "pixel art near-future items, smart glasses, drone, encrypted USB, tactical jacket, hacking laptop, branded coffee cup, muted tech blue grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art near-future items, smart glasses, drone, encrypted USB, tactical jacket, hacking laptop, branded coffee cup, muted tech blue grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art near-future UI, minimalist app-like panels, subtle holographic accents, corporate clean frames, smartphone icons, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -357,7 +357,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/29_cthulhu_ui.png",
     "itemFile": "29_cthulhu_item.png",
     "uiFile": "29_cthulhu_ui.png",
-    "itemPrompt": "pixel art cosmic horror items, forbidden tome, tentacle idol, ritual dagger, old revolver, sanity pill, strange artifact, sickly green deep teal black palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art cosmic horror items, forbidden tome, tentacle idol, ritual dagger, old revolver, sanity pill, strange artifact, sickly green deep teal black palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art cosmic horror UI, tentacle borders, forbidden symbol icons, crumbling parchment, sanity meter, non-euclidean shapes, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -369,7 +369,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/30_gothic_ui.png",
     "itemFile": "30_gothic_item.png",
     "uiFile": "30_gothic_ui.png",
-    "itemPrompt": "pixel art gothic horror items, silver cross, holy water vial, wooden stake, candelabra, bloody chalice, coffin key, deep crimson black silver palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art gothic horror items, silver cross, holy water vial, wooden stake, candelabra, bloody chalice, coffin key, deep crimson black silver palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art gothic UI, stained glass borders, cathedral arch frames, wrought iron panels, bat silhouette icons, candlelit dark red, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -381,7 +381,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/31_zombie_ui.png",
     "itemFile": "31_zombie_item.png",
     "uiFile": "31_zombie_ui.png",
-    "itemPrompt": "pixel art zombie horror items, blood-stained shotgun, herb kit, bandage, crowbar, canned food, emergency flare, blood red military green grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art zombie horror items, blood-stained shotgun, herb kit, bandage, crowbar, canned food, emergency flare, blood red military green grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art survival horror UI, blood-splattered borders, torn paper panels, broken HUD, warning red, ammo counter icons, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -393,7 +393,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/32_psycho_ui.png",
     "itemFile": "32_psycho_item.png",
     "uiFile": "32_psycho_ui.png",
-    "itemPrompt": "pixel art psychological horror items, rusted knife, pill bottle, broken mirror shard, old photograph, flickering flashlight, fog grey sickly yellow palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art psychological horror items, rusted knife, pill bottle, broken mirror shard, old photograph, flickering flashlight, fog grey sickly yellow palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art psychological horror UI, distorted glitchy borders, fog-filled panels, static noise background, asymmetric frames, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -405,7 +405,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/33_urbanlegend_ui.png",
     "itemFile": "33_urbanlegend_item.png",
     "uiFile": "33_urbanlegend_ui.png",
-    "itemPrompt": "pixel art urban legend items, cursed doll, red envelope, haunted phone, convenience store receipt, ofuda charm, neon pink eerie green grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art urban legend items, cursed doll, red envelope, haunted phone, convenience store receipt, ofuda charm, neon pink eerie green grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art urban legend UI, convenience store glow panels, vending machine frames, subway sign borders, eerie neon icons, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -417,7 +417,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/34_folkhorror_ui.png",
     "itemFile": "34_folkhorror_item.png",
     "uiFile": "34_folkhorror_ui.png",
-    "itemPrompt": "pixel art folk horror items, straw doll, ritual knife, old incense, yellowed talisman, clay idol, burial shroud, earthy brown yellow ritual red palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art folk horror items, straw doll, ritual knife, old incense, yellowed talisman, clay idol, burial shroud, earthy brown yellow ritual red palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art folk horror UI, woven bamboo borders, ancient paper talismans, rural village panels, temple bell icons, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -429,7 +429,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/35_analoghorror_ui.png",
     "itemFile": "35_analoghorror_item.png",
     "uiFile": "35_analoghorror_ui.png",
-    "itemPrompt": "pixel art analog horror items, VHS tape, CRT remote, broadcast badge, static photo, emergency broadcast card, VHS color bleed red green blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art analog horror items, VHS tape, CRT remote, broadcast badge, static photo, emergency broadcast card, VHS color bleed red green blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art analog horror UI, VHS static borders, scanline overlays, emergency broadcast panels, distorted text, 1990s TV, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -441,7 +441,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/36_bodyhorror_ui.png",
     "itemFile": "36_bodyhorror_item.png",
     "uiFile": "36_bodyhorror_ui.png",
-    "itemPrompt": "pixel art body horror items, pulsing flesh weapon, bone spike, mutated organ, surgical saw, mutation vial, raw flesh pink bone white bile green palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art body horror items, pulsing flesh weapon, bone spike, mutated organ, surgical saw, mutation vial, raw flesh pink bone white bile green palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art body horror UI, fleshy membrane borders, bone fragment frames, veiny panels, mutation gauge, visceral icons, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -453,7 +453,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/37_modern_ui.png",
     "itemFile": "37_modern_item.png",
     "uiFile": "37_modern_ui.png",
-    "itemPrompt": "pixel art modern city items, smartphone, coffee cup, car keys, leather wallet, earbuds, energy bar, clean grey white accent palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art modern city items, smartphone, coffee cup, car keys, leather wallet, earbuds, energy bar, clean grey white accent palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art modern UI, flat clean panels, app-style icons, rounded rectangles, smartphone-like interface, minimalist, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -465,7 +465,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/38_school_ui.png",
     "itemFile": "38_school_item.png",
     "uiFile": "38_school_ui.png",
-    "itemPrompt": "pixel art school items, textbook, pencil case, bento box, sports whistle, student ID, love letter, cherry blossom pink sky blue navy palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art school items, textbook, pencil case, bento box, sports whistle, student ID, love letter, cherry blossom pink sky blue navy palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art school UI, notebook paper borders, sticky note panels, doodle decorations, cute sticker icons, cheerful colors, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -477,7 +477,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/39_gangster_ui.png",
     "itemFile": "39_gangster_item.png",
     "uiFile": "39_gangster_ui.png",
-    "itemPrompt": "pixel art yakuza mafia items, tattoo pen, gold watch, cigar, handgun in case, whiskey bottle, business card, black gold blood red palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art yakuza mafia items, tattoo pen, gold watch, cigar, handgun in case, whiskey bottle, business card, black gold blood red palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art gangster UI, gold ornate borders, leather panels, smoky background, tattoo art icons, luxurious underworld, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -489,7 +489,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/40_detective_ui.png",
     "itemFile": "40_detective_item.png",
     "uiFile": "40_detective_ui.png",
-    "itemPrompt": "pixel art detective items, magnifying glass, revolver, case file, evidence bag, fedora, notepad, noir grey brown file yellow palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art detective items, magnifying glass, revolver, case file, evidence bag, fedora, notepad, noir grey brown file yellow palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art detective noir UI, evidence board borders, newspaper panels, red string connections, case file frames, noir tone, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -501,7 +501,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/41_military_ui.png",
     "itemFile": "41_military_item.png",
     "uiFile": "41_military_ui.png",
-    "itemPrompt": "pixel art military items, assault rifle, dog tags, combat knife, MRE pack, grenade, combat helmet, olive drab desert tan black palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art military items, assault rifle, dog tags, combat knife, MRE pack, grenade, combat helmet, olive drab desert tan black palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art military UI, ammo box borders, tactical HUD, camo panels, warning stripe icons, rugged field manual, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -513,7 +513,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/42_spy_ui.png",
     "itemFile": "42_spy_item.png",
     "uiFile": "42_spy_ui.png",
-    "itemPrompt": "pixel art spy items, silenced pistol, briefcase, hidden camera, fake passport, listening device, martini glass, charcoal grey black silver palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art spy items, silenced pistol, briefcase, hidden camera, fake passport, listening device, martini glass, charcoal grey black silver palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art spy UI, sleek black borders, surveillance screen panels, red alert icons, classified stamps, 60s spy elegance, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -525,7 +525,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/43_ancient_ui.png",
     "itemFile": "43_ancient_item.png",
     "uiFile": "43_ancient_ui.png",
-    "itemPrompt": "pixel art ancient civilization items, golden idol, stone tablet, obsidian blade, feathered headdress, ceremonial mask, clay pot, earthy gold jade palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art ancient civilization items, golden idol, stone tablet, obsidian blade, feathered headdress, ceremonial mask, clay pot, earthy gold jade palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art ancient civilization UI, carved stone borders, glyph patterns, temple pyramid panels, tribal icons, dusty relic, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -537,7 +537,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/44_pirate_ui.png",
     "itemFile": "44_pirate_item.png",
     "uiFile": "44_pirate_ui.png",
-    "itemPrompt": "pixel art age of sail items, cutlass, treasure map, spyglass, compass, pirate hat, rum bottle, gold doubloon, ocean blue parchment gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art age of sail items, cutlass, treasure map, spyglass, compass, pirate hat, rum bottle, gold doubloon, ocean blue parchment gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art pirate UI, rope borders, weathered parchment panels, compass rose, wooden ship frames, treasure icons, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -549,7 +549,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/45_industrial_ui.png",
     "itemFile": "45_industrial_item.png",
     "uiFile": "45_industrial_ui.png",
-    "itemPrompt": "pixel art industrial revolution items, coal lump, wrench, pocket watch, factory whistle, soot-stained letter, iron key, soot black coal orange iron grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art industrial revolution items, coal lump, wrench, pocket watch, factory whistle, soot-stained letter, iron key, soot black coal orange iron grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art industrial UI, iron riveted borders, coal smoke background, factory gauge panels, worn wooden frames, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -561,7 +561,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/46_ww2_ui.png",
     "itemFile": "46_ww2_item.png",
     "uiFile": "46_ww2_ui.png",
-    "itemPrompt": "pixel art WW2 items, bolt-action rifle, ration tin, field radio, steel helmet, wartime letter, gas mask, military olive drab earth palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art WW2 items, bolt-action rifle, ration tin, field radio, steel helmet, wartime letter, gas mask, military olive drab earth palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art WW2 UI, sandbag borders, typewritten document panels, propaganda poster style, field manual icons, sepia tone, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -573,7 +573,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/47_coldwar_ui.png",
     "itemFile": "47_coldwar_item.png",
     "uiFile": "47_coldwar_ui.png",
-    "itemPrompt": "pixel art cold war items, briefcase documents, decoder ring, rotary phone, cigarette pack, spy camera, muted grey olive red star palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art cold war items, briefcase documents, decoder ring, rotary phone, cigarette pack, spy camera, muted grey olive red star palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art cold war UI, typewriter panels, classified red stamps, surveillance monitor borders, 60s government office, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -585,7 +585,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/48_western_ui.png",
     "itemFile": "48_western_item.png",
     "uiFile": "48_western_ui.png",
-    "itemPrompt": "pixel art wild west items, revolver, cowboy hat, whiskey bottle, sheriff badge, lasso, horseshoe, wanted poster, desert tan brown red palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art wild west items, revolver, cowboy hat, whiskey bottle, sheriff badge, lasso, horseshoe, wanted poster, desert tan brown red palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art western UI, wooden plank borders, wanted poster panels, leather saddle textures, sheriff badge icons, sepia, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -597,7 +597,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/49_edo_ui.png",
     "itemFile": "49_edo_item.png",
     "uiFile": "49_edo_ui.png",
-    "itemPrompt": "pixel art Edo period items, katana, ukiyo-e fan, sake cup, ryo coin purse, samurai armor, pipe, indigo crimson cream gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art Edo period items, katana, ukiyo-e fan, sake cup, ryo coin purse, samurai armor, pipe, indigo crimson cream gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art Edo UI, shoji screen borders, ukiyo-e panels, family crest icons, indigo fabric textures, traditional elegance, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -609,7 +609,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/50_epichero_ui.png",
     "itemFile": "50_epichero_item.png",
     "uiFile": "50_epichero_ui.png",
-    "itemPrompt": "pixel art epic mythic items, legendary hero sword, hero medallion, titan horn, celestial shield, ambrosia flask, heroic gold bronze sky blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art epic mythic items, legendary hero sword, hero medallion, titan horn, celestial shield, ambrosia flask, heroic gold bronze sky blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art epic UI, marble gold borders, heroic banner panels, mythic beast icons, sunrise glow, grandiose tone, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -621,7 +621,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/51_magicreal_ui.png",
     "itemFile": "51_magicreal_item.png",
     "uiFile": "51_magicreal_ui.png",
-    "itemPrompt": "pixel art magical realism items, coffee cup with floating steam swirl, book with glowing pages, modern keychain faint glow, realistic palette with magic highlights, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art magical realism items, coffee cup with floating steam swirl, book with glowing pages, modern keychain faint glow, realistic palette with magic highlights, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art magical realism UI, realistic mundane panels with magic glow accents, everyday icons, life with wonder hints, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -633,7 +633,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/52_paranormal_ui.png",
     "itemFile": "52_paranormal_item.png",
     "uiFile": "52_paranormal_ui.png",
-    "itemPrompt": "pixel art supernatural items, ouija planchette, EMF detector, ghost camera, cursed locket, salt circle kit, spectral blue grey pale palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art supernatural items, ouija planchette, EMF detector, ghost camera, cursed locket, salt circle kit, spectral blue grey pale palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art supernatural UI, ghostly translucent borders, EMF reader panels, flickering spirit icons, haunted blue tone, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -645,7 +645,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/53_cartoon_ui.png",
     "itemFile": "53_cartoon_item.png",
     "uiFile": "53_cartoon_ui.png",
-    "itemPrompt": "pixel art cartoon items, giant cartoon bomb, rubber chicken, whoopee cushion, oversized hammer, pie in face, bright saturated clownish palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art cartoon items, giant cartoon bomb, rubber chicken, whoopee cushion, oversized hammer, pie in face, bright saturated clownish palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art cartoon UI, bouncy rounded borders, popping colors, silly sticker icons, comic speech bubble panels, wacky fun, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -657,7 +657,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/54_cozy_ui.png",
     "itemFile": "54_cozy_item.png",
     "uiFile": "54_cozy_ui.png",
-    "itemPrompt": "pixel art cozy items, warm tea cup, knitted scarf, potted plant, open book, cookie jar, soft pillow, warm cream pastel earth palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art cozy items, warm tea cup, knitted scarf, potted plant, open book, cookie jar, soft pillow, warm cream pastel earth palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art cozy UI, soft wooden borders, cotton texture panels, cute plant icons, warm cream frames, homey feel, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -669,7 +669,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/55_abstract_ui.png",
     "itemFile": "55_abstract_item.png",
     "uiFile": "55_abstract_ui.png",
-    "itemPrompt": "pixel art abstract items, geometric shape artifact, floating crystal, paint brush, ink blot orb, color palette stone, gradient rainbow palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art abstract items, geometric shape artifact, floating crystal, paint brush, ink blot orb, color palette stone, gradient rainbow palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art abstract UI, flowing organic borders, gradient panels, minimalist symbolic icons, gallery aesthetic, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -681,7 +681,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/56_surreal_ui.png",
     "itemFile": "56_surreal_item.png",
     "uiFile": "56_surreal_ui.png",
-    "itemPrompt": "pixel art surreal items, melting clock, floating eye, impossible staircase token, talking fish, backwards key, dreamlike purple teal pink palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art surreal items, melting clock, floating eye, impossible staircase token, talking fish, backwards key, dreamlike purple teal pink palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art surreal UI, warped dreamlike borders, floating panels, impossible geometry, eye icons, Dali-inspired, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -693,7 +693,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/57_religious_ui.png",
     "itemFile": "57_religious_item.png",
     "uiFile": "57_religious_ui.png",
-    "itemPrompt": "pixel art religious items, golden reliquary, prayer beads, stained glass shard, sacred scripture, angel feather, holy chalice, gold marble divine blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art religious items, golden reliquary, prayer beads, stained glass shard, sacred scripture, angel feather, holy chalice, gold marble divine blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art religious UI, gothic cathedral borders, stained glass panels, gold cross icons, illuminated manuscript frames, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -705,7 +705,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/58_circushorror_ui.png",
     "itemFile": "58_circushorror_item.png",
     "uiFile": "58_circushorror_ui.png",
-    "itemPrompt": "pixel art circus horror items, bloody clown mask, cursed ticket, haunted music box, balloon, twisted popcorn bucket, circus red white sickly yellow palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art circus horror items, bloody clown mask, cursed ticket, haunted music box, balloon, twisted popcorn bucket, circus red white sickly yellow palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art creepy circus UI, big top tent borders, carousel icons, striped panels, clown face frames, twisted carnival, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -717,7 +717,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/59_arctic_ui.png",
     "itemFile": "59_arctic_item.png",
     "uiFile": "59_arctic_ui.png",
-    "itemPrompt": "pixel art arctic survival items, fur coat, ice pick, frozen meat, fire starter, snow goggles, emergency flare, ice blue white steel grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art arctic survival items, fur coat, ice pick, frozen meat, fire starter, snow goggles, emergency flare, ice blue white steel grey palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art arctic UI, frost-covered borders, ice-cracked panels, snowflake icons, cold blue glow, harsh survival, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -729,7 +729,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/60_deepsea_ui.png",
     "itemFile": "60_deepsea_item.png",
     "uiFile": "60_deepsea_ui.png",
-    "itemPrompt": "pixel art deep sea items, diving helmet, pressurized flask, bioluminescent lantern, coral artifact, harpoon, abyss blue teal cyan palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art deep sea items, diving helmet, pressurized flask, bioluminescent lantern, coral artifact, harpoon, abyss blue teal cyan palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art deep sea UI, coral-encrusted borders, pressure gauge panels, bioluminescent icons, abyssal blue tone, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -741,7 +741,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/61_spaceexplore_ui.png",
     "itemFile": "61_spaceexplore_item.png",
     "uiFile": "61_spaceexplore_ui.png",
-    "itemPrompt": "pixel art space exploration items, helmet with reflection, oxygen tank, star map, alien rock sample, log recorder, cosmic black starry blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art space exploration items, helmet with reflection, oxygen tank, star map, alien rock sample, log recorder, cosmic black starry blue palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art space explorer UI, spaceship window borders, star map panels, constellation icons, lonely cosmic tone, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -753,7 +753,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/62_indian_ui.png",
     "itemFile": "62_indian_item.png",
     "uiFile": "62_indian_ui.png",
-    "itemPrompt": "pixel art Indian mythology items, lotus flower, trishul trident, sacred conch, bindi gem, sari cloth, prayer bell, saffron gold crimson jade palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art Indian mythology items, lotus flower, trishul trident, sacred conch, bindi gem, sari cloth, prayer bell, saffron gold crimson jade palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art Indian UI, mandala pattern borders, temple arch frames, lotus icons, gold ornament panels, spiritual aesthetic, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -765,7 +765,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/63_arabian_ui.png",
     "itemFile": "63_arabian_item.png",
     "uiFile": "63_arabian_ui.png",
-    "itemPrompt": "pixel art Arabian Nights items, magic lamp, flying carpet piece, scimitar, genie jewel, spice bag, brass teapot, gold deep blue crimson sand palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art Arabian Nights items, magic lamp, flying carpet piece, scimitar, genie jewel, spice bag, brass teapot, gold deep blue crimson sand palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art Arabian UI, arabesque pattern borders, dome-shaped frames, gold filigree panels, crescent moon icons, desert luxury, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -777,7 +777,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/64_african_ui.png",
     "itemFile": "64_african_item.png",
     "uiFile": "64_african_ui.png",
-    "itemPrompt": "pixel art African mythology items, tribal mask, wooden spear, beaded necklace, drum, ancestor totem, baobab seed, earth red ochre gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art African mythology items, tribal mask, wooden spear, beaded necklace, drum, ancestor totem, baobab seed, earth red ochre gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art African tribal UI, carved wood borders, tribal pattern panels, animal totem icons, warm savanna tones, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -789,7 +789,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/65_southamerican_ui.png",
     "itemFile": "65_southamerican_item.png",
     "uiFile": "65_southamerican_ui.png",
-    "itemPrompt": "pixel art South American mythology items, Incan gold mask, feathered headdress, obsidian mirror, quipu knots, coca leaves, jungle green gold jade palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art South American mythology items, Incan gold mask, feathered headdress, obsidian mirror, quipu knots, coca leaves, jungle green gold jade palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art Inca Maya UI, stepped pyramid borders, glyph panels, sun god icons, gold jade ornaments, ancient jungle, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -801,7 +801,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/66_slavic_ui.png",
     "itemFile": "66_slavic_item.png",
     "uiFile": "66_slavic_ui.png",
-    "itemPrompt": "pixel art Slavic mythology items, birch bark charm, wooden idol, cursed doll, iron skull key, embroidered cloth, forest green wood brown red palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art Slavic mythology items, birch bark charm, wooden idol, cursed doll, iron skull key, embroidered cloth, forest green wood brown red palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art Slavic UI, embroidered folk pattern borders, birch wood panels, Baba Yaga hut icons, dark fairytale feel, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -813,7 +813,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/67_mongol_ui.png",
     "itemFile": "67_mongol_item.png",
     "uiFile": "67_mongol_ui.png",
-    "itemPrompt": "pixel art Mongolian items, curved saber, horse whip, yurt charm, shaman drum, airag flask, composite bow, grassland green sky blue leather palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art Mongolian items, curved saber, horse whip, yurt charm, shaman drum, airag flask, composite bow, grassland green sky blue leather palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art steppe UI, felt tent borders, leather strap panels, shaman symbol icons, wide sky background, nomadic feel, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -825,7 +825,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/68_sea_ui.png",
     "itemFile": "68_sea_item.png",
     "uiFile": "68_sea_ui.png",
-    "itemPrompt": "pixel art Southeast Asian mythology items, gold naga amulet, palm leaf scroll, kris dagger, incense cone, wayang puppet, temple gold tropical green crimson palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art Southeast Asian mythology items, gold naga amulet, palm leaf scroll, kris dagger, incense cone, wayang puppet, temple gold tropical green crimson palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art SEA UI, temple carving borders, gold naga decorations, tropical leaf panels, ritual symbol icons, mystical tropical, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -837,7 +837,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/69_dystopia_ui.png",
     "itemFile": "69_dystopia_item.png",
     "uiFile": "69_dystopia_ui.png",
-    "itemPrompt": "pixel art dystopia items, surveillance camera, citizen ID card, ration ticket, banned book, regime pin, oppressive grey red propaganda palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art dystopia items, surveillance camera, citizen ID card, ration ticket, banned book, regime pin, oppressive grey red propaganda palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art dystopia UI, state propaganda borders, surveillance screen panels, citizen ranking icons, red censorship stamps, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -849,7 +849,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/70_multiverse_ui.png",
     "itemFile": "70_multiverse_item.png",
     "uiFile": "70_multiverse_ui.png",
-    "itemPrompt": "pixel art multiverse items, reality shard, portal key, timeline fragment, dimensional compass, parallel coin, prismatic rainbow glitch palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art multiverse items, reality shard, portal key, timeline fragment, dimensional compass, parallel coin, prismatic rainbow glitch palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art multiverse UI, fractured reality borders, parallel dimension panels, portal ring icons, glitch transitions, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -861,7 +861,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/71_timeloop_ui.png",
     "itemFile": "71_timeloop_item.png",
     "uiFile": "71_timeloop_ui.png",
-    "itemPrompt": "pixel art time loop items, broken pocket watch, looping hourglass, memory notebook, paradox coin, sepia cyan split palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art time loop items, broken pocket watch, looping hourglass, memory notebook, paradox coin, sepia cyan split palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art time loop UI, clock gear borders, timeline panels, repeating pattern frames, hourglass icons, deja vu aesthetic, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -873,7 +873,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/72_monster_ui.png",
     "itemFile": "72_monster_item.png",
     "uiFile": "72_monster_ui.png",
-    "itemPrompt": "pixel art monster collector items, capture ball, monster candy, evolution stone, trainer badge, creature journal, bright primary color palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art monster collector items, capture ball, monster candy, evolution stone, trainer badge, creature journal, bright primary color palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art monster collector UI, capture ball buttons, creature list panels, elemental type icons, badge showcase frames, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -885,7 +885,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/73_cooking_ui.png",
     "itemFile": "73_cooking_item.png",
     "uiFile": "73_cooking_ui.png",
-    "itemPrompt": "pixel art cooking items, chef knife, frying pan, fresh vegetable, recipe book, spice jar, golden bread, warm kitchen orange red cream palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art cooking items, chef knife, frying pan, fresh vegetable, recipe book, spice jar, golden bread, warm kitchen orange red cream palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art cooking UI, wooden cutting board borders, recipe paper panels, ingredient icons, menu board frames, cozy restaurant, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -897,7 +897,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/74_sports_ui.png",
     "itemFile": "74_sports_item.png",
     "uiFile": "74_sports_ui.png",
-    "itemPrompt": "pixel art sports items, trophy, soccer ball, running shoes, stopwatch, team jersey, whistle, bright team color palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art sports items, trophy, soccer ball, running shoes, stopwatch, team jersey, whistle, bright team color palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art sports UI, scoreboard borders, stadium panels, medal icons, team flag frames, energetic competitive feel, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -909,7 +909,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/75_music_ui.png",
     "itemFile": "75_music_item.png",
     "uiFile": "75_music_ui.png",
-    "itemPrompt": "pixel art music items, electric guitar, vinyl record, music note crystal, headphones, drum stick, microphone, neon beat purple pink cyan palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art music items, electric guitar, vinyl record, music note crystal, headphones, drum stick, microphone, neon beat purple pink cyan palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art rhythm UI, music note borders, sound wave panels, beat timing icons, stage light frames, pulsing feel, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   },
   {
@@ -921,7 +921,7 @@ export const homepageExamples: HomepageExample[] = [
     "uiSrc": "/homepage-examples/ui/76_otome_ui.png",
     "itemFile": "76_otome_item.png",
     "uiFile": "76_otome_ui.png",
-    "itemPrompt": "pixel art romance items, love letter, rose bouquet, heart pendant, chocolate box, photo album, diary, soft pink cream gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, sprite sheet layout, 32x32 per item",
+    "itemPrompt": "pixel art romance items, love letter, rose bouquet, heart pendant, chocolate box, photo album, diary, soft pink cream gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64",
     "uiPrompt": "pixel art otome UI, lace ribbon borders, heart-shaped panels, sparkle icons, pastel rose frames, sweet dreamy feel, pixel art UI, game interface, 16-bit RPG style, clean pixel borders, readable icons, no anti-aliasing, 1920x1080 showcase layout"
   }
 ]

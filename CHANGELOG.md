@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-05-14
+
+### Removed
+
+- 清理废弃的 AI Grid / Grid Review / 局部修补代码路径，删除旧模块、旧测试和前端旧开关字段，只保留 extract Pixel Grid 流程。
+- 删除未跟踪的临时测试清单，并把 `testlist.md` 加入忽略规则，避免生成清单误提交。
+
+### Fixed
+
+- 修复 Ruff 报告的未使用导入、未使用局部变量、尾随空格和 `zip(strict=...)` 问题。
+- 清理本地 `config.toml` 中已废弃的 `grid_review` 配置项；该文件仍保持不入库。
+
 ## [1.0.1] - 2026-05-14
 
 ### Fixed
