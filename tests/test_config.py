@@ -29,6 +29,10 @@ def test_defaults(tmp_cwd: Path) -> None:
     assert cfg.sprite.pixel_size == (64, 64)
     assert cfg.sprite.duration_ms == 120
     assert cfg.sprite.shared_palette is True
+    assert cfg.sprite.key_mode == "hard"
+    assert cfg.sprite.key_softness == 150
+    assert cfg.sprite.key_alpha_floor == 12
+    assert cfg.sprite.key_despill is True
     assert "animation keyframes" in cfg.sprite.prompt_template
     assert cfg.cache.enabled is True
 

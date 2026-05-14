@@ -169,6 +169,11 @@ class SpriteParamsSchema(BaseModel):
     loop: int = Field(default=0, ge=0, le=999)
     rows: int = Field(default=3, ge=1, le=3)
     cols: int = Field(default=3, ge=1, le=3)
+    key_mode: Literal["hard", "soft"] | None = None
+    key_tolerance: int | None = Field(default=None, ge=0, le=441)
+    key_softness: int | None = Field(default=None, ge=1, le=441)
+    key_alpha_floor: int | None = Field(default=None, ge=0, le=255)
+    key_despill: bool | None = None
 
 
 class JobCreateRequest(BaseModel):

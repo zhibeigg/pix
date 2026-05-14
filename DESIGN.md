@@ -4,7 +4,7 @@
 
 ## Pix Animation Sprite Sheet Defaults
 
-`pix sprite` 的默认视觉目标是 3×3 连续动画关键帧：模型先生成九宫格，后端按阅读顺序切出 9 帧，使用统一 key-color 抠背景、统一裁剪框保持注册点稳定，再逐帧像素化。最终同时输出 9 张透明 PNG、一张横向精灵表 PNG 和一个 GIF 预览；默认启用共享调色板，减少动画播放时的颜色闪烁。
+`pix sprite` 的默认视觉目标是 3×3 连续动画关键帧：模型先生成九宫格，后端按阅读顺序切出 9 帧，使用统一 key-color 抠背景、统一裁剪框保持注册点稳定，再逐帧像素化。最终同时输出 9 张透明 PNG、一张横向精灵表 PNG 和一个 GIF 预览；默认启用共享调色板，减少动画播放时的颜色闪烁。角色/道具默认使用 `key_mode="hard"` 保持硬边；爆炸、烟雾、魔气等 VFX 可切到 `key_mode="soft"`，通过半透明 alpha 估算和 despill 去掉 key-color 对边缘的红/绿/蓝污染。
 
 ## Overview
 

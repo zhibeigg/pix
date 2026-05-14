@@ -148,6 +148,11 @@ loop           = 0
 # auto 会按 prompt 动态选择不易撞色的纯色背景，也可固定为 HEX。
 green_screen_color = "auto"
 green_screen_tolerance = 48
+# 抠色模式：hard=纯阈值硬抠；soft=估算半透明 alpha，并可去掉 key color 对边缘的污染
+key_mode       = "hard"  # hard | soft
+key_softness   = 150
+key_alpha_floor = 12
+key_despill    = true
 bg_tolerance   = 26
 # 切帧时对 9 帧使用统一裁剪框，减少动画抖动
 crop_padding   = 0.12

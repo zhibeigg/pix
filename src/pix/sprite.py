@@ -58,6 +58,11 @@ class SpritePipelineInput:
     loop: int | None = None
     rows: int | None = None
     cols: int | None = None
+    key_mode: str | None = None
+    key_tolerance: int | None = None
+    key_softness: int | None = None
+    key_alpha_floor: int | None = None
+    key_despill: bool | None = None
 
 
 @dataclass
@@ -154,18 +159,60 @@ def _fallback_sprite_prompt(**values: Any) -> str:
     )
 
 
+def _normalized_key_mode(value: str | None) -> str:
+    mode = (value or "hard").strip().lower()
+    if mode not in {"hard", "soft"}:
+        raise ValueError("key_mode 必须是 hard 或 soft")
+    return mode
+
+
 def _apply_key_transparency(
     image: Image.Image,
     *,
     key_rgb: tuple[int, int, int],
     tolerance: int,
+    mode: str = "hard",
+    softness: int = 150,
+    alpha_floor: int = 12,
+    despill: bool = True,
 ) -> Image.Image:
-    rgba = np.asarray(image.convert("RGBA")).copy()
-    rgb = rgba[..., :3].astype(np.int32)
-    ref = np.array(key_rgb, dtype=np.int32)
+    """按 key color 移除背景。
+
+    hard 模式只清理接近 key color 的纯背景，兼容旧行为；soft 模式会估算
+    半透明边缘 alpha，并用反混合去掉 key color 对边缘 RGB 的污染。
+    """
+
+    key_mode = _normalized_key_mode(mode)
+    if key_mode == "hard":
+        rgba = np.asarray(image.convert("RGBA")).copy()
+        rgb = rgba[..., :3].astype(np.int32)
+        ref = np.array(key_rgb, dtype=np.int32)
+        dist = np.sqrt(((rgb - ref) ** 2).sum(axis=2))
+        rgba[dist <= max(0, int(tolerance)), 3] = 0
+        return Image.fromarray(rgba, mode="RGBA")
+
+    rgba_f = np.asarray(image.convert("RGBA")).astype(np.float32)
+    rgb = rgba_f[..., :3]
+    source_alpha = rgba_f[..., 3] / 255.0
+    ref = np.array(key_rgb, dtype=np.float32)
     dist = np.sqrt(((rgb - ref) ** 2).sum(axis=2))
-    rgba[dist <= max(0, int(tolerance)), 3] = 0
-    return Image.fromarray(rgba, mode="RGBA")
+    hard = max(0.0, float(tolerance))
+    soft = max(hard + 1.0, float(softness))
+    estimated_alpha = np.clip((dist - hard) / (soft - hard), 0.0, 1.0)
+    alpha = np.minimum(source_alpha, estimated_alpha)
+    floor = max(0, int(alpha_floor)) / 255.0
+    alpha[alpha < floor] = 0.0
+
+    if despill:
+        safe_alpha = np.maximum(alpha, 1e-5)[..., None]
+        rgb = (rgb - ref * (1.0 - safe_alpha)) / safe_alpha
+        rgb = np.clip(rgb, 0, 255)
+        rgb = np.where(alpha[..., None] > 0, rgb, 0)
+
+    out = np.zeros_like(rgba_f)
+    out[..., :3] = rgb
+    out[..., 3] = alpha * 255.0
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), mode="RGBA")
 
 
 def _visible_bbox(image: Image.Image, threshold: int = 8) -> tuple[int, int, int, int] | None:
@@ -254,6 +301,10 @@ def split_sprite_sheet(
     tolerance: int,
     crop_padding: float = 0.12,
     crop_square: bool = True,
+    key_mode: str = "hard",
+    key_softness: int = 150,
+    key_alpha_floor: int = 12,
+    key_despill: bool = True,
 ) -> SpriteSplitResult:
     """把模型生成的九宫格动画图切成连续帧，并统一裁剪区域。"""
 
@@ -279,7 +330,15 @@ def split_sprite_sheet(
                 right = int(round((col + 1) * cell_w))
                 bottom = int(round((row + 1) * cell_h))
                 cell = image.crop((left, top, right, bottom))
-                transparent = _apply_key_transparency(cell, key_rgb=key_rgb, tolerance=tolerance)
+                transparent = _apply_key_transparency(
+                    cell,
+                    key_rgb=key_rgb,
+                    tolerance=tolerance,
+                    mode=key_mode,
+                    softness=key_softness,
+                    alpha_floor=key_alpha_floor,
+                    despill=key_despill,
+                )
                 transparent_cells.append(transparent)
                 bboxes.append(_visible_bbox(transparent))
 
@@ -474,6 +533,11 @@ def run_sprite_pipeline(
         cols=cols,
     )
     key_hex, _key_rgb = resolve_key_color(cfg.sprite.green_screen_color, description)
+    key_mode = _normalized_key_mode(inputs.key_mode or cfg.sprite.key_mode)
+    key_tolerance = int(cfg.sprite.green_screen_tolerance if inputs.key_tolerance is None else inputs.key_tolerance)
+    key_softness = int(cfg.sprite.key_softness if inputs.key_softness is None else inputs.key_softness)
+    key_alpha_floor = int(cfg.sprite.key_alpha_floor if inputs.key_alpha_floor is None else inputs.key_alpha_floor)
+    key_despill = bool(cfg.sprite.key_despill if inputs.key_despill is None else inputs.key_despill)
     source_path = run_dir / "01_sprite_grid.png"
     raw_dir = run_dir / "02_frames_raw"
     frames_dir = run_dir / "03_frames"
@@ -513,9 +577,13 @@ def run_sprite_pipeline(
         rows=rows,
         cols=cols,
         key_color=key_hex,
-        tolerance=cfg.sprite.green_screen_tolerance,
+        tolerance=key_tolerance,
         crop_padding=cfg.sprite.crop_padding,
         crop_square=cfg.sprite.crop_square,
+        key_mode=key_mode,
+        key_softness=key_softness,
+        key_alpha_floor=key_alpha_floor,
+        key_despill=key_despill,
     )
     notify("sprite_frames_split", {"count": len(split.raw_frames), "dir": str(raw_dir)})
 
@@ -589,7 +657,11 @@ def run_sprite_pipeline(
             "duration_ms": duration_ms,
             "loop": loop,
             "green_screen_color": key_hex,
-            "green_screen_tolerance": cfg.sprite.green_screen_tolerance,
+            "green_screen_tolerance": key_tolerance,
+            "key_mode": key_mode,
+            "key_softness": key_softness,
+            "key_alpha_floor": key_alpha_floor,
+            "key_despill": key_despill,
             "crop_box": list(split.crop_box) if split.crop_box else None,
             "source_sheet": source_path.name,
             "frames_dir": frames_dir.name,

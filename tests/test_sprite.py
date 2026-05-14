@@ -52,6 +52,42 @@ def test_build_sprite_sheet_prompt_uses_3x3_constraints() -> None:
     assert "left-to-right" in prompt
 
 
+def test_split_sprite_sheet_soft_key_despills_contaminated_edges(tmp_path: Path) -> None:
+    sheet = Image.new("RGB", (90, 90), (255, 0, 0))
+    draw = ImageDraw.Draw(sheet)
+    for index in range(9):
+        row, col = divmod(index, 3)
+        x = col * 30 + 10
+        y = row * 30 + 10
+        draw.rectangle((x, y, x + 9, y + 9), fill=(72, 0, 120))
+        # 模拟模型在红色 key 背景上生成的半透明紫色边缘：RGB 已被红底污染。
+        draw.rectangle((x - 1, y, x - 1, y + 9), fill=(180, 0, 70))
+    source = tmp_path / "soft-sheet.png"
+    sheet.save(source)
+
+    split = split_sprite_sheet(
+        source,
+        tmp_path / "raw-soft",
+        rows=3,
+        cols=3,
+        key_color="#FF0000",
+        tolerance=24,
+        key_mode="soft",
+        key_softness=160,
+        key_alpha_floor=4,
+        key_despill=True,
+        crop_padding=0,
+        crop_square=False,
+    )
+
+    with Image.open(split.raw_frames[0]) as opened:
+        pixels = list(opened.convert("RGBA").getdata())
+    translucent = [pixel for pixel in pixels if 0 < pixel[3] < 255]
+    assert translucent
+    assert max(pixel[0] for pixel in translucent) < 160
+    assert not any(pixel[0] > 220 and pixel[1] < 20 and pixel[2] < 20 and pixel[3] > 0 for pixel in pixels)
+
+
 def test_split_pixelize_compose_sprite_outputs(tmp_path: Path) -> None:
     source = _animation_sheet(tmp_path / "sheet.png")
     split = split_sprite_sheet(
@@ -116,5 +152,7 @@ def test_run_sprite_pipeline_with_mocked_generation(tmp_path: Path, monkeypatch)
     meta = json.loads(result.meta_path.read_text(encoding="utf-8"))
     assert meta["sprite"]["count"] == 9
     assert meta["sprite"]["duration_ms"] == 90
+    assert meta["sprite"]["key_mode"] == "hard"
+    assert meta["sprite"]["key_despill"] is True
     assert meta["outputs"]["sprite_sheet"] == "04_sprite_sheet.png"
     assert meta["outputs"]["sprite_gif"] == "05_sprite.gif"
