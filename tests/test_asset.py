@@ -34,9 +34,11 @@ def test_resolve_asset_generation_policy_blocks_sub16_except_8x8() -> None:
 
 def test_resolve_size_strategy_per_size() -> None:
     s8 = resolve_size_strategy((8, 8))
+    # 8x8 沿用 AI Grid 直绘（硬约束在 resolve_asset_generation_policy / web jobs 处）
     assert s8.grid_mode == "ai" and s8.ai_grid is True and s8.repair_mode == "force"
     s16 = resolve_size_strategy((16, 16))
-    assert s16.grid_mode == "ai" and s16.ai_grid is True and s16.repair_mode == "auto"
+    # 16x16 实测 extract 路线效果最稳（A/B vs C/D 对比）
+    assert s16.grid_mode == "extract" and s16.ai_grid is False and s16.repair_mode == "auto"
     s32 = resolve_size_strategy((32, 32))
     assert s32.grid_mode == "extract" and s32.ai_grid is False and s32.repair_mode == "auto"
     s64 = resolve_size_strategy((64, 64))

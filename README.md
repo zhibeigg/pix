@@ -44,7 +44,7 @@
 - **像素对齐 & 透明背景**：`smart` 下采样自动探测输入像素格并吸附，边缘不再糊；一键 `--remove-bg` 把纯色底抠成透明 PNG；32px 及以下低像素透明素材会自动用外描边替代羽化，避免边缘发虚
 - **AI 低像素工程图（可选）**：16×16 / 22×22 / 32×32 小图标可让模型结合原始 prompt、源图、源图实际像素格 draft 和可读性诊断，直接返回 `palette + pixels[y][x]` 字符串矩阵，再由 Python 校验、返修、清理和精确渲染
 - **Ramp 调色板（新）**：`palette_mode = "ramp"` 时，VL 按 `outline → shadow → mid → highlight` 明度阶梯设计调色板（失败自动回退到本地 HSL 聚合），再用 Lab 空间最近色量化，避免 K-means 的"塑料插画味"；Asset 直出默认启用，普通 pixelize 保持 `auto` 兼容旧行为
-- **尺寸 → 策略推荐**（`pix.asset.resolve_size_strategy`）：8×8 走 AI Grid + force 修补、16×16 走 AI Grid + auto 修补、32×32 走 extract Pixel Grid + auto 修补、64+ 走普通像素化；统一启用 ramp 调色板
+- **尺寸 → 策略推荐**（`pix.asset.resolve_size_strategy`）：8×8 走 AI Grid + force 修补、16×16 / 32×32 走 extract Pixel Grid + auto 修补、64+ 走普通像素化（pipeline 自动 `auto_skip_redundant_bg` 避免对已抠图重复抠图）；统一启用 ramp 调色板
 - **结构化 JSON**：VL 模型不是一句描述就完事，而是输出调色板、主体位置、语义区域建议，严格经 Pydantic 校验，失败自动带修正提示重试
 - **四套内置预设**：`gameboy` · `nes` · `modern_pixel` · `pico8`，支持自定义 TOML
 - **可配置所有参数**：尺寸、色数、抖动、主体锐化、饱和度、VL 模型、预设……CLI 和 GUI 共享同一套

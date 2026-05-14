@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.59.1] - 2026-05-14
+
+### Fixed
+
+- `pixelize()` 接收已抠好背景的源图（如 candidate 选出来的 `01_source.png`）时，新增 `auto_skip_redundant_bg` 选项；启用后若源图 alpha=0 占比 ≥ 10%，自动跳过 `remove_bg` / `auto_crop`，避免对已抠图重复抠图把主体压缩到画面 1/3。pipeline 在所有内部 `pixelize()` 调用点都启用此选项。
+- `meta.json.pixelize` 新增 `input_transparency_ratio` / `skipped_remove_bg` / `skipped_auto_crop` 字段，便于审计。
+
+### Changed
+
+- `pix.asset.resolve_size_strategy` 修正实测结论：
+  - 16×16 / 32×32 改回 **extract + ramp + auto 修补**（原推荐 AI Grid 在实测中不如 extract 稳定，木材/果实类素材尤其明显）。
+  - 64+ 普通像素化 + ramp，调用方应启用 `auto_skip_redundant_bg`。
+  - 8×8 沿用 AI Grid 直绘（硬约束在 `resolve_asset_generation_policy` / web jobs 处），但已知"易铺满画布"是当前短板。
+- AI Grid 退回到兜底定位：仅当 extract 出来明显失败时才启用，不再做 16/32 默认。
+- 新增 `tests.test_pixelize_enhancements::TestAutoSkipRedundantBg` 3 个测试覆盖跳过开关；现有 `test_resolve_size_strategy_per_size` 同步更新断言。390 条测试全部通过。
 ## [0.59.0] - 2026-05-14
 
 ### Added

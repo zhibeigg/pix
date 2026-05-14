@@ -148,6 +148,18 @@ def _has_transparent_alpha(image: Image.Image) -> bool:
     return bool(extrema and extrema[0] < 255)
 
 
+def _transparency_ratio(image: Image.Image) -> float:
+    """返回 image 中完全透明（alpha=0）像素占比；用于判断源图是否已经抠好背景。"""
+    if "A" not in image.getbands():
+        return 0.0
+    alpha = image.getchannel("A")
+    histogram = alpha.histogram()
+    if not histogram:
+        return 0.0
+    total = max(1, sum(histogram))
+    return histogram[0] / total
+
+
 def _apply_low_pixel_edge_policy(params: PixelizeParams, *, has_transparency: bool) -> dict:
     """低像素透明素材不使用 alpha 羽化，统一改为 1px+ 外描边。"""
     width, height = params.output_size
@@ -577,6 +589,7 @@ def pixelize(
     *,
     cfg=None,
     source_description: str = "",
+    auto_skip_redundant_bg: bool = False,
 ) -> tuple[Image.Image, Image.Image | None, dict]:
     """执行像素化。
 
@@ -586,6 +599,11 @@ def pixelize(
         analysis: 可选的 VL 分析 JSON。
         cfg: 若使用 VL ramp，需要传入 AppConfig（否则自动回退到本地 ramp）。
         source_description: 用户原始语义描述，辅助 VL ramp 判断题材。
+        auto_skip_redundant_bg: 当源图本身已经是透明素材（alpha=0 占比 ≥10%）时，
+            自动跳过 ``params.remove_bg`` / ``params.auto_crop``。仅在调用方知道
+            源图是已抠图（如 pipeline 候选选出来的 01_source.png）时启用，
+            避免重复抠图把主体压扁。直接用 ``pixelize()`` 处理任意图片时保持 False
+            以保留原行为。
 
     Returns:
         (pixel_image, preview_image_or_None, meta_dict)
@@ -596,14 +614,29 @@ def pixelize(
         source = Image.open(source_path)
     img = _image_mode_for_pixelize(source)
     input_has_transparency = _has_transparent_alpha(img)
+    pre_transparency_ratio = _transparency_ratio(img)
 
     preset = _resolve_preset(params, analysis)
     eff = _effective_params(params, preset, analysis)
     edge_policy = _apply_low_pixel_edge_policy(eff, has_transparency=input_has_transparency)
 
+    # 源图本身已经抠好背景（alpha=0 占比超过阈值）时，自动跳过 remove_bg / auto_crop，
+    # 避免对已抠图重复抠图导致主体被误压缩。仅在调用方传入 auto_skip_redundant_bg=True
+    # 时启用；普通 pixelize 调用方默认不开，保留显式 remove_bg / auto_crop 的语义。
+    skipped_remove_bg = (
+        auto_skip_redundant_bg
+        and pre_transparency_ratio >= 0.10
+        and bool(eff.remove_bg)
+    )
+    skipped_auto_crop = (
+        auto_skip_redundant_bg
+        and pre_transparency_ratio >= 0.10
+        and bool(eff.auto_crop)
+    )
+
     # 1. 可选前置抠背景：先处理模型画出来的纯色/棋盘格假透明背景，
     # 避免后续语义区域或量化把背景变成可见色块。
-    if eff.remove_bg:
+    if eff.remove_bg and not skipped_remove_bg:
         img = remove_background(
             img,
             tolerance=max(0, int(eff.bg_tolerance)),
@@ -613,7 +646,7 @@ def pixelize(
 
     # 2. 可选主体裁剪：先把大图裁成图标主体，再缩小，避免 16x16 时主体过小。
     crop_bbox: tuple[int, int, int, int] | None = None
-    if eff.auto_crop:
+    if eff.auto_crop and not skipped_auto_crop:
         img, crop_bbox = _auto_crop(
             img,
             bg_tolerance=eff.bg_tolerance,
@@ -701,6 +734,9 @@ def pixelize(
         "palette_size": len(palette_rgb),
         "used_analysis": analysis is not None,
         "edge_policy": edge_policy,
+        "input_transparency_ratio": round(pre_transparency_ratio, 4),
+        "skipped_remove_bg": skipped_remove_bg,
+        "skipped_auto_crop": skipped_auto_crop,
         "detected_grid": detected_grid,
         "crop_bbox": list(crop_bbox) if crop_bbox else None,
         "aspect_fit": {
