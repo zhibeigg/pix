@@ -46,6 +46,7 @@ from pix.grid.schema import load_grid, save_grid
 from pix.history import scan_history
 from pix.pipeline import GridDesignInput, PipelineInput, run_pipeline
 from pix.pixelize.core import PixelizeParams, pixelize as run_pixelize
+from pix.sprite import SpritePipelineInput, run_sprite_pipeline
 from pix.pixelize.presets import list_presets
 
 
@@ -608,6 +609,122 @@ def cmd_asset(
         f"预览：{copied_preview or '未输出'}\n"
         f"运行目录：{result.run_dir}",
         title="asset",
+    ))
+
+
+# ---------- sprite sheet animation ----------
+
+
+@app.command("sprite")
+def cmd_sprite(
+    prompt: str = typer.Argument(..., help="动画描述，例如：暗黑骑士挥剑三段斩"),
+    out: Optional[Path] = typer.Option(None, help="横向精灵表 PNG 路径；默认写到 [sprite].output_dir"),
+    gif_out: Optional[Path] = typer.Option(None, "--gif-out", help="GIF 输出路径；默认与横向图同名 .gif"),
+    frames_dir: Optional[Path] = typer.Option(None, "--frames-dir", help="9 张处理后帧 PNG 输出目录"),
+    pixel_size: Optional[str] = typer.Option(None, help="单帧像素尺寸，默认读 [sprite].pixel_size"),
+    colors: int = typer.Option(0, min=0, max=256, help="单帧颜色数；0 表示读 [sprite].colors"),
+    duration_ms: int = typer.Option(0, min=0, help="GIF 每帧毫秒；0 表示读 [sprite].duration_ms"),
+    image_size: Optional[str] = typer.Option(None, help="生图尺寸，默认读 [image_gen].size"),
+    image_quality: Optional[str] = typer.Option(None, help="生图质量，默认读 [sprite].image_quality"),
+    no_cache: bool = typer.Option(False, help="禁用缓存"),
+    refresh: bool = typer.Option(False, help="忽略缓存命中，强制刷新"),
+    overwrite: bool = typer.Option(False, "--overwrite", help="允许覆盖已存在的输出"),
+    no_sidecars: bool = typer.Option(False, "--no-sidecars", help="不输出 .sprite.json 元数据"),
+    run_root: Optional[Path] = typer.Option(None, help="中间运行目录根；默认使用 [output].root"),
+    config: Optional[Path] = typer.Option(None, "--config", help="TOML 配置文件"),
+) -> None:
+    """生成九宫格动画关键帧，并输出 GIF 与横向精灵表。"""
+    cfg = _base_config(config)
+    size = _parse_size(pixel_size) if pixel_size else tuple(cfg.sprite.pixel_size)
+    if size[0] < 16 or size[1] < 16:
+        raise typer.BadParameter("单帧最低支持 16x16", param_hint="--pixel-size")
+    effective_colors = int(colors or cfg.sprite.colors)
+    if effective_colors < 2:
+        raise typer.BadParameter("颜色数必须 >= 2；传 0 表示使用配置默认值")
+
+    stem = safe_asset_filename(prompt[:40], fallback="sprite")
+    target = out or Path(cfg.sprite.output_dir) / f"{stem}_sheet.png"
+    gif_target = gif_out or target.with_suffix(".gif")
+    frames_target = frames_dir or target.with_name(target.stem + "_frames")
+    sidecar_target = target.with_name(target.stem + ".sprite.json")
+    write_targets = [target, gif_target]
+    if not no_sidecars:
+        write_targets.append(sidecar_target)
+    for p in write_targets:
+        if p.exists() and not overwrite:
+            console.print(f"[red]目标已存在：{p}[/red]\n如需覆盖请加 --overwrite。")
+            raise typer.Exit(code=2)
+    if frames_target.exists() and any(frames_target.iterdir()) and not overwrite:
+        console.print(f"[red]帧目录已存在且非空：{frames_target}[/red]\n如需覆盖请加 --overwrite。")
+        raise typer.Exit(code=2)
+
+    params = PixelizeParams(
+        output_size=size,
+        colors=effective_colors,
+        dither=cfg.sprite.dither,  # type: ignore[arg-type]
+        preset="auto",
+        preview_scale=0,
+        edge_enhance=cfg.pixelize.edge_enhance,
+        saturation=cfg.pixelize.saturation,
+        resample=cfg.pixelize.resample,  # type: ignore[arg-type]
+        snap_to_grid=cfg.pixelize.snap_to_grid,
+        remove_bg=False,
+        bg_tolerance=cfg.sprite.bg_tolerance,
+        bg_feather=cfg.pixelize.bg_feather,
+        edge_style=cfg.pixelize.edge_style,  # type: ignore[arg-type]
+        auto_crop=False,
+        crop_padding=cfg.sprite.crop_padding,
+        crop_square=cfg.sprite.crop_square,
+        palette_mode="auto",
+    )
+    console.log(f"生成动画精灵表：{prompt!r} → {target}")
+    result = run_sprite_pipeline(
+        cfg,
+        SpritePipelineInput(
+            prompt=prompt,
+            image_size=image_size or cfg.image_gen.size,
+            image_quality=image_quality or cfg.sprite.image_quality,
+            pixelize_params=params,
+            out_root=run_root or cfg.output.root,
+            use_cache=not no_cache,
+            refresh_cache=refresh,
+            duration_ms=duration_ms or cfg.sprite.duration_ms,
+            rows=cfg.sprite.rows,
+            cols=cfg.sprite.cols,
+        ),
+        progress=_progress_printer,
+    )
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    frames_target.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(result.pixel_path, target)
+    if result.preview_path is not None:
+        shutil.copyfile(result.preview_path, gif_target)
+    copied_frames: list[str] = []
+    for frame in result.frame_paths:
+        dest = frames_target / frame.name
+        shutil.copyfile(frame, dest)
+        copied_frames.append(str(dest))
+
+    if not no_sidecars:
+        sidecar = {
+            "prompt": prompt,
+            "target": str(target),
+            "gif": str(gif_target),
+            "frames_dir": str(frames_target),
+            "frames": copied_frames,
+            "run_dir": str(result.run_dir),
+            "source": str(result.source_path),
+            "meta": result.meta,
+        }
+        sidecar_target.write_text(json.dumps(sidecar, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    console.print(Panel.fit(
+        f"[green][OK][/green] 横向精灵表：{target}\n"
+        f"GIF：{gif_target}\n"
+        f"帧目录：{frames_target}\n"
+        f"运行目录：{result.run_dir}",
+        title="sprite",
     ))
 
 

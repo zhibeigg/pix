@@ -133,6 +133,29 @@ fit_min_axis_coverage = 0.7
 palette_mode    = "auto"
 prompt_template = "A single fantasy pixel game inventory item icon of {name}. Centered object, isolated on plain white background, no text, no UI frame, no shadow outside the item, thick dark outline, high contrast, readable silhouette, designed to become a {width}x{height} RPG inventory sprite."
 
+[sprite]
+# 九宫格动画精灵表命令 pix sprite 的默认值
+output_dir     = "图片/sprites"
+rows           = 3
+cols           = 3
+pixel_size     = [64, 64]
+colors         = 16
+dither         = "none"
+image_quality  = "high"
+# GIF 每帧持续时间（毫秒）；loop=0 表示无限循环
+duration_ms    = 120
+loop           = 0
+# auto 会按 prompt 动态选择不易撞色的纯色背景，也可固定为 HEX。
+green_screen_color = "auto"
+green_screen_tolerance = 48
+bg_tolerance   = 26
+# 切帧时对 9 帧使用统一裁剪框，减少动画抖动
+crop_padding   = 0.12
+crop_square    = true
+# 对 9 帧应用共享调色板，减少 GIF 闪色
+shared_palette = true
+prompt_template = "Create a detailed pixel art animation contact sheet for a game: exactly {rows}x{cols} grid, {count} sequential animation keyframes. Animation subject/action: {description}. Read order is left-to-right, top-to-bottom. Keep the same character, camera angle, scale, anchor point and lighting in every cell. Each cell is one clean keyframe of the continuous motion, centered with enough padding, designed to become {width}x{height} game sprite frames. Use a pure solid key-color background {green} across the whole image for chroma-key removal. No text, no watermark, no labels, no numbers, no UI frame, no grid lines."
+
 [cache]
 enabled        = true
 dir            = ".pix_cache"

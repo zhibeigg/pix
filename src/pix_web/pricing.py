@@ -11,6 +11,7 @@ from pix_web.models import PricingRule
 DEFAULT_PRICES: dict[str, int] = {
     "text_to_image": 20,
     "image_to_image": 20,
+    "sprite_sheet": 30,
     "local_pixelize": 0,
     "repixelize": 0,
 }

@@ -88,18 +88,38 @@ function JobCard({ job, onCandidatePixelize }: { job: GenerationJob; onCandidate
             <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />
           </Stack>
           {output && <GridQualitySummary output={output} />}
+          {output && <SpriteFrameStrip output={output} />}
           {output && <CandidateStrip job={job} output={output} onCandidatePixelize={onCandidatePixelize} />}
           {job.error_message && <Box component="pre" sx={{ whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto', color: 'error.main', bgcolor: notionTokens.errorPanel, border: 1, borderColor: 'error.main', borderRadius: 2, p: 1.25, m: 0 }}>{job.error_message.slice(0, 600)}</Box>}
           {output && (
             <Stack spacing={0.75} divider={<Divider flexItem />}>
               <PathLine label="源图" value={output.source_path} />
-              <PathLine label="像素图" value={output.pixelized_path} />
-              {output.preview_path && <PathLine label="预览" value={output.preview_path} />}
+              <PathLine label={output.sprite_sheet_path ? '横向帧图' : '像素图'} value={output.pixelized_path} />
+              {output.sprite_gif_path && <PathLine label="GIF" value={output.sprite_gif_path} />}
+              {output.preview_path && !output.sprite_gif_path && <PathLine label="预览" value={output.preview_path} />}
+              {output.sprite_sheet_path && <PathLine label="精灵表" value={output.sprite_sheet_path} />}
               {output.grid_json_path && <PathLine label="Grid" value={output.grid_json_path} />}
               <PathLine label="meta" value={output.meta_json_path} />
             </Stack>
           )}
         </Stack>
+      </CardContent>
+    </Card>
+  )
+}
+
+function SpriteFrameStrip({ output }: { output: JobOutput }) {
+  if (!output.sprite_frames?.length) return null
+  return (
+    <Card variant="outlined" sx={{ bgcolor: notionTokens.tintSky }}>
+      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+        <Typography variant="caption" color="text.secondary">动画帧 / GIF</Typography>
+        {output.sprite_gif_url && <Box component="img" src={output.sprite_gif_url} alt="动画 GIF" loading="lazy" decoding="async" sx={{ mt: 1, width: 96, height: 96, objectFit: 'contain', imageRendering: 'pixelated', bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, p: 0.5 }} />}
+        <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(48px, 1fr))', gap: 0.75 }}>
+          {output.sprite_frames.map((frame) => (
+            <Box key={frame.path} component="img" src={frame.url ?? undefined} alt={`帧 ${frame.index}`} loading="lazy" decoding="async" sx={{ width: 44, height: 44, objectFit: 'contain', imageRendering: 'pixelated', bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, p: 0.25 }} />
+          ))}
+        </Box>
       </CardContent>
     </Card>
   )

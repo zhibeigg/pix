@@ -11,7 +11,7 @@ from pydantic import BaseModel, EmailStr, Field, computed_field
 
 from pix_web.storage import file_url
 
-JobType = Literal["text_to_image", "image_to_image", "local_pixelize", "repixelize"]
+JobType = Literal["text_to_image", "image_to_image", "local_pixelize", "repixelize", "sprite_sheet"]
 
 
 def _load_meta_json(path: str | None) -> dict[str, Any]:
@@ -39,6 +39,16 @@ def _contact_sheet_meta(path: str | None) -> dict[str, Any]:
         return {}
     contact_sheet = image_gen.get("contact_sheet")
     return contact_sheet if isinstance(contact_sheet, dict) else {}
+
+
+def _sprite_meta(path: str | None) -> dict[str, Any]:
+    sprite = _load_meta_json(path).get("sprite")
+    return sprite if isinstance(sprite, dict) else {}
+
+
+def _outputs_meta(path: str | None) -> dict[str, Any]:
+    outputs = _load_meta_json(path).get("outputs")
+    return outputs if isinstance(outputs, dict) else {}
 
 
 def _resolve_meta_relative_path(meta_json_path: str | None, value: str | None) -> str | None:
@@ -154,6 +164,13 @@ class GridDesignSchema(BaseModel):
     mode: Literal["off", "extract"] = "off"
 
 
+class SpriteParamsSchema(BaseModel):
+    duration_ms: int = Field(default=120, ge=20, le=2000)
+    loop: int = Field(default=0, ge=0, le=999)
+    rows: int = Field(default=3, ge=1, le=3)
+    cols: int = Field(default=3, ge=1, le=3)
+
+
 class JobCreateRequest(BaseModel):
     job_type: JobType
     prompt: str | None = None
@@ -166,6 +183,7 @@ class JobCreateRequest(BaseModel):
     skip_vl: bool = False
     pixelize: PixelizeParamsSchema = Field(default_factory=PixelizeParamsSchema)
     grid: GridDesignSchema = Field(default_factory=GridDesignSchema)
+    sprite: SpriteParamsSchema = Field(default_factory=SpriteParamsSchema)
 
 
 class JobBatchCreateRequest(BaseModel):
@@ -260,6 +278,56 @@ class JobOutputResponse(BaseModel):
                 "preview_url": file_url(preview_path),
             })
         return result
+
+    @computed_field
+    @property
+    def sprite_sheet_path(self) -> str | None:
+        outputs = _outputs_meta(self.meta_json_path)
+        sheet = outputs.get("sprite_sheet") or _sprite_meta(self.meta_json_path).get("horizontal_sheet")
+        return _resolve_meta_relative_path(self.meta_json_path, str(sheet)) if sheet else None
+
+    @computed_field
+    @property
+    def sprite_sheet_url(self) -> str | None:
+        return file_url(self.sprite_sheet_path)
+
+    @computed_field
+    @property
+    def sprite_gif_path(self) -> str | None:
+        outputs = _outputs_meta(self.meta_json_path)
+        gif = outputs.get("sprite_gif") or _sprite_meta(self.meta_json_path).get("gif")
+        return _resolve_meta_relative_path(self.meta_json_path, str(gif)) if gif else None
+
+    @computed_field
+    @property
+    def sprite_gif_url(self) -> str | None:
+        return file_url(self.sprite_gif_path)
+
+    @computed_field
+    @property
+    def sprite_frames(self) -> list[dict[str, Any]]:
+        raw_frames = _sprite_meta(self.meta_json_path).get("frames")
+        if not isinstance(raw_frames, list):
+            return []
+        frames: list[dict[str, Any]] = []
+        for item in raw_frames:
+            if not isinstance(item, dict):
+                continue
+            path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("path") or ""))
+            raw_path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("raw_path") or ""))
+            if not path:
+                continue
+            frames.append({
+                "index": item.get("index"),
+                "row": item.get("row"),
+                "col": item.get("col"),
+                "path": path,
+                "url": file_url(path),
+                "raw_path": raw_path,
+                "raw_url": file_url(raw_path),
+                "bbox": item.get("bbox"),
+            })
+        return frames
 
     @computed_field
     @property

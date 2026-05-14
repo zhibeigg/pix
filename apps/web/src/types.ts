@@ -48,7 +48,7 @@ export type CreditTransaction = {
   created_at: string
 }
 
-export type JobType = 'text_to_image' | 'image_to_image' | 'local_pixelize' | 'repixelize'
+export type JobType = 'text_to_image' | 'image_to_image' | 'local_pixelize' | 'repixelize' | 'sprite_sheet'
 
 export type PixelizeParams = {
   output_size: [number, number]
@@ -73,6 +73,24 @@ export type GridDesignParams = {
   mode: 'off' | 'extract'
 }
 
+export type SpriteParams = {
+  duration_ms: number
+  loop: number
+  rows: number
+  cols: number
+}
+
+export type SpriteFrameOutput = {
+  index: number
+  row: number
+  col: number
+  path: string
+  url: string | null
+  raw_path?: string | null
+  raw_url?: string | null
+  bbox?: [number, number, number, number] | null
+}
+
 export type JobCreateRequest = {
   job_type: JobType
   prompt?: string | null
@@ -85,6 +103,7 @@ export type JobCreateRequest = {
   skip_vl?: boolean
   pixelize: PixelizeParams
   grid?: GridDesignParams
+  sprite?: SpriteParams
 }
 
 export type GridReadabilityIssue = {
@@ -142,6 +161,11 @@ export type JobOutput = {
   contact_sheet_path: string | null
   contact_sheet_url: string | null
   candidates: ContactSheetCandidate[]
+  sprite_sheet_path: string | null
+  sprite_sheet_url: string | null
+  sprite_gif_path: string | null
+  sprite_gif_url: string | null
+  sprite_frames: SpriteFrameOutput[]
   pixelized_path: string
   pixelized_url: string | null
   preview_path: string | null

@@ -48,8 +48,8 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
           <Box sx={{ mt: 3, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 1.75 }}>
             {visible.map((job) => {
               const output = job.outputs[0]
-              const mainPath = output?.pixelized_path || output?.source_path || job.input_image_path || ''
-              const previewUrl = output?.pixelized_url || output?.source_url || job.input_image_url || ''
+              const mainPath = output?.sprite_sheet_path || output?.pixelized_path || output?.source_path || job.input_image_path || ''
+              const previewUrl = output?.sprite_gif_url || output?.preview_url || output?.pixelized_url || output?.source_url || job.input_image_url || ''
               const selected = selectedJobId === job.id
               return (
                 <Card
@@ -84,6 +84,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                       <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />
                     </Stack>
                     {output && <GridQualityChips output={output} />}
+                    {output?.sprite_gif_path && <Chip size="small" color="primary" variant="outlined" label="GIF 动画" />}
                     {output && <CandidateMiniGrid job={job} output={output} onCopyPath={onCopyPath} onCandidatePixelize={onCandidatePixelize} />}
                     {job.batch_name && <Typography color="text.secondary" variant="caption">素材包：{job.batch_name}</Typography>}
                   </CardContent>

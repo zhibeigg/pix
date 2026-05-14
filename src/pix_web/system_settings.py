@@ -129,6 +129,15 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.asset.fit_padding", "贴合留白", "素材默认值", "number", ""),
     SettingDefinition("pix.asset.fit_min_axis_coverage", "主体最小覆盖率", "素材默认值", "number", ""),
     SettingDefinition("pix.asset.prompt_template", "素材 Prompt 模板", "素材默认值", "textarea", ""),
+    SettingDefinition("pix.sprite.pixel_size", "动画帧尺寸", "动画精灵表", "string", "", "格式 64x64。"),
+    SettingDefinition("pix.sprite.colors", "动画帧颜色数", "动画精灵表", "number", ""),
+    SettingDefinition("pix.sprite.image_quality", "动画源图质量", "动画精灵表", "select", "", options=("low", "medium", "high", "auto")),
+    SettingDefinition("pix.sprite.duration_ms", "GIF 帧间隔毫秒", "动画精灵表", "number", ""),
+    SettingDefinition("pix.sprite.green_screen_color", "动画抠色背景", "动画精灵表", "string", ""),
+    SettingDefinition("pix.sprite.green_screen_tolerance", "动画抠色容差", "动画精灵表", "number", ""),
+    SettingDefinition("pix.sprite.crop_padding", "动画统一裁剪留白", "动画精灵表", "number", ""),
+    SettingDefinition("pix.sprite.shared_palette", "动画共享调色板", "动画精灵表", "boolean", ""),
+    SettingDefinition("pix.sprite.prompt_template", "动画 Prompt 模板", "动画精灵表", "textarea", ""),
     SettingDefinition("web.poll_interval_seconds", "Worker 轮询间隔", "存储 / 队列 / 安全", "number", "", "保存后需重启 worker 才能稳定生效。", restart_required=True, env_var="PIX_WEB_POLL_INTERVAL_SECONDS"),
     SettingDefinition("web.access_token_minutes", "登录 token 有效分钟", "存储 / 队列 / 安全", "number", "", "新签发 token 生效；不影响已签发 token。", env_var="PIX_WEB_ACCESS_TOKEN_MINUTES"),
     SettingDefinition("env.database_url", "数据库连接", "存储 / 队列 / 安全", "status", "", "环境级配置，只显示状态，不在线修改。", editable=False, env_var="PIX_WEB_DATABASE_URL", source="environment_only"),
@@ -302,7 +311,7 @@ def _normalize_value(definition: SettingDefinition, value: str) -> str:
         return str(max(0, number))
     if definition.type == "select" and definition.options and clean not in definition.options:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="选项不合法")
-    if definition.key == "pix.asset.pixel_size" and "x" not in clean.lower():
+    if definition.key in {"pix.asset.pixel_size", "pix.sprite.pixel_size"} and "x" not in clean.lower():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="尺寸格式应为 16x16")
     return clean
 
@@ -380,7 +389,7 @@ def load_effective_web_settings(db: Session, base_settings: WebSettings) -> WebS
 
 
 def _native_pix_value(key: str, raw: str) -> Any:
-    if key == "pix.asset.pixel_size":
+    if key in {"pix.asset.pixel_size", "pix.sprite.pixel_size"}:
         left, right = raw.lower().split("x", 1)
         return [int(left), int(right)]
     default_cfg = load_config(env_file=None)
