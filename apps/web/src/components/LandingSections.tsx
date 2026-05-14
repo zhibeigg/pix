@@ -206,7 +206,7 @@ function ExampleImage({ kind, src, alt }: { kind: 'item' | 'ui'; src: string; al
   const isItem = kind === 'item'
   return (
     <Box sx={{ minHeight: isItem ? 124 : 166, display: 'grid', placeItems: 'center', bgcolor: notionTokens.canvas, borderBottom: `1px solid ${notionTokens.hairline}`, backgroundImage: `linear-gradient(45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(-45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%), linear-gradient(-45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%)`, backgroundSize: '16px 16px', backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0', p: isItem ? 2 : 0 }}>
-      <Box component="img" src={src} alt={alt} loading="lazy" decoding="async" width={isItem ? 128 : 1920} height={isItem ? 64 : 1080} sx={{ width: isItem ? 'min(100%, 256px)' : '100%', height: 'auto', maxHeight: isItem ? 96 : 220, objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
+      <Box component="img" src={src} alt={alt} loading="lazy" decoding="async" width={isItem ? 512 : 1920} height={isItem ? 256 : 1080} sx={{ width: isItem ? 'min(100%, 320px)' : '100%', height: 'auto', maxHeight: isItem ? 142 : 220, objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
     </Box>
   )
 }

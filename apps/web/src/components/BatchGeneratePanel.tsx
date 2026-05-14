@@ -3,7 +3,7 @@ import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel
 import { api } from '../api'
 import { notionTokens } from '../theme'
 import type { CreditBalance, JobCreateRequest, PricingRule, UploadResponse } from '../types'
-import { buildGridDesign, buildPixelize, hasInvalidSub16Size, isEightPixelSize, parsePixelSize } from '../pixelize'
+import { buildGridDesign, buildPixelize, hasInvalidSubAssetSize, parsePixelSize } from '../pixelize'
 
 type BatchMode = 'text_to_image' | 'image_to_image' | 'local_pixelize'
 
@@ -34,7 +34,6 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
   const [colors, setColors] = useState(16)
   const [removeBg, setRemoveBg] = useState(true)
   const [skipVl, setSkipVl] = useState(false)
-  const [aiGrid, setAiGrid] = useState(false)
 
   const lines = useMemo(() => prompts.split('\n').map((line) => line.trim()).filter(Boolean), [prompts])
   const uploaded = uploads.filter((item) => item.status === 'uploaded' && item.upload)
@@ -44,8 +43,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
   const availableCredits = balance?.available_credits ?? null
   const insufficientCredits = availableCredits !== null && totalPrice > availableCredits
   const parsedPixelSize = parsePixelSize(pixelSize)
-  const forceAiGrid = isEightPixelSize(parsedPixelSize)
-  const invalidSub16Size = hasInvalidSub16Size(parsedPixelSize)
+  const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
 
   async function uploadFiles(files: FileList | null) {
     if (!files || files.length === 0) return
@@ -70,7 +68,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
   async function submit(event: FormEvent) {
     event.preventDefault()
     const pixelize = buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg })
-    const grid = buildGridDesign(aiGrid, parsedPixelSize)
+    const grid = buildGridDesign()
     let payloads: JobCreateRequest[] = []
     if (batchMode === 'text_to_image') {
       payloads = lines.map((prompt) => ({
@@ -155,13 +153,10 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
             <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
               <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
               <FormControlLabel control={<Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize'} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过参考图理解" />
-              <FormControlLabel control={<Checkbox checked={forceAiGrid || aiGrid} disabled={forceAiGrid} onChange={(event) => setAiGrid(event.target.checked)} />} label="AI 低像素工程图" />
             </Stack>
-            {invalidSub16Size && <Alert severity="error">16×16 以下仅支持 8×8；8×8 会自动使用 AI 低像素工程图。</Alert>}
-            {forceAiGrid && <Alert severity="info">8×8 会强制使用 AI 低像素工程图，失败时不回退到 Python extract。</Alert>}
-            {(forceAiGrid || aiGrid) && <Alert severity="warning">AI 低像素工程图会额外调用视觉模型生成并返修像素矩阵；默认点数价格不变，但会产生额外模型调用成本。</Alert>}
+            {invalidSubAssetSize && <Alert severity="error">素材最低支持 16×16。</Alert>}
             {insufficientCredits && <Button variant="outlined" href="#/billing">点数不足，前往点数中心</Button>}
-            <Button type="submit" variant="contained" color="primary" disabled={loading || uploading || taskCount === 0 || insufficientCredits || invalidSub16Size}>{loading ? '提交中…' : `入队 ${taskCount} 个素材任务`}</Button>
+            <Button type="submit" variant="contained" color="primary" disabled={loading || uploading || taskCount === 0 || insufficientCredits || invalidSubAssetSize}>{loading ? '提交中…' : `入队 ${taskCount} 个素材任务`}</Button>
           </Stack>
         </Stack>
       </CardContent>

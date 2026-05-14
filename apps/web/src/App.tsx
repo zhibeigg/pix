@@ -400,7 +400,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 
   async function pixelizeCandidate(job: GenerationJob, candidate: ContactSheetCandidate) {
     const pixelize = (job.params_json?.pixelize as JobCreateRequest['pixelize'] | undefined) ?? defaultPixelize
-    const grid = (job.params_json?.grid as JobCreateRequest['grid'] | undefined) ?? buildGridDesign(false, pixelize.output_size)
+    const grid = (job.params_json?.grid as JobCreateRequest['grid'] | undefined) ?? buildGridDesign()
     await createJob({
       job_type: 'local_pixelize',
       prompt: null,

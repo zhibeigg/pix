@@ -15,6 +15,365 @@ import numpy as np
 from PIL import Image
 
 
+def key_color_mask(
+    rgba: np.ndarray,
+    key_rgb: tuple[int, int, int],
+    *,
+    tolerance: int = 48,
+    visible_only: bool = True,
+) -> np.ndarray:
+    """识别接近指定 key color 的像素，支持封闭孔洞背景。
+
+    与 flood-fill 不同，这里不要求背景连通到四角，因此能清理手链、光环、镂空框
+    内部残留的纯色背景。调用方应使用与 prompt 匹配的动态 key color，避免误伤素材
+    自身颜色。
+    """
+    if rgba.ndim != 3 or rgba.shape[-1] < 4:
+        raise ValueError("key_color_mask 需要 RGBA 数组")
+    rgb = rgba[..., :3].astype(np.int32)
+    ref = np.asarray(key_rgb, dtype=np.int32)
+    dist_sq = ((rgb - ref) ** 2).sum(axis=2)
+    mask = dist_sq <= max(0, int(tolerance)) ** 2 * 3
+    if visible_only:
+        mask &= rgba[..., 3] > 0
+    return mask
+
+
+def remove_key_color(
+    image: Image.Image,
+    *,
+    key_rgb: tuple[int, int, int],
+    tolerance: int = 48,
+    spill_tolerance: int | None = None,
+    edge_speckle: bool = False,
+    edge_speckle_max_area: int = 18,
+    edge_speckle_max_thickness: int = 3,
+    edge_speckle_radius: int = 2,
+    edge_speckle_passes: int = 2,
+    edge_spill: bool = False,
+    edge_spill_radius: int = 3,
+    edge_spill_passes: int = 3,
+    edge_spill_outline: bool = False,
+) -> Image.Image:
+    """全局移除指定纯色背景，并可清理边缘 key-color 碎点与量化溢色。"""
+    rgba = np.asarray(image.convert("RGBA")).copy()
+    mask = key_color_mask(rgba, key_rgb, tolerance=tolerance, visible_only=True)
+    outline_mask = np.zeros(rgba.shape[:2], dtype=bool)
+    if spill_tolerance is not None and int(spill_tolerance) > int(tolerance):
+        spill = key_color_mask(rgba, key_rgb, tolerance=int(spill_tolerance), visible_only=True)
+        # 只清理已经靠近透明背景或本轮 key-color 背景的溢色边，避免误伤远离背景的正常同色装饰。
+        near_transparent = _dilate_mask_8((rgba[..., 3] == 0) | mask)
+        mask |= spill & near_transparent
+    if edge_speckle:
+        for _ in range(max(1, int(edge_speckle_passes))):
+            probe = rgba.copy()
+            if mask.any():
+                probe[mask, :3] = 0
+                probe[mask, 3] = 0
+            speckle = key_color_edge_speckle_mask(
+                probe,
+                key_rgb,
+                base_mask=None,
+                max_area=edge_speckle_max_area,
+                max_thickness=edge_speckle_max_thickness,
+                radius=edge_speckle_radius,
+            )
+            speckle &= ~mask
+            if not speckle.any():
+                break
+            mask |= speckle
+    if edge_spill:
+        # 量化/缩放可能把 #FF00FF 压成 #C400C4、#420347 这类同色相暗紫边。
+        # 这类残留不一定与原 key color 距离足够近，因此用色相相似度 + 透明边界邻近度保守剥离。
+        for _ in range(max(1, int(edge_spill_passes))):
+            probe = rgba.copy()
+            if mask.any():
+                probe[mask, :3] = 0
+                probe[mask, 3] = 0
+            spill = key_color_edge_spill_mask(
+                probe,
+                key_rgb,
+                base_mask=mask,
+                radius=edge_spill_radius,
+            )
+            spill &= ~mask
+            if not spill.any():
+                break
+            if edge_spill_outline:
+                outline_mask |= _key_color_spill_outline_mask(probe, spill)
+            mask |= spill
+    if mask.any():
+        rgba[mask, :3] = 0
+        rgba[mask, 3] = 0
+    if edge_spill_outline and outline_mask.any():
+        foreground = (rgba[..., 3] > 0) & ~outline_mask
+        outline_rgb = _infer_outline_rgb(rgba, foreground)
+        rgba[outline_mask, :3] = outline_rgb
+        rgba[outline_mask, 3] = 255
+    # 透明像素的 RGB 也清零，避免某些预览器/工具忽略 alpha 时显示 key color 底色。
+    transparent = rgba[..., 3] == 0
+    if transparent.any():
+        rgba[transparent, :3] = 0
+    return Image.fromarray(rgba, mode="RGBA")
+
+
+def key_color_edge_speckle_mask(
+    rgba: np.ndarray,
+    key_rgb: tuple[int, int, int],
+    *,
+    base_mask: np.ndarray | None = None,
+    max_area: int = 18,
+    max_thickness: int = 3,
+    radius: int = 2,
+) -> np.ndarray:
+    """只标记透明边界附近、小面积或很薄的 key-color 残留。
+
+    这用于处理像素化/量化把 #FF00FF 之类 key color 压成暗紫小点或细条的情况。
+    它不会处理厚块区域，也不会进入主体内部，避免把真实内容扣掉。
+    """
+    if rgba.ndim != 3 or rgba.shape[-1] < 4:
+        raise ValueError("key_color_edge_speckle_mask 需要 RGBA 数组")
+    alpha = rgba[..., 3]
+    transparent = alpha == 0
+    near = transparent.copy()
+    seed = transparent | (base_mask if base_mask is not None else False)
+    near = seed.copy()
+    for _ in range(max(1, int(radius))):
+        near = _dilate_mask_8(near)
+
+    rgb = rgba[..., :3].astype(np.float32)
+    key = np.asarray(key_rgb, dtype=np.float32)
+    key_norm = float(np.linalg.norm(key)) or 1.0
+    rgb_norm = np.linalg.norm(rgb, axis=2)
+    dot = (rgb * key).sum(axis=2)
+    cosine = np.zeros(alpha.shape, dtype=np.float32)
+    valid_norm = rgb_norm > 1e-6
+    cosine[valid_norm] = dot[valid_norm] / (rgb_norm[valid_norm] * key_norm)
+    channel_max = rgb.max(axis=2)
+    channel_min = rgb.min(axis=2)
+    chroma = channel_max - channel_min
+    candidates = (alpha > 0) & near & (cosine >= 0.94) & (channel_max >= 40) & (chroma >= 24)
+    if base_mask is not None:
+        candidates &= ~base_mask
+    return _edge_residue_component_mask(
+        candidates,
+        max_area=max(1, int(max_area)),
+        max_thickness=max(1, int(max_thickness)),
+    )
+
+
+def key_color_edge_spill_mask(
+    rgba: np.ndarray,
+    key_rgb: tuple[int, int, int],
+    *,
+    base_mask: np.ndarray | None = None,
+    radius: int = 3,
+    cosine_min: float = 0.86,
+    min_channel: int = 32,
+    min_chroma: int = 24,
+) -> np.ndarray:
+    """标记透明边界附近的 key-color 同色相量化溢色。
+
+    生图背景虽然要求纯 key color，但缩放/量化后常会在主体黑边外形成
+    #C400C4、#420347 之类与 key color 同色相的暗紫边。这些颜色与原 key
+    的欧氏距离很远，普通 tolerance 抠不到；但它们只应贴着透明背景出现。
+    """
+    if rgba.ndim != 3 or rgba.shape[-1] < 4:
+        raise ValueError("key_color_edge_spill_mask 需要 RGBA 数组")
+    alpha = rgba[..., 3]
+    seed = alpha == 0
+    if base_mask is not None:
+        seed |= base_mask
+    near = seed.copy()
+    for _ in range(max(1, int(radius))):
+        near = _dilate_mask_8(near)
+
+    rgb = rgba[..., :3].astype(np.float32)
+    key = np.asarray(key_rgb, dtype=np.float32)
+    key_norm = float(np.linalg.norm(key)) or 1.0
+    rgb_norm = np.linalg.norm(rgb, axis=2)
+    dot = (rgb * key).sum(axis=2)
+    cosine = np.zeros(alpha.shape, dtype=np.float32)
+    valid_norm = rgb_norm > 1e-6
+    cosine[valid_norm] = dot[valid_norm] / (rgb_norm[valid_norm] * key_norm)
+    channel_max = rgb.max(axis=2)
+    channel_min = rgb.min(axis=2)
+    chroma = channel_max - channel_min
+    candidates = (
+        (alpha > 0)
+        & near
+        & (cosine >= float(cosine_min))
+        & (channel_max >= max(0, int(min_channel)))
+        & (chroma >= max(0, int(min_chroma)))
+    )
+    if base_mask is not None:
+        candidates &= ~base_mask
+    return candidates
+
+
+def remove_detached_dark_edges(
+    image: Image.Image,
+    *,
+    max_distance: int = 4,
+    luma_threshold: int = 62,
+    max_channel: int = 96,
+    chroma_threshold: int = 58,
+    max_area: int = 160,
+    max_thickness: int = 4,
+    max_density: float = 0.16,
+    neutral_chroma_threshold: int = 42,
+    neutral_max_luma: int = 128,
+    neutral_light_max_channel: int = 245,
+    passes: int = 5,
+) -> Image.Image:
+    """移除贴近主体但没有接触主体的漂浮低饱和细线/碎点。"""
+    rgba = np.asarray(image.convert("RGBA")).copy()
+    for _ in range(max(1, int(passes))):
+        alpha = rgba[..., 3]
+        visible = alpha > 0
+        if not visible.any():
+            break
+
+        rgb = rgba[..., :3].astype(np.int16)
+        channel_max = rgb.max(axis=2)
+        channel_min = rgb.min(axis=2)
+        luma = _rgb_luma(rgba[..., :3])
+        chroma = channel_max - channel_min
+        dark_edge = (
+            visible
+            & (luma <= max(0, int(luma_threshold)))
+            & (channel_max <= max(0, int(max_channel)))
+            & (chroma <= max(0, int(chroma_threshold)))
+        )
+        neutral_edge = (
+            visible
+            & (chroma <= max(0, int(neutral_chroma_threshold)))
+            & (luma <= max(0, int(neutral_max_luma)))
+            & (channel_max <= max(0, int(neutral_light_max_channel)))
+        )
+        edge_fragment = dark_edge | neutral_edge
+        foreground = visible & ~edge_fragment
+        if not edge_fragment.any() or not foreground.any():
+            break
+
+        adjacent_foreground = _dilate_mask_8(foreground)
+        # 只处理背景边界附近且没有贴住主体色的低饱和细线，避免误删主体内部的黑色五官/阴影。
+        near_transparent = _dilate_mask_8(alpha == 0)
+        detached_candidates = edge_fragment & ~adjacent_foreground & near_transparent
+        detached = _edge_residue_component_mask(
+            detached_candidates,
+            max_area=max(1, int(max_area)),
+            max_thickness=max(1, int(max_thickness)),
+            max_density=float(max_density),
+        )
+        if not detached.any():
+            break
+        rgba[detached, :3] = 0
+        rgba[detached, 3] = 0
+
+    transparent = rgba[..., 3] == 0
+    if transparent.any():
+        rgba[transparent, :3] = 0
+    return Image.fromarray(rgba, mode="RGBA")
+
+
+def remove_tiny_alpha_islands(
+    image: Image.Image,
+    *,
+    max_area: int = 32,
+    max_axis: int = 12,
+) -> Image.Image:
+    """移除很小的独立可见碎片，作为最终透明素材清理。"""
+    rgba = np.asarray(image.convert("RGBA")).copy()
+    visible = rgba[..., 3] > 0
+    h, w = visible.shape
+    visited = np.zeros(visible.shape, dtype=bool)
+    remove = np.zeros(visible.shape, dtype=bool)
+    for y in range(h):
+        for x in range(w):
+            if not visible[y, x] or visited[y, x]:
+                continue
+            q: deque[tuple[int, int]] = deque([(y, x)])
+            visited[y, x] = True
+            pixels: list[tuple[int, int]] = []
+            while q:
+                cy, cx = q.popleft()
+                pixels.append((cy, cx))
+                for ny in range(max(0, cy - 1), min(h, cy + 2)):
+                    for nx in range(max(0, cx - 1), min(w, cx + 2)):
+                        if ny == cy and nx == cx:
+                            continue
+                        if visible[ny, nx] and not visited[ny, nx]:
+                            visited[ny, nx] = True
+                            q.append((ny, nx))
+            ys = [py for py, _px in pixels]
+            xs = [px for _py, px in pixels]
+            width = max(xs) - min(xs) + 1
+            height = max(ys) - min(ys) + 1
+            if len(pixels) <= max(1, int(max_area)) and max(width, height) <= max(1, int(max_axis)):
+                for py, px in pixels:
+                    remove[py, px] = True
+    if remove.any():
+        rgba[remove, :3] = 0
+        rgba[remove, 3] = 0
+    transparent = rgba[..., 3] == 0
+    if transparent.any():
+        rgba[transparent, :3] = 0
+    return Image.fromarray(rgba, mode="RGBA")
+
+
+def _key_color_spill_outline_mask(rgba: np.ndarray, spill: np.ndarray) -> np.ndarray:
+    """把贴着主体的 key-color 溢色改成描边，而不是抠成透明缝。"""
+    if not spill.any():
+        return np.zeros(spill.shape, dtype=bool)
+    alpha = rgba[..., 3]
+    foreground = (alpha > 0) & ~spill
+    if not foreground.any():
+        return np.zeros(spill.shape, dtype=bool)
+    # 只补回紧贴主体的一圈溢色；更外层仍抠透明，避免凭空加粗轮廓。
+    return spill & _dilate_mask_8(foreground)
+
+
+def _edge_residue_component_mask(
+    mask: np.ndarray,
+    *,
+    max_area: int,
+    max_thickness: int,
+    max_density: float | None = None,
+) -> np.ndarray:
+    """返回小面积、薄条形或低密度稀疏的 8 连通分量。"""
+    h, w = mask.shape
+    visited = np.zeros(mask.shape, dtype=bool)
+    result = np.zeros(mask.shape, dtype=bool)
+    for y in range(h):
+        for x in range(w):
+            if not mask[y, x] or visited[y, x]:
+                continue
+            q: deque[tuple[int, int]] = deque([(y, x)])
+            visited[y, x] = True
+            pixels: list[tuple[int, int]] = []
+            while q:
+                cy, cx = q.popleft()
+                pixels.append((cy, cx))
+                for ny in range(max(0, cy - 1), min(h, cy + 2)):
+                    for nx in range(max(0, cx - 1), min(w, cx + 2)):
+                        if ny == cy and nx == cx:
+                            continue
+                        if mask[ny, nx] and not visited[ny, nx]:
+                            visited[ny, nx] = True
+                            q.append((ny, nx))
+            ys = [py for py, _px in pixels]
+            xs = [px for _py, px in pixels]
+            width = max(xs) - min(xs) + 1
+            height = max(ys) - min(ys) + 1
+            density = len(pixels) / max(1, width * height)
+            sparse = max_density is not None and density <= float(max_density)
+            if len(pixels) <= max_area or min(width, height) <= max_thickness or sparse:
+                for py, px in pixels:
+                    result[py, px] = True
+    return result
+
+
 def _sample_corner_colors(
     arr: np.ndarray, sample: int = 3
 ) -> list[tuple[int, int, int]]:
@@ -159,6 +518,9 @@ def remove_background(
         _apply_outline_edge(rgba, mask_bg, strength)
     else:
         _apply_alpha_feather(rgba, mask_bg, strength if style == "feather" else 0)
+    transparent = rgba[..., 3] == 0
+    if transparent.any():
+        rgba[transparent, :3] = 0
     return Image.fromarray(rgba, mode="RGBA")
 
 

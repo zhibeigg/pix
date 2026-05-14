@@ -14,7 +14,6 @@ from PIL import Image
 
 from pix.pixelize.core import PixelizeParams, pixelize
 from pix.pixelize.ramp import (
-    RampPalette,
     RampValidationError,
     build_local_ramp,
     hex_to_rgb,
@@ -51,7 +50,7 @@ class TestParsing:
         assert [s.role for s in ramp.steps] == ["outline", "shadow", "mid", "highlight"]
         # 明度必须严格递增
         lums = [s.lab[0] for s in ramp.steps]
-        assert all(a < b for a, b in zip(lums, lums[1:]))
+        assert all(a < b for a, b in zip(lums, lums[1:], strict=False))
 
     def test_tolerates_json_code_block(self) -> None:
         raw = """```json
@@ -300,8 +299,8 @@ class TestVlRampEndToEnd:
             ramp_module.ramp_from_vl(cfg, img_path, max_colors=6, output_size=(16, 16), retries=1)
 
     def test_pixelize_ramp_falls_back_to_local_on_vl_error(self, tmp_path, monkeypatch) -> None:
+        from pix.api.packy_client import PackyError
         from pix.config import AppConfig
-        from pix.pixelize import ramp as ramp_module
 
         img_path = tmp_path / "src.png"
         Image.new("RGB", (48, 48), (200, 100, 70)).save(img_path)
@@ -309,7 +308,7 @@ class TestVlRampEndToEnd:
         cfg.api.vl_api_key = "sk-test"
 
         def fake_post_json(self, path, payload_in):
-            raise ramp_module.PackyError("simulated network error")
+            raise PackyError("simulated network error")
 
         monkeypatch.setattr(
             "pix.pixelize.ramp.PackyClient.post_json", fake_post_json, raising=True

@@ -24,14 +24,9 @@ IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "repixelize"}
 def validate_job_request(req: JobCreateRequest) -> None:
     prompt = (req.prompt or "").strip()
     try:
-        asset_policy = resolve_asset_generation_policy(tuple(req.pixelize.output_size))
+        resolve_asset_generation_policy(tuple(req.pixelize.output_size))
     except AssetSizePolicyError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
-    if asset_policy == "ai_grid_required" and req.grid.mode != "ai":
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="8x8 素材必须使用 AI Grid 直绘",
-        )
     if req.job_type == "text_to_image" and not prompt:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="文生图任务需要 prompt")
     if req.job_type == "image_to_image" and not prompt:

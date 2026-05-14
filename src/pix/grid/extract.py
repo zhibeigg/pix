@@ -68,11 +68,11 @@ def infer_grid_aligned_output_size(
     bg_tolerance: int = 26,
     max_axis: int = 64,
 ) -> GridAlignedSize:
-    """从源图推断给 AI Grid 参考用的 draft 网格尺寸。
+    """从源图推断 draft 网格尺寸，用于辅助 extract 时对齐网格。
 
     优先使用输入图自身的像素格周期：例如 128x128 的源图若由 4x4 网格
     nearest 放大得到，会推断出 4x4，而不是硬压到最终 16x16。若没有明显
-    像素格，则使用处理后源图比例并限制最大轴，作为比目标尺寸更保真的草图。
+    像素格，则使用处理后源图比例并限制最大轴。
     """
     _, image, original_size, crop_bbox = _load_preprocessed_image(
         image_path,

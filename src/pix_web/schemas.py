@@ -151,11 +151,7 @@ class PixelizeParamsSchema(BaseModel):
 
 
 class GridDesignSchema(BaseModel):
-    mode: Literal["off", "extract", "ai"] = "off"
-    review: bool = False
-    retries: int = Field(default=1, ge=0, le=3)
-    instruction: str = Field(default="", max_length=800)
-    fallback: Literal["extract", "pixelize", "fail"] = "extract"
+    mode: Literal["off", "extract"] = "off"
 
 
 class JobCreateRequest(BaseModel):
@@ -211,20 +207,7 @@ class JobOutputResponse(BaseModel):
         grid = _grid_meta_from_output_meta(self.meta_json_path)
         if not grid or grid.get("mode") in (None, "off"):
             return None
-        keys = (
-            "mode",
-            "review",
-            "fallback",
-            "used_fallback",
-            "fallback_reason",
-            "failed",
-            "error",
-            "attempts",
-            "max_attempts",
-            "repaired",
-            "source_prompt_used",
-            "draft",
-        )
+        keys = ("mode", "readability", "ramp_info")
         return {key: grid[key] for key in keys if key in grid}
 
     @computed_field
