@@ -99,7 +99,7 @@ palette_mode   = "auto"
 [asset]
 # 游戏素材直出命令 pix asset 的默认值
 output_dir     = "图片"
-# 16x16 以下仅允许 [8, 8]；8x8 会强制 AI Grid 直绘且失败不回退
+# 仅支持 ≥16x16，所有尺寸统一走 extract Pixel Grid
 pixel_size     = [16, 16]
 colors         = 12
 dither         = "none"
@@ -116,40 +116,22 @@ crop_padding   = 0.12
 crop_square    = true
 # 默认启用 Pixel Grid JSON 工程图：先提取 XY 网格 JSON，再精确渲染最终 PNG
 grid_mode      = true
-# 是否让 AI 审核/修正 Grid JSON；默认关闭以节省成本
-grid_review    = false
 # 是否保留 .grid.json 工程文件
 grid_json      = true
-# AI Grid 直绘默认关闭：开启后让模型直接返回 palette + pixels[y][x] 字符串矩阵，适合 16/22/32 小图标；8x8 会强制启用；会增加额外模型调用成本
-ai_grid        = false
-ai_grid_retries = 1
-ai_grid_instruction = ""
-ai_grid_fallback = "extract"  # extract | pixelize | fail
-# AI Grid 局部修补：auto 仅在 draft 有 warning 但无 blocking 时让 VL 输出像素 patches
-# off | auto（默认）| force
-ai_grid_repair_mode = "auto"
-# 可选：手绘图标参考目录。AI Grid 会挑选少量 16x16 人工图标作为风格参考，学习留白、轮廓、色阶和高光，而不是照抄题材。
-# 示例：style_reference_dir = "D:/伏魔录项目/美工/icon"
-style_reference_dir = ""
-style_reference_limit = 3
-# AI Grid 会把源图按检测到的实际像素格解析成 draft 工程图，并把原始 prompt + 源图 + draft 预览一起交给 VL；draft 最大轴过大时会等比限制，避免塞入过长矩阵
-ai_grid_draft = true
-ai_grid_draft_max_axis = 64
-ai_grid_draft_preview_scale = 8
-# Grid 后处理：清理孤立噪点、统一主体深色轮廓
-grid_cleanup   = true
-grid_outline   = true
+# Grid 后处理默认关闭，最大程度保留经典白底单图提取结果；需要时可显式开启清噪/轮廓加粗
+grid_cleanup   = false
+grid_outline   = false
 grid_outline_strength = 1
 grid_min_neighbors = 1
-# 生成后把主体 bbox 确定性贴合目标画布，尤其适合按钮、横条、面板等非方形 UI 素材
-fit_canvas      = true
+# 生成后是否把主体 bbox 确定性贴合目标画布；默认关闭以保留早期白底单图的自然留白
+fit_canvas      = false
 fit_mode        = "smart"  # smart | contain | stretch
 fit_padding     = 1
 fit_min_axis_coverage = 0.7
-# Asset 直出默认启用 ramp 调色板（VL 失败时本地兜底），手绘质感比 K-means 更强。
-# 可选：auto | ramp | kmeans；建议保持 ramp。
-palette_mode    = "ramp"
-prompt_template = "A single fantasy pixel game inventory item icon of {name}. Centered object, isolated on a pure solid chroma-key background color that does not appear in the item, no text, no UI frame, no shadow outside the item, thick dark outline, high contrast, readable silhouette, designed to become a {width}x{height} RPG inventory sprite."
+# Asset 直出默认使用经典 auto/K-means 调色，贴近早期白底单图素材效果；可手动改为 ramp。
+# 可选：auto | ramp | kmeans。
+palette_mode    = "auto"
+prompt_template = "A single fantasy pixel game inventory item icon of {name}. Centered object, isolated on plain white background, no text, no UI frame, no shadow outside the item, thick dark outline, high contrast, readable silhouette, designed to become a {width}x{height} RPG inventory sprite."
 
 [cache]
 enabled        = true

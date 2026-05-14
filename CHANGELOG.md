@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-05-14
+
+### Fixed
+
+- 恢复 `pix asset` 的经典 16×16 白底单图效果：asset 入口不再走候选包装/远程 prompt 归一化，默认使用白底模板、`palette_mode="auto"`、不默认 `grid_cleanup` / `grid_outline` / `fit_canvas`，贴近早期 `紫檀木/01_16x16.png` 的视觉结果。
+- `resolve_size_strategy()` 同步返回 `palette_mode="auto"`，避免默认 ramp 重映射改变小图标色阶。
+
+## [1.0.0] - 2026-05-14
+
+### Removed (Breaking)
+
+- 删除 `pix asset` 的 AI Grid 直绘、Grid Review 和普通 resize 分支。所有 ≥16×16 素材统一走 `extract_pixel_grid` → cleanup/outline → fit_canvas → ramp 调色板 → render；不再支持 8×8 等更小尺寸（最低 16×16）。
+- 删除模块：`pix.grid.design`、`pix.grid.review`、`pix.grid.repair`、`pix.grid.style_reference`，以及 CLI 的 `pix grid-review` 子命令。
+- `pix asset` 删除选项：`--ai-grid` / `--no-ai-grid`、`--ai-grid-retries`、`--ai-grid-instruction`、`--ai-grid-fallback`、`--style-reference-dir`、`--style-reference-limit`、`--grid-review`。
+- `[asset]` 配置删除：`grid_review`、`ai_grid`、`ai_grid_retries`、`ai_grid_instruction`、`ai_grid_fallback`、`ai_grid_repair_mode`、`style_reference_dir`、`style_reference_limit`、`ai_grid_draft`、`ai_grid_draft_max_axis`、`ai_grid_draft_preview_scale`。
+- `pix.pipeline.GridDesignInput` 字段收窄到 `mode: Literal["off", "extract"]`，删除 `review` / `retries` / `instruction` / `fallback` / `repair_mode`。
+- Web API：`GridDesignSchema` 同步收窄；`POST /jobs` 不再接受 `grid.mode = "ai"`、`grid.fallback`、`grid.repair_mode` 等字段；管理后台「素材默认值」分类下的 AI Grid 相关项已删除。
+- 前端：删除「AI 低像素工程图」勾选与 8×8 强制提示；`buildGridDesign()` 不再接收参数，恒返回 `{ mode: 'extract' }`。
+
+### Changed
+
+- `pix.asset.resolve_asset_generation_policy`：仅返回 `"extract"`；输入 <16×16 直接抛 `AssetSizePolicyError("最低支持 16x16 素材")`。
+- `pix.asset.resolve_size_strategy`：所有支持尺寸都返回 `grid_mode="extract"`、`palette_mode="ramp"`，删除 `ai_grid` 与 `repair_mode` 字段。
+- `pix asset` sidecar 不再写 `ai_grid` 嵌套段；改写 `grid_meta`（来自 pipeline meta 的 grid 段）便于对比。
+
 ## [0.59.1] - 2026-05-14
 
 ### Fixed

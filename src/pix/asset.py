@@ -12,7 +12,7 @@ from PIL import Image
 
 
 IssueLevel = Literal["error", "warning"]
-AssetGenerationPolicy = Literal["extract", "ai_grid_required"]
+AssetGenerationPolicy = Literal["extract"]
 AssetPaletteMode = Literal["auto", "ramp", "kmeans"]
 
 
@@ -23,15 +23,14 @@ class AssetSizePolicyError(ValueError):
 def resolve_asset_generation_policy(size: tuple[int, int]) -> AssetGenerationPolicy:
     """返回游戏素材直出策略。
 
-    规则：16x16 以下默认禁止，唯一例外是 8x8，且 8x8 必须由 AI Grid 直绘。
+    规则：仅支持 ≥16×16 的素材，统一走 Pixel Grid extract 流程。AI Grid / 普通 resize
+    分支已在 0.60.0 版本删除，更小尺寸由调用方负责再做下采样。
     """
     width, height = int(size[0]), int(size[1])
     if width <= 0 or height <= 0:
         raise AssetSizePolicyError("素材尺寸必须为正整数")
-    if (width, height) == (8, 8):
-        return "ai_grid_required"
     if width < 16 or height < 16:
-        raise AssetSizePolicyError("16x16 以下仅允许 8x8，且 8x8 必须使用 AI Grid 直绘")
+        raise AssetSizePolicyError("最低支持 16x16 素材")
     return "extract"
 
 
@@ -40,66 +39,27 @@ class AssetSizeStrategy:
     """按目标尺寸推荐的 pipeline 策略；调用方仍可显式覆盖。"""
 
     palette_mode: str
-    grid_mode: str  # off | extract | ai
-    ai_grid: bool
-    repair_mode: str  # off | auto | force
+    grid_mode: str  # 仅 "extract"
     notes: str = ""
 
     def to_dict(self) -> dict:
         return {
             "palette_mode": self.palette_mode,
             "grid_mode": self.grid_mode,
-            "ai_grid": self.ai_grid,
-            "repair_mode": self.repair_mode,
             "notes": self.notes,
         }
 
 
 def resolve_size_strategy(size: tuple[int, int]) -> AssetSizeStrategy:
-    """根据目标尺寸推荐 pipeline 组合（基于 0.59→0.60 的实测结论）。
+    """所有支持尺寸统一推荐 extract + auto/K-means。
 
-    - 8x8: extract Pixel Grid（先按源图比例缩到 32 再聚合到 8）+ ramp + auto 修补；
-      AI Grid 在 8x8 直画容易铺满画布，已不作为默认。
-    - 16x16: extract + ramp + auto 修补 —— 主流尺寸，源图信息量足够，构图最稳。
-    - 32x32: extract + ramp + auto 修补 —— 4 路实测最佳。
-    - 64+: 普通像素化 + ramp（grid_mode=off）；source 已是抠好的透明素材，
-      调用方应让 pipeline 主动启用 ``auto_skip_redundant_bg``，避免重复抠图。
-
-    AI Grid（grid_mode="ai"）退回到兜底定位：仅当 extract 出来明显失败时才启用。
+    AI Grid / 普通 resize 分支已废弃；默认保留经典白底单图效果：
+    从源图反推像素格 → 按原始 K-means/auto 调色 → 精确渲染。
     """
-    short = max(1, min(int(size[0]), int(size[1])))
-    if short <= 8:
-        # 8x8 仍维持 AI Grid 直绘的硬约束（resolve_asset_generation_policy / web jobs 都依赖），
-        # 但已知会容易铺满画布 —— 后续改进窗口；这里保持 force 修补尝试救正。
-        return AssetSizeStrategy(
-            palette_mode="ramp",
-            grid_mode="ai",
-            ai_grid=True,
-            repair_mode="force",
-            notes="8x8 沿用 AI Grid 直绘 + force 修补 + ramp（已知 8x8 铺满画布是当前短板）",
-        )
-    if short <= 16:
-        return AssetSizeStrategy(
-            palette_mode="ramp",
-            grid_mode="extract",
-            ai_grid=False,
-            repair_mode="auto",
-            notes="16x16 推荐 extract + ramp + auto 修补（构图最稳，AI Grid 仅作兜底）",
-        )
-    if short <= 32:
-        return AssetSizeStrategy(
-            palette_mode="ramp",
-            grid_mode="extract",
-            ai_grid=False,
-            repair_mode="auto",
-            notes="32x32 推荐 extract + ramp + auto 修补（实测最佳）",
-        )
     return AssetSizeStrategy(
-        palette_mode="ramp",
-        grid_mode="off",
-        ai_grid=False,
-        repair_mode="off",
-        notes="64+ 推荐普通像素化 + ramp；调用方应启用 auto_skip_redundant_bg 避免重复抠图",
+        palette_mode="auto",
+        grid_mode="extract",
+        notes="extract Pixel Grid + auto/K-means（经典白底单图风格，AI Grid / resize 路径已删除）",
     )
 
 

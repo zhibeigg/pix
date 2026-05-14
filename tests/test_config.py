@@ -16,11 +16,16 @@ def test_defaults(tmp_cwd: Path) -> None:
     assert cfg.image_gen.edit_input_fidelity == "high"
     assert cfg.image_gen.contact_sheet_enabled is True
     assert cfg.image_gen.contact_sheet_rows == 3
-    assert cfg.image_gen.green_screen_color == "#00FF00"
+    assert cfg.image_gen.green_screen_color == "auto"
     assert cfg.image_gen.prompt_guard_enabled is True
     assert cfg.image_gen.candidate_vl_ranking_enabled is True
     assert cfg.image_gen.candidate_vl_ranking_failure_policy == "first"
     assert cfg.pixelize.output_size == (128, 128)
+    assert cfg.asset.palette_mode == "auto"
+    assert cfg.asset.grid_cleanup is False
+    assert cfg.asset.grid_outline is False
+    assert cfg.asset.fit_canvas is False
+    assert "plain white background" in cfg.asset.prompt_template
     assert cfg.cache.enabled is True
 
 

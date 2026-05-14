@@ -1,3 +1,7 @@
+## Pix Asset Sprite Defaults
+
+`pix asset` 的默认视觉目标是经典 16×16 游戏物品图标：单张白底生图、自然留白、12 色左右的 auto/K-means 调色、透明背景和 Pixel Grid 精确渲染。默认不做 Grid 清噪、不额外加粗轮廓、不强制贴合画布、不做 ramp 色阶重映射；这些能力作为显式增强选项保留，用于 UI 条、按钮或需要更硬边的素材。
+
 ## Overview
 
 Notion presents itself as the all-in-one workspace through a confident, illustration-rich brand voice. The homepage opens with **"Meet the night shift."** rendered centered over a deep navy hero band ({colors.brand-navy}), decorated with brand-colored sticky-note dots and mesh wire illustrations scattered around the headline. The signature **purple pill primary CTA** ({colors.primary}) "Get Notion free" sits at the visual center, paired with an outlined "Request a demo" secondary. Below the buttons, a real Notion workspace UI mockup card (the "Ramp HQ" kanban board) breaks out of the hero band with a deep diffuse drop shadow.
