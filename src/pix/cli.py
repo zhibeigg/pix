@@ -42,7 +42,6 @@ from pix.config import AppConfig, load_config
 from pix.grid.extract import extract_pixel_grid
 from pix.grid.postprocess import polish_pixel_grid
 from pix.grid.render import render_grid_file
-from pix.grid.review import review_grid_file
 from pix.grid.schema import load_grid, save_grid
 from pix.history import scan_history
 from pix.pipeline import GridDesignInput, PipelineInput, run_pipeline
@@ -416,32 +415,6 @@ def cmd_grid_polish(
     ))
 
 
-@app.command("grid-review")
-def cmd_grid_review(
-    grid_json: Path = typer.Argument(..., exists=True, readable=True, help="Pixel Grid JSON"),
-    out: Path = typer.Option(..., help="审核后 JSON 输出路径"),
-    model: Optional[str] = typer.Option(None, help="覆盖视觉/LLM 模型"),
-    instruction: str = typer.Option("", help="额外审核要求"),
-    render: Optional[Path] = typer.Option(None, help="可选：同时渲染审核后的 PNG"),
-    preview_scale: int = typer.Option(0, min=0, help="渲染 PNG 时的预览放大倍数"),
-    config: Optional[Path] = typer.Option(None, "--config", help="TOML 配置文件"),
-) -> None:
-    """让 AI 审核/修正 Pixel Grid JSON。"""
-    cfg = _base_config(config)
-    reviewed = review_grid_file(cfg, grid_json, out, model=model, instruction=instruction)
-    rendered: Path | None = None
-    preview: Path | None = None
-    if render is not None:
-        rendered, preview = render_grid_file(out, render, preview_scale=preview_scale)
-    console.print(Panel.fit(
-        f"[green][OK][/green] 审核 JSON：{out}\n"
-        f"尺寸：{reviewed.canvas.width}x{reviewed.canvas.height}\n"
-        f"渲染：{rendered or '未渲染'}\n"
-        f"预览：{preview or '未输出'}",
-        title="grid-review",
-    ))
-
-
 # ---------- asset (game-ready sprite output) ----------
 
 
@@ -463,13 +436,6 @@ def cmd_asset(
     no_sidecars: bool = typer.Option(False, "--no-sidecars", help="不输出 .asset.json 元数据"),
     source_copy: Optional[bool] = typer.Option(None, "--source-copy/--no-source-copy", help="把原始生图源文件复制到最终目录旁边"),
     grid_mode: Optional[bool] = typer.Option(None, "--grid-mode/--no-grid-mode", help="用 Pixel Grid JSON 工程图渲染最终 PNG"),
-    grid_review: bool = typer.Option(False, "--grid-review", help="让 AI 审核/修正 Grid JSON 后再渲染；与 --ai-grid 同用会额外调用一次模型"),
-    ai_grid: Optional[bool] = typer.Option(None, "--ai-grid/--no-ai-grid", help="让 AI 直接返回 Pixel Grid 像素矩阵，推荐 16x16 小图标"),
-    ai_grid_retries: Optional[int] = typer.Option(None, min=0, max=3, help="AI Grid 可读性返修次数"),
-    ai_grid_instruction: str = typer.Option("", help="AI Grid 额外美术要求"),
-    ai_grid_fallback: Optional[str] = typer.Option(None, help="AI Grid 失败回退：extract|pixelize|fail"),
-    style_reference_dir: Optional[Path] = typer.Option(None, help="AI Grid 手绘参考图标目录"),
-    style_reference_limit: Optional[int] = typer.Option(None, min=0, max=6, help="传给 VL 的手绘参考图数量"),
     grid_cleanup: Optional[bool] = typer.Option(None, "--grid-cleanup/--no-grid-cleanup", help="Grid JSON 后处理：清理孤立噪点"),
     grid_outline: Optional[bool] = typer.Option(None, "--grid-outline/--no-grid-outline", help="Grid JSON 后处理：统一主体轮廓"),
     fit_canvas: Optional[bool] = typer.Option(None, "--fit-canvas/--no-fit-canvas", help="Grid JSON 后处理：将主体贴合目标画布"),
@@ -485,7 +451,7 @@ def cmd_asset(
     cfg = _base_config(config)
     size = _parse_size(pixel_size) if pixel_size else tuple(cfg.asset.pixel_size)
     try:
-        asset_policy = resolve_asset_generation_policy(size)
+        resolve_asset_generation_policy(size)
     except AssetSizePolicyError as exc:
         raise typer.BadParameter(str(exc), param_hint="--pixel-size") from exc
     effective_colors = int(colors or cfg.asset.colors)
@@ -498,27 +464,11 @@ def cmd_asset(
     sidecar_target = target.with_name(target.stem + ".asset.json")
     grid_target = grid_json or target.with_name(target.stem + ".grid.json")
     effective_grid_mode = bool(cfg.asset.grid_mode if grid_mode is None else grid_mode)
-    effective_ai_grid = bool(cfg.asset.ai_grid if ai_grid is None else ai_grid)
-    if asset_policy == "ai_grid_required":
-        effective_ai_grid = True
-    if effective_ai_grid:
-        effective_grid_mode = True
     effective_source_copy = bool(cfg.asset.source_copy if source_copy is None else source_copy)
     effective_fit_canvas = bool(cfg.asset.fit_canvas if fit_canvas is None else fit_canvas)
     effective_fit_mode = str(fit_mode or cfg.asset.fit_mode).strip().lower()
     if effective_fit_mode not in {"smart", "contain", "stretch"}:
         raise typer.BadParameter("fit-mode 必须是 smart、contain 或 stretch")
-    effective_ai_grid_fallback = str(ai_grid_fallback or cfg.asset.ai_grid_fallback).strip().lower()
-    if asset_policy == "ai_grid_required":
-        effective_ai_grid_fallback = "fail"
-    if effective_ai_grid_fallback not in {"extract", "pixelize", "fail"}:
-        raise typer.BadParameter("ai-grid-fallback 必须是 extract、pixelize 或 fail")
-    effective_ai_grid_retries = int(cfg.asset.ai_grid_retries if ai_grid_retries is None else ai_grid_retries)
-    effective_ai_grid_instruction = ai_grid_instruction.strip() or cfg.asset.ai_grid_instruction
-    if style_reference_dir is not None:
-        cfg.asset.style_reference_dir = str(style_reference_dir)
-    if style_reference_limit is not None:
-        cfg.asset.style_reference_limit = int(style_reference_limit)
     effective_fit_padding = int(cfg.asset.fit_padding if fit_padding is None else fit_padding)
     effective_fit_min_axis_coverage = float(
         cfg.asset.fit_min_axis_coverage
@@ -553,6 +503,10 @@ def cmd_asset(
         size=size,
         extra_prompt=extra_prompt,
     )
+    # asset 入口使用服务端构造好的完整 prompt，恢复经典单图白底流程；
+    # 仍保留本地 prompt guard，但关闭远程归一化与候选包装，避免把模板改写成 n-sample/chroma-key 风格。
+    cfg.image_gen.contact_sheet_enabled = False
+    cfg.image_gen.prompt_guard_remote = False
     params = PixelizeParams(
         output_size=size,
         colors=effective_colors,
@@ -585,11 +539,7 @@ def cmd_asset(
             use_cache=not no_cache,
             refresh_cache=refresh,
             grid=GridDesignInput(
-                mode="ai" if effective_ai_grid else ("extract" if effective_grid_mode else "off"),
-                review=bool(grid_review or cfg.asset.grid_review) if effective_grid_mode else False,
-                retries=effective_ai_grid_retries,
-                instruction=effective_ai_grid_instruction,
-                fallback=effective_ai_grid_fallback,  # type: ignore[arg-type]
+                mode="extract" if effective_grid_mode else "off",
             ),
         ),
         progress=_progress_printer,
@@ -618,6 +568,7 @@ def cmd_asset(
             copied_preview = preview_target
 
     if not no_sidecars:
+        grid_meta = result.meta.get("pixelize", {}).get("grid") if effective_grid_mode else None
         sidecar = {
             "name": name,
             "prompt": prompt,
@@ -626,18 +577,7 @@ def cmd_asset(
             "source_copy": str(copied_source) if copied_source else None,
             "grid_mode": effective_grid_mode,
             "grid": str(saved_grid) if saved_grid else None,
-            "ai_grid": {
-                "enabled": effective_ai_grid,
-                "fallback": effective_ai_grid_fallback,
-                "retries": effective_ai_grid_retries,
-                "instruction": effective_ai_grid_instruction,
-                "style_reference_dir": cfg.asset.style_reference_dir,
-                "style_references": result.meta.get("pixelize", {}).get("grid", {}).get("style_references"),
-                "used_fallback": bool(result.meta.get("pixelize", {}).get("grid", {}).get("used_fallback", False)),
-                "source_prompt_used": bool(result.meta.get("pixelize", {}).get("grid", {}).get("source_prompt_used", False)),
-                "draft": result.meta.get("pixelize", {}).get("grid", {}).get("draft"),
-                "readability": result.meta.get("pixelize", {}).get("grid", {}).get("readability"),
-            } if effective_grid_mode else None,
+            "grid_meta": grid_meta if isinstance(grid_meta, dict) else None,
             "fit_canvas": {
                 "enabled": effective_fit_canvas,
                 "mode": effective_fit_mode,

@@ -23,31 +23,24 @@ def test_safe_asset_filename_keeps_chinese_and_removes_invalid_chars() -> None:
     assert safe_asset_filename("   ") == "asset"
 
 
-def test_resolve_asset_generation_policy_blocks_sub16_except_8x8() -> None:
-    assert resolve_asset_generation_policy((8, 8)) == "ai_grid_required"
+def test_resolve_asset_generation_policy_blocks_sub16() -> None:
     assert resolve_asset_generation_policy((16, 16)) == "extract"
+    assert resolve_asset_generation_policy((32, 32)) == "extract"
+    with pytest.raises(AssetSizePolicyError):
+        resolve_asset_generation_policy((8, 8))
     with pytest.raises(AssetSizePolicyError):
         resolve_asset_generation_policy((12, 12))
     with pytest.raises(AssetSizePolicyError):
         resolve_asset_generation_policy((16, 8))
 
 
-def test_resolve_size_strategy_per_size() -> None:
-    s8 = resolve_size_strategy((8, 8))
-    # 8x8 沿用 AI Grid 直绘（硬约束在 resolve_asset_generation_policy / web jobs 处）
-    assert s8.grid_mode == "ai" and s8.ai_grid is True and s8.repair_mode == "force"
-    s16 = resolve_size_strategy((16, 16))
-    # 16x16 实测 extract 路线效果最稳（A/B vs C/D 对比）
-    assert s16.grid_mode == "extract" and s16.ai_grid is False and s16.repair_mode == "auto"
-    s32 = resolve_size_strategy((32, 32))
-    assert s32.grid_mode == "extract" and s32.ai_grid is False and s32.repair_mode == "auto"
-    s64 = resolve_size_strategy((64, 64))
-    assert s64.grid_mode == "off" and s64.repair_mode == "off"
-    # 全部启用 ramp
-    for s in (s8, s16, s32, s64):
-        assert s.palette_mode == "ramp"
-    assert isinstance(s8, AssetSizeStrategy)
-    assert "8x8" in s8.notes
+def test_resolve_size_strategy_always_extract_with_classic_palette() -> None:
+    for size in ((16, 16), (32, 32), (64, 64), (128, 128)):
+        strategy = resolve_size_strategy(size)
+        assert isinstance(strategy, AssetSizeStrategy)
+        assert strategy.grid_mode == "extract"
+        assert strategy.palette_mode == "auto"
+        assert "classic" in strategy.notes or "经典" in strategy.notes
 
 
 def test_build_asset_prompt_formats_template() -> None:

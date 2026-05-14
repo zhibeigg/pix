@@ -154,12 +154,19 @@ def test_asset_cli_direct_output(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> 
 
     def fake_run_pipeline(cfg, inputs, progress=None):
         assert "血气灵玉" in inputs.prompt
+        assert "plain white background" in inputs.prompt
+        assert cfg.image_gen.contact_sheet_enabled is False
+        assert cfg.image_gen.prompt_guard_remote is False
+        assert cfg.asset.grid_cleanup is False
+        assert cfg.asset.grid_outline is False
+        assert cfg.asset.fit_canvas is False
         assert inputs.skip_vl is True
         assert inputs.grid.mode == "extract"
         assert inputs.pixelize_params.output_size == (16, 16)
         assert inputs.pixelize_params.dither == "none"
         assert inputs.pixelize_params.remove_bg is True
         assert inputs.pixelize_params.auto_crop is True
+        assert inputs.pixelize_params.palette_mode == "auto"
         run_dir = tmp_path / "run"
         run_dir.mkdir()
         source_path = run_dir / "01_source.png"
@@ -204,138 +211,23 @@ def test_asset_cli_direct_output(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> 
 
     sidecar = json.loads(sidecar_text)
     assert sidecar["fit_canvas"] == {
-        "enabled": True,
+        "enabled": False,
         "mode": "smart",
         "padding": 1,
         "min_axis_coverage": 0.7,
     }
 
 
-def test_asset_cli_ai_grid_uses_pipeline_grid(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> None:
-    from PIL import Image
-
-    def fake_run_pipeline(cfg, inputs, progress=None):
-        assert inputs.grid.mode == "ai"
-        assert inputs.grid.retries == 2
-        assert inputs.grid.fallback == "pixelize"
-        assert inputs.grid.instruction == "更像红宝石"
-        run_dir = tmp_path / "run-ai-grid"
-        run_dir.mkdir()
-        source_path = run_dir / "01_source.png"
-        pixel_path = run_dir / "03_pixelized.png"
-        preview_path = run_dir / "04_pixelized_preview.png"
-        grid_path = run_dir / "03_pixelized.grid.json"
-        img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
-        for y in range(4, 12):
-            for x in range(4, 12):
-                img.putpixel((x, y), (180, 20, 40, 255))
-        img.save(pixel_path)
-        img.resize((128, 128), Image.Resampling.NEAREST).save(source_path)
-        img.resize((192, 192), Image.Resampling.NEAREST).save(preview_path)
-        grid_path.write_text("{}", encoding="utf-8")
-        meta = {
-            "vision": {"ok": False},
-            "pixelize": {
-                "grid": {
-                    "mode": "ai",
-                    "used_fallback": False,
-                    "attempts": 2,
-                    "max_attempts": 3,
-                    "repaired": True,
-                    "readability": {"ok": True},
-                }
-            },
-        }
-        return SimpleNamespace(
-            run_dir=run_dir,
-            source_path=source_path,
-            analysis_path=None,
-            meta_path=run_dir / "meta.json",
-            pixel_path=pixel_path,
-            preview_path=preview_path,
-            grid_path=grid_path,
-            analysis=None,
-            meta=meta,
-        )
-
-    monkeypatch.setattr("pix.cli.run_pipeline", fake_run_pipeline)
-    out = tmp_path / "红宝石.png"
-    result = runner.invoke(
-        app,
-        [
-            "asset", "红宝石",
-            "--out", str(out),
-            "--ai-grid",
-            "--ai-grid-retries", "2",
-            "--ai-grid-fallback", "pixelize",
-            "--ai-grid-instruction", "更像红宝石",
-        ],
-    )
-
-    assert result.exit_code == 0, result.stdout
-    assert out.exists()
-    assert out.with_name("红宝石.grid.json").exists()
-    sidecar = json.loads(out.with_name("红宝石.asset.json").read_text(encoding="utf-8"))
-    assert sidecar["ai_grid"]["enabled"] is True
-    assert sidecar["ai_grid"]["readability"] == {"ok": True}
-
-
-def test_asset_cli_rejects_sub16_except_8x8(tmp_path: Path, tmp_cwd: Path) -> None:
+def test_asset_cli_rejects_sub16(tmp_path: Path, tmp_cwd: Path) -> None:
     out = tmp_path / "tiny.png"
 
-    result = runner.invoke(
-        app,
-        ["asset", "小蘑菇", "--out", str(out), "--pixel-size", "12x12"],
-    )
-
-    assert result.exit_code == 2
-    assert "16x16" in (result.stdout + result.stderr)
-
-
-def test_asset_cli_8x8_forces_ai_grid_fail_fallback(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> None:
-    from PIL import Image
-
-    def fake_run_pipeline(cfg, inputs, progress=None):
-        assert inputs.pixelize_params.output_size == (8, 8)
-        assert inputs.grid.mode == "ai"
-        assert inputs.grid.fallback == "fail"
-        run_dir = tmp_path / "run-8"
-        run_dir.mkdir()
-        source_path = run_dir / "01_source.png"
-        pixel_path = run_dir / "03_pixelized.png"
-        preview_path = run_dir / "04_pixelized_preview.png"
-        grid_path = run_dir / "03_pixelized.grid.json"
-        img = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
-        for y in range(2, 6):
-            for x in range(2, 6):
-                img.putpixel((x, y), (80, 200, 220, 255))
-        img.save(pixel_path)
-        img.resize((64, 64), Image.Resampling.NEAREST).save(source_path)
-        img.resize((96, 96), Image.Resampling.NEAREST).save(preview_path)
-        grid_path.write_text("{}", encoding="utf-8")
-        return SimpleNamespace(
-            run_dir=run_dir,
-            source_path=source_path,
-            analysis_path=None,
-            meta_path=run_dir / "meta.json",
-            pixel_path=pixel_path,
-            preview_path=preview_path,
-            grid_path=grid_path,
-            analysis=None,
-            meta={"vision": {"ok": False}, "pixelize": {"grid": {"mode": "ai", "readability": {"ok": True}}}},
+    for size in ("12x12", "8x8", "16x8"):
+        result = runner.invoke(
+            app,
+            ["asset", "小蘑菇", "--out", str(out), "--pixel-size", size],
         )
-
-    monkeypatch.setattr("pix.cli.run_pipeline", fake_run_pipeline)
-    out = tmp_path / "小蘑菇.png"
-    result = runner.invoke(
-        app,
-        ["asset", "小蘑菇", "--out", str(out), "--pixel-size", "8x8", "--ai-grid-fallback", "extract"],
-    )
-
-    assert result.exit_code == 0, result.stdout
-    sidecar = json.loads(out.with_name("小蘑菇.asset.json").read_text(encoding="utf-8"))
-    assert sidecar["ai_grid"]["enabled"] is True
-    assert sidecar["ai_grid"]["fallback"] == "fail"
+        assert result.exit_code == 2, result.stdout
+        assert "16x16" in (result.stdout + result.stderr)
 
 
 def test_asset_cli_fit_canvas_options(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> None:
@@ -372,6 +264,7 @@ def test_asset_cli_fit_canvas_options(tmp_path: Path, tmp_cwd: Path, monkeypatch
             "--out", str(out),
             "--pixel-size", "16x16",
             "--colors", "6",
+            "--fit-canvas",
             "--fit-mode", "stretch",
             "--fit-padding", "1",
             "--fit-min-axis-coverage", "0.9",

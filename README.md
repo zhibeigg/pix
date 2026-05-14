@@ -42,9 +42,8 @@
 - **受控九宫格候选**：默认把用户描述包装为服务端 prompt，一次生成 3×3 动态纯色背景候选图，自动切图、抠色背景，并由 VL 给 9 个候选评分排序；9 个候选都会生成最终像素产物，最高分候选作为兼容主输出
 - **n-sample 候选模式（新，默认）**：可选切到 `candidate_mode = "n_sample"`，直接让模型一次返回 N 张独立 full-res 单图（缺张时自动补齐），每张单独抠色、VL 看 full-res 评分；细节远比九宫格切图清晰
 - **像素对齐 & 透明背景**：`smart` 下采样自动探测输入像素格并吸附，边缘不再糊；一键 `--remove-bg` 把纯色底抠成透明 PNG；32px 及以下低像素透明素材会自动用外描边替代羽化，避免边缘发虚
-- **AI 低像素工程图（可选）**：16×16 / 22×22 / 32×32 小图标可让模型结合原始 prompt、源图、源图实际像素格 draft 和可读性诊断，直接返回 `palette + pixels[y][x]` 字符串矩阵，再由 Python 校验、返修、清理和精确渲染
-- **Ramp 调色板（新）**：`palette_mode = "ramp"` 时，VL 按 `outline → shadow → mid → highlight` 明度阶梯设计调色板（失败自动回退到本地 HSL 聚合），再用 Lab 空间最近色量化，避免 K-means 的"塑料插画味"；Asset 直出默认启用，普通 pixelize 保持 `auto` 兼容旧行为
-- **尺寸 → 策略推荐**（`pix.asset.resolve_size_strategy`）：8×8 走 AI Grid + force 修补、16×16 / 32×32 走 extract Pixel Grid + auto 修补、64+ 走普通像素化（pipeline 自动 `auto_skip_redundant_bg` 避免对已抠图重复抠图）；统一启用 ramp 调色板
+- **Ramp 调色板（可选）**：`palette_mode = "ramp"` 时，VL 按 `outline → shadow → mid → highlight` 明度阶梯设计调色板（失败自动回退到本地 HSL 聚合），再用 Lab 空间最近色量化；Asset 直出默认回到 `auto`/K-means，以保留早期白底单图的自然手感
+- **Asset 直出经典管线**（`pix.asset.resolve_size_strategy`）：所有支持的素材尺寸（≥16×16）默认走单图白底生图 → extract Pixel Grid → auto/K-means 调色 → 渲染；cleanup、outline、fit_canvas、ramp 均保留为显式增强选项，AI Grid 直绘和普通 resize 分支已删除
 - **结构化 JSON**：VL 模型不是一句描述就完事，而是输出调色板、主体位置、语义区域建议，严格经 Pydantic 校验，失败自动带修正提示重试
 - **四套内置预设**：`gameboy` · `nes` · `modern_pixel` · `pico8`，支持自定义 TOML
 - **可配置所有参数**：尺寸、色数、抖动、主体锐化、饱和度、VL 模型、预设……CLI 和 GUI 共享同一套
@@ -95,7 +94,7 @@ outputs/20260509-142359-a1b2c3d4/
 ├── 01_source.png           # VL 评分最高候选（或上传图），供后续像素化
 ├── 02_analysis.json        # VL 结构化分析
 ├── 03_pixelized.png        # 最高分候选的兼容主输出像素图
-├── 03_pixelized.grid.json  # 可选 Pixel Grid 工程图（Grid 提取 / AI Grid 时输出）
+├── 03_pixelized.grid.json  # Pixel Grid 工程图（grid_mode 启用时输出）
 └── meta.json               # 模型、参数、耗时、哪步命中缓存
 ```
 
@@ -191,8 +190,6 @@ pix pixelize my_photo.png --colors 8 --preset pico8          # 只做像素化�
 pix analyze my_photo.png --model claude-sonnet-4-5           # 只做 VL 分析
 pix gen-only "一只像素风橘猫"                                 # 只做文生图
 pix asset "血气灵玉" --out 图片/血气灵玉.png                    # 游戏素材直出：生图 → Grid JSON → 16x16 透明 PNG
-pix asset "血气灵玉" --ai-grid --ai-grid-retries 2              # 可选 AI Grid：模型直出 palette + pixels，再自动校验返修
-pix asset "血气灵玉" --ai-grid --style-reference-dir "D:/伏魔录项目/美工/icon" # 参考手绘图标目录，提升 16x/8x 美术语言
 pix grid-extract source.png --pixel-size 16x16 --colors 12 --out item.grid.json --render item.png
 pix grid-render item.grid.json --out 图片/item.png              # Grid JSON → 精确 PNG
 pix validate 图片/血气灵玉.png --pixel-size 16x16 --max-colors 16 # 检查素材是否可直接进游戏
@@ -224,13 +221,7 @@ pix gui                                                      # 启动图形界�
 | `[image_gen].contact_sheet_enabled` | 文生图/图生图默认生成 3×3 动态纯色背景候选；`pix gen-only` 会输出 `01_contact_sheet.png`、`candidates/` 和兼容的 `01_source.png` | `true` |
 | `[image_gen].candidate_vl_ranking_enabled` | 把 9 个候选一次性送入 VL 评分排序，最高分作为默认候选；失败时默认回退候选 1 | `true` |
 | `[image_gen].prompt_guard_enabled` | 审核用户原始素材描述；无 VL key 时退回本地规则，模型失败默认不阻塞 | `true` |
-| `pix asset --ai-grid` | 可选 AI Grid 直绘：模型结合原始 prompt、源图和源图网格对齐 draft，直接返回 `palette + pixels[y][x]`，后端做 schema 校验、可读性评分、自动返修和 PNG 渲染；8×8 会强制启用且 fallback 固定为 `fail` | 关 |
-| `pix asset --pixel-size WxH` | 素材尺寸；16×16 以下仅允许 8×8，且 8×8 必须 AI Grid 直绘 | `[asset].pixel_size` |
-| `[asset].ai_grid_draft_max_axis` | 传给 VL 的 Python draft 最大轴；draft 优先使用源图检测出的实际像素格尺寸，而不是最终目标尺寸，避免 16×16 直接压糊 | `64` |
-| `pix asset --ai-grid-retries N` | AI Grid 可读性返修次数；`--grid-review` 会再增加一次模型审核调用 | `1` |
-| `pix asset --style-reference-dir PATH` | 传入手绘图标目录，AI Grid 会选取少量 16x16 人工图标作为风格参考，学习留白、轮廓、色阶和高光 | `[asset].style_reference_dir` |
-| `pix asset --style-reference-limit N` | 每次传给 VL 的手绘参考图数量 | `3` |
-| `pix asset --ai-grid-fallback extract\|pixelize\|fail` | AI Grid 失败后的回退策略 | `extract` |
+| `pix asset --pixel-size WxH` | 素材尺寸；最低支持 16×16，所有支持尺寸统一走 extract Pixel Grid | `[asset].pixel_size` |
 | `--no-cache` / `--refresh` | 禁用缓存 / 忽略命中强刷 | `false` |
 | `--image-size WxH` | 生图尺寸（遵循 Packy 限制） | `1024x1024` |
 | `--image-quality low\|medium\|high\|auto` | 生图 / 图生图质量 | `high` |
@@ -238,9 +229,7 @@ pix gui                                                      # 启动图形界�
 
 ### 网站版 MVP
 
-`pix` 现在包含网站版 MVP：FastAPI API + 点数账户 + 生成任务队列 + 串行 worker，以及 Vite + React 前端工作台。工作台以作品网格为中心，支持单图生成、批量生产、免费本地微调和 AI 微调；单图、批量和微调表单都可显式启用 AI 低像素工程图，并在结果里展示可读性评分、自动返修和回退状态。首页把“价值”和“流程”合并为“核心优势”单页，强调 Pix 不是 AI 生图相册，而是从源图、Pixel Grid 工程图、透明 PNG、失败重试到 ZIP 导出的素材生产线；素材包看板还包含“尺寸校准台”，用同一素材的 32x、16x、8x 静态图示例展示多尺寸交付效果。主页范例图库内置 76 套题材示例，每套包含真实 Pix 全流程生成的透明物品精灵表和 1920×1080 像素 UI 展示图；物品范例按大精灵表导出，确保单格拥有 32×32/64×64 级别的可读空间，可通过 `scripts/generate_homepage_examples.py` 从清单重新生成。首次打开空站点会引导创建第一个管理员账户，随后可在独立管理后台配置运营保护、邮件验证码、模型/API、素材默认值、价格和充值套餐。
-
-> AI 低像素工程图默认关闭，不改变现有点数定价；启用后会额外调用视觉模型生成/返修 `palette + pixels`，前端会显示成本提醒。后端会把原始素材描述、初始源图、按源图实际像素格解析出的 draft PixelGrid、draft 放大预览图和可读性诊断一起交给 VL，用 draft 指导构图与主色，但最终仍要求模型输出目标尺寸。
+`pix` 现在包含网站版 MVP：FastAPI API + 点数账户 + 生成任务队列 + 串行 worker，以及 Vite + React 前端工作台。工作台以作品网格为中心，支持单图生成、批量生产、免费本地微调和 AI 微调；所有任务统一走 extract Pixel Grid 流程，结果里展示可读性评分等指标。首页把"价值"和"流程"合并为"核心优势"单页，强调 Pix 不是 AI 生图相册，而是从源图、Pixel Grid 工程图、透明 PNG、失败重试到 ZIP 导出的素材生产线；素材包看板还包含"尺寸校准台"，用同一素材的 64x、32x、16x 静态图示例展示多尺寸交付效果。主页范例图库内置 76 套题材示例，每套包含真实 Pix 全流程生成的透明物品精灵表和 1920×1080 像素 UI 展示图；物品范例按大精灵表导出，确保单格拥有 32×32/64×64 级别的可读空间，可通过 `scripts/generate_homepage_examples.py` 从清单重新生成。首次打开空站点会引导创建第一个管理员账户，随后可在独立管理后台配置运营保护、邮件验证码、模型/API、素材默认值、价格和充值套餐。
 
 安装 Web 依赖：
 
@@ -404,13 +393,12 @@ MVP 计费规则默认：
 
 ### 游戏素材直出
 
-`pix asset` 是面向游戏资源目录的快捷生产线，默认参数按 16×16 物品图标优化：12 色、自动裁剪主体、自动抠透明背景，并默认启用 **Pixel Grid JSON 工程图**、Grid 轮廓和画布贴合后处理。image2 生成源图后会直接进入 Pixel Grid extract → cleanup/outline → fit_canvas → render，最终 PNG 不是直接 resize 的伪像素图，而是先提取 `pixels[y][x]` 与 `palette`，再由 Python 精确渲染。16×16 以下默认禁止，唯一例外是 8×8；8×8 必须使用 AI Grid 直绘，失败时不会静默回退。若要接近项目美工手画级别，建议为 16×16/8×8 开启 `--ai-grid` 并配置 `[asset].style_reference_dir` 或 `--style-reference-dir` 指向手绘图标目录；模型会额外看到少量人工 16×16 样本，用于学习留白、深色轮廓、斜面高光和色阶密度。
+`pix asset` 是面向游戏资源目录的快捷生产线，默认参数按 16×16 物品图标优化：12 色、白底单图生图、自动裁剪主体、自动抠透明背景，并默认启用 **Pixel Grid JSON 工程图**。image2 生成源图后会直接进入 Pixel Grid extract → auto/K-means 调色 → render，最终 PNG 不是直接 resize 的伪像素图，而是先提取 `pixels[y][x]` 与 `palette`，再由 Python 精确渲染。默认关闭 Grid 清噪、额外轮廓加粗、画布强贴合和 ramp 重映射，以贴近早期 `紫檀木/01_16x16.png` 的效果；需要清噪、硬边或 UI 填充时可显式开启。`pix asset` 仅支持 ≥16×16 素材；16×16 以下尺寸已不再支持。
 
 ```bash
 pix asset "血气灵玉" --out 图片/血气灵玉.png
 pix asset "幽香腐骨菇" --extra-prompt "purple poisonous mushroom, green spores" --overwrite
-pix asset "紫髓铁" --out 图片/紫髓铁.png --grid-review     # 额外让 AI 审核/修正 Grid JSON
-pix asset "血气灵玉" --pixel-size 16x16 --ai-grid --style-reference-dir "D:/伏魔录项目/美工/icon" --ai-grid-retries 2
+pix asset "血气灵玉" --pixel-size 32x32 --colors 16
 pix validate 图片/血气灵玉.png --pixel-size 16x16 --max-colors 16
 ```
 
@@ -423,7 +411,7 @@ pix validate 图片/血气灵玉.png --pixel-size 16x16 --max-colors 16
 图片/血气灵玉.asset.json     # 生产元数据
 ```
 
-默认中间产物仍保存到 `outputs/{timestamp}-{hash}/`。如需回到旧式 resize/quantize 流程，可加 `--no-grid-mode`；默认会做 Grid 清噪、统一深色轮廓和画布贴合，若想关闭可分别使用 `--no-grid-cleanup`、`--no-grid-outline`、`--no-fit-canvas`。非方形 UI 素材可用 `--fit-mode smart|contain|stretch` 与 `--fit-padding` 微调贴合方式：`smart` 会在按钮、横条、面板等素材某一轴覆盖率不足时只拉伸该轴，避免生命条/标签高度只有半张画布。如需视觉模型参与调色和区域分析，可加 `--use-vl`；如需 AI 审核 Grid JSON，可加 `--grid-review`。
+默认中间产物仍保存到 `outputs/{timestamp}-{hash}/`。如需回到旧式 resize/quantize 流程，可加 `--no-grid-mode`；默认不做 Grid 清噪、额外补轮廓或强行贴合画布，以最大程度复现早期 16×16 提取结果。需要清理孤立噪点可加 `--grid-cleanup`，需要更硬的外轮廓可加 `--grid-outline`；非方形 UI 素材可加 `--fit-canvas --fit-mode smart|contain|stretch` 与 `--fit-padding` 微调贴合方式：`smart` 会在按钮、横条、面板等素材某一轴覆盖率不足时只拉伸该轴，避免生命条/标签高度只有半张画布。如需视觉模型参与调色和区域分析，可加 `--use-vl`；如需 ramp 色阶可在配置中把 `[asset].palette_mode` 改为 `ramp`。
 
 ### 边缘风格
 
@@ -473,9 +461,6 @@ pix grid-render item.grid.json --out 图片/item.png --preview-scale 12
 
 # Grid JSON 后处理：清理孤立噪点、统一深色轮廓、整理调色板
 pix grid-polish item.grid.json --out item.polished.grid.json --render item.polished.png --preview-scale 12
-
-# AI 只审核/修正 JSON，不直接画图
-pix grid-review item.grid.json --out item.reviewed.grid.json --render item.reviewed.png
 ```
 
 Grid JSON 结构示例：
@@ -593,16 +578,16 @@ skip_vl        = true
 remove_bg      = true
 auto_crop      = true
 grid_mode      = true
-grid_review    = false
 grid_json      = true
-grid_cleanup   = true
-grid_outline   = true    # 默认补硬边/描边；需要关闭可用 --no-grid-outline
+grid_cleanup   = false   # 需要清理孤立噪点时使用 --grid-cleanup
+grid_outline   = false   # 需要额外硬边/描边时使用 --grid-outline
 grid_outline_strength = 1
 grid_min_neighbors = 1
-fit_canvas      = true    # 默认把主体 bbox 贴合目标画布，改善按钮/横条/面板填充率
+fit_canvas      = false   # UI 条/按钮等需要贴合目标画布时使用 --fit-canvas
 fit_mode        = "smart" # smart | contain | stretch
 fit_padding     = 1
 fit_min_axis_coverage = 0.7
+palette_mode    = "auto"  # 经典 K-means；需要色阶重映射时可改 ramp
 prompt_template = "A single fantasy pixel game inventory item icon of {name}. ..."
 
 [cache]

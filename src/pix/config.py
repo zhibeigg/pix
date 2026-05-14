@@ -148,35 +148,20 @@ class AssetConfig:
     crop_padding: float = 0.12
     crop_square: bool = True
     grid_mode: bool = True
-    grid_review: bool = False
     grid_json: bool = True
-    ai_grid: bool = False
-    ai_grid_retries: int = 1
-    ai_grid_instruction: str = ""
-    ai_grid_fallback: str = "extract"
-    # AI Grid 修补模式：
-    #   off    —— 不修补
-    #   auto   —— 仅当 draft readability 有 warning 但无 blocking 时调用 VL 局部修补（默认）
-    #   force  —— 强制修补
-    ai_grid_repair_mode: str = "auto"
-    style_reference_dir: str = ""
-    style_reference_limit: int = 3
-    ai_grid_draft: bool = True
-    ai_grid_draft_max_axis: int = 64
-    ai_grid_draft_preview_scale: int = 8
-    grid_cleanup: bool = True
-    grid_outline: bool = True
+    grid_cleanup: bool = False
+    grid_outline: bool = False
     grid_outline_strength: int = 1
     grid_min_neighbors: int = 1
-    fit_canvas: bool = True
+    fit_canvas: bool = False
     fit_mode: str = "smart"
     fit_padding: int = 1
     fit_min_axis_coverage: float = 0.7
-    # Asset 直出默认改用 ramp 调色板，手绘质感更强
-    palette_mode: str = "ramp"
+    # Asset 直出默认使用经典 K-means/auto 调色，贴近早期白底单图素材效果
+    palette_mode: str = "auto"
     prompt_template: str = (
         "A single fantasy pixel game inventory item icon of {name}. "
-        "Centered object, isolated on a pure solid chroma-key background color that does not appear in the item, no text, no UI frame, "
+        "Centered object, isolated on plain white background, no text, no UI frame, "
         "no shadow outside the item, thick dark outline, high contrast, readable silhouette, "
         "designed to become a {width}x{height} RPG inventory sprite."
     )
