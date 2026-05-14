@@ -26,6 +26,10 @@ def test_defaults(tmp_cwd: Path) -> None:
     assert cfg.asset.grid_outline is False
     assert cfg.asset.fit_canvas is False
     assert "plain white background" in cfg.asset.prompt_template
+    assert cfg.sprite.pixel_size == (64, 64)
+    assert cfg.sprite.duration_ms == 120
+    assert cfg.sprite.shared_palette is True
+    assert "animation keyframes" in cfg.sprite.prompt_template
     assert cfg.cache.enabled is True
 
 

@@ -2,6 +2,7 @@ export function jobTypeLabel(type: string) {
   const labels: Record<string, string> = {
     text_to_image: '文字生成',
     image_to_image: '参考图微调',
+    sprite_sheet: '动画精灵表',
     local_pixelize: '本地像素化',
     repixelize: '重新像素化',
   }

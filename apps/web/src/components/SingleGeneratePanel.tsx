@@ -23,12 +23,14 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
   const [colors, setColors] = useState(16)
   const [removeBg, setRemoveBg] = useState(true)
   const [skipVl, setSkipVl] = useState(false)
+  const [durationMs, setDurationMs] = useState(120)
 
   const price = useMemo(() => pricing.find((item) => item.key === jobType)?.price_credits ?? 0, [pricing, jobType])
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
-  const needsPrompt = jobType === 'text_to_image' || jobType === 'image_to_image'
-  const needsImage = jobType !== 'text_to_image'
+  const isSprite = jobType === 'sprite_sheet'
+  const needsPrompt = jobType === 'text_to_image' || jobType === 'image_to_image' || isSprite
+  const needsImage = jobType !== 'text_to_image' && !isSprite
 
   async function uploadFile(file: File | undefined) {
     if (!file) return
@@ -54,8 +56,9 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
       input_image_path: needsImage ? inputImagePath : null,
       client_request_id: crypto.randomUUID(),
       skip_vl: skipVl,
-      pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg }),
+      pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: isSprite ? false : removeBg }),
       grid: buildGridDesign(),
+      sprite: isSprite ? { duration_ms: durationMs, loop: 0, rows: 3, cols: 3 } : undefined,
     })
   }
 
@@ -76,6 +79,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
             <TextField select label="模式" value={jobType} onChange={(event) => setJobType(event.target.value as JobType)}>
               <MenuItem value="text_to_image">文生图</MenuItem>
               <MenuItem value="image_to_image">图生图 / AI 微调</MenuItem>
+              <MenuItem value="sprite_sheet">九宫格动画精灵表</MenuItem>
               <MenuItem value="local_pixelize">本地像素化</MenuItem>
             </TextField>
 
@@ -101,16 +105,17 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
               </Card>
             )}
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-              <TextField label="像素尺寸" value={pixelSize} onChange={(event) => setPixelSize(event.target.value)} />
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: isSprite ? '1fr 1fr 1fr' : '1fr 1fr' }, gap: 2 }}>
+              <TextField label={isSprite ? '单帧尺寸' : '像素尺寸'} value={pixelSize} onChange={(event) => setPixelSize(event.target.value)} />
               <TextField label="颜色数" type="number" value={colors} onChange={(event) => setColors(Number(event.target.value))} />
+              {isSprite && <TextField label="GIF 帧间隔(ms)" type="number" value={durationMs} onChange={(event) => setDurationMs(Number(event.target.value))} />}
             </Box>
             <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
-              <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
-              <FormControlLabel control={<Checkbox checked={skipVl} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过参考图理解" />
+              <FormControlLabel control={<Checkbox checked={removeBg} disabled={isSprite} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
+              <FormControlLabel control={<Checkbox checked={skipVl} disabled={isSprite} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过参考图理解" />
             </Stack>
             {invalidSubAssetSize && <Alert severity="error">素材最低支持 16×16。</Alert>}
-            <Button type="submit" variant="contained" disabled={loading || invalidSubAssetSize}>{loading ? '提交中…' : '生成单张素材'}</Button>
+            <Button type="submit" variant="contained" disabled={loading || invalidSubAssetSize}>{loading ? '提交中…' : isSprite ? '生成动画精灵表' : '生成单张素材'}</Button>
           </Stack>
         </Stack>
       </CardContent>

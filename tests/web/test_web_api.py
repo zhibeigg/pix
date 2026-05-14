@@ -1029,6 +1029,71 @@ def test_worker_success_consumes_reserved_credits(client: TestClient, tmp_path, 
     assert [tx["type"] for tx in txs][:2] == ["consume", "reserve"]
 
 
+def test_sprite_sheet_job_outputs_gif_and_frames(client: TestClient, tmp_path, monkeypatch) -> None:
+    user, headers = _register_and_login(client, "sprite-user@example.com")
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})
+    created = client.post(
+        "/jobs",
+        headers=headers,
+        json={
+            "job_type": "sprite_sheet",
+            "prompt": "暗黑骑士挥剑动画",
+            "pixelize": {"output_size": [16, 16], "colors": 6},
+            "sprite": {"duration_ms": 80, "loop": 0, "rows": 3, "cols": 3},
+        },
+    )
+    assert created.status_code == 200, created.text
+
+    run_dir = tmp_path / "sprite-run"
+    run_dir.mkdir()
+    source = run_dir / "01_sprite_grid.png"
+    sheet = run_dir / "04_sprite_sheet.png"
+    gif = run_dir / "05_sprite.gif"
+    frames_dir = run_dir / "03_frames"
+    frames_dir.mkdir()
+    frames = []
+    Image.new("RGBA", (48, 48), (0, 255, 0, 255)).save(source)
+    Image.new("RGBA", (16 * 9, 16), (255, 0, 0, 255)).save(sheet)
+    Image.new("RGBA", (16, 16), (255, 0, 0, 255)).save(gif)
+    for i in range(1, 10):
+        frame = frames_dir / f"frame_{i:02d}.png"
+        Image.new("RGBA", (16, 16), (i * 20, 0, 0, 255)).save(frame)
+        frames.append({"index": i, "row": (i - 1) // 3, "col": (i - 1) % 3, "path": f"03_frames/frame_{i:02d}.png"})
+    meta = run_dir / "meta.json"
+    meta.write_text(
+        json.dumps({
+            "sprite": {"horizontal_sheet": "04_sprite_sheet.png", "gif": "05_sprite.gif", "frames": frames},
+            "outputs": {"sprite_sheet": "04_sprite_sheet.png", "sprite_gif": "05_sprite.gif"},
+        }, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    def fake_run(_job, _settings, *, cfg=None):
+        return SimpleNamespace(
+            run_dir=run_dir,
+            source_path=source,
+            pixel_path=sheet,
+            preview_path=gif,
+            analysis_path=None,
+            meta_path=meta,
+        )
+
+    monkeypatch.setattr("pix_web.worker.run_job_pipeline", fake_run)
+    processed = process_next_job(client.app.state.SessionLocal, client.app.state.web_settings)
+    assert processed is not None
+    assert processed.status == "succeeded"
+
+    fetched = client.get(f"/jobs/{created.json()['id']}", headers=headers).json()
+    output = fetched["outputs"][0]
+    assert output["sprite_sheet_url"].startswith("/files?path=")
+    assert output["sprite_gif_url"].startswith("/files?path=")
+    assert len(output["sprite_frames"]) == 9
+    assert output["sprite_frames"][0]["url"].startswith("/files?path=")
+    balance = client.get("/credits/balance", headers=headers).json()
+    assert balance["available_credits"] == 20
+    assert balance["total_consumed"] == 30
+
+
 def test_worker_failure_refunds_reserved_credits(client: TestClient, monkeypatch) -> None:
     user, headers = _register_and_login(client)
     client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})

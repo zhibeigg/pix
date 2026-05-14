@@ -8,6 +8,7 @@ from typing import Any
 from pix.config import AppConfig, load_config
 from pix.pipeline import GridDesignInput, PipelineInput, PipelineResult, run_pipeline
 from pix.pixelize.core import PixelizeParams
+from pix.sprite import SpritePipelineInput, SpritePipelineResult, run_sprite_pipeline
 from pix_web.config import WebSettings
 from pix_web.models import GenerationJob
 
@@ -64,7 +65,29 @@ def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> Pipeli
     )
 
 
-def run_job_pipeline(job: GenerationJob, settings: WebSettings, *, cfg: AppConfig | None = None) -> PipelineResult:
+def sprite_input_from_job(job: GenerationJob, settings: WebSettings) -> SpritePipelineInput:
+    data = job.params_json or {}
+    sprite = data.get("sprite") or {}
+    out_root = settings.storage_root / "runs" / f"job-{job.id}"
+    return SpritePipelineInput(
+        prompt=job.prompt or "",
+        image_size=data.get("image_size"),
+        image_quality=data.get("image_quality"),
+        image_model=data.get("image_model"),
+        pixelize_params=pixelize_params_from_json(data),
+        out_root=out_root,
+        use_cache=True,
+        refresh_cache=False,
+        duration_ms=int(sprite.get("duration_ms", 120)),
+        loop=int(sprite.get("loop", 0)),
+        rows=int(sprite.get("rows", 3)),
+        cols=int(sprite.get("cols", 3)),
+    )
+
+
+def run_job_pipeline(job: GenerationJob, settings: WebSettings, *, cfg: AppConfig | None = None) -> PipelineResult | SpritePipelineResult:
     resolved_cfg = cfg or load_config(config_file=settings.pix_config_file)
+    if job.job_type == "sprite_sheet":
+        return run_sprite_pipeline(resolved_cfg, sprite_input_from_job(job, settings))
     inputs = pipeline_input_from_job(job, settings)
     return run_pipeline(resolved_cfg, inputs)

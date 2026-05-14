@@ -14,10 +14,10 @@ from pix.asset import AssetSizePolicyError, resolve_asset_generation_policy
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, reserve_credits
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
 from pix_web.pricing import PricingDisabledError, get_price
-from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema
+from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema, SpriteParamsSchema
 from pix_web.system_settings import enforce_generation_limits, enforce_prompt_policy
 
-AI_JOB_TYPES = {"text_to_image", "image_to_image"}
+AI_JOB_TYPES = {"text_to_image", "image_to_image", "sprite_sheet"}
 IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "repixelize"}
 
 
@@ -31,6 +31,10 @@ def validate_job_request(req: JobCreateRequest) -> None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="文生图任务需要 prompt")
     if req.job_type == "image_to_image" and not prompt:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="图生图任务需要 prompt")
+    if req.job_type == "sprite_sheet" and not prompt:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="动画精灵表任务需要 prompt")
+    if req.job_type == "sprite_sheet" and (req.sprite.rows, req.sprite.cols) != (3, 3):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="动画精灵表当前固定为 3x3 / 9 帧")
     if req.job_type in IMAGE_JOB_TYPES:
         if not req.input_image_path:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="该任务需要输入图片")
@@ -47,6 +51,7 @@ def params_json_from_request(req: JobCreateRequest) -> dict:
         "skip_vl": req.skip_vl,
         "pixelize": req.pixelize.model_dump(mode="json"),
         "grid": req.grid.model_dump(mode="json"),
+        "sprite": req.sprite.model_dump(mode="json"),
     }
 
 
@@ -209,6 +214,7 @@ def _request_from_failed_job(job: GenerationJob) -> JobCreateRequest:
         skip_vl=bool(params.get("skip_vl", False)),
         pixelize=PixelizeParamsSchema.model_validate(params.get("pixelize") or {}),
         grid=params.get("grid") or {},
+        sprite=SpriteParamsSchema.model_validate(params.get("sprite") or {}),
     )
 
 

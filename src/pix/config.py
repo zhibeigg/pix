@@ -168,6 +168,36 @@ class AssetConfig:
 
 
 @dataclass
+class SpriteConfig:
+    """九宫格动画精灵表默认参数。"""
+
+    output_dir: str = "图片/sprites"
+    rows: int = 3
+    cols: int = 3
+    pixel_size: tuple[int, int] = (64, 64)
+    colors: int = 16
+    dither: str = "none"
+    image_quality: str = "high"
+    duration_ms: int = 120
+    loop: int = 0
+    green_screen_color: str = "auto"
+    green_screen_tolerance: int = 48
+    bg_tolerance: int = 26
+    crop_padding: float = 0.12
+    crop_square: bool = True
+    shared_palette: bool = True
+    prompt_template: str = (
+        "Create a detailed pixel art animation contact sheet for a game: exactly {rows}x{cols} grid, "
+        "{count} sequential animation keyframes. Animation subject/action: {description}. "
+        "Read order is left-to-right, top-to-bottom. Keep the same character, camera angle, scale, "
+        "anchor point and lighting in every cell. Each cell is one clean keyframe of the continuous motion, "
+        "centered with enough padding, designed to become {width}x{height} game sprite frames. "
+        "Use a pure solid key-color background {green} across the whole image for chroma-key removal. "
+        "No text, no watermark, no labels, no numbers, no UI frame, no grid lines."
+    )
+
+
+@dataclass
 class CacheConfig:
     enabled: bool = True
     dir: str = ".pix_cache"
@@ -195,6 +225,7 @@ class AppConfig:
     vision: VisionConfig = field(default_factory=VisionConfig)
     pixelize: PixelizeConfig = field(default_factory=PixelizeConfig)
     asset: AssetConfig = field(default_factory=AssetConfig)
+    sprite: SpriteConfig = field(default_factory=SpriteConfig)
     cache: CacheConfig = field(default_factory=CacheConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
     history: HistoryConfig = field(default_factory=HistoryConfig)

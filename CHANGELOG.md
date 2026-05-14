@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-05-14
+
+### Added
+
+- 新增 `pix sprite` 动画精灵表流水线：生成 3×3 九宫格连续关键帧，自动切出 9 帧，逐帧像素化后输出 GIF 与横向精灵表 PNG。
+- Web 工作台新增 `sprite_sheet` 任务类型、动画精灵表计费、GIF/帧输出 URL 和前端创建入口。
+- 新增 `[sprite]` 默认配置段，支持帧尺寸、颜色数、GIF 帧间隔、统一裁剪、共享调色板和动画 Prompt 模板。
+
 ## [1.0.2] - 2026-05-14
 
 ### Removed

@@ -218,6 +218,59 @@ def test_asset_cli_direct_output(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> 
     }
 
 
+def test_sprite_cli_direct_output(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> None:
+    from PIL import Image
+
+    def fake_run_sprite_pipeline(cfg, inputs, progress=None):
+        assert "骑士挥剑" in inputs.prompt
+        assert inputs.pixelize_params.output_size == (16, 16)
+        assert inputs.pixelize_params.colors == 6
+        assert inputs.duration_ms == 80
+        run_dir = tmp_path / "sprite-run"
+        run_dir.mkdir()
+        source_path = run_dir / "01_sprite_grid.png"
+        sheet_path = run_dir / "04_sprite_sheet.png"
+        gif_path = run_dir / "05_sprite.gif"
+        Image.new("RGBA", (48, 48), (0, 255, 0, 255)).save(source_path)
+        Image.new("RGBA", (16 * 9, 16), (255, 0, 0, 255)).save(sheet_path)
+        frames: list[Path] = []
+        for i in range(1, 10):
+            frame = run_dir / f"frame_{i:02d}.png"
+            Image.new("RGBA", (16, 16), (i * 20, 0, 0, 255)).save(frame)
+            frames.append(frame)
+        Image.new("RGBA", (16, 16), (255, 0, 0, 255)).save(gif_path)
+        meta = {"sprite": {"count": 9}, "outputs": {"sprite_sheet": "04_sprite_sheet.png", "sprite_gif": "05_sprite.gif"}}
+        return SimpleNamespace(
+            run_dir=run_dir,
+            source_path=source_path,
+            pixel_path=sheet_path,
+            preview_path=gif_path,
+            frame_paths=frames,
+            meta_path=run_dir / "meta.json",
+            meta=meta,
+        )
+
+    monkeypatch.setattr("pix.cli.run_sprite_pipeline", fake_run_sprite_pipeline)
+    out = tmp_path / "knight_sheet.png"
+    result = runner.invoke(
+        app,
+        [
+            "sprite", "骑士挥剑",
+            "--out", str(out),
+            "--pixel-size", "16x16",
+            "--colors", "6",
+            "--duration-ms", "80",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert out.exists()
+    assert out.with_suffix(".gif").exists()
+    assert (tmp_path / "knight_sheet_frames" / "frame_09.png").exists()
+    sidecar = json.loads(out.with_name("knight_sheet.sprite.json").read_text(encoding="utf-8"))
+    assert sidecar["meta"]["sprite"]["count"] == 9
+
+
 def test_asset_cli_rejects_sub16(tmp_path: Path, tmp_cwd: Path) -> None:
     out = tmp_path / "tiny.png"
 
