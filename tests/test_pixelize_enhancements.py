@@ -6,7 +6,15 @@ import numpy as np
 from PIL import Image
 
 from pix.analysis.schema import BBoxNorm, PixAnalysis, SemanticRegion, StyleAnalysis
-from pix.pixelize.bg_removal import remove_background
+from pix.pixelize.bg_removal import (
+    key_color_edge_speckle_mask,
+    key_color_edge_spill_mask,
+    key_color_mask,
+    remove_background,
+    remove_detached_dark_edges,
+    remove_key_color,
+    remove_tiny_alpha_islands,
+)
 from pix.pixelize.core import (
     PixelizeParams,
     _detect_grid_size,
@@ -210,6 +218,226 @@ class TestRemoveBackground:
 
         # 中心像素只有对角方向接触背景；8 邻域羽化应覆盖它。
         assert 0 < alpha[2, 2] < 255
+
+    def test_remove_key_color_clears_closed_holes(self) -> None:
+        img = Image.new("RGBA", (12, 12), (255, 0, 255, 255))
+        arr = np.asarray(img).copy()
+        # 造一个黑色闭环，中间仍是 key color。flood-fill 类方法通常清不到这个孔洞。
+        arr[3:9, 3] = [20, 20, 20, 255]
+        arr[3:9, 8] = [20, 20, 20, 255]
+        arr[3, 3:9] = [20, 20, 20, 255]
+        arr[8, 3:9] = [20, 20, 20, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        out = remove_key_color(img, key_rgb=(255, 0, 255), tolerance=4)
+        out_arr = np.asarray(out)
+
+        assert out_arr[0, 0, 3] == 0
+        assert out_arr[5, 5, 3] == 0
+        assert tuple(out_arr[0, 0, :3]) == (0, 0, 0)
+        assert tuple(out_arr[5, 5, :3]) == (0, 0, 0)
+        assert out_arr[3, 3, 3] == 255
+        assert not key_color_mask(out_arr, (255, 0, 255), tolerance=4, visible_only=False).any()
+
+    def test_key_color_edge_speckle_removes_small_dark_edge_dots(self) -> None:
+        img = Image.new("RGBA", (9, 9), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[2:7, 2:7] = [20, 20, 20, 255]
+        arr[1, 2] = [128, 0, 128, 255]
+        arr[7, 6] = [150, 0, 150, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        out = remove_key_color(
+            img,
+            key_rgb=(255, 0, 255),
+            tolerance=8,
+            edge_speckle=True,
+            edge_speckle_max_area=4,
+            edge_speckle_radius=2,
+        )
+        out_arr = np.asarray(out)
+
+        assert out_arr[1, 2, 3] == 0
+        assert out_arr[7, 6, 3] == 0
+        assert out_arr[3, 3, 3] == 255
+
+    def test_key_color_edge_speckle_removes_thin_edge_strip(self) -> None:
+        img = Image.new("RGBA", (24, 12), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[5:9, 4:20] = [20, 20, 20, 255]
+        arr[4, 6:18] = [130, 0, 130, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        out = remove_key_color(
+            img,
+            key_rgb=(255, 0, 255),
+            tolerance=8,
+            edge_speckle=True,
+            edge_speckle_max_area=4,
+            edge_speckle_max_thickness=2,
+            edge_speckle_radius=1,
+        )
+        out_arr = np.asarray(out)
+
+        assert (out_arr[4, 6:18, 3] == 0).all()
+        assert out_arr[5, 6, 3] == 255
+
+    def test_key_color_edge_speckle_preserves_larger_content_region(self) -> None:
+        img = Image.new("RGBA", (10, 10), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[3:7, 3:7] = [150, 0, 150, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        mask = key_color_edge_speckle_mask(
+            np.asarray(img),
+            (255, 0, 255),
+            max_area=4,
+            radius=2,
+        )
+
+        assert not mask.any()
+
+    def test_key_color_edge_speckle_runs_multiple_passes(self) -> None:
+        img = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[3:5, 3:5] = [20, 20, 20, 255]
+        arr[2, 3] = [140, 0, 140, 255]
+        arr[1, 3] = [130, 0, 130, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        out = remove_key_color(
+            img,
+            key_rgb=(255, 0, 255),
+            tolerance=8,
+            edge_speckle=True,
+            edge_speckle_max_area=4,
+            edge_speckle_radius=1,
+            edge_speckle_passes=2,
+        )
+        out_arr = np.asarray(out)
+
+        assert out_arr[2, 3, 3] == 0
+        assert out_arr[1, 3, 3] == 0
+        assert out_arr[3, 3, 3] == 255
+
+    def test_key_color_edge_spill_mask_finds_quantized_purple_halo(self) -> None:
+        img = Image.new("RGBA", (10, 10), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[3:7, 3:7] = [32, 24, 16, 255]
+        arr[2, 3:7] = [196, 0, 196, 255]
+        arr[7, 3:7] = [66, 3, 71, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        mask = key_color_edge_spill_mask(np.asarray(img), (255, 0, 255), radius=2)
+
+        assert int(mask.sum()) == 8
+        assert not mask[3:7, 3:7].any()
+
+    def test_remove_key_color_clears_quantized_edge_spill(self) -> None:
+        img = Image.new("RGBA", (12, 12), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[4:8, 4:8] = [32, 24, 16, 255]
+        arr[3, 4:8] = [196, 0, 196, 255]
+        arr[2, 4:8] = [66, 3, 71, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        out = remove_key_color(
+            img,
+            key_rgb=(255, 0, 255),
+            tolerance=8,
+            edge_spill=True,
+            edge_spill_radius=2,
+            edge_spill_passes=3,
+        )
+        out_arr = np.asarray(out)
+
+        assert (out_arr[2:4, 4:8, 3] == 0).all()
+        assert (out_arr[2:4, 4:8, :3] == 0).all()
+        assert (out_arr[4:8, 4:8, 3] == 255).all()
+
+    def test_remove_key_color_can_turn_edge_spill_into_outline(self) -> None:
+        img = Image.new("RGBA", (12, 12), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[4:8, 4:8] = [220, 150, 40, 255]
+        arr[4:8, 4] = [0, 0, 0, 255]
+        arr[3, 4:8] = [196, 0, 196, 255]
+        arr[2, 4:8] = [66, 3, 71, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        out = remove_key_color(
+            img,
+            key_rgb=(255, 0, 255),
+            tolerance=8,
+            edge_spill=True,
+            edge_spill_radius=2,
+            edge_spill_passes=3,
+            edge_spill_outline=True,
+        )
+        out_arr = np.asarray(out)
+
+        assert (out_arr[3, 4:8, 3] == 255).all()
+        assert (out_arr[3, 4:8, :3] == 0).all()
+        # 外侧第二圈离主体太远，仍应抠透明，避免凭空加粗描边。
+        assert (out_arr[2, 4:8, 3] == 0).all()
+        assert (out_arr[4:8, 4:8, 3] == 255).all()
+        assert not key_color_edge_spill_mask(out_arr, (255, 0, 255), radius=2).any()
+
+    def test_remove_detached_dark_edges_clears_floating_outline(self) -> None:
+        img = Image.new("RGBA", (12, 12), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[5:8, 5:8] = [220, 150, 40, 255]
+        arr[4, 5:8] = [0, 0, 0, 255]
+        arr[2, 5:8] = [0, 0, 0, 255]
+        arr[6, 6] = [0, 0, 0, 255]  # 主体内部暗色不能被删
+        img = Image.fromarray(arr, mode="RGBA")
+
+        out = remove_detached_dark_edges(img)
+        out_arr = np.asarray(out)
+
+        assert (out_arr[2, 5:8, 3] == 0).all()
+        assert (out_arr[4, 5:8, 3] == 255).all()
+        assert out_arr[6, 6, 3] == 255
+
+    def test_remove_detached_dark_edges_clears_desaturated_floating_fragment(self) -> None:
+        img = Image.new("RGBA", (14, 14), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[6:9, 6:9] = [60, 150, 220, 255]
+        arr[5, 6:9] = [118, 118, 112, 255]
+        arr[3, 6:9] = [112, 112, 108, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        out = remove_detached_dark_edges(img)
+        out_arr = np.asarray(out)
+
+        assert (out_arr[3, 6:9, 3] == 0).all()
+        assert (out_arr[5, 6:9, 3] == 255).all()
+        assert (out_arr[6:9, 6:9, 3] == 255).all()
+
+    def test_remove_tiny_alpha_islands_clears_small_detached_component(self) -> None:
+        img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[5:12, 5:12] = [220, 150, 40, 255]
+        arr[2:4, 2:4] = [80, 80, 80, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        out = remove_tiny_alpha_islands(img, max_area=8, max_axis=4)
+        out_arr = np.asarray(out)
+
+        assert (out_arr[2:4, 2:4, 3] == 0).all()
+        assert (out_arr[5:12, 5:12, 3] == 255).all()
+
+    def test_remove_key_color_preserves_nearby_content_color(self) -> None:
+        img = Image.new("RGBA", (4, 4), (255, 0, 255, 255))
+        arr = np.asarray(img).copy()
+        arr[1:3, 1:3] = [230, 0, 230, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        out = remove_key_color(img, key_rgb=(255, 0, 255), tolerance=8, spill_tolerance=20)
+        out_arr = np.asarray(out)
+
+        assert out_arr[0, 0, 3] == 0
+        assert out_arr[1, 1, 3] == 255
+        assert tuple(out_arr[1, 1, :3]) == (230, 0, 230)
 
     def test_outline_edge_style_adds_opaque_outline(self) -> None:
         img = Image.new("RGB", (8, 8), (240, 240, 240))
@@ -434,3 +662,70 @@ class TestPixelizeRemoveBg:
         assert meta["effective_params"]["remove_bg"] is True
         assert (rgba[..., 3] == 0).any()
         assert rgba[16, 16, 3] == 255
+
+
+class TestAutoSkipRedundantBg:
+    """已抠图源图传入时，auto_skip_redundant_bg=True 应跳过 remove_bg/auto_crop。"""
+
+    def _transparent_subject(self) -> Image.Image:
+        # 64x64 RGBA，主体（24x24）在中央，其他全透明 —— alpha=0 占比 ~86%
+        img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[20:44, 20:44] = [200, 100, 60, 255]
+        return Image.fromarray(arr, mode="RGBA")
+
+    def test_skip_active_when_transparency_high(self) -> None:
+        img = self._transparent_subject()
+        _, _, meta = pixelize(
+            img,
+            PixelizeParams(
+                output_size=(32, 32),
+                colors=4,
+                dither="none",
+                remove_bg=True,
+                auto_crop=True,
+                preview_scale=0,
+            ),
+            auto_skip_redundant_bg=True,
+        )
+        assert meta["skipped_remove_bg"] is True
+        assert meta["skipped_auto_crop"] is True
+        assert meta["input_transparency_ratio"] >= 0.10
+        # 跳过后 crop_bbox 不会被设置
+        assert meta["crop_bbox"] is None
+
+    def test_skip_disabled_by_default(self) -> None:
+        img = self._transparent_subject()
+        _, _, meta = pixelize(
+            img,
+            PixelizeParams(
+                output_size=(32, 32),
+                colors=4,
+                dither="none",
+                remove_bg=True,
+                auto_crop=True,
+                preview_scale=0,
+            ),
+        )
+        # 默认不开自动跳过：尊重 params.auto_crop=True
+        assert meta["skipped_remove_bg"] is False
+        assert meta["skipped_auto_crop"] is False
+
+    def test_skip_inactive_when_no_transparency(self) -> None:
+        # 实心 RGB 图：transparency_ratio=0，即使开启 auto_skip 也不跳过
+        img = Image.new("RGB", (64, 64), (180, 90, 40))
+        _, _, meta = pixelize(
+            img,
+            PixelizeParams(
+                output_size=(32, 32),
+                colors=4,
+                dither="none",
+                remove_bg=True,
+                auto_crop=True,
+                preview_scale=0,
+            ),
+            auto_skip_redundant_bg=True,
+        )
+        assert meta["skipped_remove_bg"] is False
+        assert meta["skipped_auto_crop"] is False
+        assert meta["input_transparency_ratio"] == 0.0

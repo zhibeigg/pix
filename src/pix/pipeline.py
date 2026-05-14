@@ -352,6 +352,7 @@ def _render_candidate_pixel_outputs(
                 analysis=analysis,
                 cfg=cfg,
                 source_description=source_description,
+                auto_skip_redundant_bg=True,
             )
             pixel_img.save(pixel_path)
             if preview_img is not None:
@@ -495,6 +496,51 @@ def _run_grid_pixelize(
             min_axis_coverage=cfg.asset.fit_min_axis_coverage,
         )
 
+    # 3.5 Ramp 调色板：把 grid 的 palette 重映射到 ramp 上的最近色，获得手绘色阶感。
+    palette_mode_eff = (params.palette_mode or cfg.asset.palette_mode or "auto").lower()
+    if palette_mode_eff == "ramp" and grid.palette:
+        from pix.pixelize.ramp import (
+            RampValidationError,
+            build_local_ramp,
+            ramp_from_vl,
+            ramp_to_meta,
+            remap_palette_to_ramp,
+            rgb_to_hex,
+        )
+
+        ramp_info: dict = {"source": "local", "vl_error": None}
+        ramp_palette_obj = None
+        try:
+            ramp_palette_obj = ramp_from_vl(
+                cfg,
+                source_path,
+                max_colors=max(3, params.colors),
+                output_size=params.output_size,
+                description=inputs.prompt or "",
+                draft_palette_hex=[c.hex for c in grid.palette],
+                model=inputs.vl_model,
+            )
+            ramp_info["source"] = "vl"
+        except (RampValidationError, Exception) as exc:  # noqa: BLE001
+            ramp_info["vl_error"] = str(exc)
+            ramp_info["source"] = "local_fallback"
+            ramp_palette_obj = build_local_ramp(
+                render_pixel_grid(grid),
+                max_colors=max(3, params.colors),
+            )
+
+        if ramp_palette_obj is not None and ramp_palette_obj.rgb_list:
+            old_rgb = [
+                tuple(int(grid.palette[i].hex.lstrip("#")[s:s + 2], 16) for s in (0, 2, 4))
+                for i in range(len(grid.palette))
+            ]
+            new_rgb = remap_palette_to_ramp(old_rgb, ramp_palette_obj)
+            for color, new in zip(grid.palette, new_rgb, strict=True):
+                color.hex = rgb_to_hex(new)
+            grid_meta["ramp"] = ramp_to_meta(ramp_palette_obj)
+            grid_meta["ramp_info"] = ramp_info
+            notify("grid_ramp_remap", {"source": ramp_info["source"], "colors": len(new_rgb)})
+
     # 4. 局部修补（auto/force）：只在 readability 有 warning 但无 blocking 时调用 VL
     repair_mode = inputs.grid.repair_mode or cfg.asset.ai_grid_repair_mode
     if repair_mode != "off" and inputs.grid.mode == "ai":
@@ -543,6 +589,7 @@ def _run_grid_pixelize(
             "preview_scale": params.preview_scale,
             "remove_bg": params.remove_bg,
             "auto_crop": params.auto_crop,
+            "palette_mode": palette_mode_eff,
         },
         "palette": [color.hex for color in grid.palette],
         "palette_size": len(grid.palette),
@@ -894,6 +941,7 @@ def run_pipeline(
             analysis=analysis,
             cfg=cfg,
             source_description=inputs.prompt or "",
+            auto_skip_redundant_bg=True,
         )
         pixel_img.save(pixel_path)
         if preview_img is not None:
@@ -915,6 +963,7 @@ def run_pipeline(
                 analysis=analysis,
                 cfg=cfg,
                 source_description=inputs.prompt or "",
+                auto_skip_redundant_bg=True,
             )
             pix_meta["grid"] = {
                 "mode": inputs.grid.mode,

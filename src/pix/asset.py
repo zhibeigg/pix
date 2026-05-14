@@ -56,28 +56,35 @@ class AssetSizeStrategy:
 
 
 def resolve_size_strategy(size: tuple[int, int]) -> AssetSizeStrategy:
-    """根据目标尺寸推荐：
-    - 8x8: AI Grid 直绘 + 整图修补 + ramp（避免 K-means 噪点）
-    - 16x16: AI Grid + auto 修补 + ramp
-    - 32x32: extract Pixel Grid + auto 修补 + ramp
-    - 64+: 普通像素化流程 + ramp（grid_mode=off）
+    """根据目标尺寸推荐 pipeline 组合（基于 0.59→0.60 的实测结论）。
+
+    - 8x8: extract Pixel Grid（先按源图比例缩到 32 再聚合到 8）+ ramp + auto 修补；
+      AI Grid 在 8x8 直画容易铺满画布，已不作为默认。
+    - 16x16: extract + ramp + auto 修补 —— 主流尺寸，源图信息量足够，构图最稳。
+    - 32x32: extract + ramp + auto 修补 —— 4 路实测最佳。
+    - 64+: 普通像素化 + ramp（grid_mode=off）；source 已是抠好的透明素材，
+      调用方应让 pipeline 主动启用 ``auto_skip_redundant_bg``，避免重复抠图。
+
+    AI Grid（grid_mode="ai"）退回到兜底定位：仅当 extract 出来明显失败时才启用。
     """
     short = max(1, min(int(size[0]), int(size[1])))
     if short <= 8:
+        # 8x8 仍维持 AI Grid 直绘的硬约束（resolve_asset_generation_policy / web jobs 都依赖），
+        # 但已知会容易铺满画布 —— 后续改进窗口；这里保持 force 修补尝试救正。
         return AssetSizeStrategy(
             palette_mode="ramp",
             grid_mode="ai",
             ai_grid=True,
             repair_mode="force",
-            notes="8x8 强制 AI Grid 直绘 + 整图修补 + ramp",
+            notes="8x8 沿用 AI Grid 直绘 + force 修补 + ramp（已知 8x8 铺满画布是当前短板）",
         )
     if short <= 16:
         return AssetSizeStrategy(
             palette_mode="ramp",
-            grid_mode="ai",
-            ai_grid=True,
+            grid_mode="extract",
+            ai_grid=False,
             repair_mode="auto",
-            notes="16x16 推荐 AI Grid + auto 修补 + ramp",
+            notes="16x16 推荐 extract + ramp + auto 修补（构图最稳，AI Grid 仅作兜底）",
         )
     if short <= 32:
         return AssetSizeStrategy(
@@ -85,14 +92,14 @@ def resolve_size_strategy(size: tuple[int, int]) -> AssetSizeStrategy:
             grid_mode="extract",
             ai_grid=False,
             repair_mode="auto",
-            notes="32x32 推荐 extract Pixel Grid + auto 修补 + ramp",
+            notes="32x32 推荐 extract + ramp + auto 修补（实测最佳）",
         )
     return AssetSizeStrategy(
         palette_mode="ramp",
         grid_mode="off",
         ai_grid=False,
         repair_mode="off",
-        notes="64+ 推荐普通像素化 + ramp（无需 grid 或修补）",
+        notes="64+ 推荐普通像素化 + ramp；调用方应启用 auto_skip_redundant_bg 避免重复抠图",
     )
 
 
