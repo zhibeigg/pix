@@ -10,6 +10,14 @@ export function jobTypeLabel(type: string) {
   return labels[type] ?? type
 }
 
+export const statusColors: Record<string, 'default' | 'primary' | 'success' | 'error' | 'warning'> = {
+  pending: 'warning',
+  running: 'primary',
+  succeeded: 'success',
+  failed: 'error',
+  cancelled: 'default',
+}
+
 export function jobStatusLabel(status: string) {
   const labels: Record<string, string> = {
     pending: '排队中',

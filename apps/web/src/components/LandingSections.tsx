@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Box, Button, Card, CardContent, Chip, Stack, Typography } from '@mui/material'
-import { notionTokens } from '../theme'
+import { checkerboardSx, notionTokens } from '../theme'
 import { homepageExampleCategories, homepageExamples, type HomepageExample } from '../homepageExamples'
 
 const advantageProofs = [
@@ -30,13 +30,6 @@ const examplesByCategory = homepageExampleCategories.map((category) => ({
   category,
   examples: homepageExamples.filter((example) => example.category === category),
 }))
-
-const checkerboardSx = {
-  backgroundColor: notionTokens.canvas,
-  backgroundImage: `linear-gradient(45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(-45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%), linear-gradient(-45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%)`,
-  backgroundSize: '16px 16px',
-  backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0',
-}
 
 const itemSpriteSlots = Array.from({ length: 8 }, (_, index) => ({
   index,
