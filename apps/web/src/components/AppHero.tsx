@@ -1,6 +1,6 @@
 import { Box, Button, Card, CardContent, Chip, Stack, Typography } from '@mui/material'
 import type { CreditBalance, User } from '../types'
-import { notionTokens } from '../theme'
+import { checkerboardSx, notionTokens } from '../theme'
 
 type AppHeroProps = {
   user: User | null
@@ -68,13 +68,6 @@ const spriteShowcase = {
   frames: Array.from({ length: 9 }, (_, index) => `/hero-sprites/pipeline/moonblade-knight-frame-${String(index + 1).padStart(2, '0')}.png`),
 }
 
-const checkerboardSx = {
-  backgroundColor: notionTokens.canvas,
-  backgroundImage: `linear-gradient(45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(-45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%), linear-gradient(-45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%)`,
-  backgroundSize: '16px 16px',
-  backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0',
-}
-
 export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, batchCount = 0 }: AppHeroProps) {
   const signedIn = Boolean(user)
 
@@ -138,39 +131,6 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
         </Box>
       </Box>
     </Box>
-  )
-}
-
-export function DashboardSummary({ balance, activeJobs, completedJobs, failedJobs, batchCount = 0 }: Omit<AppHeroProps, 'user'>) {
-  const items = [
-    { label: '可用点数', value: balance?.available_credits ?? '—', tint: notionTokens.tintLavender, action: '入队冻结，失败退回。' },
-    { label: '队列中', value: activeJobs, tint: notionTokens.tintSky, action: activeJobs ? '生产中。' : '可开始新素材包。' },
-    { label: '已完成', value: completedJobs, tint: notionTokens.tintMint, action: '可微调或复制路径。' },
-    { label: '失败待处理', value: failedJobs, tint: failedJobs ? notionTokens.tintRose : notionTokens.tintGray, action: failedJobs ? '建议先重试。' : '队列健康。' },
-    { label: '素材包', value: batchCount, tint: notionTokens.tintYellow, action: '可重试和下载。' },
-  ]
-
-  return (
-    <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
-      <CardContent sx={{ p: { xs: 2.3, md: 2.8 } }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2.5} sx={{ alignItems: { xs: 'stretch', md: 'center' }, justifyContent: 'space-between' }}>
-          <Box sx={{ maxWidth: 430 }}>
-            <Typography variant="overline" color="text.secondary">今日工位</Typography>
-            <Typography variant="h4">继续生产和导出</Typography>
-            <Typography color="text.secondary" sx={{ mt: .75 }}>作品优先，队列次之；先处理失败项，再下载成功素材。</Typography>
-          </Box>
-          <Box sx={{ flex: 1, display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(5, 1fr)' }, gap: 1 }}>
-            {items.map((item) => (
-              <Box key={item.label} sx={{ bgcolor: item.tint, borderRadius: 1.5, border: `1px solid ${notionTokens.hairline}`, p: 1.35, minWidth: 0 }}>
-                <Typography variant="caption" color="text.secondary">{item.label}</Typography>
-                <Typography variant="h5" sx={{ fontVariantNumeric: 'tabular-nums' }}>{item.value}</Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', xl: 'block' } }}>{item.action}</Typography>
-              </Box>
-            ))}
-          </Box>
-        </Stack>
-      </CardContent>
-    </Card>
   )
 }
 
@@ -511,11 +471,5 @@ function BoardMetric({ label, value }: { label: string; value: number | string }
 }
 
 function PixelAtmosphere() {
-  return (
-    <>
-      <Box sx={{ position: 'absolute', inset: 0, opacity: .12, backgroundImage: 'linear-gradient(oklch(92% .018 82 / .16) 1px, transparent 1px), linear-gradient(90deg, oklch(92% .018 82 / .16) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-      <Box sx={{ position: 'absolute', width: 18, height: 18, left: '9%', top: '18%', bgcolor: 'oklch(72% .07 86)', boxShadow: '32px 18px 0 oklch(68% .045 164), 68px -8px 0 oklch(70% .045 292)', opacity: .62 }} />
-      <Box sx={{ position: 'absolute', width: 16, height: 16, right: '12%', bottom: '16%', bgcolor: 'oklch(66% .055 352)', boxShadow: '-28px -22px 0 oklch(66% .045 235), -72px 8px 0 oklch(71% .052 54)', opacity: .54 }} />
-    </>
-  )
+  return <Box sx={{ position: 'absolute', inset: 0, opacity: .12, backgroundImage: 'linear-gradient(oklch(92% .018 82 / .16) 1px, transparent 1px), linear-gradient(90deg, oklch(92% .018 82 / .16) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
 }

@@ -1,5 +1,5 @@
 import { Box, Button, Card, CardContent, Chip, Divider, Stack, Typography } from '@mui/material'
-import { jobStatusLabel, jobTypeLabel } from '../labels'
+import { jobStatusLabel, jobTypeLabel, statusColors } from '../labels'
 import { jobInputSummary } from '../pixelize'
 import { notionTokens } from '../theme'
 import type { ContactSheetCandidate, GenerationJob, JobOutput } from '../types'
@@ -8,14 +8,6 @@ type JobListProps = {
   jobs: GenerationJob[]
   onRefresh: () => void
   onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>
-}
-
-const statusColors: Record<string, 'default' | 'primary' | 'success' | 'error' | 'warning'> = {
-  pending: 'warning',
-  running: 'primary',
-  succeeded: 'success',
-  failed: 'error',
-  cancelled: 'default',
 }
 
 export function JobList({ jobs, onRefresh, onCandidatePixelize }: JobListProps) {

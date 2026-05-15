@@ -4,7 +4,7 @@ import { notionTokens, type PixThemeMode, type PixThemePreference } from './them
 import { api, ApiError } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
 import { AccountMenu } from './components/AccountMenu'
-import { AppHero, DashboardSummary } from './components/AppHero'
+import { AppHero } from './components/AppHero'
 import { AuthPanel } from './components/AuthPanel'
 import { ThemeModeMenu } from './components/ThemeModeMenu'
 import { LandingSections } from './components/LandingSections'
@@ -511,29 +511,10 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
               textDecoration: 'none',
               borderRadius: 1.5,
               outlineOffset: 4,
-              position: 'relative',
-              transition: 'opacity .18s ease, transform .18s ease',
-              '&:hover': { opacity: .9, transform: 'translateY(-1px)' },
-              '& .brand-spark': {
-                position: 'absolute',
-                width: 5,
-                height: 5,
-                borderRadius: .3,
-                opacity: .62,
-                transition: 'transform .2s cubic-bezier(.25,1,.5,1), opacity .2s ease',
-                pointerEvents: 'none',
-              },
-              '&:hover .brand-spark-a': { opacity: 1, transform: 'translate(4px, -4px)' },
-              '&:hover .brand-spark-b': { opacity: .94, transform: 'translate(-3px, 3px)' },
-              '&:hover .brand-spark-c': { opacity: .9, transform: 'translate(3px, 2px)' },
-              '@media (prefers-reduced-motion: reduce)': {
-                '&, &:hover, &:hover .brand-spark-a, &:hover .brand-spark-b, &:hover .brand-spark-c': { transform: 'none' },
-              },
+              transition: 'opacity .18s ease',
+              '&:hover': { opacity: .9 },
             }}
           >
-            <Box component="span" className="brand-spark brand-spark-a" sx={{ left: 30, top: 1, bgcolor: notionTokens.tintYellowBold }} />
-            <Box component="span" className="brand-spark brand-spark-b" sx={{ left: 5, bottom: 4, bgcolor: notionTokens.tintSky }} />
-            <Box component="span" className="brand-spark brand-spark-c" sx={{ left: 40, bottom: 7, bgcolor: notionTokens.tintRose }} />
             <Box component="img" src="/pix-logo-64.png" alt="" width={40} height={40} sx={{ imageRendering: 'pixelated', flex: '0 0 auto' }} />
             <Box>
               <Typography variant="overline" color="text.secondary">Pix Forge</Typography>
@@ -570,14 +551,13 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       ) : user ? (
         <Container maxWidth={false} sx={{ maxWidth: 1280, py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 }, mx: 'auto' }}>
           <Stack spacing={4}>
-            <DashboardSummary balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
             {message && <Alert severity="info" role="status" aria-live="polite">{message}</Alert>}
             <Box sx={{ display: 'grid', gap: 3 }}>
               {page === 'workspace' && (
                 <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />
               )}
               {page === 'gallery' && (
-                <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRefresh={() => refreshCore()} />
+                <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} />
               )}
               {page === 'packs' && (
                 <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />

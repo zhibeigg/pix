@@ -160,6 +160,13 @@ export const notionTokens = {
   errorPanel: 'var(--pix-error-panel)',
 }
 
+export const checkerboardSx = {
+  backgroundColor: notionTokens.canvas,
+  backgroundImage: `linear-gradient(45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(-45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%), linear-gradient(-45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%)`,
+  backgroundSize: '16px 16px',
+  backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0',
+}
+
 const displayFont = '"ZCOOL QingKe HuangYou", "TsangerJinKai03", "Noto Serif SC", "Microsoft YaHei", sans-serif'
 const uiFont = '"MiSans", "Noto Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif'
 const monoFont = '"Maple Mono NF CN", "Cascadia Mono", "SFMono-Regular", Consolas, monospace'

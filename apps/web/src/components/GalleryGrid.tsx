@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Box, Button, Card, CardActions, CardContent, CardMedia, Chip, Pagination, Stack, Typography } from '@mui/material'
 import type { ContactSheetCandidate, GenerationJob, JobOutput } from '../types'
-import { jobStatusLabel, jobTypeLabel } from '../labels'
+import { jobStatusLabel, jobTypeLabel, statusColors } from '../labels'
 import { jobInputSummary } from '../pixelize'
-import { notionTokens } from '../theme'
+import { checkerboardSx, notionTokens } from '../theme'
 
 type GalleryGridProps = {
   jobs: GenerationJob[]
@@ -12,21 +12,6 @@ type GalleryGridProps = {
   onSelect: (job: GenerationJob) => void
   onCopyPath: (path: string) => void
   onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>
-}
-
-const statusColors: Record<string, 'default' | 'primary' | 'success' | 'error' | 'warning'> = {
-  pending: 'warning',
-  running: 'primary',
-  succeeded: 'success',
-  failed: 'error',
-  cancelled: 'default',
-}
-
-const checkerboardSx = {
-  backgroundColor: notionTokens.canvas,
-  backgroundImage: `linear-gradient(45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(-45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%), linear-gradient(-45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%)`,
-  backgroundSize: '16px 16px',
-  backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0',
 }
 
 export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPath, onCandidatePixelize }: GalleryGridProps) {
@@ -90,18 +75,22 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                       <Chip size="small" color={statusColors[job.status] ?? 'default'} label={jobStatusLabel(job.status)} />
                     </Stack>
                     <Typography color="text.secondary" variant="body2" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{jobInputSummary(job)}</Typography>
-                    <Stack direction="row" spacing={.7} sx={{ flexWrap: 'wrap' }}>
-                      <Chip size="small" variant="outlined" label={`${job.price_credits} 点`} />
-                      <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />
-                    </Stack>
-                    {output && <GridQualityChips output={output} />}
-                    {output?.sprite_gif_path && <Chip size="small" color="primary" variant="outlined" label="GIF 动画" />}
-                    {output && <CandidateMiniGrid job={job} output={output} onCopyPath={onCopyPath} onCandidatePixelize={onCandidatePixelize} />}
-                    {job.batch_name && <Typography color="text.secondary" variant="caption">素材包：{job.batch_name}</Typography>}
+                    {selected && (
+                      <Stack spacing={.9}>
+                        <Stack direction="row" spacing={.7} sx={{ flexWrap: 'wrap' }}>
+                          <Chip size="small" variant="outlined" label={`${job.price_credits} 点`} />
+                          <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />
+                        </Stack>
+                        {output && <GridQualityChips output={output} />}
+                        {output?.sprite_gif_path && <Chip size="small" color="primary" variant="outlined" label="GIF 动画" />}
+                        {output && <CandidateMiniGrid job={job} output={output} onCopyPath={onCopyPath} onCandidatePixelize={onCandidatePixelize} />}
+                        {job.batch_name && <Typography color="text.secondary" variant="caption">素材包：{job.batch_name}</Typography>}
+                      </Stack>
+                    )}
                   </CardContent>
                   <CardActions sx={{ px: 1.6, pb: 1.4, pt: 0 }}>
                     <Button size="small" variant={selected ? 'contained' : 'outlined'} aria-pressed={selected} onClick={() => onSelect(job)}>
-                      {selected ? '已选中' : '选择作品'}
+                      {selected ? '已展开' : '查看详情'}
                     </Button>
                     {mainPath && <Button size="small" variant="text" onClick={() => onCopyPath(mainPath)}>复制路径</Button>}
                   </CardActions>
