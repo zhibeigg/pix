@@ -1,0 +1,16 @@
+{
+  "slug": "cinnabar-rune-nail",
+  "name": "朱砂符钉",
+  "prompt": "朱砂符钉，红色咒钉缠金色符线，封印道具，透明背景，硬边像素风，适合物品栏",
+  "brief": "红钉与符线让“封印”属性直接显现。",
+  "run_dir": "outputs\\homepage-pipeline\\20260515-181338-ff77576a",
+  "source": "outputs\\homepage-pipeline\\20260515-181338-ff77576a\\01_source.png",
+  "pixelized": "outputs\\homepage-pipeline\\20260515-181338-ff77576a\\03_pixelized.png",
+  "preview": "outputs\\homepage-pipeline\\20260515-181338-ff77576a\\04_pixelized_preview.png",
+  "grid_json": "outputs\\homepage-pipeline\\20260515-181338-ff77576a\\03_pixelized.grid.json",
+  "analysis": "outputs\\homepage-pipeline\\20260515-181338-ff77576a\\02_analysis.json",
+  "pipeline_meta": "outputs\\homepage-pipeline\\20260515-181338-ff77576a\\meta.json",
+  "image_gen_mode": "n_sample_generated",
+  "vision_ok": true,
+  "grid_mode": "extract"
+}

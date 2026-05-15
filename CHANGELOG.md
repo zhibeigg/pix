@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-05-15
+
+### Changed
+
+- 主页展示图删除上一版手工生成资源，改为 12 个真实 Pix 全流程产物；每个示例均经过 prompt 生图、候选选择、VL 分析、Pixel Grid extract 和像素化预览输出。
+- 主页展示文案移除“直出”表述，悬浮详情改为展示全流程源图、Grid 渲染图、预览图和中文 prompt。
+
 ## [1.4.0] - 2026-05-15
 
 ### Added

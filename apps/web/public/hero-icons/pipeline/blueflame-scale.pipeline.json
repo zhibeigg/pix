@@ -1,0 +1,16 @@
+{
+  "slug": "blueflame-scale",
+  "name": "苍火鳞",
+  "prompt": "苍火鳞，青蓝火焰鳞片，边缘有冷焰高光，RPG 怪物素材，透明背景，清晰像素块",
+  "brief": "用斜切鳞片和冷色火线突出“苍火”。",
+  "run_dir": "outputs\\homepage-pipeline\\20260515-175451-d7c9327f",
+  "source": "outputs\\homepage-pipeline\\20260515-175451-d7c9327f\\01_source.png",
+  "pixelized": "outputs\\homepage-pipeline\\20260515-175451-d7c9327f\\03_pixelized.png",
+  "preview": "outputs\\homepage-pipeline\\20260515-175451-d7c9327f\\04_pixelized_preview.png",
+  "grid_json": "outputs\\homepage-pipeline\\20260515-175451-d7c9327f\\03_pixelized.grid.json",
+  "analysis": "outputs\\homepage-pipeline\\20260515-175451-d7c9327f\\02_analysis.json",
+  "pipeline_meta": "outputs\\homepage-pipeline\\20260515-175451-d7c9327f\\meta.json",
+  "image_gen_mode": "n_sample_generated",
+  "vision_ok": true,
+  "grid_mode": "extract"
+}

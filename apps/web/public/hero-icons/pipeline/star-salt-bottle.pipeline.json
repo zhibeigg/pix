@@ -1,0 +1,16 @@
+{
+  "slug": "star-salt-bottle",
+  "name": "星盐瓶",
+  "prompt": "星盐瓶，玻璃小瓶装着发光星盐，紫色瓶塞，炼金材料图标，透明 PNG，16 位 RPG 风格",
+  "brief": "瓶颈、晶盐和紫塞在低尺寸下仍能读出。",
+  "run_dir": "outputs\\homepage-pipeline\\20260515-175705-04cd41f0",
+  "source": "outputs\\homepage-pipeline\\20260515-175705-04cd41f0\\01_source.png",
+  "pixelized": "outputs\\homepage-pipeline\\20260515-175705-04cd41f0\\03_pixelized.png",
+  "preview": "outputs\\homepage-pipeline\\20260515-175705-04cd41f0\\04_pixelized_preview.png",
+  "grid_json": "outputs\\homepage-pipeline\\20260515-175705-04cd41f0\\03_pixelized.grid.json",
+  "analysis": "outputs\\homepage-pipeline\\20260515-175705-04cd41f0\\02_analysis.json",
+  "pipeline_meta": "outputs\\homepage-pipeline\\20260515-175705-04cd41f0\\meta.json",
+  "image_gen_mode": "n_sample_generated",
+  "vision_ok": true,
+  "grid_mode": "extract"
+}

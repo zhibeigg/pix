@@ -1,0 +1,16 @@
+{
+  "slug": "blackiron-feather",
+  "name": "玄铁羽",
+  "prompt": "玄铁羽，黑铁质感羽毛，边缘有赤色锻痕，锻造材料，透明背景，像素游戏资产",
+  "brief": "羽毛斜线让轻薄形态更明确。",
+  "run_dir": "outputs\\homepage-pipeline\\20260515-181213-b8c86a21",
+  "source": "outputs\\homepage-pipeline\\20260515-181213-b8c86a21\\01_source.png",
+  "pixelized": "outputs\\homepage-pipeline\\20260515-181213-b8c86a21\\03_pixelized.png",
+  "preview": "outputs\\homepage-pipeline\\20260515-181213-b8c86a21\\04_pixelized_preview.png",
+  "grid_json": "outputs\\homepage-pipeline\\20260515-181213-b8c86a21\\03_pixelized.grid.json",
+  "analysis": "outputs\\homepage-pipeline\\20260515-181213-b8c86a21\\02_analysis.json",
+  "pipeline_meta": "outputs\\homepage-pipeline\\20260515-181213-b8c86a21\\meta.json",
+  "image_gen_mode": "n_sample_generated",
+  "vision_ok": true,
+  "grid_mode": "extract"
+}
