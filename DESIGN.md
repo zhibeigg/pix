@@ -6,6 +6,8 @@
 
 Web 工作台的 `asset` 任务类型必须与 CLI `pix asset` 保持同一条直出策略：前端按素材名称提交 `asset.name` / `asset.extra_prompt`，后端 worker 用 `[asset].prompt_template` 构造完整 prompt，并在任务级配置副本上关闭候选包装与远程 prompt 归一化。默认参数对齐 16×16、12 色、`dither="none"`、透明背景、自动裁剪、`palette_mode="auto"` 与 `grid.mode="extract"`；API 请求线程只创建任务和冻结点数，真实 Pix 流水线始终由 worker 执行。
 
+主页展示区优先使用中文 prompt 证明工具面向中文游戏素材生产，而不是通用英文 prompt 相册。物品格的悬浮详情应采用渐进式披露：默认只展示图标、名称和状态，hover/focus 时展开源图、Grid、预览三图与中文 prompt；动效仅使用 transform/opacity，并依赖全局 `prefers-reduced-motion` 降级。
+
 ## Pix Animation Sprite Sheet Defaults
 
 `pix sprite` 的默认视觉目标是 3×3 连续动画关键帧：模型先生成九宫格，后端按阅读顺序切出 9 帧，使用统一 key-color 抠背景、统一裁剪框保持注册点稳定，再逐帧像素化。最终同时输出 9 张透明 PNG、一张横向精灵表 PNG 和一个 GIF 预览；默认启用共享调色板，减少动画播放时的颜色闪烁。角色/道具默认使用 `key_mode="hard"` 保持硬边；爆炸、烟雾、魔气等 VFX 可切到 `key_mode="soft"`，通过半透明 alpha 估算和 despill 去掉 key-color 对边缘的红/绿/蓝污染。

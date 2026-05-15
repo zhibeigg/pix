@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-05-15
+
+### Added
+
+- 主页展示物品更换为一组新生成的中文素材示例，并在展示卡中直接呈现中文 prompt。
+- 主页素材格新增悬浮/键盘聚焦展开详情，展示源图、Grid 与预览三图对照，便于快速理解 Pix asset 输出链路。
+
 ## [1.3.0] - 2026-05-15
 
 ### Added
