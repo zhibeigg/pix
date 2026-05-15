@@ -11,59 +11,37 @@ type AppHeroProps = {
   batchCount?: number
 }
 
-const pixelTiles = [
-  { name: '血气灵玉', tint: notionTokens.tintRose, status: '完成', src: '/hero-icons/blood-jade.png' },
-  { name: '紫髓铁', tint: notionTokens.tintLavender, status: '完成', src: '/hero-icons/violet-iron.png' },
-  { name: '幽光菇', tint: notionTokens.tintMint, status: '微调', src: '/hero-icons/ghost-mushroom.png' },
-  { name: '古木枝', tint: notionTokens.tintCream, status: '完成', src: '/hero-icons/ancient-branch.png' },
-  { name: '冰霜徽章', tint: notionTokens.tintSky, status: '完成', src: '/hero-icons/frost-badge.png' },
-  { name: '熔火碎片', tint: notionTokens.tintPeach, status: '完成', src: '/hero-icons/ember-shard.png' },
-  { name: '藤蔓药剂', tint: notionTokens.tintMint, status: '完成', src: '/hero-icons/vine-potion.png' },
-  { name: '失败项', tint: notionTokens.tintGray, status: '待重试', src: '/hero-icons/retry-cross.png' },
-  { name: '月银矿', tint: notionTokens.tintSky, status: '完成', src: '/hero-icons/moon-silver.png' },
-  { name: '雷纹符石', tint: notionTokens.tintYellowBold, status: '完成', src: '/hero-icons/thunder-rune.png' },
-  { name: '毒囊', tint: notionTokens.tintRose, status: '完成', src: '/hero-icons/poison-sac.png' },
-  { name: '空瓶', tint: notionTokens.tintCream, status: '排队', src: '/hero-icons/empty-bottle.png' },
+const showcaseItems = [
+  { name: '月蚀铃', tint: notionTokens.tintSky, status: '直出', src: '/hero-icons/generated/mooneclipse-bell.png', prompt: '月蚀铃，银蓝小铃铛，中间嵌一枚弯月，适合背包材料图标，透明背景，16×16 像素风，深色描边', brief: '暗夜祭司掉落物，轮廓用月弧和铃身区分。', variants: [{ label: '源图', src: '/hero-icons/generated/mooneclipse-bell-source.png' }, { label: 'Grid', src: '/hero-icons/generated/mooneclipse-bell-grid.png' }, { label: '预览', src: '/hero-icons/generated/mooneclipse-bell-preview.png' }] },
+  { name: '苍火鳞', tint: notionTokens.tintMint, status: '直出', src: '/hero-icons/generated/blueflame-scale.png', prompt: '苍火鳞，青蓝火焰鳞片，边缘有冷焰高光，RPG 怪物素材，透明背景，清晰像素块', brief: '用斜切鳞片和冷色火线突出“苍火”。', variants: [{ label: '源图', src: '/hero-icons/generated/blueflame-scale-source.png' }, { label: 'Grid', src: '/hero-icons/generated/blueflame-scale-grid.png' }, { label: '预览', src: '/hero-icons/generated/blueflame-scale-preview.png' }] },
+  { name: '星盐瓶', tint: notionTokens.tintLavender, status: '直出', src: '/hero-icons/generated/star-salt-bottle.png', prompt: '星盐瓶，玻璃小瓶装着发光星盐，紫色瓶塞，炼金材料图标，透明 PNG，16 位 RPG 风格', brief: '瓶颈、晶盐和紫塞在低尺寸下仍能读出。', variants: [{ label: '源图', src: '/hero-icons/generated/star-salt-bottle-source.png' }, { label: 'Grid', src: '/hero-icons/generated/star-salt-bottle-grid.png' }, { label: '预览', src: '/hero-icons/generated/star-salt-bottle-preview.png' }] },
+  { name: '铜芽齿轮', tint: notionTokens.tintPeach, status: '直出', src: '/hero-icons/generated/copper-sprout-gear.png', prompt: '铜芽齿轮，旧铜齿轮上长出绿色嫩芽，机关植物材料，透明背景，像素图标，硬边描边', brief: '齿轮圆形负责识别，嫩芽提供奇幻转折。', variants: [{ label: '源图', src: '/hero-icons/generated/copper-sprout-gear-source.png' }, { label: 'Grid', src: '/hero-icons/generated/copper-sprout-gear-grid.png' }, { label: '预览', src: '/hero-icons/generated/copper-sprout-gear-preview.png' }] },
+  { name: '夜萤孢子', tint: notionTokens.tintMint, status: '微调', src: '/hero-icons/generated/nightglow-spore.png', prompt: '夜萤孢子，发光蘑菇孢囊，绿色荧光点，地下洞穴采集物，透明背景，像素游戏物品', brief: '蘑菇剪影配荧光点，适合洞穴素材包。', variants: [{ label: '源图', src: '/hero-icons/generated/nightglow-spore-source.png' }, { label: 'Grid', src: '/hero-icons/generated/nightglow-spore-grid.png' }, { label: '预览', src: '/hero-icons/generated/nightglow-spore-preview.png' }] },
+  { name: '琥珀龙泪', tint: notionTokens.tintYellow, status: '直出', src: '/hero-icons/generated/amber-dragon-tear.png', prompt: '琥珀龙泪，橙金泪滴宝石，内部有红色火芯，传奇材料，透明背景，像素风 RPG 图标', brief: '泪滴轮廓和火芯让稀有度一眼可见。', variants: [{ label: '源图', src: '/hero-icons/generated/amber-dragon-tear-source.png' }, { label: 'Grid', src: '/hero-icons/generated/amber-dragon-tear-grid.png' }, { label: '预览', src: '/hero-icons/generated/amber-dragon-tear-preview.png' }] },
+  { name: '雾海罗盘', tint: notionTokens.tintSky, status: '直出', src: '/hero-icons/generated/mistsea-compass.png', prompt: '雾海罗盘，蓝绿色圆形罗盘，金色指针，航海探索道具，透明背景，清晰像素边缘', brief: '圆盘与指针组成强识别度的探索道具。', variants: [{ label: '源图', src: '/hero-icons/generated/mistsea-compass-source.png' }, { label: 'Grid', src: '/hero-icons/generated/mistsea-compass-grid.png' }, { label: '预览', src: '/hero-icons/generated/mistsea-compass-preview.png' }] },
+  { name: '霜纹护符', tint: notionTokens.tintSky, status: '直出', src: '/hero-icons/generated/frostmark-amulet.png', prompt: '霜纹护符，冰蓝六角护符，中心雪纹，防御装备材料，透明背景，16×16 可读', brief: '六角外形减少小尺寸误读。', variants: [{ label: '源图', src: '/hero-icons/generated/frostmark-amulet-source.png' }, { label: 'Grid', src: '/hero-icons/generated/frostmark-amulet-grid.png' }, { label: '预览', src: '/hero-icons/generated/frostmark-amulet-preview.png' }] },
+  { name: '裂雷结晶', tint: notionTokens.tintYellowBold, status: '直出', src: '/hero-icons/generated/thunderrift-crystal.png', prompt: '裂雷结晶，黄色闪电水晶，紫色裂痕，法术强化材料，透明背景，深色描边，像素图标', brief: '亮黄主体和紫裂纹形成高对比。', variants: [{ label: '源图', src: '/hero-icons/generated/thunderrift-crystal-source.png' }, { label: 'Grid', src: '/hero-icons/generated/thunderrift-crystal-grid.png' }, { label: '预览', src: '/hero-icons/generated/thunderrift-crystal-preview.png' }] },
+  { name: '玄铁羽', tint: notionTokens.tintGray, status: '直出', src: '/hero-icons/generated/blackiron-feather.png', prompt: '玄铁羽，黑铁质感羽毛，边缘有赤色锻痕，锻造材料，透明背景，像素游戏资产', brief: '羽毛斜线让轻薄形态更明确。', variants: [{ label: '源图', src: '/hero-icons/generated/blackiron-feather-source.png' }, { label: 'Grid', src: '/hero-icons/generated/blackiron-feather-grid.png' }, { label: '预览', src: '/hero-icons/generated/blackiron-feather-preview.png' }] },
+  { name: '朱砂符钉', tint: notionTokens.tintRose, status: '直出', src: '/hero-icons/generated/cinnabar-rune-nail.png', prompt: '朱砂符钉，红色咒钉缠金色符线，封印道具，透明背景，硬边像素风，适合物品栏', brief: '红钉与符线让“封印”属性直接显现。', variants: [{ label: '源图', src: '/hero-icons/generated/cinnabar-rune-nail-source.png' }, { label: 'Grid', src: '/hero-icons/generated/cinnabar-rune-nail-grid.png' }, { label: '预览', src: '/hero-icons/generated/cinnabar-rune-nail-preview.png' }] },
+  { name: '青藤心核', tint: notionTokens.tintMint, status: '排队', src: '/hero-icons/generated/vineheart-core.png', prompt: '青藤心核，绿色圆形生命核心，被藤蔓缠绕，德鲁伊材料，透明背景，清晰像素块', brief: '圆核心与藤蔓分叉展示生命系属性。', variants: [{ label: '源图', src: '/hero-icons/generated/vineheart-core-source.png' }, { label: 'Grid', src: '/hero-icons/generated/vineheart-core-grid.png' }, { label: '预览', src: '/hero-icons/generated/vineheart-core-preview.png' }] },
 ]
 
 const workflowStats = [
-  { value: '12', label: '一批生成', tone: notionTokens.brandOrange },
-  { value: '17/20', label: '可直接用', tone: notionTokens.brandGreen },
-  { value: '3', label: '失败重试', tone: notionTokens.brandPink },
+  { value: '12', label: '中文 Prompt', tone: notionTokens.brandOrange },
+  { value: '3 图', label: '悬浮详情', tone: notionTokens.brandGreen },
+  { value: '16×16', label: 'Grid 验收', tone: notionTokens.brandPink },
 ]
 
-const scaleSamples = [
-  {
-    name: '血气灵玉',
-    note: '32/16 为工程图提取，8 为 AI 直绘',
-    tint: notionTokens.tintRose,
-    sizes: [
-      { label: '32', src: '/hero-icons/scales/blood-jade-32.png' },
-      { label: '16', src: '/hero-icons/scales/blood-jade-16.png' },
-      { label: '8', src: '/hero-icons/scales/blood-jade-8.png' },
-    ],
-  },
-  {
-    name: '紫髓铁',
-    note: '保留晶体斜切与主高光',
-    tint: notionTokens.tintLavender,
-    sizes: [
-      { label: '32', src: '/hero-icons/scales/violet-iron-32.png' },
-      { label: '16', src: '/hero-icons/scales/violet-iron-16.png' },
-      { label: '8', src: '/hero-icons/scales/violet-iron-8.png' },
-    ],
-  },
-  {
-    name: '幽光菇',
-    note: '低尺寸下保留菇伞轮廓',
-    tint: notionTokens.tintMint,
-    sizes: [
-      { label: '32', src: '/hero-icons/scales/ghost-mushroom-32.png' },
-      { label: '16', src: '/hero-icons/scales/ghost-mushroom-16.png' },
-      { label: '8', src: '/hero-icons/scales/ghost-mushroom-8.png' },
-    ],
-  },
-]
+const scaleSamples = showcaseItems.slice(0, 3).map((item) => ({
+  name: item.name,
+  note: item.brief,
+  tint: item.tint,
+  sizes: [
+    { label: '源图', src: item.variants[0].src },
+    { label: 'Grid', src: item.variants[1].src },
+    { label: '预览', src: item.variants[2].src },
+  ],
+}))
 
 export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, batchCount = 0 }: AppHeroProps) {
   const signedIn = Boolean(user)
@@ -73,7 +51,7 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
       component="section"
       sx={{
         position: 'relative',
-        overflow: 'hidden',
+        overflow: 'visible',
         scrollSnapAlign: signedIn ? 'none' : 'start',
         minHeight: signedIn ? 'auto' : { md: 'calc(100vh - 80px)' },
         display: 'flex',
@@ -170,7 +148,7 @@ function ProductionBrief() {
         <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: '.06em', textTransform: 'uppercase' }}>示例</Typography>
         <Box sx={{ mt: 1.5, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr auto' }, gap: 1.2, alignItems: 'center' }}>
           <Box sx={{ border: `1px solid ${notionTokens.hairlineStrong}`, borderRadius: 1.5, bgcolor: notionTokens.canvas, px: 2, py: 1.4 }}>
-            <Typography>AI 批量生成 12 个 RPG 药水图标，透明背景</Typography>
+            <Typography>批量生成：月蚀铃、苍火鳞、星盐瓶……统一透明背景与 Pixel Grid 输出</Typography>
           </Box>
           <Chip label="批量生成" sx={{ bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, borderRadius: 1 }} />
         </Box>
@@ -181,7 +159,7 @@ function ProductionBrief() {
 
 function PixelBatchBoard({ user, balance, activeJobs, completedJobs, failedJobs, batchCount = 0 }: AppHeroProps) {
   return (
-    <Card sx={{ bgcolor: notionTokens.surfaceSoft, borderRadius: 2.5, boxShadow: notionTokens.mockupShadow }}>
+    <Card sx={{ bgcolor: notionTokens.surfaceSoft, borderRadius: 2.5, boxShadow: notionTokens.mockupShadow, overflow: 'visible' }}>
       <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
         <Stack spacing={2}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
@@ -192,8 +170,8 @@ function PixelBatchBoard({ user, balance, activeJobs, completedJobs, failedJobs,
             <Chip label={user?.role ?? 'demo'} sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800, borderRadius: 1 }} />
           </Stack>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 1.2 }}>
-            {pixelTiles.map((tile) => <PixelTile key={tile.name} tile={tile} />)}
+          <Box sx={{ position: 'relative', overflow: 'visible', display: 'grid', gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 1.2 }}>
+            {showcaseItems.map((tile) => <PixelTile key={tile.name} tile={tile} />)}
           </Box>
 
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
@@ -226,10 +204,10 @@ function ScaleBench() {
       <Stack spacing={1.1}>
         <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
           <Box>
-            <Typography variant="caption" color="text.secondary">尺寸校准台</Typography>
-            <Typography sx={{ fontWeight: 700, lineHeight: 1.15 }}>32 / 16 / 8 同屏验收</Typography>
+            <Typography variant="caption" color="text.secondary">多图验收台</Typography>
+            <Typography sx={{ fontWeight: 700, lineHeight: 1.15 }}>源图 / Grid / 预览同屏</Typography>
           </Box>
-          <Chip size="small" label="8× AI" sx={{ bgcolor: notionTokens.tintYellowBold, color: notionTokens.ink, borderRadius: 1 }} />
+          <Chip size="small" label="hover" sx={{ bgcolor: notionTokens.tintYellowBold, color: notionTokens.ink, borderRadius: 1 }} />
         </Stack>
 
         <Stack spacing={.85}>
@@ -251,24 +229,102 @@ function ScaleBench() {
 }
 
 function ScaleCell({ size }: { size: typeof scaleSamples[number]['sizes'][number] }) {
-  const px = Number(size.label)
-  const displaySize = size.label === '32' ? 42 : size.label === '16' ? 34 : 28
   return (
     <Box sx={{ minWidth: 0, display: 'grid', placeItems: 'center', gap: .35, bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, py: .7, px: .5 }}>
-      <Box component="img" src={size.src} alt={`${size.label}×${size.label} 像素版本`} width={px} height={px} loading="eager" decoding="async" sx={{ width: displaySize, height: displaySize, objectFit: 'contain', imageRendering: 'pixelated' }} />
-      <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>{size.label}×</Typography>
+      <Box component="img" src={size.src} alt={`${size.label} 版本`} width={48} height={48} loading="eager" decoding="async" sx={{ width: 42, height: 42, objectFit: 'contain', imageRendering: 'pixelated' }} />
+      <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>{size.label}</Typography>
     </Box>
   )
 }
 
-function PixelTile({ tile }: { tile: typeof pixelTiles[number] }) {
+function PixelTile({ tile }: { tile: typeof showcaseItems[number] }) {
   return (
-    <Box sx={{ bgcolor: tile.tint, borderRadius: 1.4, border: `1px solid ${notionTokens.hairline}`, p: 1, minWidth: 0 }}>
+    <Box
+      tabIndex={0}
+      sx={{
+        position: 'relative',
+        bgcolor: tile.tint,
+        borderRadius: 1.4,
+        border: `1px solid ${notionTokens.hairline}`,
+        p: 1,
+        minWidth: 0,
+        outline: 'none',
+        isolation: 'isolate',
+        transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+        '&:hover, &:focus-visible, &:focus-within': {
+          transform: 'translateY(-4px) scale(1.035)',
+          boxShadow: notionTokens.liftShadow,
+          borderColor: notionTokens.hairlineStrong,
+          zIndex: 8,
+        },
+        '&:hover .pixel-tile-detail, &:focus-visible .pixel-tile-detail, &:focus-within .pixel-tile-detail': {
+          opacity: 1,
+          transform: { xs: 'translate(-50%, 8px) scale(1)', sm: 'translate(-50%, 10px) scale(1)' },
+          pointerEvents: 'auto',
+        },
+      }}
+    >
       <Box sx={{ display: 'grid', placeItems: 'center', minHeight: 72, backgroundColor: notionTokens.canvas, backgroundImage: `linear-gradient(45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(-45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%), linear-gradient(-45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%)`, backgroundSize: '16px 16px', backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0', borderRadius: 1 }}>
         <Box component="img" src={tile.src} alt={`${tile.name} 64×64 像素素材`} width={64} height={64} loading="eager" decoding="async" sx={{ width: 64, height: 64, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </Box>
-      <Typography variant="caption" sx={{ display: 'block', mt: .8, fontWeight: 600 }} noWrap>{tile.name}</Typography>
-      <Typography variant="caption" color="text.secondary">{tile.status}</Typography>
+      <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: .75, mt: .8 }}>
+        <Typography variant="caption" sx={{ display: 'block', fontWeight: 700 }} noWrap>{tile.name}</Typography>
+        <Chip size="small" label={tile.status} sx={{ height: 20, borderRadius: .8, bgcolor: notionTokens.canvas, color: notionTokens.ink, '& .MuiChip-label': { px: .8, fontSize: 11 } }} />
+      </Stack>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>中文 prompt</Typography>
+      <PixelTileDetail tile={tile} />
+    </Box>
+  )
+}
+
+function PixelTileDetail({ tile }: { tile: typeof showcaseItems[number] }) {
+  return (
+    <Box
+      className="pixel-tile-detail"
+      aria-hidden="true"
+      sx={{
+        position: 'absolute',
+        left: '50%',
+        top: '100%',
+        width: { xs: 250, sm: 286 },
+        p: 1.25,
+        borderRadius: 1.6,
+        border: `1px solid ${notionTokens.hairlineStrong}`,
+        bgcolor: notionTokens.canvas,
+        color: notionTokens.ink,
+        boxShadow: notionTokens.mockupShadow,
+        opacity: 0,
+        transform: { xs: 'translate(-50%, -4px) scale(.96)', sm: 'translate(-50%, -2px) scale(.96)' },
+        transformOrigin: '50% 0',
+        pointerEvents: 'none',
+        transition: 'opacity 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+        zIndex: 20,
+      }}
+    >
+      <Stack spacing={1.05}>
+        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 800, lineHeight: 1.1 }} noWrap>{tile.name}</Typography>
+            <Typography variant="caption" color="text.secondary">asset / 16×16 / 透明 PNG</Typography>
+          </Box>
+          <Box component="img" src={tile.src} alt="" width={40} height={40} loading="eager" decoding="async" sx={{ width: 40, height: 40, imageRendering: 'pixelated', objectFit: 'contain' }} />
+        </Stack>
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: .75 }}>
+          {tile.variants.map((variant) => (
+            <Box key={variant.label} sx={{ minWidth: 0, bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .65, display: 'grid', placeItems: 'center', gap: .35 }}>
+              <Box component="img" src={variant.src} alt={`${tile.name} ${variant.label}`} width={48} height={48} loading="eager" decoding="async" sx={{ width: 48, height: 48, objectFit: 'contain', imageRendering: 'pixelated' }} />
+              <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>{variant.label}</Typography>
+            </Box>
+          ))}
+        </Box>
+
+        <Box sx={{ bgcolor: tile.tint, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .9 }}>
+          <Typography variant="caption" sx={{ display: 'block', fontWeight: 800, mb: .35 }}>中文 Prompt</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.45 }}>{tile.prompt}</Typography>
+        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.45 }}>{tile.brief}</Typography>
+      </Stack>
     </Box>
   )
 }
