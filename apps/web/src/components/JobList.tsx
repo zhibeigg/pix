@@ -1,5 +1,6 @@
 import { Box, Button, Card, CardContent, Chip, Divider, Stack, Typography } from '@mui/material'
 import { jobStatusLabel, jobTypeLabel } from '../labels'
+import { jobInputSummary } from '../pixelize'
 import { notionTokens } from '../theme'
 import type { ContactSheetCandidate, GenerationJob, JobOutput } from '../types'
 
@@ -78,7 +79,7 @@ function JobCard({ job, onCandidatePixelize }: { job: GenerationJob; onCandidate
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', gap: 1.5 }}>
             <Box sx={{ minWidth: 0 }}>
               <Typography sx={{ fontWeight: 600 }}>#{job.id} · {jobTypeLabel(job.job_type)}</Typography>
-              <Typography color="text.secondary" variant="body2">{job.prompt || job.input_image_path || '无输入摘要'}</Typography>
+              <Typography color="text.secondary" variant="body2">{jobInputSummary(job)}</Typography>
             </Box>
             <Chip size="small" color={statusColors[job.status] ?? 'default'} label={jobStatusLabel(job.status)} sx={{ alignSelf: { xs: 'flex-start', sm: 'center' }, bgcolor: job.status === 'succeeded' ? notionTokens.tintMint : job.status === 'failed' ? notionTokens.tintRose : job.status === 'running' ? notionTokens.tintSky : notionTokens.tintYellow }} />
           </Stack>

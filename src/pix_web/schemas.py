@@ -11,7 +11,7 @@ from pydantic import BaseModel, EmailStr, Field, computed_field
 
 from pix_web.storage import file_url
 
-JobType = Literal["text_to_image", "image_to_image", "local_pixelize", "repixelize", "sprite_sheet"]
+JobType = Literal["asset", "text_to_image", "image_to_image", "local_pixelize", "repixelize", "sprite_sheet"]
 
 
 def _load_meta_json(path: str | None) -> dict[str, Any]:
@@ -158,6 +158,7 @@ class PixelizeParamsSchema(BaseModel):
     auto_crop: bool = False
     crop_padding: float = Field(default=0.12, ge=0.0, le=1.0)
     crop_square: bool = True
+    palette_mode: Literal["auto", "ramp", "kmeans"] = "auto"
 
 
 class GridDesignSchema(BaseModel):
@@ -176,6 +177,13 @@ class SpriteParamsSchema(BaseModel):
     key_despill: bool | None = None
 
 
+class AssetParamsSchema(BaseModel):
+    name: str = Field(default="", max_length=160)
+    extra_prompt: str = Field(default="", max_length=1000)
+    use_vl: bool | None = None
+    no_preview: bool = False
+
+
 class JobCreateRequest(BaseModel):
     job_type: JobType
     prompt: str | None = None
@@ -189,6 +197,7 @@ class JobCreateRequest(BaseModel):
     pixelize: PixelizeParamsSchema = Field(default_factory=PixelizeParamsSchema)
     grid: GridDesignSchema = Field(default_factory=GridDesignSchema)
     sprite: SpriteParamsSchema = Field(default_factory=SpriteParamsSchema)
+    asset: AssetParamsSchema = Field(default_factory=AssetParamsSchema)
 
 
 class JobBatchCreateRequest(BaseModel):

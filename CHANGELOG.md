@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-05-15
+
+### Added
+
+- Web 工作台新增 `asset` 游戏素材直出任务类型：单张/批量入口可按素材名称复用 `pix asset` 的白底单图模板、Pixel Grid extract、透明 PNG、预览和 meta 输出。
+- Web API 新增 `asset` 任务参数、默认计费规则和 `palette_mode` 参数回传；worker 运行 asset 任务时会复制配置并临时关闭候选包装/远程 prompt 归一化，避免污染后续任务。
+
 ## [1.2.0] - 2026-05-14
 
 ### Added

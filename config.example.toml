@@ -97,7 +97,7 @@ crop_square    = true
 palette_mode   = "auto"
 
 [asset]
-# 游戏素材直出命令 pix asset 的默认值
+# 游戏素材直出命令 pix asset 的默认值；Web 工作台 asset 任务也复用这些默认值。
 output_dir     = "图片"
 # 仅支持 ≥16x16，所有尺寸统一走 extract Pixel Grid
 pixel_size     = [16, 16]

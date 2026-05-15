@@ -1,5 +1,6 @@
 export function jobTypeLabel(type: string) {
   const labels: Record<string, string> = {
+    asset: '素材直出',
     text_to_image: '文字生成',
     image_to_image: '参考图微调',
     sprite_sheet: '动画精灵表',

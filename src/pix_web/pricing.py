@@ -9,6 +9,7 @@ from pix_web.models import PricingRule
 
 
 DEFAULT_PRICES: dict[str, int] = {
+    "asset": 20,
     "text_to_image": 20,
     "image_to_image": 20,
     "sprite_sheet": 30,

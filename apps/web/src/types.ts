@@ -48,7 +48,7 @@ export type CreditTransaction = {
   created_at: string
 }
 
-export type JobType = 'text_to_image' | 'image_to_image' | 'local_pixelize' | 'repixelize' | 'sprite_sheet'
+export type JobType = 'asset' | 'text_to_image' | 'image_to_image' | 'local_pixelize' | 'repixelize' | 'sprite_sheet'
 
 export type PixelizeParams = {
   output_size: [number, number]
@@ -67,6 +67,7 @@ export type PixelizeParams = {
   auto_crop: boolean
   crop_padding: number
   crop_square: boolean
+  palette_mode: 'auto' | 'ramp' | 'kmeans' | string
 }
 
 export type GridDesignParams = {
@@ -83,6 +84,13 @@ export type SpriteParams = {
   key_softness?: number | null
   key_alpha_floor?: number | null
   key_despill?: boolean | null
+}
+
+export type AssetParams = {
+  name: string
+  extra_prompt?: string
+  use_vl?: boolean | null
+  no_preview?: boolean
 }
 
 export type SpriteFrameOutput = {
@@ -109,6 +117,7 @@ export type JobCreateRequest = {
   pixelize: PixelizeParams
   grid?: GridDesignParams
   sprite?: SpriteParams
+  asset?: AssetParams
 }
 
 export type GridReadabilityIssue = {

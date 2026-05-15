@@ -16,8 +16,8 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.2.0-6f42c1.svg">
-  <img alt="tests" src="https://img.shields.io/badge/tests-382%20passed-2ea44f.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.3.0-6f42c1.svg">
+  <img alt="tests" src="https://img.shields.io/badge/tests-385%20passed-2ea44f.svg">
 </p>
 
 ---
@@ -85,11 +85,12 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
 - **Web 工作台**
   - FastAPI + React + Vite。
   - 支持注册登录、管理员初始化、点数账户、任务队列、素材包、批量生成、ZIP 导出。
+  - 单张/批量入口可直接调用 `pix asset` 同款游戏素材直出策略，按素材名称生成透明 PNG 与 Pixel Grid。
   - 管理后台可配置模型/API、价格、充值套餐、运营保护和素材默认值。
 
 - **可测试、可部署**
   - Python CLI、GUI、Web API、worker 共用同一套核心流水线。
-  - 当前全量测试：`382 passed`。
+  - 当前全量测试：`385 passed`。
   - 支持 Docker Compose 生产预览部署。
 
 ---
@@ -321,8 +322,9 @@ Pix Web 是一个可运营的素材生产工作台：
 - 首次启动管理员初始化
 - 邮箱验证码注册登录
 - 点数账户与任务扣费/退款
-- 单图生成、图生图、本地像素化
-- 批量 prompt / 批量图片任务
+- 游戏素材直出：输入素材名称，复用 `pix asset` 白底单图模板、Pixel Grid 提取和透明 PNG 输出
+- 单图生成、图生图、本地像素化、动画精灵表
+- 批量素材直出、批量 prompt / 批量图片任务
 - 素材包管理、失败重试、ZIP 下载
 - 管理后台：模型/API、价格、充值套餐、运营保护、邮件配置
 - 支付模型：mock pay、支付宝电脑网站支付、微信 Native 扫码支付
@@ -629,7 +631,7 @@ palette_mode = "ramp"
 | `B` | 功能更新 | 新增功能 |
 | `C` | 修复 | Bug 修复、兼容性修复、清理 |
 
-当前版本：`1.2.0`
+当前版本：`1.3.0`
 
 ---
 
