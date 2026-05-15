@@ -86,7 +86,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                   </CardMedia>
                   <CardContent sx={{ display: 'grid', gap: .95, p: 1.6, '&:last-child': { pb: 1.6 } }}>
                     <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}>
-                      <Typography sx={{ fontWeight: 800 }} noWrap>#{job.id} · {jobTypeLabel(job.job_type)}</Typography>
+                      <Typography sx={{ fontWeight: 600 }} noWrap>#{job.id} · {jobTypeLabel(job.job_type)}</Typography>
                       <Chip size="small" color={statusColors[job.status] ?? 'default'} label={jobStatusLabel(job.status)} />
                     </Stack>
                     <Typography color="text.secondary" variant="body2" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{jobInputSummary(job)}</Typography>
@@ -126,7 +126,7 @@ function CandidateMiniGrid({ job, output, onCopyPath, onCandidatePixelize }: { j
     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.65 }}>
       {output.candidates.slice(0, 9).map((candidate) => (
         <Box key={candidate.path} sx={{ minWidth: 0 }} title={candidate.reason ?? undefined}>
-          <Box component="img" src={candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined} alt={`候选 ${candidate.index}`} loading="lazy" decoding="async" sx={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: 1, borderColor: candidate.selected ? 'success.main' : 'divider', borderRadius: .8, p: 0.45 }} />
+          <Box component="img" src={candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined} alt={`候选 ${candidate.index}`} loading="lazy" decoding="async" sx={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: 1, borderColor: candidate.selected ? 'success.main' : 'divider', borderRadius: .75, p: 0.45 }} />
           <Stack direction="row" spacing={0.45} sx={{ mt: 0.45, flexWrap: 'wrap' }}>
             <Chip size="small" color={candidate.selected ? 'success' : 'default'} variant="outlined" label={candidate.rank ? `#${candidate.rank}` : `候选${candidate.index}`} />
             {candidate.score != null && <Chip size="small" variant="outlined" label={`${Math.round(candidate.score)}分`} />}
@@ -159,7 +159,7 @@ function EmptyGalleryState() {
       sx={{
         mt: 2.5,
         border: `1px dashed ${notionTokens.hairlineStrong}`,
-        borderRadius: 1.4,
+        borderRadius: 1.5,
         p: { xs: 2.5, md: 3.5 },
         bgcolor: notionTokens.surface,
         display: 'grid',
@@ -179,7 +179,7 @@ function EmptyGalleryState() {
           imageRendering: 'pixelated',
         }}
       >
-        <Box sx={{ position: 'absolute', inset: '20px 10px 10px 18px', bgcolor: notionTokens.canvas, border: `2px solid ${notionTokens.inkDeep}`, borderRadius: .8 }} />
+        <Box sx={{ position: 'absolute', inset: '20px 10px 10px 18px', bgcolor: notionTokens.canvas, border: `2px solid ${notionTokens.inkDeep}`, borderRadius: .75 }} />
         <Box sx={{ position: 'absolute', left: 30, top: 8, width: 28, height: 18, bgcolor: notionTokens.tintSky, border: `2px solid ${notionTokens.inkDeep}` }} />
         <Box sx={{ position: 'absolute', right: 16, top: 18, width: 18, height: 18, bgcolor: notionTokens.tintRose, border: `2px solid ${notionTokens.inkDeep}` }} />
         <Box sx={{ position: 'absolute', left: 43, bottom: 24, width: 18, height: 18, bgcolor: notionTokens.primary }} />
@@ -187,7 +187,7 @@ function EmptyGalleryState() {
         <Box sx={{ position: 'absolute', right: 4, bottom: 14, width: 8, height: 8, bgcolor: notionTokens.tintMint }} />
       </Box>
       <Box>
-        <Typography variant="h6" sx={{ fontWeight: 850 }}>作品库还空着</Typography>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>作品库还空着</Typography>
         <Typography color="text.secondary" sx={{ mt: .5 }}>先从生产工作台生成单图，或直接批量生产一组素材。完成后可在这里挑选、复制路径和进入微调。</Typography>
       </Box>
       <Button href="#/workspace" variant="contained" sx={{ justifySelf: { xs: 'start', sm: 'end' } }}>去生产</Button>

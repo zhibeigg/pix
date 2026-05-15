@@ -224,20 +224,20 @@ export function createPixTheme(mode: PixThemeMode) {
       info: { main: material.linkBlue, contrastText: material.onDark },
       divider: material.hairline,
     },
-    shape: { borderRadius: 10 },
+    shape: { borderRadius: 12 },
     typography: {
       fontFamily: uiFont,
-      h1: { fontFamily: displayFont, fontWeight: 700, letterSpacing: '-0.045em', lineHeight: 1.02 },
-      h2: { fontFamily: displayFont, fontWeight: 700, letterSpacing: '-0.035em', lineHeight: 1.06 },
-      h3: { fontFamily: displayFont, fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.12 },
-      h4: { fontWeight: 760, letterSpacing: '-0.018em', lineHeight: 1.18 },
-      h5: { fontWeight: 740, lineHeight: 1.25 },
-      h6: { fontWeight: 720, lineHeight: 1.32 },
-      body1: { lineHeight: 1.62 },
-      body2: { lineHeight: 1.5 },
-      button: { fontWeight: 760, textTransform: 'none', letterSpacing: 0 },
-      overline: { fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' },
-      caption: { lineHeight: 1.4 },
+      h1: { fontFamily: displayFont, fontWeight: 600, letterSpacing: '-0.04em', lineHeight: 1.05 },
+      h2: { fontFamily: displayFont, fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1.10 },
+      h3: { fontFamily: displayFont, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.15 },
+      h4: { fontWeight: 600, letterSpacing: '-0.014em', lineHeight: 1.20 },
+      h5: { fontWeight: 600, lineHeight: 1.25 },
+      h6: { fontWeight: 600, lineHeight: 1.30 },
+      body1: { lineHeight: 1.55 },
+      body2: { lineHeight: 1.50 },
+      button: { fontWeight: 500, textTransform: 'none', letterSpacing: 0 },
+      overline: { fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase' },
+      caption: { lineHeight: 1.40 },
     },
     components: {
       MuiCssBaseline: {
@@ -268,7 +268,7 @@ export function createPixTheme(mode: PixThemeMode) {
           root: {
             backgroundImage: 'none',
             border: `1px solid ${notionTokens.hairline}`,
-            borderRadius: 10,
+            borderRadius: 12,
             boxShadow: notionTokens.cardShadow,
           },
         },
@@ -278,9 +278,9 @@ export function createPixTheme(mode: PixThemeMode) {
         styleOverrides: {
           root: {
             minHeight: 40,
-            borderRadius: 7,
+            borderRadius: 8,
             padding: '10px 18px',
-            fontWeight: 760,
+            fontWeight: 500,
             boxShadow: 'none',
             '&.MuiButton-containedPrimary': {
               backgroundColor: notionTokens.primary,
@@ -329,24 +329,24 @@ export function createPixTheme(mode: PixThemeMode) {
           root: {
             minHeight: 44,
             textTransform: 'none',
-            fontWeight: 760,
+            fontWeight: 500,
           },
         },
       },
       MuiChip: {
         styleOverrides: {
-          root: { fontWeight: 760, borderRadius: 7 },
+          root: { fontWeight: 600, borderRadius: 8 },
         },
       },
       MuiAlert: {
         styleOverrides: {
-          root: { borderRadius: 10, border: `1px solid ${notionTokens.hairline}` },
+          root: { borderRadius: 12, border: `1px solid ${notionTokens.hairline}` },
         },
       },
       MuiAccordion: {
         styleOverrides: {
           root: {
-            borderRadius: 10,
+            borderRadius: 12,
             border: `1px solid ${notionTokens.hairline}`,
             boxShadow: 'none',
             '&:before': { display: 'none' },

@@ -123,7 +123,7 @@ export function ThemeModeMenu({ preference, resolvedMode, systemMode, onChange }
                 <Icon fontSize="small" />
               </Box>
               <Stack spacing={.15}>
-                <Typography variant="body2" sx={{ fontWeight: 800, lineHeight: 1.25 }}>{option.title}</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.25 }}>{option.title}</Typography>
                 <Typography variant="caption" sx={{ color: active ? notionTokens.onDarkMuted : notionTokens.slate }}>{option.description}</Typography>
               </Stack>
             </MenuItem>

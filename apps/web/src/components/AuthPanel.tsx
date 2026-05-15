@@ -79,10 +79,10 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
       >
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr auto' }, gap: 2, alignItems: 'center' }}>
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ color: notionTokens.onDark, fontWeight: 900, fontSize: 20 }} noWrap>{user.display_name || user.email}</Typography>
+            <Typography sx={{ color: notionTokens.onDark, fontWeight: 600, fontSize: 20 }} noWrap>{user.display_name || user.email}</Typography>
             <Typography sx={{ color: notionTokens.onDarkMuted, mt: .5 }} noWrap>{user.email}</Typography>
           </Box>
-          <Box sx={{ justifySelf: { xs: 'start', sm: 'end' }, px: 1.4, py: .8, borderRadius: '9px', bgcolor: user.role === 'admin' ? 'oklch(28% .07 295)' : 'oklch(24% .05 250)', color: notionTokens.onDark, fontWeight: 900 }}>
+          <Box sx={{ justifySelf: { xs: 'start', sm: 'end' }, px: 1.4, py: .8, borderRadius: '8px', bgcolor: user.role === 'admin' ? 'oklch(28% .07 295)' : 'oklch(24% .05 250)', color: notionTokens.onDark, fontWeight: 600 }}>
             {user.role === 'admin' ? '管理员' : '创作者'}
           </Box>
         </Box>
@@ -139,7 +139,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
         {codeMessage && <AuthInlineAlert severity="info">{codeMessage}</AuthInlineAlert>}
         {codeError && <AuthInlineAlert severity="error">{codeError}</AuthInlineAlert>}
         <TextField label="密码" type="password" value={password} autoComplete={isRegister ? 'new-password' : 'current-password'} onChange={(event) => setPassword(event.target.value)} required sx={authTextFieldSx} />
-        <Button type="submit" variant="contained" color="primary" disabled={loading} sx={{ minHeight: 48, bgcolor: 'oklch(71% .17 296)', color: 'oklch(12% .028 263)', fontWeight: 900, '&:hover': { bgcolor: 'oklch(76% .16 296)' } }}>
+        <Button type="submit" variant="contained" color="primary" disabled={loading} sx={{ minHeight: 48, bgcolor: 'oklch(71% .17 296)', color: 'oklch(12% .028 263)', fontWeight: 600, '&:hover': { bgcolor: 'oklch(76% .16 296)' } }}>
           {loading ? '处理中…' : isRegister ? '验证并注册' : '进入工作台'}
         </Button>
       </Stack>
