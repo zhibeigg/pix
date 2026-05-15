@@ -38,6 +38,24 @@ const checkerboardSx = {
   backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0',
 }
 
+const itemSpriteSlots = Array.from({ length: 8 }, (_, index) => ({
+  index,
+  col: index % 4,
+  row: Math.floor(index / 4),
+}))
+
+const categoryPromptNotes: Record<string, string> = {
+  东方: '东方幻想、历史器物、水墨纹样与玉石/朱砂/青铜材质。',
+  西幻: 'RPG 冒险装备、魔法器物、纹章、皮革、金属与卷轴材质。',
+  科幻: '未来装备、能源核心、终端芯片、机械零件与清晰发光状态。',
+  恐怖: '诡异遗物、仪式物件、破损材质与高识别度阴影轮廓。',
+  现代: '当代生活道具、职业线索、街区物件与可读 UI 状态。',
+  历史: '时代器物、地图、武器、徽章与旧纸/木材/金属质感。',
+  混搭: '跨题材组合物、鲜明符号、夸张轮廓与易拆分素材。',
+  跨文化: '地域纹样、民俗器物、自然色板与尊重题材来源的装饰。',
+  主题: '玩法导向道具、活动物件、清晰图标语义与统一色板。',
+}
+
 type LandingSectionsProps = {
   authSlot: ReactNode
 }
@@ -122,7 +140,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
         </Box>
       </SectionFrame>
 
-      <SectionFrame id="examples" eyebrow="范例图库" title="76 套题材范例，像首屏一样悬浮验收" description="默认用紧凑素材格展示题材边界；悬浮或键盘聚焦后展开物品精灵表、16:9 UI 展示图、Prompt 和文件名。">
+      <SectionFrame id="examples" eyebrow="范例图库" title="76 套题材范例，像首屏一样悬浮验收" description="默认用紧凑素材格展示题材边界；悬浮或键盘聚焦后拆开 8 个物品格，并展开 16:9 UI 展示图、中文 Prompt 和文件名。">
         <ExampleAtlas />
       </SectionFrame>
 
@@ -157,7 +175,7 @@ function ExampleAtlas() {
               <Box>
                 <Typography variant="h3" sx={{ color: notionTokens.onDark, maxWidth: 570 }}>题材不是列表，是可验收的样本墙</Typography>
                 <Typography sx={{ mt: 1.4, maxWidth: 620, color: notionTokens.onDarkMuted, lineHeight: 1.68 }}>
-                  每套范例包含一张透明物品精灵表和一张 1920×1080 UI 展示图。默认像首屏素材格一样轻量浏览，需要细节时再展开验收信息。
+                  每套范例包含一张透明物品精灵表和一张 1920×1080 UI 展示图。默认像首屏素材格一样轻量浏览，需要细节时把物品拆成 8 个独立格逐个验收。
                 </Typography>
               </Box>
             </Stack>
@@ -227,8 +245,8 @@ function ExampleTile({ example }: { example: HomepageExample }) {
         },
       }}
     >
-      <Box sx={{ ...checkerboardSx, display: 'grid', placeItems: 'center', minHeight: { xs: 106, sm: 116 }, borderRadius: 1, p: .8 }}>
-        <Box component="img" src={example.itemSrc} alt={`${example.theme} 透明物品精灵表`} loading="lazy" decoding="async" width={512} height={256} sx={{ width: '100%', maxHeight: 104, objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
+      <Box sx={{ ...checkerboardSx, display: 'grid', placeItems: 'center', minHeight: { xs: 106, sm: 116 }, borderRadius: 1, p: .75 }}>
+        <ItemSpriteGrid example={example} density="compact" />
       </Box>
       <Stack direction="row" spacing={.7} sx={{ alignItems: 'center', justifyContent: 'space-between', mt: .85 }}>
         <Typography variant="caption" sx={{ fontWeight: 850 }} noWrap>{example.theme}</Typography>
@@ -276,18 +294,26 @@ function ExampleDetail({ example, tint }: { example: HomepageExample; tint: stri
           <Chip size="small" label="Pix 范例" sx={{ bgcolor: tint, borderRadius: .8 }} />
         </Stack>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '.82fr 1.18fr' }, gap: .75, alignItems: 'start' }}>
-          <Box sx={{ ...checkerboardSx, display: 'grid', placeItems: 'center', border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .75, height: { xs: 118, sm: 142 } }}>
-            <Box component="img" src={example.itemSrc} alt={`${example.theme} 透明物品精灵表`} loading="lazy" decoding="async" width={512} height={256} sx={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
-          </Box>
-          <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, overflow: 'hidden', height: { xs: 142, sm: 142 } }}>
-            <Box component="img" src={example.uiSrc} alt={`${example.theme} 像素 UI 展示图`} loading="lazy" decoding="async" width={1920} height={1080} sx={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
-          </Box>
+        <Box sx={{ ...checkerboardSx, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .75 }}>
+          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: .65 }}>
+            <Typography variant="caption" sx={{ fontWeight: 850 }}>拆分物品格</Typography>
+            <Chip size="small" label="4×2" sx={{ height: 20, bgcolor: notionTokens.canvas, borderRadius: .8, '& .MuiChip-label': { px: .7, fontSize: 11 } }} />
+          </Stack>
+          <ItemSpriteGrid example={example} density="detail" />
+        </Box>
+
+        <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, overflow: 'hidden' }}>
+          <Box component="img" src={example.uiSrc} alt={`${example.theme} 像素 UI 展示图`} loading="lazy" decoding="async" width={1920} height={1080} sx={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
         </Box>
 
         <Box sx={{ bgcolor: tint, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .85 }}>
           <Typography variant="caption" sx={{ display: 'block', fontWeight: 850, mb: .35 }}>物品 Prompt</Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.45 }}>{example.itemPrompt}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.5 }}>{buildChineseItemPrompt(example)}</Typography>
+        </Box>
+
+        <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .85 }}>
+          <Typography variant="caption" sx={{ display: 'block', fontWeight: 850, mb: .35 }}>UI Prompt</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.5 }}>{buildChineseUiPrompt(example)}</Typography>
         </Box>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: .75 }}>
@@ -297,6 +323,64 @@ function ExampleDetail({ example, tint }: { example: HomepageExample; tint: stri
       </Stack>
     </Box>
   )
+}
+
+function ItemSpriteGrid({ example, density }: { example: HomepageExample; density: 'compact' | 'detail' }) {
+  const isDetail = density === 'detail'
+  const cellGap = isDetail ? .55 : .35
+
+  return (
+    <Box
+      role="list"
+      aria-label={`${example.theme} 拆分物品格`}
+      sx={{
+        width: '100%',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+        gap: cellGap,
+      }}
+    >
+      {itemSpriteSlots.map((slot) => (
+        <Box
+          key={slot.index}
+          role="listitem"
+          title={`${example.theme} 物品 ${slot.index + 1}`}
+          sx={{
+            aspectRatio: '1 / 1',
+            minWidth: 0,
+            borderRadius: isDetail ? .8 : .55,
+            border: `1px solid ${notionTokens.hairline}`,
+            bgcolor: notionTokens.canvas,
+            overflow: 'hidden',
+          }}
+        >
+          <Box
+            role="img"
+            aria-label={`${example.theme} 第 ${slot.index + 1} 个物品`}
+            sx={{
+              width: '100%',
+              height: '100%',
+              backgroundImage: `url(${example.itemSrc})`,
+              backgroundRepeat: 'no-repeat',
+              backgroundSize: '400% 200%',
+              backgroundPosition: `${(slot.col / 3) * 100}% ${slot.row * 100}%`,
+              imageRendering: 'pixelated',
+            }}
+          />
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
+function buildChineseItemPrompt(example: HomepageExample) {
+  const note = categoryPromptNotes[example.category] ?? '统一题材符号、清晰道具轮廓与可读游戏图标语义。'
+  return `像素风「${example.theme}」物品素材表，拆成 4×2 共 8 个独立道具格；每个物品居中构图、透明背景、硬边像素、有限调色板、无抗锯齿，适合作为背包图标或掉落物素材；每格至少 64×64，在 32×32 和 64×64 下都能读清主体。题材方向：${note}`
+}
+
+function buildChineseUiPrompt(example: HomepageExample) {
+  const note = categoryPromptNotes[example.category] ?? '题材符号明确，面板层级清楚，图标和按钮可读。'
+  return `像素风「${example.theme}」16:9 UI 展示图，包含主题面板、边框、按钮、图标、状态区和游戏界面示例；整体为 16-bit RPG / 独立游戏可用风格，像素边缘清晰、信息层级明确、按钮和图标可读，适合作为原型界面视觉方向。题材方向：${note}`
 }
 
 function FilePill({ label, value }: { label: string; value: string }) {

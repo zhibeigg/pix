@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-05-15
+
+### Changed
+
+- 主页 76 套题材范例的详情弹层改为逐格展示 4×2 物品素材，不再只展示整张物品精灵表。
+- 主页范例详情中的物品 Prompt 与 UI Prompt 改为中文说明，便于中文游戏素材生产者直接理解题材与交付规格。
+
 ## [1.7.1] - 2026-05-15
 
 ### Fixed

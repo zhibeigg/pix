@@ -133,7 +133,7 @@ The system uses a Notion-Sans typeface (Inter-based) across every UI surface —
 ### Grid & Container
 - 1280px max-width with 32px gutters
 - Pricing: 4-tier card row at desktop with dense comparison table
-- Homepage: left-weighted dark forge hero with an interactive asset board; quieter workshop sections; 76 game-genre sample packs use the same progressive hover/focus disclosure pattern as the first-screen asset tiles
+- Homepage: left-weighted dark forge hero with an interactive asset board; quieter workshop sections; 76 game-genre sample packs use the same progressive hover/focus disclosure pattern as the first-screen asset tiles, with item sheets split into individual 4×2 item cells in the detail layer
 
 ### Whitespace Philosophy
 Marketing surfaces use generous breathing room between feature card bands. Workspace mockup card on hero gets full-width treatment with deep drop shadow.
@@ -150,7 +150,7 @@ Marketing surfaces use generous breathing room between feature card bands. Works
 
 ### Decorative Depth
 - Hero workspace mockup card uses deep diffuse drop shadow (Level 3) — significant elevation against the navy band
-- Homepage example atlas uses a dark workshop proof card followed by compact asset tiles; hover/focus reveals item sheet, UI showcase, prompt and filenames without forcing every sample into a large card.
+- Homepage example atlas uses a dark workshop proof card followed by compact asset tiles; hover/focus reveals individually split item cells, UI showcase, Chinese prompts and filenames without forcing every sample into a large card.
 - Tint surfaces are deliberately desaturated and used as quiet grouping fields rather than broad decorative color blocks.
 - Pixel dust, grid lines and small forge marks add atmosphere to the navy hero without competing with generated work previews
 
