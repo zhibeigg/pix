@@ -139,6 +139,7 @@ function BatchCard({ batch, selected, retrying, downloading, onSelectBatch, onRe
 
 function modeLabel(mode: string) {
   const labels: Record<string, string> = {
+    asset: '素材直出',
     text_to_image: '文字生成',
     image_to_image: '参考图微调',
     local_pixelize: '本地像素化',

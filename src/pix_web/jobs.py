@@ -17,8 +17,26 @@ from pix_web.pricing import PricingDisabledError, get_price
 from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema, SpriteParamsSchema
 from pix_web.system_settings import enforce_generation_limits, enforce_prompt_policy
 
-AI_JOB_TYPES = {"text_to_image", "image_to_image", "sprite_sheet"}
+AI_JOB_TYPES = {"asset", "text_to_image", "image_to_image", "sprite_sheet"}
 IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "repixelize"}
+
+
+def _asset_name(req: JobCreateRequest) -> str:
+    return (req.asset.name or req.prompt or "").strip()
+
+
+def _job_prompt_for_record(req: JobCreateRequest) -> str | None:
+    if req.job_type == "asset":
+        return _asset_name(req) or None
+    return (req.prompt or "").strip() or None
+
+
+def _prompt_policy_text(req: JobCreateRequest) -> str | None:
+    if req.job_type == "asset":
+        parts = [req.asset.name, req.asset.extra_prompt, req.prompt or ""]
+        text = "\n".join(part.strip() for part in parts if part and part.strip())
+        return text or None
+    return req.prompt
 
 
 def validate_job_request(req: JobCreateRequest) -> None:
@@ -27,6 +45,8 @@ def validate_job_request(req: JobCreateRequest) -> None:
         resolve_asset_generation_policy(tuple(req.pixelize.output_size))
     except AssetSizePolicyError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    if req.job_type == "asset" and not _asset_name(req):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="素材直出任务需要素材名称")
     if req.job_type == "text_to_image" and not prompt:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="文生图任务需要 prompt")
     if req.job_type == "image_to_image" and not prompt:
@@ -49,9 +69,12 @@ def params_json_from_request(req: JobCreateRequest) -> dict:
         "image_model": req.image_model,
         "vl_model": req.vl_model,
         "skip_vl": req.skip_vl,
+        "request_fields": sorted(req.model_fields_set),
         "pixelize": req.pixelize.model_dump(mode="json"),
+        "pixelize_fields": sorted(req.pixelize.model_fields_set),
         "grid": req.grid.model_dump(mode="json"),
         "sprite": req.sprite.model_dump(mode="json"),
+        "asset": req.asset.model_dump(mode="json"),
     }
 
 
@@ -96,7 +119,7 @@ def create_job_in_transaction(
         client_request_id=client_request_id or uuid4().hex,
         job_type=req.job_type,
         status="pending",
-        prompt=(req.prompt or "").strip() or None,
+        prompt=_job_prompt_for_record(req),
         input_image_path=req.input_image_path,
         params_json=params_json_from_request(req),
         price_credits=price,
@@ -111,7 +134,7 @@ def create_job_in_transaction(
 def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
     request_id = req.client_request_id.strip()
     if _existing_job(db, user, request_id) is None:
-        enforce_prompt_policy(db, req.prompt)
+        enforce_prompt_policy(db, _prompt_policy_text(req))
         enforce_generation_limits(db, user, new_jobs=1)
     try:
         job = create_job_in_transaction(db, user, req)
@@ -157,7 +180,7 @@ def create_jobs_batch(
             existing_by_index[index] = existing
             prices.append(0)
             continue
-        enforce_prompt_policy(db, req.prompt)
+        enforce_prompt_policy(db, _prompt_policy_text(req))
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price
@@ -215,6 +238,7 @@ def _request_from_failed_job(job: GenerationJob) -> JobCreateRequest:
         pixelize=PixelizeParamsSchema.model_validate(params.get("pixelize") or {}),
         grid=params.get("grid") or {},
         sprite=SpriteParamsSchema.model_validate(params.get("sprite") or {}),
+        asset=params.get("asset") or {},
     )
 
 
@@ -236,7 +260,7 @@ def retry_failed_jobs_in_batch(db: Session, user: User, batch_id: int) -> tuple[
     prices: list[int] = []
     for req in reqs:
         validate_job_request(req)
-        enforce_prompt_policy(db, req.prompt)
+        enforce_prompt_policy(db, _prompt_policy_text(req))
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Box, Button, Card, CardActions, CardContent, CardMedia, Chip, Pagination, Stack, Typography } from '@mui/material'
 import type { ContactSheetCandidate, GenerationJob, JobOutput } from '../types'
 import { jobStatusLabel, jobTypeLabel } from '../labels'
-import { summarizePrompt } from '../pixelize'
+import { jobInputSummary } from '../pixelize'
 import { notionTokens } from '../theme'
 
 type GalleryGridProps = {
@@ -68,7 +68,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                 >
                   <CardMedia component="div" sx={{ height: 132, display: 'grid', placeItems: 'center', bgcolor: notionTokens.tintSky, imageRendering: 'pixelated' }}>
                     {previewUrl ? (
-                      <Box component="img" src={previewUrl} alt={summarizePrompt(job.prompt || job.input_image_path, '作品预览')} loading="lazy" decoding="async" sx={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated', p: 1.5 }} />
+                      <Box component="img" src={previewUrl} alt={jobInputSummary(job, '作品预览')} loading="lazy" decoding="async" sx={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated', p: 1.5 }} />
                     ) : (
                       <Chip variant="outlined" color="primary" label={job.status === 'succeeded' ? 'PIX' : jobStatusLabel(job.status)} />
                     )}
@@ -78,7 +78,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                       <Typography sx={{ fontWeight: 600 }}>#{job.id} · {jobTypeLabel(job.job_type)}</Typography>
                       <Chip size="small" color={statusColors[job.status] ?? 'default'} label={jobStatusLabel(job.status)} />
                     </Stack>
-                    <Typography color="text.secondary" variant="body2">{summarizePrompt(job.prompt || job.input_image_path)}</Typography>
+                    <Typography color="text.secondary" variant="body2">{jobInputSummary(job)}</Typography>
                     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                       <Chip size="small" variant="outlined" label={`${job.price_credits} 点`} />
                       <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />

@@ -1,4 +1,4 @@
-import type { GridDesignParams, PixelizeParams } from './types'
+import type { GenerationJob, GridDesignParams, PixelizeParams } from './types'
 
 export const defaultPixelize: PixelizeParams = {
   output_size: [128, 128],
@@ -17,6 +17,23 @@ export const defaultPixelize: PixelizeParams = {
   auto_crop: false,
   crop_padding: 0.12,
   crop_square: true,
+  palette_mode: 'auto',
+}
+
+export const defaultAssetPixelize: PixelizeParams = {
+  ...defaultPixelize,
+  output_size: [16, 16],
+  colors: 12,
+  dither: 'none',
+  preview_scale: 12,
+  remove_bg: true,
+  bg_tolerance: 26,
+  bg_feather: 0,
+  edge_style: 'hard',
+  auto_crop: true,
+  crop_padding: 0.12,
+  crop_square: true,
+  palette_mode: 'auto',
 }
 
 export function parsePixelSize(value: string): [number, number] {
@@ -34,6 +51,10 @@ export function buildPixelize(overrides: Partial<PixelizeParams> = {}): Pixelize
   return next
 }
 
+export function buildAssetPixelize(overrides: Partial<PixelizeParams> = {}): PixelizeParams {
+  return { ...defaultAssetPixelize, ...overrides }
+}
+
 export function hasInvalidSubAssetSize(size: [number, number]): boolean {
   return size[0] < 16 || size[1] < 16
 }
@@ -46,4 +67,13 @@ export function summarizePrompt(value: string | null | undefined, fallback = '�
   const text = (value ?? '').trim()
   if (!text) return fallback
   return text.length > 92 ? `${text.slice(0, 92)}…` : text
+}
+
+export function jobInputSummary(job: GenerationJob, fallback = '无输入摘要'): string {
+  const asset = job.params_json?.asset
+  if (job.job_type === 'asset' && asset && typeof asset === 'object') {
+    const name = (asset as { name?: unknown }).name
+    if (typeof name === 'string' && name.trim()) return summarizePrompt(name, fallback)
+  }
+  return summarizePrompt(job.prompt || job.input_image_path, fallback)
 }

@@ -15,10 +15,12 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+from pix.config import AppConfig
 from pix_web.config import WebSettings
 from pix_web.main import create_app
 from pix_web.models import GenerationBatch
 from pix_web.payment_providers import _alipay_sign_content, _rsa_sign
+from pix_web.pipeline_adapter import asset_pipeline_input_from_job, run_job_pipeline
 from pix_web.worker import process_next_job
 from pix_web.system_settings import managed_pix_overrides_from_db
 
@@ -557,6 +559,56 @@ def test_create_job_rejects_sub16_asset_sizes(client: TestClient) -> None:
         assert "16x16" in response.json()["detail"]
 
 
+def test_create_asset_job_reserves_credits_and_stores_asset_params(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})
+
+    response = client.post(
+        "/jobs",
+        headers=headers,
+        json={
+            "job_type": "asset",
+            "prompt": "血气灵玉",
+            "client_request_id": "asset-click",
+            "pixelize": {"output_size": [16, 16], "colors": 12, "palette_mode": "auto"},
+            "grid": {"mode": "extract"},
+            "asset": {"name": "血气灵玉", "extra_prompt": "红色晶体，深色描边"},
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["job_type"] == "asset"
+    assert body["prompt"] == "血气灵玉"
+    assert body["price_credits"] == 20
+    assert body["reserved_credits"] == 20
+    assert body["params_json"]["asset"]["name"] == "血气灵玉"
+    assert body["params_json"]["asset"]["extra_prompt"] == "红色晶体，深色描边"
+    assert body["params_json"]["pixelize"]["palette_mode"] == "auto"
+    assert "palette_mode" in body["params_json"]["pixelize_fields"]
+
+    balance = client.get("/credits/balance", headers=headers).json()
+    assert balance["available_credits"] == 30
+    assert balance["reserved_credits"] == 20
+
+
+def test_create_asset_job_rejects_sub16_sizes(client: TestClient) -> None:
+    _user, headers = _register_and_login(client)
+
+    response = client.post(
+        "/jobs",
+        headers=headers,
+        json={
+            "job_type": "asset",
+            "asset": {"name": "小蘑菇"},
+            "pixelize": {"output_size": [8, 8], "colors": 8},
+        },
+    )
+
+    assert response.status_code == 422
+    assert "16x16" in response.json()["detail"]
+
+
 def test_create_job_enqueues_pending_job(client: TestClient, monkeypatch) -> None:
     user, headers = _register_and_login(client)
     client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 20})
@@ -959,6 +1011,78 @@ def test_retry_failed_batch_rejects_other_users(client: TestClient, monkeypatch)
     _other, other_headers = _register_and_login(client, "retry-other@example.com")
     retry = client.post(f"/batches/{created['batch_id']}/retry-failed", headers=other_headers)
     assert retry.status_code == 404
+
+
+def test_asset_pipeline_adapter_uses_asset_defaults_and_keeps_config_isolated(tmp_path, monkeypatch) -> None:
+    cfg = AppConfig()
+    cfg.asset.pixel_size = (16, 16)
+    cfg.asset.colors = 12
+    cfg.asset.preview_scale = 12
+    cfg.asset.image_quality = "low"
+    cfg.asset.skip_vl = True
+    cfg.asset.remove_bg = True
+    cfg.asset.bg_tolerance = 26
+    cfg.asset.auto_crop = True
+    cfg.asset.palette_mode = "auto"
+    cfg.asset.grid_mode = True
+    cfg.image_gen.contact_sheet_enabled = True
+    cfg.image_gen.prompt_guard_remote = True
+    settings = WebSettings(storage_root=tmp_path / "storage")
+    job = SimpleNamespace(
+        id=42,
+        job_type="asset",
+        prompt="紫檀木",
+        params_json={
+            "asset": {"name": "紫檀木", "extra_prompt": "warm wood grain"},
+            "request_fields": ["asset"],
+            "pixelize_fields": [],
+        },
+    )
+
+    inputs = asset_pipeline_input_from_job(job, settings, cfg)
+
+    assert "紫檀木" in inputs.prompt
+    assert "warm wood grain" in inputs.prompt
+    assert inputs.pixelize_params.output_size == (16, 16)
+    assert inputs.pixelize_params.colors == 12
+    assert inputs.pixelize_params.preview_scale == 12
+    assert inputs.pixelize_params.remove_bg is True
+    assert inputs.pixelize_params.bg_tolerance == 26
+    assert inputs.pixelize_params.auto_crop is True
+    assert inputs.pixelize_params.palette_mode == "auto"
+    assert inputs.grid.mode == "extract"
+    assert inputs.image_quality == "low"
+    assert inputs.skip_vl is True
+
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    meta_path = run_dir / "meta.json"
+    meta_path.write_text(json.dumps({"outputs": {}}, ensure_ascii=False), encoding="utf-8")
+    captured = {}
+
+    def fake_run(run_cfg, run_inputs):
+        captured["cfg"] = run_cfg
+        captured["inputs"] = run_inputs
+        return SimpleNamespace(
+            run_dir=run_dir,
+            source_path=run_dir / "01_source.png",
+            pixel_path=run_dir / "03_pixelized.png",
+            preview_path=None,
+            analysis_path=None,
+            meta_path=meta_path,
+            meta={"outputs": {}},
+        )
+
+    monkeypatch.setattr("pix_web.pipeline_adapter.run_pipeline", fake_run)
+    result = run_job_pipeline(job, settings, cfg=cfg)
+
+    assert result.meta["asset"]["name"] == "紫檀木"
+    assert result.meta["asset"]["palette_mode"] == "auto"
+    assert captured["cfg"].image_gen.contact_sheet_enabled is False
+    assert captured["cfg"].image_gen.prompt_guard_remote is False
+    assert cfg.image_gen.contact_sheet_enabled is True
+    assert cfg.image_gen.prompt_guard_remote is True
+    assert json.loads(meta_path.read_text(encoding="utf-8"))["asset"]["name"] == "紫檀木"
 
 
 def test_worker_success_consumes_reserved_credits(client: TestClient, tmp_path, monkeypatch) -> None:

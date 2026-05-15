@@ -1,9 +1,9 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import { api } from '../api'
 import { notionTokens } from '../theme'
 import type { JobCreateRequest, JobType, PricingRule } from '../types'
-import { buildGridDesign, buildPixelize, hasInvalidSubAssetSize, parsePixelSize } from '../pixelize'
+import { buildAssetPixelize, buildGridDesign, buildPixelize, hasInvalidSubAssetSize, parsePixelSize } from '../pixelize'
 
 type SingleGeneratePanelProps = {
   pricing: PricingRule[]
@@ -13,14 +13,16 @@ type SingleGeneratePanelProps = {
 }
 
 export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: SingleGeneratePanelProps) {
-  const [jobType, setJobType] = useState<JobType>('text_to_image')
+  const [jobType, setJobType] = useState<JobType>('asset')
+  const [assetName, setAssetName] = useState('血气灵玉')
+  const [assetExtraPrompt, setAssetExtraPrompt] = useState('红色晶体、深色描边、适合 RPG 背包图标')
   const [prompt, setPrompt] = useState('一枚幻想 RPG 魔法药水图标，居中构图，轮廓清晰，透明背景')
   const [inputImagePath, setInputImagePath] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
   const [uploadUrl, setUploadUrl] = useState('')
-  const [pixelSize, setPixelSize] = useState('128x128')
-  const [colors, setColors] = useState(16)
+  const [pixelSize, setPixelSize] = useState('16x16')
+  const [colors, setColors] = useState(12)
   const [removeBg, setRemoveBg] = useState(true)
   const [skipVl, setSkipVl] = useState(false)
   const [durationMs, setDurationMs] = useState(120)
@@ -28,9 +30,27 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
   const price = useMemo(() => pricing.find((item) => item.key === jobType)?.price_credits ?? 0, [pricing, jobType])
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
+  const isAsset = jobType === 'asset'
   const isSprite = jobType === 'sprite_sheet'
   const needsPrompt = jobType === 'text_to_image' || jobType === 'image_to_image' || isSprite
-  const needsImage = jobType !== 'text_to_image' && !isSprite
+  const needsImage = jobType !== 'asset' && jobType !== 'text_to_image' && !isSprite
+  const submitBlocked = invalidSubAssetSize || (isAsset && !assetName.trim()) || (needsPrompt && !prompt.trim()) || (needsImage && !inputImagePath.trim())
+
+  useEffect(() => {
+    if (jobType === 'asset') {
+      setPixelSize('16x16')
+      setColors(12)
+      setRemoveBg(true)
+    } else if (jobType === 'sprite_sheet') {
+      setPixelSize('64x64')
+      setColors(16)
+      setRemoveBg(false)
+    } else {
+      setPixelSize('128x128')
+      setColors(16)
+      setRemoveBg(true)
+    }
+  }, [jobType])
 
   async function uploadFile(file: File | undefined) {
     if (!file) return
@@ -50,6 +70,18 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
 
   async function submit(event: FormEvent) {
     event.preventDefault()
+    if (isAsset) {
+      await onSubmit({
+        job_type: 'asset',
+        prompt: assetName.trim(),
+        input_image_path: null,
+        client_request_id: crypto.randomUUID(),
+        pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg }),
+        grid: buildGridDesign(),
+        asset: { name: assetName.trim(), extra_prompt: assetExtraPrompt.trim(), no_preview: false },
+      })
+      return
+    }
     await onSubmit({
       job_type: jobType,
       prompt: needsPrompt ? prompt : null,
@@ -77,11 +109,23 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
 
           <Stack component="form" spacing={2.5} onSubmit={submit}>
             <TextField select label="模式" value={jobType} onChange={(event) => setJobType(event.target.value as JobType)}>
+              <MenuItem value="asset">游戏素材直出</MenuItem>
               <MenuItem value="text_to_image">文生图</MenuItem>
               <MenuItem value="image_to_image">图生图 / AI 微调</MenuItem>
               <MenuItem value="sprite_sheet">九宫格动画精灵表</MenuItem>
               <MenuItem value="local_pixelize">本地像素化</MenuItem>
             </TextField>
+
+            {isAsset && (
+              <Card variant="outlined" sx={{ bgcolor: notionTokens.tintCream }}>
+                <CardContent>
+                  <Stack spacing={2}>
+                    <TextField label="素材名称" helperText="会注入 pix asset 的游戏物品 Prompt 模板。" value={assetName} onChange={(event) => setAssetName(event.target.value)} />
+                    <TextField label="额外风格描述" helperText="可写材质、色彩或用途；留空则使用默认素材模板。" value={assetExtraPrompt} multiline minRows={3} onChange={(event) => setAssetExtraPrompt(event.target.value)} />
+                  </Stack>
+                </CardContent>
+              </Card>
+            )}
 
             {needsPrompt && (
               <TextField label="素材描述" helperText="写清主体、材质和用途。" value={prompt} multiline minRows={5} onChange={(event) => setPrompt(event.target.value)} />
@@ -112,10 +156,11 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
             </Box>
             <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
               <FormControlLabel control={<Checkbox checked={removeBg} disabled={isSprite} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
-              <FormControlLabel control={<Checkbox checked={skipVl} disabled={isSprite} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过参考图理解" />
+              <FormControlLabel control={<Checkbox checked={skipVl} disabled={isSprite || isAsset} onChange={(event) => setSkipVl(event.target.checked)} />} label={isAsset ? '素材直出默认 VL 策略' : '跳过参考图理解'} />
             </Stack>
             {invalidSubAssetSize && <Alert severity="error">素材最低支持 16×16。</Alert>}
-            <Button type="submit" variant="contained" disabled={loading || invalidSubAssetSize}>{loading ? '提交中…' : isSprite ? '生成动画精灵表' : '生成单张素材'}</Button>
+            {isAsset && <Alert severity="info">素材直出会按 CLI `pix asset` 策略使用白底单图模板、Pixel Grid 提取和透明 PNG 输出。</Alert>}
+            <Button type="submit" variant="contained" disabled={loading || submitBlocked}>{loading ? '提交中…' : isSprite ? '生成动画精灵表' : isAsset ? '生成游戏素材' : '生成单张素材'}</Button>
           </Stack>
         </Stack>
       </CardContent>

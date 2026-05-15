@@ -1,11 +1,11 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import { api } from '../api'
 import { notionTokens } from '../theme'
 import type { CreditBalance, JobCreateRequest, PricingRule, UploadResponse } from '../types'
-import { buildGridDesign, buildPixelize, hasInvalidSubAssetSize, parsePixelSize } from '../pixelize'
+import { buildAssetPixelize, buildGridDesign, buildPixelize, hasInvalidSubAssetSize, parsePixelSize } from '../pixelize'
 
-type BatchMode = 'text_to_image' | 'image_to_image' | 'local_pixelize'
+type BatchMode = 'asset' | 'text_to_image' | 'image_to_image' | 'local_pixelize'
 
 type BatchUpload = {
   id: string
@@ -24,26 +24,40 @@ type BatchGeneratePanelProps = {
 }
 
 export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitMany }: BatchGeneratePanelProps) {
-  const [batchMode, setBatchMode] = useState<BatchMode>('text_to_image')
+  const [batchMode, setBatchMode] = useState<BatchMode>('asset')
   const [batchName, setBatchName] = useState('RPG 材料包')
   const [prompts, setPrompts] = useState('血气灵玉\n紫髓铁\n幽香腐骨菇\n玉石原石\n紫檀木')
+  const [assetExtraPrompt, setAssetExtraPrompt] = useState('统一为清晰的经典 RPG 背包物品图标，深色描边，居中构图')
   const [sharedPrompt, setSharedPrompt] = useState('保留主体，统一改造成清晰的像素游戏图标风格')
   const [uploads, setUploads] = useState<BatchUpload[]>([])
   const [uploading, setUploading] = useState(false)
-  const [pixelSize, setPixelSize] = useState('64x64')
-  const [colors, setColors] = useState(16)
+  const [pixelSize, setPixelSize] = useState('16x16')
+  const [colors, setColors] = useState(12)
   const [removeBg, setRemoveBg] = useState(true)
   const [skipVl, setSkipVl] = useState(false)
 
   const lines = useMemo(() => prompts.split('\n').map((line) => line.trim()).filter(Boolean), [prompts])
   const uploaded = uploads.filter((item) => item.status === 'uploaded' && item.upload)
   const unitPrice = pricing.find((item) => item.key === batchMode)?.price_credits ?? 0
-  const taskCount = batchMode === 'text_to_image' ? lines.length : uploaded.length
+  const taskCount = batchMode === 'text_to_image' || batchMode === 'asset' ? lines.length : uploaded.length
   const totalPrice = taskCount * unitPrice
   const availableCredits = balance?.available_credits ?? null
   const insufficientCredits = availableCredits !== null && totalPrice > availableCredits
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
+  const isAsset = batchMode === 'asset'
+
+  useEffect(() => {
+    if (batchMode === 'asset') {
+      setPixelSize('16x16')
+      setColors(12)
+      setRemoveBg(true)
+    } else {
+      setPixelSize('64x64')
+      setColors(16)
+      setRemoveBg(true)
+    }
+  }, [batchMode])
 
   async function uploadFiles(files: FileList | null) {
     if (!files || files.length === 0) return
@@ -67,10 +81,22 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    const pixelize = buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg })
+    const pixelize = isAsset
+      ? buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg })
+      : buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg })
     const grid = buildGridDesign()
     let payloads: JobCreateRequest[] = []
-    if (batchMode === 'text_to_image') {
+    if (batchMode === 'asset') {
+      payloads = lines.map((name) => ({
+        job_type: 'asset',
+        prompt: name,
+        input_image_path: null,
+        client_request_id: crypto.randomUUID(),
+        pixelize,
+        grid,
+        asset: { name, extra_prompt: assetExtraPrompt.trim(), no_preview: false },
+      }))
+    } else if (batchMode === 'text_to_image') {
       payloads = lines.map((prompt) => ({
         job_type: 'text_to_image',
         prompt,
@@ -122,13 +148,19 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
             <BatchCostSummary taskCount={taskCount} unitPrice={unitPrice} totalPrice={totalPrice} availableCredits={availableCredits} insufficientCredits={insufficientCredits} />
             <TextField label="素材包名称" value={batchName} placeholder="例如：RPG 材料包" onChange={(event) => setBatchName(event.target.value)} />
             <TextField select label="批量类型" value={batchMode} onChange={(event) => setBatchMode(event.target.value as BatchMode)}>
+              <MenuItem value="asset">批量游戏素材直出</MenuItem>
               <MenuItem value="text_to_image">批量文生图</MenuItem>
               <MenuItem value="image_to_image">批量图生图</MenuItem>
               <MenuItem value="local_pixelize">批量本地像素化</MenuItem>
             </TextField>
 
-            {batchMode === 'text_to_image' ? (
-              <TextField label="素材描述（每行一个）" helperText="一行一个素材名。" value={prompts} multiline minRows={8} onChange={(event) => setPrompts(event.target.value)} />
+            {batchMode === 'asset' || batchMode === 'text_to_image' ? (
+              <Stack spacing={2}>
+                {isAsset && (
+                  <TextField label="统一额外风格描述" helperText="会追加到每个素材名称生成的 pix asset Prompt 后。" value={assetExtraPrompt} multiline minRows={3} onChange={(event) => setAssetExtraPrompt(event.target.value)} />
+                )}
+                <TextField label={isAsset ? '素材名称（每行一个）' : '素材描述（每行一个）'} helperText={isAsset ? '每行一个物品名，例如：血气灵玉。' : '一行一个素材名。'} value={prompts} multiline minRows={8} onChange={(event) => setPrompts(event.target.value)} />
+              </Stack>
             ) : (
               <Card variant="outlined" sx={{ bgcolor: notionTokens.tintSky }}>
                 <CardContent>
@@ -152,9 +184,10 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
             </Box>
             <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
               <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
-              <FormControlLabel control={<Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize'} onChange={(event) => setSkipVl(event.target.checked)} />} label="跳过参考图理解" />
+              <FormControlLabel control={<Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize' || isAsset} onChange={(event) => setSkipVl(event.target.checked)} />} label={isAsset ? '素材直出默认 VL 策略' : '跳过参考图理解'} />
             </Stack>
             {invalidSubAssetSize && <Alert severity="error">素材最低支持 16×16。</Alert>}
+            {isAsset && <Alert severity="info">素材直出默认使用 `pix asset` 的白底单图模板、Pixel Grid 提取和透明 PNG 输出。</Alert>}
             {insufficientCredits && <Button variant="outlined" href="#/billing">点数不足，前往点数中心</Button>}
             <Button type="submit" variant="contained" color="primary" disabled={loading || uploading || taskCount === 0 || insufficientCredits || invalidSubAssetSize}>{loading ? '提交中…' : `入队 ${taskCount} 个素材任务`}</Button>
           </Stack>
