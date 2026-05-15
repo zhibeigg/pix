@@ -1,0 +1,16 @@
+{
+  "slug": "vineheart-core",
+  "name": "青藤心核",
+  "prompt": "青藤心核，绿色圆形生命核心，被藤蔓缠绕，德鲁伊材料，透明背景，清晰像素块",
+  "brief": "圆核心与藤蔓分叉展示生命系属性。",
+  "run_dir": "outputs\\homepage-pipeline\\20260515-181528-974d49aa",
+  "source": "outputs\\homepage-pipeline\\20260515-181528-974d49aa\\01_source.png",
+  "pixelized": "outputs\\homepage-pipeline\\20260515-181528-974d49aa\\03_pixelized.png",
+  "preview": "outputs\\homepage-pipeline\\20260515-181528-974d49aa\\04_pixelized_preview.png",
+  "grid_json": "outputs\\homepage-pipeline\\20260515-181528-974d49aa\\03_pixelized.grid.json",
+  "analysis": "outputs\\homepage-pipeline\\20260515-181528-974d49aa\\02_analysis.json",
+  "pipeline_meta": "outputs\\homepage-pipeline\\20260515-181528-974d49aa\\meta.json",
+  "image_gen_mode": "n_sample_generated",
+  "vision_ok": true,
+  "grid_mode": "extract"
+}

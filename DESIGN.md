@@ -6,7 +6,7 @@
 
 Web 工作台的 `asset` 任务类型必须与 CLI `pix asset` 保持同一条直出策略：前端按素材名称提交 `asset.name` / `asset.extra_prompt`，后端 worker 用 `[asset].prompt_template` 构造完整 prompt，并在任务级配置副本上关闭候选包装与远程 prompt 归一化。默认参数对齐 16×16、12 色、`dither="none"`、透明背景、自动裁剪、`palette_mode="auto"` 与 `grid.mode="extract"`；API 请求线程只创建任务和冻结点数，真实 Pix 流水线始终由 worker 执行。
 
-主页展示区优先使用中文 prompt 证明工具面向中文游戏素材生产，而不是通用英文 prompt 相册。物品格的悬浮详情应采用渐进式披露：默认只展示图标、名称和状态，hover/focus 时展开源图、Grid、预览三图与中文 prompt；动效仅使用 transform/opacity，并依赖全局 `prefers-reduced-motion` 降级。
+主页展示区优先使用中文 prompt 证明工具面向中文游戏素材生产，而不是通用英文 prompt 相册。主页展示图禁止使用手工绘制或 asset 直出占位图，必须来自 Pix 全流程产物：prompt 生图、候选选择、VL 分析、Pixel Grid extract、像素化与预览输出。物品格的悬浮详情应采用渐进式披露：默认只展示图标、名称和状态，hover/focus 时展开源图、Grid、预览三图与中文 prompt；动效仅使用 transform/opacity，并依赖全局 `prefers-reduced-motion` 降级。
 
 ## Pix Animation Sprite Sheet Defaults
 
