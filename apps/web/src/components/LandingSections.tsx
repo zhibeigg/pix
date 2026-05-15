@@ -249,8 +249,10 @@ function ExampleDetail({ example, tint }: { example: HomepageExample; tint: stri
         position: 'absolute',
         left: '50%',
         top: '100%',
-        width: { xs: 286, sm: 380, md: 460 },
+        width: { xs: 286, sm: 392, md: 436 },
         maxWidth: 'calc(100vw - 28px)',
+        maxHeight: 'min(520px, calc(100vh - 120px))',
+        overflowY: 'auto',
         p: 1.15,
         borderRadius: 1.3,
         border: `1px solid ${notionTokens.hairlineStrong}`,
@@ -274,12 +276,12 @@ function ExampleDetail({ example, tint }: { example: HomepageExample; tint: stri
           <Chip size="small" label="Pix 范例" sx={{ bgcolor: tint, borderRadius: .8 }} />
         </Stack>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '.82fr 1.18fr' }, gap: .75 }}>
-          <Box sx={{ ...checkerboardSx, display: 'grid', placeItems: 'center', border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .75, minHeight: 112 }}>
-            <Box component="img" src={example.itemSrc} alt={`${example.theme} 透明物品精灵表`} loading="lazy" decoding="async" width={512} height={256} sx={{ width: '100%', maxHeight: 132, objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '.82fr 1.18fr' }, gap: .75, alignItems: 'start' }}>
+          <Box sx={{ ...checkerboardSx, display: 'grid', placeItems: 'center', border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .75, height: { xs: 118, sm: 142 } }}>
+            <Box component="img" src={example.itemSrc} alt={`${example.theme} 透明物品精灵表`} loading="lazy" decoding="async" width={512} height={256} sx={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
           </Box>
-          <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, overflow: 'hidden' }}>
-            <Box component="img" src={example.uiSrc} alt={`${example.theme} 像素 UI 展示图`} loading="lazy" decoding="async" width={1920} height={1080} sx={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', imageRendering: 'pixelated', display: 'block' }} />
+          <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, overflow: 'hidden', height: { xs: 142, sm: 142 } }}>
+            <Box component="img" src={example.uiSrc} alt={`${example.theme} 像素 UI 展示图`} loading="lazy" decoding="async" width={1920} height={1080} sx={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
           </Box>
         </Box>
 

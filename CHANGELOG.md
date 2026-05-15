@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-05-15
+
+### Fixed
+
+- 修复主页 76 套题材范例悬浮详情中 UI 预览拉伸过高、物品精灵表区域出现大片空白的问题。
+
 ## [1.7.0] - 2026-05-15
 
 ### Changed
