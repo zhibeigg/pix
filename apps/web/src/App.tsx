@@ -496,7 +496,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
   return (
     <Box component="main" data-pix-theme={themeMode}>
       <AppBar position="sticky" elevation={0} color="inherit" sx={{ bgcolor: notionTokens.canvas, borderBottom: 1, borderColor: 'divider', zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar sx={{ gap: 2, maxWidth: 1280, width: '100%', mx: 'auto', px: { xs: 2, md: 4 }, py: 1, minHeight: 72, alignItems: 'center', flexWrap: { xs: 'wrap', lg: 'nowrap' } }}>
+        <Toolbar sx={{ gap: 2, maxWidth: 1280, width: '100%', mx: 'auto', px: { xs: 2, md: 4 }, py: 0.5, minHeight: 64, alignItems: 'center', flexWrap: { xs: 'wrap', lg: 'nowrap' } }}>
           <Stack
             component="a"
             href="/"
@@ -509,7 +509,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
               alignItems: 'center',
               color: 'inherit',
               textDecoration: 'none',
-              borderRadius: 1.2,
+              borderRadius: 1.5,
               outlineOffset: 4,
               position: 'relative',
               transition: 'opacity .18s ease, transform .18s ease',
@@ -562,7 +562,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       </AppBar>
 
       {setupLoading ? (
-        <Box sx={{ minHeight: 'calc(100vh - 80px)', display: 'grid', placeItems: 'center', bgcolor: notionTokens.surfaceSoft }}>
+        <Box sx={{ minHeight: 'calc(100vh - 64px)', display: 'grid', placeItems: 'center', bgcolor: notionTokens.surfaceSoft }}>
           <Typography color="text.secondary">正在检查站点初始化状态…</Typography>
         </Box>
       ) : needsAdminSetup && setupStatus ? (
@@ -595,7 +595,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       ) : (
         <Box
           sx={{
-            height: { md: 'calc(100vh - 80px)' },
+            height: { md: 'calc(100vh - 64px)' },
             overflowY: { md: 'auto' },
             scrollSnapType: { md: 'y mandatory' },
             scrollBehavior: 'smooth',

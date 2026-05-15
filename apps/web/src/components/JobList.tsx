@@ -45,7 +45,7 @@ export function JobList({ jobs, onRefresh, onCandidatePixelize }: JobListProps) 
 
 function EmptyQueueState() {
   return (
-    <Box sx={{ border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.2, bgcolor: notionTokens.surface, p: 2.1 }}>
+    <Box sx={{ border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.5, bgcolor: notionTokens.surface, p: 2.1 }}>
       <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
         <Box
           aria-hidden="true"
@@ -62,7 +62,7 @@ function EmptyQueueState() {
           }}
         />
         <Box>
-          <Typography sx={{ fontWeight: 820 }}>炉火正安静</Typography>
+          <Typography sx={{ fontWeight: 600 }}>炉火正安静</Typography>
           <Typography variant="body2" color="text.secondary">暂无生产中任务，可以开一组新素材。</Typography>
         </Box>
       </Stack>
@@ -79,7 +79,7 @@ function JobCard({ job, onCandidatePixelize }: { job: GenerationJob; onCandidate
         <Stack spacing={1.35}>
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', gap: 1.5 }}>
             <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 820 }}>#{job.id} · {jobTypeLabel(job.job_type)}</Typography>
+              <Typography sx={{ fontWeight: 600 }}>#{job.id} · {jobTypeLabel(job.job_type)}</Typography>
               <Typography color="text.secondary" variant="body2">{jobInputSummary(job)}</Typography>
             </Box>
             <Chip size="small" color={statusColors[job.status] ?? 'default'} label={jobStatusLabel(job.status)} sx={{ alignSelf: { xs: 'flex-start', sm: 'center' }, bgcolor: job.status === 'succeeded' ? notionTokens.tintMint : job.status === 'failed' ? notionTokens.tintRose : job.status === 'running' ? notionTokens.tintSky : notionTokens.tintYellow }} />
@@ -92,7 +92,7 @@ function JobCard({ job, onCandidatePixelize }: { job: GenerationJob; onCandidate
           {output && <GridQualitySummary output={output} />}
           {output && <SpriteFrameStrip output={output} />}
           {output && <CandidateStrip job={job} output={output} onCandidatePixelize={onCandidatePixelize} />}
-          {job.error_message && <Box component="pre" sx={{ whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto', color: 'error.main', bgcolor: notionTokens.errorPanel, border: 1, borderColor: 'error.main', borderRadius: 1.2, p: 1.2, m: 0 }}>{job.error_message.slice(0, 600)}</Box>}
+          {job.error_message && <Box component="pre" sx={{ whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto', color: 'error.main', bgcolor: notionTokens.errorPanel, border: 1, borderColor: 'error.main', borderRadius: 1.5, p: 1.2, m: 0 }}>{job.error_message.slice(0, 600)}</Box>}
           {output && (
             <Stack spacing={0.75} divider={<Divider flexItem />}>
               <PathLine label="源图" value={output.source_path} />
@@ -119,7 +119,7 @@ function SpriteFrameStrip({ output }: { output: JobOutput }) {
         {output.sprite_gif_url && <Box component="img" src={output.sprite_gif_url} alt="动画 GIF" loading="lazy" decoding="async" sx={{ mt: 1, width: 92, height: 92, objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: 1, borderColor: 'divider', borderRadius: 1, p: 0.5 }} />}
         <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(48px, 1fr))', gap: 0.7 }}>
           {output.sprite_frames.map((frame) => (
-            <Box key={frame.path} component="img" src={frame.url ?? undefined} alt={`帧 ${frame.index}`} loading="lazy" decoding="async" sx={{ width: 44, height: 44, objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: 1, borderColor: 'divider', borderRadius: .8, p: 0.25 }} />
+            <Box key={frame.path} component="img" src={frame.url ?? undefined} alt={`帧 ${frame.index}`} loading="lazy" decoding="async" sx={{ width: 44, height: 44, objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: 1, borderColor: 'divider', borderRadius: .75, p: 0.25 }} />
           ))}
         </Box>
       </CardContent>
@@ -136,7 +136,7 @@ function CandidateStrip({ job, output, onCandidatePixelize }: { job: GenerationJ
         <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(76px, 1fr))', gap: .9 }}>
           {output.candidates.map((candidate) => (
             <Stack key={candidate.path} spacing={0.5} sx={{ alignItems: 'center' }} title={candidate.reason ?? undefined}>
-              <Box component="img" src={candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined} alt={`候选 ${candidate.index}`} loading="lazy" decoding="async" sx={{ width: 64, height: 64, objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: 1, borderColor: candidate.selected ? 'success.main' : 'divider', borderRadius: .8, p: 0.5 }} />
+              <Box component="img" src={candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined} alt={`候选 ${candidate.index}`} loading="lazy" decoding="async" sx={{ width: 64, height: 64, objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: 1, borderColor: candidate.selected ? 'success.main' : 'divider', borderRadius: .75, p: 0.5 }} />
               <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', justifyContent: 'center' }}>
                 <Chip size="small" color={candidate.selected ? 'success' : 'default'} variant="outlined" label={candidate.rank ? `#${candidate.rank}` : `候选${candidate.index}`} />
                 {candidate.score != null && <Chip size="small" variant="outlined" label={`${Math.round(candidate.score)}分`} />}

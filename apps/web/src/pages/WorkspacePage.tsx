@@ -39,14 +39,14 @@ export function WorkspacePage({ mode, pricing, balance, jobs, loading, token, on
               <Typography variant="h5">选择本次生产节奏</Typography>
               <Typography color="text.secondary">单图适合验证材质和轮廓；批量适合素材包、图标套装和原型补齐。</Typography>
             </Stack>
-            <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.2, p: .5, width: { xs: '100%', sm: 'fit-content' } }}>
+            <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .5, width: { xs: '100%', sm: 'fit-content' } }}>
               <Tabs
                 value={mode}
                 aria-label="创建模式"
                 onChange={(_, value: WorkMode) => onModeChange(value)}
                 variant="scrollable"
                 scrollButtons="auto"
-                sx={{ minHeight: 0, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTabs-flexContainer': { gap: .5 }, '& .MuiTab-root': { minHeight: 38, borderRadius: .9, px: 2.2 }, '& .Mui-selected': { bgcolor: notionTokens.brandNavyDeep, color: `${notionTokens.onDark} !important` } }}
+                sx={{ minHeight: 0, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTabs-flexContainer': { gap: .5 }, '& .MuiTab-root': { minHeight: 38, borderRadius: '8px', px: 2.2 }, '& .Mui-selected': { bgcolor: notionTokens.brandNavyDeep, color: `${notionTokens.onDark} !important` } }}
               >
                 <Tab value="single" label="单图试做" />
                 <Tab value="batch" label="批量生产" />
@@ -75,7 +75,7 @@ export function WorkspacePage({ mode, pricing, balance, jobs, loading, token, on
 
 function WorkbenchMetric({ label, value, tone }: { label: string; value: string | number; tone: string }) {
   return (
-    <Box sx={{ bgcolor: tone, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.1, p: 1.2, minWidth: 0 }}>
+    <Box sx={{ bgcolor: tone, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: 1.2, minWidth: 0 }}>
       <Typography variant="caption" color="text.secondary">{label}</Typography>
       <Typography variant="h5" sx={{ fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
     </Box>

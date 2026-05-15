@@ -87,7 +87,7 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
                 {orders.length === 0 ? <Typography color="text.secondary">暂无充值订单。</Typography> : orders.map((order) => (
                   <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', gap: 1 }} key={order.id}>
                     <Box>
-                      <Typography sx={{ fontWeight: 850 }}>订单 #{order.id}</Typography>
+                      <Typography sx={{ fontWeight: 600 }}>订单 #{order.id}</Typography>
                       <Typography color="text.secondary" variant="body2">{order.credits} 点 · ¥{(order.amount_cents / 100).toFixed(2)}</Typography>
                     </Box>
                     <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
@@ -107,7 +107,7 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
                 {transactions.length === 0 ? <Typography color="text.secondary">暂无流水。</Typography> : transactions.map((tx) => (
                   <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 2 }} key={tx.id}>
                     <Box>
-                      <Typography sx={{ fontWeight: 850 }}>{tx.type}</Typography>
+                      <Typography sx={{ fontWeight: 600 }}>{tx.type}</Typography>
                       <Typography color="text.secondary" variant="body2">{tx.note || '—'}</Typography>
                     </Box>
                     <Typography color={tx.amount >= 0 ? 'success.main' : 'error.main'} sx={{ fontWeight: 600 }}>{tx.amount > 0 ? `+${tx.amount}` : tx.amount}</Typography>

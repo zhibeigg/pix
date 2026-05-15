@@ -85,7 +85,7 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
         position: 'relative',
         overflow: 'visible',
         scrollSnapAlign: signedIn ? 'none' : 'start',
-        minHeight: signedIn ? 'auto' : { md: 'calc(100vh - 80px)' },
+        minHeight: signedIn ? 'auto' : { md: 'calc(100vh - 64px)' },
         display: 'flex',
         alignItems: 'center',
         bgcolor: notionTokens.brandNavyDeep,
@@ -161,7 +161,7 @@ export function DashboardSummary({ balance, activeJobs, completedJobs, failedJob
           </Box>
           <Box sx={{ flex: 1, display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(5, 1fr)' }, gap: 1 }}>
             {items.map((item) => (
-              <Box key={item.label} sx={{ bgcolor: item.tint, borderRadius: 1.2, border: `1px solid ${notionTokens.hairline}`, p: 1.35, minWidth: 0 }}>
+              <Box key={item.label} sx={{ bgcolor: item.tint, borderRadius: 1.5, border: `1px solid ${notionTokens.hairline}`, p: 1.35, minWidth: 0 }}>
                 <Typography variant="caption" color="text.secondary">{item.label}</Typography>
                 <Typography variant="h5" sx={{ fontVariantNumeric: 'tabular-nums' }}>{item.value}</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', xl: 'block' } }}>{item.action}</Typography>
@@ -180,7 +180,7 @@ function ProductionBrief() {
       <CardContent sx={{ p: { xs: 2, md: 2.35 } }}>
         <Typography variant="caption" sx={{ color: notionTokens.onDarkMuted, letterSpacing: '.08em', textTransform: 'uppercase' }}>一张任务单</Typography>
         <Box sx={{ mt: 1.4, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr auto' }, gap: 1.2, alignItems: 'center' }}>
-          <Box sx={{ border: '1px solid oklch(46% .036 258)', borderRadius: 1.1, bgcolor: 'oklch(16% .028 258)', px: 1.6, py: 1.25 }}>
+          <Box sx={{ border: '1px solid oklch(46% .036 258)', borderRadius: 1, bgcolor: 'oklch(16% .028 258)', px: 1.6, py: 1.25 }}>
             <Typography sx={{ color: notionTokens.onDark }}>月蚀铃、苍火鳞、星盐瓶……生图、VL 分析、像素化与 Grid 验收串成同一条流水线。</Typography>
           </Box>
           <Chip label="批量 / 可追溯" sx={{ bgcolor: notionTokens.tintYellow, color: notionTokens.ink, borderRadius: 1 }} />
@@ -217,10 +217,10 @@ function PixelBatchBoard({ user, balance, activeJobs, completedJobs, failedJobs,
           <ScaleBench />
           <SpritePreviewBench />
 
-          <Box sx={{ border: `1px solid ${notionTokens.hairline}`, bgcolor: notionTokens.canvas, borderRadius: 1.2, p: 1.35 }}>
+          <Box sx={{ border: `1px solid ${notionTokens.hairline}`, bgcolor: notionTokens.canvas, borderRadius: 1.5, p: 1.35 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' } }}>
               <Box>
-                <Typography sx={{ fontWeight: 760 }}>成功素材先导出</Typography>
+                <Typography sx={{ fontWeight: 600 }}>成功素材先导出</Typography>
                 <Typography variant="body2" color="text.secondary">失败项留在队列里单独重试。</Typography>
               </Box>
               <Chip label={activeJobs ? '生产中' : 'ZIP 就绪'} sx={{ bgcolor: activeJobs ? notionTokens.tintSky : notionTokens.tintMint, borderRadius: 1 }} />
@@ -234,21 +234,21 @@ function PixelBatchBoard({ user, balance, activeJobs, completedJobs, failedJobs,
 
 function ScaleBench() {
   return (
-    <Box sx={{ border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.3, bgcolor: notionTokens.canvas, p: 1.2 }}>
+    <Box sx={{ border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.5, bgcolor: notionTokens.canvas, p: 1.2 }}>
       <Stack spacing={1}>
         <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
           <Box>
             <Typography variant="caption" color="text.secondary">多图验收台</Typography>
-            <Typography sx={{ fontWeight: 760, lineHeight: 1.15 }}>源图 / Grid / 预览同屏</Typography>
+            <Typography sx={{ fontWeight: 600, lineHeight: 1.15 }}>源图 / Grid / 预览同屏</Typography>
           </Box>
           <Chip size="small" label="focus" sx={{ bgcolor: notionTokens.tintYellow, color: notionTokens.ink, borderRadius: 1 }} />
         </Stack>
 
         <Stack spacing={.75}>
           {scaleSamples.map((sample) => (
-            <Box key={sample.name} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(92px, .88fr) 1.45fr' }, gap: .9, alignItems: 'center', bgcolor: sample.tint, borderRadius: 1.1, border: `1px solid ${notionTokens.hairline}`, p: .85 }}>
+            <Box key={sample.name} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(92px, .88fr) 1.45fr' }, gap: .9, alignItems: 'center', bgcolor: sample.tint, borderRadius: 1, border: `1px solid ${notionTokens.hairline}`, p: .85 }}>
               <Box sx={{ minWidth: 0 }}>
-                <Typography variant="caption" sx={{ display: 'block', fontWeight: 800 }} noWrap>{sample.name}</Typography>
+                <Typography variant="caption" sx={{ display: 'block', fontWeight: 600 }} noWrap>{sample.name}</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.25 }}>{sample.note}</Typography>
               </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: .65 }}>
@@ -264,7 +264,7 @@ function ScaleBench() {
 
 function ScaleCell({ size }: { size: typeof scaleSamples[number]['sizes'][number] }) {
   return (
-    <Box sx={{ minWidth: 0, display: 'grid', placeItems: 'center', gap: .35, bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, py: .65, px: .45 }}>
+    <Box sx={{ minWidth: 0, display: 'grid', placeItems: 'center', gap: .35, bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, py: .65, px: .45 }}>
       <Box component="img" src={size.src} alt={`${size.label} 版本`} width={48} height={48} loading="eager" decoding="async" sx={{ width: 40, height: 40, objectFit: 'contain', imageRendering: 'pixelated' }} />
       <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>{size.label}</Typography>
     </Box>
@@ -278,7 +278,7 @@ function PixelTile({ tile }: { tile: ShowcaseItem }) {
       sx={{
         position: 'relative',
         bgcolor: tile.tint,
-        borderRadius: 1.15,
+        borderRadius: 1.5,
         border: `1px solid ${notionTokens.hairline}`,
         p: .9,
         minWidth: 0,
@@ -303,12 +303,12 @@ function PixelTile({ tile }: { tile: ShowcaseItem }) {
         },
       }}
     >
-      <Box sx={{ ...checkerboardSx, display: 'grid', placeItems: 'center', minHeight: 68, borderRadius: .9 }}>
+      <Box sx={{ ...checkerboardSx, display: 'grid', placeItems: 'center', minHeight: 68, borderRadius: 1 }}>
         <Box component="img" src={tile.src} alt={`${tile.name} 64×64 像素素材`} width={64} height={64} loading="eager" decoding="async" sx={{ width: 62, height: 62, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </Box>
       <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: .7, mt: .75 }}>
-        <Typography variant="caption" sx={{ display: 'block', fontWeight: 800 }} noWrap>{tile.name}</Typography>
-        <Chip size="small" label={tile.status} sx={{ height: 20, borderRadius: .8, bgcolor: notionTokens.canvas, color: notionTokens.ink, '& .MuiChip-label': { px: .7, fontSize: 11 } }} />
+        <Typography variant="caption" sx={{ display: 'block', fontWeight: 600 }} noWrap>{tile.name}</Typography>
+        <Chip size="small" label={tile.status} sx={{ height: 20, borderRadius: .75, bgcolor: notionTokens.canvas, color: notionTokens.ink, '& .MuiChip-label': { px: .7, fontSize: 11 } }} />
       </Stack>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>中文 prompt</Typography>
       <PixelTileDetail tile={tile} />
@@ -327,7 +327,7 @@ function PixelTileDetail({ tile }: { tile: ShowcaseItem }) {
         top: '100%',
         width: { xs: 252, sm: 292 },
         p: 1.2,
-        borderRadius: 1.25,
+        borderRadius: 1.5,
         border: `1px solid ${notionTokens.hairlineStrong}`,
         bgcolor: notionTokens.canvas,
         color: notionTokens.ink,
@@ -343,7 +343,7 @@ function PixelTileDetail({ tile }: { tile: ShowcaseItem }) {
       <Stack spacing={1}>
         <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 860, lineHeight: 1.1 }} noWrap>{tile.name}</Typography>
+            <Typography sx={{ fontWeight: 600, lineHeight: 1.1 }} noWrap>{tile.name}</Typography>
             <Typography variant="caption" color="text.secondary">Pix 全流程 / 16×16 / Grid</Typography>
           </Box>
           <Box component="img" src={tile.src} alt="" width={40} height={40} loading="eager" decoding="async" sx={{ width: 40, height: 40, imageRendering: 'pixelated', objectFit: 'contain' }} />
@@ -351,15 +351,15 @@ function PixelTileDetail({ tile }: { tile: ShowcaseItem }) {
 
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: .65 }}>
           {tile.variants.map((variant) => (
-            <Box key={variant.label} sx={{ minWidth: 0, bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .6, display: 'grid', placeItems: 'center', gap: .35 }}>
+            <Box key={variant.label} sx={{ minWidth: 0, bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .6, display: 'grid', placeItems: 'center', gap: .35 }}>
               <Box component="img" src={variant.src} alt={`${tile.name} ${variant.label}`} width={48} height={48} loading="lazy" decoding="async" sx={{ width: 46, height: 46, objectFit: 'contain', imageRendering: 'pixelated' }} />
               <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>{variant.label}</Typography>
             </Box>
           ))}
         </Box>
 
-        <Box sx={{ bgcolor: tile.tint, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .85 }}>
-          <Typography variant="caption" sx={{ display: 'block', fontWeight: 850, mb: .35 }}>中文 Prompt</Typography>
+        <Box sx={{ bgcolor: tile.tint, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .85 }}>
+          <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, mb: .35 }}>中文 Prompt</Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.45 }}>{tile.prompt}</Typography>
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.45 }}>{tile.brief}</Typography>
@@ -380,7 +380,7 @@ function SpritePreviewBench() {
         position: 'relative',
         overflow: 'visible',
         border: `1px solid ${notionTokens.hairlineStrong}`,
-        borderRadius: 1.3,
+        borderRadius: 1.5,
         bgcolor: notionTokens.tintLavender,
         p: 1.15,
         outline: 'none',
@@ -411,7 +411,7 @@ function SpritePreviewBench() {
       }}
     >
       <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center' }}>
-        <Box sx={{ display: 'grid', placeItems: 'center', width: displaySize + 16, height: displaySize + 16, borderRadius: 1.2, bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}` }}>
+        <Box sx={{ display: 'grid', placeItems: 'center', width: displaySize + 16, height: displaySize + 16, borderRadius: 1.5, bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}` }}>
           <Box
             className="sprite-frame-player"
             role="img"
@@ -430,9 +430,9 @@ function SpritePreviewBench() {
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
             <Typography variant="caption" color="text.secondary">序列帧预览</Typography>
-            <Chip size="small" label={spriteShowcase.status} sx={{ height: 20, borderRadius: .8, bgcolor: notionTokens.canvas, color: notionTokens.ink, '& .MuiChip-label': { px: .75, fontSize: 11 } }} />
+            <Chip size="small" label={spriteShowcase.status} sx={{ height: 20, borderRadius: .75, bgcolor: notionTokens.canvas, color: notionTokens.ink, '& .MuiChip-label': { px: .75, fontSize: 11 } }} />
           </Stack>
-          <Typography sx={{ fontWeight: 850, lineHeight: 1.2 }} noWrap>{spriteShowcase.name}</Typography>
+          <Typography sx={{ fontWeight: 600, lineHeight: 1.2 }} noWrap>{spriteShowcase.name}</Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.35 }}>悬浮播放 9 帧，展开查看横向精灵图。</Typography>
         </Box>
       </Stack>
@@ -452,7 +452,7 @@ function SpritePreviewDetail() {
         top: '100%',
         width: { xs: 286, sm: 360 },
         p: 1.2,
-        borderRadius: 1.25,
+        borderRadius: 1.5,
         border: `1px solid ${notionTokens.hairlineStrong}`,
         bgcolor: notionTokens.canvas,
         color: notionTokens.ink,
@@ -468,30 +468,30 @@ function SpritePreviewDetail() {
       <Stack spacing={1}>
         <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 860, lineHeight: 1.1 }} noWrap>{spriteShowcase.name}</Typography>
+            <Typography sx={{ fontWeight: 600, lineHeight: 1.1 }} noWrap>{spriteShowcase.name}</Typography>
             <Typography variant="caption" color="text.secondary">Pix sprite / 3×3 / 9 帧</Typography>
           </Box>
           <Box component="img" src={spriteShowcase.gif} alt="" width={48} height={48} loading="lazy" decoding="async" sx={{ width: 48, height: 48, objectFit: 'contain', imageRendering: 'pixelated' }} />
         </Stack>
 
-        <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .75 }}>
-          <Typography variant="caption" sx={{ display: 'block', fontWeight: 850, mb: .45 }}>横向精灵图</Typography>
+        <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .75 }}>
+          <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, mb: .45 }}>横向精灵图</Typography>
           <Box component="img" src={spriteShowcase.sheet} alt={`${spriteShowcase.name} 横向精灵图`} width={576} height={64} loading="lazy" decoding="async" sx={{ width: '100%', height: 52, objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
         </Box>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(9, minmax(0, 1fr))', gap: .35 }}>
           {spriteShowcase.frames.map((frame, index) => (
-            <Box key={frame} component="img" src={frame} alt={`${spriteShowcase.name} 第 ${index + 1} 帧`} width={64} height={64} loading="lazy" decoding="async" sx={{ width: '100%', aspectRatio: '1', objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .55 }} />
+            <Box key={frame} component="img" src={frame} alt={`${spriteShowcase.name} 第 ${index + 1} 帧`} width={64} height={64} loading="lazy" decoding="async" sx={{ width: '100%', aspectRatio: '1', objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .5 }} />
           ))}
         </Box>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: .65 }}>
-          <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .6, display: 'grid', placeItems: 'center', gap: .35 }}>
+          <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .6, display: 'grid', placeItems: 'center', gap: .35 }}>
             <Box component="img" src={spriteShowcase.source} alt={`${spriteShowcase.name} 3×3 源图`} width={96} height={96} loading="lazy" decoding="async" sx={{ width: 72, height: 72, objectFit: 'contain' }} />
             <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>3×3 源图</Typography>
           </Box>
-          <Box sx={{ bgcolor: notionTokens.tintLavender, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .75 }}>
-            <Typography variant="caption" sx={{ display: 'block', fontWeight: 850, mb: .35 }}>中文 Prompt</Typography>
+          <Box sx={{ bgcolor: notionTokens.tintLavender, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .75 }}>
+            <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, mb: .35 }}>中文 Prompt</Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.4 }}>{spriteShowcase.prompt}</Typography>
           </Box>
         </Box>
@@ -503,8 +503,8 @@ function SpritePreviewDetail() {
 
 function BoardMetric({ label, value }: { label: string; value: number | string }) {
   return (
-    <Box sx={{ borderRadius: 1.1, p: 1.05, bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}` }}>
-      <Typography sx={{ fontWeight: 760, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
+    <Box sx={{ borderRadius: 1, p: 1.05, bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}` }}>
+      <Typography sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
       <Typography variant="caption" color="text.secondary">{label}</Typography>
     </Box>
   )

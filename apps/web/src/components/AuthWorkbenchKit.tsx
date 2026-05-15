@@ -12,7 +12,7 @@ export const authTextFieldSx = {
   },
   '& .MuiOutlinedInput-root': {
     minHeight: 56,
-    borderRadius: '9px',
+    borderRadius: '8px',
     color: notionTokens.onDark,
     bgcolor: 'oklch(17% .026 263)',
     transition: 'background-color .18s ease, border-color .18s ease, transform .18s ease',
@@ -59,7 +59,7 @@ export function AuthCardFrame({ eyebrow, title, subtitle, actionLabel, onAction,
         width: '100%',
         maxWidth: 640,
         mx: 'auto',
-        borderRadius: '14px',
+        borderRadius: '12px',
         border: '1px solid oklch(44% .052 257)',
         bgcolor: 'oklch(16% .028 263)',
         color: notionTokens.onDark,
@@ -76,7 +76,7 @@ export function AuthCardFrame({ eyebrow, title, subtitle, actionLabel, onAction,
           content: '""',
           position: 'absolute',
           inset: 12,
-          borderRadius: '10px',
+          borderRadius: '8px',
           border: '1px solid oklch(28% .04 258 / .62)',
           pointerEvents: 'none',
         },
@@ -90,7 +90,7 @@ export function AuthCardFrame({ eyebrow, title, subtitle, actionLabel, onAction,
       <Stack spacing={3} sx={{ position: 'relative', p: { xs: 2, sm: 2.4 }, pt: { xs: 2.4, sm: 3 } }}>
         <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
           <Box sx={{ minWidth: 0, pr: 7 }}>
-            <Typography variant="overline" sx={{ color: 'rgba(255,248,234,.78)', fontWeight: 800, letterSpacing: '.03em' }}>{eyebrow}</Typography>
+            <Typography variant="overline" sx={{ color: 'rgba(255,248,234,.78)', fontWeight: 600, letterSpacing: '.03em' }}>{eyebrow}</Typography>
             <Typography variant="h4" component="h2" sx={{ mt: .4, color: notionTokens.onDark, fontSize: { xs: 26, sm: 30 }, letterSpacing: '-.04em' }}>{title}</Typography>
             {subtitle && <Typography sx={{ mt: .8, color: notionTokens.onDarkMuted, lineHeight: 1.65 }}>{subtitle}</Typography>}
           </Box>
@@ -147,9 +147,9 @@ export function AuthScene({ label, title, description, stats, children }: AuthSc
       <Box sx={{ position: 'absolute', left: { xs: -60, md: 42 }, bottom: { xs: 24, md: 72 }, width: 180, height: 180, opacity: .34, background: 'linear-gradient(135deg, oklch(56% .06 82), oklch(43% .058 292))', clipPath: 'polygon(0 0, 100% 0, 100% 18%, 18% 18%, 18% 100%, 0 100%)' }} aria-hidden="true" />
       <Box sx={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 1152, mx: 'auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '.9fr 1.1fr' }, gap: { xs: 4, lg: 7 }, alignItems: 'center' }}>
         <Stack spacing={2.5} sx={{ maxWidth: 560 }}>
-          <Box sx={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 1, px: 1.2, py: .7, borderRadius: '9px', border: '1px solid oklch(45% .06 256)', bgcolor: 'oklch(16% .03 263)' }}>
+          <Box sx={{ justifySelf: { xs: 'start', sm: 'end' }, display: 'inline-flex', alignItems: 'center', gap: 1, px: 1.2, py: .7, borderRadius: '8px', border: '1px solid oklch(45% .06 256)', bgcolor: 'oklch(16% .03 263)' }}>
             <Box sx={{ width: 8, height: 8, borderRadius: '3px', bgcolor: notionTokens.tintYellowBold }} />
-            <Typography variant="caption" sx={{ color: notionTokens.onDark, fontWeight: 800 }}>{label}</Typography>
+            <Typography variant="caption" sx={{ color: notionTokens.onDark, fontWeight: 600 }}>{label}</Typography>
           </Box>
           <Typography variant="h2" sx={{ color: notionTokens.onDark, fontSize: { xs: 38, md: 56 }, letterSpacing: '-.06em', maxWidth: 620 }}>{title}</Typography>
           <Typography sx={{ color: notionTokens.onDarkMuted, maxWidth: 560, fontSize: { md: 18 }, lineHeight: 1.72 }}>{description}</Typography>
@@ -177,7 +177,7 @@ export function AuthInlineAlert({ severity, children }: { severity: 'info' | 'er
       severity={severity}
       sx={{
         alignItems: 'center',
-        borderRadius: '10px',
+        borderRadius: '12px',
         border: `1px solid ${styles.border}`,
         bgcolor: styles.bg,
         color: styles.color,
@@ -191,8 +191,8 @@ export function AuthInlineAlert({ severity, children }: { severity: 'info' | 'er
 
 function AuthStat({ label, value }: { label: string; value: string | number }) {
   return (
-    <Box sx={{ border: '1px solid oklch(43% .052 257)', borderRadius: '10px', bgcolor: 'oklch(15% .026 263)', px: 1.5, py: 1.2, minWidth: 0 }}>
-      <Typography sx={{ color: notionTokens.tintYellowBold, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }} noWrap>{value}</Typography>
+    <Box sx={{ border: '1px solid oklch(43% .052 257)', borderRadius: '8px', bgcolor: 'oklch(15% .026 263)', px: 1.5, py: 1.2, minWidth: 0 }}>
+      <Typography sx={{ color: notionTokens.tintYellowBold, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }} noWrap>{value}</Typography>
       <Typography variant="caption" sx={{ color: notionTokens.onDarkMuted }} noWrap>{label}</Typography>
     </Box>
   )

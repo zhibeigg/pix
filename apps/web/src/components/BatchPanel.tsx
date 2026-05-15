@@ -104,7 +104,7 @@ function BatchCard({ batch, selected, retrying, downloading, onSelectBatch, onRe
         <Stack spacing={1.35}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1.5, alignItems: 'flex-start' }}>
             <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 820 }} noWrap>#{batch.id} · {batch.name}</Typography>
+              <Typography sx={{ fontWeight: 600 }} noWrap>#{batch.id} · {batch.name}</Typography>
               <Typography color="text.secondary" variant="body2">{modeLabel(batch.mode)} · {batch.total_price_credits} 点 · {archived ? '已归档' : '活跃'}</Typography>
             </Box>
             <Chip size="small" sx={{ bgcolor: progress === 100 ? notionTokens.tintMint : notionTokens.surface }} label={`${progress}%`} />

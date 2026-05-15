@@ -48,7 +48,7 @@ export function AppTabs({ page, user, onChange }: AppTabsProps) {
             sx={{
               border: 1,
               borderColor: active ? notionTokens.brandNavyDeep : notionTokens.hairline,
-              borderRadius: 999,
+              borderRadius: '8px',
               bgcolor: active ? notionTokens.brandNavyDeep : notionTokens.canvas,
               color: active ? notionTokens.onDark : notionTokens.ink,
               px: { xs: 1.75, lg: 2 },

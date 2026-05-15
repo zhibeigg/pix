@@ -78,9 +78,9 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
 
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: .9 }}>
                   {pipelineProofs.map((item) => (
-                    <Box key={item.step} sx={{ bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.2, p: { xs: 1.15, sm: 1.4 }, minWidth: 0 }}>
-                      <Typography variant="caption" sx={{ color: notionTokens.brandPurple800, fontWeight: 850 }}>{item.step}</Typography>
-                      <Typography sx={{ mt: .65, fontWeight: 800 }} noWrap>{item.title}</Typography>
+                    <Box key={item.step} sx={{ bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: { xs: 1.15, sm: 1.4 }, minWidth: 0 }}>
+                      <Typography variant="caption" sx={{ color: notionTokens.brandPurple800, fontWeight: 600 }}>{item.step}</Typography>
+                      <Typography sx={{ mt: .65, fontWeight: 600 }} noWrap>{item.title}</Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' }, mt: .45, lineHeight: 1.35 }}>{item.body}</Typography>
                     </Box>
                   ))}
@@ -94,7 +94,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
               <Card key={item.title} sx={{ bgcolor: item.tone, overflow: 'hidden', transition: 'transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s ease', '&:hover': { transform: 'translateY(-3px)', boxShadow: notionTokens.liftShadow }, '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } } }}>
                 <CardContent sx={{ p: { xs: 2, md: 2.4 } }}>
                   <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', gap: 1.7, alignItems: 'center' }}>
-                    <Box sx={{ width: 48, height: 48, borderRadius: 1.2, display: 'grid', placeItems: 'center', bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, fontWeight: 900 }}>{item.mark}</Box>
+                    <Box sx={{ width: 48, height: 48, borderRadius: 1.5, display: 'grid', placeItems: 'center', bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, fontWeight: 600 }}>{item.mark}</Box>
                     <Box sx={{ minWidth: 0 }}>
                       <Typography variant="caption" color="text.secondary">{item.label}</Typography>
                       <Typography variant="h5" sx={{ mt: .2 }}>{item.title}</Typography>
@@ -118,8 +118,8 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
                 <Typography color="text.secondary">少切工具，先把原型需要的图标、血条、按钮和对话面板做出来。素材和 UI 使用同一套队列与点数规则，结果统一进作品库。</Typography>
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: .9 }}>
                   {['透明 PNG', 'Pixel Grid', 'ZIP 导出'].map((item) => (
-                    <Box key={item} sx={{ bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.1, p: 1.1 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 850 }}>{item}</Typography>
+                    <Box key={item} sx={{ bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: 1.1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>{item}</Typography>
                     </Box>
                   ))}
                 </Box>
@@ -128,11 +128,11 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
           </Card>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(4, minmax(0, 1fr))' }, gap: 1.2 }}>
             {uiWorks.map((item) => (
-              <Box key={item.name} sx={{ gridColumn: { xs: 'span 1', sm: item.span === 2 ? 'span 2' : 'span 1' }, bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.4, p: 1.1, transition: 'transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: notionTokens.liftShadow }, '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } } }}>
-                <Box sx={{ ...checkerboardSx, display: 'grid', placeItems: 'center', minHeight: item.height + 22, borderRadius: 1.1, p: item.span === 2 ? 0 : 1 }}>
+              <Box key={item.name} sx={{ gridColumn: { xs: 'span 1', sm: item.span === 2 ? 'span 2' : 'span 1' }, bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.5, p: 1.1, transition: 'transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: notionTokens.liftShadow }, '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } } }}>
+                <Box sx={{ ...checkerboardSx, display: 'grid', placeItems: 'center', minHeight: item.height + 22, borderRadius: 1, p: item.span === 2 ? 0 : 1 }}>
                   <Box component="img" src={item.src} alt={`${item.name} ${item.width}×${item.height} 像素 UI 作品`} width={item.width} height={item.height} loading="lazy" decoding="async" sx={{ width: '100%', maxWidth: item.width, height: 'auto', objectFit: 'contain', imageRendering: 'pixelated' }} />
                 </Box>
-                <Typography variant="body2" sx={{ mt: 1, fontWeight: 780 }}>{item.name}</Typography>
+                <Typography variant="body2" sx={{ mt: 1, fontWeight: 600 }}>{item.name}</Typography>
                 <Typography variant="caption" color="text.secondary">{item.note}</Typography>
               </Box>
             ))}
@@ -181,8 +181,8 @@ function ExampleAtlas() {
             </Stack>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: .9 }}>
               {examplesByCategory.map((group) => (
-                <Box key={group.category} sx={{ border: '1px solid oklch(46% .035 258)', bgcolor: 'oklch(20% .032 258)', borderRadius: 1.2, p: 1.25 }}>
-                  <Typography sx={{ color: notionTokens.onDark, fontWeight: 820 }}>{group.category}</Typography>
+                <Box key={group.category} sx={{ border: '1px solid oklch(46% .035 258)', bgcolor: 'oklch(20% .032 258)', borderRadius: 1.5, p: 1.25 }}>
+                  <Typography sx={{ color: notionTokens.onDark, fontWeight: 600 }}>{group.category}</Typography>
                   <Typography variant="caption" sx={{ color: notionTokens.onDarkMuted }}>{group.examples.length} 套范例</Typography>
                 </Box>
               ))}
@@ -223,7 +223,7 @@ function ExampleTile({ example }: { example: HomepageExample }) {
         minWidth: 0,
         bgcolor: tint,
         border: `1px solid ${notionTokens.hairline}`,
-        borderRadius: 1.25,
+        borderRadius: 1.5,
         p: .9,
         outline: 'none',
         transition: 'transform 220ms cubic-bezier(.22,1,.36,1), box-shadow 220ms cubic-bezier(.22,1,.36,1), border-color 220ms ease',
@@ -249,8 +249,8 @@ function ExampleTile({ example }: { example: HomepageExample }) {
         <ItemSpriteGrid example={example} density="compact" />
       </Box>
       <Stack direction="row" spacing={.7} sx={{ alignItems: 'center', justifyContent: 'space-between', mt: .85 }}>
-        <Typography variant="caption" sx={{ fontWeight: 850 }} noWrap>{example.theme}</Typography>
-        <Chip size="small" label={example.number} sx={{ height: 20, bgcolor: notionTokens.canvas, borderRadius: .8, '& .MuiChip-label': { px: .7, fontSize: 11 } }} />
+        <Typography variant="caption" sx={{ fontWeight: 600 }} noWrap>{example.theme}</Typography>
+        <Chip size="small" label={example.number} sx={{ height: 20, bgcolor: notionTokens.canvas, borderRadius: .75, '& .MuiChip-label': { px: .7, fontSize: 11 } }} />
       </Stack>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }} noWrap>{example.category} · 物品 + UI</Typography>
       <ExampleDetail example={example} tint={tint} />
@@ -272,7 +272,7 @@ function ExampleDetail({ example, tint }: { example: HomepageExample; tint: stri
         maxHeight: 'min(520px, calc(100vh - 120px))',
         overflowY: 'auto',
         p: 1.15,
-        borderRadius: 1.3,
+        borderRadius: 1.5,
         border: `1px solid ${notionTokens.hairlineStrong}`,
         bgcolor: notionTokens.canvas,
         color: notionTokens.ink,
@@ -288,31 +288,31 @@ function ExampleDetail({ example, tint }: { example: HomepageExample; tint: stri
       <Stack spacing={1}>
         <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 900, lineHeight: 1.12 }} noWrap>{example.number} · {example.theme}</Typography>
+            <Typography sx={{ fontWeight: 600, lineHeight: 1.12 }} noWrap>{example.number} · {example.theme}</Typography>
             <Typography variant="caption" color="text.secondary">{example.category} / 透明物品精灵表 / 16:9 UI</Typography>
           </Box>
-          <Chip size="small" label="Pix 范例" sx={{ bgcolor: tint, borderRadius: .8 }} />
+          <Chip size="small" label="Pix 范例" sx={{ bgcolor: tint, borderRadius: .75 }} />
         </Stack>
 
-        <Box sx={{ ...checkerboardSx, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .75 }}>
+        <Box sx={{ ...checkerboardSx, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .75 }}>
           <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: .65 }}>
-            <Typography variant="caption" sx={{ fontWeight: 850 }}>拆分物品格</Typography>
-            <Chip size="small" label="4×2" sx={{ height: 20, bgcolor: notionTokens.canvas, borderRadius: .8, '& .MuiChip-label': { px: .7, fontSize: 11 } }} />
+            <Typography variant="caption" sx={{ fontWeight: 600 }}>拆分物品格</Typography>
+            <Chip size="small" label="4×2" sx={{ height: 20, bgcolor: notionTokens.canvas, borderRadius: .75, '& .MuiChip-label': { px: .7, fontSize: 11 } }} />
           </Stack>
           <ItemSpriteGrid example={example} density="detail" />
         </Box>
 
-        <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, overflow: 'hidden' }}>
+        <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, overflow: 'hidden' }}>
           <Box component="img" src={example.uiSrc} alt={`${example.theme} 像素 UI 展示图`} loading="lazy" decoding="async" width={1920} height={1080} sx={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
         </Box>
 
-        <Box sx={{ bgcolor: tint, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .85 }}>
-          <Typography variant="caption" sx={{ display: 'block', fontWeight: 850, mb: .35 }}>物品 Prompt</Typography>
+        <Box sx={{ bgcolor: tint, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .85 }}>
+          <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, mb: .35 }}>物品 Prompt</Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.5 }}>{buildChineseItemPrompt(example)}</Typography>
         </Box>
 
-        <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, p: .85 }}>
-          <Typography variant="caption" sx={{ display: 'block', fontWeight: 850, mb: .35 }}>UI Prompt</Typography>
+        <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .85 }}>
+          <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, mb: .35 }}>UI Prompt</Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.5 }}>{buildChineseUiPrompt(example)}</Typography>
         </Box>
 
@@ -348,7 +348,7 @@ function ItemSpriteGrid({ example, density }: { example: HomepageExample; densit
           sx={{
             aspectRatio: '1 / 1',
             minWidth: 0,
-            borderRadius: isDetail ? .8 : .55,
+            borderRadius: isDetail ? .75 : .5,
             border: `1px solid ${notionTokens.hairline}`,
             bgcolor: notionTokens.canvas,
             overflow: 'hidden',
@@ -385,7 +385,7 @@ function buildChineseUiPrompt(example: HomepageExample) {
 
 function FilePill({ label, value }: { label: string; value: string }) {
   return (
-    <Box sx={{ minWidth: 0, bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .9, px: .85, py: .65 }}>
+    <Box sx={{ minWidth: 0, bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, px: .85, py: .65 }}>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1 }}>{label}</Typography>
       <Typography component="code" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>{value}</Typography>
     </Box>
@@ -410,7 +410,7 @@ function SectionFrame({ id, eyebrow, title, description, children }: SectionFram
   const isLongSection = id === 'examples'
 
   return (
-    <Box id={id} component="section" sx={{ scrollSnapAlign: { md: 'start' }, minHeight: { md: isLongSection ? 'auto' : '100vh' }, display: 'flex', alignItems: isLongSection ? 'flex-start' : 'center', bgcolor: notionTokens.canvas, px: { xs: 2, md: 4 }, py: { xs: 6.5, md: 8.5 } }}>
+    <Box id={id} component="section" sx={{ scrollSnapAlign: { md: 'start' }, minHeight: { md: isLongSection ? 'auto' : '100vh' }, display: 'flex', alignItems: isLongSection ? 'flex-start' : 'center', bgcolor: notionTokens.canvas, px: { xs: 2, md: 4 }, py: { xs: 8, md: 12 } }}>
       <Box sx={{ width: '100%', maxWidth: 1180, mx: 'auto' }}>
         <Box sx={{ mb: { xs: 3.5, md: 4.5 } }}>
           <Typography variant="overline" color="text.secondary">{eyebrow}</Typography>

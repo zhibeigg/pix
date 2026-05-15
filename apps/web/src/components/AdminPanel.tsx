@@ -43,8 +43,8 @@ export function AdminPanel({ dashboard, users, pricing, packages, settings, onRe
         <Stack spacing={3}>
           <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 2 }}>
             <Box>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 700 }}>Control Room</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700 }}>管理后台</Typography>
+              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Control Room</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 600 }}>管理后台</Typography>
               <Typography color="text.secondary" sx={{ mt: .5 }}>配置站点、模型、邮件、套餐和运营保护。高风险环境项只显示状态。</Typography>
             </Box>
             <Button variant="outlined" onClick={onRefresh}>刷新</Button>
@@ -62,7 +62,7 @@ export function AdminPanel({ dashboard, users, pricing, packages, settings, onRe
 
           {tab === 'users' && (
             <Stack component="form" spacing={2} sx={{ maxWidth: 560 }} onSubmit={submitAdjust}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>手动加点</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>手动加点</Typography>
               <TextField select label="用户" value={selectedUser} onChange={(event) => setSelectedUser(Number(event.target.value))}>
                 <MenuItem value={0}>选择用户</MenuItem>
                 {users.map((user) => <MenuItem value={user.id} key={user.id}>{user.email} · {user.role}</MenuItem>)}
@@ -75,7 +75,7 @@ export function AdminPanel({ dashboard, users, pricing, packages, settings, onRe
 
           {tab === 'pricing' && (
             <Stack spacing={1.5}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>价格规则</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>价格规则</Typography>
               {pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}
             </Stack>
           )}
@@ -86,7 +86,7 @@ export function AdminPanel({ dashboard, users, pricing, packages, settings, onRe
             <Stack spacing={1.5}>
               <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between', gap: 1.5, alignItems: { md: 'center' } }}>
                 <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>{tab}</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>{tab}</Typography>
                   <Typography color="text.secondary">保存后只影响新请求/新任务；带“需重启”的项目请重启服务或 worker。</Typography>
                 </Box>
                 {tab === '邮件验证码' && <EmailTestBox onTest={onTestEmail} />}
@@ -128,7 +128,7 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   return (
     <Box sx={{ bgcolor: notionTokens.tintSky, border: 1, borderColor: 'divider', borderRadius: 1.5, p: 1.5, fontVariantNumeric: 'tabular-nums' }}>
       <Typography variant="caption" color="text.secondary">{label}</Typography>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>{value}</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 600 }}>{value}</Typography>
     </Box>
   )
 }
@@ -159,7 +159,7 @@ function SettingRow({ setting, onUpdate }: { setting: SystemSetting; onUpdate: (
         <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ gap: 2, alignItems: { lg: 'center' } }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-              <Typography sx={{ fontWeight: 700 }}>{setting.label || setting.key}</Typography>
+              <Typography sx={{ fontWeight: 600 }}>{setting.label || setting.key}</Typography>
               {setting.restart_required && <Chip size="small" label="需重启" sx={{ bgcolor: notionTokens.tintYellowBold, borderRadius: 1 }} />}
               {setting.secret && <Chip size="small" label="Secret" sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800, borderRadius: 1 }} />}
               {!setting.editable && <Chip size="small" label="只读" sx={{ bgcolor: notionTokens.canvas, borderRadius: 1 }} />}
@@ -169,7 +169,7 @@ function SettingRow({ setting, onUpdate }: { setting: SystemSetting; onUpdate: (
           </Box>
 
           {setting.type === 'status' ? (
-            <Typography sx={{ minWidth: 180, fontWeight: 700 }}>{setting.masked ? '已配置' : setting.value || '未配置'}</Typography>
+            <Typography sx={{ minWidth: 180, fontWeight: 600 }}>{setting.masked ? '已配置' : setting.value || '未配置'}</Typography>
           ) : isBoolean ? (
             <FormControlLabel disabled={disabled} control={<Checkbox checked={value === 'true'} onChange={(event) => setValue(event.target.checked ? 'true' : 'false')} />} label="启用" />
           ) : setting.type === 'select' ? (
@@ -198,7 +198,7 @@ function PricingRow({ rule, onUpdate }: { rule: PricingRule; onUpdate: (key: str
       <CardContent>
         <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 2, alignItems: { md: 'center' } }}>
           <Box sx={{ flex: 1 }}>
-            <Typography sx={{ fontWeight: 700 }}>{rule.key}</Typography>
+            <Typography sx={{ fontWeight: 600 }}>{rule.key}</Typography>
             <Typography variant="caption" color="text.secondary">{rule.enabled ? '启用' : '停用'}</Typography>
           </Box>
           <TextField label="价格" type="number" value={price} onChange={(event) => setPrice(Number(event.target.value))} sx={{ width: { md: 140 } }} />
@@ -214,7 +214,7 @@ function PackageEditor({ packages, onCreate, onUpdate }: { packages: CreditPacka
   const [draft, setDraft] = useState<CreditPackage>({ key: 'custom', name: 'Custom', credits: 100, amount_cents: 990, currency: 'cny', enabled: true, sort_order: 40 })
   return (
     <Stack spacing={1.5}>
-      <Typography variant="h6" sx={{ fontWeight: 700 }}>充值套餐</Typography>
+      <Typography variant="h6" sx={{ fontWeight: 600 }}>充值套餐</Typography>
       <Alert severity="info">历史订单会引用套餐 ID，因此这里不提供删除；不需要的套餐请停用。</Alert>
       {packages.map((item) => <PackageRow key={item.key} item={item} onUpdate={onUpdate} />)}
       <Card variant="outlined" sx={{ bgcolor: notionTokens.tintMint }}>
@@ -247,7 +247,7 @@ function PackageRow({ item, onUpdate }: { item: CreditPackage; onUpdate: (key: s
       <CardContent>
         <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ gap: 1.2, alignItems: { lg: 'center' } }}>
           <Box sx={{ minWidth: 120 }}>
-            <Typography sx={{ fontWeight: 700 }}>{item.key}</Typography>
+            <Typography sx={{ fontWeight: 600 }}>{item.key}</Typography>
             <Typography variant="caption" color="text.secondary">{item.enabled ? '公开展示' : '已停用'}</Typography>
           </Box>
           <TextField label="名称" value={name} onChange={(event) => setName(event.target.value)} />
