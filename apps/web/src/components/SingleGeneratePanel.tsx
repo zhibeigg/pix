@@ -95,9 +95,9 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
   }
 
   return (
-    <Card variant="outlined" sx={{ overflow: 'hidden' }}>
-      <Box sx={{ height: 8, bgcolor: notionTokens.tintYellowBold }} />
-      <CardContent>
+    <Card variant="outlined" sx={{ overflow: 'hidden', bgcolor: notionTokens.canvas }}>
+      <Box sx={{ height: 5, bgcolor: notionTokens.tintYellow }} />
+      <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
         <Stack spacing={3}>
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
             <Box>

@@ -13,7 +13,7 @@ const tintMap = {
   sky: notionTokens.tintSky,
   mint: notionTokens.tintMint,
   lavender: notionTokens.tintLavender,
-  yellow: notionTokens.tintYellowBold,
+  yellow: notionTokens.tintYellow,
 }
 
 export function PageHeader({ eyebrow, title, description, tint = 'cream' }: PageHeaderProps) {
@@ -22,19 +22,18 @@ export function PageHeader({ eyebrow, title, description, tint = 'cream' }: Page
       sx={{
         position: 'relative',
         overflow: 'hidden',
-        border: 1,
-        borderColor: 'divider',
-        borderRadius: 1.5,
-        bgcolor: tintMap[tint],
-        p: { xs: 3, md: 4 },
+        border: `1px solid ${notionTokens.hairline}`,
+        borderRadius: 1.4,
+        bgcolor: notionTokens.canvas,
+        p: { xs: 2.5, md: 3.2 },
       }}
     >
-      <Box sx={{ position: 'absolute', right: 28, top: 24, width: 12, height: 12, borderRadius: 0.75, bgcolor: notionTokens.primary, transform: 'rotate(8deg)', opacity: .9 }} />
-      <Box sx={{ position: 'absolute', right: 78, bottom: 30, width: 10, height: 10, borderRadius: 0.75, bgcolor: notionTokens.brandOrange, transform: 'rotate(-12deg)', opacity: .8 }} />
-      <Stack spacing={1} sx={{ maxWidth: 880, position: 'relative' }}>
-        <Chip label={eyebrow} size="small" sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.canvas, color: notionTokens.brandPurple800, borderRadius: 1, fontWeight: 600 }} />
-        <Typography variant="h2" sx={{ fontSize: { xs: 36, sm: 48, md: 56 }, color: notionTokens.ink, maxWidth: 760 }}>{title}</Typography>
-        {description && <Typography color="text.secondary" sx={{ maxWidth: 760, fontSize: { md: 18 } }}>{description}</Typography>}
+      <Box sx={{ position: 'absolute', right: { xs: 18, md: 28 }, top: { xs: 18, md: 24 }, width: 84, height: 84, borderRadius: 2, bgcolor: tintMap[tint], transform: 'rotate(8deg)', opacity: .62 }} aria-hidden="true" />
+      <Box sx={{ position: 'absolute', right: { xs: 72, md: 104 }, bottom: 24, width: 12, height: 12, borderRadius: .4, bgcolor: notionTokens.primary, opacity: .72 }} aria-hidden="true" />
+      <Stack spacing={1.05} sx={{ maxWidth: 900, position: 'relative' }}>
+        <Chip label={eyebrow} size="small" sx={{ alignSelf: 'flex-start', bgcolor: tintMap[tint], color: notionTokens.ink, borderRadius: 1, fontWeight: 800 }} />
+        <Typography variant="h2" sx={{ fontSize: { xs: 32, sm: 42, md: 50 }, color: notionTokens.ink, maxWidth: 780 }}>{title}</Typography>
+        {description && <Typography color="text.secondary" sx={{ maxWidth: 760, fontSize: { md: 17 }, lineHeight: 1.68 }}>{description}</Typography>}
       </Stack>
     </Box>
   )

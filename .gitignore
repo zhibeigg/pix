@@ -43,6 +43,7 @@ htmlcov/
 图片/
 scripts/_smoke_*.py
 testlist.md
+pix-*-redesign-check.png
 
 # IDE
 .idea/

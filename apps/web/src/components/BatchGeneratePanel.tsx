@@ -132,9 +132,9 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
   }
 
   return (
-    <Card variant="outlined" sx={{ overflow: 'hidden' }}>
-      <Box sx={{ height: 8, bgcolor: notionTokens.tintMint }} />
-      <CardContent>
+    <Card variant="outlined" sx={{ overflow: 'hidden', bgcolor: notionTokens.canvas }}>
+      <Box sx={{ height: 5, bgcolor: notionTokens.tintMint }} />
+      <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
         <Stack spacing={3}>
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
             <Box>

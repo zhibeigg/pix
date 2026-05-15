@@ -70,7 +70,7 @@ export function AuthCardFrame({ eyebrow, title, subtitle, actionLabel, onAction,
           position: 'absolute',
           inset: 0,
           zIndex: -1,
-          background: 'radial-gradient(circle at 12% 4%, oklch(37% .08 255 / .22), transparent 34%), linear-gradient(135deg, oklch(18% .03 263), oklch(14% .025 263))',
+          background: 'radial-gradient(circle at 12% 4%, oklch(34% .052 255 / .18), transparent 34%), linear-gradient(135deg, oklch(18% .028 263), oklch(14% .023 263))',
         },
         '&::after': {
           content: '""',
@@ -84,7 +84,7 @@ export function AuthCardFrame({ eyebrow, title, subtitle, actionLabel, onAction,
     >
       <Box sx={{ position: 'absolute', top: 18, right: 18, display: 'grid', gridTemplateColumns: 'repeat(3, 5px)', gap: '5px', opacity: .55 }} aria-hidden="true">
         {Array.from({ length: 6 }).map((_, index) => (
-          <Box key={index} sx={{ width: 5, height: 5, borderRadius: '2px', bgcolor: index % 2 ? notionTokens.tintYellowBold : notionTokens.brandPink }} />
+          <Box key={index} sx={{ width: 5, height: 5, borderRadius: '2px', bgcolor: index % 2 ? notionTokens.tintYellow : notionTokens.tintLavender }} />
         ))}
       </Box>
       <Stack spacing={3} sx={{ position: 'relative', p: { xs: 2, sm: 2.4 }, pt: { xs: 2.4, sm: 3 } }}>
@@ -144,7 +144,7 @@ export function AuthScene({ label, title, description, stats, children }: AuthSc
       }}
     >
       <Box sx={{ position: 'absolute', inset: 0, opacity: .2, backgroundImage: 'linear-gradient(oklch(92% .03 248 / .18) 1px, transparent 1px), linear-gradient(90deg, oklch(92% .03 248 / .18) 1px, transparent 1px)', backgroundSize: '32px 32px' }} aria-hidden="true" />
-      <Box sx={{ position: 'absolute', left: { xs: -60, md: 42 }, bottom: { xs: 24, md: 72 }, width: 180, height: 180, opacity: .5, background: 'linear-gradient(135deg, oklch(77% .17 82), oklch(64% .16 322))', clipPath: 'polygon(0 0, 100% 0, 100% 18%, 18% 18%, 18% 100%, 0 100%)' }} aria-hidden="true" />
+      <Box sx={{ position: 'absolute', left: { xs: -60, md: 42 }, bottom: { xs: 24, md: 72 }, width: 180, height: 180, opacity: .34, background: 'linear-gradient(135deg, oklch(56% .06 82), oklch(43% .058 292))', clipPath: 'polygon(0 0, 100% 0, 100% 18%, 18% 18%, 18% 100%, 0 100%)' }} aria-hidden="true" />
       <Box sx={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 1152, mx: 'auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '.9fr 1.1fr' }, gap: { xs: 4, lg: 7 }, alignItems: 'center' }}>
         <Stack spacing={2.5} sx={{ maxWidth: 560 }}>
           <Box sx={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 1, px: 1.2, py: .7, borderRadius: '9px', border: '1px solid oklch(45% .06 256)', bgcolor: 'oklch(16% .03 263)' }}>
