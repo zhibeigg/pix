@@ -43,6 +43,21 @@ const scaleSamples = showcaseItems.slice(0, 3).map((item) => ({
   ],
 }))
 
+const spriteShowcase = {
+  name: '月刃骑士挥剑',
+  status: '9 帧',
+  prompt: '月刃骑士挥剑三段斩，银蓝盔甲小角色，侧身站姿，连续挥剑动作，适合 RPG 战斗序列帧，透明背景，像素动画精灵',
+  brief: 'Pix sprite 全流程输出：3×3 生图 → 9 帧切分 → 共享调色板像素化 → 横向精灵图 + GIF。',
+  source: '/hero-sprites/pipeline/moonblade-knight-source.png',
+  sheet: '/hero-sprites/pipeline/moonblade-knight-sheet.png',
+  gif: '/hero-sprites/pipeline/moonblade-knight.gif',
+  frameSize: 64,
+  displaySize: 96,
+  frameCount: 9,
+  durationMs: 120,
+  frames: Array.from({ length: 9 }, (_, index) => `/hero-sprites/pipeline/moonblade-knight-frame-${String(index + 1).padStart(2, '0')}.png`),
+}
+
 export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, batchCount = 0 }: AppHeroProps) {
   const signedIn = Boolean(user)
 
@@ -182,6 +197,8 @@ function PixelBatchBoard({ user, balance, activeJobs, completedJobs, failedJobs,
           </Box>
 
           <ScaleBench />
+
+          <SpritePreviewBench />
 
           <Box sx={{ border: `1px solid ${notionTokens.hairline}`, bgcolor: notionTokens.canvas, borderRadius: 1.5, p: 1.5 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' } }}>
@@ -329,6 +346,138 @@ function PixelTileDetail({ tile }: { tile: typeof showcaseItems[number] }) {
   )
 }
 
+
+function SpritePreviewBench() {
+  const displaySize = spriteShowcase.displaySize
+  const sheetDisplayWidth = spriteShowcase.frameCount * displaySize
+  const sheetTravel = (spriteShowcase.frameCount - 1) * displaySize
+
+  return (
+    <Box
+      tabIndex={0}
+      sx={{
+        position: 'relative',
+        overflow: 'visible',
+        border: `1px solid ${notionTokens.hairlineStrong}`,
+        borderRadius: 1.6,
+        bgcolor: notionTokens.tintLavender,
+        p: 1.25,
+        outline: 'none',
+        transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+        '@keyframes spriteFrameRun': {
+          to: { backgroundPosition: `-${sheetTravel}px 0` },
+        },
+        '&:hover, &:focus-visible, &:focus-within': {
+          transform: 'translateY(-3px)',
+          boxShadow: notionTokens.liftShadow,
+          borderColor: notionTokens.brandPurple800,
+          zIndex: 10,
+        },
+        '&:hover .sprite-frame-player, &:focus-visible .sprite-frame-player, &:focus-within .sprite-frame-player': {
+          animation: `spriteFrameRun ${spriteShowcase.frameCount * spriteShowcase.durationMs}ms steps(${spriteShowcase.frameCount - 1}, end) infinite`,
+        },
+        '&:hover .sprite-detail, &:focus-visible .sprite-detail, &:focus-within .sprite-detail': {
+          opacity: 1,
+          transform: 'translate(-50%, 10px) scale(1)',
+          pointerEvents: 'auto',
+        },
+        '@media (prefers-reduced-motion: reduce)': {
+          transition: 'none',
+          '& .sprite-frame-player': { animation: 'none !important' },
+          '& .sprite-detail': { transition: 'none' },
+        },
+      }}
+    >
+      <Stack direction="row" spacing={1.3} sx={{ alignItems: 'center' }}>
+        <Box sx={{ display: 'grid', placeItems: 'center', width: displaySize + 18, height: displaySize + 18, borderRadius: 1.4, bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}` }}>
+          <Box
+            className="sprite-frame-player"
+            role="img"
+            aria-label={`${spriteShowcase.name} 序列帧播放预览`}
+            sx={{
+              width: displaySize,
+              height: displaySize,
+              backgroundImage: `url(${spriteShowcase.sheet})`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: '0 0',
+              backgroundSize: `${sheetDisplayWidth}px ${displaySize}px`,
+              imageRendering: 'pixelated',
+            }}
+          />
+        </Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Typography variant="caption" color="text.secondary">序列帧预览</Typography>
+            <Chip size="small" label={spriteShowcase.status} sx={{ height: 20, borderRadius: .8, bgcolor: notionTokens.canvas, color: notionTokens.ink, '& .MuiChip-label': { px: .8, fontSize: 11 } }} />
+          </Stack>
+          <Typography sx={{ fontWeight: 800, lineHeight: 1.2 }} noWrap>{spriteShowcase.name}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.35 }}>悬浮播放 9 帧，展开查看横向精灵图。</Typography>
+        </Box>
+      </Stack>
+      <SpritePreviewDetail />
+    </Box>
+  )
+}
+
+function SpritePreviewDetail() {
+  return (
+    <Box
+      className="sprite-detail"
+      aria-hidden="true"
+      sx={{
+        position: 'absolute',
+        left: '50%',
+        top: '100%',
+        width: { xs: 286, sm: 360 },
+        p: 1.25,
+        borderRadius: 1.6,
+        border: `1px solid ${notionTokens.hairlineStrong}`,
+        bgcolor: notionTokens.canvas,
+        color: notionTokens.ink,
+        boxShadow: notionTokens.mockupShadow,
+        opacity: 0,
+        transform: 'translate(-50%, -2px) scale(.96)',
+        transformOrigin: '50% 0',
+        pointerEvents: 'none',
+        transition: 'opacity 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+        zIndex: 30,
+      }}
+    >
+      <Stack spacing={1.05}>
+        <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 800, lineHeight: 1.1 }} noWrap>{spriteShowcase.name}</Typography>
+            <Typography variant="caption" color="text.secondary">Pix sprite / 3×3 / 9 帧</Typography>
+          </Box>
+          <Box component="img" src={spriteShowcase.gif} alt="" width={48} height={48} loading="lazy" decoding="async" sx={{ width: 48, height: 48, objectFit: 'contain', imageRendering: 'pixelated' }} />
+        </Stack>
+
+        <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .8 }}>
+          <Typography variant="caption" sx={{ display: 'block', fontWeight: 800, mb: .45 }}>横向精灵图</Typography>
+          <Box component="img" src={spriteShowcase.sheet} alt={`${spriteShowcase.name} 横向精灵图`} width={576} height={64} loading="lazy" decoding="async" sx={{ width: '100%', height: 54, objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
+        </Box>
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(9, minmax(0, 1fr))', gap: .35 }}>
+          {spriteShowcase.frames.map((frame, index) => (
+            <Box key={frame} component="img" src={frame} alt={`${spriteShowcase.name} 第 ${index + 1} 帧`} width={64} height={64} loading="lazy" decoding="async" sx={{ width: '100%', aspectRatio: '1', objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: .6 }} />
+          ))}
+        </Box>
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: .75 }}>
+          <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .65, display: 'grid', placeItems: 'center', gap: .35 }}>
+            <Box component="img" src={spriteShowcase.source} alt={`${spriteShowcase.name} 3×3 源图`} width={96} height={96} loading="lazy" decoding="async" sx={{ width: 74, height: 74, objectFit: 'contain' }} />
+            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>3×3 源图</Typography>
+          </Box>
+          <Box sx={{ bgcolor: notionTokens.tintLavender, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .85 }}>
+            <Typography variant="caption" sx={{ display: 'block', fontWeight: 800, mb: .35 }}>中文 Prompt</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.4 }}>{spriteShowcase.prompt}</Typography>
+          </Box>
+        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.45 }}>{spriteShowcase.brief}</Typography>
+      </Stack>
+    </Box>
+  )
+}
 
 function BoardMetric({ label, value }: { label: string; value: number | string }) {
   return (

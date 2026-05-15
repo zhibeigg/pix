@@ -134,7 +134,7 @@ palette_mode    = "auto"
 prompt_template = "A single fantasy pixel game inventory item icon of {name}. Centered object, isolated on plain white background, no text, no UI frame, no shadow outside the item, thick dark outline, high contrast, readable silhouette, designed to become a {width}x{height} RPG inventory sprite."
 
 [sprite]
-# 九宫格动画精灵表命令 pix sprite 的默认值
+# 九宫格动画精灵表命令 pix sprite 的默认值；主页序列帧展示也必须使用该全流程产物。
 output_dir     = "图片/sprites"
 rows           = 3
 cols           = 3

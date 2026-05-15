@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.5.0-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.6.0-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-385%20passed-2ea44f.svg">
 </p>
 
@@ -86,7 +86,7 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
   - FastAPI + React + Vite。
   - 支持注册登录、管理员初始化、点数账户、任务队列、素材包、批量生成、ZIP 导出。
   - 单张/批量入口可直接调用 `pix asset` 同款游戏素材直出策略，按素材名称生成透明 PNG 与 Pixel Grid。
-  - 主页展示中文 prompt 全流程素材示例，悬浮即可查看源图、Grid、预览三图详情。
+  - 主页展示中文 prompt 全流程素材示例，悬浮即可查看源图、Grid、预览三图详情，并播放 Pix sprite 序列帧预览。
   - 管理后台可配置模型/API、价格、充值套餐、运营保护和素材默认值。
 
 - **可测试、可部署**
@@ -324,7 +324,7 @@ Pix Web 是一个可运营的素材生产工作台：
 - 邮箱验证码注册登录
 - 点数账户与任务扣费/退款
 - 游戏素材直出：输入素材名称，复用 `pix asset` 白底单图模板、Pixel Grid 提取和透明 PNG 输出
-- 首页展示中文 prompt 全流程示例，鼠标悬浮或键盘聚焦物品格可展开源图 / Grid / 预览详情
+- 首页展示中文 prompt 全流程示例，鼠标悬浮或键盘聚焦物品格可展开源图 / Grid / 预览详情，并在动画卡片上播放 9 帧序列帧、显示横向精灵图
 - 单图生成、图生图、本地像素化、动画精灵表
 - 批量素材直出、批量 prompt / 批量图片任务
 - 素材包管理、失败重试、ZIP 下载
@@ -633,7 +633,7 @@ palette_mode = "ramp"
 | `B` | 功能更新 | 新增功能 |
 | `C` | 修复 | Bug 修复、兼容性修复、清理 |
 
-当前版本：`1.5.0`
+当前版本：`1.6.0`
 
 ---
 
