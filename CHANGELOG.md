@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-05-15
+
+### Added
+
+- 主页新增 Pix sprite 全流程动画示例，悬浮或键盘聚焦时播放 9 帧序列帧预览，并展开横向精灵图、逐帧缩略图、源图和中文 prompt。
+
 ## [1.5.0] - 2026-05-15
 
 ### Changed

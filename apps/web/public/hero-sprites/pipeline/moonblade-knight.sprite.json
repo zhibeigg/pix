@@ -1,0 +1,30 @@
+{
+  "slug": "moonblade-knight",
+  "name": "月刃骑士挥剑",
+  "prompt": "月刃骑士挥剑三段斩，银蓝盔甲小角色，侧身站姿，连续挥剑动作，适合 RPG 战斗序列帧，透明背景，像素动画精灵",
+  "brief": "主页 hover 示例：9 帧序列播放，展开后显示横向精灵图。",
+  "run_dir": "outputs\\homepage-sprites\\20260515-235558-2e6c8bc6",
+  "source": "outputs\\homepage-sprites\\20260515-235558-2e6c8bc6\\01_sprite_grid.png",
+  "source_preview": "/hero-sprites/pipeline/moonblade-knight-source.png",
+  "sheet": "/hero-sprites/pipeline/moonblade-knight-sheet.png",
+  "gif": "/hero-sprites/pipeline/moonblade-knight.gif",
+  "frames": [
+    "/hero-sprites/pipeline/moonblade-knight-frame-01.png",
+    "/hero-sprites/pipeline/moonblade-knight-frame-02.png",
+    "/hero-sprites/pipeline/moonblade-knight-frame-03.png",
+    "/hero-sprites/pipeline/moonblade-knight-frame-04.png",
+    "/hero-sprites/pipeline/moonblade-knight-frame-05.png",
+    "/hero-sprites/pipeline/moonblade-knight-frame-06.png",
+    "/hero-sprites/pipeline/moonblade-knight-frame-07.png",
+    "/hero-sprites/pipeline/moonblade-knight-frame-08.png",
+    "/hero-sprites/pipeline/moonblade-knight-frame-09.png"
+  ],
+  "pipeline_meta": "outputs\\homepage-sprites\\20260515-235558-2e6c8bc6\\meta.json",
+  "duration_ms": 120,
+  "frame_size": [
+    64,
+    64
+  ],
+  "frame_count": 9,
+  "image_gen_mode": "sprite_sheet"
+}
