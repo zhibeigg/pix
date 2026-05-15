@@ -22,9 +22,16 @@ const statusColors: Record<string, 'default' | 'primary' | 'success' | 'error' |
   cancelled: 'default',
 }
 
+const checkerboardSx = {
+  backgroundColor: notionTokens.canvas,
+  backgroundImage: `linear-gradient(45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(-45deg, ${notionTokens.hairlineSoft} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%), linear-gradient(-45deg, transparent 75%, ${notionTokens.hairlineSoft} 75%)`,
+  backgroundSize: '16px 16px',
+  backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0',
+}
+
 export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPath, onCandidatePixelize }: GalleryGridProps) {
   const [page, setPage] = useState(1)
-  const pageSize = 80
+  const pageSize = 72
   const ordered = useMemo(() => [...jobs].sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at))), [jobs])
   const totalPages = Math.max(1, Math.ceil(ordered.length / pageSize))
   const safePage = Math.min(page, totalPages)
@@ -32,20 +39,23 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
 
   return (
     <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
-      <CardContent>
+      <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}>
           <Box>
-            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>作品库</Typography>
-            <Typography variant="h4" sx={{ fontWeight: 600 }}>作品网格</Typography>
+            <Typography variant="overline" color="text.secondary">作品库</Typography>
+            <Typography variant="h4">作品网格</Typography>
             {subtitle && <Typography color="text.secondary">{subtitle}</Typography>}
           </Box>
-          <Chip label={`${ordered.length} 件作品/任务`} sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} />
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+            <Chip label={`${ordered.length} 件作品/任务`} sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} />
+            <Chip label={`第 ${safePage}/${totalPages} 页`} sx={{ bgcolor: notionTokens.surface }} />
+          </Stack>
         </Stack>
 
         {ordered.length === 0 ? (
           <EmptyGalleryState />
         ) : (
-          <Box sx={{ mt: 3, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 1.75 }}>
+          <Box sx={{ mt: 2.5, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 1.35 }}>
             {visible.map((job) => {
               const output = job.outputs[0]
               const mainPath = output?.sprite_sheet_path || output?.pixelized_path || output?.source_path || job.input_image_path || ''
@@ -62,24 +72,25 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                     cursor: 'default',
                     borderColor: selected ? notionTokens.primary : notionTokens.hairline,
                     boxShadow: selected ? notionTokens.focusRing : notionTokens.cardShadow,
-                    transition: 'transform .18s ease, border-color .18s ease',
-                    '&:hover': { transform: 'translateY(-2px)', borderColor: selected ? 'primary.main' : 'text.secondary' },
+                    transition: 'transform .18s cubic-bezier(.22,1,.36,1), border-color .18s ease, box-shadow .18s ease',
+                    '&:hover': { transform: 'translateY(-3px)', borderColor: selected ? notionTokens.primary : notionTokens.hairlineStrong, boxShadow: notionTokens.liftShadow },
+                    '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } },
                   }}
                 >
-                  <CardMedia component="div" sx={{ height: 132, display: 'grid', placeItems: 'center', bgcolor: notionTokens.tintSky, imageRendering: 'pixelated' }}>
+                  <CardMedia component="div" sx={{ ...checkerboardSx, height: 140, display: 'grid', placeItems: 'center', imageRendering: 'pixelated', borderBottom: `1px solid ${notionTokens.hairline}` }}>
                     {previewUrl ? (
-                      <Box component="img" src={previewUrl} alt={jobInputSummary(job, '作品预览')} loading="lazy" decoding="async" sx={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated', p: 1.5 }} />
+                      <Box component="img" src={previewUrl} alt={jobInputSummary(job, '作品预览')} loading="lazy" decoding="async" sx={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated', p: 1.4 }} />
                     ) : (
                       <Chip variant="outlined" color="primary" label={job.status === 'succeeded' ? 'PIX' : jobStatusLabel(job.status)} />
                     )}
                   </CardMedia>
-                  <CardContent sx={{ display: 'grid', gap: 1.1 }}>
+                  <CardContent sx={{ display: 'grid', gap: .95, p: 1.6, '&:last-child': { pb: 1.6 } }}>
                     <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}>
-                      <Typography sx={{ fontWeight: 600 }}>#{job.id} · {jobTypeLabel(job.job_type)}</Typography>
+                      <Typography sx={{ fontWeight: 800 }} noWrap>#{job.id} · {jobTypeLabel(job.job_type)}</Typography>
                       <Chip size="small" color={statusColors[job.status] ?? 'default'} label={jobStatusLabel(job.status)} />
                     </Stack>
-                    <Typography color="text.secondary" variant="body2">{jobInputSummary(job)}</Typography>
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                    <Typography color="text.secondary" variant="body2" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{jobInputSummary(job)}</Typography>
+                    <Stack direction="row" spacing={.7} sx={{ flexWrap: 'wrap' }}>
                       <Chip size="small" variant="outlined" label={`${job.price_credits} 点`} />
                       <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />
                     </Stack>
@@ -88,7 +99,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                     {output && <CandidateMiniGrid job={job} output={output} onCopyPath={onCopyPath} onCandidatePixelize={onCandidatePixelize} />}
                     {job.batch_name && <Typography color="text.secondary" variant="caption">素材包：{job.batch_name}</Typography>}
                   </CardContent>
-                  <CardActions>
+                  <CardActions sx={{ px: 1.6, pb: 1.4, pt: 0 }}>
                     <Button size="small" variant={selected ? 'contained' : 'outlined'} aria-pressed={selected} onClick={() => onSelect(job)}>
                       {selected ? '已选中' : '选择作品'}
                     </Button>
@@ -112,15 +123,15 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
 function CandidateMiniGrid({ job, output, onCopyPath, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; onCopyPath: (path: string) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
   if (!output.candidates?.length) return null
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.75 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.65 }}>
       {output.candidates.slice(0, 9).map((candidate) => (
         <Box key={candidate.path} sx={{ minWidth: 0 }} title={candidate.reason ?? undefined}>
-          <Box component="img" src={candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined} alt={`候选 ${candidate.index}`} loading="lazy" decoding="async" sx={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'contain', imageRendering: 'pixelated', bgcolor: 'background.default', border: 1, borderColor: candidate.selected ? 'success.main' : 'divider', borderRadius: 1, p: 0.5 }} />
-          <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: 'wrap' }}>
+          <Box component="img" src={candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined} alt={`候选 ${candidate.index}`} loading="lazy" decoding="async" sx={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: 1, borderColor: candidate.selected ? 'success.main' : 'divider', borderRadius: .8, p: 0.45 }} />
+          <Stack direction="row" spacing={0.45} sx={{ mt: 0.45, flexWrap: 'wrap' }}>
             <Chip size="small" color={candidate.selected ? 'success' : 'default'} variant="outlined" label={candidate.rank ? `#${candidate.rank}` : `候选${candidate.index}`} />
             {candidate.score != null && <Chip size="small" variant="outlined" label={`${Math.round(candidate.score)}分`} />}
           </Stack>
-          <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
+          <Stack direction="row" spacing={0.45} sx={{ mt: 0.45 }}>
             <Button size="small" variant="text" onClick={() => onCopyPath(candidate.pixelized_path ?? candidate.path)}>像素图</Button>
             {onCandidatePixelize && <Button size="small" variant="text" onClick={() => onCandidatePixelize(job, candidate)}>重调</Button>}
           </Stack>
@@ -135,7 +146,7 @@ function GridQualityChips({ output }: { output: JobOutput }) {
   const report = output.grid_readability
   if (!status && !report) return null
   return (
-    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+    <Stack direction="row" spacing={.7} sx={{ flexWrap: 'wrap' }}>
       {status?.mode && <Chip size="small" color="primary" variant="outlined" label="Grid" />}
       {report && <Chip size="small" color={report.ok ? 'success' : 'warning'} variant="outlined" label={report.ok ? '可读性 OK' : '需返修'} />}
     </Stack>
@@ -146,16 +157,14 @@ function EmptyGalleryState() {
   return (
     <Box
       sx={{
-        mt: 3,
-        border: 1,
-        borderStyle: 'dashed',
-        borderColor: 'divider',
-        borderRadius: 1.5,
-        p: { xs: 3, md: 4 },
-        bgcolor: notionTokens.tintYellowBold,
+        mt: 2.5,
+        border: `1px dashed ${notionTokens.hairlineStrong}`,
+        borderRadius: 1.4,
+        p: { xs: 2.5, md: 3.5 },
+        bgcolor: notionTokens.surface,
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', sm: '120px 1fr' },
-        gap: 2.5,
+        gridTemplateColumns: { xs: '1fr', sm: '124px 1fr auto' },
+        gap: 2.2,
         alignItems: 'center',
         overflow: 'hidden',
       }}
@@ -178,9 +187,10 @@ function EmptyGalleryState() {
         <Box sx={{ position: 'absolute', right: 4, bottom: 14, width: 8, height: 8, bgcolor: notionTokens.tintMint }} />
       </Box>
       <Box>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>工位台还空着</Typography>
-        <Typography color="text.secondary" sx={{ mt: .5 }}>先生成单图，或直接批量生产一组素材。</Typography>
+        <Typography variant="h6" sx={{ fontWeight: 850 }}>作品库还空着</Typography>
+        <Typography color="text.secondary" sx={{ mt: .5 }}>先从生产工作台生成单图，或直接批量生产一组素材。完成后可在这里挑选、复制路径和进入微调。</Typography>
       </Box>
+      <Button href="#/workspace" variant="contained" sx={{ justifySelf: { xs: 'start', sm: 'end' } }}>去生产</Button>
     </Box>
   )
 }
