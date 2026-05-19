@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { Box, Button, Card, CardContent, Chip, Stack, Typography } from '@mui/material'
+import { useMemo, useState, type ReactNode } from 'react'
+import { Box, Button, Card, CardContent, Chip, Popper, Stack, Typography } from '@mui/material'
 import { checkerboardSx, notionTokens } from '../theme'
 import { homepageExampleCategories, homepageExamples, type HomepageExample } from '../homepageExamples'
 
@@ -137,7 +137,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
         <ExampleAtlas />
       </SectionFrame>
 
-      <Box id="auth-panel" component="section" sx={{ scrollSnapAlign: { md: 'start' }, position: 'relative', minHeight: { md: '100vh' }, display: 'flex', alignItems: 'center', bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, px: { xs: 2, md: 4 }, py: { xs: 7, md: 9 }, overflow: 'hidden' }}>
+      <Box id="auth-panel" component="section" sx={{ scrollMarginTop: { xs: 112, md: 88 }, position: 'relative', minHeight: { md: '100vh' }, display: 'flex', alignItems: 'center', bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, px: { xs: 2, md: 4 }, py: { xs: 7, md: 9 }, overflow: 'hidden' }}>
         <Box sx={{ position: 'absolute', inset: 0, opacity: .14, backgroundImage: 'linear-gradient(oklch(92% .018 82 / .18) 1px, transparent 1px), linear-gradient(90deg, oklch(92% .018 82 / .18) 1px, transparent 1px)', backgroundSize: '32px 32px' }} aria-hidden="true" />
         <Box sx={{ position: 'absolute', left: { xs: -64, md: 48 }, bottom: { xs: 24, md: 72 }, width: 168, height: 168, opacity: .32, background: 'linear-gradient(135deg, oklch(56% .06 86), oklch(42% .06 292))', clipPath: 'polygon(0 0, 100% 0, 100% 18%, 18% 18%, 18% 100%, 0 100%)' }} aria-hidden="true" />
         <Box sx={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 1152, mx: 'auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '.9fr 1.1fr' }, gap: { xs: 4, lg: 7 }, alignItems: 'center' }}>
@@ -158,6 +158,20 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
 }
 
 function ExampleAtlas() {
+  const [activeDetail, setActiveDetail] = useState<{
+    example: HomepageExample
+    tint: string
+    anchorPoint: { x: number; y: number }
+  } | null>(null)
+
+  const showDetail = (example: HomepageExample, tint: string, x: number, y: number) => {
+    setActiveDetail({ example, tint, anchorPoint: { x, y } })
+  }
+
+  const hideDetail = () => {
+    setActiveDetail(null)
+  }
+
   return (
     <Stack spacing={3.5}>
       <Card sx={{ bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, overflow: 'hidden', borderColor: 'oklch(42% .035 258)' }}>
@@ -195,27 +209,67 @@ function ExampleAtlas() {
           </Stack>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))', xl: 'repeat(6, minmax(0, 1fr))' }, gap: 1 }}>
             {group.examples.map((example) => (
-              <ExampleTile key={example.id} example={example} />
+              <ExampleTile
+                key={example.id}
+                example={example}
+                active={activeDetail?.example.id === example.id}
+                onDetailMove={showDetail}
+                onDetailLeave={hideDetail}
+              />
             ))}
           </Box>
         </Box>
       ))}
+      {activeDetail && (
+        <ExampleDetail
+          example={activeDetail.example}
+          tint={activeDetail.tint}
+          open
+          anchorPoint={activeDetail.anchorPoint}
+        />
+      )}
     </Stack>
   )
 }
 
-function ExampleTile({ example }: { example: HomepageExample }) {
+function ExampleTile({
+  example,
+  active,
+  onDetailMove,
+  onDetailLeave,
+}: {
+  example: HomepageExample
+  active: boolean
+  onDetailMove: (example: HomepageExample, tint: string, x: number, y: number) => void
+  onDetailLeave: () => void
+}) {
   const tint = exampleTint(example.category)
+
+  const showAt = (x: number, y: number) => {
+    onDetailMove(example, tint, x, y)
+  }
 
   return (
     <Box
       tabIndex={0}
+      onMouseEnter={(event) => showAt(event.clientX, event.clientY)}
+      onMouseMove={(event) => showAt(event.clientX, event.clientY)}
+      onMouseLeave={onDetailLeave}
+      onFocus={(event) => {
+        const rect = event.currentTarget.getBoundingClientRect()
+        showAt(rect.left + rect.width / 2, rect.bottom + 12)
+      }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          onDetailLeave()
+        }
+      }}
       sx={{
         position: 'relative',
         isolation: 'isolate',
         minWidth: 0,
         bgcolor: tint,
-        border: `1px solid ${notionTokens.hairline}`,
+        border: `1px solid ${active ? notionTokens.hairlineStrong : notionTokens.hairline}`,
         borderRadius: 1.5,
         p: .9,
         outline: 'none',
@@ -226,15 +280,9 @@ function ExampleTile({ example }: { example: HomepageExample }) {
           borderColor: notionTokens.hairlineStrong,
           zIndex: 15,
         },
-        '&:hover .example-detail, &:focus-visible .example-detail, &:focus-within .example-detail': {
-          opacity: 1,
-          transform: { xs: 'translate(-50%, 9px) scale(1)', sm: 'translate(-50%, 10px) scale(1)' },
-          pointerEvents: 'auto',
-        },
         '@media (prefers-reduced-motion: reduce)': {
           transition: 'none',
           '&:hover, &:focus-visible, &:focus-within': { transform: 'none' },
-          '& .example-detail': { transition: 'none' },
         },
       }}
     >
@@ -246,75 +294,108 @@ function ExampleTile({ example }: { example: HomepageExample }) {
         <Chip size="small" label={example.number} sx={{ height: 20, bgcolor: notionTokens.canvas, borderRadius: .75, '& .MuiChip-label': { px: .7, fontSize: 11 } }} />
       </Stack>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }} noWrap>{example.category} · 物品 + UI</Typography>
-      <ExampleDetail example={example} tint={tint} />
     </Box>
   )
 }
 
-function ExampleDetail({ example, tint }: { example: HomepageExample; tint: string }) {
+function ExampleDetail({
+  example,
+  tint,
+  open,
+  anchorPoint,
+}: {
+  example: HomepageExample
+  tint: string
+  open: boolean
+  anchorPoint: { x: number; y: number } | null
+}) {
+  const virtualAnchor = useMemo(() => {
+    if (!anchorPoint) {
+      return null
+    }
+    return {
+      getBoundingClientRect: () => ({
+        x: anchorPoint.x,
+        y: anchorPoint.y,
+        left: anchorPoint.x,
+        right: anchorPoint.x,
+        top: anchorPoint.y,
+        bottom: anchorPoint.y,
+        width: 0,
+        height: 0,
+        toJSON: () => ({}),
+      }),
+    }
+  }, [anchorPoint])
+
   return (
-    <Box
-      className="example-detail"
-      aria-hidden="true"
-      sx={{
-        position: 'absolute',
-        left: '50%',
-        top: '100%',
-        width: { xs: 286, sm: 392, md: 436 },
-        maxWidth: 'calc(100vw - 28px)',
-        maxHeight: 'min(520px, calc(100vh - 120px))',
-        overflowY: 'auto',
-        p: 1.15,
-        borderRadius: 1.5,
-        border: `1px solid ${notionTokens.hairlineStrong}`,
-        bgcolor: notionTokens.canvas,
-        color: notionTokens.ink,
-        boxShadow: notionTokens.mockupShadow,
-        opacity: 0,
-        transform: 'translate(-50%, -4px) scale(.96)',
-        transformOrigin: '50% 0',
-        pointerEvents: 'none',
-        transition: 'opacity 180ms cubic-bezier(.22,1,.36,1), transform 220ms cubic-bezier(.22,1,.36,1)',
-        zIndex: 40,
-      }}
+    <Popper
+      open={open && Boolean(virtualAnchor)}
+      anchorEl={virtualAnchor}
+      placement="right-start"
+      modifiers={[
+        { name: 'offset', options: { offset: [14, 14] } },
+        { name: 'flip', options: { fallbackPlacements: ['left-start', 'bottom-start', 'top-start'] } },
+        { name: 'preventOverflow', options: { padding: 18, altAxis: true, tether: false } },
+      ]}
+      sx={{ zIndex: 1700, pointerEvents: 'none' }}
     >
-      <Stack spacing={1}>
-        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 600, lineHeight: 1.12 }} noWrap>{example.number} · {example.theme}</Typography>
-            <Typography variant="caption" color="text.secondary">{example.category} / 透明物品精灵表 / 16:9 UI</Typography>
-          </Box>
-          <Chip size="small" label="Pix 范例" sx={{ bgcolor: tint, borderRadius: .75 }} />
-        </Stack>
-
-        <Box sx={{ ...checkerboardSx, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .75 }}>
-          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: .65 }}>
-            <Typography variant="caption" sx={{ fontWeight: 600 }}>拆分物品格</Typography>
-            <Chip size="small" label="4×2" sx={{ height: 20, bgcolor: notionTokens.canvas, borderRadius: .75, '& .MuiChip-label': { px: .7, fontSize: 11 } }} />
+      <Box
+        className="example-detail"
+        aria-hidden={!open}
+        sx={{
+          width: { xs: 'calc(100vw - 32px)', sm: 620, md: 700 },
+          maxWidth: 'calc(100vw - 32px)',
+          p: { xs: 1.15, sm: 1.35 },
+          borderRadius: 1.5,
+          border: `1px solid ${notionTokens.hairlineStrong}`,
+          bgcolor: notionTokens.canvas,
+          color: notionTokens.ink,
+          boxShadow: notionTokens.mockupShadow,
+          overflow: 'visible',
+        }}
+      >
+        <Stack spacing={1.05}>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontWeight: 600, lineHeight: 1.12 }} noWrap>{example.number} · {example.theme}</Typography>
+              <Typography variant="caption" color="text.secondary">{example.category} / 8 个透明物品 / 16:9 UI</Typography>
+            </Box>
+            <Chip size="small" label="Pix 范例" sx={{ bgcolor: tint, borderRadius: .75 }} />
           </Stack>
-          <ItemSpriteGrid example={example} density="detail" />
-        </Box>
 
-        <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, overflow: 'hidden' }}>
-          <Box component="img" src={example.uiSrc} alt={`${example.theme} 像素 UI 展示图`} loading="lazy" decoding="async" width={1920} height={1080} sx={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'contain', imageRendering: 'pixelated', display: 'block' }} />
-        </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(300px, .92fr) minmax(240px, .72fr)' }, gap: 1.05, alignItems: 'start' }}>
+            <Stack spacing={1}>
+              <Box sx={{ ...checkerboardSx, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .75 }}>
+                <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: .65 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600 }}>拆分物品格</Typography>
+                  <Chip size="small" label="4×2" sx={{ height: 20, bgcolor: notionTokens.canvas, borderRadius: .75, '& .MuiChip-label': { px: .7, fontSize: 11 } }} />
+                </Stack>
+                <ItemSpriteGrid example={example} density="detail" />
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: .75 }}>
+                <FilePill label="item" value={example.itemFile} />
+                <FilePill label="ui" value={example.uiFile} />
+              </Box>
+            </Stack>
 
-        <Box sx={{ bgcolor: tint, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .85 }}>
-          <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, mb: .35 }}>物品 Prompt</Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.5 }}>{buildChineseItemPrompt(example)}</Typography>
-        </Box>
-
-        <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .85 }}>
-          <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, mb: .35 }}>UI Prompt</Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.5 }}>{buildChineseUiPrompt(example)}</Typography>
-        </Box>
-
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: .75 }}>
-          <FilePill label="item" value={example.itemFile} />
-          <FilePill label="ui" value={example.uiFile} />
-        </Box>
-      </Stack>
-    </Box>
+            <Stack spacing={1}>
+              <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, overflow: 'hidden' }}>
+                <Box component="img" src={example.uiSrc} alt={`${example.theme} 像素 UI 展示图`} loading="lazy" decoding="async" width={1920} height={1080} sx={{ width: '100%', height: { xs: 132, sm: 148 }, objectFit: 'cover', imageRendering: 'pixelated', display: 'block' }} />
+              </Box>
+              <Box sx={{ bgcolor: tint, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .85 }}>
+                <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, mb: .35 }}>物品 Prompt</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: '-webkit-box', lineHeight: 1.45, overflow: 'hidden', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{buildChineseItemPrompt(example)}</Typography>
+              </Box>
+              <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .85 }}>
+                <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, mb: .35 }}>UI Prompt</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: '-webkit-box', lineHeight: 1.45, overflow: 'hidden', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{buildChineseUiPrompt(example)}</Typography>
+              </Box>
+            </Stack>
+          </Box>
+        </Stack>
+      </Box>
+    </Popper>
   )
 }
 
@@ -403,7 +484,7 @@ function SectionFrame({ id, eyebrow, title, description, children }: SectionFram
   const isLongSection = id === 'examples'
 
   return (
-    <Box id={id} component="section" sx={{ scrollSnapAlign: { md: 'start' }, minHeight: { md: isLongSection ? 'auto' : '100vh' }, display: 'flex', alignItems: isLongSection ? 'flex-start' : 'center', bgcolor: notionTokens.canvas, px: { xs: 2, md: 4 }, py: { xs: 8, md: 12 } }}>
+    <Box id={id} component="section" sx={{ scrollMarginTop: { xs: 112, md: 88 }, minHeight: { md: isLongSection ? 'auto' : '100vh' }, display: 'flex', alignItems: isLongSection ? 'flex-start' : 'center', bgcolor: notionTokens.canvas, px: { xs: 2, md: 4 }, py: { xs: 8, md: 12 } }}>
       <Box sx={{ width: '100%', maxWidth: 1180, mx: 'auto' }}>
         <Box sx={{ mb: { xs: 3.5, md: 4.5 } }}>
           <Typography variant="overline" color="text.secondary">{eyebrow}</Typography>

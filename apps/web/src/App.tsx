@@ -573,17 +573,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
           </Stack>
         </Container>
       ) : (
-        <Box
-          sx={{
-            height: { md: 'calc(100vh - 64px)' },
-            overflowY: { md: 'auto' },
-            scrollSnapType: { md: 'y mandatory' },
-            scrollBehavior: 'smooth',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            '&::-webkit-scrollbar': { display: 'none' },
-          }}
-        >
+        <Box>
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
           {message && <Box sx={{ maxWidth: 1152, mx: 'auto', px: { xs: 2, md: 4 }, py: 2 }}><Alert severity="info" role="status" aria-live="polite">{message}</Alert></Box>}
           <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLogout={logout} loading={busy} />} />
@@ -596,7 +586,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 
 function SiteFooter() {
   return (
-    <Box component="footer" sx={{ scrollSnapAlign: { md: 'end' }, borderTop: 1, borderColor: 'divider', bgcolor: notionTokens.surfaceSoft, px: { xs: 2, md: 4 }, py: 2.5, textAlign: 'center' }}>
+    <Box component="footer" sx={{ borderTop: 1, borderColor: 'divider', bgcolor: notionTokens.surfaceSoft, px: { xs: 2, md: 4 }, py: 2.5, textAlign: 'center' }}>
       <Typography
         component="a"
         href="https://beian.miit.gov.cn/"

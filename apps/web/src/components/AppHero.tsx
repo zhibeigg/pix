@@ -22,24 +22,24 @@ type ShowcaseItem = {
 }
 
 const showcaseItems: ShowcaseItem[] = [
-  { name: '月蚀铃', tint: notionTokens.tintSky, status: '全流程', src: '/hero-icons/pipeline/mooneclipse-bell.png', prompt: '月蚀铃，银蓝小铃铛，中间嵌一枚弯月，适合背包材料图标，透明背景，16×16 像素风，深色描边', brief: '暗夜祭司掉落物，轮廓用月弧和铃身区分。', variants: [{ label: '源图', src: '/hero-icons/pipeline/mooneclipse-bell-source.png' }, { label: 'Grid', src: '/hero-icons/pipeline/mooneclipse-bell-grid.png' }, { label: '预览', src: '/hero-icons/pipeline/mooneclipse-bell-preview.png' }] },
-  { name: '苍火鳞', tint: notionTokens.tintMint, status: '全流程', src: '/hero-icons/pipeline/blueflame-scale.png', prompt: '苍火鳞，青蓝火焰鳞片，边缘有冷焰高光，RPG 怪物素材，透明背景，清晰像素块', brief: '用斜切鳞片和冷色火线突出“苍火”。', variants: [{ label: '源图', src: '/hero-icons/pipeline/blueflame-scale-source.png' }, { label: 'Grid', src: '/hero-icons/pipeline/blueflame-scale-grid.png' }, { label: '预览', src: '/hero-icons/pipeline/blueflame-scale-preview.png' }] },
-  { name: '星盐瓶', tint: notionTokens.tintLavender, status: '全流程', src: '/hero-icons/pipeline/star-salt-bottle.png', prompt: '星盐瓶，玻璃小瓶装着发光星盐，紫色瓶塞，炼金材料图标，透明 PNG，16 位 RPG 风格', brief: '瓶颈、晶盐和紫塞在低尺寸下仍能读出。', variants: [{ label: '源图', src: '/hero-icons/pipeline/star-salt-bottle-source.png' }, { label: 'Grid', src: '/hero-icons/pipeline/star-salt-bottle-grid.png' }, { label: '预览', src: '/hero-icons/pipeline/star-salt-bottle-preview.png' }] },
-  { name: '铜芽齿轮', tint: notionTokens.tintPeach, status: '全流程', src: '/hero-icons/pipeline/copper-sprout-gear.png', prompt: '铜芽齿轮，旧铜齿轮上长出绿色嫩芽，机关植物材料，透明背景，像素图标，硬边描边', brief: '齿轮圆形负责识别，嫩芽提供奇幻转折。', variants: [{ label: '源图', src: '/hero-icons/pipeline/copper-sprout-gear-source.png' }, { label: 'Grid', src: '/hero-icons/pipeline/copper-sprout-gear-grid.png' }, { label: '预览', src: '/hero-icons/pipeline/copper-sprout-gear-preview.png' }] },
-  { name: '夜萤孢子', tint: notionTokens.tintMint, status: '全流程', src: '/hero-icons/pipeline/nightglow-spore.png', prompt: '夜萤孢子，发光蘑菇孢囊，绿色荧光点，地下洞穴采集物，透明背景，像素游戏物品', brief: '蘑菇剪影配荧光点，适合洞穴素材包。', variants: [{ label: '源图', src: '/hero-icons/pipeline/nightglow-spore-source.png' }, { label: 'Grid', src: '/hero-icons/pipeline/nightglow-spore-grid.png' }, { label: '预览', src: '/hero-icons/pipeline/nightglow-spore-preview.png' }] },
-  { name: '琥珀龙泪', tint: notionTokens.tintYellow, status: '全流程', src: '/hero-icons/pipeline/amber-dragon-tear.png', prompt: '琥珀龙泪，橙金泪滴宝石，内部有红色火芯，传奇材料，透明背景，像素风 RPG 图标', brief: '泪滴轮廓和火芯让稀有度一眼可见。', variants: [{ label: '源图', src: '/hero-icons/pipeline/amber-dragon-tear-source.png' }, { label: 'Grid', src: '/hero-icons/pipeline/amber-dragon-tear-grid.png' }, { label: '预览', src: '/hero-icons/pipeline/amber-dragon-tear-preview.png' }] },
-  { name: '雾海罗盘', tint: notionTokens.tintSky, status: '全流程', src: '/hero-icons/pipeline/mistsea-compass.png', prompt: '雾海罗盘，蓝绿色圆形罗盘，金色指针，航海探索道具，透明背景，清晰像素边缘', brief: '圆盘与指针组成强识别度的探索道具。', variants: [{ label: '源图', src: '/hero-icons/pipeline/mistsea-compass-source.png' }, { label: 'Grid', src: '/hero-icons/pipeline/mistsea-compass-grid.png' }, { label: '预览', src: '/hero-icons/pipeline/mistsea-compass-preview.png' }] },
-  { name: '霜纹护符', tint: notionTokens.tintSky, status: '全流程', src: '/hero-icons/pipeline/frostmark-amulet.png', prompt: '霜纹护符，冰蓝六角护符，中心雪纹，防御装备材料，透明背景，16×16 可读', brief: '六角外形减少小尺寸误读。', variants: [{ label: '源图', src: '/hero-icons/pipeline/frostmark-amulet-source.png' }, { label: 'Grid', src: '/hero-icons/pipeline/frostmark-amulet-grid.png' }, { label: '预览', src: '/hero-icons/pipeline/frostmark-amulet-preview.png' }] },
-  { name: '裂雷结晶', tint: notionTokens.tintYellow, status: '全流程', src: '/hero-icons/pipeline/thunderrift-crystal.png', prompt: '裂雷结晶，黄色闪电水晶，紫色裂痕，法术强化材料，透明背景，深色描边，像素图标', brief: '亮黄主体和紫裂纹形成高对比。', variants: [{ label: '源图', src: '/hero-icons/pipeline/thunderrift-crystal-source.png' }, { label: 'Grid', src: '/hero-icons/pipeline/thunderrift-crystal-grid.png' }, { label: '预览', src: '/hero-icons/pipeline/thunderrift-crystal-preview.png' }] },
-  { name: '玄铁羽', tint: notionTokens.tintGray, status: '全流程', src: '/hero-icons/pipeline/blackiron-feather.png', prompt: '玄铁羽，黑铁质感羽毛，边缘有赤色锻痕，锻造材料，透明背景，像素游戏资产', brief: '羽毛斜线让轻薄形态更明确。', variants: [{ label: '源图', src: '/hero-icons/pipeline/blackiron-feather-source.png' }, { label: 'Grid', src: '/hero-icons/pipeline/blackiron-feather-grid.png' }, { label: '预览', src: '/hero-icons/pipeline/blackiron-feather-preview.png' }] },
-  { name: '朱砂符钉', tint: notionTokens.tintRose, status: '全流程', src: '/hero-icons/pipeline/cinnabar-rune-nail.png', prompt: '朱砂符钉，红色咒钉缠金色符线，封印道具，透明背景，硬边像素风，适合物品栏', brief: '红钉与符线让“封印”属性直接显现。', variants: [{ label: '源图', src: '/hero-icons/pipeline/cinnabar-rune-nail-source.png' }, { label: 'Grid', src: '/hero-icons/pipeline/cinnabar-rune-nail-grid.png' }, { label: '预览', src: '/hero-icons/pipeline/cinnabar-rune-nail-preview.png' }] },
-  { name: '青藤心核', tint: notionTokens.tintMint, status: '全流程', src: '/hero-icons/pipeline/vineheart-core.png', prompt: '青藤心核，绿色圆形生命核心，被藤蔓缠绕，德鲁伊材料，透明背景，清晰像素块', brief: '圆核心与藤蔓分叉展示生命系属性。', variants: [{ label: '源图', src: '/hero-icons/pipeline/vineheart-core-source.png' }, { label: 'Grid', src: '/hero-icons/pipeline/vineheart-core-grid.png' }, { label: '预览', src: '/hero-icons/pipeline/vineheart-core-preview.png' }] },
+  { name: '月蚀铃', tint: notionTokens.tintSky, status: '全流程', src: '/hero-icons/pipeline/mooneclipse-bell.png', prompt: '月蚀铃，银蓝小铃铛，中间嵌一枚弯月，适合背包材料图标，透明背景，16×16 像素风，深色描边', brief: '暗夜祭司掉落物，轮廓用月弧和铃身区分。', variants: [{ label: '源图', src: '/hero-icons/pipeline/mooneclipse-bell-source.png' }, { label: '成品', src: '/hero-icons/pipeline/mooneclipse-bell.png' }] },
+  { name: '苍火鳞', tint: notionTokens.tintMint, status: '全流程', src: '/hero-icons/pipeline/blueflame-scale.png', prompt: '苍火鳞，青蓝火焰鳞片，边缘有冷焰高光，RPG 怪物素材，透明背景，清晰像素块', brief: '用斜切鳞片和冷色火线突出“苍火”。', variants: [{ label: '源图', src: '/hero-icons/pipeline/blueflame-scale-source.png' }, { label: '成品', src: '/hero-icons/pipeline/blueflame-scale.png' }] },
+  { name: '星盐瓶', tint: notionTokens.tintLavender, status: '全流程', src: '/hero-icons/pipeline/star-salt-bottle.png', prompt: '星盐瓶，玻璃小瓶装着发光星盐，紫色瓶塞，炼金材料图标，透明 PNG，16 位 RPG 风格', brief: '瓶颈、晶盐和紫塞在低尺寸下仍能读出。', variants: [{ label: '源图', src: '/hero-icons/pipeline/star-salt-bottle-source.png' }, { label: '成品', src: '/hero-icons/pipeline/star-salt-bottle.png' }] },
+  { name: '铜芽齿轮', tint: notionTokens.tintPeach, status: '全流程', src: '/hero-icons/pipeline/copper-sprout-gear.png', prompt: '铜芽齿轮，旧铜齿轮上长出绿色嫩芽，机关植物材料，透明背景，像素图标，硬边描边', brief: '齿轮圆形负责识别，嫩芽提供奇幻转折。', variants: [{ label: '源图', src: '/hero-icons/pipeline/copper-sprout-gear-source.png' }, { label: '成品', src: '/hero-icons/pipeline/copper-sprout-gear.png' }] },
+  { name: '夜萤孢子', tint: notionTokens.tintMint, status: '全流程', src: '/hero-icons/pipeline/nightglow-spore.png', prompt: '夜萤孢子，发光蘑菇孢囊，绿色荧光点，地下洞穴采集物，透明背景，像素游戏物品', brief: '蘑菇剪影配荧光点，适合洞穴素材包。', variants: [{ label: '源图', src: '/hero-icons/pipeline/nightglow-spore-source.png' }, { label: '成品', src: '/hero-icons/pipeline/nightglow-spore.png' }] },
+  { name: '琥珀龙泪', tint: notionTokens.tintYellow, status: '全流程', src: '/hero-icons/pipeline/amber-dragon-tear.png', prompt: '琥珀龙泪，橙金泪滴宝石，内部有红色火芯，传奇材料，透明背景，像素风 RPG 图标', brief: '泪滴轮廓和火芯让稀有度一眼可见。', variants: [{ label: '源图', src: '/hero-icons/pipeline/amber-dragon-tear-source.png' }, { label: '成品', src: '/hero-icons/pipeline/amber-dragon-tear.png' }] },
+  { name: '雾海罗盘', tint: notionTokens.tintSky, status: '全流程', src: '/hero-icons/pipeline/mistsea-compass.png', prompt: '雾海罗盘，蓝绿色圆形罗盘，金色指针，航海探索道具，透明背景，清晰像素边缘', brief: '圆盘与指针组成强识别度的探索道具。', variants: [{ label: '源图', src: '/hero-icons/pipeline/mistsea-compass-source.png' }, { label: '成品', src: '/hero-icons/pipeline/mistsea-compass.png' }] },
+  { name: '霜纹护符', tint: notionTokens.tintSky, status: '全流程', src: '/hero-icons/pipeline/frostmark-amulet.png', prompt: '霜纹护符，冰蓝六角护符，中心雪纹，防御装备材料，透明背景，16×16 可读', brief: '六角外形减少小尺寸误读。', variants: [{ label: '源图', src: '/hero-icons/pipeline/frostmark-amulet-source.png' }, { label: '成品', src: '/hero-icons/pipeline/frostmark-amulet.png' }] },
+  { name: '裂雷结晶', tint: notionTokens.tintYellow, status: '全流程', src: '/hero-icons/pipeline/thunderrift-crystal.png', prompt: '裂雷结晶，黄色闪电水晶，紫色裂痕，法术强化材料，透明背景，深色描边，像素图标', brief: '亮黄主体和紫裂纹形成高对比。', variants: [{ label: '源图', src: '/hero-icons/pipeline/thunderrift-crystal-source.png' }, { label: '成品', src: '/hero-icons/pipeline/thunderrift-crystal.png' }] },
+  { name: '玄铁羽', tint: notionTokens.tintGray, status: '全流程', src: '/hero-icons/pipeline/blackiron-feather.png', prompt: '玄铁羽，黑铁质感羽毛，边缘有赤色锻痕，锻造材料，透明背景，像素游戏资产', brief: '羽毛斜线让轻薄形态更明确。', variants: [{ label: '源图', src: '/hero-icons/pipeline/blackiron-feather-source.png' }, { label: '成品', src: '/hero-icons/pipeline/blackiron-feather.png' }] },
+  { name: '朱砂符钉', tint: notionTokens.tintRose, status: '全流程', src: '/hero-icons/pipeline/cinnabar-rune-nail.png', prompt: '朱砂符钉，红色咒钉缠金色符线，封印道具，透明背景，硬边像素风，适合物品栏', brief: '红钉与符线让“封印”属性直接显现。', variants: [{ label: '源图', src: '/hero-icons/pipeline/cinnabar-rune-nail-source.png' }, { label: '成品', src: '/hero-icons/pipeline/cinnabar-rune-nail.png' }] },
+  { name: '青藤心核', tint: notionTokens.tintMint, status: '全流程', src: '/hero-icons/pipeline/vineheart-core.png', prompt: '青藤心核，绿色圆形生命核心，被藤蔓缠绕，德鲁伊材料，透明背景，清晰像素块', brief: '圆核心与藤蔓分叉展示生命系属性。', variants: [{ label: '源图', src: '/hero-icons/pipeline/vineheart-core-source.png' }, { label: '成品', src: '/hero-icons/pipeline/vineheart-core.png' }] },
 ]
 
 const workflowStats = [
   { value: '12', label: '真实全流程样本', tone: notionTokens.brandOrange },
   { value: '76', label: '题材范例可追溯', tone: notionTokens.brandTeal },
-  { value: 'Grid', label: '工程化验收', tone: notionTokens.brandPink },
+  { value: 'PNG', label: '透明成品', tone: notionTokens.brandPink },
 ]
 
 const scaleSamples = showcaseItems.slice(0, 3).map((item) => ({
@@ -47,9 +47,7 @@ const scaleSamples = showcaseItems.slice(0, 3).map((item) => ({
   note: item.brief,
   tint: item.tint,
   sizes: [
-    { label: '源图', src: item.variants[0].src },
-    { label: 'Grid', src: item.variants[1].src },
-    { label: '预览', src: item.variants[2].src },
+    ...item.variants,
   ],
 }))
 
@@ -77,7 +75,6 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
       sx={{
         position: 'relative',
         overflow: 'visible',
-        scrollSnapAlign: signedIn ? 'none' : 'start',
         minHeight: signedIn ? 'auto' : { md: 'calc(100vh - 64px)' },
         display: 'flex',
         alignItems: 'center',
@@ -102,7 +99,7 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
                 把一批想法锻成可进游戏的像素资产
               </Typography>
               <Typography sx={{ mt: 2.4, maxWidth: 650, fontSize: { xs: 16, md: 18 }, lineHeight: 1.7, color: notionTokens.onDarkMuted }}>
-                从中文素材名开始，生成源图、Pixel Grid、透明 PNG、动画帧与素材包 ZIP；失败项可单独重试，点数消耗全程可见。
+                从中文素材名开始，生成源图、像素化透明 PNG、动画帧与素材包 ZIP；失败项可单独重试，点数消耗全程可见。
               </Typography>
             </Box>
 
@@ -141,7 +138,7 @@ function ProductionBrief() {
         <Typography variant="caption" sx={{ color: notionTokens.onDarkMuted, letterSpacing: '.08em', textTransform: 'uppercase' }}>一张任务单</Typography>
         <Box sx={{ mt: 1.4, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr auto' }, gap: 1.2, alignItems: 'center' }}>
           <Box sx={{ border: '1px solid oklch(46% .036 258)', borderRadius: 1, bgcolor: 'oklch(16% .028 258)', px: 1.6, py: 1.25 }}>
-            <Typography sx={{ color: notionTokens.onDark }}>月蚀铃、苍火鳞、星盐瓶……生图、VL 分析、像素化与 Grid 验收串成同一条流水线。</Typography>
+            <Typography sx={{ color: notionTokens.onDark }}>月蚀铃、苍火鳞、星盐瓶……生图、VL 分析、像素化与透明 PNG 导出串成同一条流水线。</Typography>
           </Box>
           <Chip label="批量 / 可追溯" sx={{ bgcolor: notionTokens.tintYellow, color: notionTokens.ink, borderRadius: 1 }} />
         </Box>
@@ -199,7 +196,7 @@ function ScaleBench() {
         <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
           <Box>
             <Typography variant="caption" color="text.secondary">多图验收台</Typography>
-            <Typography sx={{ fontWeight: 600, lineHeight: 1.15 }}>源图 / Grid / 预览同屏</Typography>
+            <Typography sx={{ fontWeight: 600, lineHeight: 1.15 }}>源图 / 成品对照</Typography>
           </Box>
           <Chip size="small" label="focus" sx={{ bgcolor: notionTokens.tintYellow, color: notionTokens.ink, borderRadius: 1 }} />
         </Stack>
@@ -211,7 +208,7 @@ function ScaleBench() {
                 <Typography variant="caption" sx={{ display: 'block', fontWeight: 600 }} noWrap>{sample.name}</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.25 }}>{sample.note}</Typography>
               </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: .65 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: .65 }}>
                 {sample.sizes.map((size) => <ScaleCell key={size.label} size={size} />)}
               </Box>
             </Box>
@@ -304,12 +301,12 @@ function PixelTileDetail({ tile }: { tile: ShowcaseItem }) {
         <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
           <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ fontWeight: 600, lineHeight: 1.1 }} noWrap>{tile.name}</Typography>
-            <Typography variant="caption" color="text.secondary">Pix 全流程 / 16×16 / Grid</Typography>
+            <Typography variant="caption" color="text.secondary">Pix 全流程 / 16×16 / 透明 PNG</Typography>
           </Box>
           <Box component="img" src={tile.src} alt="" width={40} height={40} loading="eager" decoding="async" sx={{ width: 40, height: 40, imageRendering: 'pixelated', objectFit: 'contain' }} />
         </Stack>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: .65 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: .65 }}>
           {tile.variants.map((variant) => (
             <Box key={variant.label} sx={{ minWidth: 0, bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .6, display: 'grid', placeItems: 'center', gap: .35 }}>
               <Box component="img" src={variant.src} alt={`${tile.name} ${variant.label}`} width={48} height={48} loading="lazy" decoding="async" sx={{ width: 46, height: 46, objectFit: 'contain', imageRendering: 'pixelated' }} />
@@ -331,7 +328,8 @@ function PixelTileDetail({ tile }: { tile: ShowcaseItem }) {
 function SpritePreviewBench() {
   const displaySize = spriteShowcase.displaySize
   const sheetDisplayWidth = spriteShowcase.frameCount * displaySize
-  const sheetTravel = (spriteShowcase.frameCount - 1) * displaySize
+  const detailDisplaySize = 48
+  const detailSheetDisplayWidth = spriteShowcase.frameCount * detailDisplaySize
 
   return (
     <Box
@@ -346,16 +344,16 @@ function SpritePreviewBench() {
         outline: 'none',
         transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms cubic-bezier(0.22, 1, 0.36, 1)',
         '@keyframes spriteFrameRun': {
-          to: { backgroundPosition: `-${sheetTravel}px 0` },
+          to: { backgroundPosition: `-${sheetDisplayWidth}px 0` },
+        },
+        '@keyframes spriteDetailFrameRun': {
+          to: { backgroundPosition: `-${detailSheetDisplayWidth}px 0` },
         },
         '&:hover, &:focus-visible, &:focus-within': {
           transform: 'translateY(-3px)',
           boxShadow: notionTokens.liftShadow,
           borderColor: notionTokens.primary,
           zIndex: 10,
-        },
-        '&:hover .sprite-frame-player, &:focus-visible .sprite-frame-player, &:focus-within .sprite-frame-player': {
-          animation: `spriteFrameRun ${spriteShowcase.frameCount * spriteShowcase.durationMs}ms steps(${spriteShowcase.frameCount - 1}, end) infinite`,
         },
         '&:hover .sprite-detail, &:focus-visible .sprite-detail, &:focus-within .sprite-detail': {
           opacity: 1,
@@ -365,7 +363,6 @@ function SpritePreviewBench() {
         '@media (prefers-reduced-motion: reduce)': {
           transition: 'none',
           '&, &:hover, &:focus-visible, &:focus-within': { transform: 'none' },
-          '& .sprite-frame-player': { animation: 'none !important' },
           '& .sprite-detail': { transition: 'none' },
         },
       }}
@@ -383,6 +380,7 @@ function SpritePreviewBench() {
               backgroundRepeat: 'no-repeat',
               backgroundPosition: '0 0',
               backgroundSize: `${sheetDisplayWidth}px ${displaySize}px`,
+              animation: `spriteFrameRun ${spriteShowcase.frameCount * spriteShowcase.durationMs}ms steps(${spriteShowcase.frameCount}, end) infinite !important`,
               imageRendering: 'pixelated',
             }}
           />
@@ -431,7 +429,22 @@ function SpritePreviewDetail() {
             <Typography sx={{ fontWeight: 600, lineHeight: 1.1 }} noWrap>{spriteShowcase.name}</Typography>
             <Typography variant="caption" color="text.secondary">Pix sprite / 3×3 / 9 帧</Typography>
           </Box>
-          <Box component="img" src={spriteShowcase.gif} alt="" width={48} height={48} loading="lazy" decoding="async" sx={{ width: 48, height: 48, objectFit: 'contain', imageRendering: 'pixelated' }} />
+          <Box
+            className="sprite-detail-player"
+            role="img"
+            aria-label={`${spriteShowcase.name} 9 帧序列播放`}
+            sx={{
+              width: 48,
+              height: 48,
+              backgroundImage: `url(${spriteShowcase.sheet})`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: '0 0',
+              backgroundSize: `${spriteShowcase.frameCount * 48}px 48px`,
+              animation: `spriteDetailFrameRun ${spriteShowcase.frameCount * spriteShowcase.durationMs}ms steps(${spriteShowcase.frameCount}, end) infinite !important`,
+              imageRendering: 'pixelated',
+              flex: '0 0 auto',
+            }}
+          />
         </Stack>
 
         <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .75 }}>
@@ -446,8 +459,8 @@ function SpritePreviewDetail() {
         </Box>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: .65 }}>
-          <Box sx={{ bgcolor: notionTokens.surface, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .6, display: 'grid', placeItems: 'center', gap: .35 }}>
-            <Box component="img" src={spriteShowcase.source} alt={`${spriteShowcase.name} 3×3 源图`} width={96} height={96} loading="lazy" decoding="async" sx={{ width: 72, height: 72, objectFit: 'contain' }} />
+          <Box sx={{ border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .6, display: 'grid', placeItems: 'center', gap: .35, bgcolor: 'transparent' }}>
+            <Box component="img" src={spriteShowcase.source} alt={`${spriteShowcase.name} 3×3 源图`} width={96} height={96} loading="lazy" decoding="async" sx={{ width: 72, height: 72, objectFit: 'contain', mixBlendMode: 'normal' }} />
             <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>3×3 源图</Typography>
           </Box>
           <Box sx={{ bgcolor: notionTokens.tintLavender, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, p: .75 }}>
