@@ -56,7 +56,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-215009-f55e77b7\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-215009-f55e77b7\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-215009-f55e77b7\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-215009-f55e77b7\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-215009-f55e77b7\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050547-a0a9fece",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050547-a0a9fece\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050547-a0a9fece\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-215009-f55e77b7\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051949
     },
     {
       "id": "02_xianxia",
@@ -112,7 +117,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-215218-889f982b\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-215218-889f982b\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-215218-889f982b\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-215218-889f982b\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-215218-889f982b\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050549-2e904740",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050549-2e904740\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050549-2e904740\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-215218-889f982b\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051949
     },
     {
       "id": "03_xuanhuan",
@@ -168,7 +178,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-215604-931c679b\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-215604-931c679b\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-215604-931c679b\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-215604-931c679b\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-215604-931c679b\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050549-94624324",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050549-94624324\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050549-94624324\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-215604-931c679b\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051950
     },
     {
       "id": "04_palace",
@@ -224,7 +239,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-215850-68703492\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-215850-68703492\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-215850-68703492\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-215850-68703492\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-215850-68703492\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050550-4e0ba143",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050550-4e0ba143\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050550-4e0ba143\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-215850-68703492\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051950
     },
     {
       "id": "05_myth",
@@ -280,7 +300,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-220144-d94f2e64\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-220144-d94f2e64\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-220144-d94f2e64\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-220144-d94f2e64\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-220144-d94f2e64\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050550-aa9202c6",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050550-aa9202c6\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050550-aa9202c6\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-220144-d94f2e64\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051951
     },
     {
       "id": "06_sanguo",
@@ -336,7 +361,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-220419-59f58234\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-220419-59f58234\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-220419-59f58234\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-220419-59f58234\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-220419-59f58234\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050551-307f90e6",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050551-307f90e6\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050551-307f90e6\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-220419-59f58234\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051952
     },
     {
       "id": "07_wafu",
@@ -392,7 +422,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-220838-dadfb0c9\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-220838-dadfb0c9\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-220838-dadfb0c9\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-220838-dadfb0c9\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-220838-dadfb0c9\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050552-57054fef",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050552-57054fef\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050552-57054fef\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-220838-dadfb0c9\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051952
     },
     {
       "id": "08_urbanxian",
@@ -448,7 +483,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-221051-6011c1d7\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-221051-6011c1d7\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-221051-6011c1d7\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-221051-6011c1d7\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-221051-6011c1d7\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050552-8be42b13",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050552-8be42b13\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050552-8be42b13\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-221051-6011c1d7\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051953
     },
     {
       "id": "09_highfantasy",
@@ -504,7 +544,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-221245-4f646c08\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-221245-4f646c08\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-221245-4f646c08\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-221245-4f646c08\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-221245-4f646c08\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050553-8bb6aa03",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050553-8bb6aa03\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050553-8bb6aa03\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-221245-4f646c08\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051953
     },
     {
       "id": "10_lowfantasy",
@@ -560,7 +605,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-221554-47af5056\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-221554-47af5056\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-221554-47af5056\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-221554-47af5056\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-221554-47af5056\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050553-0e573260",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050553-0e573260\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050553-0e573260\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-221554-47af5056\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051954
     },
     {
       "id": "11_swordsorcery",
@@ -616,7 +666,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-221943-a17afab3\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-221943-a17afab3\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-221943-a17afab3\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-221943-a17afab3\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-221943-a17afab3\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050554-a0d12329",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050554-a0d12329\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050554-a0d12329\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-221943-a17afab3\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051955
     },
     {
       "id": "12_darkfantasy",
@@ -672,7 +727,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-222150-cd233525\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-222150-cd233525\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-222150-cd233525\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-222150-cd233525\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-222150-cd233525\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050555-40d42df4",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050555-40d42df4\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050555-40d42df4\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-222150-cd233525\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051955
     },
     {
       "id": "13_medieval",
@@ -728,7 +788,40 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-222530-026d7d94\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-222530-026d7d94\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-222530-026d7d94\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-222530-026d7d94\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-222530-026d7d94\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050555-e2373674",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050555-e2373674\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050555-e2373674\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-222530-026d7d94\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051956
+    },
+    {
+      "id": "14_fairytale",
+      "number": "14",
+      "category": "西幻",
+      "theme": "童话绘本",
+      "kind": "item",
+      "target": "apps\\web\\public\\homepage-examples\\items\\14_fairytale_item.png",
+      "prompt": "pixel art fairytale items, glass slipper, magic beanstalk seed, red riding hood cape, poisoned apple, fairy wand, gingerbread, pastel pink mint gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64. IMPORTANT for clarity: create exactly 8 LARGE item icons in a strict 4 columns by 2 rows sprite sheet. Each square slot must contain ONE centered item only. Each item must fill 75-90% of its slot and remain readable when the slot is exported as a 64x64 game icon. Do not make a dense catalog. Do not add tiny miniatures, duplicate sub-icons, labels, UI frames, text, shadows outside items, or decorative clutter. Use simple readable silhouettes, thick dark outlines, high contrast, and clear spacing between slots. Use a pure solid chroma-key background #00FFFF outside the items for reliable background removal; do not use that color inside any item.",
+      "image_size": "2048x1024",
+      "image_quality": "high",
+      "skip_vl": false,
+      "background_key_color": "#00FFFF",
+      "pixel_output_size": [
+        512,
+        256
+      ],
+      "export_size": [
+        512,
+        256
+      ],
+      "slot_size": 128,
+      "min_subject_pixels": 32,
+      "run_dir": "outputs\\homepage-examples-rerun-failed-items\\20260518-043231-1f30354e",
+      "source": "outputs\\homepage-examples-rerun-failed-items\\20260518-043231-1f30354e\\01_source.png",
+      "analysis": "outputs\\homepage-examples-rerun-failed-items\\20260518-043231-1f30354e\\02_analysis.json",
+      "pixel": "outputs\\homepage-examples-rerun-failed-items\\20260518-043231-1f30354e\\03_pixelized.png",
+      "meta": "outputs\\homepage-examples-rerun-failed-items\\20260518-043231-1f30354e\\meta.json"
     },
     {
       "id": "14_fairytale",
@@ -756,7 +849,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-222821-f059146e\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-222821-f059146e\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-222821-f059146e\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-222821-f059146e\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-222821-f059146e\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050556-368c1ad1",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050556-368c1ad1\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050556-368c1ad1\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-222821-f059146e\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051957
     },
     {
       "id": "15_norse",
@@ -812,7 +910,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-223120-1414dca7\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-223120-1414dca7\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-223120-1414dca7\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-223120-1414dca7\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-223120-1414dca7\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050557-8ba53ffa",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050557-8ba53ffa\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050557-8ba53ffa\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-223120-1414dca7\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051957
     },
     {
       "id": "16_celtic",
@@ -868,7 +971,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-223359-441cd407\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-223359-441cd407\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-223359-441cd407\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-223359-441cd407\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-223359-441cd407\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050557-e8df4fea",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050557-e8df4fea\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050557-e8df4fea\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-223359-441cd407\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051958
     },
     {
       "id": "17_greek",
@@ -924,7 +1032,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-223845-98d7838c\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-223845-98d7838c\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-223845-98d7838c\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-223845-98d7838c\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-223845-98d7838c\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050558-4d018e70",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050558-4d018e70\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050558-4d018e70\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-223845-98d7838c\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051959
     },
     {
       "id": "18_egyptian",
@@ -980,7 +1093,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-224151-cec2a1bd\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-224151-cec2a1bd\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-224151-cec2a1bd\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-224151-cec2a1bd\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-224151-cec2a1bd\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050559-80d2d428",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050559-80d2d428\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050559-80d2d428\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-224151-cec2a1bd\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051959
     },
     {
       "id": "19_hardscifi",
@@ -1036,7 +1154,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-224711-e400608d\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-224711-e400608d\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-224711-e400608d\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-224711-e400608d\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-224711-e400608d\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050559-33a16a49",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050559-33a16a49\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050559-33a16a49\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-224711-e400608d\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051960
     },
     {
       "id": "20_spaceopera",
@@ -1092,7 +1215,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-225029-93775639\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-225029-93775639\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-225029-93775639\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-225029-93775639\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-225029-93775639\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050600-8677b96b",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050600-8677b96b\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050600-8677b96b\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-225029-93775639\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051961
     },
     {
       "id": "21_cyberpunk",
@@ -1148,7 +1276,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-225250-b7f16b44\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-225250-b7f16b44\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-225250-b7f16b44\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-225250-b7f16b44\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-225250-b7f16b44\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050601-bdac6ffe",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050601-bdac6ffe\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050601-bdac6ffe\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-225250-b7f16b44\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051961
     },
     {
       "id": "22_steampunk",
@@ -1204,7 +1337,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-225521-98c01685\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-225521-98c01685\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-225521-98c01685\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-225521-98c01685\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-225521-98c01685\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050601-caf1971f",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050601-caf1971f\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050601-caf1971f\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-225521-98c01685\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051962
     },
     {
       "id": "23_dieselpunk",
@@ -1260,7 +1398,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-225834-72514e89\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-225834-72514e89\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-225834-72514e89\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-225834-72514e89\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-225834-72514e89\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050602-c7897af8",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050602-c7897af8\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050602-c7897af8\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-225834-72514e89\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051962
     },
     {
       "id": "24_biopunk",
@@ -1316,7 +1459,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-230858-6d5de7c9\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-230858-6d5de7c9\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-230858-6d5de7c9\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-230858-6d5de7c9\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-230858-6d5de7c9\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050602-c76d5c1d",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050602-c76d5c1d\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050602-c76d5c1d\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-230858-6d5de7c9\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051963
     },
     {
       "id": "25_atompunk",
@@ -1372,7 +1520,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-230818-411563bd\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-230818-411563bd\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-230818-411563bd\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-230818-411563bd\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-230818-411563bd\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050603-ecfe0c2a",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050603-ecfe0c2a\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050603-ecfe0c2a\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-230818-411563bd\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051964
     },
     {
       "id": "26_solarpunk",
@@ -1428,7 +1581,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-231252-327dc702\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-231252-327dc702\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-231252-327dc702\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-231252-327dc702\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-231252-327dc702\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050604-93a2652a",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050604-93a2652a\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050604-93a2652a\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-231252-327dc702\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051964
     },
     {
       "id": "27_wasteland",
@@ -1484,7 +1642,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-231522-dc6158ff\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-231522-dc6158ff\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-231522-dc6158ff\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-231522-dc6158ff\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-231522-dc6158ff\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050604-ad24603b",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050604-ad24603b\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050604-ad24603b\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-231522-dc6158ff\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051965
     },
     {
       "id": "28_nearfuture",
@@ -1540,7 +1703,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-231820-9b30404f\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-231820-9b30404f\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-231820-9b30404f\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-231820-9b30404f\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-231820-9b30404f\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050605-66277c1a",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050605-66277c1a\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050605-66277c1a\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-231820-9b30404f\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051966
     },
     {
       "id": "29_cthulhu",
@@ -1596,7 +1764,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-232031-3f043044\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-232031-3f043044\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-232031-3f043044\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-232031-3f043044\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-232031-3f043044\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050606-4662806c",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050606-4662806c\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050606-4662806c\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-232031-3f043044\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051966
     },
     {
       "id": "30_gothic",
@@ -1652,7 +1825,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-232307-c8e281aa\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-232307-c8e281aa\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-232307-c8e281aa\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-232307-c8e281aa\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-232307-c8e281aa\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050606-71762ae7",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050606-71762ae7\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050606-71762ae7\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-232307-c8e281aa\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051967
     },
     {
       "id": "31_zombie",
@@ -1708,7 +1886,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-232603-c8029c3f\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-232603-c8029c3f\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-232603-c8029c3f\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-232603-c8029c3f\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-232603-c8029c3f\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050607-aadf2841",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050607-aadf2841\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050607-aadf2841\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-232603-c8029c3f\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051967
     },
     {
       "id": "32_psycho",
@@ -1764,7 +1947,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-232759-e562eba3\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-232759-e562eba3\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-232759-e562eba3\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-232759-e562eba3\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-232759-e562eba3\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050607-156516b0",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050607-156516b0\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050607-156516b0\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-232759-e562eba3\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051968
     },
     {
       "id": "33_urbanlegend",
@@ -1820,7 +2008,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-233337-bf2314c7\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-233337-bf2314c7\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-233337-bf2314c7\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-233337-bf2314c7\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-233337-bf2314c7\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050608-ce578f6c",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050608-ce578f6c\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050608-ce578f6c\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-233337-bf2314c7\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051969
     },
     {
       "id": "34_folkhorror",
@@ -1876,7 +2069,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-233724-a0d2f0c6\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-233724-a0d2f0c6\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-233724-a0d2f0c6\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-233724-a0d2f0c6\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-233724-a0d2f0c6\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050609-f03c2264",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050609-f03c2264\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050609-f03c2264\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-233724-a0d2f0c6\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051969
     },
     {
       "id": "35_analoghorror",
@@ -1932,7 +2130,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-234132-1dfe63c0\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-234132-1dfe63c0\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-234132-1dfe63c0\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-234132-1dfe63c0\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-234132-1dfe63c0\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050609-379b881a",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050609-379b881a\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050609-379b881a\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-234132-1dfe63c0\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051970
     },
     {
       "id": "36_bodyhorror",
@@ -1988,7 +2191,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-234345-b9d2abb2\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-234345-b9d2abb2\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-234345-b9d2abb2\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-234345-b9d2abb2\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-234345-b9d2abb2\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050610-05158dd4",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050610-05158dd4\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050610-05158dd4\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-234345-b9d2abb2\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051971
     },
     {
       "id": "37_modern",
@@ -2044,7 +2252,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-234637-d381dea8\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-234637-d381dea8\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-234637-d381dea8\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-234637-d381dea8\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-234637-d381dea8\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050611-e4cafdab",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050611-e4cafdab\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050611-e4cafdab\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-234637-d381dea8\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051971
     },
     {
       "id": "38_school",
@@ -2100,7 +2313,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-234839-6df50c1d\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-234839-6df50c1d\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-234839-6df50c1d\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-234839-6df50c1d\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-234839-6df50c1d\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050611-b6ac22b6",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050611-b6ac22b6\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050611-b6ac22b6\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-234839-6df50c1d\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051972
     },
     {
       "id": "39_gangster",
@@ -2156,7 +2374,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-235232-037c38f1\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-235232-037c38f1\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-235232-037c38f1\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-235232-037c38f1\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-235232-037c38f1\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050612-1ec0d072",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050612-1ec0d072\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050612-1ec0d072\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-235232-037c38f1\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051973
     },
     {
       "id": "40_detective",
@@ -2212,7 +2435,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-235519-fb0ca100\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-235519-fb0ca100\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-235519-fb0ca100\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-235519-fb0ca100\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-235519-fb0ca100\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050613-42679ae8",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050613-42679ae8\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050613-42679ae8\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-235519-fb0ca100\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051973
     },
     {
       "id": "41_military",
@@ -2268,7 +2496,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260513-235912-5785f47f\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260513-235912-5785f47f\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260513-235912-5785f47f\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260513-235912-5785f47f\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260513-235912-5785f47f\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050613-48e9f8e0",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050613-48e9f8e0\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050613-48e9f8e0\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260513-235912-5785f47f\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051974
     },
     {
       "id": "42_spy",
@@ -2324,7 +2557,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-000130-ded281ae\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-000130-ded281ae\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-000130-ded281ae\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-000130-ded281ae\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-000130-ded281ae\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050614-d8a94625",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050614-d8a94625\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050614-d8a94625\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-000130-ded281ae\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051974
     },
     {
       "id": "43_ancient",
@@ -2380,7 +2618,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-000426-3154ff29\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-000426-3154ff29\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-000426-3154ff29\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-000426-3154ff29\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-000426-3154ff29\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050614-406396a0",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050614-406396a0\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050614-406396a0\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-000426-3154ff29\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051975
     },
     {
       "id": "44_pirate",
@@ -2436,7 +2679,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-000755-c6bfd1eb\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-000755-c6bfd1eb\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-000755-c6bfd1eb\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-000755-c6bfd1eb\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-000755-c6bfd1eb\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050615-c9cb6057",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050615-c9cb6057\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050615-c9cb6057\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-000755-c6bfd1eb\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051976
     },
     {
       "id": "45_industrial",
@@ -2492,7 +2740,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-001026-6ff91eef\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-001026-6ff91eef\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-001026-6ff91eef\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-001026-6ff91eef\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-001026-6ff91eef\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050616-b9c8d109",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050616-b9c8d109\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050616-b9c8d109\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-001026-6ff91eef\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051976
     },
     {
       "id": "46_ww2",
@@ -2548,7 +2801,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-001347-cdbe2d8f\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-001347-cdbe2d8f\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-001347-cdbe2d8f\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-001347-cdbe2d8f\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-001347-cdbe2d8f\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050616-2fdd6bfe",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050616-2fdd6bfe\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050616-2fdd6bfe\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-001347-cdbe2d8f\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051977
     },
     {
       "id": "47_coldwar",
@@ -2604,7 +2862,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-001558-0cbc15e2\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-001558-0cbc15e2\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-001558-0cbc15e2\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-001558-0cbc15e2\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-001558-0cbc15e2\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050617-a24a0701",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050617-a24a0701\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050617-a24a0701\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-001558-0cbc15e2\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051978
     },
     {
       "id": "48_western",
@@ -2660,7 +2923,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-001835-64a475dd\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-001835-64a475dd\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-001835-64a475dd\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-001835-64a475dd\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-001835-64a475dd\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050618-883cabc1",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050618-883cabc1\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050618-883cabc1\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-001835-64a475dd\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051978
     },
     {
       "id": "49_edo",
@@ -2716,7 +2984,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-002129-2903aaa9\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-002129-2903aaa9\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-002129-2903aaa9\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-002129-2903aaa9\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-002129-2903aaa9\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050618-9802c63e",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050618-9802c63e\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050618-9802c63e\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-002129-2903aaa9\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051979
     },
     {
       "id": "50_epichero",
@@ -2772,7 +3045,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-003224-40390f4f\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-003224-40390f4f\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-003224-40390f4f\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-003224-40390f4f\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-003224-40390f4f\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050619-33316d96",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050619-33316d96\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050619-33316d96\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-003224-40390f4f\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051980
     },
     {
       "id": "51_magicreal",
@@ -2828,7 +3106,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-002523-f00c774d\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-002523-f00c774d\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-002523-f00c774d\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-002523-f00c774d\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-002523-f00c774d\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050620-5c566998",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050620-5c566998\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050620-5c566998\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-002523-f00c774d\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051980
     },
     {
       "id": "52_paranormal",
@@ -2884,7 +3167,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-003429-272577ba\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-003429-272577ba\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-003429-272577ba\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-003429-272577ba\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-003429-272577ba\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050620-d9115b0a",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050620-d9115b0a\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050620-d9115b0a\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-003429-272577ba\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051981
     },
     {
       "id": "53_cartoon",
@@ -2940,7 +3228,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-003625-a68c8347\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-003625-a68c8347\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-003625-a68c8347\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-003625-a68c8347\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-003625-a68c8347\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050621-74eddcaf",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050621-74eddcaf\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050621-74eddcaf\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-003625-a68c8347\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051981
     },
     {
       "id": "54_cozy",
@@ -2996,7 +3289,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-003832-b8052c46\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-003832-b8052c46\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-003832-b8052c46\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-003832-b8052c46\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-003832-b8052c46\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050621-57a4ffd9",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050621-57a4ffd9\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050621-57a4ffd9\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-003832-b8052c46\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051982
     },
     {
       "id": "55_abstract",
@@ -3024,7 +3322,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-004339-31841260\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-004339-31841260\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-004339-31841260\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-004339-31841260\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-004339-31841260\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050622-f7cfd3d3",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050622-f7cfd3d3\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050622-f7cfd3d3\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-004339-31841260\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051983
     },
     {
       "id": "56_surreal",
@@ -3080,7 +3383,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-004604-cc39e46a\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-004604-cc39e46a\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-004604-cc39e46a\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-004604-cc39e46a\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-004604-cc39e46a\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050623-8028e1c2",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050623-8028e1c2\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050623-8028e1c2\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-004604-cc39e46a\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051983
     },
     {
       "id": "57_religious",
@@ -3136,7 +3444,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-004914-e43f6f04\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-004914-e43f6f04\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-004914-e43f6f04\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-004914-e43f6f04\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-004914-e43f6f04\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050623-db336857",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050623-db336857\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050623-db336857\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-004914-e43f6f04\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051984
     },
     {
       "id": "58_circushorror",
@@ -3192,7 +3505,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-005131-fd055206\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-005131-fd055206\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-005131-fd055206\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-005131-fd055206\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-005131-fd055206\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050624-8b4894ac",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050624-8b4894ac\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050624-8b4894ac\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-005131-fd055206\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051985
     },
     {
       "id": "59_arctic",
@@ -3248,7 +3566,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-005347-13343792\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-005347-13343792\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-005347-13343792\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-005347-13343792\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-005347-13343792\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050625-06ae45dd",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050625-06ae45dd\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050625-06ae45dd\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-005347-13343792\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051985
     },
     {
       "id": "60_deepsea",
@@ -3304,7 +3627,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-005539-7e1000e8\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-005539-7e1000e8\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-005539-7e1000e8\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-005539-7e1000e8\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-005539-7e1000e8\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050625-a96413a5",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050625-a96413a5\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050625-a96413a5\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-005539-7e1000e8\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051986
     },
     {
       "id": "61_spaceexplore",
@@ -3360,7 +3688,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-005747-0087d3da\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-005747-0087d3da\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-005747-0087d3da\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-005747-0087d3da\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-005747-0087d3da\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050626-bd5ed203",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050626-bd5ed203\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050626-bd5ed203\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-005747-0087d3da\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051987
     },
     {
       "id": "62_indian",
@@ -3416,7 +3749,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-010004-e8c76c28\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-010004-e8c76c28\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-010004-e8c76c28\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-010004-e8c76c28\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-010004-e8c76c28\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050627-c141ef82",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050627-c141ef82\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050627-c141ef82\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-010004-e8c76c28\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051987
     },
     {
       "id": "63_arabian",
@@ -3472,7 +3810,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-010239-56fe2453\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-010239-56fe2453\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-010239-56fe2453\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-010239-56fe2453\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-010239-56fe2453\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050627-c4865738",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050627-c4865738\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050627-c4865738\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-010239-56fe2453\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051988
     },
     {
       "id": "64_african",
@@ -3528,7 +3871,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-010801-3a9fc52b\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-010801-3a9fc52b\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-010801-3a9fc52b\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-010801-3a9fc52b\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-010801-3a9fc52b\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050628-a8695df8",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050628-a8695df8\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050628-a8695df8\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-010801-3a9fc52b\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051989
     },
     {
       "id": "65_southamerican",
@@ -3584,7 +3932,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-011234-088fe5d2\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-011234-088fe5d2\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-011234-088fe5d2\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-011234-088fe5d2\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-011234-088fe5d2\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050629-4406b7f9",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050629-4406b7f9\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050629-4406b7f9\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-011234-088fe5d2\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051989
     },
     {
       "id": "66_slavic",
@@ -3640,7 +3993,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-011412-b6f517be\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-011412-b6f517be\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-011412-b6f517be\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-011412-b6f517be\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-011412-b6f517be\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050629-78614dc3",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050629-78614dc3\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050629-78614dc3\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-011412-b6f517be\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051990
     },
     {
       "id": "67_mongol",
@@ -3696,7 +4054,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-011723-fd8766e5\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-011723-fd8766e5\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-011723-fd8766e5\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-011723-fd8766e5\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-011723-fd8766e5\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050630-5495edd4",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050630-5495edd4\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050630-5495edd4\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-011723-fd8766e5\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051991
     },
     {
       "id": "68_sea",
@@ -3752,7 +4115,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-011942-f8f15139\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-011942-f8f15139\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-011942-f8f15139\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-011942-f8f15139\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-011942-f8f15139\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050631-5c9b041e",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050631-5c9b041e\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050631-5c9b041e\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-011942-f8f15139\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051991
     },
     {
       "id": "69_dystopia",
@@ -3808,7 +4176,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-012133-f7d65744\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-012133-f7d65744\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-012133-f7d65744\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-012133-f7d65744\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-012133-f7d65744\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050631-91fece17",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050631-91fece17\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050631-91fece17\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-012133-f7d65744\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051992
     },
     {
       "id": "70_multiverse",
@@ -3836,7 +4209,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-012847-276d66ef\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-012847-276d66ef\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-012847-276d66ef\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-012847-276d66ef\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-012847-276d66ef\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050632-5af7e29c",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050632-5af7e29c\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050632-5af7e29c\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-012847-276d66ef\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051993
     },
     {
       "id": "71_timeloop",
@@ -3892,7 +4270,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-013038-1b834eab\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-013038-1b834eab\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-013038-1b834eab\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-013038-1b834eab\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-013038-1b834eab\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050633-eca5a548",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050633-eca5a548\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050633-eca5a548\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-013038-1b834eab\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051993
     },
     {
       "id": "72_monster",
@@ -3948,7 +4331,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-013631-8fc7402e\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-013631-8fc7402e\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-013631-8fc7402e\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-013631-8fc7402e\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-013631-8fc7402e\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050633-3741ccd0",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050633-3741ccd0\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050633-3741ccd0\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-013631-8fc7402e\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051994
     },
     {
       "id": "73_cooking",
@@ -4004,7 +4392,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-013941-2584ee56\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-013941-2584ee56\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-013941-2584ee56\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-013941-2584ee56\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-013941-2584ee56\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050634-87ca322b",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050634-87ca322b\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050634-87ca322b\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-013941-2584ee56\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051994
     },
     {
       "id": "74_sports",
@@ -4060,7 +4453,12 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-014133-3b6fc4e4\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-014133-3b6fc4e4\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-014133-3b6fc4e4\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-014133-3b6fc4e4\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-014133-3b6fc4e4\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050634-55b53110",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050634-55b53110\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050634-55b53110\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-014133-3b6fc4e4\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051995
     },
     {
       "id": "75_music",
@@ -4116,7 +4514,40 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-014500-85030093\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-014500-85030093\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-014500-85030093\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-014500-85030093\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-014500-85030093\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050635-415f898b",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050635-415f898b\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050635-415f898b\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-014500-85030093\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051996
+    },
+    {
+      "id": "76_otome",
+      "number": "76",
+      "category": "主题",
+      "theme": "浪漫乙女",
+      "kind": "item",
+      "target": "apps\\web\\public\\homepage-examples\\items\\76_otome_item.png",
+      "prompt": "pixel art romance items, love letter, rose bouquet, heart pendant, chocolate box, photo album, diary, soft pink cream gold palette, pixel art, 16-bit style, transparent background, game asset, crisp pixels, no anti-aliasing, large sprite sheet layout, minimum 64x64 slot per item, readable at 32x32 and 64x64. IMPORTANT for clarity: create exactly 8 LARGE item icons in a strict 4 columns by 2 rows sprite sheet. Each square slot must contain ONE centered item only. Each item must fill 75-90% of its slot and remain readable when the slot is exported as a 64x64 game icon. Do not make a dense catalog. Do not add tiny miniatures, duplicate sub-icons, labels, UI frames, text, shadows outside items, or decorative clutter. Use simple readable silhouettes, thick dark outlines, high contrast, and clear spacing between slots. Use a pure solid chroma-key background #00FFFF outside the items for reliable background removal; do not use that color inside any item.",
+      "image_size": "2048x1024",
+      "image_quality": "high",
+      "skip_vl": false,
+      "background_key_color": "#00FFFF",
+      "pixel_output_size": [
+        512,
+        256
+      ],
+      "export_size": [
+        512,
+        256
+      ],
+      "slot_size": 128,
+      "min_subject_pixels": 32,
+      "run_dir": "outputs\\homepage-examples-rerun-forced-key\\20260518-050401-784a2c75",
+      "source": "outputs\\homepage-examples-rerun-forced-key\\20260518-050401-784a2c75\\01_source.png",
+      "analysis": "outputs\\homepage-examples-rerun-forced-key\\20260518-050401-784a2c75\\02_analysis.json",
+      "pixel": "outputs\\homepage-examples-rerun-forced-key\\20260518-050401-784a2c75\\03_pixelized.png",
+      "meta": "outputs\\homepage-examples-rerun-forced-key\\20260518-050401-784a2c75\\meta.json"
     },
     {
       "id": "76_otome",
@@ -4144,8 +4575,13 @@
       "source": "outputs\\homepage-examples-full-flow\\20260514-014827-a8fdc5e6\\01_source.png",
       "analysis": "outputs\\homepage-examples-full-flow\\20260514-014827-a8fdc5e6\\02_analysis.json",
       "pixel": "outputs\\homepage-examples-full-flow\\20260514-014827-a8fdc5e6\\03_pixelized.png",
-      "meta": "outputs\\homepage-examples-full-flow\\20260514-014827-a8fdc5e6\\meta.json"
+      "meta": "outputs\\homepage-examples-full-flow\\20260514-014827-a8fdc5e6\\meta.json",
+      "postprocess_run_dir": "outputs\\homepage-ui-repostprocess\\20260518-050636-a74be969",
+      "postprocess_pixel": "outputs\\homepage-ui-repostprocess\\20260518-050636-a74be969\\03_pixelized.png",
+      "postprocess_meta": "outputs\\homepage-ui-repostprocess\\20260518-050636-a74be969\\meta.json",
+      "postprocess_from_source": "outputs\\homepage-examples-full-flow\\20260514-014827-a8fdc5e6\\01_source.png",
+      "postprocess_updated_at_epoch": 1779051996
     }
   ],
-  "updated_at_epoch": 1778694639
+  "updated_at_epoch": 1779051996
 }
