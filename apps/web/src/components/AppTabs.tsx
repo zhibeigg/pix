@@ -2,10 +2,11 @@ import { Box, Stack, Typography } from '@mui/material'
 import type { User } from '../types'
 import { notionTokens } from '../theme'
 
-export type AppPage = 'workspace' | 'gallery' | 'packs' | 'billing' | 'admin'
+export type AppPage = 'workspace' | 'raw-image' | 'gallery' | 'packs' | 'billing' | 'admin'
 
 const tabs: Array<{ page: AppPage; label: string; description: string; adminOnly?: boolean; tint: string }> = [
   { page: 'workspace', label: '生产工作台', description: '单图与批量创建', tint: notionTokens.tintYellowBold },
+  { page: 'raw-image', label: '原始生图', description: '仅生成原图', tint: notionTokens.tintCream },
   { page: 'gallery', label: '作品库', description: '查看结果与微调', tint: notionTokens.tintSky },
   { page: 'packs', label: '素材包', description: '管理批量生产', tint: notionTokens.tintMint },
   { page: 'billing', label: '点数中心', description: '充值与流水', tint: notionTokens.tintLavender },

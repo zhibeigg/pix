@@ -13,6 +13,7 @@ import { AdminPage } from './pages/AdminPage'
 import { BillingPage } from './pages/BillingPage'
 import { GalleryPage } from './pages/GalleryPage'
 import { PacksPage } from './pages/PacksPage'
+import { RawImagePage } from './pages/RawImagePage'
 import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
 import { buildGridDesign, defaultPixelize } from './pixelize'
 import type { AdminDashboard, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, EmailCodeResponse, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SetupStatus, SystemSetting, User } from './types'
@@ -28,7 +29,7 @@ type AppProps = {
 
 function pageFromHash(user: User | null): AppPage {
   const raw = window.location.hash.replace(/^#\/?/, '')
-  const page = ['workspace', 'gallery', 'packs', 'billing', 'admin'].includes(raw) ? raw as AppPage : 'workspace'
+  const page = ['workspace', 'raw-image', 'gallery', 'packs', 'billing', 'admin'].includes(raw) ? raw as AppPage : 'workspace'
   if (page === 'admin' && user?.role !== 'admin') return 'workspace'
   return page
 }
@@ -59,6 +60,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null)
   const [selectedBatchJobs, setSelectedBatchJobs] = useState<GenerationJob[]>([])
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
+  const [selectedRawJobId, setSelectedRawJobId] = useState<number | null>(null)
   const pollFailuresRef = useRef(0)
 
   const isAdmin = user?.role === 'admin'
@@ -256,6 +258,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     setSystemSettings([])
     setAdminDashboard(null)
     setSelectedJobId(null)
+    setSelectedRawJobId(null)
     setMessage('已退出')
   }
 
@@ -285,6 +288,45 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       setSelectedJobId(created.jobs[0]?.id ?? null)
       navigate('packs')
       setMessage(`${created.jobs.length} 个任务已入队，冻结 ${created.total_price_credits} 点。`)
+      await refreshCore(token)
+    } catch (error) {
+      showError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function createRawImageJob(payload: JobCreateRequest) {
+    if (!token) return
+    setBusy(true)
+    setMessage('')
+    try {
+      const job = await api.createJob(token, payload)
+      setSelectedRawJobId(job.id)
+      setSelectedJobId(job.id)
+      setPage('raw-image')
+      window.location.hash = '/raw-image'
+      setMessage(`原始生图任务 #${job.id} 已入队`)
+      await refreshCore(token)
+    } catch (error) {
+      showError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function createRawImageJobs(payloads: JobCreateRequest[], batchName = '', mode = 'raw_image') {
+    if (!token || payloads.length === 0) return
+    setBusy(true)
+    setMessage('')
+    try {
+      const created = await api.createJobsBatch(token, payloads, batchName, mode)
+      const firstJobId = created.jobs[0]?.id ?? null
+      setSelectedRawJobId(firstJobId)
+      setSelectedJobId(firstJobId)
+      setPage('raw-image')
+      window.location.hash = '/raw-image'
+      setMessage(`${created.jobs.length} 张原始生图已入队，冻结 ${created.total_price_credits} 点。`)
       await refreshCore(token)
     } catch (error) {
       showError(error)
@@ -555,6 +597,9 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
             <Box sx={{ display: 'grid', gap: 3 }}>
               {page === 'workspace' && (
                 <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />
+              )}
+              {page === 'raw-image' && (
+                <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onCreateJobs={createRawImageJobs} onRefresh={() => refreshCore()} />
               )}
               {page === 'gallery' && (
                 <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} />

@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.8.0-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.9.0-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-385%20passed-2ea44f.svg">
 </p>
 
@@ -325,6 +325,7 @@ Pix Web 是一个可运营的素材生产工作台：
 - 点数账户与任务扣费/退款
 - 游戏素材直出：输入素材名称，复用 `pix asset` 白底单图模板、Pixel Grid 提取和透明 PNG 输出
 - 首页展示中文 prompt 全流程示例，鼠标悬浮或键盘聚焦物品格可展开源图 / Grid / 预览详情，并在动画卡片上播放 9 帧序列帧、显示横向精灵图
+- 独立原始生图页：只保留提供商、模型、尺寸、质量、敏感度和生成数量等基础参数，提交后停留在中央画布查看 source 原图与候选缩略图
 - 单图生成、图生图、本地像素化、动画精灵表
 - 批量素材直出、批量 prompt / 批量图片任务
 - 素材包管理、失败重试、ZIP 下载
