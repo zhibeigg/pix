@@ -8,4 +8,4 @@ rich>=13.7
 python-dotenv>=1.0
 tomli>=2.0;python_version<"3.11"
 tomli-w>=1.0
-PySide6>=6.6
+PySide6>=6.11.1
