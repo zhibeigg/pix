@@ -58,7 +58,7 @@ web = [
     "psycopg[binary]>=3.1",
     "cryptography>=42",
 ]
-dev = ["pytest>=8.0", "ruff>=0.4"]
+dev = ["pytest>=9.0.3", "ruff>=0.15.13"]
 
 [project.scripts]
 pix = "pix.cli:app"
