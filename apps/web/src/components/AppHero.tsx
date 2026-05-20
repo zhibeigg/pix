@@ -78,12 +78,13 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
         minHeight: signedIn ? 'auto' : { md: 'calc(100vh - 64px)' },
         display: 'flex',
         alignItems: 'center',
-        bgcolor: notionTokens.brandNavyDeep,
-        color: notionTokens.onDark,
+        bgcolor: notionTokens.surface,
+        color: notionTokens.ink,
         mx: signedIn ? 0 : { xs: -2, md: -4 },
         px: signedIn ? { xs: 2.25, md: 3 } : { xs: 2, md: 4 },
         py: signedIn ? { xs: 3.5, md: 4.5 } : { xs: 6.5, md: 8 },
         borderRadius: signedIn ? 2 : 0,
+        borderBottom: `1px solid ${notionTokens.hairline}`,
       }}
     >
       <PixelAtmosphere />
@@ -92,13 +93,13 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
           <Stack spacing={3}>
             <Chip
               label={signedIn ? '今日工位 / 继续生产' : 'Pix Forge / 可交付像素资产'}
-              sx={{ alignSelf: 'flex-start', bgcolor: 'oklch(25% .04 258)', color: notionTokens.onDark, border: '1px solid oklch(46% .035 258)', borderRadius: 1 }}
+              sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.primary, color: notionTokens.onPrimary, borderRadius: 1 }}
             />
             <Box>
-              <Typography variant="h1" sx={{ maxWidth: 760, fontSize: signedIn ? { xs: 34, md: 50 } : { xs: 40, sm: 56, md: 74 }, color: notionTokens.onDark, letterSpacing: '-.05em', lineHeight: 1.05 }}>
+              <Typography variant="h1" sx={{ maxWidth: 760, fontSize: signedIn ? { xs: 34, md: 50 } : { xs: 40, sm: 56, md: 74 }, color: notionTokens.inkDeep, letterSpacing: '-.05em', lineHeight: 1.05 }}>
                 把一批想法锻成可进游戏的像素资产
               </Typography>
-              <Typography sx={{ mt: 2.4, maxWidth: 650, fontSize: { xs: 16, md: 18 }, lineHeight: 1.7, color: notionTokens.onDarkMuted }}>
+              <Typography sx={{ mt: 2.4, maxWidth: 650, fontSize: { xs: 16, md: 18 }, lineHeight: 1.7, color: notionTokens.slate }}>
                 从中文素材名开始，生成源图、像素化透明 PNG、动画帧与素材包 ZIP；失败项可单独重试，点数消耗全程可见。
               </Typography>
             </Box>
@@ -107,7 +108,7 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.4}>
               <Button variant="contained" color="primary" href={signedIn ? '#/workspace' : '#auth-panel'}>开始生产素材包</Button>
-              <Button variant="outlined" href={signedIn ? '#/packs' : '#examples'} sx={{ color: notionTokens.onDark, borderColor: 'oklch(62% .034 258)', bgcolor: 'oklch(18% .03 258)', '&:hover': { borderColor: 'oklch(76% .035 82)', bgcolor: 'oklch(22% .034 258)' } }}>{signedIn ? '查看素材包' : '查看 76 套题材'}</Button>
+              <Button variant="outlined" href={signedIn ? '#/packs' : '#examples'}>{signedIn ? '查看素材包' : '查看 76 套题材'}</Button>
             </Stack>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1.1, maxWidth: 620 }}>
@@ -116,10 +117,10 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
                 { value: failedJobs, label: '失败待处理', tone: notionTokens.brandPink },
                 { value: balance?.available_credits ?? '—', label: '可用点数', tone: notionTokens.brandOrange },
               ] : workflowStats).map((stat) => (
-                <Box key={stat.label} sx={{ position: 'relative', overflow: 'hidden', border: '1px solid oklch(44% .033 258)', borderRadius: 1.5, bgcolor: 'oklch(18% .03 258 / .76)', px: 1.7, py: 1.35 }}>
+                <Box key={stat.label} sx={{ position: 'relative', overflow: 'hidden', border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.5, bgcolor: notionTokens.canvas, px: 1.7, py: 1.35 }}>
                   <Box sx={{ position: 'absolute', left: 0, top: '15%', bottom: '15%', width: 3, borderRadius: 999, bgcolor: stat.tone, opacity: .8 }} />
                   <Typography variant="h5" sx={{ color: stat.tone, fontVariantNumeric: 'tabular-nums' }}>{stat.value}</Typography>
-                  <Typography variant="caption" sx={{ color: notionTokens.onDarkMuted }}>{stat.label}</Typography>
+                  <Typography variant="caption" sx={{ color: notionTokens.steel }}>{stat.label}</Typography>
                 </Box>
               ))}
             </Box>
@@ -134,12 +135,12 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
 
 function ProductionBrief() {
   return (
-    <Card sx={{ maxWidth: 660, bgcolor: 'oklch(22% .034 258)', borderColor: 'oklch(46% .036 258)', color: notionTokens.onDark }}>
+    <Card sx={{ maxWidth: 660, bgcolor: notionTokens.canvas, borderColor: notionTokens.hairline }}>
       <CardContent sx={{ p: { xs: 2, md: 2.35 } }}>
-        <Typography variant="caption" sx={{ color: notionTokens.onDarkMuted, letterSpacing: '.08em', textTransform: 'uppercase' }}>一张任务单</Typography>
+        <Typography variant="caption" sx={{ color: notionTokens.steel, letterSpacing: '.08em', textTransform: 'uppercase' }}>一张任务单</Typography>
         <Box sx={{ mt: 1.4, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr auto' }, gap: 1.2, alignItems: 'center' }}>
-          <Box sx={{ border: '1px solid oklch(46% .036 258)', borderRadius: 1, bgcolor: 'oklch(16% .028 258)', px: 1.6, py: 1.25 }}>
-            <Typography sx={{ color: notionTokens.onDark }}>月蚀铃、苍火鳞、星盐瓶……生图、VL 分析、像素化与透明 PNG 导出串成同一条流水线。</Typography>
+          <Box sx={{ border: `1px solid ${notionTokens.hairline}`, borderRadius: 1, bgcolor: notionTokens.surfaceSoft, px: 1.6, py: 1.25 }}>
+            <Typography sx={{ color: notionTokens.ink }}>月蚀铃、苍火鳞、星盐瓶……生图、VL 分析、像素化与透明 PNG 导出串成同一条流水线。</Typography>
           </Box>
           <Chip label="批量 / 可追溯" sx={{ bgcolor: notionTokens.tintYellow, color: notionTokens.ink, borderRadius: 1 }} />
         </Box>
@@ -487,7 +488,7 @@ function BoardMetric({ label, value }: { label: string; value: number | string }
 function PixelAtmosphere() {
   return (
     <Box sx={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', borderRadius: 'inherit' }} aria-hidden="true">
-      <Box sx={{ position: 'absolute', inset: 0, opacity: .1, backgroundImage: 'linear-gradient(oklch(92% .018 82 / .16) 1px, transparent 1px), linear-gradient(90deg, oklch(92% .018 82 / .16) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+      <Box sx={{ position: 'absolute', inset: 0, opacity: .06, backgroundImage: `linear-gradient(${notionTokens.hairlineStrong} 1px, transparent 1px), linear-gradient(90deg, ${notionTokens.hairlineStrong} 1px, transparent 1px)`, backgroundSize: '32px 32px' }} />
     </Box>
   )
 }
