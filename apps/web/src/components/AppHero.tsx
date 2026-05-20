@@ -484,36 +484,10 @@ function BoardMetric({ label, value }: { label: string; value: number | string }
   )
 }
 
-const stickyDots = [
-  { top: '12%', left: '6%', color: 'var(--pix-tint-yellow)', size: 8 },
-  { top: '24%', right: '9%', color: 'var(--pix-tint-rose)', size: 6 },
-  { top: '68%', left: '3%', color: 'var(--pix-tint-mint)', size: 7 },
-  { top: '78%', right: '5%', color: 'var(--pix-tint-sky)', size: 9 },
-  { top: '42%', left: '92%', color: 'var(--pix-tint-lavender)', size: 6 },
-  { top: '55%', left: '8%', color: 'var(--pix-tint-peach)', size: 7 },
-]
-
 function PixelAtmosphere() {
   return (
-    <Box sx={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }} aria-hidden="true">
+    <Box sx={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', borderRadius: 'inherit' }} aria-hidden="true">
       <Box sx={{ position: 'absolute', inset: 0, opacity: .1, backgroundImage: 'linear-gradient(oklch(92% .018 82 / .16) 1px, transparent 1px), linear-gradient(90deg, oklch(92% .018 82 / .16) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-      {stickyDots.map((dot, index) => (
-        <Box
-          key={index}
-          sx={{
-            position: 'absolute',
-            top: dot.top,
-            left: dot.left,
-            right: (dot as { right?: string }).right,
-            width: dot.size,
-            height: dot.size,
-            borderRadius: '2px',
-            bgcolor: dot.color,
-            opacity: .38,
-            display: { xs: 'none', md: 'block' },
-          }}
-        />
-      ))}
     </Box>
   )
 }
