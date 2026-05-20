@@ -512,7 +512,7 @@ function SectionFrame({ id, eyebrow, title, description, children }: SectionFram
   const isLongSection = id === 'examples'
 
   return (
-    <Box id={id} component="section" sx={{ scrollMarginTop: { xs: 112, md: 88 }, minHeight: { md: isLongSection ? 'auto' : '100vh' }, display: 'flex', alignItems: isLongSection ? 'flex-start' : 'center', bgcolor: notionTokens.canvas, px: { xs: 2, md: 4 }, py: { xs: 10, md: 14 } }}>
+    <Box id={id} component="section" sx={{ scrollMarginTop: { xs: 112, md: 88 }, display: 'flex', alignItems: 'center', bgcolor: notionTokens.canvas, px: { xs: 2, md: 4 }, py: { xs: 8, md: 10 } }}>
       <Box sx={{ width: '100%', maxWidth: 1180, mx: 'auto' }}>
         <Box sx={{ mb: { xs: 4, md: 5.5 } }}>
           <Typography variant="overline" color="text.secondary">{eyebrow}</Typography>

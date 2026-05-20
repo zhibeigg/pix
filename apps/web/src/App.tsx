@@ -537,7 +537,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 
   return (
     <Box component="main" data-pix-theme={themeMode}>
-      <AppBar position="sticky" elevation={0} color="inherit" sx={{ bgcolor: notionTokens.canvas, borderBottom: 1, borderColor: 'divider', zIndex: (theme) => theme.zIndex.drawer + 1, backdropFilter: 'blur(12px)', backgroundColor: `color-mix(in oklch, ${notionTokens.canvas} 88%, transparent)` }}>
+      <AppBar position="sticky" elevation={0} color="inherit" sx={{ bgcolor: 'color-mix(in oklch, var(--pix-canvas) 92%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: 1, borderColor: 'divider', zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar
           sx={{
             display: 'grid',
