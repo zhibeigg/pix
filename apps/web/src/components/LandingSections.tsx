@@ -63,7 +63,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
               <Stack spacing={3} sx={{ height: '100%', justifyContent: 'space-between' }}>
                 <Stack spacing={2.2}>
                   <Chip label="为什么是 Pix" sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, borderRadius: 1 }} />
-                  <Typography variant="h3" sx={{ maxWidth: 520 }}>从“生成图片”推进到“交付素材”</Typography>
+                  <Typography variant="h3" sx={{ maxWidth: 520 }}>从"生成图片"推进到"交付素材"</Typography>
                   <Typography color="text.secondary" sx={{ maxWidth: 570, fontSize: { md: 17 }, lineHeight: 1.7 }}>
                     普通 AI 图像工具停在预览图。Pix 把源图、像素工程图、透明 PNG、任务状态、失败重试和 ZIP 导出放在同一条流水线里，适合独立游戏和 RPG 素材包快速打样。
                   </Typography>
@@ -100,6 +100,8 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
           </Box>
         </Box>
       </SectionFrame>
+
+      <StatRow />
 
       <SectionFrame id="pixel-ui" eyebrow="像素 UI" title="道具和界面一起做" description="图标、HUD、按钮、面板可以放进同一批素材里；先把原型需要的交互表面补齐。">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '.78fr 1.22fr' }, gap: { xs: 3, lg: 4.5 }, alignItems: 'center' }}>
@@ -277,7 +279,7 @@ function ExampleTile({
         '&:hover, &:focus-visible, &:focus-within': {
           transform: 'translateY(-4px) scale(1.015)',
           boxShadow: notionTokens.liftShadow,
-          borderColor: notionTokens.hairlineStrong,
+          borderColor: notionTokens.primary,
           zIndex: 15,
         },
         '@media (prefers-reduced-motion: reduce)': {
@@ -480,15 +482,41 @@ type SectionFrameProps = {
   children: ReactNode
 }
 
+const statRowItems = [
+  { value: '12', label: '真实全流程样本', icon: '◆' },
+  { value: '76', label: '题材范例可追溯', icon: '◇' },
+  { value: 'PNG', label: '透明成品导出', icon: '▣' },
+  { value: 'ZIP', label: '素材包一键下载', icon: '▤' },
+]
+
+function StatRow() {
+  return (
+    <Box component="section" sx={{ bgcolor: notionTokens.surface, px: { xs: 2, md: 4 }, py: { xs: 5, md: 7 } }}>
+      <Box sx={{ maxWidth: 1180, mx: 'auto' }}>
+        <Typography variant="overline" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mb: 3 }}>更高效率，更少工具</Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: { xs: 1.25, md: 2 } }}>
+          {statRowItems.map((item) => (
+            <Box key={item.label} sx={{ textAlign: 'center', bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.5, p: { xs: 2, md: 2.8 }, transition: 'transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s ease', '&:hover': { transform: 'translateY(-2px)', boxShadow: notionTokens.liftShadow }, '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } } }}>
+              <Typography sx={{ fontSize: 20, mb: .5, opacity: .5 }}>{item.icon}</Typography>
+              <Typography variant="h3" sx={{ color: notionTokens.primary, fontVariantNumeric: 'tabular-nums' }}>{item.value}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: .5 }}>{item.label}</Typography>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    </Box>
+  )
+}
+
 function SectionFrame({ id, eyebrow, title, description, children }: SectionFrameProps) {
   const isLongSection = id === 'examples'
 
   return (
-    <Box id={id} component="section" sx={{ scrollMarginTop: { xs: 112, md: 88 }, minHeight: { md: isLongSection ? 'auto' : '100vh' }, display: 'flex', alignItems: isLongSection ? 'flex-start' : 'center', bgcolor: notionTokens.canvas, px: { xs: 2, md: 4 }, py: { xs: 8, md: 12 } }}>
+    <Box id={id} component="section" sx={{ scrollMarginTop: { xs: 112, md: 88 }, minHeight: { md: isLongSection ? 'auto' : '100vh' }, display: 'flex', alignItems: isLongSection ? 'flex-start' : 'center', bgcolor: notionTokens.canvas, px: { xs: 2, md: 4 }, py: { xs: 10, md: 14 } }}>
       <Box sx={{ width: '100%', maxWidth: 1180, mx: 'auto' }}>
-        <Box sx={{ mb: { xs: 3.5, md: 4.5 } }}>
+        <Box sx={{ mb: { xs: 4, md: 5.5 } }}>
           <Typography variant="overline" color="text.secondary">{eyebrow}</Typography>
-          <Typography variant="h2" sx={{ mt: 1, fontSize: { xs: 34, md: 48 }, maxWidth: 780 }}>{title}</Typography>
+          <Typography variant="h2" sx={{ mt: 1, fontSize: { xs: 34, md: 48 }, maxWidth: 780, letterSpacing: '-.03em' }}>{title}</Typography>
           <Typography color="text.secondary" sx={{ mt: 1.8, maxWidth: 720, fontSize: { md: 18 }, lineHeight: 1.7 }}>{description}</Typography>
         </Box>
         {children}

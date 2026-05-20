@@ -41,7 +41,7 @@ export function WorkspacePage({ mode, pricing, balance, jobs, loading, token, on
             onChange={(_, value: WorkMode) => onModeChange(value)}
             variant="scrollable"
             scrollButtons="auto"
-            sx={{ minHeight: 0, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTabs-flexContainer': { gap: .5 }, '& .MuiTab-root': { minHeight: 38, borderRadius: '8px', px: 2.2 }, '& .Mui-selected': { bgcolor: notionTokens.brandNavyDeep, color: `${notionTokens.onDark} !important` } }}
+            sx={{ minHeight: 0, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTabs-flexContainer': { gap: .5 }, '& .MuiTab-root': { minHeight: 38, borderRadius: '8px', px: 2.2, fontWeight: 500, transition: 'background-color .14s ease, color .14s ease' }, '& .Mui-selected': { bgcolor: notionTokens.brandNavyDeep, color: `${notionTokens.onDark} !important`, boxShadow: notionTokens.cardShadow } }}
           >
             <Tab value="single" label="单图试做" />
             <Tab value="batch" label="批量生产" />

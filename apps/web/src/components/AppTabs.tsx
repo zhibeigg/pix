@@ -24,15 +24,21 @@ export function AppTabs({ page, user, onChange }: AppTabsProps) {
   return (
     <Stack
       direction="row"
-      spacing={1}
       sx={{
+        width: '100%',
+        gap: { xs: .75, sm: 1 },
         overflowX: 'auto',
         overflowY: 'hidden',
-        pb: 0,
-        scrollbarWidth: 'none',
-        msOverflowStyle: 'none',
+        px: .25,
+        py: .25,
+        scrollbarWidth: 'thin',
+        scrollbarColor: `${notionTokens.hairlineStrong} transparent`,
         scrollSnapType: { xs: 'x proximity', lg: 'none' },
-        '&::-webkit-scrollbar': { display: 'none' },
+        overscrollBehaviorX: 'contain',
+        WebkitOverflowScrolling: 'touch',
+        '&::-webkit-scrollbar': { height: 5 },
+        '&::-webkit-scrollbar-track': { background: 'transparent' },
+        '&::-webkit-scrollbar-thumb': { backgroundColor: notionTokens.hairlineStrong, borderRadius: 999 },
       }}
       aria-label="主导航"
       role="navigation"
@@ -52,19 +58,45 @@ export function AppTabs({ page, user, onChange }: AppTabsProps) {
               borderRadius: '8px',
               bgcolor: active ? notionTokens.brandNavyDeep : notionTokens.canvas,
               color: active ? notionTokens.onDark : notionTokens.ink,
-              px: { xs: 1.75, lg: 2 },
-              py: .9,
-              minHeight: { xs: 44, md: 40 },
-              minWidth: { xs: 148, lg: 136, xl: 150 },
+              boxShadow: active ? notionTokens.cardShadow : 'none',
+              px: { xs: 1.45, sm: 1.65, lg: 1.35, xl: 1.6 },
+              py: { xs: .85, lg: .78 },
+              minHeight: { xs: 44, lg: 40 },
+              minWidth: { xs: 136, sm: 132, lg: 112, xl: 132 },
+              maxWidth: { lg: 160 },
               scrollSnapAlign: 'start',
               cursor: 'pointer',
               textAlign: 'left',
               font: 'inherit',
+              whiteSpace: 'nowrap',
               flex: '0 0 auto',
+              transition: 'background-color .16s ease, border-color .16s ease, transform .14s ease, box-shadow .16s ease',
+              '@media (min-width: 1321px) and (max-width: 1500px)': {
+                minWidth: 'auto',
+                maxWidth: 132,
+                px: 1.25,
+              },
+              '@media (hover: hover)': {
+                '&:hover': { transform: 'translateY(-1px)', bgcolor: active ? notionTokens.brandNavyDeep : notionTokens.surface },
+              },
+              '@media (prefers-reduced-motion: reduce)': {
+                '&, &:hover': { transform: 'none' },
+              },
             }}
           >
-            <Typography component="span" variant="body2" sx={{ display: 'block', fontWeight: 600 }}>{tab.label}</Typography>
-            <Typography component="span" variant="caption" sx={{ display: 'block', color: active ? notionTokens.onDarkMuted : notionTokens.steel }}>{tab.description}</Typography>
+            <Typography component="span" variant="body2" noWrap sx={{ display: 'block', fontWeight: 600 }}>{tab.label}</Typography>
+            <Typography
+              component="span"
+              variant="caption"
+              noWrap
+              sx={{
+                display: 'block',
+                color: active ? notionTokens.onDarkMuted : notionTokens.steel,
+                '@media (min-width: 1321px) and (max-width: 1500px)': { display: 'none' },
+              }}
+            >
+              {tab.description}
+            </Typography>
           </Box>
         )
       })}

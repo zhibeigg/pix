@@ -277,6 +277,10 @@ export function createPixTheme(mode: PixThemeMode) {
             border: `1px solid ${notionTokens.hairline}`,
             borderRadius: 12,
             boxShadow: notionTokens.cardShadow,
+            transition: 'transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s cubic-bezier(.22,1,.36,1), border-color .18s ease',
+            '@media (prefers-reduced-motion: reduce)': {
+              transition: 'none',
+            },
           },
         },
       },
@@ -298,6 +302,9 @@ export function createPixTheme(mode: PixThemeMode) {
               '&:hover:not(.Mui-disabled)': { transform: 'translateY(-1px)' },
             },
             '&:active:not(.Mui-disabled)': { transform: 'translateY(1px)' },
+            '&:focus-visible': {
+              boxShadow: notionTokens.focusRing,
+            },
             '@media (prefers-reduced-motion: reduce)': {
               '&, &:hover:not(.Mui-disabled), &:active:not(.Mui-disabled)': { transform: 'none' },
             },
@@ -357,6 +364,71 @@ export function createPixTheme(mode: PixThemeMode) {
             border: `1px solid ${notionTokens.hairline}`,
             boxShadow: 'none',
             '&:before': { display: 'none' },
+          },
+        },
+      },
+      MuiTooltip: {
+        styleOverrides: {
+          tooltip: {
+            backgroundColor: notionTokens.brandNavyDeep,
+            color: notionTokens.onDark,
+            borderRadius: 8,
+            fontSize: 12,
+            fontWeight: 500,
+            padding: '6px 12px',
+            boxShadow: notionTokens.liftShadow,
+          },
+          arrow: {
+            color: notionTokens.brandNavyDeep,
+          },
+        },
+      },
+      MuiMenu: {
+        styleOverrides: {
+          paper: {
+            marginTop: 8,
+            borderRadius: 12,
+            border: `1px solid ${notionTokens.hairline}`,
+            boxShadow: notionTokens.liftShadow,
+            backgroundImage: 'none',
+          },
+        },
+      },
+      MuiMenuItem: {
+        styleOverrides: {
+          root: {
+            borderRadius: 6,
+            margin: '2px 6px',
+            padding: '8px 12px',
+            fontSize: 14,
+            fontWeight: 500,
+            transition: 'background-color .12s ease',
+          },
+        },
+      },
+      MuiLinearProgress: {
+        styleOverrides: {
+          root: {
+            borderRadius: 999,
+            height: 6,
+            backgroundColor: notionTokens.hairlineSoft,
+          },
+          bar: {
+            borderRadius: 999,
+          },
+        },
+      },
+      MuiPagination: {
+        styleOverrides: {
+          root: {
+            '& .MuiPaginationItem-root': {
+              borderRadius: 8,
+              fontWeight: 500,
+            },
+            '& .Mui-selected': {
+              backgroundColor: `${notionTokens.brandNavyDeep} !important`,
+              color: notionTokens.onDark,
+            },
           },
         },
       },

@@ -50,7 +50,7 @@ export function AdminPanel({ dashboard, users, pricing, packages, settings, onRe
             <Button variant="outlined" onClick={onRefresh}>刷新</Button>
           </Stack>
 
-          <Tabs value={tab} variant="scrollable" scrollButtons="auto" onChange={(_, value: AdminTab) => setTab(value)} aria-label="管理后台栏目">
+          <Tabs value={tab} variant="scrollable" scrollButtons="auto" onChange={(_, value: AdminTab) => setTab(value)} aria-label="管理后台栏目" sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 500, minHeight: 44 }, '& .MuiTabs-indicator': { borderRadius: 999, height: 3 } }}>
             <Tab value="dashboard" label="概览" />
             <Tab value="users" label="用户与点数" />
             <Tab value="pricing" label="价格规则" />
@@ -112,21 +112,30 @@ function groupSettings(settings: SystemSetting[]) {
 function DashboardGrid({ dashboard }: { dashboard: AdminDashboard }) {
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' }, gap: 1.25 }}>
-      <Metric label="今日任务" value={dashboard.jobs_today} />
-      <Metric label="成功 / 失败" value={`${dashboard.succeeded_today} / ${dashboard.failed_today}`} />
-      <Metric label="排队 / 运行" value={`${dashboard.pending_jobs} / ${dashboard.running_jobs}`} />
-      <Metric label="今日充值" value={dashboard.credits_recharged_today} />
-      <Metric label="今日消费" value={dashboard.credits_consumed_today} />
-      <Metric label="今日上传" value={dashboard.uploads_today} />
-      <Metric label="总用户" value={dashboard.total_users} />
-      <Metric label="失败率" value={`${Math.round(dashboard.failure_rate * 100)}%`} />
+      <Metric label="今日任务" value={dashboard.jobs_today} tone="sky" />
+      <Metric label="成功 / 失败" value={`${dashboard.succeeded_today} / ${dashboard.failed_today}`} tone={dashboard.failed_today > 0 ? 'rose' : 'mint'} />
+      <Metric label="排队 / 运行" value={`${dashboard.pending_jobs} / ${dashboard.running_jobs}`} tone="lavender" />
+      <Metric label="今日充值" value={dashboard.credits_recharged_today} tone="yellow" />
+      <Metric label="今日消费" value={dashboard.credits_consumed_today} tone="peach" />
+      <Metric label="今日上传" value={dashboard.uploads_today} tone="sky" />
+      <Metric label="总用户" value={dashboard.total_users} tone="mint" />
+      <Metric label="失败率" value={`${Math.round(dashboard.failure_rate * 100)}%`} tone={dashboard.failure_rate > 0.1 ? 'rose' : 'mint'} />
     </Box>
   )
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
+const metricTones: Record<string, string> = {
+  sky: notionTokens.tintSky,
+  mint: notionTokens.tintMint,
+  lavender: notionTokens.tintLavender,
+  yellow: notionTokens.tintYellow,
+  peach: notionTokens.tintPeach,
+  rose: notionTokens.tintRose,
+}
+
+function Metric({ label, value, tone = 'sky' }: { label: string; value: string | number; tone?: string }) {
   return (
-    <Box sx={{ bgcolor: notionTokens.tintSky, border: 1, borderColor: 'divider', borderRadius: 1.5, p: 1.5, fontVariantNumeric: 'tabular-nums' }}>
+    <Box sx={{ position: 'relative', overflow: 'hidden', bgcolor: metricTones[tone] ?? notionTokens.tintSky, border: 1, borderColor: 'divider', borderRadius: 1.5, p: 1.5, fontVariantNumeric: 'tabular-nums', transition: 'transform .18s ease, box-shadow .18s ease', '&:hover': { transform: 'translateY(-2px)', boxShadow: notionTokens.cardShadow }, '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } } }}>
       <Typography variant="caption" color="text.secondary">{label}</Typography>
       <Typography variant="h5" sx={{ fontWeight: 600 }}>{value}</Typography>
     </Box>

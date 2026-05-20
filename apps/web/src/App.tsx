@@ -537,8 +537,34 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 
   return (
     <Box component="main" data-pix-theme={themeMode}>
-      <AppBar position="sticky" elevation={0} color="inherit" sx={{ bgcolor: notionTokens.canvas, borderBottom: 1, borderColor: 'divider', zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar sx={{ gap: 2, maxWidth: 1280, width: '100%', mx: 'auto', px: { xs: 2, md: 4 }, py: 0.5, minHeight: 64, alignItems: 'center', flexWrap: { xs: 'wrap', lg: 'nowrap' } }}>
+      <AppBar position="sticky" elevation={0} color="inherit" sx={{ bgcolor: notionTokens.canvas, borderBottom: 1, borderColor: 'divider', zIndex: (theme) => theme.zIndex.drawer + 1, backdropFilter: 'blur(12px)', backgroundColor: `color-mix(in oklch, ${notionTokens.canvas} 88%, transparent)` }}>
+        <Toolbar
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: user
+              ? { xs: 'minmax(0, 1fr) auto', lg: 'minmax(196px, 232px) minmax(0, 1fr) auto' }
+              : 'minmax(0, 1fr) auto',
+            gridTemplateAreas: user
+              ? { xs: '"brand actions" "nav nav"', lg: '"brand nav actions"' }
+              : '"brand actions"',
+            columnGap: { xs: 1, sm: 1.5, lg: 2 },
+            rowGap: { xs: 1, lg: 0 },
+            maxWidth: 1440,
+            width: '100%',
+            mx: 'auto',
+            px: { xs: 1.5, sm: 2, md: 3, xl: 4 },
+            py: { xs: 1, lg: .75 },
+            minHeight: { xs: user ? 104 : 64, lg: 72 },
+            alignItems: 'center',
+            '@media (max-width: 1320px)': user
+              ? {
+                  gridTemplateColumns: 'minmax(0, 1fr) auto',
+                  gridTemplateAreas: '"brand actions" "nav nav"',
+                  rowGap: 1,
+                }
+              : undefined,
+          }}
+        >
           <Stack
             component="a"
             href="/"
@@ -546,8 +572,8 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
             direction="row"
             spacing={1.25}
             sx={{
-              minWidth: 190,
-              flex: { xs: '1 1 auto', lg: '0 0 auto' },
+              gridArea: 'brand',
+              minWidth: 0,
               alignItems: 'center',
               color: 'inherit',
               textDecoration: 'none',
@@ -557,19 +583,19 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
               '&:hover': { opacity: .9 },
             }}
           >
-            <Box component="img" src="/pix-logo-64.png" alt="" width={40} height={40} sx={{ imageRendering: 'pixelated', flex: '0 0 auto' }} />
-            <Box>
-              <Typography variant="overline" color="text.secondary">Pix Forge</Typography>
-              <Typography variant="h5" component="h1">像素素材工坊</Typography>
+            <Box component="img" src="/pix-logo-64.png" alt="" width={40} height={40} sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 }, imageRendering: 'pixelated', flex: '0 0 auto' }} />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="overline" color="text.secondary" sx={{ display: 'block', lineHeight: 1.05 }}>Pix Forge</Typography>
+              <Typography variant="h5" component="h1" noWrap sx={{ fontSize: { xs: 22, sm: 24 } }}>像素素材工坊</Typography>
             </Box>
           </Stack>
           {user && (
-            <Box sx={{ order: { xs: 3, lg: 2 }, flex: '1 1 auto', minWidth: 0, width: { xs: '100%', lg: 'auto' } }}>
+            <Box sx={{ gridArea: 'nav', minWidth: 0, width: '100%', overflow: 'hidden' }}>
               <AppTabs page={page} user={user} onChange={navigate} />
             </Box>
           )}
-          <Box sx={{ order: { xs: 2, lg: 3 }, flex: { xs: '0 0 auto', lg: '0 0 auto' }, ml: { lg: 'auto' } }}>
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'flex-end' }}>
+          <Box sx={{ gridArea: 'actions', minWidth: 0, justifySelf: 'end' }}>
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', justifyContent: 'flex-end', minWidth: 0, flexWrap: 'nowrap' }}>
               <ThemeModeMenu preference={themePreference} resolvedMode={themeMode} systemMode={systemThemeMode} onChange={onThemePreferenceChange} />
               {user ? (
                 <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={() => refreshCore()} onLogout={logout} />
@@ -593,7 +619,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       ) : user ? (
         <Container maxWidth={false} sx={{ maxWidth: 1280, py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 }, mx: 'auto' }}>
           <Stack spacing={4}>
-            {message && <Alert severity="info" role="status" aria-live="polite">{message}</Alert>}
+            {message && <Alert severity="info" role="status" aria-live="polite" sx={{ borderRadius: 1.5 }}>{message}</Alert>}
             <Box sx={{ display: 'grid', gap: 3 }}>
               {page === 'workspace' && (
                 <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />
@@ -631,17 +657,23 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 
 function SiteFooter() {
   return (
-    <Box component="footer" sx={{ borderTop: 1, borderColor: 'divider', bgcolor: notionTokens.surfaceSoft, px: { xs: 2, md: 4 }, py: 2.5, textAlign: 'center' }}>
-      <Typography
-        component="a"
-        href="https://beian.miit.gov.cn/"
-        target="_blank"
-        rel="noreferrer"
-        variant="body2"
-        sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'text.primary', textDecoration: 'underline' } }}
-      >
-        鲁ICP备2022023963号
-      </Typography>
+    <Box component="footer" sx={{ borderTop: 1, borderColor: 'divider', bgcolor: notionTokens.canvas, px: { xs: 2, md: 4 }, py: { xs: 3, md: 4 } }}>
+      <Stack spacing={1.5} sx={{ alignItems: 'center' }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Box component="img" src="/pix-logo-64.png" alt="" width={24} height={24} sx={{ imageRendering: 'pixelated', opacity: .6 }} />
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>Pix Forge · 像素素材工坊</Typography>
+        </Stack>
+        <Typography
+          component="a"
+          href="https://beian.miit.gov.cn/"
+          target="_blank"
+          rel="noreferrer"
+          variant="caption"
+          sx={{ color: 'text.secondary', textDecoration: 'none', opacity: .7, '&:hover': { color: 'text.primary', textDecoration: 'underline', opacity: 1 } }}
+        >
+          鲁ICP备2022023963号
+        </Typography>
+      </Stack>
     </Box>
   )
 }
