@@ -95,7 +95,7 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
               sx={{ alignSelf: 'flex-start', bgcolor: 'oklch(25% .04 258)', color: notionTokens.onDark, border: '1px solid oklch(46% .035 258)', borderRadius: 1 }}
             />
             <Box>
-              <Typography variant="h1" sx={{ maxWidth: 760, fontSize: signedIn ? { xs: 34, md: 50 } : { xs: 40, sm: 56, md: 74 }, color: notionTokens.onDark }}>
+              <Typography variant="h1" sx={{ maxWidth: 760, fontSize: signedIn ? { xs: 34, md: 50 } : { xs: 40, sm: 56, md: 74 }, color: notionTokens.onDark, letterSpacing: '-.05em', lineHeight: 1.05 }}>
                 把一批想法锻成可进游戏的像素资产
               </Typography>
               <Typography sx={{ mt: 2.4, maxWidth: 650, fontSize: { xs: 16, md: 18 }, lineHeight: 1.7, color: notionTokens.onDarkMuted }}>
@@ -116,7 +116,8 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
                 { value: failedJobs, label: '失败待处理', tone: notionTokens.brandPink },
                 { value: balance?.available_credits ?? '—', label: '可用点数', tone: notionTokens.brandOrange },
               ] : workflowStats).map((stat) => (
-                <Box key={stat.label} sx={{ border: '1px solid oklch(44% .033 258)', borderRadius: 1.5, bgcolor: 'oklch(18% .03 258 / .76)', px: 1.7, py: 1.35 }}>
+                <Box key={stat.label} sx={{ position: 'relative', overflow: 'hidden', border: '1px solid oklch(44% .033 258)', borderRadius: 1.5, bgcolor: 'oklch(18% .03 258 / .76)', px: 1.7, py: 1.35 }}>
+                  <Box sx={{ position: 'absolute', left: 0, top: '15%', bottom: '15%', width: 3, borderRadius: 999, bgcolor: stat.tone, opacity: .8 }} />
                   <Typography variant="h5" sx={{ color: stat.tone, fontVariantNumeric: 'tabular-nums' }}>{stat.value}</Typography>
                   <Typography variant="caption" sx={{ color: notionTokens.onDarkMuted }}>{stat.label}</Typography>
                 </Box>
@@ -483,6 +484,36 @@ function BoardMetric({ label, value }: { label: string; value: number | string }
   )
 }
 
+const stickyDots = [
+  { top: '12%', left: '6%', color: 'var(--pix-tint-yellow)', size: 8 },
+  { top: '24%', right: '9%', color: 'var(--pix-tint-rose)', size: 6 },
+  { top: '68%', left: '3%', color: 'var(--pix-tint-mint)', size: 7 },
+  { top: '78%', right: '5%', color: 'var(--pix-tint-sky)', size: 9 },
+  { top: '42%', left: '92%', color: 'var(--pix-tint-lavender)', size: 6 },
+  { top: '55%', left: '8%', color: 'var(--pix-tint-peach)', size: 7 },
+]
+
 function PixelAtmosphere() {
-  return <Box sx={{ position: 'absolute', inset: 0, opacity: .12, backgroundImage: 'linear-gradient(oklch(92% .018 82 / .16) 1px, transparent 1px), linear-gradient(90deg, oklch(92% .018 82 / .16) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+  return (
+    <Box sx={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }} aria-hidden="true">
+      <Box sx={{ position: 'absolute', inset: 0, opacity: .1, backgroundImage: 'linear-gradient(oklch(92% .018 82 / .16) 1px, transparent 1px), linear-gradient(90deg, oklch(92% .018 82 / .16) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+      {stickyDots.map((dot, index) => (
+        <Box
+          key={index}
+          sx={{
+            position: 'absolute',
+            top: dot.top,
+            left: dot.left,
+            right: (dot as { right?: string }).right,
+            width: dot.size,
+            height: dot.size,
+            borderRadius: '2px',
+            bgcolor: dot.color,
+            opacity: .38,
+            display: { xs: 'none', md: 'block' },
+          }}
+        />
+      ))}
+    </Box>
+  )
 }

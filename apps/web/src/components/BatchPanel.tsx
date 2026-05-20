@@ -91,13 +91,26 @@ function BatchCard({ batch, selected, retrying, downloading, onSelectBatch, onRe
       variant="outlined"
       aria-current={selected ? 'true' : undefined}
       sx={{
+        position: 'relative',
+        overflow: 'hidden',
         bgcolor: selected ? notionTokens.surface : notionTokens.canvas,
         opacity: archived ? 0.68 : 1,
         borderColor: selected ? notionTokens.primary : notionTokens.hairline,
+        borderWidth: selected ? 2 : 1,
         boxShadow: selected ? notionTokens.focusRing : 'none',
         transition: 'transform .18s ease, box-shadow .18s ease, border-color .18s ease',
         '&:hover': { transform: 'translateY(-2px)', borderColor: notionTokens.hairlineStrong, boxShadow: selected ? notionTokens.focusRing : notionTokens.liftShadow },
         '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } },
+        '&::before': selected ? {
+          content: '""',
+          position: 'absolute',
+          left: 0,
+          top: '12%',
+          bottom: '12%',
+          width: 3,
+          borderRadius: 999,
+          bgcolor: notionTokens.primary,
+        } : undefined,
       }}
     >
       <CardContent sx={{ p: 1.6, '&:last-child': { pb: 1.6 } }}>

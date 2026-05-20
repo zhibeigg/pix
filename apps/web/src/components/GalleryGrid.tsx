@@ -56,9 +56,10 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                     overflow: 'hidden',
                     cursor: 'default',
                     borderColor: selected ? notionTokens.primary : notionTokens.hairline,
+                    borderWidth: selected ? 2 : 1,
                     boxShadow: selected ? notionTokens.focusRing : notionTokens.cardShadow,
                     transition: 'transform .18s cubic-bezier(.22,1,.36,1), border-color .18s ease, box-shadow .18s ease',
-                    '&:hover': { transform: 'translateY(-3px)', borderColor: selected ? notionTokens.primary : notionTokens.hairlineStrong, boxShadow: notionTokens.liftShadow },
+                    '&:hover': { transform: 'translateY(-3px) scale(1.01)', borderColor: selected ? notionTokens.primary : notionTokens.hairlineStrong, boxShadow: notionTokens.liftShadow },
                     '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } },
                   }}
                 >

@@ -43,12 +43,15 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
           </Box>
 
           <Stack spacing={1.5}>
-            {packages.map((item) => (
-              <Card variant="outlined" key={item.key} sx={{ bgcolor: notionTokens.tintCream }}>
+            {packages.map((item, index) => (
+              <Card variant="outlined" key={item.key} sx={{ bgcolor: index === 0 ? notionTokens.tintYellowBold : notionTokens.tintCream, borderColor: index === 0 ? notionTokens.primary : notionTokens.hairline, borderWidth: index === 0 ? 2 : 1, transition: 'transform .18s ease, box-shadow .18s ease', '&:hover': { transform: 'translateY(-2px)', boxShadow: notionTokens.liftShadow }, '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } } }}>
                 <CardContent>
                   <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between', gap: 2, alignItems: { xs: 'stretch', md: 'center' } }}>
                     <Box>
-                      <Typography sx={{ fontWeight: 600 }}>{item.name}</Typography>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                        <Typography sx={{ fontWeight: 600 }}>{item.name}</Typography>
+                        {index === 0 && <Chip size="small" label="推荐" sx={{ bgcolor: notionTokens.primary, color: notionTokens.onPrimary, height: 22, '& .MuiChip-label': { px: .8, fontSize: 11, fontWeight: 600 } }} />}
+                      </Stack>
                       <Typography color="text.secondary" variant="body2">{item.credits} 点 · ¥{(item.amount_cents / 100).toFixed(2)}</Typography>
                     </Box>
                     <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
@@ -124,7 +127,8 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <Box sx={{ bgcolor: notionTokens.tintLavender, border: 1, borderColor: 'divider', borderRadius: 1.5, p: 1.5, fontVariantNumeric: 'tabular-nums' }}>
+    <Box sx={{ position: 'relative', overflow: 'hidden', bgcolor: notionTokens.tintLavender, border: 1, borderColor: 'divider', borderRadius: 1.5, p: 1.5, fontVariantNumeric: 'tabular-nums' }}>
+      <Box aria-hidden="true" sx={{ position: 'absolute', top: -16, right: -16, width: 56, height: 56, borderRadius: '50%', bgcolor: notionTokens.primary, opacity: .06 }} />
       <Typography variant="caption" color="text.secondary">{label}</Typography>
       <Typography variant="h5" sx={{ fontWeight: 600 }}>{value}</Typography>
     </Box>
