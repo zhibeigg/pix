@@ -139,17 +139,17 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
         <ExampleAtlas />
       </SectionFrame>
 
-      <Box id="auth-panel" component="section" sx={{ scrollMarginTop: { xs: 112, md: 88 }, position: 'relative', minHeight: { md: '100vh' }, display: 'flex', alignItems: 'center', bgcolor: notionTokens.brandNavyDeep, color: notionTokens.onDark, px: { xs: 2, md: 4 }, py: { xs: 7, md: 9 }, overflow: 'hidden' }}>
-        <Box sx={{ position: 'absolute', inset: 0, opacity: .14, backgroundImage: 'linear-gradient(oklch(92% .018 82 / .18) 1px, transparent 1px), linear-gradient(90deg, oklch(92% .018 82 / .18) 1px, transparent 1px)', backgroundSize: '32px 32px' }} aria-hidden="true" />
-        <Box sx={{ position: 'absolute', left: { xs: -64, md: 48 }, bottom: { xs: 24, md: 72 }, width: 168, height: 168, opacity: .32, background: 'linear-gradient(135deg, oklch(56% .06 86), oklch(42% .06 292))', clipPath: 'polygon(0 0, 100% 0, 100% 18%, 18% 18%, 18% 100%, 0 100%)' }} aria-hidden="true" />
+      <Box id="auth-panel" component="section" sx={{ scrollMarginTop: { xs: 112, md: 88 }, position: 'relative', minHeight: { md: '100vh' }, display: 'flex', alignItems: 'center', bgcolor: notionTokens.surfaceSoft, color: notionTokens.ink, px: { xs: 2, md: 4 }, py: { xs: 7, md: 9 }, overflow: 'hidden', borderTop: `1px solid ${notionTokens.hairline}` }}>
+        <Box sx={{ position: 'absolute', inset: 0, opacity: .04, backgroundImage: `linear-gradient(${notionTokens.hairlineStrong} 1px, transparent 1px), linear-gradient(90deg, ${notionTokens.hairlineStrong} 1px, transparent 1px)`, backgroundSize: '32px 32px' }} aria-hidden="true" />
+        <Box sx={{ position: 'absolute', left: { xs: -64, md: 48 }, bottom: { xs: 24, md: 72 }, width: 168, height: 168, opacity: .08, background: `linear-gradient(135deg, ${notionTokens.tintYellow}, ${notionTokens.tintLavender})`, clipPath: 'polygon(0 0, 100% 0, 100% 18%, 18% 18%, 18% 100%, 0 100%)' }} aria-hidden="true" />
         <Box sx={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 1152, mx: 'auto', display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '.9fr 1.1fr' }, gap: { xs: 4, lg: 7 }, alignItems: 'center' }}>
           <Stack spacing={2.5} sx={{ maxWidth: 560 }}>
-            <Chip label="开始生产" sx={{ alignSelf: 'flex-start', bgcolor: 'oklch(16% .03 263)', color: notionTokens.onDark, border: '1px solid oklch(45% .04 256)', borderRadius: 1 }} />
-            <Typography variant="h2" sx={{ color: notionTokens.onDark, fontSize: { xs: 38, md: 56 }, letterSpacing: '-.05em' }}>进入像素工位台</Typography>
-            <Typography sx={{ color: notionTokens.onDarkMuted, maxWidth: 560, fontSize: { md: 18 }, lineHeight: 1.72 }}>创建单图或素材包，完成后在作品库挑选、重试、打包导出。</Typography>
+            <Chip label="开始生产" sx={{ alignSelf: 'flex-start', bgcolor: notionTokens.primary, color: notionTokens.onPrimary, borderRadius: 1 }} />
+            <Typography variant="h2" sx={{ color: notionTokens.inkDeep, fontSize: { xs: 38, md: 56 }, letterSpacing: '-.05em' }}>进入像素工位台</Typography>
+            <Typography sx={{ color: notionTokens.slate, maxWidth: 560, fontSize: { md: 18 }, lineHeight: 1.72 }}>创建单图或素材包，完成后在作品库挑选、重试、打包导出。</Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
               <Button variant="contained" color="primary" href="#auth-panel">登录</Button>
-              <Button variant="outlined" href="#workflow" sx={{ borderColor: 'oklch(58% .04 254)', color: notionTokens.onDark, bgcolor: 'oklch(14% .024 263)', '&:hover': { borderColor: 'oklch(78% .05 250)', bgcolor: 'oklch(20% .03 263)' } }}>看优势</Button>
+              <Button variant="outlined" href="#workflow">看优势</Button>
             </Stack>
           </Stack>
           <Box>{authSlot}</Box>

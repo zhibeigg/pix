@@ -53,7 +53,7 @@ export function SetupWizard({ status, loading, onBootstrapAdmin }: SetupWizardPr
           <TextField label="确认密码" type="password" value={confirmPassword} autoComplete="new-password" onChange={(event) => setConfirmPassword(event.target.value)} required sx={authTextFieldSx} />
           {error && <AuthInlineAlert severity="error">{error}</AuthInlineAlert>}
           <AuthInlineAlert severity="info">首次管理员不需要邮箱验证码；进入后台后请立即配置 SMTP 或启用 console 调试码。</AuthInlineAlert>
-          <Button type="submit" variant="contained" disabled={loading} sx={{ minHeight: 48, bgcolor: 'oklch(71% .17 296)', color: 'oklch(12% .028 263)', fontWeight: 600, '&:hover': { bgcolor: 'oklch(76% .16 296)' } }}>
+          <Button type="submit" variant="contained" disabled={loading} sx={{ minHeight: 48, fontWeight: 600 }}>
             {loading ? '初始化中…' : '创建管理员并进入后台'}
           </Button>
         </Stack>
