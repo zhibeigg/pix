@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.28] - 2026-05-21
+
+### Fixed
+
+- 工作台布局改为全屏应用壳，移除居中 mockup 窗口和登录态页脚，让侧边栏与内容区占满可用屏幕。
+
 ## [1.17.27] - 2026-05-21
 
 ### Fixed
