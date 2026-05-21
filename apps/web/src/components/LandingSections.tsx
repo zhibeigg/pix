@@ -133,13 +133,13 @@ function WorkflowSection() {
 
 function FeatureNote({ label, title, body, mark, tone }: { label: string; title: string; body: string; mark: string; tone: string }) {
   return (
-    <article className={`rounded-lg border border-border p-6 shadow-[0_1px_2px_rgba(15,15,15,0.04)] transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-[hsl(var(--pix-navy-mid))]/20 ${tone}`}>
+    <article className={`rounded-lg border border-border p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_1px_2px_rgba(15,15,15,0.04)] transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] ${tone}`}>
       <div className="grid grid-cols-[56px_minmax(0,1fr)] items-start gap-4">
-        <div className="grid h-14 w-14 place-items-center rounded-lg border border-border bg-card font-semibold text-[hsl(var(--pix-ink))] dark:border-[hsl(var(--pix-navy))]/10 dark:bg-white/65">{mark}</div>
+        <div className="grid h-14 w-14 place-items-center rounded-lg border border-border bg-card font-semibold text-[hsl(var(--pix-ink))] dark:border-white/15 dark:bg-white/7 dark:text-white">{mark}</div>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.12em] text-[hsl(var(--pix-steel))]">{label}</p>
+          <p className="text-xs font-bold uppercase tracking-[.12em] text-[hsl(var(--pix-steel))] dark:text-white/55">{label}</p>
           <h3 className="mt-1 text-xl font-semibold">{title}</h3>
-          <p className="mt-2 text-sm leading-6 text-[hsl(var(--pix-slate))]">{body}</p>
+          <p className="mt-2 text-sm leading-6 text-[hsl(var(--pix-slate))] dark:text-white/66">{body}</p>
         </div>
       </div>
     </article>
@@ -166,19 +166,19 @@ function AssistantSection() {
 
 function AssistantTile({ title, body, badge, tone }: { title: string; body: string; badge: string; tone: string }) {
   return (
-    <article className={`rounded-lg border border-border p-6 shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-[hsl(var(--pix-navy-mid))]/20 ${tone}`}>
+    <article className={`rounded-lg border border-border p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] ${tone}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Badge variant="outline" className="bg-white/65">{badge}</Badge>
+          <Badge variant="outline" className="bg-white/65 text-[hsl(var(--pix-navy))] dark:border-white/20 dark:bg-white/7 dark:text-white/75">{badge}</Badge>
           <h3 className="mt-4 text-2xl font-semibold">{title}</h3>
-          <p className="mt-2 text-sm leading-7 text-[hsl(var(--pix-slate))]">{body}</p>
+          <p className="mt-2 text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{body}</p>
         </div>
-        <div className="hidden w-36 rounded-lg border border-border bg-white/60 p-3 dark:border-[hsl(var(--pix-navy))]/10 sm:block">
-          <div className="h-2 rounded-full bg-[hsl(var(--pix-stone))]/45" />
-          <div className="mt-2 h-2 w-2/3 rounded-full bg-[hsl(var(--pix-stone))]/30" />
+        <div className="hidden w-36 rounded-lg border border-border bg-white/60 p-3 dark:border-white/12 dark:bg-white/7 sm:block">
+          <div className="h-2 rounded-full bg-[hsl(var(--pix-stone))]/45 dark:bg-white/25" />
+          <div className="mt-2 h-2 w-2/3 rounded-full bg-[hsl(var(--pix-stone))]/30 dark:bg-white/15" />
           <div className="mt-4 grid gap-1.5">
-            <span className="h-8 rounded-md bg-card dark:bg-white/70" />
-            <span className="h-8 rounded-md bg-card dark:bg-white/70" />
+            <span className="h-8 rounded-md bg-card dark:bg-white/10" />
+            <span className="h-8 rounded-md bg-card dark:bg-white/10" />
           </div>
         </div>
       </div>
@@ -305,10 +305,10 @@ function ExampleAtlas() {
   function showFloating(example: HomepageExample, x: number, y: number) { setActiveId(example.id); setFloating({ example, x, y }) }
   return (
     <div className="relative grid gap-6" onMouseLeave={() => setFloating(null)}>
-      <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_4px_12px_rgba(15,15,15,0.08)] md:p-8">
+      <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] md:p-8">
         <div className="grid items-center gap-6 lg:grid-cols-[.9fr_1.1fr]">
-          <div><Badge className="bg-[hsl(var(--pix-navy))] text-white">Sample Atlas</Badge><h3 className="mt-5 text-3xl font-semibold md:text-5xl">题材不是列表，是可验收的样本墙</h3><p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))]">每套范例包含一张透明物品精灵表和一张 1920×1080 UI 展示图。悬浮左侧卡片即可在鼠标旁展开详情。</p></div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">{examplesByCategory.map((group) => <button type="button" key={group.category} onClick={() => setActiveId(group.examples[0]?.id ?? activeId)} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/65 p-3 text-left transition hover:bg-white"><p className="font-semibold">{group.category}</p><p className="text-xs text-[hsl(var(--pix-steel))]">{group.examples.length} 套范例</p></button>)}</div>
+          <div><Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">Sample Atlas</Badge><h3 className="mt-5 text-3xl font-semibold md:text-5xl">题材不是列表，是可验收的样本墙</h3><p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">每套范例包含一张透明物品精灵表和一张 1920×1080 UI 展示图。悬浮左侧卡片即可在鼠标旁展开详情。</p></div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">{examplesByCategory.map((group) => <button type="button" key={group.category} onClick={() => setActiveId(group.examples[0]?.id ?? activeId)} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/65 p-3 text-left transition hover:bg-white dark:border-white/10 dark:bg-white/7 dark:hover:bg-white/10"><p className="font-semibold">{group.category}</p><p className="text-xs text-[hsl(var(--pix-steel))] dark:text-white/55">{group.examples.length} 套范例</p></button>)}</div>
         </div>
       </div>
       <div className="grid gap-6">
