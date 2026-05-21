@@ -164,10 +164,6 @@ code {
   border-radius: 999px;
 }
 
-@keyframes spriteFrameRun {
-  to { background-position: var(--sprite-frame-offset, -864px) 0; }
-}
-
 .pix-checkerboard {
   background-color: hsl(var(--muted));
   background-image:
@@ -191,8 +187,4 @@ code {
     transition-duration: 0.01ms !important;
   }
 
-  .sprite-frame-player {
-    animation: none !important;
-    background-position: 0 0 !important;
-  }
 }
