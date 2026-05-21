@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.3] - 2026-05-21
+
+### Fixed
+
+- 修复 Web 下拉菜单打开时锁定页面滚动条导致的横向抖动，菜单弹出不再改变页面滚动条占位。
+
 ## [1.14.2] - 2026-05-21
 
 ### Added

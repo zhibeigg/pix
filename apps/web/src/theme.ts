@@ -253,6 +253,9 @@ export function createPixTheme(mode: PixThemeMode) {
             colorScheme: mode,
             ...vars,
           },
+          html: {
+            scrollbarGutter: 'stable',
+          },
           body: {
             background: notionTokens.surfaceSoft,
             color: notionTokens.ink,
@@ -384,6 +387,9 @@ export function createPixTheme(mode: PixThemeMode) {
         },
       },
       MuiMenu: {
+        defaultProps: {
+          disableScrollLock: true,
+        },
         styleOverrides: {
           paper: {
             marginTop: 8,
