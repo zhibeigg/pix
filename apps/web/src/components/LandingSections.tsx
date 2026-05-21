@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent, type ReactNode } from 'react'
+import { useMemo, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { homepageExampleCategories, homepageExamples, type HomepageExample } from '../homepageExamples'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -32,11 +32,10 @@ const spriteShowcases = [
     name: '月刃骑士挥剑',
     status: '9 帧',
     prompt: '月刃骑士挥剑三段斩，银蓝盔甲小角色，侧身站姿，连续挥剑动作，适合 RPG 战斗序列帧，透明背景，像素动画精灵',
-    brief: 'Pix sprite 全流程输出：3×3 生图 → 9 帧切分 → 共享调色板像素化 → 横向精灵图 + GIF。',
+    brief: 'Pix sprite 全流程输出：3×3 生图 → 9 帧切分 → 共享调色板像素化 → 横向精灵图 + 序列帧播放。',
     source: '/hero-sprites/pipeline/moonblade-knight-source.png',
     sourceLabel: '3×3 源图',
     sheet: '/hero-sprites/pipeline/moonblade-knight-sheet.png',
-    gif: '/hero-sprites/pipeline/moonblade-knight.gif',
     frameCount: 9,
     durationMs: 120,
     tone: 'bg-[hsl(var(--pix-lavender)/.55)]',
@@ -46,11 +45,10 @@ const spriteShowcases = [
     name: '黑紫魔气爆炸特效',
     status: '9 帧 VFX',
     prompt: '黑紫魔气爆炸特效，64×64 low-detail pixel art VFX，暗紫能量核心、黑色烟雾外扩、九帧爆发消散，透明背景，适合技能命中特效',
-    brief: '9 帧 64×64 像素 VFX：单帧 PNG → 横向精灵图 → GIF 预览，可直接用于技能爆炸/魔法命中动画。',
+    brief: '9 帧 64×64 像素 VFX：单帧 PNG → 横向精灵图 → 序列帧播放，可直接用于技能爆炸/魔法命中动画。',
     source: '/hero-sprites/pipeline/dark-purple-magic-explosion-source.png',
     sourceLabel: '3×3 帧源图',
     sheet: '/hero-sprites/pipeline/dark-purple-magic-explosion-sheet.png',
-    gif: '/hero-sprites/pipeline/dark-purple-magic-explosion.gif',
     frameCount: 9,
     durationMs: 90,
     tone: 'bg-[hsl(var(--pix-navy))] text-white',
@@ -111,7 +109,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
         </div>
       </SectionFrame>
 
-      <SectionFrame id="sprite-preview" eyebrow="序列帧" title="角色动作和技能特效都能做成可播放的精灵图" description="九宫格源图或单帧序列会切成帧、统一调色板像素化，并导出横向精灵图与 GIF 预览。">
+      <SectionFrame id="sprite-preview" eyebrow="序列帧" title="角色动作和技能特效都能做成可播放的精灵图" description="九宫格源图或单帧序列会切成帧、统一调色板像素化，并导出横向精灵图与真实序列帧播放。">
         <SpriteShowcaseList />
       </SectionFrame>
 
@@ -143,8 +141,6 @@ function SpriteShowcaseList() {
 }
 
 function SpriteShowcase({ showcase }: { showcase: typeof spriteShowcases[number] }) {
-  const previewSize = 96
-  const sheetWidth = showcase.frameCount * previewSize
   return (
     <div className="grid items-center gap-8 lg:grid-cols-[.82fr_1.18fr]">
       <div className={`rounded-[2rem] border border-border p-6 shadow-xl ${showcase.tone}`}>
@@ -157,18 +153,7 @@ function SpriteShowcase({ showcase }: { showcase: typeof spriteShowcases[number]
           <Badge variant="outline">{showcase.status}</Badge>
         </div>
         <div className="mt-6 grid place-items-center rounded-3xl border border-border bg-card p-6">
-          <div
-            role="img"
-            aria-label={`${showcase.name} 序列帧播放预览`}
-            className="h-24 w-24 [image-rendering:pixelated]"
-            style={{
-              backgroundImage: `url(${showcase.sheet})`,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: '0 0',
-              backgroundSize: `${sheetWidth}px ${previewSize}px`,
-              animation: `spriteFrameRun ${showcase.frameCount * showcase.durationMs}ms steps(${showcase.frameCount}, end) infinite`,
-            }}
-          />
+          <SpriteFramePlayer showcase={showcase} className="h-24 w-24" />
         </div>
         <PromptBox title="中文 Prompt" text={showcase.prompt} />
       </div>
@@ -186,11 +171,25 @@ function SpriteShowcase({ showcase }: { showcase: typeof spriteShowcases[number]
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-2xl border border-border bg-card p-4"><p className="mb-2 text-xs font-black uppercase tracking-[.12em] text-muted-foreground">{showcase.sourceLabel}</p><PixPreviewFrame url={showcase.source} className="min-h-44" /></div>
-          <div className="rounded-2xl border border-border bg-card p-4"><p className="mb-2 text-xs font-black uppercase tracking-[.12em] text-muted-foreground">GIF 预览</p><PixPreviewFrame url={showcase.gif} className="min-h-44" /></div>
+          <div className="rounded-2xl border border-border bg-card p-4"><p className="mb-2 text-xs font-black uppercase tracking-[.12em] text-muted-foreground">序列帧播放</p><div className="pix-checkerboard grid min-h-44 place-items-center rounded-xl border border-border p-4"><SpriteFramePlayer showcase={showcase} className="h-32 w-32" /></div></div>
         </div>
       </div>
     </div>
   )
+}
+
+function SpriteFramePlayer({ showcase, className }: { showcase: typeof spriteShowcases[number]; className: string }) {
+  const previewSize = 96
+  const sheetWidth = showcase.frameCount * previewSize
+  const style = {
+    '--sprite-frame-offset': `-${sheetWidth}px`,
+    backgroundImage: `url(${showcase.sheet})`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: '0 0',
+    backgroundSize: `${sheetWidth}px ${previewSize}px`,
+    animation: `spriteFrameRun ${showcase.frameCount * showcase.durationMs}ms steps(${showcase.frameCount}, end) infinite`,
+  } as CSSProperties
+  return <div role="img" aria-label={`${showcase.name} 序列帧播放预览`} className={`sprite-frame-player ${className} [image-rendering:pixelated]`} style={style} />
 }
 
 function ExampleAtlas() {
