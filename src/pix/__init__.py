@@ -1,3 +1,3 @@
 """pix — prompt → AI image → multimodal JSON → pixel art pipeline."""
 
-__version__ = "1.16.17"
+__version__ = "1.17.17"

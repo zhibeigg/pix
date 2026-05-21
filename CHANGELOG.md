@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.17] - 2026-05-21
+
+### Added
+
+- 点数充值新增自定义点数数量，后端按启用基准套餐派生单价并重新计算金额，支持支付宝支付和管理员模拟支付。
+
 ## [1.16.17] - 2026-05-21
 
 ### Fixed

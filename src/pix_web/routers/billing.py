@@ -6,7 +6,9 @@ from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
 from pix_web.billing import (
+    create_custom_payment_order,
     create_payment_order,
+    custom_recharge_options,
     list_all_payment_orders,
     list_enabled_packages,
     list_payment_orders,
@@ -22,6 +24,7 @@ from pix_web.payment_providers import (
 )
 from pix_web.schemas import (
     CreditPackageResponse,
+    CustomRechargeOptionsResponse,
     MockWebhookRequest,
     PaymentCheckoutRequest,
     PaymentCheckoutResponse,
@@ -39,6 +42,11 @@ def packages(db: Session = Depends(get_db)) -> list[CreditPackage]:
     return list_enabled_packages(db)
 
 
+@router.get("/custom-recharge-options", response_model=CustomRechargeOptionsResponse)
+def custom_options(db: Session = Depends(get_db)) -> dict[str, object]:
+    return custom_recharge_options(db)
+
+
 @router.post("/checkout", response_model=PaymentCheckoutResponse)
 def checkout(
     req: PaymentCheckoutRequest,
@@ -47,7 +55,14 @@ def checkout(
     db: Session = Depends(get_db),
 ) -> PaymentCheckoutResponse:
     settings = load_effective_web_settings(db, request.app.state.web_settings)
-    result = create_checkout(db, user, req.package_key, req.provider, settings)
+    result = create_checkout(
+        db,
+        user,
+        provider=req.provider,
+        settings=settings,
+        package_key=req.package_key,
+        custom_credits=req.custom_credits,
+    )
     return PaymentCheckoutResponse(
         order=PaymentOrderResponse.model_validate(result.order),
         provider=result.provider,
@@ -62,7 +77,9 @@ def create_order(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PaymentOrder:
-    return create_payment_order(db, user, req.package_key)
+    if req.custom_credits is not None:
+        return create_custom_payment_order(db, user, req.custom_credits, provider=req.provider)
+    return create_payment_order(db, user, req.package_key or "", provider=req.provider)
 
 
 @router.get("/orders", response_model=list[PaymentOrderResponse])

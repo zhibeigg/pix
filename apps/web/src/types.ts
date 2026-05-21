@@ -278,6 +278,23 @@ export type CreditPackage = {
   sort_order: number
 }
 
+export type CustomRechargeOptions = {
+  min_credits: number
+  max_credits: number
+  currency: string
+  unit_amount_cents_per_credit: number
+  base_package_key: string | null
+  base_package_credits: number
+  base_package_amount_cents: number
+  suggested_credits: number[]
+}
+
+export type RechargeRequest = {
+  package_key?: string
+  custom_credits?: number
+  provider?: string
+}
+
 export type EmailTestResponse = {
   ok: boolean
   message: string

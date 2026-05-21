@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, EmailStr, Field, computed_field
+from pydantic import BaseModel, EmailStr, Field, computed_field, model_validator
 
 from pix_web.storage import file_url
 
@@ -505,12 +505,26 @@ class CreditPackageUpdateRequest(BaseModel):
     sort_order: int = 0
 
 
-class PaymentOrderCreateRequest(BaseModel):
-    package_key: str = Field(max_length=64)
+class PaymentRequestBase(BaseModel):
+    package_key: str | None = Field(default=None, max_length=64)
+    custom_credits: int | None = Field(default=None, ge=10, le=100000)
+
+    @model_validator(mode="after")
+    def validate_single_recharge_source(self):
+        has_package = bool((self.package_key or "").strip())
+        has_custom = self.custom_credits is not None
+        if has_package == has_custom:
+            raise ValueError("package_key 与 custom_credits 必须二选一")
+        if self.package_key is not None:
+            self.package_key = self.package_key.strip() or None
+        return self
 
 
-class PaymentCheckoutRequest(BaseModel):
-    package_key: str = Field(max_length=64)
+class PaymentOrderCreateRequest(PaymentRequestBase):
+    provider: str = Field(default="mock", max_length=32)
+
+
+class PaymentCheckoutRequest(PaymentRequestBase):
     provider: str = Field(default="mock", max_length=32)
 
 
@@ -533,6 +547,17 @@ class PaymentCheckoutResponse(BaseModel):
     provider: str
     payment_url: str | None = None
     code_url: str | None = None
+
+
+class CustomRechargeOptionsResponse(BaseModel):
+    min_credits: int
+    max_credits: int
+    currency: str
+    unit_amount_cents_per_credit: float
+    base_package_key: str | None = None
+    base_package_credits: int
+    base_package_amount_cents: int
+    suggested_credits: list[int]
 
 
 class MockWebhookRequest(BaseModel):
