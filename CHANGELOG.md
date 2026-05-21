@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.27] - 2026-05-21
+
+### Fixed
+
+- 已登录首页的“进入工作台”入口移动到右上角导航区，符合主页返回后的操作预期。
+
 ## [1.17.26] - 2026-05-21
 
 ### Fixed
