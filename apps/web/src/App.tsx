@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, AppBar, Box, Button, Container, Stack, Toolbar, Typography } from '@mui/material'
-import { notionTokens, type PixThemeMode, type PixThemePreference } from './theme'
+import type { PixThemeMode, PixThemePreference } from './theme'
 import { api, ApiError } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
 import { AccountMenu } from './components/AccountMenu'
 import { AppHero } from './components/AppHero'
 import { AuthPanel } from './components/AuthPanel'
+import { Alert } from './components/ui/alert'
+import { Button } from './components/ui/button'
 import { ThemeModeMenu } from './components/ThemeModeMenu'
 import { LandingSections } from './components/LandingSections'
 import { SetupWizard } from './components/SetupWizard'
@@ -557,144 +558,70 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
   const needsAdminSetup = setupStatus?.needs_admin && !user
 
   return (
-    <Box component="main" data-pix-theme={themeMode}>
-      <AppBar position="sticky" elevation={0} color="inherit" sx={{ bgcolor: 'color-mix(in oklch, var(--pix-canvas) 92%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: 1, borderColor: 'divider', zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: user
-              ? { xs: 'minmax(0, 1fr) auto', lg: 'minmax(196px, 232px) minmax(0, 1fr) auto' }
-              : 'minmax(0, 1fr) auto',
-            gridTemplateAreas: user
-              ? { xs: '"brand actions" "nav nav"', lg: '"brand nav actions"' }
-              : '"brand actions"',
-            columnGap: { xs: 1, sm: 1.5, lg: 2 },
-            rowGap: { xs: 1, lg: 0 },
-            maxWidth: 1440,
-            width: '100%',
-            mx: 'auto',
-            px: { xs: 1.5, sm: 2, md: 3, xl: 4 },
-            py: { xs: 1, lg: .75 },
-            minHeight: { xs: user ? 104 : 64, lg: 72 },
-            alignItems: 'center',
-            '@media (max-width: 1320px)': user
-              ? {
-                  gridTemplateColumns: 'minmax(0, 1fr) auto',
-                  gridTemplateAreas: '"brand actions" "nav nav"',
-                  rowGap: 1,
-                }
-              : undefined,
-          }}
-        >
-          <Stack
-            component="a"
-            href="/"
-            aria-label="返回首页"
-            direction="row"
-            spacing={1.25}
-            sx={{
-              gridArea: 'brand',
-              minWidth: 0,
-              alignItems: 'center',
-              color: 'inherit',
-              textDecoration: 'none',
-              borderRadius: 1.5,
-              outlineOffset: 4,
-              transition: 'opacity .18s ease',
-              '&:hover': { opacity: .9 },
-            }}
-          >
-            <Box component="img" src="/pix-logo-64.png" alt="" width={40} height={40} sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 }, imageRendering: 'pixelated', flex: '0 0 auto' }} />
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="overline" color="text.secondary" sx={{ display: 'block', lineHeight: 1.05 }}>Pix Forge</Typography>
-              <Typography variant="h5" component="h1" noWrap sx={{ fontSize: { xs: 22, sm: 24 } }}>像素素材工坊</Typography>
-            </Box>
-          </Stack>
-          {user && (
-            <Box sx={{ gridArea: 'nav', minWidth: 0, width: '100%', overflow: 'hidden' }}>
-              <AppTabs page={page} user={user} onChange={navigate} />
-            </Box>
-          )}
-          <Box sx={{ gridArea: 'actions', minWidth: 0, justifySelf: 'end' }}>
-            <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', justifyContent: 'flex-end', minWidth: 0, flexWrap: 'nowrap' }}>
-              <ThemeModeMenu preference={themePreference} resolvedMode={themeMode} systemMode={systemThemeMode} onChange={onThemePreferenceChange} />
-              {user ? (
-                <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={() => refreshCore()} onLogout={logout} />
-              ) : (
-                <Stack direction="row" spacing={1}>
-                  <Button variant="text" href="#auth-panel">登录</Button>
-                  <Button variant="contained" href="#auth-panel">注册</Button>
-                </Stack>
-              )}
-            </Stack>
-          </Box>
-        </Toolbar>
-      </AppBar>
+    <main data-pix-theme={themeMode} className="min-h-screen text-foreground">
+      <header className="sticky top-0 z-40 border-b border-border/80 bg-background/88 backdrop-blur-xl">
+        <div className="mx-auto grid max-w-[1440px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:px-8">
+          <a href="/" aria-label="返回首页" className="flex min-w-0 items-center gap-3 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <img src="/pix-logo-64.png" alt="" className="h-10 w-10 shrink-0 [image-rendering:pixelated]" />
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[.16em] text-muted-foreground">Pix Forge</p>
+              <h1 className="truncate text-xl font-black tracking-tight">像素素材工坊</h1>
+            </div>
+          </a>
+          {user && <div className="col-span-2 min-w-0 lg:col-span-1"><AppTabs page={page} user={user} onChange={navigate} /></div>}
+          <div className="flex justify-end gap-2">
+            <ThemeModeMenu preference={themePreference} resolvedMode={themeMode} systemMode={systemThemeMode} onChange={onThemePreferenceChange} />
+            {user ? (
+              <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={() => refreshCore()} onLogout={logout} />
+            ) : (
+              <div className="flex gap-2">
+                <Button variant="ghost" asChild><a href="#auth-panel">登录</a></Button>
+                <Button asChild><a href="#auth-panel">注册</a></Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
 
       {setupLoading ? (
-        <Box sx={{ minHeight: 'calc(100vh - 64px)', display: 'grid', placeItems: 'center', bgcolor: notionTokens.surfaceSoft }}>
-          <Typography color="text.secondary">正在检查站点初始化状态…</Typography>
-        </Box>
+        <div className="grid min-h-[calc(100vh-76px)] place-items-center px-4 text-muted-foreground">正在检查站点初始化状态…</div>
       ) : needsAdminSetup && setupStatus ? (
         <SetupWizard status={setupStatus} loading={busy} onBootstrapAdmin={bootstrapAdmin} />
       ) : user ? (
-        <Container maxWidth={false} sx={{ maxWidth: 1280, py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 }, mx: 'auto' }}>
-          <Stack spacing={4}>
-            {message && <Alert severity="info" role="status" aria-live="polite" sx={{ borderRadius: 1.5 }}>{message}</Alert>}
-            <Box sx={{ display: 'grid', gap: 3 }}>
-              {page === 'workspace' && (
-                <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />
-              )}
-              {page === 'raw-image' && (
-                <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onCreateJobs={createRawImageJobs} onRefresh={() => refreshCore()} />
-              )}
-              {page === 'gallery' && (
-                <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} />
-              )}
-              {page === 'packs' && (
-                <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />
-              )}
-              {page === 'billing' && (
-                <BillingPage balance={balance} transactions={transactions} packages={packages} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onMockPayOrder={mockPayPaymentOrder} />
-              )}
-              {page === 'admin' && isAdmin && (
-                <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onTestEmail={testEmailSetting} />
-              )}
-            </Box>
+        <div className="mx-auto max-w-[1320px] px-4 py-6 md:px-8 md:py-9">
+          <div className="grid gap-6">
+            {message && <Alert variant="info" role="status" aria-live="polite">{message}</Alert>}
+            {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
+            {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onCreateJobs={createRawImageJobs} onRefresh={() => refreshCore()} />}
+            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} />}
+            {page === 'packs' && <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
+            {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onMockPayOrder={mockPayPaymentOrder} />}
+            {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onTestEmail={testEmailSetting} />}
             <SiteFooter />
-          </Stack>
-        </Container>
+          </div>
+        </div>
       ) : (
-        <Box>
+        <div>
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
-          {message && <Box sx={{ maxWidth: 1152, mx: 'auto', px: { xs: 2, md: 4 }, py: 2 }}><Alert severity="info" role="status" aria-live="polite">{message}</Alert></Box>}
+          {message && <div className="mx-auto max-w-6xl px-4 py-3"><Alert variant="info" role="status" aria-live="polite">{message}</Alert></div>}
           <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} />} />
           <SiteFooter />
-        </Box>
+        </div>
       )}
-    </Box>
+    </main>
   )
 }
 
 function SiteFooter() {
   return (
-    <Box component="footer" sx={{ borderTop: 1, borderColor: 'divider', bgcolor: notionTokens.canvas, px: { xs: 2, md: 4 }, py: { xs: 3, md: 4 } }}>
-      <Stack spacing={1.5} sx={{ alignItems: 'center' }}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Box component="img" src="/pix-logo-64.png" alt="" width={24} height={24} sx={{ imageRendering: 'pixelated', opacity: .6 }} />
-          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>Pix Forge · 像素素材工坊</Typography>
-        </Stack>
-        <Typography
-          component="a"
-          href="https://beian.miit.gov.cn/"
-          target="_blank"
-          rel="noreferrer"
-          variant="caption"
-          sx={{ color: 'text.secondary', textDecoration: 'none', opacity: .7, '&:hover': { color: 'text.primary', textDecoration: 'underline', opacity: 1 } }}
-        >
-          鲁ICP备2022023963号
-        </Typography>
-      </Stack>
-    </Box>
+    <footer className="border-t border-border/70 bg-card/80 px-4 py-8">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-2 text-center text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 font-semibold">
+          <img src="/pix-logo-64.png" alt="" className="h-6 w-6 opacity-70 [image-rendering:pixelated]" />
+          Pix Forge · 像素素材工坊
+        </div>
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" className="text-xs opacity-70 hover:text-foreground hover:opacity-100">鲁ICP备2022023963号</a>
+      </div>
+    </footer>
   )
 }

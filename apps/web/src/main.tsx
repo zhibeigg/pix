@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
-import { CssBaseline, ThemeProvider } from '@mui/material'
 import { App } from './App'
 import './styles.css'
-import { createPixTheme, type PixThemeMode, type PixThemePreference } from './theme'
+import type { PixThemeMode, PixThemePreference } from './theme'
 
 const THEME_KEY = 'pix_web_theme'
 
@@ -21,7 +20,12 @@ function PixThemeRoot() {
   const [themePreference, setThemePreference] = useState<PixThemePreference>(initialThemePreference)
   const [systemThemeMode, setSystemThemeMode] = useState<PixThemeMode>(getSystemThemeMode)
   const resolvedThemeMode = themePreference === 'system' ? systemThemeMode : themePreference
-  const theme = useMemo(() => createPixTheme(resolvedThemeMode), [resolvedThemeMode])
+
+  useEffect(() => {
+    const root = document.documentElement
+    root.dataset.theme = resolvedThemeMode
+    root.classList.toggle('dark', resolvedThemeMode === 'dark')
+  }, [resolvedThemeMode])
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)')
@@ -39,15 +43,12 @@ function PixThemeRoot() {
   }
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <App
-        themeMode={resolvedThemeMode}
-        themePreference={themePreference}
-        systemThemeMode={systemThemeMode}
-        onThemePreferenceChange={changeThemePreference}
-      />
-    </ThemeProvider>
+    <App
+      themeMode={resolvedThemeMode}
+      themePreference={themePreference}
+      systemThemeMode={systemThemeMode}
+      onThemePreferenceChange={changeThemePreference}
+    />
   )
 }
 

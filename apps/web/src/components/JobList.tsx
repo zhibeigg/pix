@@ -1,167 +1,52 @@
-import { Box, Button, Card, CardContent, Chip, Divider, Stack, Typography } from '@mui/material'
-import { jobStatusLabel, jobTypeLabel, statusColors } from '../labels'
+import { RefreshCw } from 'lucide-react'
+import { jobTypeLabel } from '../labels'
 import { jobInputSummary } from '../pixelize'
-import { notionTokens } from '../theme'
 import type { ContactSheetCandidate, GenerationJob, JobOutput } from '../types'
+import { formatDateTime } from '../lib/utils'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
+import { PixPanel } from './pix/PixPanel'
+import { PixPreviewFrame } from './pix/PixPreviewFrame'
+import { PixStatusBadge } from './pix/PixStatusBadge'
 
-type JobListProps = {
-  jobs: GenerationJob[]
-  onRefresh: () => void
-  onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>
-}
+type JobListProps = { jobs: GenerationJob[]; onRefresh: () => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }
 
 export function JobList({ jobs, onRefresh, onCandidatePixelize }: JobListProps) {
   return (
-    <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
-      <CardContent sx={{ p: { xs: 2, md: 2.4 } }}>
-        <Stack spacing={2}>
-          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
-            <Box>
-              <Typography variant="overline" color="text.secondary">生产队列</Typography>
-              <Typography variant="h4">正在生产</Typography>
-            </Box>
-            <Button variant="outlined" onClick={onRefresh}>刷新</Button>
-          </Stack>
-          {jobs.length === 0 ? (
-            <EmptyQueueState />
-          ) : (
-            <Stack spacing={1.25}>
-              {jobs.map((job) => <JobCard job={job} key={job.id} onCandidatePixelize={onCandidatePixelize} />)}
-            </Stack>
-          )}
-        </Stack>
-      </CardContent>
-    </Card>
+    <PixPanel eyebrow="生产队列" title="正在生产" action={<Button variant="outline" onClick={onRefresh}><RefreshCw />刷新</Button>}>
+      {jobs.length === 0 ? <EmptyQueueState /> : <div className="grid gap-3">{jobs.map((job) => <JobCard job={job} key={job.id} onCandidatePixelize={onCandidatePixelize} />)}</div>}
+    </PixPanel>
   )
 }
 
 function EmptyQueueState() {
-  return (
-    <Box sx={{ border: `1px solid ${notionTokens.hairline}`, borderRadius: 1.5, bgcolor: notionTokens.surface, p: 2.1 }}>
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-        <Box
-          aria-hidden="true"
-          sx={{
-            width: 38,
-            height: 38,
-            borderRadius: 1,
-            bgcolor: notionTokens.tintMint,
-            border: `1px solid ${notionTokens.hairlineStrong}`,
-            position: 'relative',
-            flex: '0 0 auto',
-            '&::before': { content: '""', position: 'absolute', left: 10, top: 10, width: 7, height: 7, bgcolor: notionTokens.primary },
-            '&::after': { content: '""', position: 'absolute', right: 9, bottom: 9, width: 10, height: 10, bgcolor: notionTokens.brandOrange },
-          }}
-        />
-        <Box>
-          <Typography sx={{ fontWeight: 600 }}>炉火正安静</Typography>
-          <Typography variant="body2" color="text.secondary">暂无生产中任务，可以开一组新素材。</Typography>
-        </Box>
-      </Stack>
-    </Box>
-  )
+  return <div className="rounded-2xl border border-dashed border-border bg-muted/45 p-5 text-sm text-muted-foreground"><p className="font-bold text-foreground">炉火正安静</p><p>暂无生产中任务，可以开一组新素材。</p></div>
 }
 
 function JobCard({ job, onCandidatePixelize }: { job: GenerationJob; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
-  const output = job.outputs[0]
-  const isFailed = job.status === 'failed'
+  const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
+  const preview = output?.sprite_gif_url || output?.preview_url || output?.pixelized_url || output?.source_url || job.input_image_url
   return (
-    <Card variant="outlined" sx={{ bgcolor: isFailed ? notionTokens.tintRose : notionTokens.surface }}>
-      <CardContent sx={{ p: 1.7, '&:last-child': { pb: 1.7 } }}>
-        <Stack spacing={1.35}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', gap: 1.5 }}>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 600 }}>#{job.id} · {jobTypeLabel(job.job_type)}</Typography>
-              <Typography color="text.secondary" variant="body2">{jobInputSummary(job)}</Typography>
-            </Box>
-            <Chip size="small" color={statusColors[job.status] ?? 'default'} label={jobStatusLabel(job.status)} sx={{ alignSelf: { xs: 'flex-start', sm: 'center' }, bgcolor: job.status === 'succeeded' ? notionTokens.tintMint : job.status === 'failed' ? notionTokens.tintRose : job.status === 'running' ? notionTokens.tintSky : notionTokens.tintYellow }} />
-          </Stack>
-          <Stack direction="row" sx={{ flexWrap: 'wrap', gap: .75 }}>
-            <Chip size="small" variant="outlined" label={`${job.price_credits} 点`} />
-            <Chip size="small" variant="outlined" label={`冻结 ${job.reserved_credits}`} />
-            <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />
-          </Stack>
-          {output && <GridQualitySummary output={output} />}
-          {output && <SpriteFrameStrip output={output} />}
-          {output && <CandidateStrip job={job} output={output} onCandidatePixelize={onCandidatePixelize} />}
-          {job.error_message && <Box component="pre" sx={{ whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto', color: 'error.main', bgcolor: notionTokens.errorPanel, border: 1, borderColor: 'error.main', borderRadius: 1.5, p: 1.2, m: 0 }}>{job.error_message.slice(0, 600)}</Box>}
-          {output && (
-            <Stack spacing={0.75} divider={<Divider flexItem />}>
-              <PathLine label="源图" value={output.source_path} />
-              <PathLine label={output.sprite_sheet_path ? '横向帧图' : '像素图'} value={output.pixelized_path} />
-              {output.sprite_gif_path && <PathLine label="GIF" value={output.sprite_gif_path} />}
-              {output.preview_path && !output.sprite_gif_path && <PathLine label="预览" value={output.preview_path} />}
-              {output.sprite_sheet_path && <PathLine label="精灵表" value={output.sprite_sheet_path} />}
-              {output.grid_json_path && <PathLine label="Grid" value={output.grid_json_path} />}
-              <PathLine label="meta" value={output.meta_json_path} />
-            </Stack>
-          )}
-        </Stack>
-      </CardContent>
-    </Card>
-  )
-}
-
-function SpriteFrameStrip({ output }: { output: JobOutput }) {
-  if (!output.sprite_frames?.length) return null
-  return (
-    <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
-      <CardContent sx={{ py: 1.35, '&:last-child': { pb: 1.35 } }}>
-        <Typography variant="caption" color="text.secondary">动画帧 / GIF</Typography>
-        {output.sprite_gif_url && <Box component="img" src={output.sprite_gif_url} alt="动画 GIF" loading="lazy" decoding="async" sx={{ mt: 1, width: 92, height: 92, objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: 1, borderColor: 'divider', borderRadius: 1, p: 0.5 }} />}
-        <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(48px, 1fr))', gap: 0.7 }}>
-          {output.sprite_frames.map((frame) => (
-            <Box key={frame.path} component="img" src={frame.url ?? undefined} alt={`帧 ${frame.index}`} loading="lazy" decoding="async" sx={{ width: 44, height: 44, objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: 1, borderColor: 'divider', borderRadius: .75, p: 0.25 }} />
-          ))}
-        </Box>
-      </CardContent>
-    </Card>
+    <article className="grid gap-3 rounded-2xl border border-border bg-card p-4 md:grid-cols-[120px_minmax(0,1fr)]">
+      <PixPreviewFrame url={preview} label={job.status} className="min-h-28" />
+      <div className="min-w-0 space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-black">#{job.id} · {jobTypeLabel(job.job_type)}</h3><p className="mt-1 text-sm text-muted-foreground">{jobInputSummary(job)}</p></div><PixStatusBadge status={job.status} /></div>
+        <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{job.price_credits} 点</Badge><Badge variant="outline">冻结 {job.reserved_credits}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge></div>
+        {output && <GridQualitySummary output={output} />}
+        {output && <CandidateStrip job={job} output={output} onCandidatePixelize={onCandidatePixelize} />}
+        {job.error_message && <pre className="max-h-36 overflow-auto rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{job.error_message.slice(0, 600)}</pre>}
+      </div>
+    </article>
   )
 }
 
 function CandidateStrip({ job, output, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
   if (!output.candidates?.length) return null
-  return (
-    <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
-      <CardContent sx={{ py: 1.35, '&:last-child': { pb: 1.35 } }}>
-        <Typography variant="caption" color="text.secondary">九宫格候选</Typography>
-        <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(76px, 1fr))', gap: .9 }}>
-          {output.candidates.map((candidate) => (
-            <Stack key={candidate.path} spacing={0.5} sx={{ alignItems: 'center' }} title={candidate.reason ?? undefined}>
-              <Box component="img" src={candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined} alt={`候选 ${candidate.index}`} loading="lazy" decoding="async" sx={{ width: 64, height: 64, objectFit: 'contain', imageRendering: 'pixelated', bgcolor: notionTokens.surface, border: 1, borderColor: candidate.selected ? 'success.main' : 'divider', borderRadius: .75, p: 0.5 }} />
-              <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', justifyContent: 'center' }}>
-                <Chip size="small" color={candidate.selected ? 'success' : 'default'} variant="outlined" label={candidate.rank ? `#${candidate.rank}` : `候选${candidate.index}`} />
-                {candidate.score != null && <Chip size="small" variant="outlined" label={`${Math.round(candidate.score)}分`} />}
-              </Stack>
-              {onCandidatePixelize && <Button size="small" variant="outlined" onClick={() => onCandidatePixelize(job, candidate)}>重调</Button>}
-            </Stack>
-          ))}
-        </Box>
-      </CardContent>
-    </Card>
-  )
+  return <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 md:grid-cols-8">{output.candidates.slice(0, 12).map((candidate) => <div key={candidate.path} className="rounded-xl border border-border bg-muted/35 p-1.5 text-center" title={candidate.reason ?? undefined}><img src={candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined} alt={`候选 ${candidate.index}`} className="mx-auto h-14 w-14 object-contain [image-rendering:pixelated]" /><p className="mt-1 text-[11px] text-muted-foreground">{candidate.rank ? `#${candidate.rank}` : `候选${candidate.index}`}</p>{onCandidatePixelize && <Button size="sm" variant="ghost" className="mt-1 h-6 text-[11px]" onClick={() => onCandidatePixelize(job, candidate)}>重调</Button>}</div>)}</div>
 }
 
 function GridQualitySummary({ output }: { output: JobOutput }) {
-  const status = output.grid_status
   const report = output.grid_readability
-  if (!status && !report) return null
-  const mode = status?.mode === 'extract' ? 'Grid 提取' : status?.mode
-  const blocking = report?.issues?.filter((issue) => issue.level === 'blocking').length ?? 0
-  return (
-    <Stack direction="row" sx={{ flexWrap: 'wrap', gap: .75 }}>
-      {mode && <Chip size="small" color="primary" variant="outlined" label={mode} />}
-      {report && <Chip size="small" color={report.ok ? 'success' : 'warning'} variant="outlined" label={report.ok ? '可读性通过' : `阻塞 ${blocking}`} />}
-      {report && <Chip size="small" variant="outlined" label={`${report.color_count} 色 · 主体 ${Math.round(report.bbox_coverage * 100)}%`} />}
-    </Stack>
-  )
-}
-
-function PathLine({ label, value }: { label: string; value: string }) {
-  return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: '70px minmax(0, 1fr)', gap: 1, alignItems: 'center' }}>
-      <Typography variant="caption" color="text.secondary">{label}</Typography>
-      <Box component="code" title={value} sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'info.light' }}>{value}</Box>
-    </Box>
-  )
+  if (!report) return null
+  return <div className="flex flex-wrap gap-1.5"><Badge variant={report.ok ? 'success' : 'warning'}>{report.ok ? '可读性通过' : '需检查'}</Badge><Badge variant="outline">{report.color_count} 色</Badge><Badge variant="outline">主体 {Math.round(report.bbox_coverage * 100)}%</Badge></div>
 }

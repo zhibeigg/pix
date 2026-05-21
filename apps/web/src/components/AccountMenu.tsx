@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { Box, Button, Chip, Divider, Menu, MenuItem, Stack, Typography } from '@mui/material'
-import { notionTokens } from '../theme'
+import { GalleryHorizontalEnd, LogOut, RefreshCw, Settings, UserRound, WalletCards } from 'lucide-react'
 import type { CreditBalance, User } from '../types'
+import { Badge } from './ui/badge'
+import { Button } from './ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu'
 import type { AppPage } from './AppTabs'
 
 type AccountMenuProps = {
@@ -17,67 +18,39 @@ type AccountMenuProps = {
 }
 
 export function AccountMenu({ user, balance, activeJobs, completedJobs, failedJobs, isAdmin, onNavigate, onRefresh, onLogout }: AccountMenuProps) {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
-  const open = Boolean(anchorEl)
-
-  function close() {
-    setAnchorEl(null)
-  }
-
-  function go(page: AppPage) {
-    close()
-    onNavigate(page)
-  }
-
-  async function refresh() {
-    close()
-    await onRefresh()
-  }
-
-  function logout() {
-    close()
-    onLogout()
-  }
-
   return (
-    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', justifyContent: 'flex-end', minWidth: 0, flexWrap: 'nowrap' }}>
-      <Stack direction="row" spacing={0.75} sx={{ display: { xs: 'none', sm: 'flex' }, minWidth: 0, '& .MuiChip-root': { height: 34 } }}>
-        <Chip size="small" label={`点数 ${balance?.available_credits ?? '—'}`} sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} />
-        <Chip size="small" label={`队列 ${activeJobs}`} sx={{ display: { xs: 'none', lg: 'inline-flex' }, bgcolor: notionTokens.tintSky }} />
-        {failedJobs > 0 && <Chip size="small" label={`失败 ${failedJobs}`} sx={{ display: { xs: 'none', lg: 'inline-flex' }, bgcolor: notionTokens.tintRose }} />}
-      </Stack>
-      <Button
-        variant="outlined"
-        onClick={(event) => setAnchorEl(event.currentTarget)}
-        aria-controls={open ? 'account-menu' : undefined}
-        aria-haspopup="true"
-        aria-expanded={open ? 'true' : undefined}
-        sx={{ minWidth: { xs: 52, sm: 92 }, px: { xs: 1.25, sm: 1.75 }, whiteSpace: 'nowrap' }}
-      >
-        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>账号管理</Box>
-        <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>账号</Box>
-      </Button>
-      <Menu id="account-menu" anchorEl={anchorEl} open={open} onClose={close} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
-        <Box sx={{ px: 2, py: 1.5, minWidth: 280 }}>
-          <Typography variant="caption" color="text.secondary">当前账户</Typography>
-          <Typography sx={{ fontWeight: 600 }}>{user.display_name || user.email}</Typography>
-          <Typography variant="body2" color="text.secondary">{user.email}</Typography>
-          <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: .75 }}>
-            <Chip size="small" label={user.role} sx={{ bgcolor: isAdmin ? notionTokens.tintLavender : notionTokens.tintGray, color: isAdmin ? notionTokens.brandPurple800 : notionTokens.ink }} />
-            <Chip size="small" label={`点数 ${balance?.available_credits ?? '—'}`} sx={{ bgcolor: notionTokens.tintCream }} />
-            <Chip size="small" label={`队列 ${activeJobs}`} sx={{ bgcolor: notionTokens.tintSky }} />
-            <Chip size="small" label={`完成 ${completedJobs}`} sx={{ bgcolor: notionTokens.tintMint }} />
-            <Chip size="small" label={`失败 ${failedJobs}`} sx={{ bgcolor: failedJobs ? notionTokens.tintRose : notionTokens.tintGray }} />
-          </Box>
-        </Box>
-        <Divider />
-        <MenuItem onClick={() => go('billing')}>点数中心</MenuItem>
-        <MenuItem onClick={() => go('gallery')}>作品库</MenuItem>
-        {isAdmin && <MenuItem onClick={() => go('admin')}>管理后台</MenuItem>}
-        <MenuItem onClick={refresh}>刷新数据</MenuItem>
-        <Divider />
-        <MenuItem onClick={logout}>退出登录</MenuItem>
-      </Menu>
-    </Stack>
+    <div className="flex min-w-0 items-center justify-end gap-2">
+      <div className="hidden items-center gap-2 sm:flex">
+        <Badge variant="outline" className="bg-card">点数 {balance?.available_credits ?? '—'}</Badge>
+        <Badge variant={activeJobs ? 'info' : 'muted'} className="hidden lg:inline-flex">队列 {activeJobs}</Badge>
+        {failedJobs > 0 && <Badge variant="danger" className="hidden lg:inline-flex">失败 {failedJobs}</Badge>}
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="bg-card"><UserRound />账号</Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-72">
+          <DropdownMenuLabel>当前账户</DropdownMenuLabel>
+          <div className="px-2.5 pb-2">
+            <p className="truncate text-sm font-bold">{user.display_name || user.email}</p>
+            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <Badge variant={isAdmin ? 'default' : 'secondary'}>{user.role}</Badge>
+              <Badge variant="outline">点数 {balance?.available_credits ?? '—'}</Badge>
+              <Badge variant={activeJobs ? 'info' : 'muted'}>队列 {activeJobs}</Badge>
+              <Badge variant="success">完成 {completedJobs}</Badge>
+              <Badge variant={failedJobs ? 'danger' : 'muted'}>失败 {failedJobs}</Badge>
+            </div>
+          </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => onNavigate('billing')}><WalletCards />点数中心</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onNavigate('gallery')}><GalleryHorizontalEnd />作品库</DropdownMenuItem>
+          {isAdmin && <DropdownMenuItem onClick={() => onNavigate('admin')}><Settings />管理后台</DropdownMenuItem>}
+          <DropdownMenuItem onClick={() => void onRefresh()}><RefreshCw />刷新数据</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onLogout} className="text-destructive"><LogOut />退出登录</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 }
