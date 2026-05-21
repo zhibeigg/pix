@@ -18,6 +18,7 @@ export type SetupStatus = {
   admin_count: number
   email_provider: string
   debug_codes_available: boolean
+  registration_bonus_credits: number
 }
 
 export type BootstrapAdminResponse = TokenResponse & {

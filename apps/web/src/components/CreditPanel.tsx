@@ -1,4 +1,3 @@
-import { QRCodeSVG } from 'qrcode.react'
 import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Card, CardContent, Chip, Divider, Stack, Typography } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { notionTokens } from '../theme'
@@ -18,11 +17,6 @@ type CreditPanelProps = {
 }
 
 export function CreditPanel({ balance, transactions, packages, orders, checkout, isAdmin, onRefresh, onCreateOrder, onCheckout, onMockPayOrder }: CreditPanelProps) {
-  async function copyWechatLink() {
-    if (!checkout?.code_url) return
-    await navigator.clipboard.writeText(checkout.code_url)
-  }
-
   return (
     <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
       <CardContent>
@@ -56,7 +50,6 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
                     </Box>
                     <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
                       <Button variant="contained" color="primary" onClick={() => onCheckout(item.key, 'alipay')}>支付宝</Button>
-                      <Button variant="outlined" onClick={() => onCheckout(item.key, 'wechat')}>微信</Button>
                       {isAdmin && <Button variant="text" onClick={() => onCreateOrder(item.key)}>模拟订单</Button>}
                     </Stack>
                   </Stack>
@@ -65,22 +58,6 @@ export function CreditPanel({ balance, transactions, packages, orders, checkout,
             ))}
           </Stack>
 
-          {checkout?.code_url && (
-            <Card variant="outlined" role="img" aria-label={`微信支付二维码，订单 ${checkout.order.id}`} sx={{ bgcolor: notionTokens.tintMint }}>
-              <CardContent>
-                <Stack spacing={1.5} sx={{ alignItems: 'center' }}>
-                  <Typography sx={{ fontWeight: 600 }}>微信扫码支付订单 #{checkout.order.id}</Typography>
-                  <QRCodeSVG value={checkout.code_url} size={180} />
-                  <Typography color="text.secondary" variant="body2">支付后点击刷新。</Typography>
-                  <Button variant="outlined" size="small" onClick={copyWechatLink}>复制微信支付链接</Button>
-                  <Accordion sx={{ width: '100%' }}>
-                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>查看备用链接</AccordionSummary>
-                    <AccordionDetails><Box component="code" sx={{ display: 'block', maxWidth: '100%', overflowWrap: 'anywhere', color: 'info.light', fontSize: 12 }}>{checkout.code_url}</Box></AccordionDetails>
-                  </Accordion>
-                </Stack>
-              </CardContent>
-            </Card>
-          )}
           {checkout?.payment_url && <Alert severity="info">支付宝已打开，支付后刷新。</Alert>}
 
           <Accordion defaultExpanded={orders.length > 0}>

@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from pix_web.config import WebSettings
-from pix_web.credits import ensure_credit_account
+from pix_web.credits import ensure_credit_account, recharge_credits
 from pix_web.email_sender import EmailDeliveryError, send_verification_email
 from pix_web.email_verification import (
     EmailCodeError,
@@ -27,7 +27,7 @@ from pix_web.schemas import (
     TokenResponse,
     UserResponse,
 )
-from pix_web.system_settings import load_effective_web_settings
+from pix_web.system_settings import load_effective_web_settings, load_operational_settings
 from pix_web.security import (
     create_access_token,
     find_user_by_email,
@@ -64,12 +64,14 @@ def setup_status(
     effective = load_effective_web_settings(db, settings)
     admins = _admin_count(db)
     users = _user_count(db)
+    ops = load_operational_settings(db)
     return SetupStatusResponse(
         needs_admin=admins == 0,
         user_count=users,
         admin_count=admins,
         email_provider=effective.email_provider,
         debug_codes_available=effective.email_debug_codes or effective.email_provider == "console",
+        registration_bonus_credits=ops.registration_bonus_credits,
     )
 
 
@@ -91,6 +93,9 @@ def bootstrap_admin(
     db.add(user)
     db.flush()
     ensure_credit_account(db, user)
+    ops = load_operational_settings(db)
+    if ops.registration_bonus_credits > 0:
+        recharge_credits(db, user, ops.registration_bonus_credits, note="注册赠送")
     db.commit()
     db.refresh(user)
     effective = load_effective_web_settings(db, settings)
@@ -153,6 +158,9 @@ def register(
     db.add(user)
     db.flush()
     ensure_credit_account(db, user)
+    ops = load_operational_settings(db)
+    if ops.registration_bonus_credits > 0:
+        recharge_credits(db, user, ops.registration_bonus_credits, note="注册赠送")
     db.commit()
     db.refresh(user)
     return user

@@ -399,74 +399,11 @@ def test_alipay_checkout_and_webhook_are_idempotent(client: TestClient) -> None:
     assert client.get("/credits/balance", headers=headers).json()["available_credits"] == order["credits"]
 
 
-def test_wechat_checkout_and_webhook_are_idempotent(client: TestClient, monkeypatch) -> None:
-    merchant_private, _merchant_public = _rsa_key_pair()
-    platform_private, platform_public = _rsa_key_pair()
-    api_v3_key = "a" * 32
-    client.app.state.web_settings = replace(
-        client.app.state.web_settings,
-        public_base_url="https://pix.example.com/api",
-        wechat_app_id="wx-app",
-        wechat_mch_id="mch-id",
-        wechat_private_key=merchant_private,
-        wechat_merchant_serial_no="serial-no",
-        wechat_api_v3_key=api_v3_key,
-        wechat_platform_cert=platform_public,
-    )
-
-    class FakeResponse:
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> dict[str, str]:
-            return {"code_url": "weixin://wxpay/test"}
-
-    monkeypatch.setattr("pix_web.payment_providers.httpx.post", lambda *args, **kwargs: FakeResponse())
+def test_wechat_checkout_is_disabled(client: TestClient) -> None:
     _user, headers = _register_and_login(client)
     checkout = client.post("/billing/checkout", headers=headers, json={"package_key": "starter", "provider": "wechat"})
-
-    assert checkout.status_code == 200
-    body = checkout.json()
-    assert body["code_url"] == "weixin://wxpay/test"
-    order = body["order"]
-
-    resource = {
-        "trade_state": "SUCCESS",
-        "out_trade_no": order["provider_order_id"],
-        "transaction_id": "wx-trade-1",
-        "amount": {"total": order["amount_cents"], "currency": "CNY"},
-    }
-    nonce = "nonce-123456"
-    aad = "transaction"
-    ciphertext = AESGCM(api_v3_key.encode("utf-8")).encrypt(
-        nonce.encode("utf-8"),
-        json.dumps(resource, separators=(",", ":")).encode("utf-8"),
-        aad.encode("utf-8"),
-    )
-    payload = {
-        "id": "notify-1",
-        "resource": {
-            "algorithm": "AEAD_AES_256_GCM",
-            "ciphertext": base64.b64encode(ciphertext).decode("ascii"),
-            "nonce": nonce,
-            "associated_data": aad,
-        },
-    }
-    raw = json.dumps(payload, separators=(",", ":"))
-    timestamp = "1700000000"
-    notify_nonce = "notify-nonce"
-    signature = _rsa_sign(platform_private, f"{timestamp}\n{notify_nonce}\n{raw}\n")
-    notify_headers = {
-        "Wechatpay-Timestamp": timestamp,
-        "Wechatpay-Nonce": notify_nonce,
-        "Wechatpay-Signature": signature,
-    }
-    paid = client.post("/billing/webhook/wechat", content=raw, headers=notify_headers)
-    again = client.post("/billing/webhook/wechat", content=raw, headers=notify_headers)
-
-    assert paid.status_code == 200
-    assert paid.json()["code"] == "SUCCESS"
-    assert again.status_code == 200
+    assert checkout.status_code == 422
+    assert "微信支付已关闭" in checkout.json()["detail"]
     assert client.get("/credits/balance", headers=headers).json()["available_credits"] == order["credits"]
 
 
