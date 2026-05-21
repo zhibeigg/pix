@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.24] - 2026-05-21
+
+### Fixed
+
+- 修复首页序列帧浅色展示卡在深色主题下文字对比度不足，并避免帧数徽章被压缩换行。
+
 ## [1.17.23] - 2026-05-21
 
 ### Fixed

@@ -38,7 +38,7 @@ const spriteShowcases = [
     sheet: '/hero-sprites/pipeline/moonblade-knight-sheet.png',
     frameCount: 9,
     durationMs: 120,
-    tone: 'bg-[hsl(var(--pix-lavender)/.55)]',
+    tone: 'bg-[hsl(var(--pix-lavender))] text-[hsl(var(--pix-charcoal))]',
     frames: Array.from({ length: 9 }, (_, index) => `/hero-sprites/pipeline/moonblade-knight-frame-${String(index + 1).padStart(2, '0')}.png`),
   },
   {
@@ -141,21 +141,27 @@ function SpriteShowcaseList() {
 }
 
 function SpriteShowcase({ showcase }: { showcase: typeof spriteShowcases[number] }) {
+  const isDarkShowcase = showcase.tone.includes('text-white')
+  const mutedTextClass = isDarkShowcase ? 'text-white/70' : 'text-[hsl(var(--pix-slate))]'
+  const insetCardClass = isDarkShowcase ? 'border-white/12 bg-white/10' : 'border-[hsl(var(--pix-navy))]/15 bg-white/65'
+  const statusBadgeClass = isDarkShowcase
+    ? 'border-white/25 bg-white/10 text-white dark:border-white/25 dark:bg-white/10 dark:text-white'
+    : 'border-[hsl(var(--pix-navy))]/20 bg-white/55 text-[hsl(var(--pix-navy))] dark:border-[hsl(var(--pix-navy))]/20 dark:bg-white/55 dark:text-[hsl(var(--pix-navy))]'
   return (
     <div className="grid items-center gap-8 lg:grid-cols-[.82fr_1.18fr]">
       <div className={`rounded-lg border border-border p-6 shadow-[0_4px_12px_rgba(15,15,15,0.08)] ${showcase.tone}`}>
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <Badge className="bg-[hsl(var(--pix-navy))] text-white">Sprite Pipeline</Badge>
             <h3 className="mt-5 text-3xl font-semibold">{showcase.name}</h3>
-            <p className="mt-3 text-sm leading-7 text-muted-foreground">{showcase.brief}</p>
+            <p className={`mt-3 text-sm leading-7 ${mutedTextClass}`}>{showcase.brief}</p>
           </div>
-          <Badge variant="outline">{showcase.status}</Badge>
+          <Badge variant="outline" className={statusBadgeClass}>{showcase.status}</Badge>
         </div>
-        <div className="mt-6 grid place-items-center rounded-lg border border-border bg-card p-6">
+        <div className={`mt-6 grid place-items-center rounded-lg border p-6 ${insetCardClass}`}>
           <SpriteFramePlayer showcase={showcase} className="h-24 w-24" />
         </div>
-        <PromptBox title="中文 Prompt" text={showcase.prompt} />
+        <PromptBox title="中文 Prompt" text={showcase.prompt} tone={isDarkShowcase ? 'dark' : 'light'} />
       </div>
       <div className="grid gap-4">
         <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_2px_rgba(15,15,15,0.04)]">
@@ -224,7 +230,15 @@ function ItemSpriteGrid({ example, compact = false }: { example: HomepageExample
   return <div className="grid grid-cols-4 gap-1">{itemSpriteSlots.map((index) => <div key={index} className={`aspect-square overflow-hidden rounded-lg border border-border bg-card ${compact ? 'p-0.5' : 'p-1'}`}><img src={itemSlotSrc(example, index)} alt={`${example.theme} 第 ${index + 1} 个物品`} loading="lazy" decoding="async" className="h-full w-full object-contain [image-rendering:pixelated]" /></div>)}</div>
 }
 
-function PromptBox({ title, text }: { title: string; text: string }) { return <div className="rounded-lg border border-border bg-muted/40 p-3"><p className="text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{title}</p><p className="mt-2 text-xs leading-6 text-muted-foreground">{text}</p></div> }
+function PromptBox({ title, text, tone = 'default' }: { title: string; text: string; tone?: 'default' | 'light' | 'dark' }) {
+  const boxClass = tone === 'dark'
+    ? 'border-white/12 bg-white/7 text-white/70'
+    : tone === 'light'
+      ? 'border-[hsl(var(--pix-navy))]/15 bg-white/55 text-[hsl(var(--pix-slate))]'
+      : 'border-border bg-muted/40 text-muted-foreground'
+  const titleClass = tone === 'dark' ? 'text-white/65' : tone === 'light' ? 'text-[hsl(var(--pix-steel))]' : 'text-muted-foreground'
+  return <div className={`rounded-lg border p-3 ${boxClass}`}><p className={`text-xs font-semibold uppercase tracking-[.12em] ${titleClass}`}>{title}</p><p className="mt-2 text-xs leading-6">{text}</p></div>
+}
 function itemSlotSrc(example: HomepageExample, index: number) { return example.itemSrc.replace('.png', `_${String(index + 1).padStart(2, '0')}.png`) }
 function buildChineseItemPrompt(example: HomepageExample) { return `像素风「${example.theme}」物品素材表，拆成 4×2 共 8 个独立道具格；每个物品独立输出为 64×64 透明 PNG，居中构图、硬边像素、有限调色板、无抗锯齿，适合作为背包图标或掉落物素材。` }
 function buildChineseUiPrompt(example: HomepageExample) { return `像素风「${example.theme}」16:9 UI 展示图，包含主题面板、边框、按钮、图标、状态区和游戏界面示例；整体为 16-bit RPG / 独立游戏可用风格。` }
