@@ -1,7 +1,7 @@
 import { cn } from '../lib/utils'
 import type { User } from '../types'
 
-export type AppPage = 'workspace' | 'raw-image' | 'gallery' | 'packs' | 'billing' | 'admin'
+export type AppPage = 'home' | 'workspace' | 'raw-image' | 'gallery' | 'packs' | 'billing' | 'admin'
 
 type AppTab = { page: AppPage; label: string; description: string; sidebarLabel: string; adminOnly?: boolean }
 

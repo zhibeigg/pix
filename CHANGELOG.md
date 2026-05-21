@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.26] - 2026-05-21
+
+### Fixed
+
+- 登录后点击 Logo 现在会进入真实首页路由，首页“进入工作台”按钮可返回生产工作台。
+
 ## [1.17.25] - 2026-05-21
 
 ### Fixed
