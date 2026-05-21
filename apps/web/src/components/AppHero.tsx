@@ -150,7 +150,7 @@ function MiniStat({ label, value }: { label: ReactNode; value: ReactNode }) {
 function MockColumn({ title, eyebrow, tint, items }: { title: string; eyebrow: string; tint: string; items: string[] }) {
   return (
     <article className="rounded-lg border border-border bg-card p-3 dark:border-[hsl(var(--pix-paper-border))] dark:bg-[hsl(var(--pix-paper))]">
-      <div className={`rounded-md px-3 py-2 ${tint}`}>
+      <div className={`rounded-md px-3 py-2 text-[hsl(var(--pix-charcoal))] ${tint}`}>
         <p className="text-[11px] font-semibold uppercase tracking-[1px] text-[hsl(var(--pix-steel))]">{eyebrow}</p>
         <p className="mt-1 text-sm font-semibold">{title}</p>
       </div>
