@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.5] - 2026-05-21
+
+### Fixed
+
+- 优化像素参数颜色数控件，移除滑块下方密集刻度数字，改为简洁滑块、数字输入和常用色数快捷按钮。
+
 ## [1.14.4] - 2026-05-21
 
 ### Fixed
