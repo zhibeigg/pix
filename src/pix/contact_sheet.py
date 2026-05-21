@@ -330,13 +330,44 @@ def remove_green_screen(
     crop_padding: float = 0.12,
     crop_square: bool = True,
 ) -> tuple[Image.Image, tuple[int, int, int, int] | None]:
-    """针对纯色 key background 做透明化，并按主体 bbox 裁剪留白。"""
+    """针对纯色 key background 做透明化，并按主体 bbox 裁剪留白。
+
+    处理步骤：
+    1. 全局移除与 key-color 距离 <= tolerance 的像素
+    2. 对紧邻透明区域的半透明边缘做 decontaminate（去除 key-color 对 RGB 的污染）
+    3. 完全透明像素 RGB 置黑（防止缩放时渗出背景色）
+    """
     rgba = np.asarray(image.convert("RGBA")).copy()
-    rgb = rgba[..., :3].astype(np.int32)
-    ref = np.array(green_rgb, dtype=np.int32)
+    h, w = rgba.shape[:2]
+    rgb = rgba[..., :3].astype(np.float64)
+    ref = np.array(green_rgb, dtype=np.float64)
     dist = np.sqrt(((rgb - ref) ** 2).sum(axis=2))
-    mask_green = dist <= max(0, int(tolerance))
-    rgba[mask_green, 3] = 0
+
+    # 1. 全局移除背景
+    bg_mask = dist <= max(0, int(tolerance))
+    rgba[bg_mask, 3] = 0
+
+    # 2. Decontaminate 半透明边缘
+    transparent = rgba[..., 3] == 0
+    near_transparent = np.zeros((h, w), dtype=bool)
+    if h > 1:
+        near_transparent[1:, :] |= transparent[:-1, :]
+        near_transparent[:-1, :] |= transparent[1:, :]
+    if w > 1:
+        near_transparent[:, 1:] |= transparent[:, :-1]
+        near_transparent[:, :-1] |= transparent[:, 1:]
+
+    semi_mask = near_transparent & (rgba[..., 3] > 0) & (rgba[..., 3] < 255)
+    if semi_mask.any():
+        a = rgba[semi_mask, 3].astype(np.float64) / 255.0
+        for c in range(3):
+            channel = rgba[semi_mask, c].astype(np.float64)
+            decontaminated = (channel - ref[c] * (1.0 - a)) / np.maximum(a, 0.01)
+            rgba[semi_mask, c] = np.clip(decontaminated, 0, 255).astype(np.uint8)
+
+    # 3. 透明像素 RGB 置黑
+    fully_transparent = rgba[..., 3] == 0
+    rgba[fully_transparent, :3] = 0
 
     alpha = rgba[..., 3]
     visible = alpha > 8

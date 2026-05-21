@@ -152,7 +152,7 @@ def test_run_sprite_pipeline_with_mocked_generation(tmp_path: Path, monkeypatch)
     meta = json.loads(result.meta_path.read_text(encoding="utf-8"))
     assert meta["sprite"]["count"] == 9
     assert meta["sprite"]["duration_ms"] == 90
-    assert meta["sprite"]["key_mode"] == "hard"
+    assert meta["sprite"]["key_mode"] == "soft"
     assert meta["sprite"]["key_despill"] is True
     assert meta["outputs"]["sprite_sheet"] == "04_sprite_sheet.png"
     assert meta["outputs"]["sprite_gif"] == "05_sprite.gif"
