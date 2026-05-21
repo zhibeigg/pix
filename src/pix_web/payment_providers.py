@@ -5,8 +5,10 @@ from __future__ import annotations
 import base64
 from dataclasses import dataclass
 from datetime import datetime
+import hashlib
 import json
 from pathlib import Path
+import re
 from time import time
 from typing import Any
 from urllib.parse import urlencode
@@ -14,8 +16,9 @@ from uuid import uuid4
 
 import httpx
 from fastapi import HTTPException, status
+from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -69,12 +72,92 @@ def _rsa_sign(private_key_raw: str, message: str) -> str:
     return base64.b64encode(signature).decode("ascii")
 
 
-def _rsa_verify(public_key_raw: str, message: str, signature_b64: str) -> bool:
+def _rsa_verify_with_public_key(public_key: Any, message: str, signature_b64: str) -> bool:
     try:
-        public_key = _load_public_key(public_key_raw)
         signature = base64.b64decode(signature_b64)
         public_key.verify(signature, message.encode("utf-8"), padding.PKCS1v15(), hashes.SHA256())
         return True
+    except Exception:
+        return False
+
+
+def _rsa_verify(public_key_raw: str, message: str, signature_b64: str) -> bool:
+    try:
+        return _rsa_verify_with_public_key(_load_public_key(public_key_raw), message, signature_b64)
+    except Exception:
+        return False
+
+
+_PEM_CERT_RE = re.compile(
+    r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", re.DOTALL
+)
+
+
+def _load_pem_certificates(raw: str, name: str) -> list[x509.Certificate]:
+    content = _require(raw, name)
+    blocks = _PEM_CERT_RE.findall(content)
+    if not blocks:
+        blocks = [content]
+    certs: list[x509.Certificate] = []
+    for block in blocks:
+        try:
+            certs.append(x509.load_pem_x509_certificate(block.encode("utf-8")))
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"{name} 格式不正确") from exc
+    return certs
+
+
+def _load_pem_certificate(raw: str, name: str) -> x509.Certificate:
+    return _load_pem_certificates(raw, name)[0]
+
+
+def _certificate_sn(cert: x509.Certificate) -> str:
+    issuer = cert.issuer.rfc4514_string()
+    serial = str(cert.serial_number)
+    return hashlib.md5(f"{issuer}{serial}".encode("utf-8")).hexdigest()
+
+
+def _certificate_public_key(raw: str, name: str):
+    return _load_pem_certificate(raw, name).public_key()
+
+
+def _is_rsa_certificate(cert: x509.Certificate) -> bool:
+    signature_name = getattr(cert.signature_algorithm_oid, "_name", "").upper()
+    return "RSA" in signature_name or isinstance(cert.public_key(), rsa.RSAPublicKey)
+
+
+def _alipay_app_cert_sn(settings: WebSettings) -> str:
+    return _certificate_sn(_load_pem_certificate(settings.alipay_app_cert, "ALIPAY_APP_CERT"))
+
+
+def _alipay_root_cert_sn(settings: WebSettings) -> str:
+    certs = _load_pem_certificates(settings.alipay_root_cert, "ALIPAY_ROOT_CERT")
+    serials = [_certificate_sn(cert) for cert in certs if _is_rsa_certificate(cert)]
+    if not serials:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="ALIPAY_ROOT_CERT 未包含 RSA 根证书")
+    return "_".join(serials)
+
+
+def _alipay_mode(settings: WebSettings) -> str:
+    mode = settings.alipay_mode.lower()
+    if mode == "certificate":
+        return "certificate"
+    if mode == "public_key":
+        return "public_key"
+    if settings.alipay_app_cert or settings.alipay_public_cert or settings.alipay_root_cert:
+        return "certificate"
+    return "public_key"
+
+
+def _alipay_public_key_for_verify(settings: WebSettings):
+    if _alipay_mode(settings) == "certificate":
+        return _certificate_public_key(settings.alipay_public_cert, "ALIPAY_PUBLIC_CERT")
+    return _load_public_key(settings.alipay_public_key)
+
+
+def _alipay_verify(settings: WebSettings, message: str, signature_b64: str) -> bool:
+    try:
+        return _rsa_verify_with_public_key(_alipay_public_key_for_verify(settings), message, signature_b64)
     except Exception:
         return False
 
@@ -104,7 +187,13 @@ def _alipay_sign_content(params: dict[str, str]) -> str:
 
 def create_alipay_checkout(db: Session, user: User, package_key: str, settings: WebSettings) -> CheckoutResult:
     app_id = _require(settings.alipay_app_id, "ALIPAY_APP_ID")
-    _require(settings.alipay_public_key, "ALIPAY_PUBLIC_KEY")
+    mode = _alipay_mode(settings)
+    if mode == "certificate":
+        _require(settings.alipay_app_cert, "ALIPAY_APP_CERT")
+        _require(settings.alipay_public_cert, "ALIPAY_PUBLIC_CERT")
+        _require(settings.alipay_root_cert, "ALIPAY_ROOT_CERT")
+    else:
+        _require(settings.alipay_public_key, "ALIPAY_PUBLIC_KEY")
     order = create_payment_order(db, user, package_key, provider="alipay")
     biz_content = json.dumps(
         {
@@ -127,6 +216,9 @@ def create_alipay_checkout(db: Session, user: User, package_key: str, settings: 
         "return_url": _public_url(settings, f"/billing/return/alipay?order_id={order.id}"),
         "biz_content": biz_content,
     }
+    if mode == "certificate":
+        params["app_cert_sn"] = _alipay_app_cert_sn(settings)
+        params["alipay_root_cert_sn"] = _alipay_root_cert_sn(settings)
     params["sign"] = _rsa_sign(settings.alipay_private_key, _alipay_sign_content(params))
     return CheckoutResult(order=order, provider="alipay", payment_url=f"{settings.alipay_gateway}?{urlencode(params)}")
 
@@ -134,7 +226,7 @@ def create_alipay_checkout(db: Session, user: User, package_key: str, settings: 
 def handle_alipay_notify(db: Session, form: dict[str, str], settings: WebSettings) -> str:
     signature = form.get("sign", "")
     payload = {key: value for key, value in form.items() if key not in {"sign", "sign_type"}}
-    if not _rsa_verify(settings.alipay_public_key, _alipay_sign_content(payload), signature):
+    if not _alipay_verify(settings, _alipay_sign_content(payload), signature):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="支付宝通知验签失败")
     if form.get("trade_status") not in {"TRADE_SUCCESS", "TRADE_FINISHED"}:
         return "success"

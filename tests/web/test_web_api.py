@@ -1,19 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
-import base64
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import parse_qs, urlsplit
 from zipfile import ZipFile
 
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
-from cryptography.hazmat.primitives import serialization
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.x509.oid import NameOID
 
 from pix.config import AppConfig
 from pix_web.config import WebSettings
@@ -362,6 +364,39 @@ def _rsa_key_pair() -> tuple[str, str]:
     return private_pem, public_pem
 
 
+def _rsa_key_pair_with_cert(common_name: str = "Alipay Test") -> tuple[str, str, str]:
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    private_pem = private_key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode("utf-8")
+    public_pem = private_key.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode("utf-8")
+    subject = issuer = x509.Name(
+        [
+            x509.NameAttribute(NameOID.COUNTRY_NAME, "CN"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Pix Test"),
+            x509.NameAttribute(NameOID.COMMON_NAME, common_name),
+        ]
+    )
+    now = datetime.now(timezone.utc)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(private_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(days=1))
+        .not_valid_after(now + timedelta(days=30))
+        .sign(private_key, hashes.SHA256())
+    )
+    cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+    return private_pem, public_pem, cert_pem
+
+
 def test_alipay_checkout_and_webhook_are_idempotent(client: TestClient) -> None:
     private_pem, public_pem = _rsa_key_pair()
     client.app.state.web_settings = replace(
@@ -372,6 +407,7 @@ def test_alipay_checkout_and_webhook_are_idempotent(client: TestClient) -> None:
         alipay_public_key=public_pem,
     )
     _user, headers = _register_and_login(client)
+    starting_credits = client.get("/credits/balance", headers=headers).json()["available_credits"]
     checkout = client.post("/billing/checkout", headers=headers, json={"package_key": "starter", "provider": "alipay"})
 
     assert checkout.status_code == 200
@@ -396,15 +432,58 @@ def test_alipay_checkout_and_webhook_are_idempotent(client: TestClient) -> None:
     assert paid.status_code == 200
     assert paid.text == "success"
     assert again.status_code == 200
-    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == order["credits"]
+    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == starting_credits + order["credits"]
+
+
+def test_alipay_certificate_checkout_and_webhook_are_idempotent(client: TestClient) -> None:
+    private_pem, _public_pem, cert_pem = _rsa_key_pair_with_cert()
+    client.app.state.web_settings = replace(
+        client.app.state.web_settings,
+        public_base_url="https://pix.example.com/api",
+        alipay_app_id="app-id",
+        alipay_private_key=private_pem,
+        alipay_mode="certificate",
+        alipay_app_cert=cert_pem,
+        alipay_public_cert=cert_pem,
+        alipay_root_cert=cert_pem,
+    )
+    _user, headers = _register_and_login(client, "alipay-cert@example.com")
+    starting_credits = client.get("/credits/balance", headers=headers).json()["available_credits"]
+    checkout = client.post("/billing/checkout", headers=headers, json={"package_key": "starter", "provider": "alipay"})
+
+    assert checkout.status_code == 200
+    body = checkout.json()
+    query = parse_qs(urlsplit(body["payment_url"]).query)
+    assert query["app_cert_sn"][0]
+    assert query["alipay_root_cert_sn"][0]
+    assert query["sign_type"] == ["RSA2"]
+
+    order = body["order"]
+    form = {
+        "out_trade_no": order["provider_order_id"],
+        "trade_no": "ali-cert-trade-1",
+        "trade_status": "TRADE_SUCCESS",
+        "total_amount": f"{order['amount_cents'] / 100:.2f}",
+        "sign_type": "RSA2",
+    }
+    sign_payload = {key: value for key, value in form.items() if key != "sign_type"}
+    form["sign"] = _rsa_sign(private_pem, _alipay_sign_content(sign_payload))
+    paid = client.post("/billing/webhook/alipay", data=form)
+    again = client.post("/billing/webhook/alipay", data=form)
+
+    assert paid.status_code == 200
+    assert paid.text == "success"
+    assert again.status_code == 200
+    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == starting_credits + order["credits"]
 
 
 def test_wechat_checkout_is_disabled(client: TestClient) -> None:
     _user, headers = _register_and_login(client)
+    starting_credits = client.get("/credits/balance", headers=headers).json()["available_credits"]
     checkout = client.post("/billing/checkout", headers=headers, json={"package_key": "starter", "provider": "wechat"})
     assert checkout.status_code == 422
     assert "微信支付已关闭" in checkout.json()["detail"]
-    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == order["credits"]
+    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == starting_credits
 
 
 def test_billing_order_mock_pay_and_idempotent_webhook(client: TestClient) -> None:

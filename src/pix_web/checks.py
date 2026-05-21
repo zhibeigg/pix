@@ -76,8 +76,25 @@ def check_storage(settings: WebSettings) -> CheckResult:
     return _result("storage", True, f"可写: {settings.storage_root}")
 
 
+def _alipay_effective_mode(settings: WebSettings) -> str:
+    if settings.alipay_mode == "certificate":
+        return "certificate"
+    if settings.alipay_mode == "public_key":
+        return "public_key"
+    if settings.alipay_app_cert or settings.alipay_public_cert or settings.alipay_root_cert:
+        return "certificate"
+    return "public_key"
+
+
 def check_payment_providers(settings: WebSettings) -> CheckResult:
-    alipay_values = [settings.alipay_app_id, settings.alipay_private_key, settings.alipay_public_key]
+    alipay_values = [
+        settings.alipay_app_id,
+        settings.alipay_private_key,
+        settings.alipay_public_key,
+        settings.alipay_app_cert,
+        settings.alipay_public_cert,
+        settings.alipay_root_cert,
+    ]
     wechat_values = [
         settings.wechat_app_id,
         settings.wechat_mch_id,
@@ -86,12 +103,24 @@ def check_payment_providers(settings: WebSettings) -> CheckResult:
         settings.wechat_api_v3_key,
         settings.wechat_platform_cert,
     ]
-    alipay_any = any(alipay_values)
+    alipay_any = any(alipay_values) or settings.alipay_mode in {"certificate", "public_key"}
     wechat_any = any(wechat_values)
-    alipay_ok = (not alipay_any) or all(alipay_values)
+    if alipay_any:
+        if _alipay_effective_mode(settings) == "certificate":
+            required = [
+                settings.alipay_app_id,
+                settings.alipay_private_key,
+                settings.alipay_app_cert,
+                settings.alipay_public_cert,
+                settings.alipay_root_cert,
+            ]
+            if not all(required):
+                return _result("payments", False, "支付宝证书模式配置不完整")
+        else:
+            required = [settings.alipay_app_id, settings.alipay_private_key, settings.alipay_public_key]
+            if not all(required):
+                return _result("payments", False, "支付宝公钥模式配置不完整")
     wechat_ok = (not wechat_any) or all(wechat_values)
-    if not alipay_ok:
-        return _result("payments", False, "支付宝配置不完整")
     if not wechat_ok:
         return _result("payments", False, "微信支付配置不完整")
     if alipay_any or wechat_any:
@@ -109,7 +138,8 @@ def check_email_delivery(settings: WebSettings) -> CheckResult:
         return _result("email", False, "SMTP 配置不完整：至少需要 PIX_WEB_SMTP_HOST 和 PIX_WEB_SMTP_FROM")
     if settings.smtp_port <= 0:
         return _result("email", False, "SMTP 端口无效")
-    return _result("email", True, "SMTP 邮件验证码已配置")
+    encryption = "SSL" if settings.smtp_ssl else ("STARTTLS" if settings.smtp_tls else "明文")
+    return _result("email", True, f"SMTP 邮件验证码已配置（{encryption}）")
 
 
 def check_queue(settings: WebSettings) -> CheckResult:
