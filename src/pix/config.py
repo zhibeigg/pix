@@ -182,8 +182,8 @@ class SpriteConfig:
     loop: int = 0
     green_screen_color: str = "auto"
     green_screen_tolerance: int = 48
-    key_mode: str = "hard"
-    key_softness: int = 150
+    key_mode: str = "soft"
+    key_softness: int = 120
     key_alpha_floor: int = 12
     key_despill: bool = True
     bg_tolerance: int = 26
