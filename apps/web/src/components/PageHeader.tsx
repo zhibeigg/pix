@@ -1,52 +1,17 @@
-import { Box, Chip, Stack, Typography } from '@mui/material'
-import { notionTokens } from '../theme'
+import type { ReactNode } from 'react'
 
-type PageHeaderProps = {
-  eyebrow: string
-  title: string
-  description?: string
-  tint?: 'cream' | 'sky' | 'mint' | 'lavender' | 'yellow'
-}
-
-const tintMap = {
-  cream: notionTokens.tintCream,
-  sky: notionTokens.tintSky,
-  mint: notionTokens.tintMint,
-  lavender: notionTokens.tintLavender,
-  yellow: notionTokens.tintYellow,
-}
-
-export function PageHeader({ eyebrow, title, description, tint = 'cream' }: PageHeaderProps) {
+export function PageHeader({ eyebrow, title, description, action }: { eyebrow?: ReactNode; title: ReactNode; description?: ReactNode; action?: ReactNode }) {
   return (
-    <Box
-      sx={{
-        position: 'relative',
-        overflow: 'hidden',
-        border: `1px solid ${notionTokens.hairline}`,
-        borderRadius: 1.5,
-        bgcolor: notionTokens.canvas,
-        p: { xs: 2.5, md: 3.2 },
-      }}
-    >
-      <Box
-        aria-hidden="true"
-        sx={{
-          position: 'absolute',
-          top: -48,
-          right: -48,
-          width: 180,
-          height: 180,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${tintMap[tint]} 0%, transparent 70%)`,
-          opacity: .55,
-          pointerEvents: 'none',
-        }}
-      />
-      <Stack spacing={1.05} sx={{ maxWidth: 900, position: 'relative' }}>
-        <Chip label={eyebrow} size="small" sx={{ alignSelf: 'flex-start', bgcolor: tintMap[tint], color: notionTokens.ink, borderRadius: 1, fontWeight: 600, letterSpacing: '.02em' }} />
-        <Typography variant="h2" sx={{ fontSize: { xs: 32, sm: 42, md: 50 }, color: notionTokens.ink, maxWidth: 780, letterSpacing: '-.03em' }}>{title}</Typography>
-        {description && <Typography color="text.secondary" sx={{ maxWidth: 760, fontSize: { md: 17 }, lineHeight: 1.68 }}>{description}</Typography>}
-      </Stack>
-    </Box>
+    <section className="relative overflow-hidden rounded-3xl border border-border bg-card/86 p-6 shadow-[0_24px_70px_hsl(31_35%_10%/.08)] md:p-8">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/60 via-[hsl(var(--pix-sky))] to-[hsl(var(--pix-amber))]" />
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          {eyebrow && <p className="text-xs font-black uppercase tracking-[.16em] text-primary">{eyebrow}</p>}
+          <h2 className="mt-2 text-3xl font-black tracking-tight md:text-5xl">{title}</h2>
+          {description && <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground">{description}</p>}
+        </div>
+        {action && <div className="shrink-0">{action}</div>}
+      </div>
+    </section>
   )
 }

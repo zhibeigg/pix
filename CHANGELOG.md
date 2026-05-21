@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.6] - 2026-05-21
+
+### Added
+
+- 前端全面迁移到 shadcn/ui + Radix primitives + Tailwind CSS 组件体系，移除 MUI/Emotion 依赖并新增 Pix 专属设计组件层。
+
+### Changed
+
+- 重构全局壳层、导航、登录、生产工作台、原始生图、作品库、素材包、点数中心和管理后台的视觉层级与控件布局。
+
 ## [1.14.6] - 2026-05-21
 
 ### Fixed

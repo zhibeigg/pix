@@ -1,30 +1,25 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, MenuItem, Stack, TextField, Typography } from '@mui/material'
+import { Upload } from 'lucide-react'
 import { api } from '../api'
-import { notionTokens } from '../theme'
 import type { CreditBalance, JobCreateRequest, PricingRule, UploadResponse } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, hasInvalidSubAssetSize, parsePixelSize } from '../pixelize'
+import { Alert } from './ui/alert'
+import { Badge } from './ui/badge'
+import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
+import { Input } from './ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import { Textarea } from './ui/textarea'
+import { PixField } from './pix/PixField'
+import { PixPanel } from './pix/PixPanel'
+import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
 
 type BatchMode = 'asset' | 'text_to_image' | 'image_to_image' | 'local_pixelize'
+type BatchUpload = { id: string; name: string; status: 'uploading' | 'uploaded' | 'failed'; error?: string; upload?: UploadResponse }
+type Props = { pricing: PricingRule[]; balance: CreditBalance | null; loading: boolean; token: string; onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void> }
 
-type BatchUpload = {
-  id: string
-  name: string
-  status: 'uploading' | 'uploaded' | 'failed'
-  error?: string
-  upload?: UploadResponse
-}
-
-type BatchGeneratePanelProps = {
-  pricing: PricingRule[]
-  balance: CreditBalance | null
-  loading: boolean
-  token: string
-  onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void>
-}
-
-export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitMany }: BatchGeneratePanelProps) {
+export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitMany }: Props) {
   const [batchMode, setBatchMode] = useState<BatchMode>('asset')
   const [batchName, setBatchName] = useState('RPG 材料包')
   const [prompts, setPrompts] = useState('血气灵玉\n紫髓铁\n幽香腐骨菇\n玉石原石\n紫檀木')
@@ -49,19 +44,12 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
   const isAsset = batchMode === 'asset'
 
   useEffect(() => {
-    if (batchMode === 'asset') {
-      setPixelSize('16x16')
-      setColors(12)
-      setRemoveBg(true)
-    } else {
-      setPixelSize('64x64')
-      setColors(16)
-      setRemoveBg(true)
-    }
+    if (batchMode === 'asset') { setPixelSize('16x16'); setColors(12); setRemoveBg(true) }
+    else { setPixelSize('64x64'); setColors(16); setRemoveBg(true) }
   }, [batchMode])
 
   async function uploadFiles(files: FileList | null) {
-    if (!files || files.length === 0) return
+    if (!files?.length) return
     setUploading(true)
     const selected = Array.from(files)
     const initial = selected.map((file) => ({ id: crypto.randomUUID(), name: file.name, status: 'uploading' as const }))
@@ -69,12 +57,8 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
     const next: BatchUpload[] = []
     for (const [index, file] of selected.entries()) {
       const current = initial[index]
-      try {
-        const result = await api.uploadImage(token, file)
-        next.push({ ...current, status: 'uploaded', upload: result })
-      } catch (error) {
-        next.push({ ...current, status: 'failed', error: error instanceof Error ? error.message : '上传失败' })
-      }
+      try { next.push({ ...current, status: 'uploaded', upload: await api.uploadImage(token, file) }) }
+      catch (error) { next.push({ ...current, status: 'failed', error: error instanceof Error ? error.message : '上传失败' }) }
       setUploads([...next, ...initial.slice(index + 1)])
     }
     setUploading(false)
@@ -82,166 +66,40 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    const pixelize = isAsset
-      ? buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg })
-      : buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg })
+    const pixelize = isAsset ? buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg }) : buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg })
     const grid = buildGridDesign()
     let payloads: JobCreateRequest[] = []
-    if (batchMode === 'asset') {
-      payloads = lines.map((name) => ({
-        job_type: 'asset',
-        prompt: name,
-        input_image_path: null,
-        client_request_id: crypto.randomUUID(),
-        pixelize,
-        grid,
-        asset: { name, extra_prompt: assetExtraPrompt.trim(), no_preview: false },
-      }))
-    } else if (batchMode === 'text_to_image') {
-      payloads = lines.map((prompt) => ({
-        job_type: 'text_to_image',
-        prompt,
-        input_image_path: null,
-        client_request_id: crypto.randomUUID(),
-        skip_vl: skipVl,
-        pixelize,
-        grid,
-      }))
-    } else if (batchMode === 'image_to_image') {
-      payloads = uploaded.map((item) => ({
-        job_type: 'image_to_image',
-        prompt: sharedPrompt,
-        input_image_path: item.upload?.path ?? null,
-        client_request_id: crypto.randomUUID(),
-        skip_vl: skipVl,
-        pixelize,
-        grid,
-      }))
-    } else {
-      payloads = uploaded.map((item) => ({
-        job_type: 'local_pixelize',
-        prompt: null,
-        input_image_path: item.upload?.path ?? null,
-        client_request_id: crypto.randomUUID(),
-        skip_vl: true,
-        pixelize,
-        grid,
-      }))
-    }
+    if (batchMode === 'asset') payloads = lines.map((name) => ({ job_type: 'asset', prompt: name, input_image_path: null, client_request_id: crypto.randomUUID(), pixelize, grid, asset: { name, extra_prompt: assetExtraPrompt.trim(), no_preview: false } }))
+    else if (batchMode === 'text_to_image') payloads = lines.map((prompt) => ({ job_type: 'text_to_image', prompt, input_image_path: null, client_request_id: crypto.randomUUID(), skip_vl: skipVl, pixelize, grid }))
+    else if (batchMode === 'image_to_image') payloads = uploaded.map((item) => ({ job_type: 'image_to_image', prompt: sharedPrompt, input_image_path: item.upload?.path ?? null, client_request_id: crypto.randomUUID(), skip_vl: skipVl, pixelize, grid }))
+    else payloads = uploaded.map((item) => ({ job_type: 'local_pixelize', prompt: null, input_image_path: item.upload?.path ?? null, client_request_id: crypto.randomUUID(), skip_vl: true, pixelize, grid }))
     if (payloads.length >= 10 && !window.confirm(`入队 ${payloads.length} 个任务并冻结 ${totalPrice} 点？`)) return
     await onSubmitMany(payloads, batchName, batchMode)
   }
 
   return (
-    <Card variant="outlined" sx={{ overflow: 'hidden', bgcolor: notionTokens.canvas }}>
-      <Box sx={{ height: 5, bgcolor: notionTokens.tintMint }} />
-      <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
-        <Stack spacing={3}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2 }}>
-            <Box>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>素材包生产</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 600 }}>批量生产</Typography>
-            </Box>
-            <Chip sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800 }} label={`${taskCount} 个 · 预计 ${totalPrice} 点`} />
-          </Stack>
-
-          <Stack component="form" spacing={2.5} onSubmit={submit}>
-            <BatchCostSummary taskCount={taskCount} unitPrice={unitPrice} totalPrice={totalPrice} availableCredits={availableCredits} insufficientCredits={insufficientCredits} />
-            <TextField label="素材包名称" value={batchName} placeholder="例如：RPG 材料包" onChange={(event) => setBatchName(event.target.value)} />
-            <TextField select label="批量类型" value={batchMode} onChange={(event) => setBatchMode(event.target.value as BatchMode)}>
-              <MenuItem value="asset">批量游戏素材直出</MenuItem>
-              <MenuItem value="text_to_image">批量文生图</MenuItem>
-              <MenuItem value="image_to_image">批量图生图</MenuItem>
-              <MenuItem value="local_pixelize">批量本地像素化</MenuItem>
-            </TextField>
-
-            {batchMode === 'asset' || batchMode === 'text_to_image' ? (
-              <Stack spacing={2}>
-                {isAsset && (
-                  <TextField label="统一额外风格描述" helperText="会追加到每个素材名称生成的 pix asset Prompt 后。" value={assetExtraPrompt} multiline minRows={3} onChange={(event) => setAssetExtraPrompt(event.target.value)} />
-                )}
-                <TextField label={isAsset ? '素材名称（每行一个）' : '素材描述（每行一个）'} helperText={isAsset ? '每行一个物品名，例如：血气灵玉。' : '一行一个素材名。'} value={prompts} multiline minRows={8} onChange={(event) => setPrompts(event.target.value)} />
-              </Stack>
-            ) : (
-              <Card variant="outlined" sx={{ bgcolor: notionTokens.tintSky }}>
-                <CardContent>
-                  <Stack spacing={2}>
-                    {batchMode === 'image_to_image' && (
-                      <TextField label="共用微调描述" helperText="套用到每张参考图。" value={sharedPrompt} multiline minRows={4} onChange={(event) => setSharedPrompt(event.target.value)} />
-                    )}
-                    <Button variant="outlined" component="label" disabled={uploading}>
-                      {uploading ? '上传中…' : '批量上传图片'}
-                      <Box component="input" type="file" multiple accept="image/png,image/jpeg,image/webp" sx={{ display: 'none' }} onChange={(event) => uploadFiles(event.currentTarget.files)} />
-                    </Button>
-                    <UploadList uploads={uploads} />
-                  </Stack>
-                </CardContent>
-              </Card>
-            )}
-
-            <PixelControls pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} />
-            <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
-              <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
-              <FormControlLabel control={<Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize' || isAsset} onChange={(event) => setSkipVl(event.target.checked)} />} label={isAsset ? '素材直出默认 VL 策略' : '跳过参考图理解'} />
-            </Stack>
-            {invalidSubAssetSize && <Alert severity="error">素材最低支持 16×16。</Alert>}
-            {isAsset && <Alert severity="info">素材直出默认使用 `pix asset` 的白底单图模板、Pixel Grid 提取和透明 PNG 输出。</Alert>}
-            {insufficientCredits && <Button variant="outlined" href="#/billing">点数不足，前往点数中心</Button>}
-            <Button type="submit" variant="contained" color="primary" disabled={loading || uploading || taskCount === 0 || insufficientCredits || invalidSubAssetSize}>{loading ? '提交中…' : `入队 ${taskCount} 个素材任务`}</Button>
-          </Stack>
-        </Stack>
-      </CardContent>
-    </Card>
+    <PixPanel eyebrow="素材包生产" title="批量生产" action={<Badge variant={insufficientCredits ? 'danger' : 'info'}>{taskCount} 个 · 预计 {totalPrice} 点</Badge>}>
+      <form className="grid gap-5" onSubmit={submit}>
+        <BatchCostSummary taskCount={taskCount} unitPrice={unitPrice} totalPrice={totalPrice} availableCredits={availableCredits} insufficientCredits={insufficientCredits} />
+        <PixField label="素材包名称"><Input value={batchName} onChange={(event) => setBatchName(event.target.value)} /></PixField>
+        <PixField label="批量类型"><Select value={batchMode} onValueChange={(value) => setBatchMode(value as BatchMode)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="asset">批量游戏素材直出</SelectItem><SelectItem value="text_to_image">批量文生图</SelectItem><SelectItem value="image_to_image">批量图生图</SelectItem><SelectItem value="local_pixelize">批量本地像素化</SelectItem></SelectContent></Select></PixField>
+        {batchMode === 'asset' || batchMode === 'text_to_image' ? <div className="grid gap-4">{isAsset && <PixField label="统一额外风格描述"><Textarea value={assetExtraPrompt} rows={3} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>}<PixField label={isAsset ? '素材名称（每行一个）' : '素材描述（每行一个）'}><Textarea value={prompts} rows={8} onChange={(e) => setPrompts(e.target.value)} /></PixField></div> : <div className="grid gap-4 rounded-2xl border border-border bg-muted/45 p-4">{batchMode === 'image_to_image' && <PixField label="共用微调描述"><Textarea value={sharedPrompt} rows={4} onChange={(e) => setSharedPrompt(e.target.value)} /></PixField>}<Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? '上传中…' : '批量上传图片'}<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void uploadFiles(e.currentTarget.files)} /></label></Button><UploadList uploads={uploads} /></div>}
+        <PixelControls pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} />
+        <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={removeBg} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />透明背景</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize' || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? '素材直出默认 VL 策略' : '跳过参考图理解'}</label></div>
+        {invalidSubAssetSize && <Alert variant="destructive">素材最低支持 16×16。</Alert>}
+        {isAsset && <Alert variant="info">素材直出默认使用 `pix asset` 的白底单图模板、Pixel Grid 提取和透明 PNG 输出。</Alert>}
+        {insufficientCredits && <Button type="button" variant="outline" onClick={() => { window.location.hash = '/billing' }}>点数不足，前往点数中心</Button>}
+        <Button type="submit" size="lg" disabled={loading || uploading || taskCount === 0 || insufficientCredits || invalidSubAssetSize}>{loading ? '提交中…' : `入队 ${taskCount} 个素材任务`}</Button>
+      </form>
+    </PixPanel>
   )
 }
 
 function BatchCostSummary({ taskCount, unitPrice, totalPrice, availableCredits, insufficientCredits }: { taskCount: number; unitPrice: number; totalPrice: number; availableCredits: number | null; insufficientCredits: boolean }) {
-  return (
-    <Card variant="outlined" sx={{ bgcolor: insufficientCredits ? notionTokens.tintRose : notionTokens.tintCream }}>
-      <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
-        <Stack spacing={1.25}>
-          <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
-            <Chip size="small" label={`${taskCount} 个素材`} sx={{ bgcolor: notionTokens.canvas }} />
-            <Chip size="small" label={`单价 ${unitPrice} 点`} sx={{ bgcolor: notionTokens.canvas }} />
-            <Chip size="small" label={`预计冻结 ${totalPrice} 点`} sx={{ bgcolor: notionTokens.canvas }} />
-            <Chip size="small" label={`当前可用 ${availableCredits ?? '—'} 点`} sx={{ bgcolor: notionTokens.canvas }} />
-          </Stack>
-          <Typography variant="body2" color="text.secondary">
-            入队冻结点数；失败退回。10 个以上会再次确认。
-          </Typography>
-          {insufficientCredits && <Alert severity="warning">点数不足，请先充值。</Alert>}
-        </Stack>
-      </CardContent>
-    </Card>
-  )
+  return <Alert variant={insufficientCredits ? 'warning' : 'info'}>{taskCount} 个素材 · 单价 {unitPrice} 点 · 预计冻结 {totalPrice} 点 · 当前可用 {availableCredits ?? '—'} 点。入队冻结点数，失败退回。</Alert>
 }
 
 function UploadList({ uploads }: { uploads: BatchUpload[] }) {
-  if (uploads.length === 0) return <Alert severity="info">先上传图片。</Alert>
-  const ok = uploads.filter((item) => item.status === 'uploaded').length
-  const failed = uploads.filter((item) => item.status === 'failed').length
-  return (
-    <Stack spacing={1.25}>
-      <Alert severity={failed ? 'warning' : 'success'}>已上传 {ok} / {uploads.length}{failed ? `，失败 ${failed}` : ''}</Alert>
-      {uploads.map((item) => (
-        <Card variant="outlined" key={item.id} sx={{ bgcolor: 'background.paper' }}>
-          <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-            <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center' }}>
-              {item.upload?.url ? (
-                <Box component="img" src={item.upload.url} alt={item.name} loading="lazy" decoding="async" sx={{ width: 58, height: 58, objectFit: 'contain', imageRendering: 'pixelated', borderRadius: 1.5, bgcolor: 'background.default' }} />
-              ) : (
-                <Box sx={{ width: 58, height: 58, display: 'grid', placeItems: 'center', borderRadius: 1.5, bgcolor: 'background.default' }}>
-                  <Typography variant="caption" color="text.secondary">{item.status}</Typography>
-                </Box>
-              )}
-              <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 600 }} noWrap>{item.name}</Typography>
-                <Typography variant="body2" color="text.secondary" noWrap>{item.error || item.upload?.path || item.status}</Typography>
-              </Box>
-            </Stack>
-          </CardContent>
-        </Card>
-      ))}
-    </Stack>
-  )
+  if (!uploads.length) return <Alert variant="info">先上传图片。</Alert>
+  return <div className="grid gap-2">{uploads.map((item) => <div key={item.id} className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-2xl border border-border bg-card p-2">{item.upload?.url ? <img src={item.upload.url} alt={item.name} className="h-16 w-16 rounded-xl object-contain [image-rendering:pixelated]" /> : <PixPreviewFrame className="min-h-16" label={item.status} />}<div className="min-w-0 self-center"><p className="truncate text-sm font-bold">{item.name}</p><p className="truncate text-xs text-muted-foreground">{item.error || item.upload?.path || item.status}</p></div></div>)}</div>
 }

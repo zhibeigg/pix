@@ -1,273 +1,56 @@
 import { FormEvent, useMemo, useState } from 'react'
-import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, MenuItem, Stack, Tab, Tabs, TextField, Typography } from '@mui/material'
-import { notionTokens } from '../theme'
 import type { AdminDashboard, CreditPackage, PricingRule, SystemSetting, User } from '../types'
+import { Alert } from './ui/alert'
+import { Badge } from './ui/badge'
+import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
+import { Input } from './ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import { Textarea } from './ui/textarea'
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs'
+import { PixField } from './pix/PixField'
+import { PixMetric } from './pix/PixMetric'
+import { PixPanel } from './pix/PixPanel'
 
-type AdminPanelProps = {
-  dashboard: AdminDashboard | null
-  users: User[]
-  pricing: PricingRule[]
-  packages: CreditPackage[]
-  settings: SystemSetting[]
-  onRefresh: () => void
-  onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>
-  onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>
-  onCreatePackage: (payload: CreditPackage) => Promise<void>
-  onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>
-  onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>
-  onTestEmail: (email: string) => Promise<void>
-}
-
-type AdminTab = 'dashboard' | 'users' | 'pricing' | 'packages' | string
-
+type Props = { dashboard: AdminDashboard | null; users: User[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onTestEmail: (email: string) => Promise<void> }
 const settingTabs = ['运营保护', '邮件验证码', '模型与 API', '素材默认值', '支付与站点', '存储 / 队列 / 安全']
 
-export function AdminPanel({ dashboard, users, pricing, packages, settings, onRefresh, onAdjustCredits, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onTestEmail }: AdminPanelProps) {
-  const [tab, setTab] = useState<AdminTab>('dashboard')
-  const [selectedUser, setSelectedUser] = useState<number>(0)
+export function AdminPanel({ dashboard, users, pricing, packages, settings, onRefresh, onAdjustCredits, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onTestEmail }: Props) {
+  const [tab, setTab] = useState('dashboard')
+  const [selectedUser, setSelectedUser] = useState('0')
   const [amount, setAmount] = useState(100)
   const [note, setNote] = useState('运营补点')
   const groups = useMemo(() => groupSettings(settings), [settings])
-
-  async function submitAdjust(event: FormEvent) {
-    event.preventDefault()
-    if (!selectedUser) return
-    await onAdjustCredits(selectedUser, amount, note)
-  }
-
   const settingGroup = groups[tab]
-
+  async function submitAdjust(event: FormEvent) { event.preventDefault(); if (Number(selectedUser)) await onAdjustCredits(Number(selectedUser), amount, note) }
   return (
-    <Card variant="outlined" sx={{ bgcolor: notionTokens.canvas }}>
-      <CardContent>
-        <Stack spacing={3}>
-          <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 2 }}>
-            <Box>
-              <Typography variant="overline" color="primary.main" sx={{ fontWeight: 600 }}>Control Room</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 600 }}>管理后台</Typography>
-              <Typography color="text.secondary" sx={{ mt: .5 }}>配置站点、模型、邮件、套餐和运营保护。高风险环境项只显示状态。</Typography>
-            </Box>
-            <Button variant="outlined" onClick={onRefresh}>刷新</Button>
-          </Stack>
-
-          <Tabs value={tab} variant="scrollable" scrollButtons="auto" onChange={(_, value: AdminTab) => setTab(value)} aria-label="管理后台栏目" sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 500, minHeight: 44 }, '& .MuiTabs-indicator': { borderRadius: 999, height: 3 } }}>
-            <Tab value="dashboard" label="概览" />
-            <Tab value="users" label="用户与点数" />
-            <Tab value="pricing" label="价格规则" />
-            <Tab value="packages" label="充值套餐" />
-            {settingTabs.map((item) => <Tab key={item} value={item} label={item} />)}
-          </Tabs>
-
-          {tab === 'dashboard' && dashboard && <DashboardGrid dashboard={dashboard} />}
-
-          {tab === 'users' && (
-            <Stack component="form" spacing={2} sx={{ maxWidth: 560 }} onSubmit={submitAdjust}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>手动加点</Typography>
-              <TextField select label="用户" value={selectedUser} onChange={(event) => setSelectedUser(Number(event.target.value))}>
-                <MenuItem value={0}>选择用户</MenuItem>
-                {users.map((user) => <MenuItem value={user.id} key={user.id}>{user.email} · {user.role}</MenuItem>)}
-              </TextField>
-              <TextField label="点数变化" type="number" value={amount} onChange={(event) => setAmount(Number(event.target.value))} />
-              <TextField label="备注" value={note} onChange={(event) => setNote(event.target.value)} />
-              <Button type="submit" variant="contained">调整点数</Button>
-            </Stack>
-          )}
-
-          {tab === 'pricing' && (
-            <Stack spacing={1.5}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>价格规则</Typography>
-              {pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}
-            </Stack>
-          )}
-
-          {tab === 'packages' && <PackageEditor packages={packages} onCreate={onCreatePackage} onUpdate={onUpdatePackage} />}
-
-          {settingGroup && (
-            <Stack spacing={1.5}>
-              <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between', gap: 1.5, alignItems: { md: 'center' } }}>
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>{tab}</Typography>
-                  <Typography color="text.secondary">保存后只影响新请求/新任务；带“需重启”的项目请重启服务或 worker。</Typography>
-                </Box>
-                {tab === '邮件验证码' && <EmailTestBox onTest={onTestEmail} />}
-              </Stack>
-              {settingGroup.map((setting) => <SettingRow setting={setting} onUpdate={onUpdateSetting} key={setting.key} />)}
-            </Stack>
-          )}
-        </Stack>
-      </CardContent>
-    </Card>
+    <PixPanel eyebrow="Control Room" title="管理后台" description="配置站点、模型、邮件、套餐和运营保护。高风险环境项只显示状态。" action={<Button variant="outline" onClick={onRefresh}>刷新</Button>}>
+      <div className="grid gap-6">
+        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
+        {tab === 'dashboard' && dashboard && <DashboardGrid dashboard={dashboard} />}
+        {tab === 'users' && <form className="grid max-w-xl gap-4" onSubmit={submitAdjust}><PixField label="用户"><Select value={selectedUser} onValueChange={setSelectedUser}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">选择用户</SelectItem>{users.map((u) => <SelectItem value={String(u.id)} key={u.id}>{u.email} · {u.role}</SelectItem>)}</SelectContent></Select></PixField><PixField label="点数变化"><Input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></PixField><PixField label="备注"><Input value={note} onChange={(e) => setNote(e.target.value)} /></PixField><Button type="submit">调整点数</Button></form>}
+        {tab === 'pricing' && <div className="grid gap-3"><h3 className="text-lg font-black">价格规则</h3>{pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}</div>}
+        {tab === 'packages' && <PackageEditor packages={packages} onCreate={onCreatePackage} onUpdate={onUpdatePackage} />}
+        {settingGroup && <div className="grid gap-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-black">{tab}</h3><p className="text-sm text-muted-foreground">保存后只影响新请求/新任务；带“需重启”的项目请重启服务或 worker。</p></div>{tab === '邮件验证码' && <EmailTestBox onTest={onTestEmail} />}</div>{settingGroup.map((setting) => <SettingRow setting={setting} onUpdate={onUpdateSetting} key={setting.key} />)}</div>}
+      </div>
+    </PixPanel>
   )
 }
 
-function groupSettings(settings: SystemSetting[]) {
-  return settings.reduce<Record<string, SystemSetting[]>>((acc, setting) => {
-    const category = setting.category || '其他'
-    acc[category] = acc[category] || []
-    acc[category].push(setting)
-    return acc
-  }, {})
-}
-
-function DashboardGrid({ dashboard }: { dashboard: AdminDashboard }) {
-  return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' }, gap: 1.25 }}>
-      <Metric label="今日任务" value={dashboard.jobs_today} tone="sky" />
-      <Metric label="成功 / 失败" value={`${dashboard.succeeded_today} / ${dashboard.failed_today}`} tone={dashboard.failed_today > 0 ? 'rose' : 'mint'} />
-      <Metric label="排队 / 运行" value={`${dashboard.pending_jobs} / ${dashboard.running_jobs}`} tone="lavender" />
-      <Metric label="今日充值" value={dashboard.credits_recharged_today} tone="yellow" />
-      <Metric label="今日消费" value={dashboard.credits_consumed_today} tone="peach" />
-      <Metric label="今日上传" value={dashboard.uploads_today} tone="sky" />
-      <Metric label="总用户" value={dashboard.total_users} tone="mint" />
-      <Metric label="失败率" value={`${Math.round(dashboard.failure_rate * 100)}%`} tone={dashboard.failure_rate > 0.1 ? 'rose' : 'mint'} />
-    </Box>
-  )
-}
-
-const metricTones: Record<string, string> = {
-  sky: notionTokens.tintSky,
-  mint: notionTokens.tintMint,
-  lavender: notionTokens.tintLavender,
-  yellow: notionTokens.tintYellow,
-  peach: notionTokens.tintPeach,
-  rose: notionTokens.tintRose,
-}
-
-function Metric({ label, value, tone = 'sky' }: { label: string; value: string | number; tone?: string }) {
-  return (
-    <Box sx={{ position: 'relative', overflow: 'hidden', bgcolor: metricTones[tone] ?? notionTokens.tintSky, border: 1, borderColor: 'divider', borderRadius: 1.5, p: 1.5, fontVariantNumeric: 'tabular-nums', transition: 'transform .18s ease, box-shadow .18s ease', '&:hover': { transform: 'translateY(-2px)', boxShadow: notionTokens.cardShadow }, '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } } }}>
-      <Typography variant="caption" color="text.secondary">{label}</Typography>
-      <Typography variant="h5" sx={{ fontWeight: 600 }}>{value}</Typography>
-    </Box>
-  )
-}
-
-function EmailTestBox({ onTest }: { onTest: (email: string) => Promise<void> }) {
-  const [email, setEmail] = useState('admin@example.com')
-  return (
-    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} component="form" onSubmit={(event) => { event.preventDefault(); void onTest(email) }}>
-      <TextField size="small" label="测试邮箱" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-      <Button type="submit" variant="outlined">发送测试</Button>
-    </Stack>
-  )
-}
+function groupSettings(settings: SystemSetting[]) { return settings.reduce<Record<string, SystemSetting[]>>((acc, setting) => { const category = setting.category || '其他'; acc[category] = acc[category] || []; acc[category].push(setting); return acc }, {}) }
+function DashboardGrid({ dashboard }: { dashboard: AdminDashboard }) { return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><PixMetric label="今日任务" value={dashboard.jobs_today} tone="info" /><PixMetric label="成功 / 失败" value={`${dashboard.succeeded_today} / ${dashboard.failed_today}`} tone={dashboard.failed_today > 0 ? 'danger' : 'success'} /><PixMetric label="排队 / 运行" value={`${dashboard.pending_jobs} / ${dashboard.running_jobs}`} tone="info" /><PixMetric label="今日充值" value={dashboard.credits_recharged_today} tone="success" /><PixMetric label="今日消费" value={dashboard.credits_consumed_today} tone="warning" /><PixMetric label="今日上传" value={dashboard.uploads_today} /><PixMetric label="总用户" value={dashboard.total_users} /><PixMetric label="失败率" value={`${Math.round(dashboard.failure_rate * 100)}%`} tone={dashboard.failure_rate > 0.1 ? 'danger' : 'success'} /></div> }
+function EmailTestBox({ onTest }: { onTest: (email: string) => Promise<void> }) { const [email, setEmail] = useState('admin@example.com'); return <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void onTest(email) }}><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /><Button type="submit" variant="outline">发送测试</Button></form> }
 
 function SettingRow({ setting, onUpdate }: { setting: SystemSetting; onUpdate: (key: string, value: string, clear?: boolean) => Promise<void> }) {
   const [value, setValue] = useState(setting.value)
   const [clearSecret, setClearSecret] = useState(false)
-  const isBoolean = setting.type === 'boolean'
-  const isTextArea = setting.type === 'textarea'
-  const isSecret = setting.type === 'secret'
   const disabled = !setting.editable
-
-  const helper = [setting.help, setting.env_var ? `环境变量：${setting.env_var}` : '', setting.restart_required ? '保存后需重启服务或 worker 生效。' : ''].filter(Boolean).join(' · ')
-
-  return (
-    <Card variant="outlined" sx={{ bgcolor: disabled ? notionTokens.tintGray : notionTokens.tintCream }}>
-      <CardContent>
-        <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ gap: 2, alignItems: { lg: 'center' } }}>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-              <Typography sx={{ fontWeight: 600 }}>{setting.label || setting.key}</Typography>
-              {setting.restart_required && <Chip size="small" label="需重启" sx={{ bgcolor: notionTokens.tintYellowBold, borderRadius: 1 }} />}
-              {setting.secret && <Chip size="small" label="Secret" sx={{ bgcolor: notionTokens.tintLavender, color: notionTokens.brandPurple800, borderRadius: 1 }} />}
-              {!setting.editable && <Chip size="small" label="只读" sx={{ bgcolor: notionTokens.canvas, borderRadius: 1 }} />}
-            </Stack>
-            <Typography variant="caption" color="text.secondary">{setting.key}</Typography>
-            {helper && <Typography variant="body2" color="text.secondary" sx={{ mt: .6 }}>{helper}</Typography>}
-          </Box>
-
-          {setting.type === 'status' ? (
-            <Typography sx={{ minWidth: 180, fontWeight: 600 }}>{setting.masked ? '已配置' : setting.value || '未配置'}</Typography>
-          ) : isBoolean ? (
-            <FormControlLabel disabled={disabled} control={<Checkbox checked={value === 'true'} onChange={(event) => setValue(event.target.checked ? 'true' : 'false')} />} label="启用" />
-          ) : setting.type === 'select' ? (
-            <TextField select disabled={disabled} sx={{ minWidth: { lg: 260 } }} value={value} onChange={(event) => setValue(event.target.value)}>
-              {setting.options.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
-            </TextField>
-          ) : (
-            <Stack spacing={.8} sx={{ minWidth: { lg: 300 } }}>
-              <TextField disabled={disabled || clearSecret} multiline={isTextArea} minRows={isTextArea ? 3 : undefined} type={isSecret ? 'password' : setting.type === 'number' ? 'number' : 'text'} placeholder={isSecret && setting.masked ? '留空保持当前密钥' : undefined} value={value} onChange={(event) => setValue(event.target.value)} />
-              {isSecret && <FormControlLabel control={<Checkbox checked={clearSecret} onChange={(event) => setClearSecret(event.target.checked)} />} label="清空当前值" />}
-            </Stack>
-          )}
-
-          {setting.editable && <Button variant="outlined" onClick={() => onUpdate(setting.key, clearSecret ? '' : value, clearSecret)}>保存</Button>}
-        </Stack>
-      </CardContent>
-    </Card>
-  )
+  const isSecret = setting.type === 'secret'
+  return <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 lg:grid-cols-[minmax(0,1fr)_minmax(240px,360px)_auto]"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-black">{setting.label || setting.key}</p>{setting.restart_required && <Badge variant="warning">需重启</Badge>}{setting.secret && <Badge variant="info">Secret</Badge>}{!setting.editable && <Badge variant="muted">只读</Badge>}</div><p className="mt-1 text-xs text-muted-foreground">{setting.key}</p>{setting.help && <p className="mt-2 text-sm text-muted-foreground">{setting.help}</p>}</div>{setting.type === 'status' ? <p className="font-bold">{setting.masked ? '已配置' : setting.value || '未配置'}</p> : setting.type === 'boolean' ? <label className="flex items-center gap-2 text-sm"><Checkbox disabled={disabled} checked={value === 'true'} onCheckedChange={(v) => setValue(Boolean(v) ? 'true' : 'false')} />启用</label> : setting.type === 'select' ? <Select disabled={disabled} value={value} onValueChange={setValue}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{setting.options.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select> : setting.type === 'textarea' ? <Textarea disabled={disabled || clearSecret} value={value} rows={3} onChange={(e) => setValue(e.target.value)} /> : <div className="grid gap-2"><Input disabled={disabled || clearSecret} type={isSecret ? 'password' : setting.type === 'number' ? 'number' : 'text'} placeholder={isSecret && setting.masked ? '留空保持当前密钥' : undefined} value={value} onChange={(e) => setValue(e.target.value)} />{isSecret && <label className="flex items-center gap-2 text-xs text-muted-foreground"><Checkbox checked={clearSecret} onCheckedChange={(v) => setClearSecret(Boolean(v))} />清空当前值</label>}</div>}{setting.editable && <Button variant="outline" onClick={() => onUpdate(setting.key, clearSecret ? '' : value, clearSecret)}>保存</Button>}</div>
 }
 
-function PricingRow({ rule, onUpdate }: { rule: PricingRule; onUpdate: (key: string, priceCredits: number, enabled: boolean) => Promise<void> }) {
-  const [price, setPrice] = useState(rule.price_credits)
-  const [enabled, setEnabled] = useState(rule.enabled)
-  return (
-    <Card variant="outlined" sx={{ bgcolor: notionTokens.tintCream }}>
-      <CardContent>
-        <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 2, alignItems: { md: 'center' } }}>
-          <Box sx={{ flex: 1 }}>
-            <Typography sx={{ fontWeight: 600 }}>{rule.key}</Typography>
-            <Typography variant="caption" color="text.secondary">{rule.enabled ? '启用' : '停用'}</Typography>
-          </Box>
-          <TextField label="价格" type="number" value={price} onChange={(event) => setPrice(Number(event.target.value))} sx={{ width: { md: 140 } }} />
-          <FormControlLabel control={<Checkbox checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />} label="启用" />
-          <Button variant="outlined" onClick={() => onUpdate(rule.key, price, enabled)}>保存</Button>
-        </Stack>
-      </CardContent>
-    </Card>
-  )
-}
+function PricingRow({ rule, onUpdate }: { rule: PricingRule; onUpdate: (key: string, priceCredits: number, enabled: boolean) => Promise<void> }) { const [price, setPrice] = useState(rule.price_credits); const [enabled, setEnabled] = useState(rule.enabled); return <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 md:grid-cols-[minmax(0,1fr)_140px_auto_auto]"><div><p className="font-black">{rule.key}</p><p className="text-xs text-muted-foreground">{rule.enabled ? '启用' : '停用'}</p></div><Input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} /><label className="flex items-center gap-2 text-sm"><Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(Boolean(v))} />启用</label><Button variant="outline" onClick={() => onUpdate(rule.key, price, enabled)}>保存</Button></div> }
 
-function PackageEditor({ packages, onCreate, onUpdate }: { packages: CreditPackage[]; onCreate: (payload: CreditPackage) => Promise<void>; onUpdate: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void> }) {
-  const [draft, setDraft] = useState<CreditPackage>({ key: 'custom', name: 'Custom', credits: 100, amount_cents: 990, currency: 'cny', enabled: true, sort_order: 40 })
-  return (
-    <Stack spacing={1.5}>
-      <Typography variant="h6" sx={{ fontWeight: 600 }}>充值套餐</Typography>
-      <Alert severity="info">历史订单会引用套餐 ID，因此这里不提供删除；不需要的套餐请停用。</Alert>
-      {packages.map((item) => <PackageRow key={item.key} item={item} onUpdate={onUpdate} />)}
-      <Card variant="outlined" sx={{ bgcolor: notionTokens.tintMint }}>
-        <CardContent>
-          <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ gap: 1.2, alignItems: { lg: 'center' } }}>
-            <TextField label="key" value={draft.key} onChange={(event) => setDraft({ ...draft, key: event.target.value })} />
-            <TextField label="名称" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
-            <TextField label="点数" type="number" value={draft.credits} onChange={(event) => setDraft({ ...draft, credits: Number(event.target.value) })} />
-            <TextField label="金额（分）" type="number" value={draft.amount_cents} onChange={(event) => setDraft({ ...draft, amount_cents: Number(event.target.value) })} />
-            <TextField label="币种" value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })} />
-            <TextField label="排序" type="number" value={draft.sort_order} onChange={(event) => setDraft({ ...draft, sort_order: Number(event.target.value) })} />
-            <FormControlLabel control={<Checkbox checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} />} label="启用" />
-            <Button variant="contained" onClick={() => onCreate(draft)}>新增</Button>
-          </Stack>
-        </CardContent>
-      </Card>
-    </Stack>
-  )
-}
+function PackageEditor({ packages, onCreate, onUpdate }: { packages: CreditPackage[]; onCreate: (payload: CreditPackage) => Promise<void>; onUpdate: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void> }) { const [draft, setDraft] = useState<CreditPackage>({ key: 'custom', name: 'Custom', credits: 100, amount_cents: 990, currency: 'cny', enabled: true, sort_order: 40 }); return <div className="grid gap-3"><h3 className="text-lg font-black">充值套餐</h3><Alert variant="info">历史订单会引用套餐 ID，因此这里不提供删除；不需要的套餐请停用。</Alert>{packages.map((item) => <PackageRow key={item.key} item={item} onUpdate={onUpdate} />)}<div className="grid gap-2 rounded-2xl border border-border bg-card p-4 lg:grid-cols-4"><Input placeholder="key" value={draft.key} onChange={(e) => setDraft({ ...draft, key: e.target.value })} /><Input placeholder="名称" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /><Input type="number" placeholder="点数" value={draft.credits} onChange={(e) => setDraft({ ...draft, credits: Number(e.target.value) })} /><Input type="number" placeholder="金额（分）" value={draft.amount_cents} onChange={(e) => setDraft({ ...draft, amount_cents: Number(e.target.value) })} /><Input placeholder="币种" value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value })} /><Input type="number" placeholder="排序" value={draft.sort_order} onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) })} /><label className="flex items-center gap-2 text-sm"><Checkbox checked={draft.enabled} onCheckedChange={(v) => setDraft({ ...draft, enabled: Boolean(v) })} />启用</label><Button onClick={() => onCreate(draft)}>新增</Button></div></div> }
 
-function PackageRow({ item, onUpdate }: { item: CreditPackage; onUpdate: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void> }) {
-  const [name, setName] = useState(item.name)
-  const [credits, setCredits] = useState(item.credits)
-  const [amount, setAmount] = useState(item.amount_cents)
-  const [currency, setCurrency] = useState(item.currency)
-  const [enabled, setEnabled] = useState(item.enabled)
-  const [sortOrder, setSortOrder] = useState(item.sort_order)
-  return (
-    <Card variant="outlined" sx={{ bgcolor: notionTokens.tintCream }}>
-      <CardContent>
-        <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ gap: 1.2, alignItems: { lg: 'center' } }}>
-          <Box sx={{ minWidth: 120 }}>
-            <Typography sx={{ fontWeight: 600 }}>{item.key}</Typography>
-            <Typography variant="caption" color="text.secondary">{item.enabled ? '公开展示' : '已停用'}</Typography>
-          </Box>
-          <TextField label="名称" value={name} onChange={(event) => setName(event.target.value)} />
-          <TextField label="点数" type="number" value={credits} onChange={(event) => setCredits(Number(event.target.value))} />
-          <TextField label="金额（分）" type="number" value={amount} onChange={(event) => setAmount(Number(event.target.value))} />
-          <TextField label="币种" value={currency} onChange={(event) => setCurrency(event.target.value)} />
-          <TextField label="排序" type="number" value={sortOrder} onChange={(event) => setSortOrder(Number(event.target.value))} />
-          <FormControlLabel control={<Checkbox checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />} label="启用" />
-          <Button variant="outlined" onClick={() => onUpdate(item.key, { name, credits, amount_cents: amount, currency, enabled, sort_order: sortOrder })}>保存</Button>
-        </Stack>
-      </CardContent>
-    </Card>
-  )
-}
+function PackageRow({ item, onUpdate }: { item: CreditPackage; onUpdate: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void> }) { const [name, setName] = useState(item.name); const [credits, setCredits] = useState(item.credits); const [amount, setAmount] = useState(item.amount_cents); const [currency, setCurrency] = useState(item.currency); const [enabled, setEnabled] = useState(item.enabled); const [sortOrder, setSortOrder] = useState(item.sort_order); return <div className="grid gap-2 rounded-2xl border border-border bg-card p-4 lg:grid-cols-4"><div><p className="font-black">{item.key}</p><p className="text-xs text-muted-foreground">{item.enabled ? '公开展示' : '已停用'}</p></div><Input value={name} onChange={(e) => setName(e.target.value)} /><Input type="number" value={credits} onChange={(e) => setCredits(Number(e.target.value))} /><Input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /><Input value={currency} onChange={(e) => setCurrency(e.target.value)} /><Input type="number" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} /><label className="flex items-center gap-2 text-sm"><Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(Boolean(v))} />启用</label><Button variant="outline" onClick={() => onUpdate(item.key, { name, credits, amount_cents: amount, currency, enabled, sort_order: sortOrder })}>保存</Button></div> }

@@ -1,4 +1,3 @@
-import { Box, Stack } from '@mui/material'
 import { GalleryGrid } from '../components/GalleryGrid'
 import { PageHeader } from '../components/PageHeader'
 import { TuningPanel } from '../components/TuningPanel'
@@ -20,14 +19,12 @@ interface GalleryPageProps {
 
 export function GalleryPage({ jobs, selectedJob, selectedJobId, pricing, loading, retryingJobId, onSelectJob, onCopyPath, onCandidatePixelize, onCreateJob, onRetryJob }: GalleryPageProps) {
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) minmax(320px, 420px)' }, gap: 3, alignItems: 'start' }}>
-      <Stack spacing={3} sx={{ minWidth: 0 }}>
-        <PageHeader eyebrow="作品" title="作品库" description="挑选、微调、复制路径。" tint="sky" />
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+      <div className="grid min-w-0 gap-6">
+        <PageHeader eyebrow="作品" title="作品库" description="挑选、微调、复制路径。" />
         <GalleryGrid jobs={jobs} subtitle="全部作品" selectedJobId={selectedJobId} retryingJobId={retryingJobId} onSelect={onSelectJob} onCopyPath={onCopyPath} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} />
-      </Stack>
-      <Box sx={{ minWidth: 0 }}>
-        <TuningPanel job={selectedJob} pricing={pricing} loading={loading} onSubmit={onCreateJob} />
-      </Box>
-    </Box>
+      </div>
+      <TuningPanel job={selectedJob} pricing={pricing} loading={loading} onSubmit={onCreateJob} />
+    </div>
   )
 }
