@@ -165,7 +165,7 @@ code {
 }
 
 @keyframes spriteFrameRun {
-  to { background-position: -864px 0; }
+  to { background-position: var(--sprite-frame-offset, -864px) 0; }
 }
 
 .pix-checkerboard {
@@ -189,5 +189,10 @@ code {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .sprite-frame-player {
+    animation: none !important;
+    background-position: 0 0 !important;
   }
 }

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.16] - 2026-05-21
+
+### Fixed
+
+- 首页序列帧示例不再使用 GIF 预览，改为基于横向精灵图的真实逐帧 steps 播放，并在减弱动效模式下静态显示首帧。
+
 ## [1.16.15] - 2026-05-21
 
 ### Fixed
