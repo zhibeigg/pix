@@ -44,14 +44,14 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
         <PixPreviewFrame url={previewUrl} label="暂无可预览源图" className="min-h-44" />
       </PixPanel>
       {invalidSubAssetSize && <Alert variant="destructive">素材最低支持 16×16。</Alert>}
-      <form className="grid gap-4 rounded-3xl border border-border bg-[hsl(var(--pix-mint)/.46)] p-5" onSubmit={submitLocal}>
-        <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-black">本地像素化</h3><p className="text-sm text-muted-foreground">免费 · 不消耗点数</p></div><Badge variant="secondary">FREE</Badge></div>
+      <form className="grid gap-4 rounded-lg border border-border bg-[hsl(var(--pix-mint)/.46)] p-5" onSubmit={submitLocal}>
+        <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-semibold">本地像素化</h3><p className="text-sm text-muted-foreground">免费 · 不消耗点数</p></div><Badge variant="secondary">FREE</Badge></div>
         <PixelControls compact pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} />
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={removeBg} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />透明背景</label>
         <Button type="submit" disabled={loading || !sourcePath || invalidSubAssetSize}>重新像素化</Button>
       </form>
-      <form className="grid gap-4 rounded-3xl border border-border bg-[hsl(var(--pix-lavender)/.54)] p-5" onSubmit={submitAi}>
-        <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-black">AI 微调</h3><p className="text-sm text-muted-foreground">消耗 {aiPrice} 点</p></div><Badge variant="outline">{aiPrice} 点</Badge></div>
+      <form className="grid gap-4 rounded-lg border border-border bg-[hsl(var(--pix-lavender)/.54)] p-5" onSubmit={submitAi}>
+        <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-semibold">AI 微调</h3><p className="text-sm text-muted-foreground">消耗 {aiPrice} 点</p></div><Badge variant="outline">{aiPrice} 点</Badge></div>
         {!sourcePath && <Alert variant="warning">当前作品没有可用源图路径，暂时无法微调。</Alert>}
         <Textarea value={aiPrompt} rows={3} onChange={(event) => setAiPrompt(event.target.value)} />
         <Button type="submit" variant="outline" disabled={loading || !sourcePath || invalidSubAssetSize}>AI 微调并入队</Button>

@@ -606,13 +606,13 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 
   return (
     <main data-pix-theme={themeMode} className="min-h-screen text-foreground">
-      <header className="sticky top-0 z-40 border-b border-border/80 bg-background/88 backdrop-blur-xl">
-        <div className="mx-auto grid max-w-[1440px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:px-8">
-          <a href="/" aria-label="返回首页" className="flex min-w-0 items-center gap-3 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <img src="/pix-logo-64.png" alt="" className="h-10 w-10 shrink-0 [image-rendering:pixelated]" />
+      <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-xl">
+        <div className="mx-auto grid min-h-16 max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:px-8">
+          <a href="/" aria-label="返回首页" className="flex min-w-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <img src="/pix-logo-64.png" alt="" className="h-9 w-9 shrink-0 [image-rendering:pixelated]" />
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[.16em] text-muted-foreground">Pix Forge</p>
-              <h1 className="truncate text-xl font-black tracking-tight">像素素材工坊</h1>
+              <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-muted-foreground">Pix Forge</p>
+              <h1 className="truncate text-xl font-semibold tracking-tight">像素素材工坊</h1>
             </div>
           </a>
           {user && <div className="col-span-2 min-w-0 lg:col-span-1"><AppTabs page={page} user={user} onChange={navigate} /></div>}
@@ -635,7 +635,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       ) : needsAdminSetup && setupStatus ? (
         <SetupWizard status={setupStatus} loading={busy} onBootstrapAdmin={bootstrapAdmin} onLocalTestLogin={localTestLogin} />
       ) : user ? (
-        <div className="mx-auto max-w-[1320px] px-4 py-6 md:px-8 md:py-9">
+        <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-9">
           <div className="grid gap-6">
             {message && <Alert variant="info" role="status" aria-live="polite">{message}</Alert>}
             {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
@@ -660,14 +660,33 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 }
 
 function SiteFooter() {
+  const groups = [
+    { title: 'Product', links: ['生产工作台', '作品库', '素材包'] },
+    { title: 'Resources', links: ['像素 UI', '序列帧', '范例图库'] },
+    { title: 'Workspace', links: ['点数中心', '任务队列', '批量导出'] },
+    { title: 'Company', links: ['Pix Forge', 'Game assets'] },
+  ]
   return (
-    <footer className="border-t border-border/70 bg-card/80 px-4 py-8">
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-2 text-center text-sm text-muted-foreground">
-        <div className="flex items-center gap-2 font-semibold">
-          <img src="/pix-logo-64.png" alt="" className="h-6 w-6 opacity-70 [image-rendering:pixelated]" />
-          Pix Forge · 像素素材工坊
+    <footer className="border-t border-border bg-card px-4 py-16 md:px-8">
+      <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-[1.2fr_2fr]">
+        <div>
+          <div className="flex items-center gap-2 font-semibold text-foreground">
+            <img src="/pix-logo-64.png" alt="" className="h-7 w-7 opacity-80 [image-rendering:pixelated]" />
+            Pix Forge · 像素素材工坊
+          </div>
+          <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">面向游戏素材生产的 AI 像素工作区，按 Notion 式清晰信息层级组织生产、验收、导出与计费。</p>
+          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" className="mt-4 inline-flex text-xs text-muted-foreground hover:text-foreground">鲁ICP备2022023963号</a>
         </div>
-        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" className="text-xs opacity-70 hover:text-foreground hover:opacity-100">鲁ICP备2022023963号</a>
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+          {groups.map((group) => (
+            <div key={group.title}>
+              <p className="text-sm font-semibold text-foreground">{group.title}</p>
+              <div className="mt-3 grid gap-2">
+                {group.links.map((link) => <span key={link} className="text-sm text-muted-foreground">{link}</span>)}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </footer>
   )

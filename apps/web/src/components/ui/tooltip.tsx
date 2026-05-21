@@ -8,7 +8,7 @@ const TooltipTrigger = TooltipPrimitive.Trigger
 
 const TooltipContent = React.forwardRef<React.ElementRef<typeof TooltipPrimitive.Content>, React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>>(({ className, sideOffset = 6, ...props }, ref) => (
   <TooltipPrimitive.Portal>
-    <TooltipPrimitive.Content ref={ref} sideOffset={sideOffset} className={cn('z-50 overflow-hidden rounded-lg bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-xl', className)} {...props} />
+    <TooltipPrimitive.Content ref={ref} sideOffset={sideOffset} className={cn('z-50 overflow-hidden rounded-lg bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)]', className)} {...props} />
   </TooltipPrimitive.Portal>
 ))
 TooltipContent.displayName = TooltipPrimitive.Content.displayName

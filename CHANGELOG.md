@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.23] - 2026-05-21
+
+### Fixed
+
+- Web 前端界面严格对齐 `apps/web/DESIGN.md` 的 Notion 式规范，统一 Notion-Sans 字体、深海军蓝 Hero、紫色主 CTA、12px 卡片、8px 按钮、浅色 Surface 与 pastel feature cards。
+
 ## [1.17.22] - 2026-05-21
 
 ### Fixed
