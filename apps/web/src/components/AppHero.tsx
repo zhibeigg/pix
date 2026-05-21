@@ -14,7 +14,7 @@ const dotStyles = [
   'right-[30%] bottom-[20%] bg-[hsl(var(--pix-brand-green))]',
 ]
 
-export function AppHero({ balance, activeJobs, completedJobs, failedJobs, batchCount }: AppHeroProps) {
+export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, batchCount }: AppHeroProps) {
   return (
     <section className="relative isolate overflow-hidden bg-[hsl(var(--pix-navy))] px-4 py-16 text-white md:px-8 md:py-24 lg:py-[120px]">
       <HeroDecor />
@@ -24,7 +24,7 @@ export function AppHero({ balance, activeJobs, completedJobs, failedJobs, batchC
           <h2 className="mt-6 text-5xl font-semibold leading-[1.05] tracking-[-1.5px] md:text-7xl xl:text-[80px]">Meet the pixel shift.</h2>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-[1.5] text-white/70">从 prompt 到 AI 原图、网格候选、像素化、素材包和点数系统，把创意变成可交付的游戏素材工作区。</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Button size="lg" asChild><a href="#auth-panel">进入工作台</a></Button>
+            <Button size="lg" asChild><a href={user ? '#/workspace' : '#auth-panel'}>进入工作台</a></Button>
             <Button size="lg" variant="outline" className="border-white/45 text-white hover:bg-white/10" asChild><a href="#workflow">查看能力</a></Button>
           </div>
         </div>

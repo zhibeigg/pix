@@ -30,7 +30,8 @@ type AppProps = {
 
 function pageFromHash(user: User | null): AppPage {
   const raw = window.location.hash.replace(/^#\/?/, '')
-  const page = ['workspace', 'raw-image', 'gallery', 'packs', 'billing', 'admin'].includes(raw) ? raw as AppPage : 'workspace'
+  if (!raw || raw === 'home') return 'home'
+  const page = ['workspace', 'raw-image', 'gallery', 'packs', 'billing', 'admin'].includes(raw) ? raw as AppPage : 'home'
   if (page === 'admin' && user?.role !== 'admin') return 'workspace'
   return page
 }
@@ -608,7 +609,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     <main data-pix-theme={themeMode} className="min-h-screen text-foreground">
       <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-xl">
         <div className="mx-auto grid min-h-16 max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:px-8">
-          <a href="/" aria-label="返回首页" className="flex min-w-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <a href="#/home" aria-label="返回首页" className="flex min-w-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <img src="/pix-logo-64.png" alt="" className="h-9 w-9 shrink-0 [image-rendering:pixelated]" />
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-muted-foreground">Pix Forge</p>
@@ -634,7 +635,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
         <div className="grid min-h-[calc(100vh-76px)] place-items-center px-4 text-muted-foreground">正在检查站点初始化状态…</div>
       ) : needsAdminSetup && setupStatus ? (
         <SetupWizard status={setupStatus} loading={busy} onBootstrapAdmin={bootstrapAdmin} onLocalTestLogin={localTestLogin} />
-      ) : user ? (
+      ) : user && page !== 'home' ? (
         <WorkspaceShell
           page={page}
           user={user}
