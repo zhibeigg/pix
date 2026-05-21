@@ -22,11 +22,33 @@
     ],
     "pipeline_meta": "outputs\\homepage-sprites\\20260515-235558-2e6c8bc6\\meta.json",
     "duration_ms": 120,
-    "frame_size": [
-      64,
-      64
-    ],
+    "frame_size": [64, 64],
     "frame_count": 9,
     "image_gen_mode": "sprite_sheet"
+  },
+  {
+    "slug": "dark-purple-magic-explosion",
+    "name": "黑紫魔气爆炸特效",
+    "prompt": "黑紫魔气爆炸特效，64×64 low-detail pixel art VFX，暗紫能量核心、黑色烟雾外扩、九帧爆发消散，透明背景，适合技能命中特效",
+    "brief": "9 帧 64×64 像素 VFX：单帧 PNG → 横向精灵图 → GIF 预览，可直接用于技能爆炸/魔法命中动画。",
+    "source": "图片\\sprites\\黑紫魔气爆炸特效，64x64_low-detail_pixel_art_VFX_sheet_frames",
+    "source_preview": "/hero-sprites/pipeline/dark-purple-magic-explosion-source.png",
+    "sheet": "/hero-sprites/pipeline/dark-purple-magic-explosion-sheet.png",
+    "gif": "/hero-sprites/pipeline/dark-purple-magic-explosion.gif",
+    "frames": [
+      "/hero-sprites/pipeline/dark-purple-magic-explosion-frame-01.png",
+      "/hero-sprites/pipeline/dark-purple-magic-explosion-frame-02.png",
+      "/hero-sprites/pipeline/dark-purple-magic-explosion-frame-03.png",
+      "/hero-sprites/pipeline/dark-purple-magic-explosion-frame-04.png",
+      "/hero-sprites/pipeline/dark-purple-magic-explosion-frame-05.png",
+      "/hero-sprites/pipeline/dark-purple-magic-explosion-frame-06.png",
+      "/hero-sprites/pipeline/dark-purple-magic-explosion-frame-07.png",
+      "/hero-sprites/pipeline/dark-purple-magic-explosion-frame-08.png",
+      "/hero-sprites/pipeline/dark-purple-magic-explosion-frame-09.png"
+    ],
+    "duration_ms": 90,
+    "frame_size": [64, 64],
+    "frame_count": 9,
+    "image_gen_mode": "sprite_frames"
   }
 ]

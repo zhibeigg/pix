@@ -27,18 +27,36 @@ const uiWorks = [
   { name: '确认勾选', src: '/hero-ui/check-toggle.png', note: '开关 / 选项状态', span: 'sm:col-span-1' },
 ]
 
-const spriteShowcase = {
-  name: '月刃骑士挥剑',
-  status: '9 帧',
-  prompt: '月刃骑士挥剑三段斩，银蓝盔甲小角色，侧身站姿，连续挥剑动作，适合 RPG 战斗序列帧，透明背景，像素动画精灵',
-  brief: 'Pix sprite 全流程输出：3×3 生图 → 9 帧切分 → 共享调色板像素化 → 横向精灵图 + GIF。',
-  source: '/hero-sprites/pipeline/moonblade-knight-source.png',
-  sheet: '/hero-sprites/pipeline/moonblade-knight-sheet.png',
-  gif: '/hero-sprites/pipeline/moonblade-knight.gif',
-  frameCount: 9,
-  durationMs: 120,
-  frames: Array.from({ length: 9 }, (_, index) => `/hero-sprites/pipeline/moonblade-knight-frame-${String(index + 1).padStart(2, '0')}.png`),
-}
+const spriteShowcases = [
+  {
+    name: '月刃骑士挥剑',
+    status: '9 帧',
+    prompt: '月刃骑士挥剑三段斩，银蓝盔甲小角色，侧身站姿，连续挥剑动作，适合 RPG 战斗序列帧，透明背景，像素动画精灵',
+    brief: 'Pix sprite 全流程输出：3×3 生图 → 9 帧切分 → 共享调色板像素化 → 横向精灵图 + GIF。',
+    source: '/hero-sprites/pipeline/moonblade-knight-source.png',
+    sourceLabel: '3×3 源图',
+    sheet: '/hero-sprites/pipeline/moonblade-knight-sheet.png',
+    gif: '/hero-sprites/pipeline/moonblade-knight.gif',
+    frameCount: 9,
+    durationMs: 120,
+    tone: 'bg-[hsl(var(--pix-lavender)/.55)]',
+    frames: Array.from({ length: 9 }, (_, index) => `/hero-sprites/pipeline/moonblade-knight-frame-${String(index + 1).padStart(2, '0')}.png`),
+  },
+  {
+    name: '黑紫魔气爆炸特效',
+    status: '9 帧 VFX',
+    prompt: '黑紫魔气爆炸特效，64×64 low-detail pixel art VFX，暗紫能量核心、黑色烟雾外扩、九帧爆发消散，透明背景，适合技能命中特效',
+    brief: '9 帧 64×64 像素 VFX：单帧 PNG → 横向精灵图 → GIF 预览，可直接用于技能爆炸/魔法命中动画。',
+    source: '/hero-sprites/pipeline/dark-purple-magic-explosion-source.png',
+    sourceLabel: '3×3 帧源图',
+    sheet: '/hero-sprites/pipeline/dark-purple-magic-explosion-sheet.png',
+    gif: '/hero-sprites/pipeline/dark-purple-magic-explosion.gif',
+    frameCount: 9,
+    durationMs: 90,
+    tone: 'bg-[hsl(var(--pix-navy))] text-white',
+    frames: Array.from({ length: 9 }, (_, index) => `/hero-sprites/pipeline/dark-purple-magic-explosion-frame-${String(index + 1).padStart(2, '0')}.png`),
+  },
+]
 
 const statRowItems = [
   { value: '12', label: '真实全流程样本', icon: '◆' },
@@ -93,8 +111,8 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
         </div>
       </SectionFrame>
 
-      <SectionFrame id="sprite-preview" eyebrow="序列帧" title="角色动作也能做成可播放的精灵图" description="九宫格源图会切成帧、统一调色板像素化，并导出横向精灵图与 GIF 预览。">
-        <SpriteShowcase />
+      <SectionFrame id="sprite-preview" eyebrow="序列帧" title="角色动作和技能特效都能做成可播放的精灵图" description="九宫格源图或单帧序列会切成帧、统一调色板像素化，并导出横向精灵图与 GIF 预览。">
+        <SpriteShowcaseList />
       </SectionFrame>
 
       <SectionFrame id="examples" eyebrow="范例图库" title="76 套题材范例，像首屏一样悬浮验收" description="默认用紧凑素材格展示题材边界；选择题材后拆开 8 个物品格，并展开 16:9 UI 展示图、中文 Prompt 和文件名。">
@@ -120,50 +138,55 @@ function StatRow() {
   return <section className="border-y border-border bg-card/70 px-4 py-12 md:px-8"><div className="mx-auto max-w-6xl"><p className="mb-6 text-center text-xs font-black uppercase tracking-[.16em] text-muted-foreground">更高效率，更少工具</p><div className="grid grid-cols-2 gap-3 md:grid-cols-4">{statRowItems.map((item) => <div key={item.label} className="rounded-2xl border border-border bg-background p-5 text-center transition hover:-translate-y-1 hover:shadow-lg"><p className="text-xl opacity-50">{item.icon}</p><p className="mt-1 text-3xl font-black text-primary">{item.value}</p><p className="mt-1 text-sm text-muted-foreground">{item.label}</p></div>)}</div></div></section>
 }
 
-function SpriteShowcase() {
-  const sheetWidth = spriteShowcase.frameCount * 96
+function SpriteShowcaseList() {
+  return <div className="grid gap-8">{spriteShowcases.map((showcase) => <SpriteShowcase key={showcase.name} showcase={showcase} />)}</div>
+}
+
+function SpriteShowcase({ showcase }: { showcase: typeof spriteShowcases[number] }) {
+  const previewSize = 96
+  const sheetWidth = showcase.frameCount * previewSize
   return (
     <div className="grid items-center gap-8 lg:grid-cols-[.82fr_1.18fr]">
-      <div className="rounded-[2rem] border border-border bg-[hsl(var(--pix-lavender)/.55)] p-6 shadow-xl">
+      <div className={`rounded-[2rem] border border-border p-6 shadow-xl ${showcase.tone}`}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <Badge className="bg-[hsl(var(--pix-navy))] text-white">Sprite Pipeline</Badge>
-            <h3 className="mt-5 text-3xl font-black">{spriteShowcase.name}</h3>
-            <p className="mt-3 text-sm leading-7 text-muted-foreground">{spriteShowcase.brief}</p>
+            <h3 className="mt-5 text-3xl font-black">{showcase.name}</h3>
+            <p className="mt-3 text-sm leading-7 text-muted-foreground">{showcase.brief}</p>
           </div>
-          <Badge variant="outline">{spriteShowcase.status}</Badge>
+          <Badge variant="outline">{showcase.status}</Badge>
         </div>
         <div className="mt-6 grid place-items-center rounded-3xl border border-border bg-card p-6">
           <div
             role="img"
-            aria-label={`${spriteShowcase.name} 序列帧播放预览`}
+            aria-label={`${showcase.name} 序列帧播放预览`}
             className="h-24 w-24 [image-rendering:pixelated]"
             style={{
-              backgroundImage: `url(${spriteShowcase.sheet})`,
+              backgroundImage: `url(${showcase.sheet})`,
               backgroundRepeat: 'no-repeat',
               backgroundPosition: '0 0',
-              backgroundSize: `${sheetWidth}px 96px`,
-              animation: `spriteFrameRun ${spriteShowcase.frameCount * spriteShowcase.durationMs}ms steps(${spriteShowcase.frameCount}, end) infinite`,
+              backgroundSize: `${sheetWidth}px ${previewSize}px`,
+              animation: `spriteFrameRun ${showcase.frameCount * showcase.durationMs}ms steps(${showcase.frameCount}, end) infinite`,
             }}
           />
         </div>
-        <PromptBox title="中文 Prompt" text={spriteShowcase.prompt} />
+        <PromptBox title="中文 Prompt" text={showcase.prompt} />
       </div>
       <div className="grid gap-4">
         <div className="rounded-[2rem] border border-border bg-card p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between gap-3"><p className="text-sm font-black">横向精灵图</p><Badge variant="outline">9 frames</Badge></div>
+          <div className="mb-3 flex items-center justify-between gap-3"><p className="text-sm font-black">横向精灵图</p><Badge variant="outline">{showcase.frameCount} frames</Badge></div>
           <div className="pix-checkerboard overflow-hidden rounded-2xl border border-border p-3">
-            <img src={spriteShowcase.sheet} alt={`${spriteShowcase.name} 横向精灵图`} loading="lazy" decoding="async" className="h-20 w-full object-contain [image-rendering:pixelated]" />
+            <img src={showcase.sheet} alt={`${showcase.name} 横向精灵图`} loading="lazy" decoding="async" className="h-20 w-full object-contain [image-rendering:pixelated]" />
           </div>
         </div>
         <div className="grid grid-cols-9 gap-1.5 rounded-[2rem] border border-border bg-card p-4 shadow-sm">
-          {spriteShowcase.frames.map((frame, index) => (
-            <img key={frame} src={frame} alt={`${spriteShowcase.name} 第 ${index + 1} 帧`} loading="lazy" decoding="async" className="aspect-square w-full rounded-lg border border-border bg-muted/35 object-contain p-1 [image-rendering:pixelated]" />
+          {showcase.frames.map((frame, index) => (
+            <img key={frame} src={frame} alt={`${showcase.name} 第 ${index + 1} 帧`} loading="lazy" decoding="async" className="aspect-square w-full rounded-lg border border-border bg-muted/35 object-contain p-1 [image-rendering:pixelated]" />
           ))}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-2xl border border-border bg-card p-4"><p className="mb-2 text-xs font-black uppercase tracking-[.12em] text-muted-foreground">3×3 源图</p><PixPreviewFrame url={spriteShowcase.source} className="min-h-44" /></div>
-          <div className="rounded-2xl border border-border bg-card p-4"><p className="mb-2 text-xs font-black uppercase tracking-[.12em] text-muted-foreground">GIF 预览</p><PixPreviewFrame url={spriteShowcase.gif} className="min-h-44" /></div>
+          <div className="rounded-2xl border border-border bg-card p-4"><p className="mb-2 text-xs font-black uppercase tracking-[.12em] text-muted-foreground">{showcase.sourceLabel}</p><PixPreviewFrame url={showcase.source} className="min-h-44" /></div>
+          <div className="rounded-2xl border border-border bg-card p-4"><p className="mb-2 text-xs font-black uppercase tracking-[.12em] text-muted-foreground">GIF 预览</p><PixPreviewFrame url={showcase.gif} className="min-h-44" /></div>
         </div>
       </div>
     </div>
