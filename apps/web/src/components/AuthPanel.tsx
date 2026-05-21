@@ -11,9 +11,9 @@ type AuthPanelProps = { user: User | null; onLogin: (email: string, password: st
 
 export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, onLogout, loading, registrationBonusCredits }: AuthPanelProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [email, setEmail] = useState('admin@example.com')
-  const [password, setPassword] = useState('password123')
-  const [displayName, setDisplayName] = useState('Pix Admin')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [verificationCode, setVerificationCode] = useState('')
   const [codeMessage, setCodeMessage] = useState('')
   const [codeError, setCodeError] = useState('')
