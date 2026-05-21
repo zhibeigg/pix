@@ -37,7 +37,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
       action={
         <div className="grid gap-2 justify-items-end">
           {!isRegister && registrationBonusCopy && <Badge variant="secondary">{registrationBonusCopy}</Badge>}
-          <Button type="button" variant="outline" onClick={() => setMode(isRegister ? 'login' : 'register')}>{isRegister ? '登录' : registrationBonusCredits > 0 ? `注册领 ${registrationBonusCredits} 点` : '注册'}</Button>
+          <Button type="button" variant="outline" onClick={() => setMode(isRegister ? 'login' : 'register')}>{isRegister ? '登录' : '注册'}</Button>
         </div>
       }
     >
@@ -49,7 +49,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
         <PixField label="密码"><Input type="password" value={password} autoComplete={isRegister ? 'new-password' : 'current-password'} onChange={(e) => setPassword(e.target.value)} required /></PixField>
         {localTestLoginAvailable && <Alert variant="info" className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"><span>仅本地访问可用：用 {localTestAccountEmail} 快速测试工作台。</span><Button type="button" variant="outline" onClick={onLocalTestLogin} disabled={loading}>使用本地测试账号</Button></Alert>}
         <Button type="submit" size="lg" disabled={loading}>{loading ? '处理中…' : isRegister ? '验证并注册' : '进入工作台'}</Button>
-        {isRegister && registrationBonusCredits > 0 && <Alert variant="info">新人注册赠送 {registrationBonusCredits} 点数，可立即用于生成素材。</Alert>}
+
       </form>
     </PixPanel>
   )

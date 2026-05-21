@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.17] - 2026-05-21
+
+### Fixed
+
+- 首页登录/注册卡片仅保留一处新人注册赠送点数提示，注册切换按钮恢复为本质化“注册”。
+
 ## [1.16.16] - 2026-05-21
 
 ### Fixed
