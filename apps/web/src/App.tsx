@@ -620,7 +620,10 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
           <div className="flex justify-end gap-2">
             <ThemeModeMenu preference={themePreference} resolvedMode={themeMode} systemMode={systemThemeMode} onChange={onThemePreferenceChange} />
             {user ? (
-              <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={() => refreshCore()} onLogout={logout} />
+              <>
+                {page === 'home' && <Button asChild><a href="#/workspace">进入工作台</a></Button>}
+                <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={() => refreshCore()} onLogout={logout} />
+              </>
             ) : (
               <div className="flex gap-2">
                 <Button variant="ghost" asChild><a href="#auth-panel">登录</a></Button>
