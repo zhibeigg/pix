@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.6] - 2026-05-21
+
+### Fixed
+
+- 优化作品库和微调工位视觉层级，收紧右侧参数控件布局，改善空预览、状态角标和卡片操作区展示。
+
 ## [1.14.5] - 2026-05-21
 
 ### Fixed

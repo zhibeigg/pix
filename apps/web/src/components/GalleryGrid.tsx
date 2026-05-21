@@ -42,13 +42,14 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
         {ordered.length === 0 ? (
           <EmptyGalleryState />
         ) : (
-          <Box sx={{ mt: 2.5, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 1.35 }}>
+          <Box sx={{ mt: 2.5, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 1.45 }}>
             {visible.map((job) => {
-              const output = job.outputs[0]
+              const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
               const mainPath = output?.sprite_sheet_path || output?.pixelized_path || output?.source_path || job.input_image_path || ''
               const previewUrl = output?.sprite_gif_url || output?.preview_url || output?.pixelized_url || output?.source_url || job.input_image_url || ''
               const selected = selectedJobId === job.id
               const retrying = retryingJobId === job.id
+              const statusLabel = jobStatusLabel(job.status)
               return (
                 <Card
                   key={job.id}
@@ -58,32 +59,33 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
                     minWidth: 0,
                     overflow: 'hidden',
                     cursor: 'default',
-                    borderColor: selected ? notionTokens.primary : notionTokens.hairline,
+                    borderColor: selected ? notionTokens.primary : job.status === 'failed' ? 'error.main' : notionTokens.hairline,
                     borderWidth: selected ? 2 : 1,
                     boxShadow: selected ? notionTokens.focusRing : notionTokens.cardShadow,
+                    bgcolor: selected ? notionTokens.tintCream : notionTokens.canvas,
                     transition: 'transform .18s cubic-bezier(.22,1,.36,1), border-color .18s ease, box-shadow .18s ease',
                     '&:hover': { transform: 'translateY(-3px) scale(1.01)', borderColor: selected ? notionTokens.primary : notionTokens.hairlineStrong, boxShadow: notionTokens.liftShadow },
                     '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } },
                   }}
                 >
-                  <CardMedia component="div" sx={{ ...checkerboardSx, height: 140, display: 'grid', placeItems: 'center', imageRendering: 'pixelated', borderBottom: `1px solid ${notionTokens.hairline}` }}>
+                  <CardMedia component="div" sx={{ ...checkerboardSx, height: 148, display: 'grid', placeItems: 'center', imageRendering: 'pixelated', borderBottom: `1px solid ${notionTokens.hairline}`, position: 'relative', overflow: 'hidden' }}>
                     {previewUrl ? (
                       <Box component="img" src={previewUrl} alt={jobInputSummary(job, '作品预览')} loading="lazy" decoding="async" sx={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated', p: 1.4 }} />
                     ) : (
-                      <Chip variant="outlined" color="primary" label={job.status === 'succeeded' ? 'PIX' : jobStatusLabel(job.status)} />
+                      <EmptyPreview status={job.status} label={statusLabel} />
                     )}
+                    <Chip size="small" label={statusLabel} color={statusColors[job.status] ?? 'default'} sx={{ position: 'absolute', right: 10, top: 10, bgcolor: statusBg(job.status), fontWeight: 700 }} />
                   </CardMedia>
-                  <CardContent sx={{ display: 'grid', gap: .95, p: 1.6, '&:last-child': { pb: 1.6 } }}>
-                    <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}>
-                      <Typography sx={{ fontWeight: 600 }} noWrap>#{job.id} · {jobTypeLabel(job.job_type)}</Typography>
-                      <Chip size="small" color={statusColors[job.status] ?? 'default'} label={jobStatusLabel(job.status)} />
-                    </Stack>
-                    <Typography color="text.secondary" variant="body2" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{jobInputSummary(job)}</Typography>
+                  <CardContent sx={{ display: 'grid', gap: .9, p: 1.55, '&:last-child': { pb: 1.35 } }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 800, lineHeight: 1.2 }} noWrap>#{job.id} · {jobTypeLabel(job.job_type)}</Typography>
+                      <Typography color="text.secondary" variant="body2" sx={{ mt: .45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{jobInputSummary(job)}</Typography>
+                    </Box>
                     {selected && (
                       <Stack spacing={.9}>
                         <Stack direction="row" spacing={.7} sx={{ flexWrap: 'wrap' }}>
                           <Chip size="small" variant="outlined" label={`${job.price_credits} 点`} />
-                          <Chip size="small" variant="outlined" label={new Date(job.created_at).toLocaleString()} />
+                          <Chip size="small" variant="outlined" label={compactDate(job.created_at)} />
                         </Stack>
                         {output && <GridQualityChips output={output} />}
                         {output?.sprite_gif_path && <Chip size="small" color="primary" variant="outlined" label="GIF 动画" />}
@@ -92,9 +94,9 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
                       </Stack>
                     )}
                   </CardContent>
-                  <CardActions sx={{ px: 1.6, pb: 1.4, pt: 0 }}>
+                  <CardActions sx={{ px: 1.55, pb: 1.45, pt: 0, gap: .7, flexWrap: 'wrap' }}>
                     <Button size="small" variant={selected ? 'contained' : 'outlined'} aria-pressed={selected} onClick={() => onSelect(job)}>
-                      {selected ? '已展开' : '查看详情'}
+                      {selected ? '已展开' : '详情'}
                     </Button>
                     {job.status === 'failed' && onRetryJob && (
                       <Button size="small" color="error" variant="contained" disabled={retrying} onClick={() => onRetryJob(job)}>
@@ -116,6 +118,41 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
       </CardContent>
     </Card>
   )
+}
+
+function EmptyPreview({ status, label }: { status: string; label: string }) {
+  const tint = statusBg(status)
+  return (
+    <Stack spacing={.8} sx={{ alignItems: 'center', color: notionTokens.steel }}>
+      <Box
+        aria-hidden="true"
+        sx={{
+          width: 54,
+          height: 54,
+          borderRadius: 1.3,
+          bgcolor: tint,
+          border: `1px dashed ${notionTokens.hairlineStrong}`,
+          position: 'relative',
+          '&::before': { content: '""', position: 'absolute', left: 13, top: 13, width: 10, height: 10, bgcolor: notionTokens.canvas, border: `1px solid ${notionTokens.hairline}` },
+          '&::after': { content: '""', position: 'absolute', right: 12, bottom: 12, width: 14, height: 14, bgcolor: notionTokens.primary, opacity: .72 },
+        }}
+      />
+      <Typography variant="caption" sx={{ fontWeight: 800 }}>{label}</Typography>
+    </Stack>
+  )
+}
+
+function statusBg(status: string) {
+  if (status === 'succeeded') return notionTokens.tintMint
+  if (status === 'failed') return notionTokens.tintRose
+  if (status === 'running') return notionTokens.tintSky
+  return notionTokens.tintYellow
+}
+
+function compactDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
 function CandidateMiniGrid({ job, output, onCopyPath, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; onCopyPath: (path: string) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
