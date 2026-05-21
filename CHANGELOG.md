@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.22] - 2026-05-21
+
+### Fixed
+
+- Web 主题 token 统一对齐 `apps/web/DESIGN.md` 的 Canvas White / Brand Navy / Ink / Primary Purple 配色，并将状态徽章改为 white/dark 高对比底色。
+
 ## [1.17.21] - 2026-05-21
 
 ### Fixed
