@@ -953,9 +953,46 @@ def test_download_batch_zip_requires_successful_outputs(client: TestClient) -> N
     assert response.status_code == 409
 
 
+def test_retry_failed_job_requeues_single_failed_job(client: TestClient, monkeypatch) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})
+    starting_credits = client.get("/credits/balance", headers=headers).json()["available_credits"]
+    created = client.post("/jobs", headers=headers, json={"job_type": "text_to_image", "prompt": "pixel cat"}).json()
+
+    def fail(_job, _settings, *, cfg=None):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("pix_web.worker.run_job_pipeline", fail)
+    processed = process_next_job(client.app.state.SessionLocal, client.app.state.web_settings)
+    assert processed is not None
+    assert processed.status == "failed"
+
+    retry = client.post(f"/jobs/{created['id']}/retry", headers=headers)
+    assert retry.status_code == 200
+    body = retry.json()
+    assert body["id"] != created["id"]
+    assert body["status"] == "pending"
+    assert body["prompt"] == "pixel cat"
+    assert body["batch_id"] is None
+
+    balance = client.get("/credits/balance", headers=headers).json()
+    assert balance["available_credits"] == starting_credits - 20
+    assert balance["reserved_credits"] == 20
+
+
+def test_retry_failed_job_requires_failed_status(client: TestClient) -> None:
+    user, headers = _register_and_login(client)
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 20})
+    created = client.post("/jobs", headers=headers, json={"job_type": "text_to_image", "prompt": "pixel cat"}).json()
+
+    retry = client.post(f"/jobs/{created['id']}/retry", headers=headers)
+    assert retry.status_code == 409
+
+
 def test_retry_failed_batch_jobs_requeues_into_same_batch(client: TestClient, monkeypatch) -> None:
     user, headers = _register_and_login(client)
     client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50})
+    starting_credits = client.get("/credits/balance", headers=headers).json()["available_credits"]
     created = client.post(
         "/jobs/batch",
         headers=headers,
@@ -981,7 +1018,7 @@ def test_retry_failed_batch_jobs_requeues_into_same_batch(client: TestClient, mo
     assert body["jobs"][0]["id"] != created["jobs"][0]["id"]
 
     balance = client.get("/credits/balance", headers=headers).json()
-    assert balance["available_credits"] == 30
+    assert balance["available_credits"] == starting_credits - 20
     assert balance["reserved_credits"] == 20
 
 

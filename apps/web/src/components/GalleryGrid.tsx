@@ -9,12 +9,14 @@ type GalleryGridProps = {
   jobs: GenerationJob[]
   selectedJobId: number | null
   subtitle?: string
+  retryingJobId?: number | null
   onSelect: (job: GenerationJob) => void
   onCopyPath: (path: string) => void
   onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>
+  onRetryJob?: (job: GenerationJob) => Promise<void>
 }
 
-export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPath, onCandidatePixelize }: GalleryGridProps) {
+export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, onSelect, onCopyPath, onCandidatePixelize, onRetryJob }: GalleryGridProps) {
   const [page, setPage] = useState(1)
   const pageSize = 72
   const ordered = useMemo(() => [...jobs].sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at))), [jobs])
@@ -46,6 +48,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
               const mainPath = output?.sprite_sheet_path || output?.pixelized_path || output?.source_path || job.input_image_path || ''
               const previewUrl = output?.sprite_gif_url || output?.preview_url || output?.pixelized_url || output?.source_url || job.input_image_url || ''
               const selected = selectedJobId === job.id
+              const retrying = retryingJobId === job.id
               return (
                 <Card
                   key={job.id}
@@ -93,6 +96,11 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, onSelect, onCopyPat
                     <Button size="small" variant={selected ? 'contained' : 'outlined'} aria-pressed={selected} onClick={() => onSelect(job)}>
                       {selected ? '已展开' : '查看详情'}
                     </Button>
+                    {job.status === 'failed' && onRetryJob && (
+                      <Button size="small" color="error" variant="contained" disabled={retrying} onClick={() => onRetryJob(job)}>
+                        {retrying ? '重试中…' : '重试'}
+                      </Button>
+                    )}
                     {mainPath && <Button size="small" variant="text" onClick={() => onCopyPath(mainPath)}>复制路径</Button>}
                   </CardActions>
                 </Card>
