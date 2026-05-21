@@ -22,21 +22,17 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Literal
 
-import numpy as np
 from PIL import Image, ImageChops
 
 from pix.config import load_config
 from pix.contact_sheet import resolve_key_color
 from pix.pipeline import PipelineInput, run_pipeline
 from pix.pixelize.bg_removal import (
-    key_color_edge_speckle_mask,
-    key_color_edge_spill_mask,
-    key_color_mask,
     remove_detached_dark_edges,
     remove_key_color,
     remove_tiny_alpha_islands,
 )
-from pix.pixelize.core import PixelizeParams
+from pix.pixelize.core import PixelizeParams, pixelize
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -49,11 +45,10 @@ UI_DIR = PUBLIC_DIR / "ui"
 PROVENANCE_PATH = PUBLIC_DIR / "provenance.json"
 DEFAULT_RUN_ROOT = ROOT / "outputs" / "homepage-examples-full-flow"
 PROVENANCE_LOCK = Lock()
-ITEM_SHEET_SIZE = (512, 256)
-ITEM_SHEET_COLS = 4
-ITEM_SHEET_ROWS = 2
-ITEM_SLOT_SIZE = 128
-ITEM_MIN_SUBJECT_PIXELS = 32
+ITEM_SOURCE_COLS = 4
+ITEM_SOURCE_ROWS = 2
+ITEM_SLOT_OUTPUT_SIZE = (64, 64)
+ITEM_MIN_SUBJECT_PIXELS = 16
 UI_PIXEL_SIZE = (960, 540)
 UI_EXPORT_SIZE = (1920, 1080)
 
@@ -124,8 +119,8 @@ def configure_pix(config_path: Path | None, *, remote_guard: bool, contact_sheet
 
 def item_params() -> PixelizeParams:
     return PixelizeParams(
-        output_size=ITEM_SHEET_SIZE,  # 4×2 sprite sheet；每格 128×128，单个物品保留 32/64px 级可读空间
-        colors=64,
+        output_size=ITEM_SLOT_OUTPUT_SIZE,  # 每个物品独立 64×64
+        colors=16,
         dither="none",
         preset="auto",
         preview_scale=0,
@@ -137,8 +132,9 @@ def item_params() -> PixelizeParams:
         bg_tolerance=34,
         bg_feather=1,
         edge_style="outline",
-        auto_crop=False,
-        crop_square=False,
+        auto_crop=True,
+        crop_padding=0.12,
+        crop_square=True,
     )
 
 
@@ -160,7 +156,17 @@ def ui_params() -> PixelizeParams:
 
 
 def target_for(example: HomepageExample, kind: Kind) -> Path:
-    return (ITEM_DIR / example.item_file) if kind == "item" else (UI_DIR / example.ui_file)
+    """返回目标路径。item 类型返回基础路径（不含 _01.png 后缀），ui 类型返回完整路径。"""
+    if kind == "item":
+        # 基础路径，实际文件为 {base}_01.png ~ {base}_08.png
+        return ITEM_DIR / example.item_file.replace(".png", "")
+    return UI_DIR / example.ui_file
+
+
+def item_slot_targets(example: HomepageExample) -> list[Path]:
+    """返回 8 个物品 slot 的目标路径列表。"""
+    base = target_for(example, "item")
+    return [base.parent / f"{base.name}_{i + 1:02d}.png" for i in range(ITEM_SOURCE_COLS * ITEM_SOURCE_ROWS)]
 
 
 def prompt_for(example: HomepageExample, kind: Kind, *, key_hex: str | None = None) -> str:
@@ -209,51 +215,23 @@ def clean_item_sheet_background(image: Image.Image, *, key_rgb: tuple[int, int, 
     return remove_tiny_alpha_islands(cleaned)
 
 
-def validate_item_sheet(image: Image.Image, *, key_rgb: tuple[int, int, int]) -> None:
+def validate_item_slot(image: Image.Image, *, slot_index: int) -> None:
+    """验证单个 64×64 物品 slot 图片。"""
     rgba = image.convert("RGBA")
-    if rgba.size != ITEM_SHEET_SIZE:
-        raise ValueError(f"物品图尺寸应为 {ITEM_SHEET_SIZE[0]}x{ITEM_SHEET_SIZE[1]}，实际为 {rgba.size[0]}x{rgba.size[1]}")
+    w, h = ITEM_SLOT_OUTPUT_SIZE
+    if rgba.size != (w, h):
+        raise ValueError(f"物品 slot {slot_index} 尺寸应为 {w}x{h}，实际为 {rgba.size[0]}x{rgba.size[1]}")
     alpha = rgba.getchannel("A")
     if alpha.getextrema()[0] >= 255:
-        raise ValueError("物品图没有透明背景")
-    corner_points = [(0, 0), (rgba.width - 1, 0), (0, rgba.height - 1), (rgba.width - 1, rgba.height - 1)]
-    opaque_corners = [point for point in corner_points if rgba.getpixel(point)[3] > 16]
-    if opaque_corners:
-        raise ValueError(f"物品图外部背景未透明，非透明角点：{opaque_corners}")
-    rgba_arr = np.asarray(rgba)
-    residue = int(key_color_mask(rgba_arr, key_rgb, tolerance=8, visible_only=True).sum())
-    if residue:
-        raise ValueError(f"物品图仍有可见 key color 背景残留像素：{residue}")
-    hidden_residue = int(key_color_mask(rgba_arr, key_rgb, tolerance=2, visible_only=False).sum())
-    if hidden_residue:
-        raise ValueError(f"透明像素 RGB 中仍残留 key color：{hidden_residue}")
-    edge_residue = int(key_color_edge_speckle_mask(rgba_arr, key_rgb, max_area=18, max_thickness=3, radius=2).sum())
-    if edge_residue:
-        raise ValueError(f"物品图仍有 key color 边缘碎点/细条：{edge_residue}")
-    edge_spill = int(key_color_edge_spill_mask(rgba_arr, key_rgb, radius=3).sum())
-    if edge_spill:
-        raise ValueError(f"物品图仍有 key color 边缘量化溢色：{edge_spill}")
-    problems: list[str] = []
-    for row in range(ITEM_SHEET_ROWS):
-        for col in range(ITEM_SHEET_COLS):
-            left = col * ITEM_SLOT_SIZE
-            top = row * ITEM_SLOT_SIZE
-            slot = alpha.crop((left, top, left + ITEM_SLOT_SIZE, top + ITEM_SLOT_SIZE))
-            slot_arr = np.asarray(slot)
-            edge = np.concatenate([slot_arr[0, :], slot_arr[-1, :], slot_arr[:, 0], slot_arr[:, -1]])
-            label = f"r{row + 1}c{col + 1}"
-            if float((edge > 16).mean()) > 0.10:
-                problems.append(f"{label}=edge-background-not-transparent")
-            bbox = slot.point(lambda value: 255 if value > 16 else 0).getbbox()
-            if bbox is None:
-                problems.append(f"{label}=empty")
-                continue
-            width = bbox[2] - bbox[0]
-            height = bbox[3] - bbox[1]
-            if width < ITEM_MIN_SUBJECT_PIXELS or height < ITEM_MIN_SUBJECT_PIXELS:
-                problems.append(f"{label}={width}x{height}")
-    if problems:
-        raise ValueError("物品格主体小于 32x32 或为空：" + ", ".join(problems))
+        raise ValueError(f"物品 slot {slot_index} 没有透明背景")
+    # 检查主体是否存在
+    bbox = alpha.point(lambda value: 255 if value > 16 else 0).getbbox()
+    if bbox is None:
+        raise ValueError(f"物品 slot {slot_index} 主体为空")
+    subject_w = bbox[2] - bbox[0]
+    subject_h = bbox[3] - bbox[1]
+    if subject_w < ITEM_MIN_SUBJECT_PIXELS or subject_h < ITEM_MIN_SUBJECT_PIXELS:
+        raise ValueError(f"物品 slot {slot_index} 主体过小：{subject_w}x{subject_h}")
 
 
 def validate_ui_showcase(image: Image.Image) -> None:
@@ -267,20 +245,67 @@ def validate_ui_showcase(image: Image.Image) -> None:
 
 
 def render_final(kind: Kind, pixel_path: Path, target: Path, *, key_rgb: tuple[int, int, int] | None = None) -> None:
+    """UI 图的最终渲染（item 流程已改为 render_final_items）。"""
+    if kind != "ui":
+        raise ValueError("render_final 仅用于 UI 图；item 请使用 render_final_items")
     target.parent.mkdir(parents=True, exist_ok=True)
     with Image.open(pixel_path) as opened:
-        image = opened.convert("RGBA") if kind == "item" else opened.convert("RGB")
-        if kind == "ui":
-            image = image.resize(UI_EXPORT_SIZE, Image.Resampling.NEAREST)
-            validate_ui_showcase(image)
-        else:
-            if key_rgb is None:
-                raise ValueError("物品图导出必须提供 key_rgb")
-            image = clean_item_sheet_background(image, key_rgb=key_rgb)
-            validate_item_sheet(image, key_rgb=key_rgb)
-            # 覆盖 run 目录里的 03_pixelized.png，确保用户查看 Pix 全流程产物时也是清理后的结果。
-            image.save(pixel_path)
-        image.save(target)
+        image = opened.convert("RGB")
+    image = image.resize(UI_EXPORT_SIZE, Image.Resampling.NEAREST)
+    validate_ui_showcase(image)
+    image.save(target)
+
+
+def render_final_items(
+    source_path: Path,
+    example: HomepageExample,
+    *,
+    key_rgb: tuple[int, int, int],
+    params: PixelizeParams,
+    cfg,
+) -> list[Path]:
+    """从源图拆分 8 个 cell，每个单独 pixelize 成 64×64 透明 PNG。"""
+    targets = item_slot_targets(example)
+    ITEM_DIR.mkdir(parents=True, exist_ok=True)
+
+    # 1. 打开源图并做 key-color 背景移除
+    with Image.open(source_path) as opened:
+        source = opened.convert("RGBA")
+    source = clean_item_sheet_background(source, key_rgb=key_rgb)
+
+    # 2. 按 4×2 等分拆成 8 个 cell
+    cell_w = source.width / ITEM_SOURCE_COLS
+    cell_h = source.height / ITEM_SOURCE_ROWS
+    cells: list[Image.Image] = []
+    for row in range(ITEM_SOURCE_ROWS):
+        for col in range(ITEM_SOURCE_COLS):
+            left = int(round(col * cell_w))
+            top = int(round(row * cell_h))
+            right = int(round((col + 1) * cell_w))
+            bottom = int(round((row + 1) * cell_h))
+            cells.append(source.crop((left, top, right, bottom)))
+
+    # 3. 每个 cell 单独 pixelize 成 64×64
+    for slot_index, (cell, target_path) in enumerate(zip(cells, targets, strict=True)):
+        # 保存临时 cell 文件供 pixelize 读取
+        tmp_cell = target_path.with_suffix(".tmp.png")
+        cell.save(tmp_cell)
+        try:
+            pixel_img, _preview, _meta = pixelize(
+                tmp_cell,
+                params,
+                analysis=None,
+                cfg=cfg,
+                source_description="",
+                auto_skip_redundant_bg=True,
+            )
+            pixel_img.save(target_path)
+            validate_item_slot(pixel_img, slot_index=slot_index + 1)
+        finally:
+            if tmp_cell.exists():
+                tmp_cell.unlink()
+
+    return targets
 
 
 def load_provenance() -> dict[str, Any]:
@@ -331,11 +356,33 @@ def generate_one(
     if kind == "item":
         key_hex, key_rgb = resolve_key_color("auto", example.item_prompt)
     prompt = prompt_for(example, kind, key_hex=key_hex)
-    target = target_for(example, kind)
     params = item_params() if kind == "item" else ui_params()
     image_size = "2048x1024" if kind == "item" else "2048x1152"
 
-    print(f"[{example.number} {kind}] Pix 全流程开始：{example.theme} → {target.relative_to(ROOT)}")
+    if kind == "item":
+        targets = item_slot_targets(example)
+        print(f"[{example.number} {kind}] Pix 全流程开始：{example.theme} → {targets[0].parent.relative_to(ROOT)}/")
+    else:
+        target = target_for(example, kind)
+        print(f"[{example.number} {kind}] Pix 全流程开始：{example.theme} → {target.relative_to(ROOT)}")
+
+    # item 流程：只用 pipeline 生图获取源图，不做 pixelize（后续手动拆 cell 逐个处理）
+    # ui 流程：走完整 pipeline
+    if kind == "item":
+        # 用一个大尺寸 output_size 让 pipeline 生图，但我们只取源图
+        pipeline_params = PixelizeParams(
+            output_size=(512, 256),
+            colors=16,
+            dither="none",
+            preset="auto",
+            preview_scale=0,
+            remove_bg=False,
+            auto_crop=False,
+            crop_square=False,
+        )
+    else:
+        pipeline_params = params
+
     result = run_pipeline(
         cfg,
         PipelineInput(
@@ -343,14 +390,29 @@ def generate_one(
             image_size=image_size,
             image_quality=quality,
             skip_vl=skip_vl,
-            pixelize_params=params,
+            pixelize_params=pipeline_params,
             out_root=run_root,
             use_cache=True,
             refresh_cache=refresh,
         ),
         progress=lambda step, payload: print(f"  - {step}: {payload}"),
     )
-    render_final(kind, result.pixel_path, target, key_rgb=key_rgb)
+
+    if kind == "item":
+        assert key_rgb is not None
+        slot_targets = render_final_items(
+            result.source_path,
+            example,
+            key_rgb=key_rgb,
+            params=params,
+            cfg=cfg,
+        )
+        target_list = [str(t.relative_to(ROOT)) for t in slot_targets]
+    else:
+        target = target_for(example, kind)
+        render_final(kind, result.pixel_path, target, key_rgb=key_rgb)
+        target_list = [str(target.relative_to(ROOT))]
+
     upsert_provenance(
         {
             "id": example.id,
@@ -358,15 +420,15 @@ def generate_one(
             "category": example.category,
             "theme": example.theme,
             "kind": kind,
-            "target": str(target.relative_to(ROOT)),
+            "targets": target_list,
             "prompt": prompt,
             "image_size": image_size,
             "image_quality": quality,
             "skip_vl": skip_vl,
             "background_key_color": key_hex,
-            "pixel_output_size": list(ITEM_SHEET_SIZE if kind == "item" else UI_PIXEL_SIZE),
-            "export_size": list(ITEM_SHEET_SIZE if kind == "item" else UI_EXPORT_SIZE),
-            "slot_size": ITEM_SLOT_SIZE if kind == "item" else None,
+            "pixel_output_size": list(ITEM_SLOT_OUTPUT_SIZE if kind == "item" else UI_PIXEL_SIZE),
+            "export_size": list(ITEM_SLOT_OUTPUT_SIZE if kind == "item" else UI_EXPORT_SIZE),
+            "slot_count": ITEM_SOURCE_COLS * ITEM_SOURCE_ROWS if kind == "item" else None,
             "min_subject_pixels": ITEM_MIN_SUBJECT_PIXELS if kind == "item" else None,
             "run_dir": str(result.run_dir.relative_to(ROOT) if result.run_dir.is_relative_to(ROOT) else result.run_dir),
             "source": str(result.source_path.relative_to(ROOT) if result.source_path.is_relative_to(ROOT) else result.source_path),
@@ -375,7 +437,10 @@ def generate_one(
             "meta": str(result.meta_path.relative_to(ROOT) if result.meta_path.is_relative_to(ROOT) else result.meta_path),
         }
     )
-    print(f"[{example.number} {kind}] 完成：{target.relative_to(ROOT)}")
+    if kind == "item":
+        print(f"[{example.number} {kind}] 完成：8 个 64×64 物品 slot")
+    else:
+        print(f"[{example.number} {kind}] 完成：{target.relative_to(ROOT)}")
 
 
 def selected_work(examples: list[HomepageExample], *, only: set[str], kind: str, limit: int | None) -> list[tuple[HomepageExample, Kind]]:

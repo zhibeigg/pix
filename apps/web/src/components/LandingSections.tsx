@@ -361,7 +361,7 @@ function ExampleDetail({
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
             <Box sx={{ minWidth: 0 }}>
               <Typography sx={{ fontWeight: 600, lineHeight: 1.12 }} noWrap>{example.number} · {example.theme}</Typography>
-              <Typography variant="caption" color="text.secondary">{example.category} / 8 个透明物品 / 16:9 UI</Typography>
+              <Typography variant="caption" color="text.secondary">{example.category} / 8 个 64×64 物品 / 16:9 UI</Typography>
             </Box>
             <Chip size="small" label="Pix 范例" sx={{ bgcolor: tint, borderRadius: .75 }} />
           </Stack>
@@ -401,6 +401,10 @@ function ExampleDetail({
   )
 }
 
+function itemSlotSrc(example: HomepageExample, index: number): string {
+  return example.itemSrc.replace('.png', `_${String(index + 1).padStart(2, '0')}.png`)
+}
+
 function ItemSpriteGrid({ example, density }: { example: HomepageExample; density: 'compact' | 'detail' }) {
   const isDetail = density === 'detail'
   const cellGap = isDetail ? .55 : .35
@@ -431,15 +435,17 @@ function ItemSpriteGrid({ example, density }: { example: HomepageExample; densit
           }}
         >
           <Box
-            role="img"
-            aria-label={`${example.theme} 第 ${slot.index + 1} 个物品`}
+            component="img"
+            src={itemSlotSrc(example, slot.index)}
+            alt={`${example.theme} 第 ${slot.index + 1} 个物品`}
+            loading="lazy"
+            decoding="async"
+            width={64}
+            height={64}
             sx={{
               width: '100%',
               height: '100%',
-              backgroundImage: `url(${example.itemSrc})`,
-              backgroundRepeat: 'no-repeat',
-              backgroundSize: '400% 200%',
-              backgroundPosition: `${(slot.col / 3) * 100}% ${slot.row * 100}%`,
+              objectFit: 'contain',
               imageRendering: 'pixelated',
             }}
           />
@@ -451,7 +457,7 @@ function ItemSpriteGrid({ example, density }: { example: HomepageExample; densit
 
 function buildChineseItemPrompt(example: HomepageExample) {
   const note = categoryPromptNotes[example.category] ?? '统一题材符号、清晰道具轮廓与可读游戏图标语义。'
-  return `像素风「${example.theme}」物品素材表，拆成 4×2 共 8 个独立道具格；每个物品居中构图、透明背景、硬边像素、有限调色板、无抗锯齿，适合作为背包图标或掉落物素材；每格至少 64×64，在 32×32 和 64×64 下都能读清主体。题材方向：${note}`
+  return `像素风「${example.theme}」物品素材表，拆成 4×2 共 8 个独立道具格；每个物品独立输出为 64×64 透明 PNG，居中构图、硬边像素、有限调色板、无抗锯齿，适合作为背包图标或掉落物素材。题材方向：${note}`
 }
 
 function buildChineseUiPrompt(example: HomepageExample) {
