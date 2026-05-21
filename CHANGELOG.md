@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.11] - 2026-05-21
+
+### Fixed
+
+- 移除登录/注册表单的默认预填邮箱、密码和昵称，避免工作台入口展示测试账号内容。
+
 ## [1.15.10] - 2026-05-21
 
 ### Fixed
