@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.7] - 2026-05-21
+
+### Fixed
+
+- 恢复首页的生产线优势、数据条、像素 UI 展示、76 套题材范例图库与登录引导内容，并适配 shadcn/Tailwind 新视觉体系。
+
 ## [1.15.6] - 2026-05-21
 
 ### Added
