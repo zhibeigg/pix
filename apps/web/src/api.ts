@@ -21,6 +21,8 @@ import type {
 } from './types'
 
 const configuredApiBase = (import.meta.env.VITE_PIX_API_BASE as string | undefined)?.trim()
+const configuredTimeout = Number(import.meta.env.VITE_PIX_API_TIMEOUT_MS ?? 15000)
+const API_TIMEOUT_MS = Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 15000
 export const API_BASE = (configuredApiBase || '/api').replace(/\/+$/, '')
 
 export class ApiError extends Error {
@@ -44,8 +46,9 @@ function apiLocationLabel() {
 
 function networkApiError(error: unknown): ApiError {
   const detail = error instanceof Error ? error.message : String(error)
+  const timeoutHint = error instanceof DOMException && error.name === 'AbortError' ? `请求超过 ${Math.round(API_TIMEOUT_MS / 1000)} 秒未响应。` : ''
   return new ApiError(
-    `无法连接 Pix API（${apiLocationLabel()}）。请确认后端服务已启动，并检查 VITE_PIX_API_BASE、/api 反向代理或 CORS 允许域名配置。`,
+    `${timeoutHint}无法连接 Pix API（${apiLocationLabel()}）。请确认后端服务已启动，并检查 VITE_PIX_API_BASE、/api 反向代理或 CORS 允许域名配置。`,
     0,
     { detail },
   )
@@ -77,11 +80,15 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
     headers.set('Authorization', `Bearer ${token}`)
   }
 
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS)
   let response: Response
   try {
-    response = await fetch(apiUrl(path), { ...options, headers })
+    response = await fetch(apiUrl(path), { ...options, headers, signal: options.signal ?? controller.signal })
   } catch (error) {
     throw networkApiError(error)
+  } finally {
+    window.clearTimeout(timeoutId)
   }
   const text = await response.text()
   const body = parseResponseBody(text)

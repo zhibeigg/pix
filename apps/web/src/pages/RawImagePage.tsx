@@ -57,7 +57,7 @@ export function RawImagePage({ pricing, balance, jobs, loading, selectedJobId, o
 
   const rawJobs = useMemo(() => jobs.filter(isRawImageJob).sort(sortNewestFirst), [jobs])
   const selectedJob = rawJobs.find((job) => job.id === selectedJobId) ?? rawJobs[0] ?? null
-  const selectedOutput = selectedJob?.outputs[0]
+  const selectedOutput = firstOutput(selectedJob)
   const price = pricing.find((item) => item.key === 'text_to_image')?.price_credits ?? 0
   const safeCount = normalizeCount(generationCount)
   const estimatedCredits = price * safeCount
@@ -340,8 +340,12 @@ function sortNewestFirst(a: GenerationJob, b: GenerationJob) {
   return Number(new Date(b.created_at)) - Number(new Date(a.created_at))
 }
 
+function firstOutput(job: GenerationJob | null | undefined) {
+  return Array.isArray(job?.outputs) ? job.outputs[0] : undefined
+}
+
 function rawSourceUrl(job: GenerationJob | null | undefined) {
-  return job?.outputs[0]?.source_url || null
+  return firstOutput(job)?.source_url || null
 }
 
 function candidateRawUrl(candidate: ContactSheetCandidate) {
@@ -351,9 +355,10 @@ function candidateRawUrl(candidate: ContactSheetCandidate) {
 function buildThumbs(rawJobs: GenerationJob[], selectedJobId: number | null, previewOverride: PreviewOverride | null): Thumb[] {
   const thumbs: Thumb[] = []
   for (const job of rawJobs) {
-    const output = job.outputs[0]
-    if (job.id === selectedJobId && output?.candidates?.length) {
-      for (const candidate of output.candidates) {
+    const output = firstOutput(job)
+    const candidates = Array.isArray(output?.candidates) ? output.candidates : []
+    if (job.id === selectedJobId && candidates.length) {
+      for (const candidate of candidates) {
         const url = candidateRawUrl(candidate)
         if (!url) continue
         const label = candidate.rank ? `候选 #${candidate.rank}` : `候选 ${candidate.index}`
@@ -398,6 +403,10 @@ function statusTint(status: string) {
   return notionTokens.tintYellow
 }
 
+function safeErrorMessage(job: GenerationJob) {
+  return typeof job.error_message === 'string' ? job.error_message : ''
+}
+
 function RawCanvasState({ job }: { job: GenerationJob | null }) {
   if (!job) {
     return (
@@ -414,7 +423,7 @@ function RawCanvasState({ job }: { job: GenerationJob | null }) {
     return (
       <Alert severity="error" sx={{ maxWidth: 620, width: '100%' }}>
         <Typography sx={{ fontWeight: 700 }}>生成失败</Typography>
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{job.error_message.slice(0, 520) || '后端未返回错误详情。'}</Typography>
+        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{safeErrorMessage(job).slice(0, 520) || '后端未返回错误详情。'}</Typography>
       </Alert>
     )
   }
