@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.15.13-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.16.13-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-385%20passed-2ea44f.svg">
 </p>
 
@@ -438,6 +438,14 @@ ALIPAY_ROOT_CERT_PATH=/run/secrets/alipay_root_cert.crt
 
 如需使用 SMTP 587 STARTTLS，请设置 `PIX_WEB_SMTP_PORT=587`、`PIX_WEB_SMTP_SSL=false`、`PIX_WEB_SMTP_TLS=true`。支付宝公钥模式继续使用 `ALIPAY_PUBLIC_KEY`；`ALIPAY_MODE=auto` 会在检测到证书配置时自动切换到证书模式。
 
+支付宝开放平台“应用网关”可配置为：
+
+```text
+https://你的域名/api/billing/webhook/alipay/app-gateway
+```
+
+该入口用于接收 `msg_method` / `biz_content` / `notify_id` 形式的开放平台消息通知，会复用支付宝公钥或证书配置验签，按 `notify_id` 幂等保存消息，并按支付宝要求返回纯文本 `success`。支付结果异步通知仍使用 `/billing/webhook/alipay`。
+
 ---
 
 ## GUI
@@ -655,7 +663,7 @@ palette_mode = "ramp"
 | `B` | 功能更新 | 新增功能 |
 | `C` | 修复 | Bug 修复、兼容性修复、清理 |
 
-当前版本：`1.15.13`
+当前版本：`1.16.13`
 
 ---
 

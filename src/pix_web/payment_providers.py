@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from pix_web.billing import create_payment_order, mark_order_paid
 from pix_web.config import WebSettings
-from pix_web.models import PaymentOrder, User
+from pix_web.models import AlipayGatewayMessage, PaymentOrder, User
 
 
 @dataclass(frozen=True)
@@ -243,6 +243,52 @@ def handle_alipay_notify(db: Session, form: dict[str, str], settings: WebSetting
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="支付宝通知金额不匹配")
     event_id = form.get("trade_no") or f"alipay:{out_trade_no}:{form.get('notify_id', uuid4().hex)}"
     mark_order_paid(db, order, provider_event_id=f"alipay:{event_id}", payload=dict(form))
+    return "success"
+
+
+def _required_alipay_gateway_field(form: dict[str, str], field: str) -> str:
+    value = form.get(field, "").strip()
+    if not value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"支付宝应用网关缺少 {field}")
+    return value
+
+
+def _parse_alipay_gateway_biz_content(raw: str) -> dict[str, Any]:
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return {"raw": raw}
+    return parsed if isinstance(parsed, dict) else {"value": parsed}
+
+
+def handle_alipay_app_gateway_message(db: Session, form: dict[str, str], settings: WebSettings) -> str:
+    signature = form.get("sign", "")
+    payload = {key: value for key, value in form.items() if key not in {"sign", "sign_type"}}
+    if not _alipay_verify(settings, _alipay_sign_content(payload), signature):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="支付宝应用网关消息验签失败")
+
+    app_id = _required_alipay_gateway_field(form, "app_id")
+    expected_app_id = _require(settings.alipay_app_id, "ALIPAY_APP_ID")
+    if app_id != expected_app_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="支付宝应用网关 app_id 不匹配")
+
+    notify_id = _required_alipay_gateway_field(form, "notify_id")
+    existing = db.scalar(select(AlipayGatewayMessage).where(AlipayGatewayMessage.notify_id == notify_id))
+    if existing is not None:
+        return "success"
+
+    msg_method = _required_alipay_gateway_field(form, "msg_method")
+    biz_content_raw = _required_alipay_gateway_field(form, "biz_content")
+    message = AlipayGatewayMessage(
+        notify_id=notify_id,
+        msg_method=msg_method,
+        app_id=app_id,
+        biz_content_json=_parse_alipay_gateway_biz_content(biz_content_raw),
+        raw_payload_json=dict(form),
+        processed=True,
+    )
+    db.add(message)
+    db.commit()
     return "success"
 
 

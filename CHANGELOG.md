@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.13] - 2026-05-21
+
+### Added
+
+- 新增支付宝开放平台应用网关消息接收接口 `/billing/webhook/alipay/app-gateway`，支持 RSA2/证书模式验签、`notify_id` 幂等入库和 `success` 文本响应。
+
 ## [1.15.13] - 2026-05-21
 
 ### Fixed

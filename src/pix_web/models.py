@@ -136,6 +136,19 @@ class PaymentEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class AlipayGatewayMessage(Base):
+    __tablename__ = "alipay_gateway_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    notify_id: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    msg_method: Mapped[str] = mapped_column(String(160), index=True)
+    app_id: Mapped[str] = mapped_column(String(64), index=True)
+    biz_content_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    raw_payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    processed: Mapped[bool] = mapped_column(default=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
 class UploadEvent(Base):
     __tablename__ = "upload_events"
 

@@ -21,7 +21,7 @@ from cryptography.x509.oid import NameOID
 from pix.config import AppConfig
 from pix_web.config import WebSettings
 from pix_web.main import create_app
-from pix_web.models import GenerationBatch, SystemSetting
+from pix_web.models import AlipayGatewayMessage, GenerationBatch, SystemSetting
 from pix_web.payment_providers import _alipay_sign_content, _is_rsa_certificate, _rsa_sign
 from pix_web.pipeline_adapter import asset_pipeline_input_from_job, run_job_pipeline
 from pix_web.worker import process_next_job
@@ -537,6 +537,76 @@ def test_alipay_checkout_and_webhook_are_idempotent(client: TestClient) -> None:
     assert paid.text == "success"
     assert again.status_code == 200
     assert client.get("/credits/balance", headers=headers).json()["available_credits"] == starting_credits + order["credits"]
+
+
+def test_alipay_app_gateway_message_is_verified_and_idempotent(client: TestClient) -> None:
+    private_pem, public_pem = _rsa_key_pair()
+    client.app.state.web_settings = replace(
+        client.app.state.web_settings,
+        alipay_app_id="app-id",
+        alipay_private_key=private_pem,
+        alipay_public_key=public_pem,
+    )
+    form = {
+        "charset": "UTF-8",
+        "biz_content": json.dumps({"audit_text": "通过", "service_code": "s1243453", "audit_status": "AGREE"}, ensure_ascii=False),
+        "utc_timestamp": "1514210452731",
+        "app_id": "app-id",
+        "version": "1.1",
+        "sign_type": "RSA2",
+        "notify_id": "gateway-notify-1",
+        "msg_method": "alipay.open.app.service.audit.notify",
+    }
+    sign_payload = {key: value for key, value in form.items() if key != "sign_type"}
+    form["sign"] = _rsa_sign(private_pem, _alipay_sign_content(sign_payload))
+
+    first = client.post("/billing/webhook/alipay/app-gateway", data=form)
+    second = client.post("/billing/webhook/alipay/app-gateway", data=form)
+
+    assert first.status_code == 200
+    assert first.text == "success"
+    assert second.status_code == 200
+    db = client.app.state.SessionLocal()
+    try:
+        messages = list(db.scalars(select(AlipayGatewayMessage).where(AlipayGatewayMessage.notify_id == "gateway-notify-1")))
+        assert len(messages) == 1
+        assert messages[0].msg_method == "alipay.open.app.service.audit.notify"
+        assert messages[0].biz_content_json["audit_status"] == "AGREE"
+    finally:
+        db.close()
+
+
+def test_alipay_app_gateway_rejects_bad_signature_and_wrong_app(client: TestClient) -> None:
+    private_pem, public_pem = _rsa_key_pair()
+    client.app.state.web_settings = replace(
+        client.app.state.web_settings,
+        alipay_app_id="app-id",
+        alipay_private_key=private_pem,
+        alipay_public_key=public_pem,
+    )
+    form = {
+        "charset": "UTF-8",
+        "biz_content": json.dumps({"audit_status": "AGREE"}, ensure_ascii=False),
+        "utc_timestamp": "1514210452731",
+        "app_id": "app-id",
+        "version": "1.1",
+        "sign_type": "RSA2",
+        "notify_id": "gateway-notify-bad",
+        "msg_method": "alipay.open.app.service.audit.notify",
+    }
+    sign_payload = {key: value for key, value in form.items() if key != "sign_type"}
+    form["sign"] = _rsa_sign(private_pem, _alipay_sign_content(sign_payload))
+
+    wrong_app_form = {**form, "app_id": "other-app"}
+    wrong_app_payload = {key: value for key, value in wrong_app_form.items() if key not in {"sign", "sign_type"}}
+    wrong_app_form["sign"] = _rsa_sign(private_pem, _alipay_sign_content(wrong_app_payload))
+    bad_signature = client.post("/billing/webhook/alipay/app-gateway", data={**form, "sign": "bad-signature"})
+    wrong_app = client.post("/billing/webhook/alipay/app-gateway", data=wrong_app_form)
+
+    assert bad_signature.status_code == 400
+    assert "验签失败" in bad_signature.json()["detail"]
+    assert wrong_app.status_code == 400
+    assert "app_id 不匹配" in wrong_app.json()["detail"]
 
 
 def test_alipay_certificate_checkout_and_webhook_are_idempotent(client: TestClient) -> None:
