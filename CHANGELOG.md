@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.14] - 2026-05-21
+
+### Fixed
+
+- 首页序列帧展示新增“黑紫魔气爆炸特效”9 帧 VFX 示例，并补齐横向精灵图、GIF 预览和帧源图资源。
+
 ## [1.16.13] - 2026-05-21
 
 ### Added
