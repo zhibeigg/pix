@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.19] - 2026-05-21
+
+### Fixed
+
+- 本地前端从 `127.0.0.1` 打开时自动改走 `localhost` API 代理，兼容 Windows 上不同 loopback 主机名的后端绑定差异。
+
 ## [1.17.18] - 2026-05-21
 
 ### Fixed

@@ -25,7 +25,15 @@ import type {
 const configuredApiBase = (import.meta.env.VITE_PIX_API_BASE as string | undefined)?.trim()
 const configuredTimeout = Number(import.meta.env.VITE_PIX_API_TIMEOUT_MS ?? 15000)
 const API_TIMEOUT_MS = Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 15000
-export const API_BASE = (configuredApiBase || '/api').replace(/\/+$/, '')
+
+function normalizeLocalApiBase(base: string) {
+  if (base !== '/api' || typeof window === 'undefined') return base
+  const { hostname, port, protocol } = window.location
+  if (!['127.0.0.1', '::1', '[::1]'].includes(hostname)) return base
+  return `${protocol}//localhost${port ? `:${port}` : ''}/api`
+}
+
+export const API_BASE = normalizeLocalApiBase((configuredApiBase || '/api').replace(/\/+$/, ''))
 
 export class ApiError extends Error {
   status: number
