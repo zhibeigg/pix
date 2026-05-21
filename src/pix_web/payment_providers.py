@@ -123,7 +123,12 @@ def _certificate_public_key(raw: str, name: str):
 
 def _is_rsa_certificate(cert: x509.Certificate) -> bool:
     signature_name = getattr(cert.signature_algorithm_oid, "_name", "").upper()
-    return "RSA" in signature_name or isinstance(cert.public_key(), rsa.RSAPublicKey)
+    if "RSA" in signature_name:
+        return True
+    try:
+        return isinstance(cert.public_key(), rsa.RSAPublicKey)
+    except Exception:
+        return False
 
 
 def _alipay_app_cert_sn(settings: WebSettings) -> str:

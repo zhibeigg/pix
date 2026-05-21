@@ -21,7 +21,7 @@ from pix.config import AppConfig
 from pix_web.config import WebSettings
 from pix_web.main import create_app
 from pix_web.models import GenerationBatch
-from pix_web.payment_providers import _alipay_sign_content, _rsa_sign
+from pix_web.payment_providers import _alipay_sign_content, _is_rsa_certificate, _rsa_sign
 from pix_web.pipeline_adapter import asset_pipeline_input_from_job, run_job_pipeline
 from pix_web.worker import process_next_job
 from pix_web.system_settings import managed_pix_overrides_from_db
@@ -362,6 +362,17 @@ def _rsa_key_pair() -> tuple[str, str]:
         serialization.PublicFormat.SubjectPublicKeyInfo,
     ).decode("utf-8")
     return private_pem, public_pem
+
+
+def test_alipay_rsa_certificate_filter_ignores_unsupported_public_key() -> None:
+    class UnsupportedPublicKeyCert:
+        signature_algorithm_oid = SimpleNamespace(_name="SM2-with-SM3")
+
+        def public_key(self):
+            raise RuntimeError("unsupported public key algorithm")
+
+    assert _is_rsa_certificate(UnsupportedPublicKeyCert()) is False
+
 
 
 def _rsa_key_pair_with_cert(common_name: str = "Alipay Test") -> tuple[str, str, str]:

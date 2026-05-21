@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-05-21
+
+### Fixed
+
+- 支付宝证书模式解析根证书包时兼容国密曲线证书，跳过无法加载公钥算法的非 RSA 根证书，避免 `UnsupportedAlgorithm` 中断证书序列号计算。
+
 ## [1.12.0] - 2026-05-21
 
 ### Added
