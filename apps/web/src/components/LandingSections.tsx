@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
 import { homepageExampleCategories, homepageExamples, type HomepageExample } from '../homepageExamples'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -179,17 +179,15 @@ function SpriteShowcase({ showcase }: { showcase: typeof spriteShowcases[number]
 }
 
 function SpriteFramePlayer({ showcase, className }: { showcase: typeof spriteShowcases[number]; className: string }) {
-  const previewSize = 96
-  const sheetWidth = showcase.frameCount * previewSize
-  const style = {
-    '--sprite-frame-offset': `-${sheetWidth}px`,
-    backgroundImage: `url(${showcase.sheet})`,
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: '0 0',
-    backgroundSize: `${sheetWidth}px ${previewSize}px`,
-    animation: `spriteFrameRun ${showcase.frameCount * showcase.durationMs}ms steps(${showcase.frameCount}, end) infinite`,
-  } as CSSProperties
-  return <div role="img" aria-label={`${showcase.name} 序列帧播放预览`} className={`sprite-frame-player ${className} [image-rendering:pixelated]`} style={style} />
+  const [frameIndex, setFrameIndex] = useState(0)
+  useEffect(() => {
+    showcase.frames.forEach((frame) => { const image = new Image(); image.src = frame })
+    if (showcase.frames.length <= 1) return
+    const timer = window.setInterval(() => setFrameIndex((value) => (value + 1) % showcase.frames.length), showcase.durationMs)
+    return () => window.clearInterval(timer)
+  }, [showcase.durationMs, showcase.frames])
+  const frame = showcase.frames[frameIndex] ?? showcase.frames[0]
+  return <img src={frame} alt={`${showcase.name} 序列帧播放预览`} className={`${className} object-contain [image-rendering:pixelated]`} draggable={false} />
 }
 
 function ExampleAtlas() {

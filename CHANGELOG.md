@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.18] - 2026-05-21
+
+### Fixed
+
+- 首页序列帧播放器改为 React 定时切换真实帧 PNG，避免 CSS 背景 steps 动画在部分环境中不播放。
+
 ## [1.17.17] - 2026-05-21
 
 ### Added
