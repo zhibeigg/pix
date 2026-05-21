@@ -37,8 +37,13 @@ def _send_smtp(settings: WebSettings, email: str, code: str) -> None:
     message["To"] = email
     message.set_content(_verification_body(code))
 
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as client:
-        if settings.smtp_tls:
+    if settings.smtp_ssl:
+        client_context = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=10)
+    else:
+        client_context = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
+
+    with client_context as client:
+        if settings.smtp_tls and not settings.smtp_ssl:
             client.starttls()
         if settings.smtp_user:
             client.login(settings.smtp_user, settings.smtp_password)

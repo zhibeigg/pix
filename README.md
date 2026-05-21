@@ -330,7 +330,7 @@ Pix Web 是一个可运营的素材生产工作台：
 - 批量素材直出、批量 prompt / 批量图片任务
 - 素材包管理、失败重试、ZIP 下载
 - 管理后台：模型/API、价格、充值套餐、运营保护、邮件配置
-- 支付模型：mock pay、支付宝电脑网站支付、微信 Native 扫码支付
+- 支付模型：mock pay、支付宝电脑网站支付（公钥模式 / 证书模式）、微信 Native 扫码支付
 
 ### 本地启动
 
@@ -415,7 +415,26 @@ PIX_WEB_AUTO_CREATE_DB=false
 PIX_WEB_QUEUE_BACKEND=rq
 PIX_WEB_REDIS_URL=redis://localhost:6379/0
 PIX_WEB_EMAIL_PROVIDER=smtp
+
+# SMTP 465 implicit SSL（QQ/网易/企业邮箱等常见配置）
+PIX_WEB_SMTP_HOST=smtp.example.com
+PIX_WEB_SMTP_PORT=465
+PIX_WEB_SMTP_USER=noreply@example.com
+PIX_WEB_SMTP_PASSWORD=change-me
+PIX_WEB_SMTP_FROM="Pix <noreply@example.com>"
+PIX_WEB_SMTP_SSL=true
+PIX_WEB_SMTP_TLS=false
+
+# 支付宝证书模式；证书内容可直接放变量，也可用 *_PATH 指向 Secret 文件。
+ALIPAY_MODE=certificate
+ALIPAY_APP_ID=your-app-id
+ALIPAY_PRIVATE_KEY=/run/secrets/alipay_private_key.pem
+ALIPAY_APP_CERT_PATH=/run/secrets/alipay_app_cert.crt
+ALIPAY_PUBLIC_CERT_PATH=/run/secrets/alipay_public_cert.crt
+ALIPAY_ROOT_CERT_PATH=/run/secrets/alipay_root_cert.crt
 ```
+
+如需使用 SMTP 587 STARTTLS，请设置 `PIX_WEB_SMTP_PORT=587`、`PIX_WEB_SMTP_SSL=false`、`PIX_WEB_SMTP_TLS=true`。支付宝公钥模式继续使用 `ALIPAY_PUBLIC_KEY`；`ALIPAY_MODE=auto` 会在检测到证书配置时自动切换到证书模式。
 
 ---
 
@@ -634,7 +653,7 @@ palette_mode = "ramp"
 | `B` | 功能更新 | 新增功能 |
 | `C` | 修复 | Bug 修复、兼容性修复、清理 |
 
-当前版本：`1.8.0`
+当前版本：`1.12.0`
 
 ---
 

@@ -79,6 +79,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("web.smtp_password", "SMTP 密码", "邮件验证码", "secret", "", "保存到数据库会被遮罩显示；生产建议用环境变量或密钥管理。", secret=True, env_var="PIX_WEB_SMTP_PASSWORD"),
     SettingDefinition("web.smtp_from", "发件人", "邮件验证码", "string", "", "例如 Pix <noreply@example.com>。", env_var="PIX_WEB_SMTP_FROM"),
     SettingDefinition("web.smtp_tls", "启用 STARTTLS", "邮件验证码", "boolean", "", env_var="PIX_WEB_SMTP_TLS"),
+    SettingDefinition("web.smtp_ssl", "启用 SSL/465", "邮件验证码", "boolean", "", "用于 465 端口 implicit SSL；启用后不会再执行 STARTTLS。", env_var="PIX_WEB_SMTP_SSL"),
     SettingDefinition("web.email_code_ttl_seconds", "验证码有效期（秒）", "邮件验证码", "number", "", env_var="PIX_WEB_EMAIL_CODE_TTL_SECONDS"),
     SettingDefinition("web.email_code_resend_seconds", "重发间隔（秒）", "邮件验证码", "number", "", env_var="PIX_WEB_EMAIL_CODE_RESEND_SECONDS"),
     SettingDefinition("web.email_code_max_attempts", "最大错误次数", "邮件验证码", "number", "", env_var="PIX_WEB_EMAIL_CODE_MAX_ATTEMPTS"),
@@ -151,7 +152,13 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("env.storage_root", "存储目录", "存储 / 队列 / 安全", "status", "", "环境级配置，只显示当前目录。", editable=False, env_var="PIX_WEB_STORAGE_ROOT", source="environment_only"),
     SettingDefinition("env.queue_backend", "队列后端", "存储 / 队列 / 安全", "status", "", "需重启服务/worker。", editable=False, restart_required=True, env_var="PIX_WEB_QUEUE_BACKEND", source="environment_only"),
     SettingDefinition("env.redis_url", "Redis URL", "存储 / 队列 / 安全", "status", "", "需重启服务/worker。", secret=True, editable=False, restart_required=True, env_var="PIX_WEB_REDIS_URL", source="environment_only"),
-    SettingDefinition("env.alipay_private_key", "支付宝私钥", "支付与站点", "status", "", "高风险密钥，第一阶段仅显示是否配置。", secret=True, editable=False, env_var="ALIPAY_PRIVATE_KEY", source="environment_only"),
+    SettingDefinition("env.alipay_mode", "支付宝模式", "支付与站点", "status", "", "auto 会在检测到证书配置时自动使用证书模式。", editable=False, env_var="ALIPAY_MODE", source="environment_only"),
+    SettingDefinition("env.alipay_app_id", "支付宝 App ID", "支付与站点", "status", "", "环境级配置，只显示是否配置。", editable=False, env_var="ALIPAY_APP_ID", source="environment_only"),
+    SettingDefinition("env.alipay_private_key", "支付宝私钥", "支付与站点", "status", "", "高风险密钥，仅显示是否配置。", secret=True, editable=False, env_var="ALIPAY_PRIVATE_KEY", source="environment_only"),
+    SettingDefinition("env.alipay_public_key", "支付宝公钥", "支付与站点", "status", "", "公钥模式验签使用。", secret=True, editable=False, env_var="ALIPAY_PUBLIC_KEY", source="environment_only"),
+    SettingDefinition("env.alipay_app_cert", "支付宝应用公钥证书", "支付与站点", "status", "", "证书模式下用于 app_cert_sn。", secret=True, editable=False, env_var="ALIPAY_APP_CERT", source="environment_only"),
+    SettingDefinition("env.alipay_public_cert", "支付宝公钥证书", "支付与站点", "status", "", "证书模式下用于回调验签。", secret=True, editable=False, env_var="ALIPAY_PUBLIC_CERT", source="environment_only"),
+    SettingDefinition("env.alipay_root_cert", "支付宝根证书", "支付与站点", "status", "", "证书模式下用于 alipay_root_cert_sn。", secret=True, editable=False, env_var="ALIPAY_ROOT_CERT", source="environment_only"),
     SettingDefinition("env.wechat_private_key", "微信支付私钥", "支付与站点", "status", "", "高风险密钥，第一阶段仅显示是否配置。", secret=True, editable=False, env_var="WECHATPAY_PRIVATE_KEY", source="environment_only"),
 )
 
@@ -249,7 +256,13 @@ def _env_status_value(settings: WebSettings, definition: SettingDefinition) -> s
         "env.storage_root": str(settings.storage_root),
         "env.queue_backend": settings.queue_backend,
         "env.redis_url": settings.redis_url,
+        "env.alipay_mode": settings.alipay_mode,
+        "env.alipay_app_id": settings.alipay_app_id,
         "env.alipay_private_key": settings.alipay_private_key,
+        "env.alipay_public_key": settings.alipay_public_key,
+        "env.alipay_app_cert": settings.alipay_app_cert,
+        "env.alipay_public_cert": settings.alipay_public_cert,
+        "env.alipay_root_cert": settings.alipay_root_cert,
         "env.wechat_private_key": settings.wechat_private_key,
     }
     raw = mapping.get(definition.key, "")

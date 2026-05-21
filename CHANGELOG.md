@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-05-21
+
+### Added
+
+- Web 后端邮件验证码新增 SMTP 465 implicit SSL 支持，`PIX_WEB_SMTP_PORT=465` 时会默认启用 `PIX_WEB_SMTP_SSL`，并可在管理后台查看/覆盖。
+- 支付宝电脑网站支付新增证书模式，支持应用公钥证书、支付宝公钥证书和支付宝根证书配置，下单自动带 `app_cert_sn` / `alipay_root_cert_sn` 并使用证书验签回调。
+
 ### Fixed
 
 - 主页移除纵向滚动自动吸附，改为自然页面滚动；锚点跳转保留顶部导航避让，避免内容被挡住。
