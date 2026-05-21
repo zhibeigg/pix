@@ -63,8 +63,9 @@ export function RawImagePage({ pricing, balance, jobs, loading, selectedJobId, o
   const estimatedCredits = price * safeCount
   const availableCredits = balance?.available_credits
   const insufficientCredits = typeof availableCredits === 'number' && availableCredits < estimatedCredits
-  const mainImageUrl = previewOverride?.jobId === selectedJob?.id ? previewOverride.url : rawSourceUrl(selectedJob)
-  const mainImageLabel = previewOverride?.jobId === selectedJob?.id ? previewOverride.label : '原始源图'
+  const hasPreviewOverride = previewOverride !== null && selectedJob !== null && previewOverride.jobId === selectedJob.id
+  const mainImageUrl = hasPreviewOverride ? previewOverride.url : rawSourceUrl(selectedJob)
+  const mainImageLabel = hasPreviewOverride ? previewOverride.label : '原始源图'
 
   const thumbs = useMemo(() => buildThumbs(rawJobs, selectedJob?.id ?? null, previewOverride), [previewOverride, rawJobs, selectedJob?.id])
 
