@@ -188,7 +188,7 @@ function AssistantTile({ title, body, badge, tone }: { title: string; body: stri
 
 function WorkTogetherSection() {
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
       <article className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card))] dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] lg:col-span-2">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -205,19 +205,19 @@ function WorkTogetherSection() {
         </div>
       </article>
 
-      <div className="grid gap-6">
-        <article className="rounded-lg bg-[hsl(var(--pix-lavender))] p-6 text-[hsl(var(--pix-charcoal))]">
+      <div className="grid gap-4 lg:self-start">
+        <article className="rounded-lg bg-[hsl(var(--pix-lavender))] p-5 text-[hsl(var(--pix-charcoal))] dark:border dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)]">
           <Badge variant="secondary">Sprite</Badge>
-          <h3 className="mt-4 text-2xl font-semibold">动作帧可播放验收</h3>
-          <div className="mt-5 grid place-items-center rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-6">
-            <SpriteFramePlayer showcase={spriteShowcases[0]} className="h-28 w-28" />
+          <h3 className="mt-4 text-xl font-semibold">动作帧可播放验收</h3>
+          <div className="mt-4 grid h-32 place-items-center rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-4 dark:border-white/12 dark:bg-white/7">
+            <SpriteFramePlayer showcase={spriteShowcases[0]} className="h-24 w-24" />
           </div>
         </article>
-        <article className="rounded-lg bg-[hsl(var(--pix-sky))] p-6 text-[hsl(var(--pix-charcoal))]">
+        <article className="rounded-lg bg-[hsl(var(--pix-sky))] p-5 text-[hsl(var(--pix-charcoal))] dark:border dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)]">
           <Badge variant="info">Atlas</Badge>
-          <h3 className="mt-4 text-2xl font-semibold">题材范例可追溯</h3>
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            {featuredExamples.map((example) => <div key={example.id} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-2"><ItemSpriteGrid example={example} compact /><p className="mt-2 truncate text-xs font-semibold">{example.theme}</p></div>)}
+          <h3 className="mt-4 text-xl font-semibold">题材范例可追溯</h3>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {featuredExamples.map((example) => <div key={example.id} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-2 dark:border-white/10 dark:bg-white/7"><ItemSpriteGrid example={example} compact /><p className="mt-2 truncate text-xs font-semibold">{example.theme}</p></div>)}
           </div>
         </article>
       </div>
