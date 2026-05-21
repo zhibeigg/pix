@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.9] - 2026-05-21
+
+### Changed
+
+- 优化首页范例图库：左侧题材卡片放大并显示完整名称，详情面板改为跟随鼠标悬浮展示，同时移除底部文件名展示。
+
 ## [1.15.8] - 2026-05-21
 
 ### Fixed
