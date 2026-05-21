@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.2] - 2026-05-21
+
+### Added
+
+- Web 工作台像素参数控件新增常用尺寸快捷选项，颜色数支持滑块拖动与数字输入同步调节。
+
 ## [1.12.2] - 2026-05-21
 
 ### Fixed
