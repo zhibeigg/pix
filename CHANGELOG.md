@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.4] - 2026-05-21
+
+### Fixed
+
+- 修复原始生图页在没有历史原图任务时错误读取空预览覆盖对象导致页面崩溃无法打开的问题。
+
 ## [1.14.3] - 2026-05-21
 
 ### Fixed
