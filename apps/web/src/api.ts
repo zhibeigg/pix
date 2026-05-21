@@ -12,6 +12,8 @@ import type {
   PaymentOrder,
   PricingRule,
   CreditPackage,
+  CustomRechargeOptions,
+  RechargeRequest,
   SystemSetting,
   SetupStatus,
   TokenResponse,
@@ -156,13 +158,16 @@ export const api = {
   packages() {
     return request<CreditPackage[]>('/billing/packages')
   },
-  createOrder(token: string, packageKey: string) {
-    return request<PaymentOrder>('/billing/orders', { method: 'POST', body: JSON.stringify({ package_key: packageKey }) }, token)
+  customRechargeOptions() {
+    return request<CustomRechargeOptions>('/billing/custom-recharge-options')
   },
-  checkout(token: string, packageKey: string, provider: string) {
+  createOrder(token: string, payload: RechargeRequest) {
+    return request<PaymentOrder>('/billing/orders', { method: 'POST', body: JSON.stringify(payload) }, token)
+  },
+  checkout(token: string, payload: RechargeRequest) {
     return request<PaymentCheckout>('/billing/checkout', {
       method: 'POST',
-      body: JSON.stringify({ package_key: packageKey, provider }),
+      body: JSON.stringify(payload),
     }, token)
   },
   orders(token: string) {

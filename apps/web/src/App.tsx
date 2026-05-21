@@ -17,7 +17,7 @@ import { PacksPage } from './pages/PacksPage'
 import { RawImagePage } from './pages/RawImagePage'
 import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
 import { buildGridDesign, defaultPixelize } from './pixelize'
-import type { AdminDashboard, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, EmailCodeResponse, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SetupStatus, SystemSetting, User } from './types'
+import type { AdminDashboard, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SetupStatus, SystemSetting, User } from './types'
 
 const TOKEN_KEY = 'pix_web_token'
 
@@ -41,6 +41,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
   const [balance, setBalance] = useState<CreditBalance | null>(null)
   const [transactions, setTransactions] = useState<CreditTransaction[]>([])
   const [packages, setPackages] = useState<CreditPackage[]>([])
+  const [customRechargeOptions, setCustomRechargeOptions] = useState<CustomRechargeOptions | null>(null)
   const [adminPackages, setAdminPackages] = useState<CreditPackage[]>([])
   const [orders, setOrders] = useState<PaymentOrder[]>([])
   const [checkout, setCheckout] = useState<PaymentCheckout | null>(null)
@@ -89,11 +90,12 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
-    const [me, nextBalance, nextTransactions, nextPackages, nextOrders, nextJobs, nextBatches, nextPricing] = await Promise.all([
+    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextBatches, nextPricing] = await Promise.all([
       api.me(activeToken),
       api.balance(activeToken),
       api.transactions(activeToken),
       api.packages(),
+      api.customRechargeOptions(),
       api.orders(activeToken),
       api.jobs(activeToken),
       api.batches(activeToken),
@@ -103,6 +105,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     setBalance(nextBalance)
     setTransactions(nextTransactions)
     setPackages(nextPackages)
+    setCustomRechargeOptions(nextCustomRechargeOptions)
     setOrders(nextOrders)
     setJobs(nextJobs)
     setBatches(nextBatches)
@@ -496,7 +499,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
   async function createPaymentOrder(packageKey: string) {
     if (!token) return
     try {
-      const order = await api.createOrder(token, packageKey)
+      const order = await api.createOrder(token, { package_key: packageKey, provider: 'mock' })
       setCheckout(null)
       await refreshCore(token)
       setMessage(`订单 #${order.id} 已创建`)
@@ -508,13 +511,40 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
   async function startCheckout(packageKey: string, provider: string) {
     if (!token) return
     try {
-      const result = await api.checkout(token, packageKey, provider)
+      const result = await api.checkout(token, { package_key: packageKey, provider })
       setCheckout(result)
       if (result.payment_url) {
         window.open(result.payment_url, '_blank', 'noopener,noreferrer')
       }
       await refreshCore(token)
       setMessage(`订单 #${result.order.id} 已创建：${provider}`)
+    } catch (error) {
+      showError(error)
+    }
+  }
+
+  async function createCustomPaymentOrder(customCredits: number) {
+    if (!token) return
+    try {
+      const order = await api.createOrder(token, { custom_credits: customCredits, provider: 'mock' })
+      setCheckout(null)
+      await refreshCore(token)
+      setMessage(`自定义订单 #${order.id} 已创建`)
+    } catch (error) {
+      showError(error)
+    }
+  }
+
+  async function startCustomCheckout(customCredits: number, provider: string) {
+    if (!token) return
+    try {
+      const result = await api.checkout(token, { custom_credits: customCredits, provider })
+      setCheckout(result)
+      if (result.payment_url) {
+        window.open(result.payment_url, '_blank', 'noopener,noreferrer')
+      }
+      await refreshCore(token)
+      setMessage(`自定义订单 #${result.order.id} 已创建：${provider}`)
     } catch (error) {
       showError(error)
     }
@@ -612,7 +642,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
             {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onCreateJobs={createRawImageJobs} onRefresh={() => refreshCore()} />}
             {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} />}
             {page === 'packs' && <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
-            {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onMockPayOrder={mockPayPaymentOrder} />}
+            {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
             {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onTestEmail={testEmailSetting} />}
             <SiteFooter />
           </div>

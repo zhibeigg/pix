@@ -23,7 +23,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from pix_web.billing import create_payment_order, mark_order_paid
+from pix_web.billing import create_custom_payment_order, create_payment_order, mark_order_paid, normalize_payment_provider
 from pix_web.config import WebSettings
 from pix_web.models import AlipayGatewayMessage, PaymentOrder, User
 
@@ -175,14 +175,21 @@ def _public_url(settings: WebSettings, path: str) -> str:
     return f"{settings.public_base_url.rstrip('/')}{path}"
 
 
-def create_checkout(db: Session, user: User, package_key: str, provider: str, settings: WebSettings) -> CheckoutResult:
-    provider = provider.lower()
+def create_checkout(
+    db: Session,
+    user: User,
+    *,
+    provider: str,
+    settings: WebSettings,
+    package_key: str | None = None,
+    custom_credits: int | None = None,
+) -> CheckoutResult:
+    provider = normalize_payment_provider(provider)
     if provider == "mock":
-        return CheckoutResult(order=create_payment_order(db, user, package_key, provider="mock"), provider="mock")
+        order = create_custom_payment_order(db, user, custom_credits, provider="mock") if custom_credits is not None else create_payment_order(db, user, package_key or "", provider="mock")
+        return CheckoutResult(order=order, provider="mock")
     if provider == "alipay":
-        return create_alipay_checkout(db, user, package_key, settings)
-    if provider == "wechat":
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="微信支付已关闭")
+        return create_alipay_checkout(db, user, settings, package_key=package_key, custom_credits=custom_credits)
     raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="不支持的支付方式")
 
 
@@ -190,7 +197,14 @@ def _alipay_sign_content(params: dict[str, str]) -> str:
     return "&".join(f"{key}={params[key]}" for key in sorted(params) if params[key] != "")
 
 
-def create_alipay_checkout(db: Session, user: User, package_key: str, settings: WebSettings) -> CheckoutResult:
+def create_alipay_checkout(
+    db: Session,
+    user: User,
+    settings: WebSettings,
+    *,
+    package_key: str | None = None,
+    custom_credits: int | None = None,
+) -> CheckoutResult:
     app_id = _require(settings.alipay_app_id, "ALIPAY_APP_ID")
     mode = _alipay_mode(settings)
     if mode == "certificate":
@@ -199,13 +213,18 @@ def create_alipay_checkout(db: Session, user: User, package_key: str, settings: 
         _require(settings.alipay_root_cert, "ALIPAY_ROOT_CERT")
     else:
         _require(settings.alipay_public_key, "ALIPAY_PUBLIC_KEY")
-    order = create_payment_order(db, user, package_key, provider="alipay")
+    order = (
+        create_custom_payment_order(db, user, custom_credits, provider="alipay")
+        if custom_credits is not None
+        else create_payment_order(db, user, package_key or "", provider="alipay")
+    )
+    subject = f"Pix Credits 自定义 {order.credits}" if order.package_id is None else f"Pix Credits {order.credits}"
     biz_content = json.dumps(
         {
             "out_trade_no": order.provider_order_id,
             "product_code": "FAST_INSTANT_TRADE_PAY",
             "total_amount": _money_yuan(order.amount_cents),
-            "subject": f"Pix Credits {order.credits}",
+            "subject": subject,
         },
         ensure_ascii=False,
         separators=(",", ":"),

@@ -16,6 +16,9 @@ DEFAULT_PACKAGES: list[dict[str, object]] = [
     {"key": "studio", "name": "Studio", "credits": 500, "amount_cents": 3900, "currency": "cny", "sort_order": 20},
     {"key": "pro", "name": "Pro", "credits": 1500, "amount_cents": 9900, "currency": "cny", "sort_order": 30},
 ]
+CUSTOM_RECHARGE_MIN_CREDITS = 10
+CUSTOM_RECHARGE_MAX_CREDITS = 100000
+CUSTOM_RECHARGE_SUGGESTED_CREDITS = [50, 100, 200, 500, 1000]
 
 
 def ensure_default_packages(db: Session) -> None:
@@ -40,6 +43,42 @@ def list_enabled_packages(db: Session) -> list[CreditPackage]:
     )
 
 
+def normalize_payment_provider(provider: str) -> str:
+    clean = provider.strip().lower()
+    if clean == "wechat":
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="微信支付已关闭")
+    if clean not in {"mock", "alipay"}:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="不支持的支付方式")
+    return clean
+
+
+def _persist_payment_order(
+    db: Session,
+    user: User,
+    *,
+    provider: str,
+    credits: int,
+    amount_cents: int,
+    currency: str,
+    package_id: int | None = None,
+) -> PaymentOrder:
+    provider = normalize_payment_provider(provider)
+    order = PaymentOrder(
+        user_id=user.id,
+        package_id=package_id,
+        provider=provider,
+        provider_order_id=f"{provider}-{uuid4().hex}",
+        status="pending",
+        amount_cents=amount_cents,
+        currency=currency,
+        credits=credits,
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    return order
+
+
 def create_payment_order(db: Session, user: User, package_key: str, *, provider: str = "mock") -> PaymentOrder:
     ensure_default_packages(db)
     package = db.scalar(
@@ -47,20 +86,76 @@ def create_payment_order(db: Session, user: User, package_key: str, *, provider:
     )
     if package is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="充值套餐不存在或已停用")
-    order = PaymentOrder(
-        user_id=user.id,
-        package_id=package.id,
+    return _persist_payment_order(
+        db,
+        user,
         provider=provider,
-        provider_order_id=f"{provider}-{uuid4().hex}",
-        status="pending",
+        credits=package.credits,
         amount_cents=package.amount_cents,
         currency=package.currency,
-        credits=package.credits,
+        package_id=package.id,
     )
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-    return order
+
+
+def _custom_recharge_base(db: Session) -> CreditPackage | None:
+    ensure_default_packages(db)
+    return db.scalar(
+        select(CreditPackage)
+        .where(CreditPackage.enabled.is_(True), CreditPackage.credits > 0, CreditPackage.amount_cents > 0)
+        .order_by(CreditPackage.sort_order.asc(), CreditPackage.amount_cents.asc())
+        .limit(1)
+    )
+
+
+def _default_custom_base() -> dict[str, object]:
+    return DEFAULT_PACKAGES[0]
+
+
+def custom_recharge_options(db: Session) -> dict[str, object]:
+    base = _custom_recharge_base(db)
+    if base is None:
+        default_base = _default_custom_base()
+        base_key = str(default_base["key"])
+        base_credits = int(default_base["credits"])
+        base_amount_cents = int(default_base["amount_cents"])
+        currency = str(default_base["currency"])
+    else:
+        base_key = base.key
+        base_credits = base.credits
+        base_amount_cents = base.amount_cents
+        currency = base.currency
+    return {
+        "min_credits": CUSTOM_RECHARGE_MIN_CREDITS,
+        "max_credits": CUSTOM_RECHARGE_MAX_CREDITS,
+        "currency": currency,
+        "unit_amount_cents_per_credit": base_amount_cents / base_credits,
+        "base_package_key": base_key,
+        "base_package_credits": base_credits,
+        "base_package_amount_cents": base_amount_cents,
+        "suggested_credits": CUSTOM_RECHARGE_SUGGESTED_CREDITS,
+    }
+
+
+def calculate_custom_recharge_amount_cents(db: Session, credits: int) -> tuple[int, str]:
+    if credits < CUSTOM_RECHARGE_MIN_CREDITS or credits > CUSTOM_RECHARGE_MAX_CREDITS:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="自定义充值点数超出允许范围")
+    options = custom_recharge_options(db)
+    base_credits = int(options["base_package_credits"])
+    base_amount_cents = int(options["base_package_amount_cents"])
+    amount_cents = (base_amount_cents * credits + base_credits - 1) // base_credits
+    return amount_cents, str(options["currency"])
+
+
+def create_custom_payment_order(db: Session, user: User, credits: int, *, provider: str = "mock") -> PaymentOrder:
+    amount_cents, currency = calculate_custom_recharge_amount_cents(db, credits)
+    return _persist_payment_order(
+        db,
+        user,
+        provider=provider,
+        credits=credits,
+        amount_cents=amount_cents,
+        currency=currency,
+    )
 
 
 def list_payment_orders(db: Session, user: User, *, limit: int = 50) -> list[PaymentOrder]:

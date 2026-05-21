@@ -539,6 +539,80 @@ def test_alipay_checkout_and_webhook_are_idempotent(client: TestClient) -> None:
     assert client.get("/credits/balance", headers=headers).json()["available_credits"] == starting_credits + order["credits"]
 
 
+def test_custom_alipay_checkout_and_webhook_recharges_exact_credits(client: TestClient) -> None:
+    private_pem, public_pem = _rsa_key_pair()
+    client.app.state.web_settings = replace(
+        client.app.state.web_settings,
+        public_base_url="https://pix.example.com/api",
+        alipay_app_id="app-id",
+        alipay_private_key=private_pem,
+        alipay_public_key=public_pem,
+    )
+    _user, headers = _register_and_login(client, "custom-alipay@example.com")
+    checkout = client.post("/billing/checkout", headers=headers, json={"custom_credits": 75, "provider": "alipay"})
+
+    assert checkout.status_code == 200
+    body = checkout.json()
+    order = body["order"]
+    assert order["credits"] == 75
+    assert order["amount_cents"] == 743
+    assert order["status"] == "pending"
+    assert "Pix+Credits" in body["payment_url"] or "Pix%20Credits" in body["payment_url"]
+
+    form = {
+        "out_trade_no": order["provider_order_id"],
+        "trade_no": "ali-custom-trade-1",
+        "trade_status": "TRADE_SUCCESS",
+        "total_amount": f"{order['amount_cents'] / 100:.2f}",
+        "sign_type": "RSA2",
+    }
+    sign_payload = {key: value for key, value in form.items() if key != "sign_type"}
+    form["sign"] = _rsa_sign(private_pem, _alipay_sign_content(sign_payload))
+    paid = client.post("/billing/webhook/alipay", data=form)
+
+    assert paid.status_code == 200
+    assert paid.text == "success"
+    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == 75
+
+
+def test_custom_mock_order_can_be_created_and_admin_paid(client: TestClient) -> None:
+    _admin, admin_headers = _register_and_login(client)
+    _user, headers = _register_and_login(client, "custom-mock@example.com")
+
+    options = client.get("/billing/custom-recharge-options")
+    assert options.status_code == 200
+    assert options.json()["min_credits"] == 10
+    assert options.json()["base_package_amount_cents"] == 990
+
+    order = client.post("/billing/orders", headers=headers, json={"custom_credits": 75, "provider": "mock"})
+    assert order.status_code == 200
+    order_body = order.json()
+    assert order_body["credits"] == 75
+    assert order_body["amount_cents"] == 743
+    assert order_body["status"] == "pending"
+    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == 0
+
+    paid = client.post(f"/billing/mock-pay/{order_body['id']}", headers=admin_headers)
+    assert paid.status_code == 200
+    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == 75
+
+
+def test_custom_recharge_rejects_invalid_credit_payloads(client: TestClient) -> None:
+    _user, headers = _register_and_login(client)
+
+    too_small = client.post("/billing/orders", headers=headers, json={"custom_credits": 9, "provider": "mock"})
+    both_sources = client.post(
+        "/billing/orders",
+        headers=headers,
+        json={"package_key": "starter", "custom_credits": 75, "provider": "mock"},
+    )
+    no_source = client.post("/billing/orders", headers=headers, json={"provider": "mock"})
+
+    assert too_small.status_code == 422
+    assert both_sources.status_code == 422
+    assert no_source.status_code == 422
+
+
 def test_alipay_app_gateway_message_is_verified_and_idempotent(client: TestClient) -> None:
     private_pem, public_pem = _rsa_key_pair()
     client.app.state.web_settings = replace(

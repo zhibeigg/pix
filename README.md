@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.16.17-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.17.17-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-385%20passed-2ea44f.svg">
 </p>
 
@@ -446,6 +446,8 @@ https://你的域名/api/billing/webhook/alipay/app-gateway
 
 该入口用于接收 `msg_method` / `biz_content` / `notify_id` 形式的开放平台消息通知，会复用支付宝公钥或证书配置验签，按 `notify_id` 幂等保存消息，并按支付宝要求返回纯文本 `success`。支付结果异步通知仍使用 `/billing/webhook/alipay`。
 
+点数中心支持固定套餐和自定义点数充值。自定义充值金额由后端按当前启用基准套餐单价派生，并在创建订单时重新计算；前端只展示预计金额，不能传入或篡改最终支付金额。
+
 ---
 
 ## GUI
@@ -663,7 +665,7 @@ palette_mode = "ramp"
 | `B` | 功能更新 | 新增功能 |
 | `C` | 修复 | Bug 修复、兼容性修复、清理 |
 
-当前版本：`1.16.17`
+当前版本：`1.17.17`
 
 ---
 
