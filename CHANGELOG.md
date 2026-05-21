@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.21] - 2026-05-21
+
+### Fixed
+
+- 提高浅色主题下语义徽章、描边按钮和主色文本对比度，修复队列/任务等状态提示看不清的问题。
+
 ## [1.17.20] - 2026-05-21
 
 ### Fixed
