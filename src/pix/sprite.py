@@ -18,6 +18,7 @@ from pix.cache import Cache
 from pix.config import AppConfig
 from pix.contact_sheet import parse_hex_color, resolve_key_color
 from pix.io_utils import new_run_dir
+from pix.pixelize.bg_removal import remove_translucent_edge_halo
 from pix.pixelize.core import PixelizeParams, pixelize
 from pix.pixelize.palette import build_palette_image, kmeans_palette, rgb_to_hex
 
@@ -380,6 +381,7 @@ def split_sprite_sheet(
 
     for index, cell in enumerate(transparent_cells, start=1):
         frame = cell.crop(crop_box) if crop_box is not None else cell
+        frame = remove_translucent_edge_halo(frame)
         frame_path = dest / f"frame_{index:02d}.png"
         frame.save(frame_path)
         raw_frames.append(frame_path)

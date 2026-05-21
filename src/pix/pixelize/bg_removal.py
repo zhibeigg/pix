@@ -211,6 +211,67 @@ def key_color_edge_spill_mask(
     return candidates
 
 
+def remove_translucent_edge_halo(
+    image: Image.Image,
+    *,
+    key_rgb: tuple[int, int, int] | None = None,
+    alpha_cutoff: int = 128,
+    key_alpha_cutoff: int = 224,
+    radius: int = 2,
+    passes: int = 2,
+) -> Image.Image:
+    """清理透明主体外缘的半透明背景色残留。
+
+    精灵帧从 key-color 背景抠图后，缩放/量化前常会留下低 alpha 的
+    紫/绿/红色边缘。这些像素在透明棋盘或深色背景上会显得像一圈脏边。
+    该函数只处理透明边界附近像素：
+    - alpha 很低的边缘像素直接抠透明；
+    - 若提供 key_rgb，则额外清理 alpha 较高但色相仍接近 key color 的边缘像素。
+    """
+    rgba = np.asarray(image.convert("RGBA")).copy()
+    safe_alpha = max(0, min(255, int(alpha_cutoff)))
+    safe_key_alpha = max(safe_alpha, min(255, int(key_alpha_cutoff)))
+    safe_radius = max(1, int(radius))
+    for _ in range(max(1, int(passes))):
+        alpha = rgba[..., 3]
+        visible = alpha > 0
+        if not visible.any():
+            break
+        near = alpha == 0
+        for _distance in range(safe_radius):
+            near = _dilate_mask_8(near)
+        remove = visible & near & (alpha <= safe_alpha)
+        if key_rgb is not None:
+            rgb = rgba[..., :3].astype(np.float32)
+            key = np.asarray(key_rgb, dtype=np.float32)
+            key_norm = float(np.linalg.norm(key)) or 1.0
+            rgb_norm = np.linalg.norm(rgb, axis=2)
+            dot = (rgb * key).sum(axis=2)
+            cosine = np.zeros(alpha.shape, dtype=np.float32)
+            valid_norm = rgb_norm > 1e-6
+            cosine[valid_norm] = dot[valid_norm] / (rgb_norm[valid_norm] * key_norm)
+            channel_max = rgb.max(axis=2)
+            channel_min = rgb.min(axis=2)
+            chroma = channel_max - channel_min
+            key_spill = (
+                visible
+                & near
+                & (alpha <= safe_key_alpha)
+                & (cosine >= 0.88)
+                & (channel_max >= 36)
+                & (chroma >= 24)
+            )
+            remove |= key_spill
+        if not remove.any():
+            break
+        rgba[remove, :3] = 0
+        rgba[remove, 3] = 0
+    transparent = rgba[..., 3] == 0
+    if transparent.any():
+        rgba[transparent, :3] = 0
+    return Image.fromarray(rgba, mode="RGBA")
+
+
 def remove_detached_dark_edges(
     image: Image.Image,
     *,

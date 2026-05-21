@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.10] - 2026-05-21
+
+### Fixed
+
+- 清理动画精灵帧主体外缘的半透明 key-color 残留，减少深色背景/棋盘格预览中的紫色背景脏边，并重新处理首页月刃骑士示例资源。
+
 ## [1.15.9] - 2026-05-21
 
 ### Changed

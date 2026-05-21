@@ -14,6 +14,7 @@ from pix.pixelize.bg_removal import (
     remove_detached_dark_edges,
     remove_key_color,
     remove_tiny_alpha_islands,
+    remove_translucent_edge_halo,
 )
 from pix.pixelize.core import (
     PixelizeParams,
@@ -412,6 +413,23 @@ class TestRemoveBackground:
         assert (out_arr[3, 6:9, 3] == 0).all()
         assert (out_arr[5, 6:9, 3] == 255).all()
         assert (out_arr[6:9, 6:9, 3] == 255).all()
+
+    def test_remove_translucent_edge_halo_clears_key_color_fringe(self) -> None:
+        img = Image.new("RGBA", (12, 12), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[4:8, 4:8] = [220, 220, 235, 255]
+        arr[3, 4:8] = [125, 30, 146, 150]
+        arr[8, 4:8] = [125, 30, 146, 224]
+        arr[5, 5] = [125, 30, 146, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        out = remove_translucent_edge_halo(img, key_rgb=(255, 0, 255), alpha_cutoff=128, key_alpha_cutoff=224)
+        out_arr = np.asarray(out)
+
+        assert (out_arr[3, 4:8, 3] == 0).all()
+        assert (out_arr[8, 4:8, 3] == 0).all()
+        assert (out_arr[4:8, 4:8, 3] == 255).all()
+        assert out_arr[5, 5, 3] == 255
 
     def test_remove_tiny_alpha_islands_clears_small_detached_component(self) -> None:
         img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
