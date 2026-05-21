@@ -51,6 +51,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
   const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(null)
   const [busy, setBusy] = useState(false)
   const [retryingBatchId, setRetryingBatchId] = useState<number | null>(null)
+  const [retryingJobId, setRetryingJobId] = useState<number | null>(null)
   const [downloadingBatchId, setDownloadingBatchId] = useState<number | null>(null)
   const [message, setMessage] = useState('')
   const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null)
@@ -259,6 +260,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     setAdminDashboard(null)
     setSelectedJobId(null)
     setSelectedRawJobId(null)
+    setRetryingJobId(null)
     setMessage('已退出')
   }
 
@@ -414,6 +416,25 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       showError(error)
     } finally {
       setDownloadingBatchId(null)
+    }
+  }
+
+  async function retryJob(job: GenerationJob) {
+    if (!token || job.status !== 'failed') return
+    if (!window.confirm(`重试任务 #${job.id}？将按当前价格重新冻结点数。`)) return
+    setRetryingJobId(job.id)
+    setMessage('')
+    try {
+      const created = await api.retryJob(token, job.id)
+      setSelectedJobId(created.id)
+      setPage('gallery')
+      window.location.hash = '/gallery'
+      setMessage(`任务 #${job.id} 已重试，新任务 #${created.id} 已入队。`)
+      await refreshCore(token)
+    } catch (error) {
+      showError(error)
+    } finally {
+      setRetryingJobId(null)
     }
   }
 
@@ -628,7 +649,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
                 <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onCreateJobs={createRawImageJobs} onRefresh={() => refreshCore()} />
               )}
               {page === 'gallery' && (
-                <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} />
+                <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} />
               )}
               {page === 'packs' && (
                 <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />

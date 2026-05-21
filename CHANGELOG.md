@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.2] - 2026-05-21
+
+### Added
+
+- 作品库失败任务新增单任务重试按钮，并提供 `POST /jobs/{job_id}/retry` 后端接口，重试后按当前价格重新冻结点数并入队。
+
 ## [1.13.2] - 2026-05-21
 
 ### Added

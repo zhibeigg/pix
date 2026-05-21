@@ -176,6 +176,9 @@ export const api = {
   createJob(token: string, payload: JobCreateRequest) {
     return request<GenerationJob>('/jobs', { method: 'POST', body: JSON.stringify(payload) }, token)
   },
+  retryJob(token: string, jobId: number) {
+    return request<GenerationJob>(`/jobs/${jobId}/retry`, { method: 'POST' }, token)
+  },
   createJobsBatch(token: string, payloads: JobCreateRequest[], batchName = '', mode = 'mixed') {
     return request<JobBatchCreateResponse>('/jobs/batch', { method: 'POST', body: JSON.stringify({ jobs: payloads, batch_name: batchName, mode }) }, token)
   },

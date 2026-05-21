@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.config import WebSettings
-from pix_web.jobs import create_job, create_jobs_batch
+from pix_web.jobs import create_job, create_jobs_batch, retry_failed_job
 from pix_web.models import GenerationJob, User
 from pix_web.queue import enqueue_jobs
 from pix_web.schemas import JobBatchCreateRequest, JobBatchCreateResponse, JobCreateRequest, JobResponse
@@ -54,6 +54,18 @@ def list_jobs(
         .limit(max(1, min(200, limit)))
     )
     return list(db.scalars(stmt))
+
+
+@router.post("/{job_id}/retry", response_model=JobResponse)
+def retry_job(
+    job_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> GenerationJob:
+    job = retry_failed_job(db, user, job_id)
+    enqueue_jobs(settings, [job.id])
+    return job
 
 
 @router.get("/{job_id}", response_model=JobResponse)

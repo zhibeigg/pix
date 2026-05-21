@@ -242,6 +242,43 @@ def _request_from_failed_job(job: GenerationJob) -> JobCreateRequest:
     )
 
 
+def retry_failed_job(db: Session, user: User, job_id: int) -> GenerationJob:
+    failed_job = db.scalar(
+        select(GenerationJob)
+        .options(selectinload(GenerationJob.batch))
+        .where(GenerationJob.id == job_id, GenerationJob.user_id == user.id)
+    )
+    if failed_job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+    if failed_job.status != "failed":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只有失败任务可以重试")
+
+    req = _request_from_failed_job(failed_job)
+    validate_job_request(req)
+    enforce_prompt_policy(db, _prompt_policy_text(req))
+    enforce_generation_limits(db, user, new_jobs=1)
+    price = _price_for_request(db, req)
+
+    account = db.scalar(select(CreditAccount).where(CreditAccount.user_id == user.id))
+    available = account.available_credits if account is not None else 0
+    if available < price:
+        raise insufficient_credits_http()
+
+    try:
+        job = create_job_in_transaction(db, user, req, reserve=False, batch=failed_job.batch)
+        reserve_credits(db, user, job, price)
+    except InsufficientCreditsError as exc:
+        db.rollback()
+        raise insufficient_credits_http() from exc
+
+    db.commit()
+    return db.scalar(
+        select(GenerationJob)
+        .options(selectinload(GenerationJob.outputs), selectinload(GenerationJob.batch))
+        .where(GenerationJob.id == job.id)
+    ) or job
+
+
 def retry_failed_jobs_in_batch(db: Session, user: User, batch_id: int) -> tuple[list[GenerationJob], int, GenerationBatch]:
     batch = db.scalar(
         select(GenerationBatch)
