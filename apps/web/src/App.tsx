@@ -647,7 +647,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
         <Box>
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
           {message && <Box sx={{ maxWidth: 1152, mx: 'auto', px: { xs: 2, md: 4 }, py: 2 }}><Alert severity="info" role="status" aria-live="polite">{message}</Alert></Box>}
-          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLogout={logout} loading={busy} />} />
+          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} />} />
           <SiteFooter />
         </Box>
       )}

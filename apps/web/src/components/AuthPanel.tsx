@@ -11,9 +11,10 @@ type AuthPanelProps = {
   onRequestRegisterCode: (email: string) => Promise<EmailCodeResponse>
   onLogout: () => void
   loading: boolean
+  registrationBonusCredits: number
 }
 
-export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, onLogout, loading }: AuthPanelProps) {
+export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, onLogout, loading, registrationBonusCredits }: AuthPanelProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('admin@example.com')
   const [password, setPassword] = useState('password123')
@@ -135,6 +136,9 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
         <Button type="submit" variant="contained" color="primary" disabled={loading} sx={{ minHeight: 48, fontWeight: 600 }}>
           {loading ? '处理中…' : isRegister ? '验证并注册' : '进入工作台'}
         </Button>
+        {isRegister && registrationBonusCredits > 0 && (
+          <AuthInlineAlert severity="info">注册即送 {registrationBonusCredits} 点数，可立即用于生成素材。</AuthInlineAlert>
+        )}
       </Stack>
     </AuthCardFrame>
   )

@@ -60,6 +60,7 @@ class OperationalSettings:
     daily_job_limit_per_user: int
     blocked_prompt_terms: str
     max_uploads_per_user_per_day: int
+    registration_bonus_credits: int
 
 
 ACTIVE_JOB_STATUSES = {"pending", "running"}
@@ -69,6 +70,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("max_pending_jobs_per_user", "每用户排队/运行上限", "运营保护", "number", "5", "0 表示不限制。"),
     SettingDefinition("daily_job_limit_per_user", "每用户每日任务上限", "运营保护", "number", "50", "0 表示不限制。"),
     SettingDefinition("max_uploads_per_user_per_day", "每用户每日上传上限", "运营保护", "number", "50", "0 表示不限制。"),
+    SettingDefinition("registration_bonus_credits", "注册赠送点数", "运营保护", "number", "30", "新用户注册时赠送的点数，0 表示不赠送。"),
     SettingDefinition("blocked_prompt_terms", "素材描述禁词", "运营保护", "textarea", "", "逗号、分号或换行分隔。"),
     SettingDefinition("web.email_provider", "邮件发送方式", "邮件验证码", "select", "", "console 适合开发；smtp 用于生产投递。", ("console", "smtp")),
     SettingDefinition("web.smtp_host", "SMTP Host", "邮件验证码", "string", "", "例如 smtp.example.com。", env_var="PIX_WEB_SMTP_HOST"),
@@ -163,6 +165,7 @@ DEFAULT_SYSTEM_SETTINGS: dict[str, str] = {
         "daily_job_limit_per_user",
         "blocked_prompt_terms",
         "max_uploads_per_user_per_day",
+        "registration_bonus_credits",
     }
 }
 ALLOWED_SETTING_KEYS = set(SETTING_DEFINITIONS_BY_KEY)
@@ -356,6 +359,10 @@ def load_operational_settings(db: Session) -> OperationalSettings:
         max_uploads_per_user_per_day=_parse_positive_int(
             values.get("max_uploads_per_user_per_day", DEFAULT_SYSTEM_SETTINGS["max_uploads_per_user_per_day"]),
             int(DEFAULT_SYSTEM_SETTINGS["max_uploads_per_user_per_day"]),
+        ),
+        registration_bonus_credits=_parse_positive_int(
+            values.get("registration_bonus_credits", DEFAULT_SYSTEM_SETTINGS["registration_bonus_credits"]),
+            int(DEFAULT_SYSTEM_SETTINGS["registration_bonus_credits"]),
         ),
     )
 

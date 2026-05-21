@@ -94,7 +94,7 @@ def create_checkout(db: Session, user: User, package_key: str, provider: str, se
     if provider == "alipay":
         return create_alipay_checkout(db, user, package_key, settings)
     if provider == "wechat":
-        return create_wechat_checkout(db, user, package_key, settings)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="微信支付已关闭")
     raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="不支持的支付方式")
 
 

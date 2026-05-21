@@ -103,6 +103,7 @@ class SetupStatusResponse(BaseModel):
     admin_count: int
     email_provider: str
     debug_codes_available: bool
+    registration_bonus_credits: int = 0
 
 
 class UserResponse(BaseModel):
