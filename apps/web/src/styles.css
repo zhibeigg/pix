@@ -34,7 +34,8 @@
   --radius-3xl: 24px;
 }
 
-:root {
+:root,
+[data-theme="light"] {
   color-scheme: light;
   --background: 0 0% 100%;
   --foreground: 0 0% 10%;
@@ -90,6 +91,15 @@
   --pix-brand-brown: 32 67% 19%;
   --pix-link-blue: 208 100% 44%;
   --pix-link-blue-pressed: 208 100% 34%;
+
+  --pix-paper: 48 35% 96%;
+  --pix-paper-soft: 30 18% 93%;
+  --pix-paper-muted: 42 22% 88%;
+  --pix-paper-border: 38 14% 80%;
+  --pix-paper-ink: 0 0% 10%;
+  --pix-paper-charcoal: 45 8% 20%;
+  --pix-paper-slate: 47 5% 35%;
+  --pix-paper-steel: 43 3% 46%;
 }
 
 [data-theme="dark"] {
@@ -115,6 +125,15 @@
   --border: 223 52% 21%;
   --input: 223 52% 21%;
   --ring: 269 78% 84%;
+
+  --pix-dark-canvas: 223 67% 8%;
+  --pix-dark-band: 223 66% 11%;
+  --pix-dark-band-soft: 223 52% 15%;
+  --pix-dark-card: 223 48% 12%;
+  --pix-dark-card-raised: 223 42% 16%;
+  --pix-dark-hairline: 223 36% 25%;
+  --pix-dark-on: 42 36% 96%;
+  --pix-dark-muted: 42 7% 68%;
 }
 
 * {

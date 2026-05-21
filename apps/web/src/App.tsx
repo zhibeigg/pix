@@ -606,8 +606,8 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
   const needsAdminSetup = setupStatus?.needs_admin && !user
 
   return (
-    <main data-pix-theme={themeMode} className="min-h-screen text-foreground">
-      <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-xl">
+    <main data-pix-theme={themeMode} className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-xl dark:border-white/10 dark:bg-[hsl(var(--pix-navy-deep)/.95)]">
         <div className="mx-auto grid min-h-16 max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:px-8">
           <a href="#/home" aria-label="返回首页" className="flex min-w-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <img src="/pix-logo-64.png" alt="" className="h-9 w-9 shrink-0 [image-rendering:pixelated]" />
@@ -721,7 +721,7 @@ function SiteFooter() {
     { title: 'Company', links: ['Pix Forge', 'Game assets'] },
   ]
   return (
-    <footer className="border-t border-border bg-card px-4 py-16 md:px-8">
+    <footer className="border-t border-border bg-card px-4 py-16 md:px-8 dark:border-white/10 dark:bg-[hsl(var(--pix-navy-deep))]">
       <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-[1.2fr_2fr]">
         <div>
           <div className="flex items-center gap-2 font-semibold text-foreground">

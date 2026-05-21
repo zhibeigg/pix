@@ -4,16 +4,23 @@ import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
 
-const advantageProofs = [
-  { label: '工程图', title: '不只给一张图', body: '源图、Pixel Grid、透明 PNG、预览与 meta 一起归档，便于复查和返修。', mark: 'JSON', tone: 'bg-[hsl(var(--pix-lavender)/.62)]' },
-  { label: '批量包', title: '按素材包生产', body: '一组素材统一入队；失败项单独重试，成功项直接打包下载。', mark: 'ZIP', tone: 'bg-[hsl(var(--pix-mint)/.58)]' },
-  { label: '小尺寸', title: '交付前先验收', body: '16×16、32×32 关注轮廓和色板，不把大图粗暴缩小当成像素资产。', mark: '16', tone: 'bg-[hsl(var(--pix-sky)/.62)]' },
+const stickyNotes = [
+  { label: '任务单', title: '先定交付规格', body: '名称、尺寸、颜色数、透明背景和批次备注先进同一张生产单。', mark: '01', tone: 'bg-[hsl(var(--pix-peach))]' },
+  { label: '工程图', title: '不只给一张图', body: '源图、Pixel Grid、透明 PNG、预览与 meta 一起归档，便于复查和返修。', mark: 'JSON', tone: 'bg-[hsl(var(--pix-lavender))]' },
+  { label: '批量包', title: '按素材包推进', body: '一组素材统一入队；失败项单独重试，成功项直接打包下载。', mark: 'ZIP', tone: 'bg-[hsl(var(--pix-mint))]' },
+  { label: '小尺寸', title: '交付前先验收', body: '16×16、32×32 关注轮廓和色板，不把大图粗暴缩小当成像素资产。', mark: '16', tone: 'bg-[hsl(var(--pix-sky))]' },
 ]
 
 const pipelineProofs = [
-  { step: '01', title: '定规格', body: '名称、尺寸、颜色数、透明背景进入同一张任务单。' },
+  { step: '01', title: '定规格', body: 'Prompt、尺寸、透明背景和颜色数进入同一张任务单。' },
   { step: '02', title: '跑流水线', body: '图像模型、Grid 提取、像素化与后处理串联。' },
   { step: '03', title: '验收导出', body: '查看结果、点数、失败原因，再决定重试或下载。' },
+]
+
+const assistantTiles = [
+  { title: 'Prompt 助手', body: '把题材、用途、尺寸和透明背景整理成可复用提示词。', badge: 'Prompt', tone: 'bg-[hsl(var(--pix-peach))]' },
+  { title: '验收助手', body: '把源图、像素图和透明 PNG 放在一张卡片里比对。', badge: 'Review', tone: 'bg-[hsl(var(--pix-rose))]' },
+  { title: '打包助手', body: '批量导出、路径复制和失败重试从作品库直接完成。', badge: 'Pack', tone: 'bg-[hsl(var(--pix-mint))]' },
 ]
 
 const uiWorks = [
@@ -51,7 +58,7 @@ const spriteShowcases = [
     sheet: '/hero-sprites/pipeline/dark-purple-magic-explosion-sheet.png',
     frameCount: 9,
     durationMs: 90,
-    tone: 'bg-[hsl(var(--pix-navy))] text-white',
+    tone: 'bg-[hsl(var(--pix-rose))] text-[hsl(var(--pix-charcoal))]',
     frames: Array.from({ length: 9 }, (_, index) => `/hero-sprites/pipeline/dark-purple-magic-explosion-frame-${String(index + 1).padStart(2, '0')}.png`),
   },
 ]
@@ -70,70 +77,165 @@ const examplesByCategory = homepageExampleCategories.map((category) => ({
   examples: homepageExamples.filter((example) => example.category === category),
 }))
 
+const featuredExamples = homepageExamples.slice(0, 4)
+
 type LandingSectionsProps = { authSlot: ReactNode }
 
 export function LandingSections({ authSlot }: LandingSectionsProps) {
   return (
     <>
-      <SectionFrame id="workflow" eyebrow="核心优势" title="不是 AI 生图相册，是像素素材生产线" description="Pix 的重点不是把 prompt 变成一张好看的图，而是把一批想法变成可检查、可重试、可导出的游戏素材。">
-        <div className="grid items-stretch gap-6 lg:grid-cols-[.92fr_1.08fr]">
-          <div className="flex min-h-[410px] flex-col justify-between rounded-lg bg-[hsl(var(--pix-amber))] p-8 text-[hsl(var(--pix-charcoal))] md:p-10">
-            <div>
-              <Badge className="bg-[hsl(var(--pix-navy))] text-white">为什么是 Pix</Badge>
-              <h3 className="mt-5 max-w-xl text-3xl font-semibold tracking-tight md:text-5xl">从“生成图片”推进到“交付素材”</h3>
-              <p className="mt-5 max-w-2xl text-base leading-8 text-muted-foreground">普通 AI 图像工具停在预览图。Pix 把源图、像素工程图、透明 PNG、任务状态、失败重试和 ZIP 导出放在同一条流水线里，适合独立游戏和 RPG 素材包快速打样。</p>
-            </div>
-            <div className="mt-8 grid grid-cols-3 gap-3">
-              {pipelineProofs.map((item) => <div key={item.step} className="rounded-lg border border-border bg-muted/40 p-3"><p className="text-xs font-semibold text-primary">{item.step}</p><p className="mt-2 font-bold">{item.title}</p><p className="mt-1 hidden text-xs leading-5 text-muted-foreground sm:block">{item.body}</p></div>)}
-            </div>
-          </div>
-          <div className="grid gap-4 lg:grid-rows-3">
-            {advantageProofs.map((item) => <article key={item.title} className={`rounded-lg border border-border p-6 shadow-[0_1px_2px_rgba(15,15,15,0.04)] transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] ${item.tone}`}><div className="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-4"><div className="grid h-14 w-14 place-items-center rounded-lg border border-border bg-card font-semibold">{item.mark}</div><div><p className="text-xs font-bold uppercase tracking-[.12em] text-muted-foreground">{item.label}</p><h3 className="mt-1 text-xl font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.body}</p></div></div></article>)}
-          </div>
-        </div>
+      <SectionFrame id="workflow" eyebrow="Keep work moving 24/7" title="不是 AI 生图相册，是像素素材生产线" description="深色模式沿用 DESIGN.md 的深 navy hero 与清晰卡片层级：作品、队列、成本和导出状态都能在夜间工作台里快速辨认。">
+        <WorkflowSection />
       </SectionFrame>
 
       <StatRow />
 
-      <SectionFrame id="pixel-ui" eyebrow="像素 UI" title="道具和界面一起做" description="图标、HUD、按钮、面板可以放进同一批素材里；先把原型需要的交互表面补齐。">
-        <div className="grid items-center gap-8 lg:grid-cols-[.78fr_1.22fr]">
-          <div className="rounded-lg border border-border bg-card p-7 shadow-[0_1px_2px_rgba(15,15,15,0.04)]">
-            <Badge className="bg-[hsl(var(--pix-navy))] text-white">UI Kit</Badge>
-            <h3 className="mt-5 text-3xl font-semibold">同一批次补齐道具和 UI</h3>
-            <p className="mt-4 text-sm leading-7 text-muted-foreground">少切工具，先把原型需要的图标、血条、按钮和对话面板做出来。素材和 UI 使用同一套队列与点数规则，结果统一进作品库。</p>
-            <div className="mt-6 grid grid-cols-3 gap-2">{['透明 PNG', 'Pixel Grid', 'ZIP 导出'].map((item) => <div key={item} className="rounded-lg border border-border bg-muted/40 p-3 text-xs font-bold">{item}</div>)}</div>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-            {uiWorks.map((item) => <article key={item.name} className={`rounded-lg border border-border bg-card p-3 transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] ${item.span}`}><PixPreviewFrame url={item.src} className="min-h-32" /><p className="mt-3 text-sm font-semibold">{item.name}</p><p className="text-xs text-muted-foreground">{item.note}</p></article>)}
-          </div>
-        </div>
+      <SectionFrame id="assistant" surface="soft" eyebrow="On-demand assistants" title="把提示词、验收和打包拆成三张助手卡" description="用 Notion 式 pastel feature cards 承接复杂流程：每张卡只负责一个动作，进入工作台后再展开完整参数。">
+        <AssistantSection />
       </SectionFrame>
 
-      <SectionFrame id="sprite-preview" eyebrow="序列帧" title="角色动作和技能特效都能做成可播放的精灵图" description="九宫格源图或单帧序列会切成帧、统一调色板像素化，并导出横向精灵图与真实序列帧播放。">
+      <SectionFrame id="pixel-ui" eyebrow="Bring work together" title="道具、UI 和动作帧在同一个素材工作区里验收" description="图标、HUD、按钮、面板、角色动作和技能特效可以放进同一批素材；先把原型需要的交互表面补齐。">
+        <WorkTogetherSection />
+      </SectionFrame>
+
+      <SectionFrame id="sprite-preview" surface="soft" eyebrow="Sprite Pipeline" title="角色动作和技能特效都能做成可播放的精灵图" description="九宫格源图或单帧序列会切成帧、统一调色板像素化，并导出横向精灵图与真实序列帧播放。">
         <SpriteShowcaseList />
       </SectionFrame>
 
-      <SectionFrame id="examples" eyebrow="范例图库" title="76 套题材范例，像首屏一样悬浮验收" description="默认用紧凑素材格展示题材边界；选择题材后拆开 8 个物品格，并展开 16:9 UI 展示图、中文 Prompt 和文件名。">
+      <SectionFrame id="examples" eyebrow="Sample Atlas" title="76 套题材范例，像首屏一样悬浮验收" description="默认用紧凑素材格展示题材边界；选择题材后拆开 8 个物品格，并展开 16:9 UI 展示图、中文 Prompt 和文件名。">
         <ExampleAtlas />
       </SectionFrame>
 
-      <section id="auth-panel" className="scroll-mt-28 border-t border-border bg-[hsl(var(--secondary))] px-4 py-16 md:px-8 md:py-20">
-        <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[.9fr_1.1fr]">
-          <div>
-            <Badge>开始生产</Badge>
-            <h2 className="mt-5 font-sans text-4xl font-semibold tracking-tight md:text-6xl">进入像素工位台</h2>
-            <p className="mt-5 max-w-xl text-base leading-8 text-muted-foreground">创建单图或素材包，完成后在作品库挑选、重试、打包导出。</p>
-            <div className="mt-6 flex flex-wrap gap-3"><Button asChild><a href="#auth-panel">登录</a></Button><Button variant="outline" asChild><a href="#workflow">看优势</a></Button></div>
-          </div>
-          <div>{authSlot}</div>
-        </div>
-      </section>
+      <AuthSection authSlot={authSlot} />
     </>
   )
 }
 
+function WorkflowSection() {
+  return (
+    <div className="grid items-stretch gap-6 lg:grid-cols-[.95fr_1.05fr]">
+      <div className="flex min-h-[430px] flex-col justify-between rounded-lg bg-[hsl(var(--pix-amber))] p-8 text-[hsl(var(--pix-charcoal))] md:p-10">
+        <div>
+          <Badge className="bg-[hsl(var(--pix-navy))] text-white">为什么是 Pix</Badge>
+          <h3 className="mt-5 max-w-2xl text-3xl font-semibold tracking-tight md:text-5xl">从“生成图片”推进到“交付素材”</h3>
+          <p className="mt-5 max-w-2xl text-base leading-8 text-[hsl(var(--pix-slate))]">普通 AI 图像工具停在预览图。Pix 把源图、像素工程图、透明 PNG、任务状态、失败重试和 ZIP 导出放在同一条流水线里，适合独立游戏和 RPG 素材包快速打样。</p>
+        </div>
+        <div className="mt-8 grid gap-3 sm:grid-cols-3">
+          {pipelineProofs.map((item) => <div key={item.step} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-3"><p className="text-xs font-semibold text-primary">{item.step}</p><p className="mt-2 font-bold">{item.title}</p><p className="mt-1 text-xs leading-5 text-[hsl(var(--pix-slate))]">{item.body}</p></div>)}
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {stickyNotes.map((item) => <FeatureNote key={item.title} {...item} />)}
+      </div>
+    </div>
+  )
+}
+
+function FeatureNote({ label, title, body, mark, tone }: { label: string; title: string; body: string; mark: string; tone: string }) {
+  return (
+    <article className={`rounded-lg border border-border p-6 shadow-[0_1px_2px_rgba(15,15,15,0.04)] transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-[hsl(var(--pix-navy-mid))]/20 ${tone}`}>
+      <div className="grid grid-cols-[56px_minmax(0,1fr)] items-start gap-4">
+        <div className="grid h-14 w-14 place-items-center rounded-lg border border-border bg-card font-semibold text-[hsl(var(--pix-ink))] dark:border-[hsl(var(--pix-navy))]/10 dark:bg-white/65">{mark}</div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[.12em] text-[hsl(var(--pix-steel))]">{label}</p>
+          <h3 className="mt-1 text-xl font-semibold">{title}</h3>
+          <p className="mt-2 text-sm leading-6 text-[hsl(var(--pix-slate))]">{body}</p>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function AssistantSection() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[.92fr_1.08fr]">
+      <article className="rounded-lg bg-[hsl(var(--pix-amber))] p-8 text-[hsl(var(--pix-charcoal))] md:p-10">
+        <Badge className="bg-primary text-primary-foreground">Ask the assistant</Badge>
+        <h3 className="mt-5 max-w-2xl text-3xl font-semibold tracking-tight md:text-5xl">把复杂素材需求拆成可执行队列</h3>
+        <p className="mt-5 max-w-2xl text-base leading-8 text-[hsl(var(--pix-slate))]">深色主页保留一个高强调黄色卡片说明核心价值，再把具体动作分配给右侧三张 pastel tiles；即使在暗背景里也能一眼分清 Prompt、Grid 和 Pack。</p>
+        <div className="mt-8 grid gap-3 sm:grid-cols-3">
+          {['Prompt', 'Grid', 'Pack'].map((item) => <div key={item} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-4 text-center font-semibold">{item}</div>)}
+        </div>
+      </article>
+      <div className="grid gap-4">
+        {assistantTiles.map((tile) => <AssistantTile key={tile.title} {...tile} />)}
+      </div>
+    </div>
+  )
+}
+
+function AssistantTile({ title, body, badge, tone }: { title: string; body: string; badge: string; tone: string }) {
+  return (
+    <article className={`rounded-lg border border-border p-6 shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-[hsl(var(--pix-navy-mid))]/20 ${tone}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Badge variant="outline" className="bg-white/65">{badge}</Badge>
+          <h3 className="mt-4 text-2xl font-semibold">{title}</h3>
+          <p className="mt-2 text-sm leading-7 text-[hsl(var(--pix-slate))]">{body}</p>
+        </div>
+        <div className="hidden w-36 rounded-lg border border-border bg-white/60 p-3 dark:border-[hsl(var(--pix-navy))]/10 sm:block">
+          <div className="h-2 rounded-full bg-[hsl(var(--pix-stone))]/45" />
+          <div className="mt-2 h-2 w-2/3 rounded-full bg-[hsl(var(--pix-stone))]/30" />
+          <div className="mt-4 grid gap-1.5">
+            <span className="h-8 rounded-md bg-card dark:bg-white/70" />
+            <span className="h-8 rounded-md bg-card dark:bg-white/70" />
+          </div>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function WorkTogetherSection() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-3">
+      <article className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card))] dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] lg:col-span-2">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">UI Kit</Badge>
+            <h3 className="mt-4 text-3xl font-semibold">同一批次补齐道具和 UI</h3>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/68">少切工具，先把原型需要的图标、血条、按钮和对话面板做出来。素材和 UI 使用同一套队列与点数规则，结果统一进作品库。</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-xs font-bold text-[hsl(var(--pix-charcoal))] dark:text-white/75">
+            {['透明 PNG', 'Pixel Grid', 'ZIP 导出'].map((item) => <span key={item} className="rounded-lg border border-border bg-[hsl(var(--secondary))] px-3 py-2 dark:border-white/10 dark:bg-white/7">{item}</span>)}
+          </div>
+        </div>
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-4">
+          {uiWorks.map((item) => <article key={item.name} className={`rounded-lg border border-border bg-card p-3 transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] ${item.span}`}><PixPreviewFrame url={item.src} className="min-h-32" /><p className="mt-3 text-sm font-semibold">{item.name}</p><p className="text-xs text-muted-foreground">{item.note}</p></article>)}
+        </div>
+      </article>
+
+      <div className="grid gap-6">
+        <article className="rounded-lg bg-[hsl(var(--pix-lavender))] p-6 text-[hsl(var(--pix-charcoal))]">
+          <Badge variant="secondary">Sprite</Badge>
+          <h3 className="mt-4 text-2xl font-semibold">动作帧可播放验收</h3>
+          <div className="mt-5 grid place-items-center rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-6">
+            <SpriteFramePlayer showcase={spriteShowcases[0]} className="h-28 w-28" />
+          </div>
+        </article>
+        <article className="rounded-lg bg-[hsl(var(--pix-sky))] p-6 text-[hsl(var(--pix-charcoal))]">
+          <Badge variant="info">Atlas</Badge>
+          <h3 className="mt-4 text-2xl font-semibold">题材范例可追溯</h3>
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            {featuredExamples.map((example) => <div key={example.id} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-2"><ItemSpriteGrid example={example} compact /><p className="mt-2 truncate text-xs font-semibold">{example.theme}</p></div>)}
+          </div>
+        </article>
+      </div>
+    </div>
+  )
+}
+
 function StatRow() {
-  return <section className="border-y border-border bg-[hsl(var(--secondary))] px-4 py-12 md:px-8"><div className="mx-auto max-w-7xl"><p className="mb-6 text-center text-xs font-semibold uppercase tracking-[.16em] text-muted-foreground">更高效率，更少工具</p><div className="grid grid-cols-2 gap-3 md:grid-cols-4">{statRowItems.map((item) => <div key={item.label} className="rounded-lg border border-border bg-background p-5 text-center transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)]"><p className="text-xl opacity-50">{item.icon}</p><p className="mt-1 text-3xl font-semibold text-primary">{item.value}</p><p className="mt-1 text-sm text-muted-foreground">{item.label}</p></div>)}</div></div></section>
+  return (
+    <section className="border-y border-border bg-[hsl(var(--secondary))] px-4 py-12 md:px-8 dark:border-white/10 dark:bg-[hsl(var(--pix-dark-band))]">
+      <div className="mx-auto max-w-7xl">
+        <p className="mb-6 text-center text-xs font-semibold uppercase tracking-[.16em] text-muted-foreground dark:text-white/55">更高效率，更少工具</p>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {statRowItems.map((item) => <div key={item.label} className="rounded-lg border border-border bg-background p-5 text-center transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-white/10 dark:bg-white/7 dark:hover:bg-white/10"><p className="text-xl opacity-50">{item.icon}</p><p className="mt-1 text-3xl font-semibold text-primary">{item.value}</p><p className="mt-1 text-sm text-muted-foreground dark:text-white/62">{item.label}</p></div>)}
+        </div>
+      </div>
+    </section>
+  )
 }
 
 function SpriteShowcaseList() {
@@ -203,10 +305,10 @@ function ExampleAtlas() {
   function showFloating(example: HomepageExample, x: number, y: number) { setActiveId(example.id); setFloating({ example, x, y }) }
   return (
     <div className="relative grid gap-6" onMouseLeave={() => setFloating(null)}>
-      <div className="rounded-lg border border-border bg-[hsl(var(--pix-navy))] p-6 text-white shadow-[0_4px_12px_rgba(15,15,15,0.08)] md:p-8">
+      <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_4px_12px_rgba(15,15,15,0.08)] md:p-8">
         <div className="grid items-center gap-6 lg:grid-cols-[.9fr_1.1fr]">
-          <div><Badge className="bg-[hsl(var(--pix-amber))] text-foreground">Sample Atlas</Badge><h3 className="mt-5 text-3xl font-semibold md:text-5xl">题材不是列表，是可验收的样本墙</h3><p className="mt-4 max-w-2xl text-sm leading-7 text-white/70">每套范例包含一张透明物品精灵表和一张 1920×1080 UI 展示图。悬浮左侧卡片即可在鼠标旁展开详情。</p></div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">{examplesByCategory.map((group) => <button type="button" key={group.category} onClick={() => setActiveId(group.examples[0]?.id ?? activeId)} className="rounded-lg border border-white/12 bg-white/7 p-3 text-left transition hover:bg-white/12"><p className="font-semibold">{group.category}</p><p className="text-xs text-white/60">{group.examples.length} 套范例</p></button>)}</div>
+          <div><Badge className="bg-[hsl(var(--pix-navy))] text-white">Sample Atlas</Badge><h3 className="mt-5 text-3xl font-semibold md:text-5xl">题材不是列表，是可验收的样本墙</h3><p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))]">每套范例包含一张透明物品精灵表和一张 1920×1080 UI 展示图。悬浮左侧卡片即可在鼠标旁展开详情。</p></div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">{examplesByCategory.map((group) => <button type="button" key={group.category} onClick={() => setActiveId(group.examples[0]?.id ?? activeId)} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/65 p-3 text-left transition hover:bg-white"><p className="font-semibold">{group.category}</p><p className="text-xs text-[hsl(var(--pix-steel))]">{group.examples.length} 套范例</p></button>)}</div>
         </div>
       </div>
       <div className="grid gap-6">
@@ -223,7 +325,7 @@ function ExampleTile({ example, active, onSelect, onHover }: { example: Homepage
 
 function ExampleFloatingDetail({ example, x, y }: { example: HomepageExample; x: number; y: number }) {
   const style = { left: Math.min(x + 22, window.innerWidth - 580), top: Math.min(y + 22, window.innerHeight - 640) }
-  return <aside className="pointer-events-none fixed z-[90] grid w-[560px] max-w-[calc(100vw-32px)] gap-3 rounded-lg border border-border bg-card/96 p-4 shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)] backdrop-blur-xl" style={style}><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.14em] text-primary">Pix 范例</p><h3 className="mt-1 text-2xl font-semibold">{example.number} · {example.theme}</h3><p className="text-sm text-muted-foreground">{example.category} / 8 个 64×64 物品 / 16:9 UI</p></div><Badge>{example.category}</Badge></div><div className="grid gap-3 sm:grid-cols-[.9fr_1.1fr]"><div className="rounded-lg border border-border pix-checkerboard p-3"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-semibold">拆分物品格</p><Badge variant="outline">4×2</Badge></div><ItemSpriteGrid example={example} /></div><div className="overflow-hidden rounded-lg border border-border bg-muted"><img src={example.uiSrc} alt={`${example.theme} 像素 UI 展示图`} loading="lazy" decoding="async" className="h-full min-h-44 w-full object-cover [image-rendering:pixelated]" /></div></div><PromptBox title="物品 Prompt" text={buildChineseItemPrompt(example)} /><PromptBox title="UI Prompt" text={buildChineseUiPrompt(example)} /></aside>
+  return <aside className="pointer-events-none fixed z-[90] grid w-[560px] max-w-[calc(100vw-32px)] gap-3 rounded-lg border border-border bg-card/96 p-4 shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)] backdrop-blur-xl" style={style}><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.14em] text-primary">Pix 范例</p><h3 className="mt-1 text-2xl font-semibold">{example.number} · {example.theme}</h3><p className="text-sm text-muted-foreground">{example.category} / 8 个 64×64 物品 / 16:9 UI</p></div><Badge>{example.category}</Badge></div><div className="grid gap-3 sm:grid-cols-[.9fr_1.1fr]"><div className="pix-checkerboard rounded-lg border border-border p-3"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-semibold">拆分物品格</p><Badge variant="outline">4×2</Badge></div><ItemSpriteGrid example={example} /></div><div className="overflow-hidden rounded-lg border border-border bg-muted"><img src={example.uiSrc} alt={`${example.theme} 像素 UI 展示图`} loading="lazy" decoding="async" className="h-full min-h-44 w-full object-cover [image-rendering:pixelated]" /></div></div><PromptBox title="物品 Prompt" text={buildChineseItemPrompt(example)} /><PromptBox title="UI Prompt" text={buildChineseUiPrompt(example)} /></aside>
 }
 
 function ItemSpriteGrid({ example, compact = false }: { example: HomepageExample; compact?: boolean }) {
@@ -237,23 +339,41 @@ function PromptBox({ title, text, tone = 'default' }: { title: string; text: str
       ? 'border-[hsl(var(--pix-navy))]/15 bg-white/55 text-[hsl(var(--pix-slate))]'
       : 'border-border bg-muted/40 text-muted-foreground'
   const titleClass = tone === 'dark' ? 'text-white/65' : tone === 'light' ? 'text-[hsl(var(--pix-steel))]' : 'text-muted-foreground'
-  return <div className={`rounded-lg border p-3 ${boxClass}`}><p className={`text-xs font-semibold uppercase tracking-[.12em] ${titleClass}`}>{title}</p><p className="mt-2 text-xs leading-6">{text}</p></div>
+  return <div className={`mt-4 rounded-lg border p-3 ${boxClass}`}><p className={`text-xs font-semibold uppercase tracking-[.12em] ${titleClass}`}>{title}</p><p className="mt-2 text-xs leading-6">{text}</p></div>
 }
-function itemSlotSrc(example: HomepageExample, index: number) { return example.itemSrc.replace('.png', `_${String(index + 1).padStart(2, '0')}.png`) }
-function buildChineseItemPrompt(example: HomepageExample) { return `像素风「${example.theme}」物品素材表，拆成 4×2 共 8 个独立道具格；每个物品独立输出为 64×64 透明 PNG，居中构图、硬边像素、有限调色板、无抗锯齿，适合作为背包图标或掉落物素材。` }
-function buildChineseUiPrompt(example: HomepageExample) { return `像素风「${example.theme}」16:9 UI 展示图，包含主题面板、边框、按钮、图标、状态区和游戏界面示例；整体为 16-bit RPG / 独立游戏可用风格。` }
 
-function SectionFrame({ id, eyebrow, title, description, children }: { id: string; eyebrow: string; title: string; description: string; children: ReactNode }) {
+function AuthSection({ authSlot }: { authSlot: ReactNode }) {
   return (
-    <section id={id} className="scroll-mt-28 bg-background px-4 py-16 md:px-8 md:py-24">
+    <section id="auth-panel" className="scroll-mt-28 border-t border-border bg-[hsl(var(--secondary))] px-4 py-16 md:px-8 md:py-20 dark:border-white/10 dark:bg-[hsl(var(--pix-navy-deep))]">
+      <div className="mx-auto grid max-w-7xl items-center gap-10 rounded-lg bg-card p-6 shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card))] dark:shadow-[0_30px_80px_-46px_rgba(0,0,0,0.9)] md:p-10 lg:grid-cols-[.9fr_1.1fr]">
+        <div>
+          <Badge>开始生产</Badge>
+          <h2 className="mt-5 font-sans text-4xl font-semibold tracking-tight md:text-6xl">进入像素工位台</h2>
+          <p className="mt-5 max-w-xl text-base leading-8 text-muted-foreground">创建单图或素材包，完成后在作品库挑选、重试、打包导出。</p>
+          <div className="mt-6 flex flex-wrap gap-3"><Button asChild><a href="#auth-panel">登录</a></Button><Button variant="outline" asChild><a href="#workflow">看优势</a></Button></div>
+        </div>
+        <div>{authSlot}</div>
+      </div>
+    </section>
+  )
+}
+
+function SectionFrame({ id, eyebrow, title, description, children, surface = 'default' }: { id: string; eyebrow: string; title: string; description: string; children: ReactNode; surface?: 'default' | 'soft' }) {
+  const frameClass = surface === 'soft' ? 'bg-[hsl(var(--secondary))] dark:bg-[hsl(var(--pix-dark-band))]' : 'bg-background dark:bg-[hsl(var(--pix-navy-deep))]'
+  return (
+    <section id={id} className={`scroll-mt-28 px-4 py-16 md:px-8 md:py-24 ${frameClass}`}>
       <div className="mx-auto max-w-7xl">
         <div className="mb-10">
-          <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-primary">{eyebrow}</p>
-          <h2 className="mt-3 max-w-4xl font-sans text-4xl font-semibold tracking-tight md:text-6xl">{title}</h2>
-          <p className="mt-4 max-w-3xl text-base leading-8 text-muted-foreground">{description}</p>
+          <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-primary dark:text-[hsl(var(--pix-brand-purple-300))]">{eyebrow}</p>
+          <h2 className="mt-3 max-w-4xl font-sans text-4xl font-semibold tracking-tight md:text-6xl dark:text-white">{title}</h2>
+          <p className="mt-4 max-w-3xl text-base leading-8 text-muted-foreground dark:text-white/66">{description}</p>
         </div>
         {children}
       </div>
     </section>
   )
 }
+
+function itemSlotSrc(example: HomepageExample, index: number) { return example.itemSrc.replace('.png', `_${String(index + 1).padStart(2, '0')}.png`) }
+function buildChineseItemPrompt(example: HomepageExample) { return `像素风「${example.theme}」物品素材表，拆成 4×2 共 8 个独立道具格；每个物品独立输出为 64×64 透明 PNG，居中构图、硬边像素、有限调色板、无抗锯齿，适合作为背包图标或掉落物素材。` }
+function buildChineseUiPrompt(example: HomepageExample) { return `像素风「${example.theme}」16:9 UI 展示图，包含主题面板、边框、按钮、图标、状态区和游戏界面示例；整体为 16-bit RPG / 独立游戏可用风格。` }
