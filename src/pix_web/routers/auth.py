@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import secrets
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -35,10 +37,15 @@ from pix_web.security import (
     get_db,
     get_settings,
     hash_password,
+    is_local_request,
     verify_password,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+LOCAL_TEST_ACCOUNT_EMAIL = "local-test@pix.example"
+LOCAL_TEST_ACCOUNT_DISPLAY_NAME = "本地测试账号"
+LOCAL_TEST_ACCOUNT_CREDITS = 1000
 
 
 def _user_count(db: Session) -> int:
@@ -56,8 +63,41 @@ def _raise_email_code_error(exc: EmailCodeError) -> None:
     raise HTTPException(status_code=exc.status_code, detail=exc.detail, headers=headers)
 
 
+def _random_disabled_password_hash() -> str:
+    return hash_password(secrets.token_urlsafe(48))
+
+
+def _ensure_local_test_user(db: Session) -> User:
+    user = find_user_by_email(db, LOCAL_TEST_ACCOUNT_EMAIL)
+    if user is None:
+        user = User(
+            email=LOCAL_TEST_ACCOUNT_EMAIL,
+            password_hash=_random_disabled_password_hash(),
+            display_name=LOCAL_TEST_ACCOUNT_DISPLAY_NAME,
+            role="user",
+            status="active",
+        )
+        db.add(user)
+        db.flush()
+    else:
+        user.password_hash = _random_disabled_password_hash()
+        user.display_name = LOCAL_TEST_ACCOUNT_DISPLAY_NAME
+        user.role = "user"
+        user.status = "active"
+    account = ensure_credit_account(db, user)
+    if account.available_credits < LOCAL_TEST_ACCOUNT_CREDITS:
+        recharge_credits(
+            db,
+            user,
+            LOCAL_TEST_ACCOUNT_CREDITS - account.available_credits,
+            note="本地测试账号点数补足",
+        )
+    return user
+
+
 @router.get("/setup-status", response_model=SetupStatusResponse)
 def setup_status(
+    request: Request,
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> SetupStatusResponse:
@@ -65,6 +105,7 @@ def setup_status(
     admins = _admin_count(db)
     users = _user_count(db)
     ops = load_operational_settings(db)
+    local_test_available = is_local_request(request)
     return SetupStatusResponse(
         needs_admin=admins == 0,
         user_count=users,
@@ -72,6 +113,8 @@ def setup_status(
         email_provider=effective.email_provider,
         debug_codes_available=effective.email_debug_codes or effective.email_provider == "console",
         registration_bonus_credits=ops.registration_bonus_credits,
+        local_test_login_available=local_test_available,
+        local_test_account_email=LOCAL_TEST_ACCOUNT_EMAIL if local_test_available else None,
     )
 
 
@@ -81,7 +124,7 @@ def bootstrap_admin(
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> BootstrapAdminResponse:
-    if _user_count(db) != 0:
+    if _admin_count(db) != 0:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="站点已完成初始化")
     email = normalize_email(str(req.email))
     user = User(
@@ -103,6 +146,21 @@ def bootstrap_admin(
         access_token=create_access_token(user, effective),
         user=UserResponse.model_validate(user),
     )
+
+
+@router.post("/local-test-login", response_model=TokenResponse)
+def local_test_login(
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> TokenResponse:
+    if not is_local_request(request):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    effective = load_effective_web_settings(db, settings)
+    user = _ensure_local_test_user(db)
+    db.commit()
+    db.refresh(user)
+    return TokenResponse(access_token=create_access_token(user, effective, local_only=True))
 
 
 @router.post("/register-code", response_model=EmailCodeResponse)

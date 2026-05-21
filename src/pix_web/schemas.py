@@ -104,6 +104,8 @@ class SetupStatusResponse(BaseModel):
     email_provider: str
     debug_codes_available: bool
     registration_bonus_credits: int = 0
+    local_test_login_available: bool = False
+    local_test_account_email: str | None = None
 
 
 class UserResponse(BaseModel):

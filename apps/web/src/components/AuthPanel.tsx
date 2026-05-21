@@ -7,9 +7,9 @@ import { Input } from './ui/input'
 import { PixField } from './pix/PixField'
 import { PixPanel } from './pix/PixPanel'
 
-type AuthPanelProps = { user: User | null; onLogin: (email: string, password: string) => Promise<void>; onRegister: (email: string, password: string, displayName: string, verificationCode: string) => Promise<void>; onRequestRegisterCode: (email: string) => Promise<EmailCodeResponse>; onLogout: () => void; loading: boolean; registrationBonusCredits: number }
+type AuthPanelProps = { user: User | null; onLogin: (email: string, password: string) => Promise<void>; onRegister: (email: string, password: string, displayName: string, verificationCode: string) => Promise<void>; onRequestRegisterCode: (email: string) => Promise<EmailCodeResponse>; onLocalTestLogin: () => Promise<void>; onLogout: () => void; loading: boolean; registrationBonusCredits: number; localTestLoginAvailable: boolean; localTestAccountEmail: string | null }
 
-export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, onLogout, loading, registrationBonusCredits }: AuthPanelProps) {
+export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, onLocalTestLogin, onLogout, loading, registrationBonusCredits, localTestLoginAvailable, localTestAccountEmail }: AuthPanelProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -36,6 +36,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
         {isRegister && <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><PixField label="邮箱验证码"><Input value={verificationCode} autoComplete="one-time-code" inputMode="numeric" maxLength={6} onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required /></PixField><Button type="button" variant="outline" className="self-end" onClick={requestCode} disabled={loading || sendingCode || countdown > 0}>{sendingCode ? '发送中…' : countdown > 0 ? `${countdown}s 后重发` : '发送验证码'}</Button></div>}
         {codeMessage && <Alert variant="info">{codeMessage}</Alert>}{codeError && <Alert variant="destructive">{codeError}</Alert>}
         <PixField label="密码"><Input type="password" value={password} autoComplete={isRegister ? 'new-password' : 'current-password'} onChange={(e) => setPassword(e.target.value)} required /></PixField>
+        {!isRegister && localTestLoginAvailable && <Alert variant="info" className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"><span>仅本地访问可用：用 {localTestAccountEmail} 快速测试工作台。</span><Button type="button" variant="outline" onClick={onLocalTestLogin} disabled={loading}>使用本地测试账号</Button></Alert>}
         <Button type="submit" size="lg" disabled={loading}>{loading ? '处理中…' : isRegister ? '验证并注册' : '进入工作台'}</Button>
         {isRegister && registrationBonusCredits > 0 && <Alert variant="info">注册即送 {registrationBonusCredits} 点数，可立即用于生成素材。</Alert>}
       </form>

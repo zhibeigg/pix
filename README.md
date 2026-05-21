@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.15.11-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.15.12-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-385%20passed-2ea44f.svg">
 </p>
 
@@ -380,6 +380,8 @@ npm run dev --prefix apps/web
 http://localhost:5173
 ```
 
+本地访问时登录面板会显示“使用本地测试账号”，点击后后端会创建/复用 `local-test@pix.example` 普通用户并补足 1000 点数；该入口与签发的 token 都只接受 `localhost` / `127.0.0.1` / `::1` 请求，生产域名不会显示也不能调用。
+
 Vite 默认把 `/api` 代理到 `http://127.0.0.1:8000`。如需改后端地址：
 
 ```bash
@@ -653,7 +655,7 @@ palette_mode = "ramp"
 | `B` | 功能更新 | 新增功能 |
 | `C` | 修复 | Bug 修复、兼容性修复、清理 |
 
-当前版本：`1.15.11`
+当前版本：`1.15.12`
 
 ---
 

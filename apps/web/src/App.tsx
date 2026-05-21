@@ -198,6 +198,23 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     }
   }
 
+  async function localTestLogin() {
+    setBusy(true)
+    setMessage('')
+    try {
+      const result = await api.localTestLogin()
+      localStorage.setItem(TOKEN_KEY, result.access_token)
+      setToken(result.access_token)
+      await refreshCore(result.access_token)
+      await refreshSetupStatus()
+      setMessage('已进入本地测试账号')
+    } catch (error) {
+      showError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function register(email: string, password: string, displayName: string, verificationCode: string) {
     setBusy(true)
     setMessage('')
@@ -586,7 +603,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       {setupLoading ? (
         <div className="grid min-h-[calc(100vh-76px)] place-items-center px-4 text-muted-foreground">正在检查站点初始化状态…</div>
       ) : needsAdminSetup && setupStatus ? (
-        <SetupWizard status={setupStatus} loading={busy} onBootstrapAdmin={bootstrapAdmin} />
+        <SetupWizard status={setupStatus} loading={busy} onBootstrapAdmin={bootstrapAdmin} onLocalTestLogin={localTestLogin} />
       ) : user ? (
         <div className="mx-auto max-w-[1320px] px-4 py-6 md:px-8 md:py-9">
           <div className="grid gap-6">
@@ -604,7 +621,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
         <div>
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
           {message && <div className="mx-auto max-w-6xl px-4 py-3"><Alert variant="info" role="status" aria-live="polite">{message}</Alert></div>}
-          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} />} />
+          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} />} />
           <SiteFooter />
         </div>
       )}
