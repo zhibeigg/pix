@@ -178,17 +178,44 @@ def _apply_key_transparency(
 ) -> Image.Image:
     """按 key color 移除背景。
 
-    hard 模式只清理接近 key color 的纯背景，兼容旧行为；soft 模式会估算
-    半透明边缘 alpha，并用反混合去掉 key color 对边缘 RGB 的污染。
+    hard 模式全局移除接近 key color 的像素，并清除透明像素 RGB 残留和边缘溢色；
+    soft 模式会估算半透明边缘 alpha，并用反混合去掉 key color 对边缘 RGB 的污染。
     """
 
     key_mode = _normalized_key_mode(mode)
     if key_mode == "hard":
         rgba = np.asarray(image.convert("RGBA")).copy()
-        rgb = rgba[..., :3].astype(np.int32)
-        ref = np.array(key_rgb, dtype=np.int32)
+        h, w = rgba.shape[:2]
+        rgb = rgba[..., :3].astype(np.float64)
+        ref = np.array(key_rgb, dtype=np.float64)
         dist = np.sqrt(((rgb - ref) ** 2).sum(axis=2))
-        rgba[dist <= max(0, int(tolerance)), 3] = 0
+
+        # 1. 全局移除背景
+        bg_mask = dist <= max(0, int(tolerance))
+        rgba[bg_mask, 3] = 0
+
+        # 2. Decontaminate 半透明边缘（紧邻透明区域的半透明像素）
+        transparent = rgba[..., 3] == 0
+        near_transparent = np.zeros((h, w), dtype=bool)
+        if h > 1:
+            near_transparent[1:, :] |= transparent[:-1, :]
+            near_transparent[:-1, :] |= transparent[1:, :]
+        if w > 1:
+            near_transparent[:, 1:] |= transparent[:, :-1]
+            near_transparent[:, :-1] |= transparent[:, 1:]
+
+        semi_mask = near_transparent & (rgba[..., 3] > 0) & (rgba[..., 3] < 255)
+        if semi_mask.any():
+            a = rgba[semi_mask, 3].astype(np.float64) / 255.0
+            for c in range(3):
+                channel = rgba[semi_mask, c].astype(np.float64)
+                decontaminated = (channel - ref[c] * (1.0 - a)) / np.maximum(a, 0.01)
+                rgba[semi_mask, c] = np.clip(decontaminated, 0, 255).astype(np.uint8)
+
+        # 3. 透明像素 RGB 置黑（防止缩放时渗出背景色）
+        fully_transparent = rgba[..., 3] == 0
+        rgba[fully_transparent, :3] = 0
+
         return Image.fromarray(rgba, mode="RGBA")
 
     rgba_f = np.asarray(image.convert("RGBA")).astype(np.float32)
