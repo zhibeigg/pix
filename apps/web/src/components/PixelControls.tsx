@@ -11,6 +11,7 @@ type PixelControlsProps = {
   onColorsChange: (value: number) => void
   pixelLabel?: string
   sizeOptions?: string[]
+  compact?: boolean
 }
 
 export function PixelControls({
@@ -20,6 +21,7 @@ export function PixelControls({
   onColorsChange,
   pixelLabel = '像素尺寸',
   sizeOptions = DEFAULT_SIZE_OPTIONS,
+  compact = false,
 }: PixelControlsProps) {
   const safeColors = clampColors(colors)
 
@@ -28,7 +30,7 @@ export function PixelControls({
   }
 
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(320px, .9fr)' }, gap: 1.6, alignItems: 'stretch' }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : { xs: '1fr', md: 'minmax(0, 1fr) minmax(320px, .9fr)' }, gap: compact ? 1.2 : 1.6, alignItems: 'stretch' }}>
       <Stack spacing={.8}>
         <TextField
           label={pixelLabel}
@@ -36,7 +38,7 @@ export function PixelControls({
           onChange={(event) => onPixelSizeChange(event.target.value)}
           fullWidth
         />
-        <Stack direction="row" sx={{ flexWrap: 'wrap', gap: .55 }}>
+        <Stack direction="row" sx={{ flexWrap: 'wrap', gap: compact ? .45 : .55 }}>
           {sizeOptions.map((size) => (
             <Chip
               key={size}
@@ -48,7 +50,7 @@ export function PixelControls({
               color={pixelSize === size ? 'primary' : 'default'}
               variant={pixelSize === size ? 'filled' : 'outlined'}
               onClick={() => onPixelSizeChange(size)}
-              sx={{ height: 25, bgcolor: pixelSize === size ? undefined : notionTokens.canvas }}
+              sx={{ height: compact ? 23 : 25, bgcolor: pixelSize === size ? undefined : notionTokens.canvas, '& .MuiChip-label': { px: compact ? .8 : 1 } }}
             />
           ))}
         </Stack>
@@ -58,18 +60,18 @@ export function PixelControls({
         sx={{
           border: `1px solid ${notionTokens.hairlineStrong}`,
           borderRadius: 1,
-          px: 1.45,
-          py: 1.15,
+          px: compact ? 1.1 : 1.45,
+          py: compact ? 1 : 1.15,
           bgcolor: notionTokens.canvas,
           display: 'grid',
           alignContent: 'center',
         }}
       >
-        <Stack spacing={1.15}>
-          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1.25 }}>
+        <Stack spacing={compact ? .9 : 1.15}>
+          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: compact ? .8 : 1.25 }}>
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 700 }}>颜色数</Typography>
-              <Typography variant="caption" color="text.secondary">拖动滑块，或直接输入 2–256</Typography>
+              {!compact && <Typography variant="caption" color="text.secondary">拖动滑块，或直接输入 2–256</Typography>}
             </Box>
             <TextField
               aria-label="颜色数"
@@ -78,7 +80,7 @@ export function PixelControls({
               onChange={(event) => updateColors(Number(event.target.value))}
               size="small"
               slotProps={{ htmlInput: { min: 2, max: 256, step: 1 } }}
-              sx={{ width: 92, flex: '0 0 auto', '& input': { py: .75, textAlign: 'center', fontWeight: 700 } }}
+              sx={{ width: compact ? 76 : 92, flex: '0 0 auto', '& input': { py: compact ? .55 : .75, textAlign: 'center', fontWeight: 700 } }}
             />
           </Stack>
 
@@ -105,7 +107,7 @@ export function PixelControls({
             }}
           />
 
-          <Stack direction="row" sx={{ flexWrap: 'wrap', gap: .55 }}>
+          <Stack direction="row" sx={{ flexWrap: 'wrap', gap: compact ? .45 : .55 }}>
             {COLOR_PRESETS.map((preset) => {
               const active = safeColors === preset
               return (
@@ -114,14 +116,14 @@ export function PixelControls({
                   type="button"
                   onClick={() => updateColors(preset)}
                   sx={{
-                    minWidth: 38,
-                    height: 24,
-                    px: .9,
+                    minWidth: compact ? 34 : 38,
+                    height: compact ? 22 : 24,
+                    px: compact ? .7 : .9,
                     borderRadius: .85,
                     border: `1px solid ${active ? notionTokens.primary : notionTokens.hairlineStrong}`,
                     bgcolor: active ? notionTokens.primary : notionTokens.surface,
                     color: active ? notionTokens.onPrimary : notionTokens.ink,
-                    fontSize: 12,
+                    fontSize: compact ? 11 : 12,
                     fontWeight: 700,
                     lineHeight: 1,
                     transition: 'background-color .14s ease, border-color .14s ease, transform .14s ease',
