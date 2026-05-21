@@ -671,47 +671,35 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 
 function WorkspaceShell({ page, user, balance, activeJobs, completedJobs, failedJobs, isAdmin, children, onNavigate }: { page: AppPage; user: User; balance: CreditBalance | null; activeJobs: number; completedJobs: number; failedJobs: number; isAdmin: boolean; children: ReactNode; onNavigate: (page: AppPage) => void }) {
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-9">
-      <div className="overflow-hidden rounded-lg border border-border bg-card shadow-[0_24px_48px_-8px_rgba(15,15,15,0.12)]">
-        <div className="flex min-h-11 items-center justify-between border-b border-border bg-card px-4">
-          <div className="flex items-center gap-2" aria-hidden="true">
-            <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-            <span className="h-3 w-3 rounded-full bg-[#ffbd2e]" />
-            <span className="h-3 w-3 rounded-full bg-[#28c840]" />
+    <div className="grid min-h-[calc(100vh-65px)] bg-background lg:grid-cols-[260px_minmax(0,1fr)]">
+      <aside className="border-b border-[hsl(var(--pix-navy-mid))] bg-[hsl(var(--pix-navy))] p-4 text-white lg:border-b-0 lg:border-r">
+        <div className="grid gap-6 lg:sticky lg:top-20 lg:min-h-[calc(100vh-97px)] lg:grid-rows-[auto_auto_1fr_auto]">
+          <div>
+            <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-white/58">Workspace</p>
+            <div className="mt-3 rounded-md bg-white/7 p-3 ring-1 ring-white/10">
+              <p className="truncate text-sm font-semibold">{user.display_name || user.email}</p>
+              <p className="mt-1 truncate text-xs text-white/45">{user.email}</p>
+            </div>
           </div>
-          <p className="text-sm font-medium text-muted-foreground">Pix HQ / Asset pipeline</p>
+          <AppTabs page={page} user={user} onChange={onNavigate} orientation="side" />
+          <div className="hidden lg:block" />
+          <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
+            <SidebarMetric label="点数" value={balance?.available_credits ?? '—'} />
+            <SidebarMetric label="队列" value={activeJobs} />
+            <SidebarMetric label="完成" value={completedJobs} />
+            {failedJobs > 0 && <SidebarMetric label="失败" value={failedJobs} tone="danger" />}
+            {isAdmin && <SidebarMetric label="角色" value="Admin" />}
+          </div>
         </div>
-        <div className="grid min-h-[calc(100vh-190px)] lg:grid-cols-[220px_minmax(0,1fr)]">
-          <aside className="border-b border-border bg-[hsl(var(--pix-navy))] p-4 text-white lg:border-b-0 lg:border-r lg:border-[hsl(var(--pix-navy-mid))]">
-            <div className="grid gap-5 lg:sticky lg:top-24">
-              <div>
-                <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-white/58">Workspace</p>
-                <div className="mt-3 rounded-md bg-white/7 p-3 ring-1 ring-white/10">
-                  <p className="truncate text-sm font-semibold">{user.display_name || user.email}</p>
-                  <p className="mt-1 truncate text-xs text-white/45">{user.email}</p>
-                </div>
-              </div>
-              <AppTabs page={page} user={user} onChange={onNavigate} orientation="side" />
-              <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
-                <SidebarMetric label="点数" value={balance?.available_credits ?? '—'} />
-                <SidebarMetric label="队列" value={activeJobs} />
-                <SidebarMetric label="完成" value={completedJobs} />
-                {failedJobs > 0 && <SidebarMetric label="失败" value={failedJobs} tone="danger" />}
-                {isAdmin && <SidebarMetric label="角色" value="Admin" />}
-              </div>
-            </div>
-          </aside>
-          <section className="min-w-0 bg-background p-4 md:p-6">
-            <div className="grid gap-6">
-              <div className="block lg:hidden">
-                <AppTabs page={page} user={user} onChange={onNavigate} />
-              </div>
-              {children}
-            </div>
-          </section>
+      </aside>
+      <section className="min-w-0 bg-background px-4 py-5 md:px-8 md:py-8">
+        <div className="grid w-full gap-6">
+          <div className="block lg:hidden">
+            <AppTabs page={page} user={user} onChange={onNavigate} />
+          </div>
+          {children}
         </div>
-      </div>
-      <SiteFooter />
+      </section>
     </div>
   )
 }
