@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from ipaddress import ip_address
+from ipaddress import ip_address, ip_network
 from urllib.parse import urlsplit
 
 import jwt
@@ -19,6 +19,16 @@ from pix_web.models import User
 
 _password_hasher = PasswordHasher()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+_PRIVATE_PROXY_NETWORKS = tuple(
+    ip_network(network)
+    for network in (
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "fc00::/7",
+        "fe80::/10",
+    )
+)
 
 
 def _hostname_from_value(value: str) -> str:
@@ -34,15 +44,24 @@ def _hostname_from_value(value: str) -> str:
         return (urlsplit(f"//{raw}").hostname or "").strip("[]").lower()
 
 
+def _ip_from_hostname(value: str | None):
+    if not value:
+        return None
+    host = _hostname_from_value(value)
+    try:
+        return ip_address(host)
+    except ValueError:
+        return None
+
+
 def _is_local_hostname(value: str | None) -> bool:
     if not value:
         return False
     host = _hostname_from_value(value)
     if host == "localhost" or host.endswith(".localhost"):
         return True
-    try:
-        parsed = ip_address(host)
-    except ValueError:
+    parsed = _ip_from_hostname(value)
+    if parsed is None:
         return False
     if parsed.is_loopback:
         return True
@@ -50,18 +69,37 @@ def _is_local_hostname(value: str | None) -> bool:
     return bool(mapped and mapped.is_loopback)
 
 
-def is_local_request(request: Request) -> bool:
-    """Return whether a request is truly coming from a local browser/dev client."""
-    client_host = request.client.host if request.client else ""
-    if not _is_local_hostname(client_host):
+def _is_private_or_local_hostname(value: str | None) -> bool:
+    if _is_local_hostname(value):
+        return True
+    parsed = _ip_from_hostname(value)
+    if parsed is None:
         return False
-    if not _is_local_hostname(request.headers.get("host")):
-        return False
+    mapped = getattr(parsed, "ipv4_mapped", None)
+    if mapped is not None:
+        parsed = mapped
+    return any(parsed in network for network in _PRIVATE_PROXY_NETWORKS)
+
+
+def _local_host_header(request: Request) -> bool:
+    return _is_local_hostname(request.headers.get("x-forwarded-host")) or _is_local_hostname(request.headers.get("host"))
+
+
+def _local_browser_headers(request: Request) -> bool:
     for header in ("origin", "referer"):
         value = request.headers.get(header)
         if value and not _is_local_hostname(value):
             return False
     return True
+
+
+def is_local_request(request: Request) -> bool:
+    """Return whether a request is from a local browser/dev client, including local reverse proxies."""
+    if not _local_host_header(request) or not _local_browser_headers(request):
+        return False
+    client_host = request.client.host if request.client else ""
+    forwarded_for = (request.headers.get("x-forwarded-for") or "").split(",", 1)[0].strip()
+    return _is_local_hostname(client_host) or _is_private_or_local_hostname(client_host) or _is_private_or_local_hostname(forwarded_for)
 
 
 def hash_password(password: str) -> str:

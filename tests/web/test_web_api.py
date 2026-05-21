@@ -172,6 +172,27 @@ def test_local_test_login_only_available_for_local_requests(tmp_path) -> None:
         assert remote_client.get("/auth/me", headers=local_headers).status_code == 401
 
 
+def test_local_test_login_available_behind_local_reverse_proxy(tmp_path) -> None:
+    settings = WebSettings(
+        database_url=f"sqlite:///{tmp_path / 'local_proxy.db'}",
+        jwt_secret="test-secret",
+        storage_root=tmp_path / "storage",
+    )
+    app = create_app(settings)
+    headers = {
+        "Host": "localhost:8080",
+        "Origin": "http://localhost:8080",
+        "X-Forwarded-For": "172.17.0.1",
+        "X-Forwarded-Host": "localhost:8080",
+    }
+    with TestClient(app, base_url="http://localhost:8080", client=("172.18.0.5", 50000)) as c:
+        setup = c.get("/auth/setup-status", headers=headers)
+        assert setup.status_code == 200
+        assert setup.json()["local_test_login_available"] is True
+        login = c.post("/auth/local-test-login", headers=headers)
+        assert login.status_code == 200
+
+
 def test_local_test_login_does_not_block_admin_bootstrap(tmp_path) -> None:
     settings = WebSettings(
         database_url=f"sqlite:///{tmp_path / 'local_bootstrap.db'}",
