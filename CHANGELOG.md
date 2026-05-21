@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.2] - 2026-05-21
+
+### Fixed
+
+- 原始生图页增加 API 请求超时和历史任务数据空值防护，避免后端无响应或异常任务数据导致页面一直停在初始化/白屏。
+
 ## [1.12.1] - 2026-05-21
 
 ### Fixed
