@@ -3,6 +3,7 @@ import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel
 import { notionTokens } from '../theme'
 import type { GenerationJob, JobCreateRequest, PricingRule } from '../types'
 import { buildGridDesign, buildPixelize, hasInvalidSubAssetSize, parsePixelSize, summarizePrompt } from '../pixelize'
+import { PixelControls } from './PixelControls'
 
 type TuningPanelProps = {
   job: GenerationJob | null
@@ -90,10 +91,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: TuningPanelProp
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>免费本地微调</Typography>
                   <Typography color="text.secondary" variant="body2">不消耗点数。</Typography>
                 </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                  <TextField label="像素尺寸" value={pixelSize} onChange={(event) => setPixelSize(event.target.value)} />
-                  <TextField label="颜色数" type="number" value={colors} onChange={(event) => setColors(Number(event.target.value))} />
-                </Box>
+                <PixelControls pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} />
                 <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
                 <Button type="submit" variant="contained" color="primary" disabled={loading || !sourcePath || invalidSubAssetSize}>免费重新像素化</Button>
               </Stack>

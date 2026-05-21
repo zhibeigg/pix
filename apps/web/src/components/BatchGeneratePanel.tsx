@@ -4,6 +4,7 @@ import { api } from '../api'
 import { notionTokens } from '../theme'
 import type { CreditBalance, JobCreateRequest, PricingRule, UploadResponse } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, hasInvalidSubAssetSize, parsePixelSize } from '../pixelize'
+import { PixelControls } from './PixelControls'
 
 type BatchMode = 'asset' | 'text_to_image' | 'image_to_image' | 'local_pixelize'
 
@@ -178,10 +179,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
               </Card>
             )}
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-              <TextField label="像素尺寸" value={pixelSize} onChange={(event) => setPixelSize(event.target.value)} />
-              <TextField label="颜色数" type="number" value={colors} onChange={(event) => setColors(Number(event.target.value))} />
-            </Box>
+            <PixelControls pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} />
             <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
               <FormControlLabel control={<Checkbox checked={removeBg} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
               <FormControlLabel control={<Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize' || isAsset} onChange={(event) => setSkipVl(event.target.checked)} />} label={isAsset ? '素材直出默认 VL 策略' : '跳过参考图理解'} />

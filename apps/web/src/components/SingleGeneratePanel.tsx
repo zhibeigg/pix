@@ -4,6 +4,7 @@ import { api } from '../api'
 import { notionTokens } from '../theme'
 import type { JobCreateRequest, JobType, PricingRule } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, hasInvalidSubAssetSize, parsePixelSize } from '../pixelize'
+import { PixelControls } from './PixelControls'
 
 type SingleGeneratePanelProps = {
   pricing: PricingRule[]
@@ -149,11 +150,10 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Singl
               </Card>
             )}
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: isSprite ? '1fr 1fr 1fr' : '1fr 1fr' }, gap: 2 }}>
-              <TextField label={isSprite ? '单帧尺寸' : '像素尺寸'} value={pixelSize} onChange={(event) => setPixelSize(event.target.value)} />
-              <TextField label="颜色数" type="number" value={colors} onChange={(event) => setColors(Number(event.target.value))} />
+            <Stack spacing={2}>
+              <PixelControls pixelLabel={isSprite ? '单帧尺寸' : '像素尺寸'} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} />
               {isSprite && <TextField label="GIF 帧间隔(ms)" type="number" value={durationMs} onChange={(event) => setDurationMs(Number(event.target.value))} />}
-            </Box>
+            </Stack>
             <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
               <FormControlLabel control={<Checkbox checked={removeBg} disabled={isSprite} onChange={(event) => setRemoveBg(event.target.checked)} />} label="透明背景" />
               <FormControlLabel control={<Checkbox checked={skipVl} disabled={isSprite || isAsset} onChange={(event) => setSkipVl(event.target.checked)} />} label={isAsset ? '素材直出默认 VL 策略' : '跳过参考图理解'} />
