@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.17.18-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.17.19-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-385%20passed-2ea44f.svg">
 </p>
 
@@ -382,10 +382,10 @@ http://localhost:5173
 
 本地访问时登录/注册面板会显示“使用本地测试账号”，点击后后端会创建/复用 `local-test@pix.example` 普通用户并补足 1000 点数；该入口与签发的 token 都只接受 `localhost` / `127.0.0.1` / `::1` 请求，也兼容本地 Docker/Nginx 反向代理，生产域名不会显示也不能调用。
 
-Vite 默认把 `/api` 代理到 `http://127.0.0.1:8000`。如需改后端地址：
+Vite 默认把 `/api` 代理到 `http://localhost:8000`；从 `127.0.0.1` 打开前端时，浏览器端会自动改走 `localhost` 代理，避免 Windows 本地 loopback 绑定差异。若需改后端地址：
 
 ```bash
-VITE_PIX_API_PROXY_TARGET=http://127.0.0.1:8000 npm run dev --prefix apps/web
+VITE_PIX_API_PROXY_TARGET=http://localhost:8000 npm run dev --prefix apps/web
 ```
 
 ### Docker Compose 预览部署
@@ -665,7 +665,7 @@ palette_mode = "ramp"
 | `B` | 功能更新 | 新增功能 |
 | `C` | 修复 | Bug 修复、兼容性修复、清理 |
 
-当前版本：`1.17.18`
+当前版本：`1.17.19`
 
 ---
 
