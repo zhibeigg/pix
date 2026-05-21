@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.13] - 2026-05-21
+
+### Fixed
+
+- 兼容本地 Docker / Nginx 反向代理访问时的本地测试账号判定，并让注册页同样展示本地测试账号入口。
+
 ## [1.15.12] - 2026-05-21
 
 ### Fixed
