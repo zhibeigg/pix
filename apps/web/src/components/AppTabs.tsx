@@ -3,23 +3,52 @@ import type { User } from '../types'
 
 export type AppPage = 'workspace' | 'raw-image' | 'gallery' | 'packs' | 'billing' | 'admin'
 
-const tabs: Array<{ page: AppPage; label: string; description: string; adminOnly?: boolean }> = [
-  { page: 'workspace', label: '生产', description: '单图 / 批量' },
-  { page: 'raw-image', label: '原始生图', description: '只出原图' },
-  { page: 'gallery', label: '作品库', description: '查看与微调' },
-  { page: 'packs', label: '素材包', description: '批量管理' },
-  { page: 'billing', label: '点数', description: '充值流水' },
-  { page: 'admin', label: '后台', description: '运营配置', adminOnly: true },
+type AppTab = { page: AppPage; label: string; description: string; sidebarLabel: string; adminOnly?: boolean }
+
+const tabs: AppTab[] = [
+  { page: 'workspace', label: '生产', sidebarLabel: 'Production', description: '单图 / 批量' },
+  { page: 'raw-image', label: '原始生图', sidebarLabel: 'Raw image', description: '只出原图' },
+  { page: 'gallery', label: '作品库', sidebarLabel: 'Gallery', description: '查看与微调' },
+  { page: 'packs', label: '素材包', sidebarLabel: 'Packs', description: '批量管理' },
+  { page: 'billing', label: '点数', sidebarLabel: 'Billing', description: '充值流水' },
+  { page: 'admin', label: '后台', sidebarLabel: 'Admin', description: '运营配置', adminOnly: true },
 ]
 
 interface AppTabsProps {
   page: AppPage
   user: User | null
   onChange: (page: AppPage) => void
+  orientation?: 'top' | 'side'
 }
 
-export function AppTabs({ page, user, onChange }: AppTabsProps) {
+export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsProps) {
   const visibleTabs = tabs.filter((tab) => !tab.adminOnly || user?.role === 'admin')
+
+  if (orientation === 'side') {
+    return (
+      <nav aria-label="工作区导航" className="grid gap-1">
+        {visibleTabs.map((tab) => {
+          const active = page === tab.page
+          return (
+            <button
+              type="button"
+              key={tab.page}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => onChange(tab.page)}
+              className={cn(
+                'group rounded-md px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70',
+                active ? 'bg-white text-[hsl(var(--pix-ink))]' : 'text-white/58 hover:bg-white/10 hover:text-white',
+              )}
+            >
+              <span className="block text-sm font-semibold leading-tight">{tab.sidebarLabel}</span>
+              <span className={cn('mt-0.5 block text-[11px]', active ? 'text-[hsl(var(--pix-steel))]' : 'text-white/38 group-hover:text-white/58')}>{tab.description}</span>
+            </button>
+          )
+        })}
+      </nav>
+    )
+  }
+
   return (
     <nav aria-label="主导航" className="flex w-full gap-1 overflow-x-auto rounded-full border border-border bg-transparent p-1">
       {visibleTabs.map((tab) => {

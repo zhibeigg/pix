@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { PixThemeMode, PixThemePreference } from './theme'
 import { api, ApiError } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
@@ -615,7 +615,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
               <h1 className="truncate text-xl font-semibold tracking-tight">像素素材工坊</h1>
             </div>
           </a>
-          {user && <div className="col-span-2 min-w-0 lg:col-span-1"><AppTabs page={page} user={user} onChange={navigate} /></div>}
+          {user && <div className="hidden min-w-0 lg:block" aria-hidden="true" />}
           <div className="flex justify-end gap-2">
             <ThemeModeMenu preference={themePreference} resolvedMode={themeMode} systemMode={systemThemeMode} onChange={onThemePreferenceChange} />
             {user ? (
@@ -635,18 +635,24 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       ) : needsAdminSetup && setupStatus ? (
         <SetupWizard status={setupStatus} loading={busy} onBootstrapAdmin={bootstrapAdmin} onLocalTestLogin={localTestLogin} />
       ) : user ? (
-        <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-9">
-          <div className="grid gap-6">
-            {message && <Alert variant="info" role="status" aria-live="polite">{message}</Alert>}
-            {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
-            {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onCreateJobs={createRawImageJobs} onRefresh={() => refreshCore()} />}
-            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} />}
-            {page === 'packs' && <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
-            {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
-            {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onTestEmail={testEmailSetting} />}
-            <SiteFooter />
-          </div>
-        </div>
+        <WorkspaceShell
+          page={page}
+          user={user}
+          balance={balance}
+          activeJobs={activeJobs}
+          completedJobs={completedJobs}
+          failedJobs={failedJobs}
+          isAdmin={isAdmin}
+          onNavigate={navigate}
+        >
+          {message && <Alert variant="info" role="status" aria-live="polite">{message}</Alert>}
+          {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
+          {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onCreateJobs={createRawImageJobs} onRefresh={() => refreshCore()} />}
+          {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} />}
+          {page === 'packs' && <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
+          {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
+          {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onTestEmail={testEmailSetting} />}
+        </WorkspaceShell>
       ) : (
         <div>
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
@@ -656,6 +662,62 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
         </div>
       )}
     </main>
+  )
+}
+
+function WorkspaceShell({ page, user, balance, activeJobs, completedJobs, failedJobs, isAdmin, children, onNavigate }: { page: AppPage; user: User; balance: CreditBalance | null; activeJobs: number; completedJobs: number; failedJobs: number; isAdmin: boolean; children: ReactNode; onNavigate: (page: AppPage) => void }) {
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-9">
+      <div className="overflow-hidden rounded-lg border border-border bg-card shadow-[0_24px_48px_-8px_rgba(15,15,15,0.12)]">
+        <div className="flex min-h-11 items-center justify-between border-b border-border bg-card px-4">
+          <div className="flex items-center gap-2" aria-hidden="true">
+            <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
+            <span className="h-3 w-3 rounded-full bg-[#ffbd2e]" />
+            <span className="h-3 w-3 rounded-full bg-[#28c840]" />
+          </div>
+          <p className="text-sm font-medium text-muted-foreground">Pix HQ / Asset pipeline</p>
+        </div>
+        <div className="grid min-h-[calc(100vh-190px)] lg:grid-cols-[220px_minmax(0,1fr)]">
+          <aside className="border-b border-border bg-[hsl(var(--pix-navy))] p-4 text-white lg:border-b-0 lg:border-r lg:border-[hsl(var(--pix-navy-mid))]">
+            <div className="grid gap-5 lg:sticky lg:top-24">
+              <div>
+                <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-white/58">Workspace</p>
+                <div className="mt-3 rounded-md bg-white/7 p-3 ring-1 ring-white/10">
+                  <p className="truncate text-sm font-semibold">{user.display_name || user.email}</p>
+                  <p className="mt-1 truncate text-xs text-white/45">{user.email}</p>
+                </div>
+              </div>
+              <AppTabs page={page} user={user} onChange={onNavigate} orientation="side" />
+              <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
+                <SidebarMetric label="点数" value={balance?.available_credits ?? '—'} />
+                <SidebarMetric label="队列" value={activeJobs} />
+                <SidebarMetric label="完成" value={completedJobs} />
+                {failedJobs > 0 && <SidebarMetric label="失败" value={failedJobs} tone="danger" />}
+                {isAdmin && <SidebarMetric label="角色" value="Admin" />}
+              </div>
+            </div>
+          </aside>
+          <section className="min-w-0 bg-background p-4 md:p-6">
+            <div className="grid gap-6">
+              <div className="block lg:hidden">
+                <AppTabs page={page} user={user} onChange={onNavigate} />
+              </div>
+              {children}
+            </div>
+          </section>
+        </div>
+      </div>
+      <SiteFooter />
+    </div>
+  )
+}
+
+function SidebarMetric({ label, value, tone = 'default' }: { label: ReactNode; value: ReactNode; tone?: 'default' | 'danger' }) {
+  return (
+    <div className={`rounded-md border px-3 py-2 ${tone === 'danger' ? 'border-red-300/30 bg-red-500/10' : 'border-white/10 bg-white/7'}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-[1px] text-white/45">{label}</p>
+      <p className="mt-1 text-lg font-semibold leading-tight text-white">{value}</p>
+    </div>
   )
 }
 

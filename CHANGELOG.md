@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.25] - 2026-05-21
+
+### Fixed
+
+- 登录后真实工作台改为与首页 workspace mockup 一致的深海军蓝侧边栏布局，主导航迁移到左侧工作区。
+
 ## [1.17.24] - 2026-05-21
 
 ### Fixed
