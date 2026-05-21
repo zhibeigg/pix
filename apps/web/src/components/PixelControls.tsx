@@ -32,10 +32,10 @@ export function PixelControls({ pixelSize, onPixelSizeChange, colors, onColorsCh
         </div>
       </PixField>
 
-      <div className="rounded-2xl border border-border bg-card p-3.5">
+      <div className="rounded-lg border border-border bg-card p-3.5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[.12em] text-muted-foreground">颜色数</p>
+            <p className="text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">颜色数</p>
             {!compact && <p className="mt-0.5 text-xs text-muted-foreground">拖动滑块，或直接输入 2–256</p>}
           </div>
           <Input aria-label="颜色数" type="number" min={2} max={256} value={safeColors} onChange={(event) => updateColors(Number(event.target.value))} className="h-9 w-20 text-center font-bold" />

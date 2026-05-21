@@ -21,7 +21,7 @@ interface AppTabsProps {
 export function AppTabs({ page, user, onChange }: AppTabsProps) {
   const visibleTabs = tabs.filter((tab) => !tab.adminOnly || user?.role === 'admin')
   return (
-    <nav aria-label="主导航" className="flex w-full gap-1 overflow-x-auto rounded-2xl border border-border bg-muted/60 p-1">
+    <nav aria-label="主导航" className="flex w-full gap-1 overflow-x-auto rounded-full border border-border bg-transparent p-1">
       {visibleTabs.map((tab) => {
         const active = page === tab.page
         return (
@@ -31,12 +31,12 @@ export function AppTabs({ page, user, onChange }: AppTabsProps) {
             aria-current={active ? 'page' : undefined}
             onClick={() => onChange(tab.page)}
             className={cn(
-              'min-w-28 flex-1 rounded-xl px-3 py-2 text-left transition-all hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              active && 'bg-card text-foreground shadow-sm',
+              'min-w-24 flex-1 rounded-full px-4 py-2 text-left text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-center',
+              active && 'bg-[hsl(var(--pix-ink))] text-white',
             )}
           >
-            <span className="block text-sm font-bold leading-tight">{tab.label}</span>
-            <span className={cn('block text-[11px] text-muted-foreground', active && 'text-primary')}>{tab.description}</span>
+            <span className="block leading-tight">{tab.label}</span>
+            <span className={cn('hidden text-[11px] text-muted-foreground lg:block', active && 'text-white/70')}>{tab.description}</span>
           </button>
         )
       })}
