@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.8] - 2026-05-21
+
+### Fixed
+
+- 恢复首页序列帧展示区，重新展示月刃骑士挥剑的播放预览、横向精灵图、9 帧拆分、3×3 源图和 GIF 预览。
+
 ## [1.15.7] - 2026-05-21
 
 ### Fixed
