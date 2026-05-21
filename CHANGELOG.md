@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.15] - 2026-05-21
+
+### Fixed
+
+- 首页登录/注册卡片在注册入口旁动态展示“新人注册赠送 X 点数”，注册表单提示文案同步改为新人赠送口径。
+
 ## [1.16.14] - 2026-05-21
 
 ### Fixed
