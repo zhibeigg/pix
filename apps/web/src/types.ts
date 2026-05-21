@@ -19,6 +19,8 @@ export type SetupStatus = {
   email_provider: string
   debug_codes_available: boolean
   registration_bonus_credits: number
+  local_test_login_available: boolean
+  local_test_account_email?: string | null
 }
 
 export type BootstrapAdminResponse = TokenResponse & {

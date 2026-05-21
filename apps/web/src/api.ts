@@ -141,6 +141,9 @@ export const api = {
       body: JSON.stringify({ email, password }),
     })
   },
+  localTestLogin() {
+    return request<TokenResponse>('/auth/local-test-login', { method: 'POST' })
+  },
   me(token: string) {
     return request<User>('/auth/me', {}, token)
   },

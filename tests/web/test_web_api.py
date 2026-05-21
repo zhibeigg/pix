@@ -12,6 +12,7 @@ from zipfile import ZipFile
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
+from sqlalchemy import select
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -20,7 +21,7 @@ from cryptography.x509.oid import NameOID
 from pix.config import AppConfig
 from pix_web.config import WebSettings
 from pix_web.main import create_app
-from pix_web.models import GenerationBatch
+from pix_web.models import GenerationBatch, SystemSetting
 from pix_web.payment_providers import _alipay_sign_content, _is_rsa_certificate, _rsa_sign
 from pix_web.pipeline_adapter import asset_pipeline_input_from_job, run_job_pipeline
 from pix_web.worker import process_next_job
@@ -36,6 +37,16 @@ def client(tmp_path):
         email_debug_codes=True,
     )
     app = create_app(settings)
+    db = app.state.SessionLocal()
+    try:
+        bonus = db.scalar(select(SystemSetting).where(SystemSetting.key == "registration_bonus_credits"))
+        if bonus is None:
+            db.add(SystemSetting(key="registration_bonus_credits", value="0"))
+        else:
+            bonus.value = "0"
+        db.commit()
+    finally:
+        db.close()
     with TestClient(app) as c:
         yield c
 
@@ -121,6 +132,67 @@ def test_setup_status_and_bootstrap_admin(tmp_path) -> None:
             json={"email": "second@example.com", "password": "password123", "display_name": "Second"},
         )
         assert second.status_code == 409
+
+
+def test_local_test_login_only_available_for_local_requests(tmp_path) -> None:
+    settings = WebSettings(
+        database_url=f"sqlite:///{tmp_path / 'local_test.db'}",
+        jwt_secret="test-secret",
+        storage_root=tmp_path / "storage",
+    )
+    app = create_app(settings)
+    with TestClient(app, base_url="http://127.0.0.1:8000", client=("127.0.0.1", 50000)) as local_client:
+        setup = local_client.get("/auth/setup-status", headers={"Origin": "http://localhost:5173"})
+        assert setup.status_code == 200
+        assert setup.json()["local_test_login_available"] is True
+        assert setup.json()["local_test_account_email"] == "local-test@pix.example"
+
+        login = local_client.post("/auth/local-test-login", headers={"Origin": "http://localhost:5173"})
+        assert login.status_code == 200
+        local_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+        me = local_client.get("/auth/me", headers=local_headers)
+        assert me.status_code == 200
+        assert me.json()["email"] == "local-test@pix.example"
+        assert me.json()["role"] == "user"
+        balance = local_client.get("/credits/balance", headers=local_headers).json()
+        assert balance["available_credits"] == 1000
+
+        wrong_password = local_client.post(
+            "/auth/login",
+            json={"email": "local-test@pix.example", "password": "password123"},
+        )
+        assert wrong_password.status_code == 401
+
+    with TestClient(app, base_url="https://pix.example.com", client=("203.0.113.10", 50000)) as remote_client:
+        remote_setup = remote_client.get("/auth/setup-status", headers={"Origin": "https://pix.example.com"})
+        assert remote_setup.status_code == 200
+        assert remote_setup.json()["local_test_login_available"] is False
+        assert remote_setup.json()["local_test_account_email"] is None
+        assert remote_client.post("/auth/local-test-login").status_code == 404
+        assert remote_client.get("/auth/me", headers=local_headers).status_code == 401
+
+
+def test_local_test_login_does_not_block_admin_bootstrap(tmp_path) -> None:
+    settings = WebSettings(
+        database_url=f"sqlite:///{tmp_path / 'local_bootstrap.db'}",
+        jwt_secret="test-secret",
+        storage_root=tmp_path / "storage",
+    )
+    app = create_app(settings)
+    with TestClient(app, base_url="http://localhost:8000", client=("127.0.0.1", 50000)) as c:
+        assert c.post("/auth/local-test-login").status_code == 200
+        setup = c.get("/auth/setup-status").json()
+        assert setup["needs_admin"] is True
+        assert setup["user_count"] == 1
+        assert setup["admin_count"] == 0
+
+        bootstrap = c.post(
+            "/auth/bootstrap-admin",
+            json={"email": "owner@example.com", "password": "password123", "display_name": "Owner"},
+        )
+        assert bootstrap.status_code == 200
+        assert bootstrap.json()["user"]["role"] == "admin"
+        assert c.get("/auth/setup-status").json()["needs_admin"] is False
 
 
 def test_register_login_and_admin_adjust_credits(client: TestClient) -> None:

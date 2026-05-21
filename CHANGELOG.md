@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.12] - 2026-05-21
+
+### Fixed
+
+- 新增仅本地访问时可用的测试账号入口，后端限制本地请求与本地 token 使用范围，同时保持登录/注册/初始化表单不预填测试内容。
+
 ## [1.15.11] - 2026-05-21
 
 ### Fixed
