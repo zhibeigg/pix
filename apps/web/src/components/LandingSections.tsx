@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type MouseEvent, type ReactNode } from 'react'
 import { homepageExampleCategories, homepageExamples, type HomepageExample } from '../homepageExamples'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -172,31 +172,32 @@ function SpriteShowcase() {
 
 function ExampleAtlas() {
   const [activeId, setActiveId] = useState(homepageExamples[0]?.id ?? '')
+  const [floating, setFloating] = useState<{ example: HomepageExample; x: number; y: number } | null>(null)
   const activeExample = useMemo(() => homepageExamples.find((example) => example.id === activeId) ?? homepageExamples[0], [activeId])
+  function showFloating(example: HomepageExample, x: number, y: number) { setActiveId(example.id); setFloating({ example, x, y }) }
   return (
-    <div className="grid gap-6">
+    <div className="relative grid gap-6" onMouseLeave={() => setFloating(null)}>
       <div className="rounded-[2rem] border border-border bg-[hsl(var(--pix-navy))] p-6 text-white shadow-xl md:p-8">
         <div className="grid items-center gap-6 lg:grid-cols-[.9fr_1.1fr]">
-          <div><Badge className="bg-[hsl(var(--pix-amber))] text-foreground">Sample Atlas</Badge><h3 className="mt-5 text-3xl font-black md:text-5xl">题材不是列表，是可验收的样本墙</h3><p className="mt-4 max-w-2xl text-sm leading-7 text-white/68">每套范例包含一张透明物品精灵表和一张 1920×1080 UI 展示图。默认轻量浏览，需要细节时把物品拆成 8 个独立格逐个验收。</p></div>
+          <div><Badge className="bg-[hsl(var(--pix-amber))] text-foreground">Sample Atlas</Badge><h3 className="mt-5 text-3xl font-black md:text-5xl">题材不是列表，是可验收的样本墙</h3><p className="mt-4 max-w-2xl text-sm leading-7 text-white/68">每套范例包含一张透明物品精灵表和一张 1920×1080 UI 展示图。悬浮左侧卡片即可在鼠标旁展开详情。</p></div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">{examplesByCategory.map((group) => <button type="button" key={group.category} onClick={() => setActiveId(group.examples[0]?.id ?? activeId)} className="rounded-2xl border border-white/12 bg-white/7 p-3 text-left transition hover:bg-white/12"><p className="font-black">{group.category}</p><p className="text-xs text-white/55">{group.examples.length} 套范例</p></button>)}</div>
         </div>
       </div>
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,520px)]">
-        <div className="grid gap-6">
-          {examplesByCategory.map((group) => <div key={group.category}><div className="mb-3 flex items-end justify-between gap-3"><div><h3 className="text-2xl font-black">{group.category}</h3><p className="text-sm text-muted-foreground">{group.examples.length} 套物品 + UI 范例</p></div><Badge variant="outline">{group.examples[0]?.number}—{group.examples[group.examples.length - 1]?.number}</Badge></div><div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">{group.examples.map((example) => <ExampleTile key={example.id} example={example} active={activeExample.id === example.id} onSelect={() => setActiveId(example.id)} />)}</div></div>)}
-        </div>
-        {activeExample && <ExampleDetail example={activeExample} />}
+      <div className="grid gap-6">
+        {examplesByCategory.map((group) => <div key={group.category}><div className="mb-4 flex items-end justify-between gap-3"><div><h3 className="text-3xl font-black">{group.category}</h3><p className="text-sm text-muted-foreground">{group.examples.length} 套物品 + UI 范例</p></div><Badge variant="outline">{group.examples[0]?.number}—{group.examples[group.examples.length - 1]?.number}</Badge></div><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">{group.examples.map((example) => <ExampleTile key={example.id} example={example} active={activeExample.id === example.id} onSelect={() => setActiveId(example.id)} onHover={(event) => showFloating(example, event.clientX, event.clientY)} />)}</div></div>)}
       </div>
+      {floating && <ExampleFloatingDetail example={floating.example} x={floating.x} y={floating.y} />}
     </div>
   )
 }
 
-function ExampleTile({ example, active, onSelect }: { example: HomepageExample; active: boolean; onSelect: () => void }) {
-  return <button type="button" onClick={onSelect} onMouseEnter={onSelect} className={`rounded-2xl border bg-card p-2 text-left transition hover:-translate-y-1 hover:shadow-xl ${active ? 'border-primary ring-2 ring-primary/15' : 'border-border'}`}><div className="pix-checkerboard rounded-xl p-2"><ItemSpriteGrid example={example} compact /></div><div className="mt-2 flex items-center justify-between gap-2"><p className="truncate text-xs font-black">{example.theme}</p><Badge variant="outline" className="shrink-0">{example.number}</Badge></div><p className="truncate text-xs text-muted-foreground">{example.category} · 物品 + UI</p></button>
+function ExampleTile({ example, active, onSelect, onHover }: { example: HomepageExample; active: boolean; onSelect: () => void; onHover: (event: MouseEvent<HTMLButtonElement>) => void }) {
+  return <button type="button" onClick={onSelect} onMouseEnter={onHover} onMouseMove={onHover} className={`rounded-2xl border bg-card p-3 text-left transition hover:-translate-y-1 hover:shadow-xl ${active ? 'border-primary ring-2 ring-primary/15' : 'border-border'}`}><div className="pix-checkerboard rounded-xl p-2"><ItemSpriteGrid example={example} compact /></div><div className="mt-3 flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-base font-black leading-tight">{example.theme}</p><p className="mt-1 text-xs text-muted-foreground">{example.category} · 物品 + UI</p></div><Badge variant="outline" className="shrink-0">{example.number}</Badge></div></button>
 }
 
-function ExampleDetail({ example }: { example: HomepageExample }) {
-  return <aside className="sticky top-24 grid gap-3 rounded-[2rem] border border-border bg-card p-4 shadow-xl"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.14em] text-primary">Pix 范例</p><h3 className="mt-1 text-2xl font-black">{example.number} · {example.theme}</h3><p className="text-sm text-muted-foreground">{example.category} / 8 个 64×64 物品 / 16:9 UI</p></div><Badge>{example.category}</Badge></div><div className="grid gap-3 sm:grid-cols-[.9fr_1.1fr]"><div className="rounded-2xl border border-border pix-checkerboard p-3"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-black">拆分物品格</p><Badge variant="outline">4×2</Badge></div><ItemSpriteGrid example={example} /></div><div className="overflow-hidden rounded-2xl border border-border bg-muted"><img src={example.uiSrc} alt={`${example.theme} 像素 UI 展示图`} loading="lazy" decoding="async" className="h-full min-h-44 w-full object-cover [image-rendering:pixelated]" /></div></div><PromptBox title="物品 Prompt" text={buildChineseItemPrompt(example)} /><PromptBox title="UI Prompt" text={buildChineseUiPrompt(example)} /><div className="grid grid-cols-2 gap-2"><FilePill label="item" value={example.itemFile} /><FilePill label="ui" value={example.uiFile} /></div></aside>
+function ExampleFloatingDetail({ example, x, y }: { example: HomepageExample; x: number; y: number }) {
+  const style = { left: Math.min(x + 22, window.innerWidth - 580), top: Math.min(y + 22, window.innerHeight - 640) }
+  return <aside className="pointer-events-none fixed z-[90] grid w-[560px] max-w-[calc(100vw-32px)] gap-3 rounded-[2rem] border border-border bg-card/96 p-4 shadow-2xl backdrop-blur-xl" style={style}><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.14em] text-primary">Pix 范例</p><h3 className="mt-1 text-2xl font-black">{example.number} · {example.theme}</h3><p className="text-sm text-muted-foreground">{example.category} / 8 个 64×64 物品 / 16:9 UI</p></div><Badge>{example.category}</Badge></div><div className="grid gap-3 sm:grid-cols-[.9fr_1.1fr]"><div className="rounded-2xl border border-border pix-checkerboard p-3"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-black">拆分物品格</p><Badge variant="outline">4×2</Badge></div><ItemSpriteGrid example={example} /></div><div className="overflow-hidden rounded-2xl border border-border bg-muted"><img src={example.uiSrc} alt={`${example.theme} 像素 UI 展示图`} loading="lazy" decoding="async" className="h-full min-h-44 w-full object-cover [image-rendering:pixelated]" /></div></div><PromptBox title="物品 Prompt" text={buildChineseItemPrompt(example)} /><PromptBox title="UI Prompt" text={buildChineseUiPrompt(example)} /></aside>
 }
 
 function ItemSpriteGrid({ example, compact = false }: { example: HomepageExample; compact?: boolean }) {
@@ -204,7 +205,6 @@ function ItemSpriteGrid({ example, compact = false }: { example: HomepageExample
 }
 
 function PromptBox({ title, text }: { title: string; text: string }) { return <div className="rounded-2xl border border-border bg-muted/40 p-3"><p className="text-xs font-black uppercase tracking-[.12em] text-muted-foreground">{title}</p><p className="mt-2 text-xs leading-6 text-muted-foreground">{text}</p></div> }
-function FilePill({ label, value }: { label: string; value: string }) { return <div className="min-w-0 rounded-xl border border-border bg-muted/30 px-3 py-2"><p className="text-[11px] text-muted-foreground">{label}</p><code className="block truncate text-xs">{value}</code></div> }
 function itemSlotSrc(example: HomepageExample, index: number) { return example.itemSrc.replace('.png', `_${String(index + 1).padStart(2, '0')}.png`) }
 function buildChineseItemPrompt(example: HomepageExample) { return `像素风「${example.theme}」物品素材表，拆成 4×2 共 8 个独立道具格；每个物品独立输出为 64×64 透明 PNG，居中构图、硬边像素、有限调色板、无抗锯齿，适合作为背包图标或掉落物素材。` }
 function buildChineseUiPrompt(example: HomepageExample) { return `像素风「${example.theme}」16:9 UI 展示图，包含主题面板、边框、按钮、图标、状态区和游戏界面示例；整体为 16-bit RPG / 独立游戏可用风格。` }
