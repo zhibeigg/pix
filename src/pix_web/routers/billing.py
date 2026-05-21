@@ -14,7 +14,12 @@ from pix_web.billing import (
     process_mock_webhook,
 )
 from pix_web.models import CreditPackage, PaymentOrder, User
-from pix_web.payment_providers import create_checkout, handle_alipay_notify, handle_wechat_notify
+from pix_web.payment_providers import (
+    create_checkout,
+    handle_alipay_app_gateway_message,
+    handle_alipay_notify,
+    handle_wechat_notify,
+)
 from pix_web.schemas import (
     CreditPackageResponse,
     MockWebhookRequest,
@@ -97,6 +102,14 @@ async def alipay_webhook(request: Request, db: Session = Depends(get_db)) -> Res
     form = await request.form()
     settings = load_effective_web_settings(db, request.app.state.web_settings)
     result = handle_alipay_notify(db, {key: str(value) for key, value in form.items()}, settings)
+    return Response(content=result, media_type="text/plain")
+
+
+@router.post("/webhook/alipay/app-gateway")
+async def alipay_app_gateway(request: Request, db: Session = Depends(get_db)) -> Response:
+    form = await request.form()
+    settings = load_effective_web_settings(db, request.app.state.web_settings)
+    result = handle_alipay_app_gateway_message(db, {key: str(value) for key, value in form.items()}, settings)
     return Response(content=result, media_type="text/plain")
 
 
