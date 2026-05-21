@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.20] - 2026-05-21
+
+### Fixed
+
+- 主题模式下拉菜单改为非 modal，避免打开/切换时触发页面滚动锁补偿导致整体左右晃动。
+
 ## [1.17.19] - 2026-05-21
 
 ### Fixed

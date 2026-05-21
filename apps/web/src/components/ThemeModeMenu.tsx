@@ -13,7 +13,7 @@ interface ThemeModeMenuProps {
 export function ThemeModeMenu({ preference, resolvedMode, systemMode, onChange }: ThemeModeMenuProps) {
   const Icon = preference === 'system' ? Laptop : resolvedMode === 'dark' ? Moon : Sun
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon" aria-label="选择主题模式" className="rounded-full bg-card">
           <Icon className="h-4 w-4" />
