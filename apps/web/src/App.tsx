@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { CheckCircle2, CircleAlert, Info, X } from 'lucide-react'
 import type { PixLanguage, PixThemeMode, PixThemePreference } from './theme'
 import { api, ApiError } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
 import { AccountMenu } from './components/AccountMenu'
 import { AppHero } from './components/AppHero'
 import { AuthPanel } from './components/AuthPanel'
-import { Alert } from './components/ui/alert'
 import { Button } from './components/ui/button'
 import { HeaderUtilityBar } from './components/HeaderUtilityBar'
 import { LandingSections } from './components/LandingSections'
@@ -21,6 +21,9 @@ import { useI18n } from './i18n'
 import type { AdminDashboard, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SetupStatus, SystemSetting, User } from './types'
 
 const TOKEN_KEY = 'pix_web_token'
+
+type ToastVariant = 'success' | 'info' | 'error'
+type AppToastState = { id: number; message: string; variant: ToastVariant }
 
 type AppProps = {
   themeMode: PixThemeMode
@@ -60,7 +63,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [retryingBatchId, setRetryingBatchId] = useState<number | null>(null)
   const [retryingJobId, setRetryingJobId] = useState<number | null>(null)
   const [downloadingBatchId, setDownloadingBatchId] = useState<number | null>(null)
-  const [message, setMessage] = useState('')
+  const [toast, setToast] = useState<AppToastState | null>(null)
   const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null)
   const [setupLoading, setSetupLoading] = useState(true)
   const [page, setPage] = useState<AppPage>(() => pageFromHash(null))
@@ -79,6 +82,17 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const completedJobs = useMemo(() => jobs.filter((job) => job.status === 'succeeded').length, [jobs])
   const failedJobs = useMemo(() => jobs.filter((job) => job.status === 'failed').length, [jobs])
 
+  const dismissToast = useCallback(() => setToast(null), [])
+  const setMessage = useCallback((message: string, variant: ToastVariant = 'success') => {
+    setToast(message ? { id: Date.now(), message, variant } : null)
+  }, [])
+
+  useEffect(() => {
+    if (!toast) return
+    const timer = window.setTimeout(() => setToast(null), toast.variant === 'error' ? 5200 : 3200)
+    return () => window.clearTimeout(timer)
+  }, [toast])
+
   const refreshSetupStatus = useCallback(async () => {
     try {
       setSetupStatus(await api.setupStatus())
@@ -88,10 +102,10 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   }, [])
 
   const showError = useCallback((error: unknown) => {
-    if (error instanceof ApiError) setMessage(error.message)
-    else if (error instanceof Error) setMessage(error.message)
-    else setMessage(text('发生未知错误', 'Unknown error'))
-  }, [text])
+    if (error instanceof ApiError) setMessage(error.message, 'error')
+    else if (error instanceof Error) setMessage(error.message, 'error')
+    else setMessage(text('发生未知错误', 'Unknown error'), 'error')
+  }, [setMessage, text])
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
@@ -369,14 +383,14 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setSelectedBatchJobs(await api.batchJobs(token, batch.id))
     setSelectedJobId(null)
     navigate('packs')
-    setMessage(text(`已筛选素材包：${batch.name}`, `Filtered pack: ${batch.name}`))
+    setMessage(text(`已筛选素材包：${batch.name}`, `Filtered pack: ${batch.name}`), 'info')
   }
 
   function clearBatchFilter() {
     setSelectedBatchId(null)
     setSelectedBatchJobs([])
     setSelectedJobId(null)
-    setMessage(text('已显示全部作品', 'Showing all works'))
+    setMessage(text('已显示全部作品', 'Showing all works'), 'info')
   }
 
   async function renameBatch(batch: GenerationBatch) {
@@ -385,7 +399,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     if (name === null) return
     const trimmed = name.trim()
     if (!trimmed) {
-      setMessage(text('素材包名称不能为空', 'Pack name cannot be empty'))
+      setMessage(text('素材包名称不能为空', 'Pack name cannot be empty'), 'error')
       return
     }
     try {
@@ -437,7 +451,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       link.click()
       link.remove()
       URL.revokeObjectURL(url)
-      setMessage(text(`${batch.name} 开始下载`, `${batch.name} download started`))
+      setMessage(text(`${batch.name} 开始下载`, `${batch.name} download started`), 'info')
     } catch (error) {
       showError(error)
     } finally {
@@ -484,7 +498,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function copyPath(path: string) {
     await navigator.clipboard.writeText(path)
-    setMessage(text('输出路径已复制', 'Output path copied'))
+    setMessage(text('输出路径已复制', 'Output path copied'), 'info')
   }
 
   async function pixelizeCandidate(job: GenerationJob, candidate: ContactSheetCandidate) {
@@ -604,7 +618,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   async function testEmailSetting(email: string) {
     if (!token) return
     const result = await api.testEmailSetting(token, email)
-    setMessage(result.debug_code ? `${result.message}：${result.debug_code}` : result.message)
+    setMessage(result.debug_code ? `${result.message}：${result.debug_code}` : result.message, 'info')
   }
 
   const needsAdminSetup = setupStatus?.needs_admin && !user
@@ -638,6 +652,8 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
         </div>
       </header>
 
+      <AppToast toast={toast} onDismiss={dismissToast} />
+
       {setupLoading ? (
         <div className="grid min-h-[calc(100vh-76px)] place-items-center px-4 text-muted-foreground">{text('正在检查站点初始化状态…', 'Checking site setup status…')}</div>
       ) : needsAdminSetup && setupStatus ? (
@@ -653,7 +669,6 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           isAdmin={isAdmin}
           onNavigate={navigate}
         >
-          {message && <Alert variant="info" role="status" aria-live="polite">{message}</Alert>}
           {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
           {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onCreateJobs={createRawImageJobs} onRefresh={() => refreshCore()} />}
           {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCopyPath={copyPath} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} />}
@@ -664,12 +679,35 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       ) : (
         <div>
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
-          {message && <div className="mx-auto max-w-6xl px-4 py-3"><Alert variant="info" role="status" aria-live="polite">{message}</Alert></div>}
           <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} />} />
           <SiteFooter />
         </div>
       )}
     </main>
+  )
+}
+
+function AppToast({ toast, onDismiss }: { toast: AppToastState | null; onDismiss: () => void }) {
+  const { text } = useI18n()
+  if (!toast) return null
+  const Icon = toast.variant === 'error' ? CircleAlert : toast.variant === 'info' ? Info : CheckCircle2
+  const tone = toast.variant === 'error'
+    ? 'border-destructive/35 bg-destructive text-destructive-foreground dark:border-red-400/30 dark:bg-red-950 dark:text-red-100'
+    : toast.variant === 'info'
+      ? 'border-[hsl(var(--pix-link-blue))]/30 bg-[hsl(var(--pix-sky))] text-[hsl(var(--pix-navy))] dark:border-sky-300/25 dark:bg-[hsl(var(--pix-navy-deep))] dark:text-sky-100'
+      : 'border-[hsl(var(--pix-brand-green))]/30 bg-[hsl(var(--pix-mint))] text-[hsl(var(--pix-navy))] dark:border-emerald-300/25 dark:bg-[hsl(var(--pix-navy-deep))] dark:text-emerald-100'
+  const iconTone = toast.variant === 'error' ? 'text-red-100 dark:text-red-200' : toast.variant === 'info' ? 'text-[hsl(var(--pix-link-blue))] dark:text-sky-200' : 'text-emerald-700 dark:text-emerald-200'
+
+  return (
+    <div className="pointer-events-none fixed left-1/2 top-5 z-[100] w-[min(calc(100vw-32px),420px)] -translate-x-1/2 px-0">
+      <div key={toast.id} role="status" aria-live="polite" className={`pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-[0_16px_48px_-8px_rgba(15,15,15,0.26)] ring-1 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-200 ${tone}`}>
+        <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${iconTone}`} />
+        <p className="min-w-0 flex-1 leading-6">{toast.message}</p>
+        <button type="button" onClick={onDismiss} aria-label={text('关闭提示', 'Dismiss notification')} className="-mr-1 rounded-md p-1 opacity-72 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
   )
 }
 
