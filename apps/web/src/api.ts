@@ -34,6 +34,7 @@ function normalizeLocalApiBase(base: string) {
 }
 
 export const API_BASE = normalizeLocalApiBase((configuredApiBase || '/api').replace(/\/+$/, ''))
+export const TOKEN_KEY = 'pix_web_token'
 
 export class ApiError extends Error {
   status: number
