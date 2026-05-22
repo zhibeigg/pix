@@ -32,12 +32,18 @@ type AppProps = {
   onLanguageChange: (language: PixLanguage) => void
 }
 
+const PHOTO_RETENTION_LIMIT = 10
+
 function pageFromHash(user: User | null): AppPage {
   const raw = window.location.hash.replace(/^#\/?/, '')
   if (!raw || raw === 'home') return 'home'
   const page = ['workspace', 'raw-image', 'gallery', 'packs', 'billing', 'admin'].includes(raw) ? raw as AppPage : 'home'
   if (page === 'admin' && user?.role !== 'admin') return 'workspace'
   return page
+}
+
+function retainedPhotoCount(jobs: GenerationJob[]) {
+  return jobs.filter((job) => job.status === 'succeeded' && job.outputs.length > 0).length
 }
 
 export function App({ themeMode, themePreference, systemThemeMode, language, onThemePreferenceChange, onLanguageChange }: AppProps) {
@@ -78,6 +84,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const selectedBatch = useMemo(() => batches.find((batch) => batch.id === selectedBatchId) ?? null, [batches, selectedBatchId])
   const selectedJobPool = page === 'packs' && selectedBatchId ? selectedBatchJobs : jobs
   const selectedJob = useMemo(() => selectedJobPool.find((job) => job.id === selectedJobId) ?? null, [selectedJobPool, selectedJobId])
+  const retainedPhotos = useMemo(() => retainedPhotoCount(jobs), [jobs])
   const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)).length, [jobs])
   const completedJobs = useMemo(() => jobs.filter((job) => job.status === 'succeeded').length, [jobs])
   const failedJobs = useMemo(() => jobs.filter((job) => job.status === 'failed').length, [jobs])
@@ -122,6 +129,15 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     else if (error instanceof Error) setMessage(error.message, 'error')
     else setMessage(text('发生未知错误', 'Unknown error'), 'error')
   }, [setMessage, text])
+
+  const confirmPhotoRetentionBeforeCreate = useCallback((nextJobCount: number) => {
+    const overflow = retainedPhotos + nextJobCount - PHOTO_RETENTION_LIMIT
+    if (overflow <= 0) return true
+    return window.confirm(text(
+      `当前已保留 ${retainedPhotos} 张作品。继续生成后，系统会自动删除最旧的 ${overflow} 张作品，只保留最新 ${PHOTO_RETENTION_LIMIT} 张。是否继续？`,
+      `You already keep ${retainedPhotos} works. Continuing will automatically delete the oldest ${overflow} works and keep only the latest ${PHOTO_RETENTION_LIMIT}. Continue?`,
+    ))
+  }, [retainedPhotos, text])
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
@@ -324,6 +340,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function createJob(payload: JobCreateRequest) {
     if (!token) return
+    if (!confirmPhotoRetentionBeforeCreate(1)) return
     setBusy(true)
     setMessage('')
     try {
@@ -341,6 +358,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function createJobs(payloads: JobCreateRequest[], batchName = '', mode = 'mixed') {
     if (!token || payloads.length === 0) return
+    if (!confirmPhotoRetentionBeforeCreate(payloads.length)) return
     setBusy(true)
     setMessage('')
     try {
@@ -358,6 +376,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function createRawImageJob(payload: JobCreateRequest) {
     if (!token) return
+    if (!confirmPhotoRetentionBeforeCreate(1)) return
     setBusy(true)
     setMessage('')
     try {
@@ -377,6 +396,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function createRawImageJobs(payloads: JobCreateRequest[], batchName = '', mode = 'raw_image') {
     if (!token || payloads.length === 0) return
+    if (!confirmPhotoRetentionBeforeCreate(payloads.length)) return
     setBusy(true)
     setMessage('')
     try {
@@ -479,6 +499,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function retryJob(job: GenerationJob) {
     if (!token || job.status !== 'failed') return
+    if (!confirmPhotoRetentionBeforeCreate(1)) return
     if (!window.confirm(text(`重试任务 #${job.id}？将按当前价格重新冻结点数。`, `Retry job #${job.id}? Credits will be reserved at the current price.`))) return
     setRetryingJobId(job.id)
     setMessage('')
@@ -498,6 +519,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function retryFailedBatch(batch: GenerationBatch) {
     if (!token) return
+    if (!confirmPhotoRetentionBeforeCreate(batch.failed_count)) return
     if (!window.confirm(text(`重试「${batch.name}」的 ${batch.failed_count} 个失败项？`, `Retry ${batch.failed_count} failed items in “${batch.name}”?`))) return
     setRetryingBatchId(batch.id)
     setMessage('')

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.29] - 2026-05-22
+
+### Added
+
+- Web 账户作品库最多保留最新 10 张成功作品，生成成功后自动清理更旧作品及其输出目录，前端生成前会提示超限清理规则。
+
 ## [1.17.29] - 2026-05-22
 
 ### Fixed

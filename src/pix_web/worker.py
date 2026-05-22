@@ -14,6 +14,7 @@ from pix_web.credits import consume_reserved, refund_reserved
 from pix_web.db import init_db, make_engine, make_session_factory
 from pix_web.models import GenerationJob, GenerationOutput, utcnow
 from pix_web.pipeline_adapter import run_job_pipeline
+from pix_web.retention import prune_user_photos
 from pix_web.system_settings import load_managed_pix_config
 
 
@@ -50,6 +51,8 @@ def process_job(db: Session, job: GenerationJob, settings: WebSettings) -> Gener
         job.status = "succeeded"
         job.finished_at = utcnow()
         consume_reserved(db, job)
+        db.commit()
+        prune_user_photos(db, job.user_id, settings)
         db.commit()
     except Exception as exc:  # noqa: BLE001 — worker 必须捕获失败并退款
         db.rollback()

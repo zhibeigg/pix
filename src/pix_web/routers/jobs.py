@@ -10,6 +10,7 @@ from pix_web.config import WebSettings
 from pix_web.jobs import create_job, create_jobs_batch, retry_failed_job
 from pix_web.models import GenerationJob, User
 from pix_web.queue import enqueue_jobs
+from pix_web.retention import prune_user_photos
 from pix_web.schemas import JobBatchCreateRequest, JobBatchCreateResponse, JobCreateRequest, JobResponse
 from pix_web.security import get_current_user, get_db, get_settings
 
@@ -44,8 +45,11 @@ def create_batch(
 def list_jobs(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
     limit: int = 50,
 ) -> list[GenerationJob]:
+    if prune_user_photos(db, user.id, settings):
+        db.commit()
     stmt = (
         select(GenerationJob)
         .options(selectinload(GenerationJob.outputs))
