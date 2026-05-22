@@ -12,19 +12,18 @@ interface GalleryPageProps {
   loading: boolean
   retryingJobId: number | null
   onSelectJob: (job: GenerationJob) => void
-  onCopyPath: (path: string) => void
   onCandidatePixelize: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>
   onCreateJob: (payload: JobCreateRequest) => Promise<void>
   onRetryJob: (job: GenerationJob) => Promise<void>
 }
 
-export function GalleryPage({ jobs, selectedJob, selectedJobId, pricing, loading, retryingJobId, onSelectJob, onCopyPath, onCandidatePixelize, onCreateJob, onRetryJob }: GalleryPageProps) {
+export function GalleryPage({ jobs, selectedJob, selectedJobId, pricing, loading, retryingJobId, onSelectJob, onCandidatePixelize, onCreateJob, onRetryJob }: GalleryPageProps) {
   const { text } = useI18n()
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
       <div className="grid min-w-0 gap-6">
-        <PageHeader eyebrow={text('作品', 'Works')} title={text('作品库', 'Gallery')} description={text('挑选、微调、复制路径。', 'Select, tune, and copy output paths.')} />
-        <GalleryGrid jobs={jobs} subtitle={text('全部作品', 'All works')} selectedJobId={selectedJobId} retryingJobId={retryingJobId} onSelect={onSelectJob} onCopyPath={onCopyPath} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} />
+        <PageHeader eyebrow={text('作品', 'Works')} title={text('作品库', 'Gallery')} description={text('挑选、微调、下载图片。', 'Select, tune, and download images.')} />
+        <GalleryGrid jobs={jobs} subtitle={text('全部作品', 'All works')} selectedJobId={selectedJobId} retryingJobId={retryingJobId} onSelect={onSelectJob} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} />
       </div>
       <TuningPanel job={selectedJob} pricing={pricing} loading={loading} onSubmit={onCreateJob} />
     </div>
