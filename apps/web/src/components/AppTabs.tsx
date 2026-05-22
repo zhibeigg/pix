@@ -1,5 +1,5 @@
 import { cn } from '../lib/utils'
-import { useI18n } from '../i18n'
+import { localText, useI18n } from '../i18n'
 import type { User } from '../types'
 
 export type AppPage = 'home' | 'workspace' | 'raw-image' | 'gallery' | 'packs' | 'billing' | 'admin'
@@ -23,14 +23,16 @@ interface AppTabsProps {
 }
 
 export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsProps) {
-  const { text } = useI18n()
+  const { language, text } = useI18n()
   const visibleTabs = tabs.filter((tab) => !tab.adminOnly || user?.role === 'admin')
 
   if (orientation === 'side') {
     return (
-      <nav aria-label="工作区导航" className="grid gap-1">
+      <nav aria-label={text('工作区导航', 'Workspace navigation')} className="grid gap-1">
         {visibleTabs.map((tab) => {
           const active = page === tab.page
+          const label = localText(language, tab.label.zh, tab.label.en)
+          const description = localText(language, tab.description.zh, tab.description.en)
           return (
             <button
               type="button"
@@ -42,8 +44,8 @@ export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsPr
                 active ? 'bg-white text-[hsl(var(--pix-ink))]' : 'text-white/58 hover:bg-white/10 hover:text-white',
               )}
             >
-              <span className="block text-sm font-semibold leading-tight">{text(tab.label.zh, tab.label.en)}</span>
-              <span className={cn('mt-0.5 block text-[11px]', active ? 'text-[hsl(var(--pix-steel))]' : 'text-white/38 group-hover:text-white/58')}>{text(tab.description.zh, tab.description.en)}</span>
+              <span className="block text-sm font-semibold leading-tight">{label}</span>
+              <span className={cn('mt-0.5 block text-[11px]', active ? 'text-[hsl(var(--pix-steel))]' : 'text-white/38 group-hover:text-white/58')}>{description}</span>
             </button>
           )
         })}
@@ -52,9 +54,11 @@ export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsPr
   }
 
   return (
-    <nav aria-label="主导航" className="flex w-full gap-1 overflow-x-auto rounded-full border border-border bg-transparent p-1">
+    <nav aria-label={text('主导航', 'Main navigation')} className="flex w-full gap-1 overflow-x-auto rounded-full border border-border bg-transparent p-1">
       {visibleTabs.map((tab) => {
         const active = page === tab.page
+        const label = localText(language, tab.label.zh, tab.label.en)
+        const description = localText(language, tab.description.zh, tab.description.en)
         return (
           <button
             type="button"
@@ -66,8 +70,8 @@ export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsPr
               active && 'bg-[hsl(var(--pix-ink))] text-white',
             )}
           >
-            <span className="block leading-tight">{text(tab.label.zh, tab.label.en)}</span>
-            <span className={cn('hidden text-[11px] text-muted-foreground lg:block', active && 'text-white/70')}>{text(tab.description.zh, tab.description.en)}</span>
+            <span className="block leading-tight">{label}</span>
+            <span className={cn('hidden text-[11px] text-muted-foreground lg:block', active && 'text-white/70')}>{description}</span>
           </button>
         )
       })}
