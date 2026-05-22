@@ -1,7 +1,7 @@
 {
   "name": "pix-web",
   "private": true,
-  "version": "1.22.46",
+  "version": "1.23.46",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -24,10 +24,12 @@
     "@vitejs/plugin-react": "latest",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "i18next": "^26.2.0",
     "lucide-react": "^1.16.0",
     "qrcode.react": "^4.2.0",
     "react": "latest",
     "react-dom": "latest",
+    "react-i18next": "^17.0.8",
     "tailwind-merge": "^3.6.0",
     "typescript": "latest",
     "vite": "latest"

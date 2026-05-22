@@ -102,6 +102,31 @@
   --pix-paper-charcoal: 45 8% 20%;
   --pix-paper-slate: 47 5% 35%;
   --pix-paper-steel: 43 3% 46%;
+
+  --ledger-surface: var(--card);
+  --ledger-surface-header: var(--pix-paper-soft);
+  --ledger-surface-row: var(--card);
+  --ledger-surface-row-hover: var(--muted);
+  --ledger-line: var(--border);
+  --ledger-text: var(--foreground);
+  --ledger-text-soft: var(--muted-foreground);
+  --ledger-text-faint: var(--muted-foreground);
+  --ledger-shadow: 0 12px 36px -24px hsl(222 47% 11% / .35);
+  --ledger-pill-blue-bg: 204 100% 97%;
+  --ledger-pill-blue-fg: 204 80% 28%;
+  --ledger-pill-blue-ring: 204 86% 84%;
+  --ledger-pill-green-bg: 151 81% 96%;
+  --ledger-pill-green-fg: 151 74% 25%;
+  --ledger-pill-green-ring: 152 69% 80%;
+  --ledger-pill-rose-bg: 356 100% 97%;
+  --ledger-pill-rose-fg: 350 72% 36%;
+  --ledger-pill-rose-ring: 353 83% 86%;
+  --ledger-pill-amber-bg: 48 100% 96%;
+  --ledger-pill-amber-fg: 36 85% 28%;
+  --ledger-pill-amber-ring: 43 91% 80%;
+  --ledger-pill-slate-bg: var(--muted);
+  --ledger-pill-slate-fg: var(--muted-foreground);
+  --ledger-pill-slate-ring: var(--border);
 }
 
 [data-theme="dark"] {
@@ -145,6 +170,31 @@
   --pix-paper-charcoal: 42 18% 86%;
   --pix-paper-slate: 42 9% 70%;
   --pix-paper-steel: 42 7% 62%;
+
+  --ledger-surface: var(--pix-navy-deep);
+  --ledger-surface-header: var(--pix-navy-deep);
+  --ledger-surface-row: 223 60% 10%;
+  --ledger-surface-row-hover: 223 45% 16%;
+  --ledger-line: 223 36% 25%;
+  --ledger-text: 42 36% 96%;
+  --ledger-text-soft: 42 15% 78%;
+  --ledger-text-faint: 42 7% 62%;
+  --ledger-shadow: 0 24px 80px -44px hsl(0 0% 0% / .9);
+  --ledger-pill-blue-bg: 204 94% 56% / .12;
+  --ledger-pill-blue-fg: 204 100% 90%;
+  --ledger-pill-blue-ring: 204 94% 72% / .2;
+  --ledger-pill-green-bg: 151 68% 54% / .12;
+  --ledger-pill-green-fg: 151 80% 88%;
+  --ledger-pill-green-ring: 151 68% 70% / .2;
+  --ledger-pill-rose-bg: 350 84% 62% / .12;
+  --ledger-pill-rose-fg: 350 95% 90%;
+  --ledger-pill-rose-ring: 350 84% 76% / .2;
+  --ledger-pill-amber-bg: 43 94% 58% / .14;
+  --ledger-pill-amber-fg: 43 100% 88%;
+  --ledger-pill-amber-ring: 43 94% 72% / .24;
+  --ledger-pill-slate-bg: 0 0% 100% / .1;
+  --ledger-pill-slate-fg: 0 0% 100% / .78;
+  --ledger-pill-slate-ring: 0 0% 100% / .1;
 }
 
 * {
