@@ -1,4 +1,5 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { GenerationJob, JobCreateRequest, PricingRule } from '../types'
 import { buildGridDesign, buildPixelize, hasInvalidSubAssetSize, parsePixelSize, summarizePrompt } from '../pixelize'
@@ -20,11 +21,27 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
   const [aiPrompt, setAiPrompt] = useState(() => text('保留主体，优化材质和颜色', 'Keep the subject, improve material and color'))
   const aiPrice = useMemo(() => pricing.find((item) => item.key === 'image_to_image')?.price_credits ?? 0, [pricing])
 
+  useEffect(() => {
+    if (!job) return
+    const pixelize = asRecord(job.params_json?.pixelize)
+    if (!pixelize) return
+    const size = pixelize.output_size
+    if (Array.isArray(size) && size.length >= 2) {
+      setPixelSize(`${size[0]}x${size[1]}`)
+    }
+    if (Number.isFinite(pixelize.colors)) {
+      setColors(Number(pixelize.colors))
+    }
+    if (typeof pixelize.remove_bg === 'boolean') {
+      setRemoveBg(pixelize.remove_bg)
+    }
+  }, [job?.id])
+
   if (!job) return <PixPanel eyebrow={text('微调工位', 'Tuning station')} title={text('选择作品进行微调', 'Select a work to tune')} description={text('选择作品后可重新像素化或 AI 微调。', 'After selecting a work, you can repixelize it or run AI tuning.')} />
 
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
   const sourcePath = output?.source_path || output?.pixelized_path || job.input_image_path || ''
-  const previewUrl = output?.pixelized_url || output?.source_url || job.input_image_url || ''
+  const previewUrl = signedFileUrl(output?.pixelized_url || output?.preview_url || output?.source_url || job.input_image_url || '')
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
 
@@ -60,4 +77,8 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
       </form>
     </div>
   )
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null
 }
