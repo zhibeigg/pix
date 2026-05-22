@@ -73,6 +73,8 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
   const [selectedRawJobId, setSelectedRawJobId] = useState<number | null>(null)
   const pollFailuresRef = useRef(0)
+  const jobStatusSnapshotRef = useRef<Map<number, string>>(new Map())
+  const jobStatusSeededRef = useRef(false)
 
   const isAdmin = user?.role === 'admin'
   const selectedBatch = useMemo(() => batches.find((batch) => batch.id === selectedBatchId) ?? null, [batches, selectedBatchId])
@@ -92,6 +94,22 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     const timer = window.setTimeout(() => setToast(null), toast.variant === 'error' ? 5200 : 3200)
     return () => window.clearTimeout(timer)
   }, [toast])
+
+  const notifyJobCompletions = useCallback((nextJobs: GenerationJob[]) => {
+    const previous = jobStatusSnapshotRef.current
+    const completed = jobStatusSeededRef.current
+      ? nextJobs.filter((job) => job.status === 'succeeded' && previous.has(job.id) && previous.get(job.id) !== 'succeeded')
+      : []
+    jobStatusSnapshotRef.current = new Map(nextJobs.map((job) => [job.id, job.status]))
+    jobStatusSeededRef.current = true
+    if (completed.length === 0) return
+    const title = completed.length === 1 ? text('生成完成', 'Generation complete') : text('批量生成完成', 'Batch complete')
+    const body = completed.length === 1
+      ? text(`任务 #${completed[0].id} 已生成完成。`, `Job #${completed[0].id} has finished generating.`)
+      : text(`${completed.length} 个任务已生成完成。`, `${completed.length} jobs have finished generating.`)
+    setMessage(body, 'success')
+    showSystemNotification(title, body)
+  }, [setMessage, text])
 
   const refreshSetupStatus = useCallback(async () => {
     try {
@@ -126,6 +144,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setPackages(nextPackages)
     setCustomRechargeOptions(nextCustomRechargeOptions)
     setOrders(nextOrders)
+    notifyJobCompletions(nextJobs)
     setJobs(nextJobs)
     setBatches(nextBatches)
     setPricing(nextPricing)
@@ -144,7 +163,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       setAdminDashboard(dashboard)
       setAdminPackages(nextAdminPackages)
     }
-  }, [selectedBatchId, token])
+  }, [notifyJobCompletions, selectedBatchId, token])
 
   useEffect(() => {
     refreshSetupStatus().catch(showError)
@@ -176,9 +195,9 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
     async function poll() {
       if (cancelled) return
-      const delay = pollFailuresRef.current >= 4 ? 15000 : pollFailuresRef.current >= 2 ? 6000 : 3000
+      const baseDelay = pollFailuresRef.current >= 4 ? 15000 : pollFailuresRef.current >= 2 ? 6000 : 3000
+      const delay = document.visibilityState === 'hidden' ? Math.max(baseDelay, 15000) : baseDelay
       timer = window.setTimeout(poll, delay)
-      if (document.visibilityState === 'hidden') return
       try {
         const [nextJobs, nextBatches, nextBalance, nextOrders] = await Promise.all([
           api.jobs(token),
@@ -186,6 +205,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           api.balance(token),
           api.orders(token),
         ])
+        notifyJobCompletions(nextJobs)
         setJobs(nextJobs)
         setBatches(nextBatches)
         setBalance(nextBalance)
@@ -201,7 +221,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [token])
+  }, [notifyJobCompletions, token])
 
   async function login(email: string, password: string) {
     setBusy(true)
@@ -685,6 +705,20 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       )}
     </main>
   )
+}
+
+function showSystemNotification(title: string, body: string) {
+  if (typeof window === 'undefined' || !('Notification' in window)) return
+  const options: NotificationOptions = { body, icon: '/pix-logo-64.png', tag: 'pix-generation-complete' }
+  if (Notification.permission === 'granted') {
+    new Notification(title, options)
+    return
+  }
+  if (Notification.permission === 'default') {
+    void Notification.requestPermission().then((permission) => {
+      if (permission === 'granted') new Notification(title, options)
+    }).catch(() => undefined)
+  }
 }
 
 function AppToast({ toast, onDismiss }: { toast: AppToastState | null; onDismiss: () => void }) {
