@@ -4,16 +4,20 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
-from datetime import datetime
 import hashlib
 import json
 from pathlib import Path
 import re
 from time import time
 from typing import Any
-from urllib.parse import urlencode
 from uuid import uuid4
 
+from alipay.aop.api.AlipayClientConfig import AlipayClientConfig
+from alipay.aop.api.DefaultAlipayClient import DefaultAlipayClient
+from alipay.aop.api.domain.AlipayTradePagePayModel import AlipayTradePagePayModel
+from alipay.aop.api.request.AlipayTradePagePayRequest import AlipayTradePagePayRequest
+from alipay.aop.api.util.SignatureUtils import get_sign_content
+from alipay.aop.api.util.SignatureUtils import verify_with_rsa as alipay_verify_with_rsa
 import httpx
 from fastapi import HTTPException, status
 from cryptography import x509
@@ -64,6 +68,29 @@ def _load_private_key(raw: str):
 def _load_public_key(raw: str):
     key = _require(raw, "支付公钥").encode("utf-8")
     return serialization.load_pem_public_key(key)
+
+
+def _with_pem_markers(value: str, marker: str) -> str:
+    if "-----BEGIN" in value:
+        return value
+    return f"-----BEGIN {marker}-----\n{value}\n-----END {marker}-----"
+
+
+def _alipay_sdk_private_key(raw: str) -> str:
+    """Return an RSA private key format accepted by alipay-sdk-python."""
+    clean = _require(raw, "ALIPAY_PRIVATE_KEY")
+    candidates = [clean, _with_pem_markers(clean, "PRIVATE KEY"), _with_pem_markers(clean, "RSA PRIVATE KEY")]
+    for candidate in candidates:
+        try:
+            private_key = serialization.load_pem_private_key(candidate.encode("utf-8"), password=None)
+        except Exception:
+            continue
+        return private_key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.TraditionalOpenSSL,
+            serialization.NoEncryption(),
+        ).decode("utf-8")
+    return clean
 
 
 def _rsa_sign(private_key_raw: str, message: str) -> str:
@@ -121,6 +148,13 @@ def _certificate_public_key(raw: str, name: str):
     return _load_pem_certificate(raw, name).public_key()
 
 
+def _certificate_public_key_pem(raw: str, name: str) -> str:
+    return _certificate_public_key(raw, name).public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode("utf-8")
+
+
 def _is_rsa_certificate(cert: x509.Certificate) -> bool:
     signature_name = getattr(cert.signature_algorithm_oid, "_name", "").upper()
     if "RSA" in signature_name:
@@ -154,15 +188,26 @@ def _alipay_mode(settings: WebSettings) -> str:
     return "public_key"
 
 
-def _alipay_public_key_for_verify(settings: WebSettings):
+def _alipay_public_key_for_verify(settings: WebSettings) -> str:
     if _alipay_mode(settings) == "certificate":
-        return _certificate_public_key(settings.alipay_public_cert, "ALIPAY_PUBLIC_CERT")
-    return _load_public_key(settings.alipay_public_key)
+        return _certificate_public_key_pem(settings.alipay_public_cert, "ALIPAY_PUBLIC_CERT")
+    return _require(settings.alipay_public_key, "ALIPAY_PUBLIC_KEY")
+
+
+def _alipay_client(settings: WebSettings) -> DefaultAlipayClient:
+    config = AlipayClientConfig()
+    config.server_url = settings.alipay_gateway
+    config.app_id = _require(settings.alipay_app_id, "ALIPAY_APP_ID")
+    config.app_private_key = _alipay_sdk_private_key(settings.alipay_private_key)
+    config.alipay_public_key = _alipay_public_key_for_verify(settings)
+    config.sign_type = "RSA2"
+    config.charset = "utf-8"
+    return DefaultAlipayClient(alipay_client_config=config)
 
 
 def _alipay_verify(settings: WebSettings, message: str, signature_b64: str) -> bool:
     try:
-        return _rsa_verify_with_public_key(_alipay_public_key_for_verify(settings), message, signature_b64)
+        return bool(alipay_verify_with_rsa(_alipay_public_key_for_verify(settings), message.encode("utf-8"), signature_b64))
     except Exception:
         return False
 
@@ -194,7 +239,7 @@ def create_checkout(
 
 
 def _alipay_sign_content(params: dict[str, str]) -> str:
-    return "&".join(f"{key}={params[key]}" for key in sorted(params) if params[key] != "")
+    return get_sign_content({key: value for key, value in params.items() if value != ""})
 
 
 def create_alipay_checkout(
@@ -205,7 +250,6 @@ def create_alipay_checkout(
     package_key: str | None = None,
     custom_credits: int | None = None,
 ) -> CheckoutResult:
-    app_id = _require(settings.alipay_app_id, "ALIPAY_APP_ID")
     mode = _alipay_mode(settings)
     if mode == "certificate":
         _require(settings.alipay_app_cert, "ALIPAY_APP_CERT")
@@ -219,32 +263,24 @@ def create_alipay_checkout(
         else create_payment_order(db, user, package_key or "", provider="alipay")
     )
     subject = f"Pix Credits 自定义 {order.credits}" if order.package_id is None else f"Pix Credits {order.credits}"
-    biz_content = json.dumps(
-        {
-            "out_trade_no": order.provider_order_id,
-            "product_code": "FAST_INSTANT_TRADE_PAY",
-            "total_amount": _money_yuan(order.amount_cents),
-            "subject": subject,
-        },
-        ensure_ascii=False,
-        separators=(",", ":"),
-    )
-    params = {
-        "app_id": app_id,
-        "method": "alipay.trade.page.pay",
-        "charset": "utf-8",
-        "sign_type": "RSA2",
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "version": "1.0",
-        "notify_url": _public_url(settings, "/billing/webhook/alipay"),
-        "return_url": _public_url(settings, f"/billing/return/alipay?order_id={order.id}"),
-        "biz_content": biz_content,
-    }
+    model = AlipayTradePagePayModel()
+    model.out_trade_no = order.provider_order_id
+    model.product_code = "FAST_INSTANT_TRADE_PAY"
+    model.total_amount = _money_yuan(order.amount_cents)
+    model.subject = subject
+    request = AlipayTradePagePayRequest(biz_model=model)
+    request.notify_url = _public_url(settings, "/billing/webhook/alipay")
+    request.return_url = _public_url(settings, f"/billing/return/alipay?order_id={order.id}")
     if mode == "certificate":
-        params["app_cert_sn"] = _alipay_app_cert_sn(settings)
-        params["alipay_root_cert_sn"] = _alipay_root_cert_sn(settings)
-    params["sign"] = _rsa_sign(settings.alipay_private_key, _alipay_sign_content(params))
-    return CheckoutResult(order=order, provider="alipay", payment_url=f"{settings.alipay_gateway}?{urlencode(params)}")
+        request.udf_params = {
+            "app_cert_sn": _alipay_app_cert_sn(settings),
+            "alipay_root_cert_sn": _alipay_root_cert_sn(settings),
+        }
+    try:
+        payment_url = _alipay_client(settings).page_execute(request, http_method="GET")
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"支付宝 SDK 生成支付链接失败: {exc}") from exc
+    return CheckoutResult(order=order, provider="alipay", payment_url=payment_url)
 
 
 def handle_alipay_notify(db: Session, form: dict[str, str], settings: WebSettings) -> str:

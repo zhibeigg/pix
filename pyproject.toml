@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pix"
-version = "1.18.29"
+version = "1.24.47"
 description = "Prompt → AI image → multimodal JSON → pixel art pipeline, with CLI and PySide6 GUI."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -57,6 +57,7 @@ web = [
     "rq>=2",
     "psycopg[binary]>=3.1",
     "cryptography>=42",
+    "alipay-sdk-python>=3.7.1160",
 ]
 dev = ["pytest>=8.0", "ruff>=0.4"]
 
