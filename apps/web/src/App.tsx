@@ -625,7 +625,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
             <HeaderUtilityBar language={language} themePreference={themePreference} resolvedMode={themeMode} systemMode={systemThemeMode} onLanguageChange={onLanguageChange} onThemePreferenceChange={onThemePreferenceChange} />
             {user ? (
               <>
-                {page === 'home' && <Button asChild><a href="#/workspace">{text('进入工作台', 'Enter workspace')}</a></Button>}
+                {page === 'home' && <Button asChild><a href="#/workspace">{text('工作台', 'Workspace')}</a></Button>}
                 <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={() => refreshCore()} onLogout={logout} />
               </>
             ) : (
