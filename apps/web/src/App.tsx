@@ -714,12 +714,12 @@ function AppToast({ toast, onDismiss }: { toast: AppToastState | null; onDismiss
 function WorkspaceShell({ page, user, balance, activeJobs, completedJobs, failedJobs, isAdmin, children, onNavigate }: { page: AppPage; user: User; balance: CreditBalance | null; activeJobs: number; completedJobs: number; failedJobs: number; isAdmin: boolean; children: ReactNode; onNavigate: (page: AppPage) => void }) {
   const { text } = useI18n()
   return (
-    <div className="grid min-h-[calc(100vh-65px)] bg-[hsl(var(--pix-cream)/.42)] lg:grid-cols-[260px_minmax(0,1fr)] dark:bg-background">
-      <aside className="border-b border-border bg-[hsl(var(--pix-paper-soft))] p-4 text-[hsl(var(--pix-ink))] lg:border-b-0 lg:border-r dark:border-[hsl(var(--pix-navy-mid))] dark:bg-[hsl(var(--pix-navy))] dark:text-white">
+    <div className="grid min-h-[calc(100vh-65px)] bg-[hsl(var(--pix-cream)/.42)] lg:grid-cols-[260px_minmax(0,1fr)] dark:bg-[hsl(var(--pix-navy-deep))]">
+      <aside className="border-b border-border bg-[hsl(var(--pix-paper-soft))] p-4 text-[hsl(var(--pix-ink))] lg:border-b-0 lg:border-r dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band))] dark:text-white">
         <div className="grid gap-6 lg:sticky lg:top-20 lg:min-h-[calc(100vh-97px)] lg:grid-rows-[auto_auto_1fr_auto]">
           <div>
             <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-[hsl(var(--pix-steel))] dark:text-white/58">{text('工作区', 'Workspace')}</p>
-            <div className="mt-3 rounded-md border border-border bg-card p-3 shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-transparent dark:bg-white/7 dark:ring-1 dark:ring-white/10">
+            <div className="mt-3 rounded-md border border-border bg-card p-3 shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:shadow-[0_18px_48px_-36px_rgba(0,0,0,0.85)]">
               <p className="truncate text-sm font-semibold">{user.display_name || user.email}</p>
               <p className="mt-1 truncate text-xs text-muted-foreground dark:text-white/45">{user.email}</p>
             </div>
@@ -735,7 +735,7 @@ function WorkspaceShell({ page, user, balance, activeJobs, completedJobs, failed
           </div>
         </div>
       </aside>
-      <section className="min-w-0 bg-[linear-gradient(180deg,hsl(var(--pix-paper))_0%,hsl(var(--background))_36rem)] px-4 py-5 md:px-8 md:py-8 dark:bg-background">
+      <section className="min-w-0 bg-[linear-gradient(180deg,hsl(var(--pix-paper))_0%,hsl(var(--background))_36rem)] px-4 py-5 md:px-8 md:py-8 dark:bg-[linear-gradient(180deg,hsl(var(--pix-navy))_0%,hsl(var(--pix-navy-deep))_42rem)]">
         <div className="grid w-full gap-6">
           <div className="block lg:hidden">
             <AppTabs page={page} user={user} onChange={onNavigate} />
@@ -749,8 +749,8 @@ function WorkspaceShell({ page, user, balance, activeJobs, completedJobs, failed
 
 function SidebarMetric({ label, value, tone = 'default' }: { label: ReactNode; value: ReactNode; tone?: 'default' | 'danger' }) {
   return (
-    <div className={`rounded-md border px-3 py-2 shadow-[0_1px_2px_rgba(15,15,15,0.04)] ${tone === 'danger' ? 'border-red-200 bg-red-50 text-red-950 dark:border-red-300/30 dark:bg-red-500/10 dark:text-white' : 'border-border bg-card text-[hsl(var(--pix-ink))] dark:border-white/10 dark:bg-white/7 dark:text-white'}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground dark:text-white/45">{label}</p>
+    <div className={`rounded-md border px-3 py-2 shadow-[0_1px_2px_rgba(15,15,15,0.04)] ${tone === 'danger' ? 'border-red-200 bg-red-50 text-red-950 dark:border-red-300/30 dark:bg-red-500/10 dark:text-white' : 'border-border bg-card text-[hsl(var(--pix-ink))] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white'}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground dark:text-white/52">{label}</p>
       <p className="mt-1 text-lg font-semibold leading-tight">{value}</p>
     </div>
   )
