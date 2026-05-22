@@ -24,7 +24,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
   const visible = ordered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   return (
-    <PixPanel eyebrow={text('作品库', 'Gallery')} title={text('作品网格', 'Work grid')} description={subtitle} action={<div className="flex gap-2"><Badge variant="info">{text(`${ordered.length} 件`, `${ordered.length} items`)}</Badge><Badge variant="outline">{text(`第 ${safePage}/${totalPages} 页`, `Page ${safePage}/${totalPages}`)}</Badge></div>}>
+    <PixPanel eyebrow={text('作品库', 'Gallery')} title={text('作品网格', 'Work grid')} description={subtitle} action={<div className="flex flex-wrap gap-2"><Badge variant="info">{text(`${ordered.length} 件`, `${ordered.length} items`)}</Badge><Badge variant="outline">{text('最多 10 张', 'Max 10 works')}</Badge><Badge variant="outline">{text(`第 ${safePage}/${totalPages} 页`, `Page ${safePage}/${totalPages}`)}</Badge></div>}>
       {ordered.length === 0 ? <div className="rounded-lg border border-dashed border-border bg-muted/45 p-8 text-center text-muted-foreground">{text('暂无作品，先创建一个任务。', 'No works yet. Create a job first.')}</div> : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((job) => <GalleryCard key={job.id} job={job} selected={selectedJobId === job.id} retrying={retryingJobId === job.id} onSelect={onSelect} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} />)}

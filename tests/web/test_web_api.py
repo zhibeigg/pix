@@ -21,7 +21,7 @@ from cryptography.x509.oid import NameOID
 from pix.config import AppConfig
 from pix_web.config import WebSettings
 from pix_web.main import create_app
-from pix_web.models import AlipayGatewayMessage, GenerationBatch, SystemSetting
+from pix_web.models import AlipayGatewayMessage, CreditTransaction, GenerationBatch, GenerationJob, GenerationOutput, SystemSetting
 from pix_web.payment_providers import _alipay_sign_content, _is_rsa_certificate, _rsa_sign
 from pix_web.pipeline_adapter import asset_pipeline_input_from_job, run_job_pipeline
 from pix_web.worker import process_next_job
@@ -1389,6 +1389,61 @@ def test_asset_pipeline_adapter_uses_asset_defaults_and_keeps_config_isolated(tm
     assert cfg.image_gen.contact_sheet_enabled is True
     assert cfg.image_gen.prompt_guard_remote is True
     assert json.loads(meta_path.read_text(encoding="utf-8"))["asset"]["name"] == "紫檀木"
+
+
+def test_list_jobs_prunes_old_successful_outputs(client: TestClient) -> None:
+    user, headers = _register_and_login(client, "retention@example.com")
+    session_factory = client.app.state.SessionLocal
+    settings = client.app.state.web_settings
+    base_time = datetime.now(timezone.utc) - timedelta(days=1)
+
+    with session_factory() as db:
+        stale_run_dir: Path | None = None
+        stale_job_id: int | None = None
+        for index in range(11):
+            created_at = base_time + timedelta(minutes=index)
+            job = GenerationJob(
+                user_id=user["id"],
+                client_request_id=f"retention-{index}",
+                job_type="text_to_image",
+                status="succeeded",
+                prompt=f"pixel gem {index}",
+                price_credits=20,
+                created_at=created_at,
+                started_at=created_at,
+                finished_at=created_at,
+            )
+            db.add(job)
+            db.flush()
+            run_dir = settings.storage_root / "runs" / f"retention-{index}"
+            run_dir.mkdir(parents=True)
+            source = run_dir / "01_source.png"
+            pixel = run_dir / "03_pixelized.png"
+            meta = run_dir / "meta.json"
+            Image.new("RGBA", (4, 4), (index, 0, 0, 255)).save(source)
+            Image.new("RGBA", (4, 4), (0, index, 0, 255)).save(pixel)
+            meta.write_text("{}", encoding="utf-8")
+            db.add(GenerationOutput(job_id=job.id, run_dir=str(run_dir), source_path=str(source), pixelized_path=str(pixel), meta_json_path=str(meta)))
+            db.add(CreditTransaction(user_id=user["id"], type="consume", amount=-20, balance_after=0, job_id=job.id, note="consume"))
+            if index == 0:
+                stale_run_dir = run_dir
+                stale_job_id = job.id
+        db.commit()
+
+    response = client.get("/jobs?limit=50", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len([job for job in body if job["status"] == "succeeded"]) == 10
+    assert all(job["id"] != stale_job_id for job in body)
+    assert stale_run_dir is not None
+    assert not stale_run_dir.exists()
+
+    with session_factory() as db:
+        assert db.get(GenerationJob, stale_job_id) is None
+        stale_tx = db.scalar(select(CreditTransaction).where(CreditTransaction.note == "consume").order_by(CreditTransaction.id.asc()))
+        assert stale_tx is not None
+        assert stale_tx.job_id is None
 
 
 def test_worker_success_consumes_reserved_credits(client: TestClient, tmp_path, monkeypatch) -> None:

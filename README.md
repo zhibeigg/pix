@@ -16,8 +16,8 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.19.45-6f42c1.svg">
-  <img alt="tests" src="https://img.shields.io/badge/tests-385%20passed-2ea44f.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.20.45-6f42c1.svg">
+  <img alt="tests" src="https://img.shields.io/badge/tests-386%20passed-2ea44f.svg">
 </p>
 
 ---
@@ -328,6 +328,7 @@ Pix Web 是一个可运营的素材生产工作台：
 - 独立原始生图页：只保留提供商、模型、尺寸、质量、敏感度和生成数量等基础参数，提交后停留在中央画布查看 source 原图与候选缩略图
 - 单图生成、图生图、本地像素化、动画精灵表
 - 批量素材直出、批量 prompt / 批量图片任务
+- 作品库最多保留每个账户最新 10 张成功作品，继续生成时会提示并自动清理最旧作品
 - 作品库单任务失败重试、素材包失败项重试、ZIP 下载
 - 管理后台：模型/API、价格、充值套餐、运营保护、邮件配置
 - 支付模型：mock pay、支付宝电脑网站支付（公钥模式 / 证书模式）、微信 Native 扫码支付
