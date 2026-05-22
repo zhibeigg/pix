@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CheckCircle2, CircleAlert, Info, X } from 'lucide-react'
 import type { PixLanguage, PixThemeMode, PixThemePreference } from './theme'
-import { api, ApiError } from './api'
+import { api, ApiError, TOKEN_KEY } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
 import { AccountMenu } from './components/AccountMenu'
 import { AppHero } from './components/AppHero'
@@ -19,8 +19,6 @@ import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
 import { buildGridDesign, defaultPixelize } from './pixelize'
 import { useI18n } from './i18n'
 import type { AdminDashboard, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SetupStatus, SystemSetting, User } from './types'
-
-const TOKEN_KEY = 'pix_web_token'
 
 type ToastVariant = 'success' | 'info' | 'error'
 type AppToastState = { id: number; message: string; variant: ToastVariant }
