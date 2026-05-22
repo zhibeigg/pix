@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n'
 import { GalleryGrid } from '../components/GalleryGrid'
 import { PageHeader } from '../components/PageHeader'
 import { TuningPanel } from '../components/TuningPanel'
@@ -18,11 +19,12 @@ interface GalleryPageProps {
 }
 
 export function GalleryPage({ jobs, selectedJob, selectedJobId, pricing, loading, retryingJobId, onSelectJob, onCopyPath, onCandidatePixelize, onCreateJob, onRetryJob }: GalleryPageProps) {
+  const { text } = useI18n()
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
       <div className="grid min-w-0 gap-6">
-        <PageHeader eyebrow="作品" title="作品库" description="挑选、微调、复制路径。" />
-        <GalleryGrid jobs={jobs} subtitle="全部作品" selectedJobId={selectedJobId} retryingJobId={retryingJobId} onSelect={onSelectJob} onCopyPath={onCopyPath} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} />
+        <PageHeader eyebrow={text('作品', 'Works')} title={text('作品库', 'Gallery')} description={text('挑选、微调、复制路径。', 'Select, tune, and copy output paths.')} />
+        <GalleryGrid jobs={jobs} subtitle={text('全部作品', 'All works')} selectedJobId={selectedJobId} retryingJobId={retryingJobId} onSelect={onSelectJob} onCopyPath={onCopyPath} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} />
       </div>
       <TuningPanel job={selectedJob} pricing={pricing} loading={loading} onSubmit={onCreateJob} />
     </div>

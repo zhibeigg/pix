@@ -1,17 +1,18 @@
 import { cn } from '../lib/utils'
+import { useI18n } from '../i18n'
 import type { User } from '../types'
 
 export type AppPage = 'home' | 'workspace' | 'raw-image' | 'gallery' | 'packs' | 'billing' | 'admin'
 
-type AppTab = { page: AppPage; label: string; description: string; sidebarLabel: string; adminOnly?: boolean }
+type AppTab = { page: AppPage; label: { zh: string; en: string }; description: { zh: string; en: string }; adminOnly?: boolean }
 
 const tabs: AppTab[] = [
-  { page: 'workspace', label: '生产', sidebarLabel: 'Production', description: '单图 / 批量' },
-  { page: 'raw-image', label: '原始生图', sidebarLabel: 'Raw image', description: '只出原图' },
-  { page: 'gallery', label: '作品库', sidebarLabel: 'Gallery', description: '查看与微调' },
-  { page: 'packs', label: '素材包', sidebarLabel: 'Packs', description: '批量管理' },
-  { page: 'billing', label: '点数', sidebarLabel: 'Billing', description: '充值流水' },
-  { page: 'admin', label: '后台', sidebarLabel: 'Admin', description: '运营配置', adminOnly: true },
+  { page: 'workspace', label: { zh: '生产', en: 'Production' }, description: { zh: '单图 / 批量', en: 'Single / Batch' } },
+  { page: 'raw-image', label: { zh: '原始生图', en: 'Raw Image' }, description: { zh: '只出原图', en: 'Source only' } },
+  { page: 'gallery', label: { zh: '作品库', en: 'Gallery' }, description: { zh: '查看与微调', en: 'Review & Tune' } },
+  { page: 'packs', label: { zh: '素材包', en: 'Packs' }, description: { zh: '批量管理', en: 'Batch manage' } },
+  { page: 'billing', label: { zh: '点数', en: 'Billing' }, description: { zh: '充值流水', en: 'Credits & Orders' } },
+  { page: 'admin', label: { zh: '后台', en: 'Admin' }, description: { zh: '运营配置', en: 'Operations' }, adminOnly: true },
 ]
 
 interface AppTabsProps {
@@ -22,6 +23,7 @@ interface AppTabsProps {
 }
 
 export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsProps) {
+  const { text } = useI18n()
   const visibleTabs = tabs.filter((tab) => !tab.adminOnly || user?.role === 'admin')
 
   if (orientation === 'side') {
@@ -40,8 +42,8 @@ export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsPr
                 active ? 'bg-white text-[hsl(var(--pix-ink))]' : 'text-white/58 hover:bg-white/10 hover:text-white',
               )}
             >
-              <span className="block text-sm font-semibold leading-tight">{tab.sidebarLabel}</span>
-              <span className={cn('mt-0.5 block text-[11px]', active ? 'text-[hsl(var(--pix-steel))]' : 'text-white/38 group-hover:text-white/58')}>{tab.description}</span>
+              <span className="block text-sm font-semibold leading-tight">{text(tab.label.zh, tab.label.en)}</span>
+              <span className={cn('mt-0.5 block text-[11px]', active ? 'text-[hsl(var(--pix-steel))]' : 'text-white/38 group-hover:text-white/58')}>{text(tab.description.zh, tab.description.en)}</span>
             </button>
           )
         })}
@@ -64,8 +66,8 @@ export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsPr
               active && 'bg-[hsl(var(--pix-ink))] text-white',
             )}
           >
-            <span className="block leading-tight">{tab.label}</span>
-            <span className={cn('hidden text-[11px] text-muted-foreground lg:block', active && 'text-white/70')}>{tab.description}</span>
+            <span className="block leading-tight">{text(tab.label.zh, tab.label.en)}</span>
+            <span className={cn('hidden text-[11px] text-muted-foreground lg:block', active && 'text-white/70')}>{text(tab.description.zh, tab.description.en)}</span>
           </button>
         )
       })}

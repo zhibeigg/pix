@@ -1,3 +1,4 @@
+import type { PixLanguage } from '../theme'
 import { jobStatusLabel } from '../labels'
 
 export function statusTone(status: string) {
@@ -8,8 +9,8 @@ export function statusTone(status: string) {
   return 'warning'
 }
 
-export function statusLabel(status: string) {
-  return jobStatusLabel(status)
+export function statusLabel(status: string, language: PixLanguage = 'zh-CN') {
+  return jobStatusLabel(status, language)
 }
 
 export function statusClass(status: string) {

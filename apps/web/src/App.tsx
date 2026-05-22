@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { PixThemeMode, PixThemePreference } from './theme'
+import type { PixLanguage, PixThemeMode, PixThemePreference } from './theme'
 import { api, ApiError } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
 import { AccountMenu } from './components/AccountMenu'
@@ -7,7 +7,7 @@ import { AppHero } from './components/AppHero'
 import { AuthPanel } from './components/AuthPanel'
 import { Alert } from './components/ui/alert'
 import { Button } from './components/ui/button'
-import { ThemeModeMenu } from './components/ThemeModeMenu'
+import { HeaderUtilityBar } from './components/HeaderUtilityBar'
 import { LandingSections } from './components/LandingSections'
 import { SetupWizard } from './components/SetupWizard'
 import { AdminPage } from './pages/AdminPage'
@@ -17,6 +17,7 @@ import { PacksPage } from './pages/PacksPage'
 import { RawImagePage } from './pages/RawImagePage'
 import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
 import { buildGridDesign, defaultPixelize } from './pixelize'
+import { useI18n } from './i18n'
 import type { AdminDashboard, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SetupStatus, SystemSetting, User } from './types'
 
 const TOKEN_KEY = 'pix_web_token'
@@ -25,7 +26,9 @@ type AppProps = {
   themeMode: PixThemeMode
   themePreference: PixThemePreference
   systemThemeMode: PixThemeMode
+  language: PixLanguage
   onThemePreferenceChange: (preference: PixThemePreference) => void
+  onLanguageChange: (language: PixLanguage) => void
 }
 
 function pageFromHash(user: User | null): AppPage {
@@ -36,7 +39,8 @@ function pageFromHash(user: User | null): AppPage {
   return page
 }
 
-export function App({ themeMode, themePreference, systemThemeMode, onThemePreferenceChange }: AppProps) {
+export function App({ themeMode, themePreference, systemThemeMode, language, onThemePreferenceChange, onLanguageChange }: AppProps) {
+  const { text } = useI18n()
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? '')
   const [user, setUser] = useState<User | null>(null)
   const [balance, setBalance] = useState<CreditBalance | null>(null)
@@ -86,8 +90,8 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
   const showError = useCallback((error: unknown) => {
     if (error instanceof ApiError) setMessage(error.message)
     else if (error instanceof Error) setMessage(error.message)
-    else setMessage('发生未知错误')
-  }, [])
+    else setMessage(text('发生未知错误', 'Unknown error'))
+  }, [text])
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
@@ -194,7 +198,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       setToken(result.access_token)
       await refreshCore(result.access_token)
       await refreshSetupStatus()
-      setMessage('登录成功')
+      setMessage(text('登录成功', 'Signed in'))
     } catch (error) {
       showError(error)
     } finally {
@@ -211,7 +215,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       setToken(result.access_token)
       await refreshCore(result.access_token)
       await refreshSetupStatus()
-      setMessage('已进入本地测试账号')
+      setMessage(text('已进入本地测试账号', 'Entered local test account'))
     } catch (error) {
       showError(error)
     } finally {
@@ -226,7 +230,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       await api.register(email, password, displayName, verificationCode)
       await login(email, password)
       await refreshSetupStatus()
-      setMessage('注册成功')
+      setMessage(text('注册成功', 'Registered successfully'))
     } catch (error) {
       showError(error)
     } finally {
@@ -246,7 +250,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       setPage('admin')
       await refreshSetupStatus()
       await refreshCore(result.access_token)
-      setMessage('管理员账户已创建')
+      setMessage(text('管理员账户已创建', 'Admin account created'))
     } catch (error) {
       showError(error)
     } finally {
@@ -283,7 +287,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     setSelectedJobId(null)
     setSelectedRawJobId(null)
     setRetryingJobId(null)
-    setMessage('已退出')
+    setMessage(text('已退出', 'Signed out'))
   }
 
   async function createJob(payload: JobCreateRequest) {
@@ -294,7 +298,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       const job = await api.createJob(token, payload)
       setSelectedJobId(job.id)
       navigate('gallery')
-      setMessage(`任务 #${job.id} 已入队`)
+      setMessage(text(`任务 #${job.id} 已入队`, `Job #${job.id} queued`))
       await refreshCore(token)
     } catch (error) {
       showError(error)
@@ -311,7 +315,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       const created = await api.createJobsBatch(token, payloads, batchName, mode)
       setSelectedJobId(created.jobs[0]?.id ?? null)
       navigate('packs')
-      setMessage(`${created.jobs.length} 个任务已入队，冻结 ${created.total_price_credits} 点。`)
+      setMessage(text(`${created.jobs.length} 个任务已入队，冻结 ${created.total_price_credits} 点。`, `${created.jobs.length} jobs queued; ${created.total_price_credits} credits reserved.`))
       await refreshCore(token)
     } catch (error) {
       showError(error)
@@ -330,7 +334,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       setSelectedJobId(job.id)
       setPage('raw-image')
       window.location.hash = '/raw-image'
-      setMessage(`原始生图任务 #${job.id} 已入队`)
+      setMessage(text(`原始生图任务 #${job.id} 已入队`, `Raw image job #${job.id} queued`))
       await refreshCore(token)
     } catch (error) {
       showError(error)
@@ -350,7 +354,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       setSelectedJobId(firstJobId)
       setPage('raw-image')
       window.location.hash = '/raw-image'
-      setMessage(`${created.jobs.length} 张原始生图已入队，冻结 ${created.total_price_credits} 点。`)
+      setMessage(text(`${created.jobs.length} 张原始生图已入队，冻结 ${created.total_price_credits} 点。`, `${created.jobs.length} raw images queued; ${created.total_price_credits} credits reserved.`))
       await refreshCore(token)
     } catch (error) {
       showError(error)
@@ -365,29 +369,29 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     setSelectedBatchJobs(await api.batchJobs(token, batch.id))
     setSelectedJobId(null)
     navigate('packs')
-    setMessage(`已筛选素材包：${batch.name}`)
+    setMessage(text(`已筛选素材包：${batch.name}`, `Filtered pack: ${batch.name}`))
   }
 
   function clearBatchFilter() {
     setSelectedBatchId(null)
     setSelectedBatchJobs([])
     setSelectedJobId(null)
-    setMessage('已显示全部作品')
+    setMessage(text('已显示全部作品', 'Showing all works'))
   }
 
   async function renameBatch(batch: GenerationBatch) {
     if (!token) return
-    const name = window.prompt('新的素材包名称', batch.name)
+    const name = window.prompt(text('新的素材包名称', 'New pack name'), batch.name)
     if (name === null) return
     const trimmed = name.trim()
     if (!trimmed) {
-      setMessage('素材包名称不能为空')
+      setMessage(text('素材包名称不能为空', 'Pack name cannot be empty'))
       return
     }
     try {
       await api.updateBatch(token, batch.id, { name: trimmed })
       await refreshCore(token)
-      setMessage('素材包已重命名')
+      setMessage(text('素材包已重命名', 'Pack renamed'))
     } catch (error) {
       showError(error)
     }
@@ -396,11 +400,11 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
   async function toggleArchiveBatch(batch: GenerationBatch) {
     if (!token) return
     const nextStatus = batch.status === 'archived' ? 'active' : 'archived'
-    if (nextStatus === 'archived' && !window.confirm(`归档「${batch.name}」？`)) return
+    if (nextStatus === 'archived' && !window.confirm(text(`归档「${batch.name}」？`, `Archive “${batch.name}”?`))) return
     try {
       await api.updateBatch(token, batch.id, { status: nextStatus })
       await refreshCore(token)
-      setMessage(nextStatus === 'archived' ? '素材包已归档' : '素材包已恢复')
+      setMessage(nextStatus === 'archived' ? text('素材包已归档', 'Pack archived') : text('素材包已恢复', 'Pack restored'))
     } catch (error) {
       showError(error)
     }
@@ -408,12 +412,12 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 
   async function deleteBatch(batch: GenerationBatch) {
     if (!token) return
-    if (!window.confirm(`删除空素材包「${batch.name}」？此操作无法撤销。`)) return
+    if (!window.confirm(text(`删除空素材包「${batch.name}」？此操作无法撤销。`, `Delete empty pack “${batch.name}”? This cannot be undone.`))) return
     try {
       await api.deleteBatch(token, batch.id)
       if (selectedBatchId === batch.id) clearBatchFilter()
       await refreshCore(token)
-      setMessage('素材包已删除')
+      setMessage(text('素材包已删除', 'Pack deleted'))
     } catch (error) {
       showError(error)
     }
@@ -433,7 +437,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       link.click()
       link.remove()
       URL.revokeObjectURL(url)
-      setMessage(`${batch.name} 开始下载`)
+      setMessage(text(`${batch.name} 开始下载`, `${batch.name} download started`))
     } catch (error) {
       showError(error)
     } finally {
@@ -443,7 +447,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 
   async function retryJob(job: GenerationJob) {
     if (!token || job.status !== 'failed') return
-    if (!window.confirm(`重试任务 #${job.id}？将按当前价格重新冻结点数。`)) return
+    if (!window.confirm(text(`重试任务 #${job.id}？将按当前价格重新冻结点数。`, `Retry job #${job.id}? Credits will be reserved at the current price.`))) return
     setRetryingJobId(job.id)
     setMessage('')
     try {
@@ -451,7 +455,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       setSelectedJobId(created.id)
       setPage('gallery')
       window.location.hash = '/gallery'
-      setMessage(`任务 #${job.id} 已重试，新任务 #${created.id} 已入队。`)
+      setMessage(text(`任务 #${job.id} 已重试，新任务 #${created.id} 已入队。`, `Job #${job.id} retried; new job #${created.id} queued.`))
       await refreshCore(token)
     } catch (error) {
       showError(error)
@@ -462,12 +466,12 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 
   async function retryFailedBatch(batch: GenerationBatch) {
     if (!token) return
-    if (!window.confirm(`重试「${batch.name}」的 ${batch.failed_count} 个失败项？`)) return
+    if (!window.confirm(text(`重试「${batch.name}」的 ${batch.failed_count} 个失败项？`, `Retry ${batch.failed_count} failed items in “${batch.name}”?`))) return
     setRetryingBatchId(batch.id)
     setMessage('')
     try {
       const result = await api.retryFailedBatch(token, batch.id)
-      setMessage(`${result.jobs.length} 个失败项已重试，冻结 ${result.total_price_credits} 点。`)
+      setMessage(text(`${result.jobs.length} 个失败项已重试，冻结 ${result.total_price_credits} 点。`, `${result.jobs.length} failed items retried; ${result.total_price_credits} credits reserved.`))
       setSelectedBatchId(batch.id)
       setSelectedBatchJobs(await api.batchJobs(token, batch.id))
       await refreshCore(token)
@@ -480,7 +484,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 
   async function copyPath(path: string) {
     await navigator.clipboard.writeText(path)
-    setMessage('输出路径已复制')
+    setMessage(text('输出路径已复制', 'Output path copied'))
   }
 
   async function pixelizeCandidate(job: GenerationJob, candidate: ContactSheetCandidate) {
@@ -503,7 +507,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       const order = await api.createOrder(token, { package_key: packageKey, provider: 'mock' })
       setCheckout(null)
       await refreshCore(token)
-      setMessage(`订单 #${order.id} 已创建`)
+      setMessage(text(`订单 #${order.id} 已创建`, `Order #${order.id} created`))
     } catch (error) {
       showError(error)
     }
@@ -518,7 +522,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
         window.open(result.payment_url, '_blank', 'noopener,noreferrer')
       }
       await refreshCore(token)
-      setMessage(`订单 #${result.order.id} 已创建：${provider}`)
+      setMessage(text(`订单 #${result.order.id} 已创建：${provider}`, `Order #${result.order.id} created: ${provider}`))
     } catch (error) {
       showError(error)
     }
@@ -530,7 +534,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       const order = await api.createOrder(token, { custom_credits: customCredits, provider: 'mock' })
       setCheckout(null)
       await refreshCore(token)
-      setMessage(`自定义订单 #${order.id} 已创建`)
+      setMessage(text(`自定义订单 #${order.id} 已创建`, `Custom order #${order.id} created`))
     } catch (error) {
       showError(error)
     }
@@ -545,7 +549,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
         window.open(result.payment_url, '_blank', 'noopener,noreferrer')
       }
       await refreshCore(token)
-      setMessage(`自定义订单 #${result.order.id} 已创建：${provider}`)
+      setMessage(text(`自定义订单 #${result.order.id} 已创建：${provider}`, `Custom order #${result.order.id} created: ${provider}`))
     } catch (error) {
       showError(error)
     }
@@ -556,7 +560,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     try {
       await api.mockPayOrder(token, orderId)
       await refreshCore(token)
-      setMessage('模拟支付成功，点数已到账')
+      setMessage(text('模拟支付成功，点数已到账', 'Mock payment succeeded; credits received'))
     } catch (error) {
       showError(error)
     }
@@ -566,35 +570,35 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     if (!token) return
     await api.adjustCredits(token, userId, amount, note)
     await refreshCore(token)
-    setMessage('点数已调整')
+    setMessage(text('点数已调整', 'Credits adjusted'))
   }
 
   async function updatePricing(key: string, priceCredits: number, enabled: boolean) {
     if (!token) return
     await api.updatePricing(token, key, priceCredits, enabled)
     await refreshCore(token)
-    setMessage('价格规则已更新')
+    setMessage(text('价格规则已更新', 'Pricing rule updated'))
   }
 
   async function updateSetting(key: string, value: string, clear = false) {
     if (!token) return
     await api.updateSetting(token, key, value, clear)
     await refreshCore(token)
-    setMessage('配置已更新')
+    setMessage(text('配置已更新', 'Settings updated'))
   }
 
   async function createAdminPackage(payload: CreditPackage) {
     if (!token) return
     await api.createAdminPackage(token, payload)
     await refreshCore(token)
-    setMessage('充值套餐已创建')
+    setMessage(text('充值套餐已创建', 'Credit package created'))
   }
 
   async function updateAdminPackage(key: string, payload: Omit<CreditPackage, 'key'>) {
     if (!token) return
     await api.updateAdminPackage(token, key, payload)
     await refreshCore(token)
-    setMessage('充值套餐已更新')
+    setMessage(text('充值套餐已更新', 'Credit package updated'))
   }
 
   async function testEmailSetting(email: string) {
@@ -609,25 +613,25 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
     <main data-pix-theme={themeMode} className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-xl dark:border-white/10 dark:bg-[hsl(var(--pix-navy-deep)/.95)]">
         <div className="mx-auto grid min-h-16 max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:px-8">
-          <a href="#/home" aria-label="返回首页" className="flex min-w-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <a href="#/home" aria-label={text('返回首页', 'Back to home')} className="flex min-w-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <img src="/pix-logo-64.png" alt="" className="h-9 w-9 shrink-0 [image-rendering:pixelated]" />
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-muted-foreground">Pix Forge</p>
-              <h1 className="truncate text-xl font-semibold tracking-tight">像素素材工坊</h1>
+              <h1 className="truncate text-xl font-semibold tracking-tight">{text('像素素材工坊', 'Pixel Asset Forge')}</h1>
             </div>
           </a>
           {user && <div className="hidden min-w-0 lg:block" aria-hidden="true" />}
           <div className="flex justify-end gap-2">
-            <ThemeModeMenu preference={themePreference} resolvedMode={themeMode} systemMode={systemThemeMode} onChange={onThemePreferenceChange} />
+            <HeaderUtilityBar language={language} themePreference={themePreference} resolvedMode={themeMode} systemMode={systemThemeMode} onLanguageChange={onLanguageChange} onThemePreferenceChange={onThemePreferenceChange} />
             {user ? (
               <>
-                {page === 'home' && <Button asChild><a href="#/workspace">进入工作台</a></Button>}
+                {page === 'home' && <Button asChild><a href="#/workspace">{text('进入工作台', 'Enter workspace')}</a></Button>}
                 <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={() => refreshCore()} onLogout={logout} />
               </>
             ) : (
               <div className="flex gap-2">
-                <Button variant="ghost" asChild><a href="#auth-panel">登录</a></Button>
-                <Button asChild><a href="#auth-panel">注册</a></Button>
+                <Button variant="ghost" asChild><a href="#auth-panel">{text('登录', 'Sign in')}</a></Button>
+                <Button asChild><a href="#auth-panel">{text('注册', 'Register')}</a></Button>
               </div>
             )}
           </div>
@@ -635,7 +639,7 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
       </header>
 
       {setupLoading ? (
-        <div className="grid min-h-[calc(100vh-76px)] place-items-center px-4 text-muted-foreground">正在检查站点初始化状态…</div>
+        <div className="grid min-h-[calc(100vh-76px)] place-items-center px-4 text-muted-foreground">{text('正在检查站点初始化状态…', 'Checking site setup status…')}</div>
       ) : needsAdminSetup && setupStatus ? (
         <SetupWizard status={setupStatus} loading={busy} onBootstrapAdmin={bootstrapAdmin} onLocalTestLogin={localTestLogin} />
       ) : user && page !== 'home' ? (
@@ -670,12 +674,13 @@ export function App({ themeMode, themePreference, systemThemeMode, onThemePrefer
 }
 
 function WorkspaceShell({ page, user, balance, activeJobs, completedJobs, failedJobs, isAdmin, children, onNavigate }: { page: AppPage; user: User; balance: CreditBalance | null; activeJobs: number; completedJobs: number; failedJobs: number; isAdmin: boolean; children: ReactNode; onNavigate: (page: AppPage) => void }) {
+  const { text } = useI18n()
   return (
     <div className="grid min-h-[calc(100vh-65px)] bg-background lg:grid-cols-[260px_minmax(0,1fr)]">
       <aside className="border-b border-[hsl(var(--pix-navy-mid))] bg-[hsl(var(--pix-navy))] p-4 text-white lg:border-b-0 lg:border-r">
         <div className="grid gap-6 lg:sticky lg:top-20 lg:min-h-[calc(100vh-97px)] lg:grid-rows-[auto_auto_1fr_auto]">
           <div>
-            <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-white/58">Workspace</p>
+            <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-white/58">{text('工作区', 'Workspace')}</p>
             <div className="mt-3 rounded-md bg-white/7 p-3 ring-1 ring-white/10">
               <p className="truncate text-sm font-semibold">{user.display_name || user.email}</p>
               <p className="mt-1 truncate text-xs text-white/45">{user.email}</p>
@@ -684,11 +689,11 @@ function WorkspaceShell({ page, user, balance, activeJobs, completedJobs, failed
           <AppTabs page={page} user={user} onChange={onNavigate} orientation="side" />
           <div className="hidden lg:block" />
           <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
-            <SidebarMetric label="点数" value={balance?.available_credits ?? '—'} />
-            <SidebarMetric label="队列" value={activeJobs} />
-            <SidebarMetric label="完成" value={completedJobs} />
-            {failedJobs > 0 && <SidebarMetric label="失败" value={failedJobs} tone="danger" />}
-            {isAdmin && <SidebarMetric label="角色" value="Admin" />}
+            <SidebarMetric label={text('点数', 'Credits')} value={balance?.available_credits ?? '—'} />
+            <SidebarMetric label={text('队列', 'Queue')} value={activeJobs} />
+            <SidebarMetric label={text('完成', 'Done')} value={completedJobs} />
+            {failedJobs > 0 && <SidebarMetric label={text('失败', 'Failed')} value={failedJobs} tone="danger" />}
+            {isAdmin && <SidebarMetric label={text('角色', 'Role')} value={text('管理员', 'Admin')} />}
           </div>
         </div>
       </aside>
@@ -714,11 +719,12 @@ function SidebarMetric({ label, value, tone = 'default' }: { label: ReactNode; v
 }
 
 function SiteFooter() {
+  const { text } = useI18n()
   const groups = [
-    { title: 'Product', links: ['生产工作台', '作品库', '素材包'] },
-    { title: 'Resources', links: ['像素 UI', '序列帧', '范例图库'] },
-    { title: 'Workspace', links: ['点数中心', '任务队列', '批量导出'] },
-    { title: 'Company', links: ['Pix Forge', 'Game assets'] },
+    { title: text('产品', 'Product'), links: [text('生产工作台', 'Production workspace'), text('作品库', 'Gallery'), text('素材包', 'Packs')] },
+    { title: text('资源', 'Resources'), links: [text('像素界面', 'Pixel UI'), text('序列帧', 'Sprite frames'), text('范例图库', 'Sample atlas')] },
+    { title: text('工作区', 'Workspace'), links: [text('点数中心', 'Billing center'), text('任务队列', 'Job queue'), text('批量导出', 'Batch export')] },
+    { title: text('团队', 'Company'), links: [text('像素工坊', 'Pix Forge'), text('游戏素材', 'Game assets')] },
   ]
   return (
     <footer className="border-t border-border bg-card px-4 py-16 md:px-8 dark:border-white/10 dark:bg-[hsl(var(--pix-navy-deep))]">
@@ -726,9 +732,9 @@ function SiteFooter() {
         <div>
           <div className="flex items-center gap-2 font-semibold text-foreground">
             <img src="/pix-logo-64.png" alt="" className="h-7 w-7 opacity-80 [image-rendering:pixelated]" />
-            Pix Forge · 像素素材工坊
+            {text('Pix Forge · 像素素材工坊', 'Pix Forge · Pixel Asset Forge')}
           </div>
-          <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">面向游戏素材生产的 AI 像素工作区，按 Notion 式清晰信息层级组织生产、验收、导出与计费。</p>
+          <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">{text('面向游戏素材生产的 AI 像素工作区，按 Notion 式清晰信息层级组织生产、验收、导出与计费。', 'An AI pixel workspace for game asset production, organizing generation, review, export, and billing with Notion-clear hierarchy.')}</p>
           <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" className="mt-4 inline-flex text-xs text-muted-foreground hover:text-foreground">鲁ICP备2022023963号</a>
         </div>
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
