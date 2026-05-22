@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Download, RotateCcw } from 'lucide-react'
+import { Download, FileDown, RotateCcw } from 'lucide-react'
 import { fileName, signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { ContactSheetCandidate, GenerationJob, JobOutput } from '../types'
@@ -8,11 +8,15 @@ import { jobTypeLabel } from '../labels'
 import { formatDateTime } from '../lib/utils'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
+import { Checkbox } from './ui/checkbox'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { PixPanel } from './pix/PixPanel'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixStatusBadge } from './pix/PixStatusBadge'
 
 type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void> }
+type DownloadKind = 'source' | 'pixelized' | 'preview' | 'sprite_gif' | 'sprite_sheet' | 'contact_sheet'
+type DownloadOption = { id: DownloadKind; label: string; description: string; path: string; url: string; filename: string }
 
 export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, onSelect, onCandidatePixelize, onRetryJob }: GalleryGridProps) {
   const { text } = useI18n()
@@ -38,9 +42,9 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
 function GalleryCard({ job, selected, retrying, onSelect, onCandidatePixelize, onRetryJob }: { job: GenerationJob; selected: boolean; retrying: boolean; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void> }) {
   const { language, text } = useI18n()
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
-  const downloadPath = output?.sprite_gif_path || output?.preview_path || output?.pixelized_path || output?.source_path || job.input_image_path || ''
-  const downloadUrl = signedFileUrl(output?.sprite_gif_url || output?.preview_url || output?.pixelized_url || output?.source_url || job.input_image_url || '')
-  const previewUrl = downloadUrl
+  const downloadOptions = output ? buildDownloadOptions(job, output, text) : []
+  const primaryDownloadUrl = downloadOptions[0]?.url || ''
+  const previewUrl = primaryDownloadUrl || signedFileUrl(job.input_image_url)
   const typeLabel = jobTypeLabel(job.job_type, language)
   const displayName = jobDisplayName(job, text)
   const summary = jobDisplaySummary(job, displayName, text)
@@ -72,9 +76,57 @@ function GalleryCard({ job, selected, retrying, onSelect, onCandidatePixelize, o
         </div>
         {selected && <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{text(`${job.price_credits} 点`, `${job.price_credits} credits`)}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge>{job.batch_name && <Badge variant="outline">{job.batch_name}</Badge>}</div>}
         {selected && output && <CandidateMiniGrid job={job} output={output} onCandidatePixelize={onCandidatePixelize} />}
-        <div className="flex flex-wrap gap-2"><Button size="sm" variant={selected ? 'default' : 'outline'} onClick={(event) => { event.stopPropagation(); onSelect(job) }}>{selected ? text('已展开', 'Expanded') : text('详情', 'Details')}</Button>{job.status === 'failed' && onRetryJob && <Button size="sm" variant="destructive" disabled={retrying} onClick={(event) => { event.stopPropagation(); void onRetryJob(job) }}><RotateCcw />{retrying ? text('重试中…', 'Retrying…') : text('重试', 'Retry')}</Button>}{downloadUrl && <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); downloadImage(downloadUrl, downloadFileName(job, downloadPath)) }}><Download />{text('下载图片', 'Download image')}</Button>}</div>
+        <div className="flex flex-wrap gap-2"><Button size="sm" variant={selected ? 'default' : 'outline'} onClick={(event) => { event.stopPropagation(); onSelect(job) }}>{selected ? text('已展开', 'Expanded') : text('详情', 'Details')}</Button>{job.status === 'failed' && onRetryJob && <Button size="sm" variant="destructive" disabled={retrying} onClick={(event) => { event.stopPropagation(); void onRetryJob(job) }}><RotateCcw />{retrying ? text('重试中…', 'Retrying…') : text('重试', 'Retry')}</Button>}{downloadOptions.length > 0 && <DownloadDialog job={job} options={downloadOptions} />}</div>
       </div>
     </article>
+  )
+}
+
+function DownloadDialog({ job, options }: { job: GenerationJob; options: DownloadOption[] }) {
+  const { text } = useI18n()
+  const defaultSelected = options.find((option) => option.id === 'pixelized')?.id ?? options[0]?.id
+  const [open, setOpen] = useState(false)
+  const [selected, setSelected] = useState<DownloadKind[]>(defaultSelected ? [defaultSelected] : [])
+  const selectedSet = new Set(selected)
+  const selectedOptions = options.filter((option) => selectedSet.has(option.id))
+
+  function toggleOption(id: DownloadKind, checked: boolean) {
+    setSelected((current) => checked ? Array.from(new Set([...current, id])) : current.filter((item) => item !== id))
+  }
+
+  function downloadSelected() {
+    for (const option of selectedOptions) {
+      downloadImage(option.url, option.filename)
+    }
+    setOpen(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); setOpen(true) }}><Download />{text('下载图片', 'Download images')}</Button>
+      <DialogContent onClick={(event) => event.stopPropagation()} className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{text('下载图片', 'Download images')}</DialogTitle>
+          <DialogDescription>{text(`任务 #${job.id} 可下载多个文件，勾选后开始下载。`, `Job #${job.id} has multiple files. Select the files to download.`)}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-2">
+          {options.map((option) => (
+            <label key={option.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 p-3 transition hover:bg-muted/55 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
+              <Checkbox checked={selectedSet.has(option.id)} onCheckedChange={(checked) => toggleOption(option.id, Boolean(checked))} className="mt-0.5" />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2 text-sm font-semibold"><FileDown className="h-4 w-4 text-primary" />{option.label}</span>
+                <span className="mt-1 block truncate text-xs text-muted-foreground">{option.filename}</span>
+                <span className="mt-1 block text-xs text-muted-foreground">{option.description}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>{text('取消', 'Cancel')}</Button>
+          <Button type="button" disabled={selectedOptions.length === 0} onClick={downloadSelected}>{text(`下载所选 ${selectedOptions.length} 项`, `Download ${selectedOptions.length} selected`)}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -82,6 +134,22 @@ function CandidateMiniGrid({ job, output, onCandidatePixelize }: { job: Generati
   const { text } = useI18n()
   if (!output.candidates?.length) return null
   return <div className="grid grid-cols-3 gap-2">{output.candidates.slice(0, 9).map((candidate) => <button type="button" key={candidate.path} className="rounded-lg border border-border bg-muted/35 p-1.5 text-xs dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]" onClick={(event) => { event.stopPropagation(); void onCandidatePixelize?.(job, candidate) }} title={candidate.reason ?? undefined}><img src={signedFileUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={text(`候选 ${candidate.index}`, `Candidate ${candidate.index}`)} className="mx-auto aspect-square w-full object-contain [image-rendering:pixelated]" /><span>{candidate.rank ? `#${candidate.rank}` : text(`候选${candidate.index}`, `Candidate ${candidate.index}`)}</span></button>)}</div>
+}
+
+function buildDownloadOptions(job: GenerationJob, output: JobOutput, text: (zh: string, en: string) => string): DownloadOption[] {
+  const specs: Array<{ id: DownloadKind; label: string; description: string; path?: string | null; url?: string | null; fallback: string }> = [
+    { id: 'source', label: text('源图', 'Source image'), description: text('AI 原始输出或上传源图。', 'Original AI output or uploaded source.'), path: output.source_path, url: output.source_url, fallback: 'source.png' },
+    { id: 'pixelized', label: text('像素尺寸图', 'Pixel-size image'), description: text('按当前像素尺寸生成的最终 PNG。', 'Final PNG rendered at the selected pixel size.'), path: output.pixelized_path, url: output.pixelized_url, fallback: 'pixelized.png' },
+    { id: 'preview', label: text('预览图', 'Preview image'), description: text('放大预览图，便于查看细节。', 'Scaled preview for detail review.'), path: output.preview_path, url: output.preview_url, fallback: 'preview.png' },
+    { id: 'sprite_gif', label: text('动画 GIF', 'Animated GIF'), description: text('可播放的序列帧 GIF。', 'Playable sprite-frame GIF.'), path: output.sprite_gif_path, url: output.sprite_gif_url, fallback: 'sprite.gif' },
+    { id: 'sprite_sheet', label: text('横向精灵表', 'Sprite sheet'), description: text('横向排列的序列帧精灵图。', 'Horizontal sprite sheet with all frames.'), path: output.sprite_sheet_path, url: output.sprite_sheet_url, fallback: 'sprite-sheet.png' },
+    { id: 'contact_sheet', label: text('候选总览图', 'Contact sheet'), description: text('候选生成结果总览图。', 'Overview image of generated candidates.'), path: output.contact_sheet_path, url: output.contact_sheet_url, fallback: 'contact-sheet.png' },
+  ]
+  return specs.flatMap((spec) => {
+    const url = signedFileUrl(spec.url)
+    if (!url) return []
+    return [{ id: spec.id, label: spec.label, description: spec.description, path: spec.path || '', url, filename: downloadFileName(job, spec.path || spec.fallback) }]
+  })
 }
 
 function downloadImage(url: string, filename: string) {
