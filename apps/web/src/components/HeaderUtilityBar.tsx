@@ -1,21 +1,22 @@
 import { useState, type ComponentType, type ReactNode } from 'react'
 import { Bell, Check, Languages, Megaphone, Monitor, Moon, Plus, Sun } from 'lucide-react'
 import type { PixLanguage, PixThemeMode, PixThemePreference } from '../theme'
+import { useI18n } from '../i18n'
 import { cn } from '../lib/utils'
 import { Button } from './ui/button'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
 
 const ANNOUNCEMENT_MUTE_KEY = 'pix_announcement_muted_date'
 
-const languageOptions: Array<{ value: PixLanguage; label: string; flag: string }> = [
-  { value: 'zh-CN', label: '中文', flag: '🇨🇳' },
-  { value: 'en', label: 'English', flag: '🇬🇧' },
+const languageOptions: Array<{ value: PixLanguage; label: { zh: string; en: string }; flag: string }> = [
+  { value: 'zh-CN', label: { zh: '中文', en: 'Chinese' }, flag: '🇨🇳' },
+  { value: 'en', label: { zh: '英文', en: 'English' }, flag: '🇬🇧' },
 ]
 
-const themeOptions: Array<{ value: PixThemePreference; title: string; description: string; icon: ComponentType<{ className?: string }> }> = [
-  { value: 'light', title: '浅色模式', description: '始终使用浅色主题', icon: Sun },
-  { value: 'dark', title: '深色模式', description: '始终使用深色主题', icon: Moon },
-  { value: 'system', title: '自动模式', description: '跟随系统主题设置', icon: Monitor },
+const themeOptions: Array<{ value: PixThemePreference; title: { zh: string; en: string }; description: { zh: string; en: string }; icon: ComponentType<{ className?: string }> }> = [
+  { value: 'light', title: { zh: '浅色模式', en: 'Light mode' }, description: { zh: '始终使用浅色主题', en: 'Always use the light theme' }, icon: Sun },
+  { value: 'dark', title: { zh: '深色模式', en: 'Dark mode' }, description: { zh: '始终使用深色主题', en: 'Always use the dark theme' }, icon: Moon },
+  { value: 'system', title: { zh: '自动模式', en: 'Auto mode' }, description: { zh: '跟随系统主题设置', en: 'Follow the system setting' }, icon: Monitor },
 ]
 
 interface HeaderUtilityBarProps {
@@ -53,6 +54,7 @@ export function HeaderUtilityBar({ language, themePreference, resolvedMode, syst
 }
 
 function AnnouncementButton({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { text } = useI18n()
   function muteToday() {
     localStorage.setItem(ANNOUNCEMENT_MUTE_KEY, todayKey())
     onOpenChange(false)
@@ -61,22 +63,22 @@ function AnnouncementButton({ open, onOpenChange }: { open: boolean; onOpenChang
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <button type="button" className={utilityButtonClass} aria-label="打开系统公告">
+        <button type="button" className={utilityButtonClass} aria-label={text('打开系统公告', 'Open announcements')}>
           <Bell className="h-4 w-4" />
         </button>
       </DialogTrigger>
       <DialogContent className="min-h-[456px] w-[min(92vw,920px)] content-start gap-0 p-0">
         <div className="flex items-start justify-between gap-6 px-6 pb-4 pt-8 md:px-7">
           <DialogHeader className="gap-0">
-            <DialogTitle className="text-2xl font-semibold tracking-[-0.02em]">系统公告</DialogTitle>
-            <DialogDescription className="sr-only">查看系统通知和公告。</DialogDescription>
+            <DialogTitle className="text-2xl font-semibold tracking-[-0.02em]">{text('系统公告', 'Announcements')}</DialogTitle>
+            <DialogDescription className="sr-only">{text('查看系统通知和公告。', 'View system notifications and announcements.')}</DialogDescription>
           </DialogHeader>
           <div className="mr-8 flex items-center gap-2 text-sm">
             <span className="inline-flex items-center gap-1.5 rounded-md bg-[hsl(var(--pix-sky))] px-3 py-2 font-semibold text-[hsl(var(--pix-link-blue))]">
-              <Bell className="h-4 w-4" />通知
+              <Bell className="h-4 w-4" />{text('通知', 'Notifications')}
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-[hsl(var(--pix-steel))]">
-              <Megaphone className="h-4 w-4" />系统公告
+              <Megaphone className="h-4 w-4" />{text('系统公告', 'Announcements')}
             </span>
           </div>
         </div>
@@ -84,13 +86,13 @@ function AnnouncementButton({ open, onOpenChange }: { open: boolean; onOpenChang
         <div className="grid min-h-[300px] place-items-center px-6 py-4">
           <div className="grid justify-items-center gap-4 text-center">
             <EmptyAnnouncementArt />
-            <p className="text-sm text-[hsl(var(--pix-slate))]">暂无公告</p>
+            <p className="text-sm text-[hsl(var(--pix-slate))]">{text('暂无公告', 'No announcements')}</p>
           </div>
         </div>
 
         <DialogFooter className="px-6 pb-6 md:px-7">
-          <Button type="button" variant="soft" onClick={muteToday}>今日关闭</Button>
-          <DialogClose asChild><Button type="button">关闭公告</Button></DialogClose>
+          <Button type="button" variant="soft" onClick={muteToday}>{text('今日关闭', 'Dismiss today')}</Button>
+          <DialogClose asChild><Button type="button">{text('关闭公告', 'Close')}</Button></DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -98,18 +100,19 @@ function AnnouncementButton({ open, onOpenChange }: { open: boolean; onOpenChang
 }
 
 function ThemeHoverMenu({ open, preference, resolvedMode, systemMode, onChange, onOpenChange }: { open: boolean; preference: PixThemePreference; resolvedMode: PixThemeMode; systemMode: PixThemeMode; onChange: (preference: PixThemePreference) => void; onOpenChange: (open: boolean) => void }) {
+  const { text } = useI18n()
   const TriggerIcon = preference === 'system' ? Monitor : resolvedMode === 'dark' ? Moon : Sun
   return (
     <HoverMenu
       open={open}
       onOpenChange={onOpenChange}
       trigger={(
-        <button type="button" className={cn(utilityButtonClass, open && utilityButtonActiveClass)} aria-label="切换黑白主题" aria-expanded={open}>
+        <button type="button" className={cn(utilityButtonClass, open && utilityButtonActiveClass)} aria-label={text('切换黑白主题', 'Switch color theme')} aria-expanded={open}>
           <TriggerIcon className="h-4 w-4" />
         </button>
       )}
     >
-      <div role="radiogroup" aria-label="主题模式" className="w-48 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)]">
+      <div role="radiogroup" aria-label={text('主题模式', 'Theme mode')} className="w-48 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)]">
         {themeOptions.map((option) => {
           const Icon = option.icon
           const active = preference === option.value
@@ -124,30 +127,31 @@ function ThemeHoverMenu({ open, preference, resolvedMode, systemMode, onChange, 
             >
               <Icon className="mt-0.5 h-4 w-4 shrink-0" />
               <span className="min-w-0">
-                <span className="flex items-center gap-2 text-sm font-semibold leading-tight">{option.title}{active && <Check className="h-3.5 w-3.5 text-primary" />}</span>
-                <span className={cn('mt-1 block text-xs leading-4 text-muted-foreground', active && 'dark:text-white/55')}>{option.description}</span>
+                <span className="flex items-center gap-2 text-sm font-semibold leading-tight">{text(option.title.zh, option.title.en)}{active && <Check className="h-3.5 w-3.5 text-primary" />}</span>
+                <span className={cn('mt-1 block text-xs leading-4 text-muted-foreground', active && 'dark:text-white/55')}>{text(option.description.zh, option.description.en)}</span>
               </span>
             </button>
           )
         })}
-        <div className="px-3 pb-1 pt-2 text-[11px] text-muted-foreground">系统当前：{systemMode === 'dark' ? '深色' : '浅色'}</div>
+        <div className="px-3 pb-1 pt-2 text-[11px] text-muted-foreground">{text('系统当前：', 'System now: ')}{systemMode === 'dark' ? text('深色', 'Dark') : text('浅色', 'Light')}</div>
       </div>
     </HoverMenu>
   )
 }
 
 function LanguageHoverMenu({ open, language, onChange, onOpenChange }: { open: boolean; language: PixLanguage; onChange: (language: PixLanguage) => void; onOpenChange: (open: boolean) => void }) {
+  const { text } = useI18n()
   return (
     <HoverMenu
       open={open}
       onOpenChange={onOpenChange}
       trigger={(
-        <button type="button" className={cn(utilityButtonClass, open && utilityButtonActiveClass)} aria-label="切换语言" aria-expanded={open}>
+        <button type="button" className={cn(utilityButtonClass, open && utilityButtonActiveClass)} aria-label={text('切换语言', 'Switch language')} aria-expanded={open}>
           <Languages className="h-4 w-4" />
         </button>
       )}
     >
-      <div role="radiogroup" aria-label="语言" className="w-36 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)]">
+      <div role="radiogroup" aria-label={text('语言', 'Language')} className="w-36 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)]">
         {languageOptions.map((option) => (
           <button
             key={option.value}
@@ -157,7 +161,7 @@ function LanguageHoverMenu({ open, language, onChange, onOpenChange }: { open: b
             aria-checked={language === option.value}
             className={cn('flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/7', language === option.value && 'bg-[hsl(var(--pix-sky))] text-[hsl(var(--pix-link-blue))] dark:bg-white/7 dark:text-white dark:ring-1 dark:ring-white/12')}
           >
-            <span className="flex min-w-0 items-center gap-2 whitespace-nowrap"><span className="shrink-0 text-base leading-none">{option.flag}</span><span className="truncate">{option.label}</span></span>
+            <span className="flex min-w-0 items-center gap-2 whitespace-nowrap"><span className="shrink-0 text-base leading-none">{option.flag}</span><span className="truncate">{text(option.label.zh, option.label.en)}</span></span>
             {language === option.value && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
           </button>
         ))}

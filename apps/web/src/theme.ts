@@ -1,5 +1,6 @@
 export type PixThemeMode = 'light' | 'dark'
 export type PixThemePreference = 'light' | 'dark' | 'system'
+export type PixLanguage = 'zh-CN' | 'en'
 
 export const pixBrand = {
   cream: 'hsl(var(--pix-cream))',

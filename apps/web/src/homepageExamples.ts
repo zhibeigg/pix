@@ -937,3 +937,40 @@ export const homepageExampleCategories = [
   "跨文化",
   "主题"
 ] as const
+
+const categoryEnglishLabels: Record<string, string> = {
+  东方: 'Eastern',
+  西幻: 'Western fantasy',
+  科幻: 'Sci-fi',
+  恐怖: 'Horror',
+  现代: 'Modern',
+  历史: 'Historical',
+  混搭: 'Hybrid',
+  跨文化: 'Cross-cultural',
+  主题: 'Theme',
+}
+
+const themeEnglishOverrides: Record<string, string> = {
+  '01_wuxia': 'Wuxia',
+  '02_xianxia': 'Xianxia cultivation',
+  '03_xuanhuan': 'Xuanhuan fantasy',
+  '04_palace': 'Palace court',
+  '05_myth': 'Myths and spirits',
+  '06_sanguo': 'Three Kingdoms',
+  '07_wafu': 'Japanese wafu',
+  '08_urbanxian': 'Urban cultivation',
+}
+
+export function getHomepageExampleLabel(example: HomepageExample, language: 'zh-CN' | 'en') {
+  if (language !== 'en') return { category: example.category, theme: example.theme }
+  return {
+    category: categoryEnglishLabels[example.category] ?? example.category,
+    theme: themeEnglishOverrides[example.id] ?? deriveThemeFromPrompt(example),
+  }
+}
+
+function deriveThemeFromPrompt(example: HomepageExample) {
+  const match = example.itemPrompt.match(/^pixel art ([^,]+?) items/i)
+  const raw = (match?.[1] ?? example.id.replace(/^\d+_/, '')).replace(/[_-]+/g, ' ')
+  return raw.replace(/\b\w/g, (char) => char.toUpperCase())
+}

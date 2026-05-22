@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { api } from '../api'
+import { useI18n } from '../i18n'
 import type { JobCreateRequest, JobType, PricingRule } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, hasInvalidSubAssetSize, parsePixelSize } from '../pixelize'
 import { Alert } from './ui/alert'
@@ -18,10 +19,11 @@ import { PixelControls } from './PixelControls'
 type Props = { pricing: PricingRule[]; loading: boolean; token: string; onSubmit: (payload: JobCreateRequest) => Promise<void> }
 
 export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props) {
+  const { text } = useI18n()
   const [jobType, setJobType] = useState<JobType>('asset')
-  const [assetName, setAssetName] = useState('血气灵玉')
-  const [assetExtraPrompt, setAssetExtraPrompt] = useState('红色晶体、深色描边、适合 RPG 背包图标')
-  const [prompt, setPrompt] = useState('一枚幻想 RPG 魔法药水图标，居中构图，轮廓清晰，透明背景')
+  const [assetName, setAssetName] = useState(() => text('血气灵玉', 'Bloodspirit jade'))
+  const [assetExtraPrompt, setAssetExtraPrompt] = useState(() => text('红色晶体、深色描边、适合 RPG 背包图标', 'red crystal, dark outline, suitable for an RPG inventory icon'))
+  const [prompt, setPrompt] = useState(() => text('一枚幻想 RPG 魔法药水图标，居中构图，轮廓清晰，透明背景', 'A fantasy RPG magic potion icon, centered composition, clear silhouette, transparent background'))
   const [inputImagePath, setInputImagePath] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
@@ -49,12 +51,12 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
 
   async function uploadFile(file: File | undefined) {
     if (!file) return
-    setUploading(true); setUploadMessage('上传中…')
+    setUploading(true); setUploadMessage(text('上传中…', 'Uploading…'))
     try {
       const uploaded = await api.uploadImage(token, file)
-      setInputImagePath(uploaded.path); setUploadUrl(uploaded.url ?? ''); setUploadMessage(`已上传 ${uploaded.filename}`)
+      setInputImagePath(uploaded.path); setUploadUrl(uploaded.url ?? ''); setUploadMessage(text(`已上传 ${uploaded.filename}`, `Uploaded ${uploaded.filename}`))
     } catch (error) {
-      setUploadMessage(error instanceof Error ? error.message : '上传失败')
+      setUploadMessage(error instanceof Error ? error.message : text('上传失败', 'Upload failed'))
     } finally { setUploading(false) }
   }
 
@@ -68,31 +70,31 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
   }
 
   return (
-    <PixPanel eyebrow="单张试做" title="任务配方" action={<Badge variant="info">预计 {price} 点</Badge>}>
+      <PixPanel eyebrow={text('单张试做', 'Single test')} title={text('任务配方', 'Job recipe')} action={<Badge variant="info">{text(`预计 ${price} 点`, `Estimated ${price} credits`)}</Badge>}>
       <form className="grid gap-5" onSubmit={submit}>
-        <PixField label="模式">
+        <PixField label={text('模式', 'Mode')}>
           <Select value={jobType} onValueChange={(value) => setJobType(value as JobType)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="asset">游戏素材直出</SelectItem>
-              <SelectItem value="text_to_image">文生图</SelectItem>
-              <SelectItem value="image_to_image">图生图 / AI 微调</SelectItem>
-              <SelectItem value="sprite_sheet">九宫格动画精灵表</SelectItem>
-              <SelectItem value="local_pixelize">本地像素化</SelectItem>
+              <SelectItem value="asset">{text('游戏素材直出', 'Game asset output')}</SelectItem>
+              <SelectItem value="text_to_image">{text('文生图', 'Text to image')}</SelectItem>
+              <SelectItem value="image_to_image">{text('图生图 / AI 微调', 'Image to image / AI tune')}</SelectItem>
+              <SelectItem value="sprite_sheet">{text('九宫格动画精灵表', '3×3 animated sprite sheet')}</SelectItem>
+              <SelectItem value="local_pixelize">{text('本地像素化', 'Local pixelize')}</SelectItem>
             </SelectContent>
           </Select>
         </PixField>
 
-        {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><PixField label="素材名称" hint="会注入 pix asset 的游戏物品 Prompt 模板。"><Input value={assetName} onChange={(e) => setAssetName(e.target.value)} /></PixField><PixField label="额外风格描述"><Textarea value={assetExtraPrompt} rows={3} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField></div>}
-        {needsPrompt && <PixField label="素材描述" hint="写清主体、材质和用途。"><Textarea value={prompt} rows={5} onChange={(e) => setPrompt(e.target.value)} /></PixField>}
-        {needsImage && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? '上传中…' : '上传图片'}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} label="等待上传预览" /><PixField label="图片路径"><Input value={inputImagePath} placeholder="上传后自动填充" onChange={(e) => setInputImagePath(e.target.value)} /></PixField></div>}
+        {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><PixField label={text('素材名称', 'Asset name')} hint={text('会注入 pix asset 的游戏物品提示词模板。', 'Injected into the pix asset game-item prompt template.')}><Input value={assetName} onChange={(e) => setAssetName(e.target.value)} /></PixField><PixField label={text('额外风格描述', 'Extra style notes')}><Textarea value={assetExtraPrompt} rows={3} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField></div>}
+        {needsPrompt && <PixField label={text('素材描述', 'Asset description')} hint={text('写清主体、材质和用途。', 'Describe the subject, material, and use case clearly.')}><Textarea value={prompt} rows={5} onChange={(e) => setPrompt(e.target.value)} /></PixField>}
+        {needsImage && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} label={text('等待上传预览', 'Waiting for upload preview')} /><PixField label={text('图片路径', 'Image path')}><Input value={inputImagePath} placeholder={text('上传后自动填充', 'Filled after upload')} onChange={(e) => setInputImagePath(e.target.value)} /></PixField></div>}
 
-        <PixelControls pixelLabel={isSprite ? '单帧尺寸' : '像素尺寸'} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} />
-        {isSprite && <PixField label="GIF 帧间隔(ms)"><Input type="number" value={durationMs} onChange={(e) => setDurationMs(Number(e.target.value))} /></PixField>}
-        <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={removeBg} disabled={isSprite} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />透明背景</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={isSprite || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? '素材直出默认 VL 策略' : '跳过参考图理解'}</label></div>
-        {invalidSubAssetSize && <Alert variant="destructive">素材最低支持 16×16。</Alert>}
-        {isAsset && <Alert variant="info">素材直出会按 CLI `pix asset` 策略使用白底单图模板、Pixel Grid 提取和透明 PNG 输出。</Alert>}
-        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? '提交中…' : isSprite ? '生成动画精灵表' : isAsset ? '生成游戏素材' : '生成单张素材'}</Button>
+        <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} />
+        {isSprite && <PixField label={text('GIF 帧间隔(ms)', 'GIF frame interval (ms)')}><Input type="number" value={durationMs} onChange={(e) => setDurationMs(Number(e.target.value))} /></PixField>}
+        <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={removeBg} disabled={isSprite} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{text('透明背景', 'Transparent background')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={isSprite || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? text('素材直出默认视觉理解策略', 'Default vision policy for asset output') : text('跳过参考图理解', 'Skip reference understanding')}</label></div>
+        {invalidSubAssetSize && <Alert variant="destructive">{text('素材最低支持 16×16。', 'Minimum asset size is 16×16.')}</Alert>}
+        {isAsset && <Alert variant="info">{text('素材直出会按命令行 pix asset 策略使用白底单图模板、像素网格提取和透明 PNG 输出。', 'Asset output follows the CLI pix asset strategy: white-background single-image template, pixel grid extraction, and transparent PNG output.')}</Alert>}
+        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成动画精灵表', 'Generate animated sprite sheet') : isAsset ? text('生成游戏素材', 'Generate game asset') : text('生成单张素材', 'Generate single asset')}</Button>
       </form>
     </PixPanel>
   )
