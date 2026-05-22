@@ -1,23 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react'
 import i18next, { type TFunction } from 'i18next'
 import { initReactI18next, I18nextProvider, useTranslation } from 'react-i18next'
+import { zhCN } from './locales/zh-CN'
+import { en } from './locales/en'
 import type { PixLanguage } from './theme'
 
 export const resources = {
-  'zh-CN': {
-    translation: {
-      common: {
-        appName: '像素素材工坊',
-      },
-    },
-  },
-  en: {
-    translation: {
-      common: {
-        appName: 'Pix Forge',
-      },
-    },
-  },
+  'zh-CN': { translation: zhCN },
+  en: { translation: en },
 } as const
 
 export const i18n = i18next.createInstance()
@@ -35,6 +25,7 @@ void i18n
 type I18nContextValue = {
   language: PixLanguage
   isEnglish: boolean
+  /** @deprecated 新代码请使用 t('namespace.key')，该函数仅保留给未迁移组件兼容。 */
   text: (zh: string, en: string) => string
   t: TFunction<'translation', undefined>
 }
@@ -78,6 +69,7 @@ export function useI18n() {
   return useContext(I18nContext)
 }
 
+/** @deprecated 新代码请使用 i18next t('namespace.key')。 */
 export function localText(language: PixLanguage, zh: string, en: string) {
   return language === 'en' ? en : zh
 }

@@ -1,18 +1,18 @@
 import { cn } from '../lib/utils'
-import { localText, useI18n } from '../i18n'
+import { useI18n } from '../i18n'
 import type { User } from '../types'
 
 export type AppPage = 'home' | 'workspace' | 'raw-image' | 'gallery' | 'packs' | 'billing' | 'admin'
 
-type AppTab = { page: AppPage; label: { zh: string; en: string }; description: { zh: string; en: string }; adminOnly?: boolean }
+type AppTab = { page: AppPage; labelKey: string; descriptionKey: string; adminOnly?: boolean }
 
 const tabs: AppTab[] = [
-  { page: 'workspace', label: { zh: '生产', en: 'Production' }, description: { zh: '单图 / 批量', en: 'Single / Batch' } },
-  { page: 'raw-image', label: { zh: '原始生图', en: 'Raw Image' }, description: { zh: '只出原图', en: 'Source only' } },
-  { page: 'gallery', label: { zh: '作品库', en: 'Gallery' }, description: { zh: '查看与微调', en: 'Review & Tune' } },
-  { page: 'packs', label: { zh: '素材包', en: 'Packs' }, description: { zh: '批量管理', en: 'Batch manage' } },
-  { page: 'billing', label: { zh: '点数', en: 'Billing' }, description: { zh: '充值流水', en: 'Credits & Orders' } },
-  { page: 'admin', label: { zh: '后台', en: 'Admin' }, description: { zh: '运营配置', en: 'Operations' }, adminOnly: true },
+  { page: 'workspace', labelKey: 'nav.workspace', descriptionKey: 'nav.workspaceDescription' },
+  { page: 'raw-image', labelKey: 'nav.rawImage', descriptionKey: 'nav.rawImageDescription' },
+  { page: 'gallery', labelKey: 'nav.gallery', descriptionKey: 'nav.galleryDescription' },
+  { page: 'packs', labelKey: 'nav.packs', descriptionKey: 'nav.packsDescription' },
+  { page: 'billing', labelKey: 'nav.billing', descriptionKey: 'nav.billingDescription' },
+  { page: 'admin', labelKey: 'nav.admin', descriptionKey: 'nav.adminDescription', adminOnly: true },
 ]
 
 interface AppTabsProps {
@@ -23,16 +23,14 @@ interface AppTabsProps {
 }
 
 export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsProps) {
-  const { language, text } = useI18n()
+  const { t } = useI18n()
   const visibleTabs = tabs.filter((tab) => !tab.adminOnly || user?.role === 'admin')
 
   if (orientation === 'side') {
     return (
-      <nav aria-label={text('工作区导航', 'Workspace navigation')} className="grid gap-1">
+      <nav aria-label={t('nav.workspaceNavigation')} className="grid gap-1">
         {visibleTabs.map((tab) => {
           const active = page === tab.page
-          const label = localText(language, tab.label.zh, tab.label.en)
-          const description = localText(language, tab.description.zh, tab.description.en)
           return (
             <button
               type="button"
@@ -46,8 +44,8 @@ export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsPr
                   : 'text-[hsl(var(--pix-slate))] hover:bg-white/70 hover:text-[hsl(var(--pix-ink))] dark:text-white/62 dark:hover:bg-[hsl(var(--pix-dark-card-raised)/.72)] dark:hover:text-white',
               )}
             >
-              <span className="block text-sm font-semibold leading-tight">{label}</span>
-              <span className={cn('mt-0.5 block text-[11px]', active ? 'text-[hsl(var(--pix-steel))] dark:text-white/58' : 'text-[hsl(var(--pix-muted))] group-hover:text-[hsl(var(--pix-steel))] dark:text-white/38 dark:group-hover:text-white/62')}>{description}</span>
+              <span className="block text-sm font-semibold leading-tight">{t(tab.labelKey)}</span>
+              <span className={cn('mt-0.5 block text-[11px]', active ? 'text-[hsl(var(--pix-steel))] dark:text-white/58' : 'text-[hsl(var(--pix-muted))] group-hover:text-[hsl(var(--pix-steel))] dark:text-white/38 dark:group-hover:text-white/62')}>{t(tab.descriptionKey)}</span>
             </button>
           )
         })}
@@ -56,11 +54,9 @@ export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsPr
   }
 
   return (
-    <nav aria-label={text('主导航', 'Main navigation')} className="flex w-full gap-1 overflow-x-auto rounded-full border border-border bg-transparent p-1 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card)/.55)]">
+    <nav aria-label={t('nav.mainNavigation')} className="flex w-full gap-1 overflow-x-auto rounded-full border border-border bg-transparent p-1 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card)/.55)]">
       {visibleTabs.map((tab) => {
         const active = page === tab.page
-        const label = localText(language, tab.label.zh, tab.label.en)
-        const description = localText(language, tab.description.zh, tab.description.en)
         return (
           <button
             type="button"
@@ -72,8 +68,8 @@ export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsPr
               active && 'bg-[hsl(var(--pix-ink))] text-white dark:bg-[hsl(var(--pix-brand-purple))] dark:text-white',
             )}
           >
-            <span className="block leading-tight">{label}</span>
-            <span className={cn('hidden text-[11px] text-muted-foreground lg:block', active && 'text-white/70')}>{description}</span>
+            <span className="block leading-tight">{t(tab.labelKey)}</span>
+            <span className={cn('hidden text-[11px] text-muted-foreground lg:block', active && 'text-white/70')}>{t(tab.descriptionKey)}</span>
           </button>
         )
       })}

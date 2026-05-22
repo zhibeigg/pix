@@ -23,13 +23,13 @@ interface WorkspacePageProps {
 }
 
 export function WorkspacePage({ mode, pricing, balance, jobs, loading, token, onModeChange, onCreateJob, onCreateJobs, onCandidatePixelize, onRefresh }: WorkspacePageProps) {
-  const { text } = useI18n()
+  const { t } = useI18n()
   const activeJobs = jobs.filter((job) => ['pending', 'running'].includes(job.status))
   return (
     <div className="grid gap-6">
-      <PageHeader eyebrow={text('生产', 'Production')} title={text('生产工作台', 'Production workspace')} description={text('先试单张，再批量成包；所有任务都会进入作品库和队列记录。', 'Try one asset first, then batch into packs; every job is recorded in the gallery and queue.')} action={(
+      <PageHeader eyebrow={t('pages.workspace.eyebrow')} title={t('pages.workspace.title')} description={t('pages.workspace.description')} action={(
         <Tabs value={mode} onValueChange={(v) => onModeChange(v as WorkMode)}>
-          <TabsList><TabsTrigger value="single">{text('单图试做', 'Single test')}</TabsTrigger><TabsTrigger value="batch">{text('批量生产', 'Batch production')}</TabsTrigger></TabsList>
+          <TabsList><TabsTrigger value="single">{t('pages.workspace.single')}</TabsTrigger><TabsTrigger value="batch">{t('pages.workspace.batch')}</TabsTrigger></TabsList>
         </Tabs>
       )} />
       {mode === 'single' ? <SingleGeneratePanel pricing={pricing} loading={loading} token={token} onSubmit={onCreateJob} /> : <BatchGeneratePanel pricing={pricing} balance={balance} loading={loading} token={token} onSubmitMany={onCreateJobs} />}

@@ -7,6 +7,10 @@ import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
+import { DataTable, type DataColumn, type DataRow } from './data/DataTable'
+import { FilterBar, dataInputClass, dataOptionClass, dataSelectClass } from './data/FilterBar'
+import { MetricPill, type DataTone } from './data/MetricPill'
+import { StatusPill } from './data/StatusPill'
 import { PixMetric } from './pix/PixMetric'
 import { PixPanel } from './pix/PixPanel'
 
@@ -35,7 +39,7 @@ function money(cents: number, currency = 'cny') {
 }
 
 export function CreditPanel({ balance, transactions, packages, customRechargeOptions, orders, checkout, isAdmin, onRefresh, onCreateOrder, onCheckout, onCreateCustomOrder, onCustomCheckout, onMockPayOrder }: Props) {
-  const { text } = useI18n()
+  const { t } = useI18n()
   const [customCredits, setCustomCredits] = useState(100)
   const safeCustomCredits = Number.isFinite(customCredits) ? customCredits : 0
   const customAmountCents = useMemo(() => {
@@ -46,37 +50,37 @@ export function CreditPanel({ balance, transactions, packages, customRechargeOpt
   const customCurrency = customRechargeOptions?.currency ?? 'cny'
 
   return (
-    <PixPanel eyebrow={text('点数中心', 'Billing center')} title={text('点数账户', 'Credit account')} description={text('选择固定套餐，或输入你需要的自定义点数；实际金额以提交时后端计算为准。', 'Choose a package or enter custom credits; the backend calculates the final amount when submitted.')} action={<Button variant="outline" onClick={onRefresh}>{text('刷新', 'Refresh')}</Button>}>
+    <PixPanel eyebrow={t('billing.account.eyebrow')} title={t('billing.account.title')} description={t('billing.account.description')} action={<Button variant="outline" onClick={onRefresh}>{t('common.refresh')}</Button>}>
       <div className="grid gap-6">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><PixMetric label={text('可用', 'Available')} value={balance?.available_credits ?? '—'} /><PixMetric label={text('冻结', 'Reserved')} value={balance?.reserved_credits ?? '—'} /><PixMetric label={text('累计充值', 'Total topped up')} value={balance?.total_recharged ?? '—'} tone="success" /><PixMetric label={text('累计消费', 'Total spent')} value={balance?.total_consumed ?? '—'} tone="warning" /></div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><PixMetric label={t('billing.account.available')} value={balance?.available_credits ?? '—'} /><PixMetric label={t('billing.account.reserved')} value={balance?.reserved_credits ?? '—'} /><PixMetric label={t('billing.account.totalRecharged')} value={balance?.total_recharged ?? '—'} tone="success" /><PixMetric label={t('billing.account.totalSpent')} value={balance?.total_consumed ?? '—'} tone="warning" /></div>
 
         <section className="grid gap-3">
-          <div className="flex flex-wrap items-end justify-between gap-3"><div><h3 className="text-lg font-semibold">{text('固定套餐', 'Fixed packages')}</h3><p className="text-sm text-muted-foreground">{text('大额套餐可配置优惠，自定义点数按基准单价计算。', 'Large packages can include discounts; custom credits use the base unit price.')}</p></div><Badge variant="outline">{text('套餐价优先', 'Package price first')}</Badge></div>
-          <div className="grid gap-3 md:grid-cols-3">{packages.map((item, index) => <article key={item.key} className={`rounded-lg border p-4 ${index === 0 ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}><div className="grid gap-4"><div><div className="flex items-center gap-2"><h4 className="font-semibold">{item.name}</h4>{index === 0 && <Badge>{text('推荐', 'Recommended')}</Badge>}</div><p className="mt-2 text-3xl font-semibold">{item.credits}<span className="ml-1 text-sm text-muted-foreground">{text('点', 'credits')}</span></p><p className="text-sm text-muted-foreground">{money(item.amount_cents, item.currency)}</p></div><div className="flex flex-wrap gap-2"><Button onClick={() => onCheckout(item.key, 'alipay')}>{text('支付宝支付', 'Pay with Alipay')}</Button>{isAdmin && <Button variant="ghost" onClick={() => onCreateOrder(item.key)}>{text('创建模拟订单', 'Create mock order')}</Button>}</div></div></article>)}</div>
+          <div className="flex flex-wrap items-end justify-between gap-3"><div><h3 className="text-lg font-semibold">{t('billing.packages.title')}</h3><p className="text-sm text-muted-foreground">{t('billing.packages.description')}</p></div><Badge variant="outline">{t('billing.packages.priority')}</Badge></div>
+          <div className="grid gap-3 md:grid-cols-3">{packages.map((item, index) => <article key={item.key} className={`rounded-lg border p-4 ${index === 0 ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}><div className="grid gap-4"><div><div className="flex items-center gap-2"><h4 className="font-semibold">{item.name}</h4>{index === 0 && <Badge>{t('common.recommended')}</Badge>}</div><p className="mt-2 text-3xl font-semibold">{item.credits}<span className="ml-1 text-sm text-muted-foreground">{t('common.creditUnit')}</span></p><p className="text-sm text-muted-foreground">{money(item.amount_cents, item.currency)}</p></div><div className="flex flex-wrap gap-2"><Button onClick={() => onCheckout(item.key, 'alipay')}>{t('billing.packages.payAlipay')}</Button>{isAdmin && <Button variant="ghost" onClick={() => onCreateOrder(item.key)}>{t('billing.packages.createMockOrder')}</Button>}</div></div></article>)}</div>
         </section>
 
         <section className="rounded-lg border border-border bg-card p-5 shadow-sm">
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
             <div>
-              <div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-semibold">{text('自定义充值数量', 'Custom top-up amount')}</h3><Badge variant="secondary">{text('后端计价', 'Backend priced')}</Badge></div>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">{text('输入想购买的点数，系统按当前基准套餐单价计算金额。支付创建订单时会重新计算，前端金额仅用于预览。', 'Enter the credits you want. The system estimates from the current base package price; checkout recalculates on the backend.')}</p>
+              <div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-semibold">{t('billing.custom.title')}</h3><Badge variant="secondary">{t('billing.custom.pricedByBackend')}</Badge></div>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{t('billing.custom.description')}</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)] sm:items-center">
                 <Input type="number" min={customRechargeOptions?.min_credits ?? 10} max={customRechargeOptions?.max_credits ?? 100000} step={1} value={customCredits} onChange={(event) => setCustomCredits(Number(event.target.value))} />
-                <div className="flex flex-wrap gap-2">{(customRechargeOptions?.suggested_credits ?? [50, 100, 200, 500]).map((credits) => <Button key={credits} type="button" variant="outline" size="sm" onClick={() => setCustomCredits(credits)}>{text(`${credits} 点`, `${credits} credits`)}</Button>)}</div>
+                <div className="flex flex-wrap gap-2">{(customRechargeOptions?.suggested_credits ?? [50, 100, 200, 500]).map((credits) => <Button key={credits} type="button" variant="outline" size="sm" onClick={() => setCustomCredits(credits)}>{t('common.points', { count: credits })}</Button>)}</div>
               </div>
-              {customRechargeOptions && <p className="mt-3 text-xs text-muted-foreground">{text(`允许范围：${customRechargeOptions.min_credits}—${customRechargeOptions.max_credits} 点；基准：${customRechargeOptions.base_package_credits} 点 / ${money(customRechargeOptions.base_package_amount_cents, customCurrency)}`, `Allowed range: ${customRechargeOptions.min_credits}—${customRechargeOptions.max_credits} credits; base: ${customRechargeOptions.base_package_credits} credits / ${money(customRechargeOptions.base_package_amount_cents, customCurrency)}`)}</p>}
-              {!customValid && <p className="mt-3 text-sm text-destructive">{text('请输入允许范围内的整数点数。', 'Enter an integer credit amount within the allowed range.')}</p>}
+              {customRechargeOptions && <p className="mt-3 text-xs text-muted-foreground">{t('billing.custom.allowedRange', { min: customRechargeOptions.min_credits, max: customRechargeOptions.max_credits, baseCredits: customRechargeOptions.base_package_credits, baseAmount: money(customRechargeOptions.base_package_amount_cents, customCurrency) })}</p>}
+              {!customValid && <p className="mt-3 text-sm text-destructive">{t('billing.custom.invalid')}</p>}
             </div>
             <div className="rounded-lg border border-border bg-muted/35 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{text('预计支付', 'Estimated payment')}</p>
+              <p className="text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{t('billing.custom.estimatedPayment')}</p>
               <p className="mt-2 text-4xl font-semibold text-primary">{money(customAmountCents, customCurrency)}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{text(`${safeCustomCredits} 点`, `${safeCustomCredits} credits`)}</p>
-              <div className="mt-4 flex flex-wrap gap-2"><Button disabled={!customValid} onClick={() => onCustomCheckout(safeCustomCredits, 'alipay')}>{text('支付宝支付', 'Pay with Alipay')}</Button>{isAdmin && <Button variant="ghost" disabled={!customValid} onClick={() => onCreateCustomOrder(safeCustomCredits)}>{text('创建模拟订单', 'Create mock order')}</Button>}</div>
+              <p className="mt-1 text-sm text-muted-foreground">{t('common.points', { count: safeCustomCredits })}</p>
+              <div className="mt-4 flex flex-wrap gap-2"><Button disabled={!customValid} onClick={() => onCustomCheckout(safeCustomCredits, 'alipay')}>{t('billing.packages.payAlipay')}</Button>{isAdmin && <Button variant="ghost" disabled={!customValid} onClick={() => onCreateCustomOrder(safeCustomCredits)}>{t('billing.packages.createMockOrder')}</Button>}</div>
             </div>
           </div>
         </section>
 
-        {checkout?.payment_url && <Alert variant="info">{text('支付宝支付页已打开。支付完成后请回到 Pix 刷新订单状态。', 'The Alipay page opened. Return to Pix and refresh order status after payment.')}</Alert>}
+        {checkout?.payment_url && <Alert variant="info">{t('billing.checkout.opened')}</Alert>}
         <TopUpOrders orders={orders} isAdmin={isAdmin} onMockPayOrder={onMockPayOrder} />
         <CreditLedgerTable balance={balance} transactions={transactions} onRefresh={onRefresh} />
       </div>
@@ -85,12 +89,12 @@ export function CreditPanel({ balance, transactions, packages, customRechargeOpt
 }
 
 function TopUpOrders({ orders, isAdmin, onMockPayOrder }: { orders: PaymentOrder[]; isAdmin: boolean; onMockPayOrder: (orderId: number) => Promise<void> }) {
-  const { text } = useI18n()
-  return <section className="grid gap-3"><h3 className="text-lg font-semibold">{text('充值订单', 'Top-up orders')}</h3>{orders.length === 0 ? <p className="text-sm text-muted-foreground">{text('暂无充值订单。', 'No top-up orders yet.')}</p> : orders.map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4"><div><p className="font-bold">{text(`订单 #${order.id}`, `Order #${order.id}`)}</p><p className="text-sm text-muted-foreground">{text(`${order.credits} 点`, `${order.credits} credits`)} · {money(order.amount_cents, order.currency)} · {formatDateTime(order.created_at)}</p></div><div className="flex items-center gap-2"><Badge variant={order.status === 'paid' ? 'success' : 'warning'}>{order.status}</Badge>{isAdmin && order.status !== 'paid' && <Button size="sm" onClick={() => onMockPayOrder(order.id)}>{text('模拟支付', 'Mock pay')}</Button>}</div></div>)}</section>
+  const { t } = useI18n()
+  return <section className="grid gap-3"><h3 className="text-lg font-semibold">{t('billing.orders.title')}</h3>{orders.length === 0 ? <p className="text-sm text-muted-foreground">{t('billing.orders.empty')}</p> : orders.map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4"><div><p className="font-bold">{t('billing.orders.order', { id: order.id })}</p><p className="text-sm text-muted-foreground">{t('common.points', { count: order.credits })} · {money(order.amount_cents, order.currency)} · {formatDateTime(order.created_at)}</p></div><div className="flex items-center gap-2"><Badge variant={order.status === 'paid' ? 'success' : 'warning'}>{order.status}</Badge>{isAdmin && order.status !== 'paid' && <Button size="sm" onClick={() => onMockPayOrder(order.id)}>{t('billing.orders.mockPay')}</Button>}</div></div>)}</section>
 }
 
 function CreditLedgerTable({ balance, transactions, onRefresh }: { balance: CreditBalance | null; transactions: CreditTransaction[]; onRefresh: () => void }) {
-  const { text } = useI18n()
+  const { t } = useI18n()
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<TxFilter>('all')
   const [from, setFrom] = useState('')
@@ -109,80 +113,48 @@ function CreditLedgerTable({ balance, transactions, onRefresh }: { balance: Cred
   const income = filtered.filter((tx) => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0)
   const spent = Math.abs(filtered.filter((tx) => tx.amount < 0).reduce((sum, tx) => sum + tx.amount, 0))
   const reset = () => { setQuery(''); setTypeFilter('all'); setFrom(''); setTo('') }
+  const columns: DataColumn[] = [
+    { key: 'time', header: t('billing.ledger.columns.time') },
+    { key: 'type', header: t('billing.ledger.columns.type') },
+    { key: 'note', header: t('billing.ledger.columns.note'), className: 'max-w-[420px]' },
+    { key: 'job', header: t('billing.ledger.columns.job') },
+    { key: 'amount', header: t('billing.ledger.columns.amount'), align: 'right' },
+    { key: 'balance', header: t('billing.ledger.columns.balance'), align: 'right' },
+  ]
+  const rows: DataRow[] = filtered.map((tx) => {
+    const group = txTypeGroup(tx.type)
+    return {
+      key: tx.id,
+      cells: [
+        <span className="whitespace-nowrap text-[hsl(var(--data-text))]">{formatDateTime(tx.created_at)}</span>,
+        <StatusPill tone={txTypeTone(group)}>{txTypeLabel(group, tx.type, t)}</StatusPill>,
+        <span className="block truncate text-[hsl(var(--data-text-soft))]">{tx.note || t('common.none')}</span>,
+        <span className="whitespace-nowrap text-[hsl(var(--data-text-soft))]">{tx.job_id ? `#${tx.job_id}` : t('common.none')}</span>,
+        <span className={`whitespace-nowrap font-semibold ${tx.amount >= 0 ? 'text-[hsl(var(--ledger-pill-green-fg))]' : 'text-[hsl(var(--ledger-pill-rose-fg))]'}`}>{tx.amount > 0 ? `+${tx.amount}` : tx.amount}</span>,
+        <span className="whitespace-nowrap text-[hsl(var(--data-text))]">{tx.balance_after}</span>,
+      ],
+    }
+  })
 
   return (
-    <section className="overflow-hidden rounded-lg border border-[hsl(var(--ledger-line))] bg-[hsl(var(--ledger-surface))] text-[hsl(var(--ledger-text))] shadow-[var(--ledger-shadow)]">
-      <div className="border-b border-[hsl(var(--ledger-line))] bg-[hsl(var(--ledger-surface-header))] p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold tracking-[.14em] text-primary">{text('点数流水', 'Credit ledger')}</p>
-            <h3 className="mt-1 text-xl font-semibold">{text('流水明细', 'Ledger details')}</h3>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <LedgerPill label={text('可用点数', 'Available')} value={balance?.available_credits ?? 0} tone="blue" />
-            <LedgerPill label={text('冻结点数', 'Reserved')} value={balance?.reserved_credits ?? 0} tone="slate" />
-            <LedgerPill label={text('本页收入', 'Page income')} value={`+${income}`} tone="green" />
-            <LedgerPill label={text('本页支出', 'Page spent')} value={`-${spent}`} tone="rose" />
-            <LedgerPill label={text('流水', 'Rows')} value={filtered.length} tone="slate" />
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-2 lg:grid-cols-[150px_150px_160px_minmax(180px,1fr)_auto]">
-          <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="h-9 border-[hsl(var(--ledger-line))] bg-[hsl(var(--ledger-surface-row))] text-[hsl(var(--ledger-text))] placeholder:text-[hsl(var(--ledger-text-faint))]" />
-          <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="h-9 border-[hsl(var(--ledger-line))] bg-[hsl(var(--ledger-surface-row))] text-[hsl(var(--ledger-text))] placeholder:text-[hsl(var(--ledger-text-faint))]" />
-          <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as TxFilter)} className="h-9 rounded-md border border-[hsl(var(--ledger-line))] bg-[hsl(var(--ledger-surface-row))] px-3 text-sm text-[hsl(var(--ledger-text))] outline-none focus:ring-2 focus:ring-ring">
-            {TX_TYPES.map((type) => <option key={type} value={type} className="bg-[hsl(var(--ledger-surface))] text-[hsl(var(--ledger-text))]">{txTypeFilterLabel(type, text)}</option>)}
-          </select>
-          <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[hsl(var(--ledger-text-faint))]" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={text('备注、类型或任务 ID', 'Note, type, or job ID')} className="h-9 border-[hsl(var(--ledger-line))] bg-[hsl(var(--ledger-surface-row))] pl-9 text-[hsl(var(--ledger-text))] placeholder:text-[hsl(var(--ledger-text-faint))]" /></div>
-          <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="secondary" onClick={onRefresh}><RotateCcw />{text('查询', 'Search')}</Button><Button type="button" size="sm" variant="ghost" onClick={reset}>{text('重置', 'Reset')}</Button><Button type="button" size="sm" className="bg-sky-600 text-white hover:bg-sky-500 dark:bg-sky-500 dark:hover:bg-sky-400" onClick={() => exportLedgerCsv(filtered, text)}><Download />{text('导出 CSV', 'Export CSV')}</Button></div>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px] border-collapse text-sm">
-          <thead className="text-left text-xs text-[hsl(var(--ledger-text-faint))]">
-            <tr className="border-b border-[hsl(var(--ledger-line))]">
-              <th className="px-4 py-3 font-semibold">{text('时间', 'Time')}</th>
-              <th className="px-4 py-3 font-semibold">{text('类型', 'Type')}</th>
-              <th className="px-4 py-3 font-semibold">{text('说明', 'Note')}</th>
-              <th className="px-4 py-3 font-semibold">{text('任务', 'Job')}</th>
-              <th className="px-4 py-3 text-right font-semibold">{text('变动', 'Amount')}</th>
-              <th className="px-4 py-3 text-right font-semibold">{text('余额', 'Balance')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-[hsl(var(--ledger-text-faint))]">{text('没有符合条件的流水。', 'No matching transactions.')}</td></tr> : filtered.map((tx) => <LedgerRow key={tx.id} tx={tx} />)}
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <DataTable
+      eyebrow={t('billing.ledger.eyebrow')}
+      title={t('billing.ledger.title')}
+      metrics={<><MetricPill label={t('billing.ledger.available')} value={balance?.available_credits ?? 0} tone="blue" /><MetricPill label={t('billing.ledger.reserved')} value={balance?.reserved_credits ?? 0} tone="slate" /><MetricPill label={t('billing.ledger.income')} value={`+${income}`} tone="green" /><MetricPill label={t('billing.ledger.spent')} value={`-${spent}`} tone="rose" /><MetricPill label={t('billing.ledger.rows')} value={filtered.length} tone="slate" /></>}
+      filters={<FilterBar><Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className={dataInputClass} /><Input type="date" value={to} onChange={(event) => setTo(event.target.value)} className={dataInputClass} /><select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as TxFilter)} className={dataSelectClass}>{TX_TYPES.map((type) => <option key={type} value={type} className={dataOptionClass}>{txTypeFilterLabel(type, t)}</option>)}</select><div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[hsl(var(--data-text-faint))]" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('billing.ledger.keywordPlaceholder')} className={`${dataInputClass} pl-9`} /></div><div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="secondary" onClick={onRefresh}><RotateCcw />{t('common.search')}</Button><Button type="button" size="sm" variant="ghost" onClick={reset}>{t('common.reset')}</Button><Button type="button" size="sm" className="bg-sky-600 text-white hover:bg-sky-500" onClick={() => exportLedgerCsv(filtered, t)}><Download />{t('billing.ledger.exportCsv')}</Button></div></FilterBar>}
+      columns={columns}
+      rows={rows}
+      empty={t('billing.ledger.empty')}
+    />
   )
 }
 
-function LedgerRow({ tx }: { tx: CreditTransaction }) {
-  const { text } = useI18n()
-  const group = txTypeGroup(tx.type)
-  return (
-    <tr className="border-b border-[hsl(var(--ledger-line))] bg-[hsl(var(--ledger-surface-row))] transition hover:bg-[hsl(var(--ledger-surface-row-hover))] last:border-b-0">
-      <td className="whitespace-nowrap px-4 py-3 text-[hsl(var(--ledger-text))]">{formatDateTime(tx.created_at)}</td>
-      <td className="px-4 py-3"><TxBadge type={group} raw={tx.type} /></td>
-      <td className="max-w-[420px] truncate px-4 py-3 text-[hsl(var(--ledger-text-soft))]">{tx.note || text('—', '—')}</td>
-      <td className="whitespace-nowrap px-4 py-3 text-[hsl(var(--ledger-text-soft))]">{tx.job_id ? `#${tx.job_id}` : '—'}</td>
-      <td className={`whitespace-nowrap px-4 py-3 text-right font-semibold ${tx.amount >= 0 ? 'text-[hsl(var(--ledger-pill-green-fg))]' : 'text-[hsl(var(--ledger-pill-rose-fg))]'}`}>{tx.amount > 0 ? `+${tx.amount}` : tx.amount}</td>
-      <td className="whitespace-nowrap px-4 py-3 text-right text-[hsl(var(--ledger-text))]">{tx.balance_after}</td>
-    </tr>
-  )
-}
-
-function LedgerPill({ label, value, tone }: { label: string; value: string | number; tone: 'blue' | 'green' | 'rose' | 'slate' }) {
-  const toneClass = tone === 'blue' ? 'bg-[hsl(var(--ledger-pill-blue-bg))] text-[hsl(var(--ledger-pill-blue-fg))] ring-[hsl(var(--ledger-pill-blue-ring))]' : tone === 'green' ? 'bg-[hsl(var(--ledger-pill-green-bg))] text-[hsl(var(--ledger-pill-green-fg))] ring-[hsl(var(--ledger-pill-green-ring))]' : tone === 'rose' ? 'bg-[hsl(var(--ledger-pill-rose-bg))] text-[hsl(var(--ledger-pill-rose-fg))] ring-[hsl(var(--ledger-pill-rose-ring))]' : 'bg-[hsl(var(--ledger-pill-slate-bg))] text-[hsl(var(--ledger-pill-slate-fg))] ring-[hsl(var(--ledger-pill-slate-ring))]'
-  return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${toneClass}`}><span className="opacity-65">{label}</span>{value}</span>
-}
-
-function TxBadge({ type, raw }: { type: TxFilter; raw: string }) {
-  const { text } = useI18n()
-  const tone = type === 'recharge' || type === 'refund' ? 'bg-[hsl(var(--ledger-pill-green-bg))] text-[hsl(var(--ledger-pill-green-fg))] ring-[hsl(var(--ledger-pill-green-ring))]' : type === 'consume' ? 'bg-[hsl(var(--ledger-pill-rose-bg))] text-[hsl(var(--ledger-pill-rose-fg))] ring-[hsl(var(--ledger-pill-rose-ring))]' : type === 'reserve' ? 'bg-[hsl(var(--ledger-pill-amber-bg))] text-[hsl(var(--ledger-pill-amber-fg))] ring-[hsl(var(--ledger-pill-amber-ring))]' : type === 'adjust' ? 'bg-[hsl(var(--ledger-pill-blue-bg))] text-[hsl(var(--ledger-pill-blue-fg))] ring-[hsl(var(--ledger-pill-blue-ring))]' : 'bg-[hsl(var(--ledger-pill-slate-bg))] text-[hsl(var(--ledger-pill-slate-fg))] ring-[hsl(var(--ledger-pill-slate-ring))]'
-  return <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${tone}`}>{txTypeLabel(type, raw, text)}</span>
+function txTypeTone(type: TxFilter): DataTone {
+  if (type === 'recharge' || type === 'refund') return 'green'
+  if (type === 'consume') return 'rose'
+  if (type === 'reserve') return 'amber'
+  if (type === 'adjust') return 'blue'
+  return 'slate'
 }
 
 function txTypeGroup(type: string): TxFilter {
@@ -195,26 +167,18 @@ function txTypeGroup(type: string): TxFilter {
   return 'other'
 }
 
-function txTypeFilterLabel(type: TxFilter, text: (zh: string, en: string) => string) {
-  if (type === 'all') return text('全部类型', 'All types')
-  return txTypeLabel(type, type, text)
+function txTypeFilterLabel(type: TxFilter, t: (key: string, options?: Record<string, unknown>) => string) {
+  if (type === 'all') return t('billing.ledger.allTypes')
+  return txTypeLabel(type, type, t)
 }
 
-function txTypeLabel(type: TxFilter, raw: string, text: (zh: string, en: string) => string) {
-  const labels: Record<TxFilter, string> = {
-    all: text('全部', 'All'),
-    recharge: text('充值', 'Top-up'),
-    reserve: text('冻结', 'Reserve'),
-    consume: text('消费', 'Spend'),
-    refund: text('退款', 'Refund'),
-    adjust: text('调整', 'Adjust'),
-    other: raw,
-  }
-  return labels[type]
+function txTypeLabel(type: TxFilter, raw: string, t: (key: string, options?: Record<string, unknown>) => string) {
+  if (type === 'other') return raw
+  return t(`billing.ledger.type.${type}`)
 }
 
-function exportLedgerCsv(rows: CreditTransaction[], text: (zh: string, en: string) => string) {
-  const headers = [text('时间', 'Time'), text('类型', 'Type'), text('说明', 'Note'), text('任务 ID', 'Job ID'), text('变动', 'Amount'), text('余额', 'Balance')]
+function exportLedgerCsv(rows: CreditTransaction[], t: (key: string, options?: Record<string, unknown>) => string) {
+  const headers = [t('billing.ledger.columns.time'), t('billing.ledger.columns.type'), t('billing.ledger.columns.note'), t('billing.ledger.columns.jobId'), t('billing.ledger.columns.amount'), t('billing.ledger.columns.balance')]
   const csv = [headers, ...rows.map((tx) => [formatDateTime(tx.created_at), tx.type, tx.note || '', tx.job_id ?? '', tx.amount, tx.balance_after])].map((row) => row.map(csvCell).join(',')).join('\n')
   const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
