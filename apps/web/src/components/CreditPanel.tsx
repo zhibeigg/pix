@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Download, RotateCcw, Search } from 'lucide-react'
 import { useI18n } from '../i18n'
 import type { CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, PaymentCheckout, PaymentOrder } from '../types'
 import { formatDateTime } from '../lib/utils'
@@ -8,6 +9,9 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { PixMetric } from './pix/PixMetric'
 import { PixPanel } from './pix/PixPanel'
+
+const TX_TYPES = ['all', 'recharge', 'reserve', 'consume', 'refund', 'adjust', 'other'] as const
+type TxFilter = typeof TX_TYPES[number]
 
 type Props = {
   balance: CreditBalance | null
@@ -73,9 +77,163 @@ export function CreditPanel({ balance, transactions, packages, customRechargeOpt
         </section>
 
         {checkout?.payment_url && <Alert variant="info">{text('支付宝支付页已打开。支付完成后请回到 Pix 刷新订单状态。', 'The Alipay page opened. Return to Pix and refresh order status after payment.')}</Alert>}
-        <section className="grid gap-3"><h3 className="text-lg font-semibold">{text('充值订单', 'Top-up orders')}</h3>{orders.length === 0 ? <p className="text-sm text-muted-foreground">{text('暂无充值订单。', 'No top-up orders yet.')}</p> : orders.map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4"><div><p className="font-bold">{text(`订单 #${order.id}`, `Order #${order.id}`)}</p><p className="text-sm text-muted-foreground">{text(`${order.credits} 点`, `${order.credits} credits`)} · {money(order.amount_cents, order.currency)} · {formatDateTime(order.created_at)}</p></div><div className="flex items-center gap-2"><Badge variant={order.status === 'paid' ? 'success' : 'warning'}>{order.status}</Badge>{isAdmin && order.status !== 'paid' && <Button size="sm" onClick={() => onMockPayOrder(order.id)}>{text('模拟支付', 'Mock pay')}</Button>}</div></div>)}</section>
-        <section className="grid gap-3"><h3 className="text-lg font-semibold">{text('点数流水', 'Credit history')}</h3>{transactions.length === 0 ? <p className="text-sm text-muted-foreground">{text('暂无流水。', 'No transactions yet.')}</p> : transactions.map((tx) => <div key={tx.id} className="flex justify-between gap-3 border-b border-border py-3"><div><p className="font-bold">{tx.type}</p><p className="text-sm text-muted-foreground">{tx.note || '—'} · {formatDateTime(tx.created_at)}</p></div><p className={tx.amount >= 0 ? 'font-semibold text-emerald-600' : 'font-semibold text-destructive'}>{tx.amount > 0 ? `+${tx.amount}` : tx.amount}</p></div>)}</section>
+        <TopUpOrders orders={orders} isAdmin={isAdmin} onMockPayOrder={onMockPayOrder} />
+        <CreditLedgerTable balance={balance} transactions={transactions} onRefresh={onRefresh} />
       </div>
     </PixPanel>
   )
+}
+
+function TopUpOrders({ orders, isAdmin, onMockPayOrder }: { orders: PaymentOrder[]; isAdmin: boolean; onMockPayOrder: (orderId: number) => Promise<void> }) {
+  const { text } = useI18n()
+  return <section className="grid gap-3"><h3 className="text-lg font-semibold">{text('充值订单', 'Top-up orders')}</h3>{orders.length === 0 ? <p className="text-sm text-muted-foreground">{text('暂无充值订单。', 'No top-up orders yet.')}</p> : orders.map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4"><div><p className="font-bold">{text(`订单 #${order.id}`, `Order #${order.id}`)}</p><p className="text-sm text-muted-foreground">{text(`${order.credits} 点`, `${order.credits} credits`)} · {money(order.amount_cents, order.currency)} · {formatDateTime(order.created_at)}</p></div><div className="flex items-center gap-2"><Badge variant={order.status === 'paid' ? 'success' : 'warning'}>{order.status}</Badge>{isAdmin && order.status !== 'paid' && <Button size="sm" onClick={() => onMockPayOrder(order.id)}>{text('模拟支付', 'Mock pay')}</Button>}</div></div>)}</section>
+}
+
+function CreditLedgerTable({ balance, transactions, onRefresh }: { balance: CreditBalance | null; transactions: CreditTransaction[]; onRefresh: () => void }) {
+  const { text } = useI18n()
+  const [query, setQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState<TxFilter>('all')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+
+  const filtered = useMemo(() => transactions.filter((tx) => {
+    const typeGroup = txTypeGroup(tx.type)
+    if (typeFilter !== 'all' && typeGroup !== typeFilter) return false
+    const created = new Date(tx.created_at).getTime()
+    if (from && created < new Date(`${from}T00:00:00`).getTime()) return false
+    if (to && created > new Date(`${to}T23:59:59`).getTime()) return false
+    const haystack = `${tx.type} ${tx.note} ${tx.job_id ?? ''}`.toLowerCase()
+    return haystack.includes(query.trim().toLowerCase())
+  }), [from, query, to, transactions, typeFilter])
+
+  const income = filtered.filter((tx) => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0)
+  const spent = Math.abs(filtered.filter((tx) => tx.amount < 0).reduce((sum, tx) => sum + tx.amount, 0))
+  const reset = () => { setQuery(''); setTypeFilter('all'); setFrom(''); setTo('') }
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-[hsl(var(--pix-dark-hairline))] bg-[hsl(var(--pix-navy-deep))] text-white shadow-[0_24px_80px_-44px_rgba(0,0,0,.9)] dark:border-[hsl(var(--pix-dark-hairline))]">
+      <div className="border-b border-white/10 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold tracking-[.14em] text-[hsl(var(--pix-brand-purple-300))]">{text('点数流水', 'Credit ledger')}</p>
+            <h3 className="mt-1 text-xl font-semibold">{text('流水明细', 'Ledger details')}</h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <LedgerPill label={text('可用点数', 'Available')} value={balance?.available_credits ?? 0} tone="blue" />
+            <LedgerPill label={text('冻结点数', 'Reserved')} value={balance?.reserved_credits ?? 0} tone="slate" />
+            <LedgerPill label={text('本页收入', 'Page income')} value={`+${income}`} tone="green" />
+            <LedgerPill label={text('本页支出', 'Page spent')} value={`-${spent}`} tone="rose" />
+            <LedgerPill label={text('流水', 'Rows')} value={filtered.length} tone="slate" />
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2 lg:grid-cols-[150px_150px_160px_minmax(180px,1fr)_auto]">
+          <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="h-9 border-white/10 bg-white/10 text-white [color-scheme:dark] placeholder:text-white/45" />
+          <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="h-9 border-white/10 bg-white/10 text-white [color-scheme:dark] placeholder:text-white/45" />
+          <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as TxFilter)} className="h-9 rounded-md border border-white/10 bg-white/10 px-3 text-sm text-white outline-none focus:ring-2 focus:ring-[hsl(var(--pix-brand-purple-300))]">
+            {TX_TYPES.map((type) => <option key={type} value={type} className="bg-[hsl(var(--pix-navy-deep))] text-white">{txTypeFilterLabel(type, text)}</option>)}
+          </select>
+          <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={text('备注、类型或任务 ID', 'Note, type, or job ID')} className="h-9 border-white/10 bg-white/10 pl-9 text-white placeholder:text-white/45" /></div>
+          <div className="flex gap-2"><Button type="button" size="sm" variant="secondary" onClick={onRefresh}><RotateCcw />{text('查询', 'Search')}</Button><Button type="button" size="sm" variant="ghost" className="text-white hover:bg-white/10 hover:text-white" onClick={reset}>{text('重置', 'Reset')}</Button><Button type="button" size="sm" className="bg-sky-500 text-white hover:bg-sky-400" onClick={() => exportLedgerCsv(filtered, text)}><Download />{text('导出 CSV', 'Export CSV')}</Button></div>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[860px] border-collapse text-sm">
+          <thead className="text-left text-xs text-white/48">
+            <tr className="border-b border-white/10">
+              <th className="px-4 py-3 font-semibold">{text('时间', 'Time')}</th>
+              <th className="px-4 py-3 font-semibold">{text('类型', 'Type')}</th>
+              <th className="px-4 py-3 font-semibold">{text('说明', 'Note')}</th>
+              <th className="px-4 py-3 font-semibold">{text('任务', 'Job')}</th>
+              <th className="px-4 py-3 text-right font-semibold">{text('变动', 'Amount')}</th>
+              <th className="px-4 py-3 text-right font-semibold">{text('余额', 'Balance')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-white/50">{text('没有符合条件的流水。', 'No matching transactions.')}</td></tr> : filtered.map((tx) => <LedgerRow key={tx.id} tx={tx} />)}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+function LedgerRow({ tx }: { tx: CreditTransaction }) {
+  const { text } = useI18n()
+  const group = txTypeGroup(tx.type)
+  return (
+    <tr className="border-b border-white/7 bg-white/[.025] transition hover:bg-white/[.055] last:border-b-0">
+      <td className="whitespace-nowrap px-4 py-3 text-white/82">{formatDateTime(tx.created_at)}</td>
+      <td className="px-4 py-3"><TxBadge type={group} raw={tx.type} /></td>
+      <td className="max-w-[420px] truncate px-4 py-3 text-white/72">{tx.note || text('—', '—')}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-white/68">{tx.job_id ? `#${tx.job_id}` : '—'}</td>
+      <td className={`whitespace-nowrap px-4 py-3 text-right font-semibold ${tx.amount >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{tx.amount > 0 ? `+${tx.amount}` : tx.amount}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-right text-white/82">{tx.balance_after}</td>
+    </tr>
+  )
+}
+
+function LedgerPill({ label, value, tone }: { label: string; value: string | number; tone: 'blue' | 'green' | 'rose' | 'slate' }) {
+  const toneClass = tone === 'blue' ? 'bg-sky-400/12 text-sky-100 ring-sky-300/20' : tone === 'green' ? 'bg-emerald-400/12 text-emerald-100 ring-emerald-300/20' : tone === 'rose' ? 'bg-rose-400/12 text-rose-100 ring-rose-300/20' : 'bg-white/10 text-white/80 ring-white/10'
+  return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${toneClass}`}><span className="text-white/54">{label}</span>{value}</span>
+}
+
+function TxBadge({ type, raw }: { type: TxFilter; raw: string }) {
+  const { text } = useI18n()
+  const tone = type === 'recharge' || type === 'refund' ? 'bg-emerald-400/14 text-emerald-100 ring-emerald-300/25' : type === 'consume' ? 'bg-rose-400/14 text-rose-100 ring-rose-300/25' : type === 'reserve' ? 'bg-amber-400/14 text-amber-100 ring-amber-300/25' : type === 'adjust' ? 'bg-sky-400/14 text-sky-100 ring-sky-300/25' : 'bg-white/10 text-white/75 ring-white/10'
+  return <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${tone}`}>{txTypeLabel(type, raw, text)}</span>
+}
+
+function txTypeGroup(type: string): TxFilter {
+  const value = type.toLowerCase()
+  if (value.includes('recharge') || value.includes('top')) return 'recharge'
+  if (value.includes('reserve')) return 'reserve'
+  if (value.includes('consume') || value.includes('spent')) return 'consume'
+  if (value.includes('refund')) return 'refund'
+  if (value.includes('adjust')) return 'adjust'
+  return 'other'
+}
+
+function txTypeFilterLabel(type: TxFilter, text: (zh: string, en: string) => string) {
+  if (type === 'all') return text('全部类型', 'All types')
+  return txTypeLabel(type, type, text)
+}
+
+function txTypeLabel(type: TxFilter, raw: string, text: (zh: string, en: string) => string) {
+  const labels: Record<TxFilter, string> = {
+    all: text('全部', 'All'),
+    recharge: text('充值', 'Top-up'),
+    reserve: text('冻结', 'Reserve'),
+    consume: text('消费', 'Spend'),
+    refund: text('退款', 'Refund'),
+    adjust: text('调整', 'Adjust'),
+    other: raw,
+  }
+  return labels[type]
+}
+
+function exportLedgerCsv(rows: CreditTransaction[], text: (zh: string, en: string) => string) {
+  const headers = [text('时间', 'Time'), text('类型', 'Type'), text('说明', 'Note'), text('任务 ID', 'Job ID'), text('变动', 'Amount'), text('余额', 'Balance')]
+  const csv = [headers, ...rows.map((tx) => [formatDateTime(tx.created_at), tx.type, tx.note || '', tx.job_id ?? '', tx.amount, tx.balance_after])].map((row) => row.map(csvCell).join(',')).join('\n')
+  const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `pix-credit-ledger-${timestampForFilename()}.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function csvCell(value: unknown) {
+  const text = String(value ?? '')
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
+function timestampForFilename() {
+  const date = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`
 }
