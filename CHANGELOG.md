@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.47] - 2026-05-22
+
+### Changed
+
+- 后端支付宝电脑网站支付改用官方 `alipay-sdk-python` 生成支付链接并进行回调验签，保留公钥模式与证书模式配置。
+- Web 运行依赖新增 `alipay-sdk-python>=3.7.1160`，避免继续手写支付宝请求签名流程。
+
 ## [1.24.46] - 2026-05-22
 
 ### Changed

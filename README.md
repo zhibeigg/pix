@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.24.46-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.24.47-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-386%20passed-2ea44f.svg">
 </p>
 
@@ -332,7 +332,7 @@ Pix Web 是一个可运营的素材生产工作台：
 - 作品库单任务失败重试、素材包失败项重试、ZIP 下载
 - 前端国际化统一使用 `i18next` / `react-i18next` 翻译键；浅色/深色/跟随系统主题继续走 Tailwind `dark` class、Radix 组件和 CSS 变量 token，不引入分散特例写法
 - 管理后台：模型/API、价格、充值套餐、运营保护、邮件配置
-- 支付模型：mock pay、支付宝电脑网站支付（公钥模式 / 证书模式）、微信 Native 扫码支付
+- 支付模型：mock pay、支付宝电脑网站支付（基于官方 `alipay-sdk-python`，支持公钥模式 / 证书模式）、微信 Native 扫码支付
 
 ### 本地启动
 
@@ -438,7 +438,7 @@ ALIPAY_PUBLIC_CERT_PATH=/run/secrets/alipay_public_cert.crt
 ALIPAY_ROOT_CERT_PATH=/run/secrets/alipay_root_cert.crt
 ```
 
-如需使用 SMTP 587 STARTTLS，请设置 `PIX_WEB_SMTP_PORT=587`、`PIX_WEB_SMTP_SSL=false`、`PIX_WEB_SMTP_TLS=true`。支付宝公钥模式继续使用 `ALIPAY_PUBLIC_KEY`；`ALIPAY_MODE=auto` 会在检测到证书配置时自动切换到证书模式。
+如需使用 SMTP 587 STARTTLS，请设置 `PIX_WEB_SMTP_PORT=587`、`PIX_WEB_SMTP_SSL=false`、`PIX_WEB_SMTP_TLS=true`。支付宝电脑网站支付已接入官方 `alipay-sdk-python` SDK 生成支付链接并校验回调签名；公钥模式继续使用 `ALIPAY_PUBLIC_KEY`，`ALIPAY_MODE=auto` 会在检测到证书配置时自动切换到证书模式。
 
 支付宝开放平台“应用网关”可配置为：
 
