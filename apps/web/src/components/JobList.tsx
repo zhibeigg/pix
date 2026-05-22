@@ -1,4 +1,5 @@
 import { RefreshCw } from 'lucide-react'
+import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import { jobTypeLabel } from '../labels'
 import { jobInputSummary } from '../pixelize'
@@ -29,7 +30,7 @@ function EmptyQueueState() {
 function JobCard({ job, onCandidatePixelize }: { job: GenerationJob; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
   const { language, text } = useI18n()
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
-  const preview = output?.sprite_gif_url || output?.preview_url || output?.pixelized_url || output?.source_url || job.input_image_url
+  const preview = signedFileUrl(output?.sprite_gif_url || output?.preview_url || output?.pixelized_url || output?.source_url || job.input_image_url)
   return (
     <article className="grid gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-[120px_minmax(0,1fr)]">
       <PixPreviewFrame url={preview} label={job.status} className="min-h-28" />
@@ -47,7 +48,7 @@ function JobCard({ job, onCandidatePixelize }: { job: GenerationJob; onCandidate
 function CandidateStrip({ job, output, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
   const { text } = useI18n()
   if (!output.candidates?.length) return null
-  return <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 md:grid-cols-8">{output.candidates.slice(0, 12).map((candidate) => <div key={candidate.path} className="rounded-lg border border-border bg-muted/35 p-1.5 text-center" title={candidate.reason ?? undefined}><img src={candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined} alt={text(`候选 ${candidate.index}`, `Candidate ${candidate.index}`)} className="mx-auto h-14 w-14 object-contain [image-rendering:pixelated]" /><p className="mt-1 text-[11px] text-muted-foreground">{candidate.rank ? `#${candidate.rank}` : text(`候选${candidate.index}`, `Candidate ${candidate.index}`)}</p>{onCandidatePixelize && <Button size="sm" variant="ghost" className="mt-1 h-6 text-[11px]" onClick={() => onCandidatePixelize(job, candidate)}>{text('重调', 'Retune')}</Button>}</div>)}</div>
+  return <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 md:grid-cols-8">{output.candidates.slice(0, 12).map((candidate) => <div key={candidate.path} className="rounded-lg border border-border bg-muted/35 p-1.5 text-center" title={candidate.reason ?? undefined}><img src={signedFileUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={text(`候选 ${candidate.index}`, `Candidate ${candidate.index}`)} className="mx-auto h-14 w-14 object-contain [image-rendering:pixelated]" /><p className="mt-1 text-[11px] text-muted-foreground">{candidate.rank ? `#${candidate.rank}` : text(`候选${candidate.index}`, `Candidate ${candidate.index}`)}</p>{onCandidatePixelize && <Button size="sm" variant="ghost" className="mt-1 h-6 text-[11px]" onClick={() => onCandidatePixelize(job, candidate)}>{text('重调', 'Retune')}</Button>}</div>)}</div>
 }
 
 function GridQualitySummary({ output }: { output: JobOutput }) {

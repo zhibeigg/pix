@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Download, RotateCcw } from 'lucide-react'
-import { API_BASE, TOKEN_KEY } from '../api'
+import { fileName, signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { ContactSheetCandidate, GenerationJob, JobOutput } from '../types'
 import { jobInputSummary } from '../pixelize'
@@ -39,7 +39,7 @@ function GalleryCard({ job, selected, retrying, onSelect, onCandidatePixelize, o
   const { language, text } = useI18n()
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
   const downloadPath = output?.sprite_gif_path || output?.preview_path || output?.pixelized_path || output?.source_path || job.input_image_path || ''
-  const downloadUrl = signedPreviewUrl(output?.sprite_gif_url || output?.preview_url || output?.pixelized_url || output?.source_url || job.input_image_url || '')
+  const downloadUrl = signedFileUrl(output?.sprite_gif_url || output?.preview_url || output?.pixelized_url || output?.source_url || job.input_image_url || '')
   const previewUrl = downloadUrl
   const typeLabel = jobTypeLabel(job.job_type, language)
   const displayName = jobDisplayName(job, text)
@@ -81,16 +81,7 @@ function GalleryCard({ job, selected, retrying, onSelect, onCandidatePixelize, o
 function CandidateMiniGrid({ job, output, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
   const { text } = useI18n()
   if (!output.candidates?.length) return null
-  return <div className="grid grid-cols-3 gap-2">{output.candidates.slice(0, 9).map((candidate) => <button type="button" key={candidate.path} className="rounded-lg border border-border bg-muted/35 p-1.5 text-xs dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]" onClick={(event) => { event.stopPropagation(); void onCandidatePixelize?.(job, candidate) }} title={candidate.reason ?? undefined}><img src={signedPreviewUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={text(`候选 ${candidate.index}`, `Candidate ${candidate.index}`)} className="mx-auto aspect-square w-full object-contain [image-rendering:pixelated]" /><span>{candidate.rank ? `#${candidate.rank}` : text(`候选${candidate.index}`, `Candidate ${candidate.index}`)}</span></button>)}</div>
-}
-
-function signedPreviewUrl(url?: string | null) {
-  if (!url) return ''
-  if (!url.startsWith('/files')) return url
-  const token = localStorage.getItem(TOKEN_KEY)
-  const separator = url.includes('?') ? '&' : '?'
-  const withToken = token ? `${url}${separator}token=${encodeURIComponent(token)}` : url
-  return `${API_BASE}${withToken.startsWith('/') ? withToken : `/${withToken}`}`
+  return <div className="grid grid-cols-3 gap-2">{output.candidates.slice(0, 9).map((candidate) => <button type="button" key={candidate.path} className="rounded-lg border border-border bg-muted/35 p-1.5 text-xs dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]" onClick={(event) => { event.stopPropagation(); void onCandidatePixelize?.(job, candidate) }} title={candidate.reason ?? undefined}><img src={signedFileUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={text(`候选 ${candidate.index}`, `Candidate ${candidate.index}`)} className="mx-auto aspect-square w-full object-contain [image-rendering:pixelated]" /><span>{candidate.rank ? `#${candidate.rank}` : text(`候选${candidate.index}`, `Candidate ${candidate.index}`)}</span></button>)}</div>
 }
 
 function downloadImage(url: string, filename: string) {
@@ -129,10 +120,6 @@ function jobDisplaySummary(job: GenerationJob, displayName: string, text: (zh: s
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null
-}
-
-function fileName(path: string) {
-  return path.split(/[\\/]/).filter(Boolean).pop() ?? path
 }
 
 function clampText(value: string, max: number) {
