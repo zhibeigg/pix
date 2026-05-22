@@ -894,15 +894,22 @@ def test_admin_can_update_operational_settings(client: TestClient) -> None:
 
     settings = client.get("/admin/settings", headers=headers)
     assert settings.status_code == 200
-    assert {item["key"] for item in settings.json()} >= {
+    payload = settings.json()
+    assert {item["key"] for item in payload} >= {
         "generation_enabled",
         "max_pending_jobs_per_user",
         "daily_job_limit_per_user",
     }
+    retired_pending_limit = next(item for item in payload if item["key"] == "max_pending_jobs_per_user")
+    assert retired_pending_limit["value"] == "0"
+    assert retired_pending_limit["editable"] is False
 
-    updated = client.put("/admin/settings/max_pending_jobs_per_user", headers=headers, json={"value": "2"})
+    updated = client.put("/admin/settings/daily_job_limit_per_user", headers=headers, json={"value": "2"})
     assert updated.status_code == 200
     assert updated.json()["value"] == "2"
+
+    disabled = client.put("/admin/settings/max_pending_jobs_per_user", headers=headers, json={"value": "2"})
+    assert disabled.status_code == 422
 
 
 def test_non_admin_cannot_update_operational_settings(client: TestClient) -> None:
@@ -941,22 +948,20 @@ def test_blocked_prompt_terms_reject_jobs(client: TestClient) -> None:
     assert client.get("/jobs", headers=headers).json() == []
 
 
-def test_pending_limit_blocks_extra_jobs(client: TestClient) -> None:
+def test_pending_limit_no_longer_blocks_extra_jobs(client: TestClient) -> None:
     user, headers = _register_and_login(client)
     client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 100})
-    client.put("/admin/settings/max_pending_jobs_per_user", headers=headers, json={"value": "1"})
 
     first = client.post("/jobs", headers=headers, json={"job_type": "text_to_image", "prompt": "pixel cat"})
     second = client.post("/jobs", headers=headers, json={"job_type": "text_to_image", "prompt": "pixel dog"})
 
     assert first.status_code == 200
-    assert second.status_code == 429
+    assert second.status_code == 200
 
 
-def test_batch_respects_pending_limit_atomically(client: TestClient) -> None:
+def test_batch_no_longer_respects_pending_limit(client: TestClient) -> None:
     user, headers = _register_and_login(client)
     client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 100})
-    client.put("/admin/settings/max_pending_jobs_per_user", headers=headers, json={"value": "1"})
 
     response = client.post(
         "/jobs/batch",
@@ -964,8 +969,8 @@ def test_batch_respects_pending_limit_atomically(client: TestClient) -> None:
         json={"jobs": [{"job_type": "text_to_image", "prompt": "cat"}, {"job_type": "text_to_image", "prompt": "dog"}]},
     )
 
-    assert response.status_code == 429
-    assert client.get("/jobs", headers=headers).json() == []
+    assert response.status_code == 200
+    assert len(client.get("/jobs", headers=headers).json()) == 2
 
 
 def test_daily_limit_blocks_extra_jobs(client: TestClient) -> None:

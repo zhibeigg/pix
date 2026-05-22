@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.29] - 2026-05-22
+
+### Fixed
+
+- 取消 Web 生成任务的每用户排队/运行并发上限，旧 `max_pending_jobs_per_user` 配置仅作为兼容字段保留且不再限制任务提交。
+
 ## [1.17.28] - 2026-05-21
 
 ### Fixed

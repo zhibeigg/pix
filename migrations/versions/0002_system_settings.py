@@ -14,7 +14,7 @@ depends_on = None
 
 _DEFAULTS = {
     "generation_enabled": "true",
-    "max_pending_jobs_per_user": "5",
+    "max_pending_jobs_per_user": "0",
     "daily_job_limit_per_user": "50",
 }
 

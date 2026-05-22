@@ -56,18 +56,15 @@ class AdminSettingView:
 @dataclass(frozen=True)
 class OperationalSettings:
     generation_enabled: bool
-    max_pending_jobs_per_user: int
     daily_job_limit_per_user: int
     blocked_prompt_terms: str
     max_uploads_per_user_per_day: int
     registration_bonus_credits: int
 
 
-ACTIVE_JOB_STATUSES = {"pending", "running"}
-
 SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("generation_enabled", "生成总开关", "运营保护", "boolean", "true", "关闭后普通用户不能创建新生成任务。"),
-    SettingDefinition("max_pending_jobs_per_user", "每用户排队/运行上限", "运营保护", "number", "5", "0 表示不限制。"),
+    SettingDefinition("max_pending_jobs_per_user", "每用户排队/运行上限（已停用）", "运营保护", "number", "0", "并发限制已取消；该字段仅兼容旧配置，不再限制任务提交。", editable=False),
     SettingDefinition("daily_job_limit_per_user", "每用户每日任务上限", "运营保护", "number", "50", "0 表示不限制。"),
     SettingDefinition("max_uploads_per_user_per_day", "每用户每日上传上限", "运营保护", "number", "50", "0 表示不限制。"),
     SettingDefinition("registration_bonus_credits", "注册赠送点数", "运营保护", "number", "30", "新用户注册时赠送的点数，0 表示不赠送。"),
@@ -360,10 +357,6 @@ def load_operational_settings(db: Session) -> OperationalSettings:
     values = _stored_values(db)
     return OperationalSettings(
         generation_enabled=_parse_bool(values.get("generation_enabled", DEFAULT_SYSTEM_SETTINGS["generation_enabled"])),
-        max_pending_jobs_per_user=_parse_positive_int(
-            values.get("max_pending_jobs_per_user", DEFAULT_SYSTEM_SETTINGS["max_pending_jobs_per_user"]),
-            int(DEFAULT_SYSTEM_SETTINGS["max_pending_jobs_per_user"]),
-        ),
         daily_job_limit_per_user=_parse_positive_int(
             values.get("daily_job_limit_per_user", DEFAULT_SYSTEM_SETTINGS["daily_job_limit_per_user"]),
             int(DEFAULT_SYSTEM_SETTINGS["daily_job_limit_per_user"]),
@@ -497,16 +490,6 @@ def enforce_generation_limits(db: Session, user: User, *, new_jobs: int) -> None
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="当前生成服务已暂停")
     if new_jobs <= 0:
         return
-
-    active_count = db.scalar(
-        select(func.count()).select_from(GenerationJob).where(
-            GenerationJob.user_id == user.id,
-            GenerationJob.status.in_(ACTIVE_JOB_STATUSES),
-        )
-    ) or 0
-
-    if settings.max_pending_jobs_per_user > 0 and active_count + new_jobs > settings.max_pending_jobs_per_user:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="当前排队任务过多，请等待部分任务完成")
 
     today_count = db.scalar(
         select(func.count()).select_from(GenerationJob).where(
