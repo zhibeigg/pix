@@ -111,11 +111,11 @@ function CreditLedgerTable({ balance, transactions, onRefresh }: { balance: Cred
   const reset = () => { setQuery(''); setTypeFilter('all'); setFrom(''); setTo('') }
 
   return (
-    <section className="overflow-hidden rounded-lg border border-[hsl(var(--pix-dark-hairline))] bg-[hsl(var(--pix-navy-deep))] text-white shadow-[0_24px_80px_-44px_rgba(0,0,0,.9)] dark:border-[hsl(var(--pix-dark-hairline))]">
-      <div className="border-b border-white/10 p-4">
+    <section className="overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-[0_12px_36px_-24px_rgba(15,23,42,.35)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-navy-deep))] dark:text-white dark:shadow-[0_24px_80px_-44px_rgba(0,0,0,.9)]">
+      <div className="border-b border-border bg-[hsl(var(--pix-paper-soft))] p-4 dark:border-white/10 dark:bg-transparent">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold tracking-[.14em] text-[hsl(var(--pix-brand-purple-300))]">{text('点数流水', 'Credit ledger')}</p>
+            <p className="text-xs font-semibold tracking-[.14em] text-primary dark:text-[hsl(var(--pix-brand-purple-300))]">{text('点数流水', 'Credit ledger')}</p>
             <h3 className="mt-1 text-xl font-semibold">{text('流水明细', 'Ledger details')}</h3>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -128,20 +128,20 @@ function CreditLedgerTable({ balance, transactions, onRefresh }: { balance: Cred
         </div>
 
         <div className="mt-4 grid gap-2 lg:grid-cols-[150px_150px_160px_minmax(180px,1fr)_auto]">
-          <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="h-9 border-white/10 bg-white/10 text-white [color-scheme:dark] placeholder:text-white/45" />
-          <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="h-9 border-white/10 bg-white/10 text-white [color-scheme:dark] placeholder:text-white/45" />
-          <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as TxFilter)} className="h-9 rounded-md border border-white/10 bg-white/10 px-3 text-sm text-white outline-none focus:ring-2 focus:ring-[hsl(var(--pix-brand-purple-300))]">
-            {TX_TYPES.map((type) => <option key={type} value={type} className="bg-[hsl(var(--pix-navy-deep))] text-white">{txTypeFilterLabel(type, text)}</option>)}
+          <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="h-9 border-input bg-background text-foreground [color-scheme:light] placeholder:text-muted-foreground dark:border-white/10 dark:bg-white/10 dark:text-white dark:[color-scheme:dark] dark:placeholder:text-white/45" />
+          <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="h-9 border-input bg-background text-foreground [color-scheme:light] placeholder:text-muted-foreground dark:border-white/10 dark:bg-white/10 dark:text-white dark:[color-scheme:dark] dark:placeholder:text-white/45" />
+          <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as TxFilter)} className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/10 dark:text-white dark:focus:ring-[hsl(var(--pix-brand-purple-300))]">
+            {TX_TYPES.map((type) => <option key={type} value={type} className="bg-card text-foreground dark:bg-[hsl(var(--pix-navy-deep))] dark:text-white">{txTypeFilterLabel(type, text)}</option>)}
           </select>
-          <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={text('备注、类型或任务 ID', 'Note, type, or job ID')} className="h-9 border-white/10 bg-white/10 pl-9 text-white placeholder:text-white/45" /></div>
-          <div className="flex gap-2"><Button type="button" size="sm" variant="secondary" onClick={onRefresh}><RotateCcw />{text('查询', 'Search')}</Button><Button type="button" size="sm" variant="ghost" className="text-white hover:bg-white/10 hover:text-white" onClick={reset}>{text('重置', 'Reset')}</Button><Button type="button" size="sm" className="bg-sky-500 text-white hover:bg-sky-400" onClick={() => exportLedgerCsv(filtered, text)}><Download />{text('导出 CSV', 'Export CSV')}</Button></div>
+          <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground dark:text-white/45" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={text('备注、类型或任务 ID', 'Note, type, or job ID')} className="h-9 border-input bg-background pl-9 text-foreground placeholder:text-muted-foreground dark:border-white/10 dark:bg-white/10 dark:text-white dark:placeholder:text-white/45" /></div>
+          <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="secondary" onClick={onRefresh}><RotateCcw />{text('查询', 'Search')}</Button><Button type="button" size="sm" variant="ghost" onClick={reset}>{text('重置', 'Reset')}</Button><Button type="button" size="sm" className="bg-sky-600 text-white hover:bg-sky-500 dark:bg-sky-500 dark:hover:bg-sky-400" onClick={() => exportLedgerCsv(filtered, text)}><Download />{text('导出 CSV', 'Export CSV')}</Button></div>
         </div>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[860px] border-collapse text-sm">
-          <thead className="text-left text-xs text-white/48">
-            <tr className="border-b border-white/10">
+          <thead className="text-left text-xs text-muted-foreground dark:text-white/48">
+            <tr className="border-b border-border dark:border-white/10">
               <th className="px-4 py-3 font-semibold">{text('时间', 'Time')}</th>
               <th className="px-4 py-3 font-semibold">{text('类型', 'Type')}</th>
               <th className="px-4 py-3 font-semibold">{text('说明', 'Note')}</th>
@@ -151,7 +151,7 @@ function CreditLedgerTable({ balance, transactions, onRefresh }: { balance: Cred
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-white/50">{text('没有符合条件的流水。', 'No matching transactions.')}</td></tr> : filtered.map((tx) => <LedgerRow key={tx.id} tx={tx} />)}
+            {filtered.length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground dark:text-white/50">{text('没有符合条件的流水。', 'No matching transactions.')}</td></tr> : filtered.map((tx) => <LedgerRow key={tx.id} tx={tx} />)}
           </tbody>
         </table>
       </div>
@@ -163,25 +163,25 @@ function LedgerRow({ tx }: { tx: CreditTransaction }) {
   const { text } = useI18n()
   const group = txTypeGroup(tx.type)
   return (
-    <tr className="border-b border-white/7 bg-white/[.025] transition hover:bg-white/[.055] last:border-b-0">
-      <td className="whitespace-nowrap px-4 py-3 text-white/82">{formatDateTime(tx.created_at)}</td>
+    <tr className="border-b border-border bg-card transition hover:bg-muted/45 last:border-b-0 dark:border-white/7 dark:bg-white/[.025] dark:hover:bg-white/[.055]">
+      <td className="whitespace-nowrap px-4 py-3 text-foreground dark:text-white/82">{formatDateTime(tx.created_at)}</td>
       <td className="px-4 py-3"><TxBadge type={group} raw={tx.type} /></td>
-      <td className="max-w-[420px] truncate px-4 py-3 text-white/72">{tx.note || text('—', '—')}</td>
-      <td className="whitespace-nowrap px-4 py-3 text-white/68">{tx.job_id ? `#${tx.job_id}` : '—'}</td>
-      <td className={`whitespace-nowrap px-4 py-3 text-right font-semibold ${tx.amount >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{tx.amount > 0 ? `+${tx.amount}` : tx.amount}</td>
-      <td className="whitespace-nowrap px-4 py-3 text-right text-white/82">{tx.balance_after}</td>
+      <td className="max-w-[420px] truncate px-4 py-3 text-muted-foreground dark:text-white/72">{tx.note || text('—', '—')}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground dark:text-white/68">{tx.job_id ? `#${tx.job_id}` : '—'}</td>
+      <td className={`whitespace-nowrap px-4 py-3 text-right font-semibold ${tx.amount >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300'}`}>{tx.amount > 0 ? `+${tx.amount}` : tx.amount}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-right text-foreground dark:text-white/82">{tx.balance_after}</td>
     </tr>
   )
 }
 
 function LedgerPill({ label, value, tone }: { label: string; value: string | number; tone: 'blue' | 'green' | 'rose' | 'slate' }) {
-  const toneClass = tone === 'blue' ? 'bg-sky-400/12 text-sky-100 ring-sky-300/20' : tone === 'green' ? 'bg-emerald-400/12 text-emerald-100 ring-emerald-300/20' : tone === 'rose' ? 'bg-rose-400/12 text-rose-100 ring-rose-300/20' : 'bg-white/10 text-white/80 ring-white/10'
-  return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${toneClass}`}><span className="text-white/54">{label}</span>{value}</span>
+  const toneClass = tone === 'blue' ? 'bg-sky-50 text-sky-800 ring-sky-200 dark:bg-sky-400/12 dark:text-sky-100 dark:ring-sky-300/20' : tone === 'green' ? 'bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-400/12 dark:text-emerald-100 dark:ring-emerald-300/20' : tone === 'rose' ? 'bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-400/12 dark:text-rose-100 dark:ring-rose-300/20' : 'bg-muted text-muted-foreground ring-border dark:bg-white/10 dark:text-white/80 dark:ring-white/10'
+  return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${toneClass}`}><span className="opacity-65">{label}</span>{value}</span>
 }
 
 function TxBadge({ type, raw }: { type: TxFilter; raw: string }) {
   const { text } = useI18n()
-  const tone = type === 'recharge' || type === 'refund' ? 'bg-emerald-400/14 text-emerald-100 ring-emerald-300/25' : type === 'consume' ? 'bg-rose-400/14 text-rose-100 ring-rose-300/25' : type === 'reserve' ? 'bg-amber-400/14 text-amber-100 ring-amber-300/25' : type === 'adjust' ? 'bg-sky-400/14 text-sky-100 ring-sky-300/25' : 'bg-white/10 text-white/75 ring-white/10'
+  const tone = type === 'recharge' || type === 'refund' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-400/14 dark:text-emerald-100 dark:ring-emerald-300/25' : type === 'consume' ? 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-400/14 dark:text-rose-100 dark:ring-rose-300/25' : type === 'reserve' ? 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-400/14 dark:text-amber-100 dark:ring-amber-300/25' : type === 'adjust' ? 'bg-sky-50 text-sky-700 ring-sky-200 dark:bg-sky-400/14 dark:text-sky-100 dark:ring-sky-300/25' : 'bg-muted text-muted-foreground ring-border dark:bg-white/10 dark:text-white/75 dark:ring-white/10'
   return <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${tone}`}>{txTypeLabel(type, raw, text)}</span>
 }
 
