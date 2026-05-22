@@ -18,12 +18,12 @@ interface GalleryPageProps {
 }
 
 export function GalleryPage({ jobs, selectedJob, selectedJobId, pricing, loading, retryingJobId, onSelectJob, onCandidatePixelize, onCreateJob, onRetryJob }: GalleryPageProps) {
-  const { text } = useI18n()
+  const { t } = useI18n()
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
       <div className="grid min-w-0 gap-6">
-        <PageHeader eyebrow={text('作品', 'Works')} title={text('作品库', 'Gallery')} description={text('最多保留 10 张作品，超出后自动清理最旧作品。', 'Keep up to 10 works; older works are removed automatically.')} />
-        <GalleryGrid jobs={jobs} subtitle={text('全部作品', 'All works')} selectedJobId={selectedJobId} retryingJobId={retryingJobId} onSelect={onSelectJob} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} />
+        <PageHeader eyebrow={t('pages.gallery.eyebrow')} title={t('pages.gallery.title')} description={t('pages.gallery.description')} />
+        <GalleryGrid jobs={jobs} subtitle={t('pages.gallery.allWorks')} selectedJobId={selectedJobId} retryingJobId={retryingJobId} onSelect={onSelectJob} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} />
       </div>
       <TuningPanel job={selectedJob} pricing={pricing} loading={loading} onSubmit={onCreateJob} />
     </div>

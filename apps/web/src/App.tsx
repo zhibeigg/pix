@@ -47,7 +47,7 @@ function retainedPhotoCount(jobs: GenerationJob[]) {
 }
 
 export function App({ themeMode, themePreference, systemThemeMode, language, onThemePreferenceChange, onLanguageChange }: AppProps) {
-  const { text } = useI18n()
+  const { text, t } = useI18n()
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? '')
   const [user, setUser] = useState<User | null>(null)
   const [balance, setBalance] = useState<CreditBalance | null>(null)
@@ -662,11 +662,11 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     <main data-pix-theme={themeMode} className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-xl dark:border-white/10 dark:bg-[hsl(var(--pix-navy-deep)/.95)]">
         <div className="mx-auto grid min-h-16 max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:px-8">
-          <a href="#/home" aria-label={text('返回首页', 'Back to home')} className="flex min-w-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <a href="#/home" aria-label={t('app.backHome')} className="flex min-w-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <img src="/pix-logo-64.png" alt="" className="h-9 w-9 shrink-0 [image-rendering:pixelated]" />
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-muted-foreground">Pix Forge</p>
-              <h1 className="truncate text-xl font-semibold tracking-tight">{text('像素素材工坊', 'Pixel Asset Forge')}</h1>
+              <h1 className="truncate text-xl font-semibold tracking-tight">{t('app.title')}</h1>
             </div>
           </a>
           {user && <div className="hidden min-w-0 lg:block" aria-hidden="true" />}
@@ -674,13 +674,13 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
             <HeaderUtilityBar language={language} themePreference={themePreference} resolvedMode={themeMode} systemMode={systemThemeMode} onLanguageChange={onLanguageChange} onThemePreferenceChange={onThemePreferenceChange} />
             {user ? (
               <>
-                {page === 'home' && <Button asChild><a href="#/workspace">{text('工作台', 'Workspace')}</a></Button>}
+                {page === 'home' && <Button asChild><a href="#/workspace">{t('app.workbench')}</a></Button>}
                 <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={() => refreshCore()} onLogout={logout} />
               </>
             ) : (
               <div className="flex gap-2">
-                <Button variant="ghost" asChild><a href="#auth-panel">{text('登录', 'Sign in')}</a></Button>
-                <Button asChild><a href="#auth-panel">{text('注册', 'Register')}</a></Button>
+                <Button variant="ghost" asChild><a href="#auth-panel">{t('app.signIn')}</a></Button>
+                <Button asChild><a href="#auth-panel">{t('app.register')}</a></Button>
               </div>
             )}
           </div>
@@ -690,7 +690,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       <AppToast toast={toast} onDismiss={dismissToast} />
 
       {setupLoading ? (
-        <div className="grid min-h-[calc(100vh-76px)] place-items-center px-4 text-muted-foreground">{text('正在检查站点初始化状态…', 'Checking site setup status…')}</div>
+        <div className="grid min-h-[calc(100vh-76px)] place-items-center px-4 text-muted-foreground">{t('app.checkingSetup')}</div>
       ) : needsAdminSetup && setupStatus ? (
         <SetupWizard status={setupStatus} loading={busy} onBootstrapAdmin={bootstrapAdmin} onLocalTestLogin={localTestLogin} />
       ) : user && page !== 'home' ? (
@@ -737,7 +737,7 @@ function showSystemNotification(title: string, body: string) {
 }
 
 function AppToast({ toast, onDismiss }: { toast: AppToastState | null; onDismiss: () => void }) {
-  const { text } = useI18n()
+  const { t } = useI18n()
   if (!toast) return null
   const Icon = toast.variant === 'error' ? CircleAlert : toast.variant === 'info' ? Info : CheckCircle2
   const tone = toast.variant === 'error'
@@ -752,7 +752,7 @@ function AppToast({ toast, onDismiss }: { toast: AppToastState | null; onDismiss
       <div key={toast.id} role="status" aria-live="polite" className={`pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-[0_16px_48px_-8px_rgba(15,15,15,0.26)] ring-1 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-200 ${tone}`}>
         <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${iconTone}`} />
         <p className="min-w-0 flex-1 leading-6">{toast.message}</p>
-        <button type="button" onClick={onDismiss} aria-label={text('关闭提示', 'Dismiss notification')} className="-mr-1 rounded-md p-1 opacity-72 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
+        <button type="button" onClick={onDismiss} aria-label={t('app.toastDismiss')} className="-mr-1 rounded-md p-1 opacity-72 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -761,13 +761,13 @@ function AppToast({ toast, onDismiss }: { toast: AppToastState | null; onDismiss
 }
 
 function WorkspaceShell({ page, user, balance, activeJobs, completedJobs, failedJobs, isAdmin, children, onNavigate }: { page: AppPage; user: User; balance: CreditBalance | null; activeJobs: number; completedJobs: number; failedJobs: number; isAdmin: boolean; children: ReactNode; onNavigate: (page: AppPage) => void }) {
-  const { text } = useI18n()
+  const { t } = useI18n()
   return (
     <div className="grid min-h-[calc(100vh-65px)] bg-[hsl(var(--pix-cream)/.42)] lg:grid-cols-[260px_minmax(0,1fr)] dark:bg-[hsl(var(--pix-navy-deep))]">
       <aside className="border-b border-border bg-[hsl(var(--pix-paper-soft))] p-4 text-[hsl(var(--pix-ink))] lg:border-b-0 lg:border-r dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band))] dark:text-white">
         <div className="grid gap-6 lg:sticky lg:top-20 lg:min-h-[calc(100vh-97px)] lg:grid-rows-[auto_auto_1fr_auto]">
           <div>
-            <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-[hsl(var(--pix-steel))] dark:text-white/58">{text('工作区', 'Workspace')}</p>
+            <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-[hsl(var(--pix-steel))] dark:text-white/58">{t('sidebar.workspace')}</p>
             <div className="mt-3 rounded-md border border-border bg-card p-3 shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:shadow-[0_18px_48px_-36px_rgba(0,0,0,0.85)]">
               <p className="truncate text-sm font-semibold">{user.display_name || user.email}</p>
               <p className="mt-1 truncate text-xs text-muted-foreground dark:text-white/45">{user.email}</p>
@@ -776,11 +776,11 @@ function WorkspaceShell({ page, user, balance, activeJobs, completedJobs, failed
           <AppTabs page={page} user={user} onChange={onNavigate} orientation="side" />
           <div className="hidden lg:block" />
           <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
-            <SidebarMetric label={text('点数', 'Credits')} value={balance?.available_credits ?? '—'} />
-            <SidebarMetric label={text('队列', 'Queue')} value={activeJobs} />
-            <SidebarMetric label={text('完成', 'Done')} value={completedJobs} />
-            {failedJobs > 0 && <SidebarMetric label={text('失败', 'Failed')} value={failedJobs} tone="danger" />}
-            {isAdmin && <SidebarMetric label={text('角色', 'Role')} value={text('管理员', 'Admin')} />}
+            <SidebarMetric label={t('sidebar.credits')} value={balance?.available_credits ?? '—'} />
+            <SidebarMetric label={t('sidebar.queue')} value={activeJobs} />
+            <SidebarMetric label={t('sidebar.done')} value={completedJobs} />
+            {failedJobs > 0 && <SidebarMetric label={t('sidebar.failed')} value={failedJobs} tone="danger" />}
+            {isAdmin && <SidebarMetric label={t('sidebar.role')} value={t('sidebar.admin')} />}
           </div>
         </div>
       </aside>
@@ -806,12 +806,12 @@ function SidebarMetric({ label, value, tone = 'default' }: { label: ReactNode; v
 }
 
 function SiteFooter() {
-  const { text } = useI18n()
+  const { t } = useI18n()
   const groups = [
-    { title: text('产品', 'Product'), links: [text('生产工作台', 'Production workspace'), text('作品库', 'Gallery'), text('素材包', 'Packs')] },
-    { title: text('资源', 'Resources'), links: [text('像素界面', 'Pixel UI'), text('序列帧', 'Sprite frames'), text('范例图库', 'Sample atlas')] },
-    { title: text('工作区', 'Workspace'), links: [text('点数中心', 'Billing center'), text('任务队列', 'Job queue'), text('批量导出', 'Batch export')] },
-    { title: text('团队', 'Company'), links: [text('像素工坊', 'Pix Forge'), text('游戏素材', 'Game assets')] },
+    { title: t('footer.product'), links: [t('footer.productionWorkspace'), t('footer.gallery'), t('footer.packs')] },
+    { title: t('footer.resources'), links: [t('footer.pixelUi'), t('footer.spriteFrames'), t('footer.sampleAtlas')] },
+    { title: t('footer.workspace'), links: [t('footer.billingCenter'), t('footer.jobQueue'), t('footer.batchExport')] },
+    { title: t('footer.company'), links: [t('footer.pixForge'), t('footer.gameAssets')] },
   ]
   return (
     <footer className="border-t border-border bg-card px-4 py-16 md:px-8 dark:border-white/10 dark:bg-[hsl(var(--pix-navy-deep))]">
@@ -819,9 +819,9 @@ function SiteFooter() {
         <div>
           <div className="flex items-center gap-2 font-semibold text-foreground">
             <img src="/pix-logo-64.png" alt="" className="h-7 w-7 opacity-80 [image-rendering:pixelated]" />
-            {text('Pix Forge · 像素素材工坊', 'Pix Forge · Pixel Asset Forge')}
+            {t('footer.brand')}
           </div>
-          <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">{text('面向游戏素材生产的 AI 像素工作区，按 Notion 式清晰信息层级组织生产、验收、导出与计费。', 'An AI pixel workspace for game asset production, organizing generation, review, export, and billing with Notion-clear hierarchy.')}</p>
+          <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">{t('footer.description')}</p>
           <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" className="mt-4 inline-flex text-xs text-muted-foreground hover:text-foreground">鲁ICP备2022023963号</a>
         </div>
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">

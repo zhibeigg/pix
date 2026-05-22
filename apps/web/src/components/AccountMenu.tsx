@@ -19,38 +19,38 @@ type AccountMenuProps = {
 }
 
 export function AccountMenu({ user, balance, activeJobs, completedJobs, failedJobs, isAdmin, onNavigate, onRefresh, onLogout }: AccountMenuProps) {
-  const { text } = useI18n()
+  const { t } = useI18n()
   return (
     <div className="flex min-w-0 items-center justify-end gap-2">
       <div className="hidden items-center gap-2 sm:flex">
-        <Badge variant="outline" className="bg-card">{text(`点数 ${balance?.available_credits ?? '—'}`, `Credits ${balance?.available_credits ?? '—'}`)}</Badge>
-        <Badge variant={activeJobs ? 'info' : 'muted'} className="hidden lg:inline-flex">{text(`队列 ${activeJobs}`, `Queue ${activeJobs}`)}</Badge>
-        {failedJobs > 0 && <Badge variant="danger" className="hidden lg:inline-flex">{text(`失败 ${failedJobs}`, `Failed ${failedJobs}`)}</Badge>}
+        <Badge variant="outline" className="bg-card">{t('account.credits', { count: balance?.available_credits ?? '—' })}</Badge>
+        <Badge variant={activeJobs ? 'info' : 'muted'} className="hidden lg:inline-flex">{t('account.queue', { count: activeJobs })}</Badge>
+        {failedJobs > 0 && <Badge variant="danger" className="hidden lg:inline-flex">{t('account.failed', { count: failedJobs })}</Badge>}
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="bg-card"><UserRound />{text('账号', 'Account')}</Button>
+          <Button variant="outline" className="bg-card"><UserRound />{t('account.button')}</Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72">
-          <DropdownMenuLabel>{text('当前账户', 'Current account')}</DropdownMenuLabel>
+          <DropdownMenuLabel>{t('account.current')}</DropdownMenuLabel>
           <div className="px-2.5 pb-2">
             <p className="truncate text-sm font-bold">{user.display_name || user.email}</p>
             <p className="truncate text-xs text-muted-foreground">{user.email}</p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               <Badge variant={isAdmin ? 'default' : 'secondary'}>{user.role}</Badge>
-              <Badge variant="outline">{text(`点数 ${balance?.available_credits ?? '—'}`, `Credits ${balance?.available_credits ?? '—'}`)}</Badge>
-              <Badge variant={activeJobs ? 'info' : 'muted'}>{text(`队列 ${activeJobs}`, `Queue ${activeJobs}`)}</Badge>
-              <Badge variant="success">{text(`完成 ${completedJobs}`, `Done ${completedJobs}`)}</Badge>
-              <Badge variant={failedJobs ? 'danger' : 'muted'}>{text(`失败 ${failedJobs}`, `Failed ${failedJobs}`)}</Badge>
+              <Badge variant="outline">{t('account.credits', { count: balance?.available_credits ?? '—' })}</Badge>
+              <Badge variant={activeJobs ? 'info' : 'muted'}>{t('account.queue', { count: activeJobs })}</Badge>
+              <Badge variant="success">{t('account.done', { count: completedJobs })}</Badge>
+              <Badge variant={failedJobs ? 'danger' : 'muted'}>{t('account.failed', { count: failedJobs })}</Badge>
             </div>
           </div>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => onNavigate('billing')}><WalletCards />{text('点数中心', 'Billing center')}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onNavigate('gallery')}><GalleryHorizontalEnd />{text('作品库', 'Gallery')}</DropdownMenuItem>
-          {isAdmin && <DropdownMenuItem onClick={() => onNavigate('admin')}><Settings />{text('管理后台', 'Admin console')}</DropdownMenuItem>}
-          <DropdownMenuItem onClick={() => void onRefresh()}><RefreshCw />{text('刷新数据', 'Refresh data')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onNavigate('billing')}><WalletCards />{t('account.billingCenter')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onNavigate('gallery')}><GalleryHorizontalEnd />{t('account.gallery')}</DropdownMenuItem>
+          {isAdmin && <DropdownMenuItem onClick={() => onNavigate('admin')}><Settings />{t('account.adminConsole')}</DropdownMenuItem>}
+          <DropdownMenuItem onClick={() => void onRefresh()}><RefreshCw />{t('account.refreshData')}</DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onLogout} className="text-destructive"><LogOut />{text('退出登录', 'Sign out')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={onLogout} className="text-destructive"><LogOut />{t('account.signOut')}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

@@ -738,7 +738,15 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 **Top Navigation (Marketing)** — Sticky white bar.
 - Background `{colors.canvas}`, height ~64px, bottom border `1px solid {colors.hairline}`.
 - Left: Notion "N" logo + "Product / AI / Solutions / Resources / Enterprise / Pricing / Request a demo" links.
-- Right: "Get Notion free" purple button + "Log in" link.
+- Right: utility icon group + "Get Notion free" purple button + "Log in" link.
+
+**Header Utility Group** — Compact circular icon controls.
+- Three 40px circular controls for system announcements, theme mode, and language.
+- Announcement control opens a large light dialog with notification/system-announcement tabs and empty-state illustration.
+- Theme and language controls reveal menus on hover/focus; theme offers light / dark / system, language offers Chinese / English.
+- Menus use `{colors.canvas}` surfaces, `{rounded.lg}` radius, and Level 4 modal/dropdown shadow.
+- Localization uses `i18next` / `react-i18next` resource keys for all new menu, navigation, account, gallery, batch, queue, and billing copy; `text(zh, en)` remains only as a deprecated compatibility bridge for areas not yet migrated.
+- Light/dark/system mode is implemented with Tailwind `dark` class, Radix primitives, and shared CSS variable tokens. Do not add one-off component-specific theme branches unless they are expressed through reusable tokens.
 
 ### Signature Components
 

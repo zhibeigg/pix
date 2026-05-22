@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.46] - 2026-05-22
+
+### Changed
+
+- Web 高频导航、账户菜单、素材包、队列、作品库和点数中心文案继续迁移到 `i18next` / `react-i18next` 翻译键，减少 `text(zh, en)` 兼容写法。
+- 明暗主题说明统一为 Tailwind `dark` class、Radix 组件与 CSS 变量 token 体系，避免为黑白模式新增分散特例。
+
 ## [1.18.29] - 2026-05-22
 
 ### Added
