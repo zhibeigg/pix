@@ -61,13 +61,13 @@ function AnnouncementButton({ open, onOpenChange }: { open: boolean; onOpenChang
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
       <DialogTrigger asChild>
         <button type="button" className={utilityButtonClass} aria-label={text('打开系统公告', 'Open announcements')}>
           <Bell className="h-4 w-4" />
         </button>
       </DialogTrigger>
-      <DialogContent className="min-h-[456px] w-[min(92vw,920px)] content-start gap-0 p-0">
+      <DialogContent onCloseAutoFocus={(event) => event.preventDefault()} className="min-h-[456px] w-[min(92vw,920px)] content-start gap-0 p-0">
         <div className="flex items-start justify-between gap-6 px-6 pb-4 pt-8 md:px-7">
           <DialogHeader className="gap-0">
             <DialogTitle className="text-2xl font-semibold tracking-[-0.02em]">{text('系统公告', 'Announcements')}</DialogTitle>
