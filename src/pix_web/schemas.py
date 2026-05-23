@@ -79,6 +79,7 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     display_name: str = Field(default="", max_length=120)
     verification_code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+    referral_code: str = Field(default="", max_length=32)
 
 
 class LoginRequest(BaseModel):
@@ -142,6 +143,78 @@ class CreditTransactionResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ReferralCurrencyTotalsResponse(BaseModel):
+    currency: str
+    pending_cents: int
+    available_cents: int
+    total_reward_cents: int
+
+
+class ReferralInviteResponse(BaseModel):
+    id: int
+    referred_user_id: int
+    referred_user_email: str
+    referred_user_display_name: str
+    created_at: datetime
+
+
+class ReferralRewardResponse(BaseModel):
+    id: int
+    referred_user_id: int
+    referred_user_email: str
+    order_id: int
+    order_amount_cents: int
+    order_credits: int
+    amount_cents: int
+    remaining_cents: int
+    currency: str
+    rate_bps: int
+    status: str
+    available_at: datetime
+    created_at: datetime
+
+
+class ReferralSettlementResponse(BaseModel):
+    id: int
+    type: str
+    amount_cents: int
+    currency: str
+    credits: int
+    status: str
+    note: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ReferralSummaryResponse(BaseModel):
+    code: str
+    invite_url: str
+    enabled: bool
+    commission_rate_bps: int
+    pending_days: int
+    primary_currency: str
+    pending_cents: int
+    available_cents: int
+    total_reward_cents: int
+    invited_count: int
+    totals_by_currency: list[ReferralCurrencyTotalsResponse]
+    invites: list[ReferralInviteResponse]
+    rewards: list[ReferralRewardResponse]
+    settlements: list[ReferralSettlementResponse]
+
+
+class ReferralTransferRequest(BaseModel):
+    currency: str = Field(default="cny", max_length=12)
+
+
+class ReferralWithdrawalRequest(BaseModel):
+    amount_cents: int = Field(ge=1)
+    currency: str = Field(default="cny", max_length=12)
+    note: str = Field(default="", max_length=500)
 
 
 class PixelizeParamsSchema(BaseModel):

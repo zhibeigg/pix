@@ -62,12 +62,22 @@ class OperationalSettings:
     registration_bonus_credits: int
 
 
+@dataclass(frozen=True)
+class ReferralSettings:
+    enabled: bool
+    commission_rate_bps: int
+    pending_days: int
+
+
 SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("generation_enabled", "生成总开关", "运营保护", "boolean", "true", "关闭后普通用户不能创建新生成任务。"),
     SettingDefinition("max_pending_jobs_per_user", "每用户排队/运行上限（已停用）", "运营保护", "number", "0", "并发限制已取消；该字段仅兼容旧配置，不再限制任务提交。", editable=False),
     SettingDefinition("daily_job_limit_per_user", "每用户每日任务上限", "运营保护", "number", "50", "0 表示不限制。"),
     SettingDefinition("max_uploads_per_user_per_day", "每用户每日上传上限", "运营保护", "number", "50", "0 表示不限制。"),
     SettingDefinition("registration_bonus_credits", "注册赠送点数", "运营保护", "number", "30", "新用户注册时赠送的点数，0 表示不赠送。"),
+    SettingDefinition("referral.enabled", "邀请奖励开关", "邀请奖励", "boolean", "true", "关闭后不再绑定新邀请或生成新返佣。"),
+    SettingDefinition("referral.commission_rate_bps", "返佣比例 bps", "邀请奖励", "number", "1000", "1000 = 10%；按好友实际支付金额计算。"),
+    SettingDefinition("referral.pending_days", "待到账天数", "邀请奖励", "number", "30", "好友充值后返佣进入待到账，达到天数后转为可用收益。"),
     SettingDefinition("blocked_prompt_terms", "素材描述禁词", "运营保护", "textarea", "", "逗号、分号或换行分隔。"),
     SettingDefinition("web.email_provider", "邮件发送方式", "邮件验证码", "select", "", "console 适合开发；smtp 用于生产投递。", ("console", "smtp")),
     SettingDefinition("web.smtp_host", "SMTP Host", "邮件验证码", "string", "", "例如 smtp.example.com。", env_var="PIX_WEB_SMTP_HOST"),
@@ -173,6 +183,9 @@ DEFAULT_SYSTEM_SETTINGS: dict[str, str] = {
         "blocked_prompt_terms",
         "max_uploads_per_user_per_day",
         "registration_bonus_credits",
+        "referral.enabled",
+        "referral.commission_rate_bps",
+        "referral.pending_days",
     }
 }
 ALLOWED_SETTING_KEYS = set(SETTING_DEFINITIONS_BY_KEY)
@@ -372,6 +385,24 @@ def load_operational_settings(db: Session) -> OperationalSettings:
         registration_bonus_credits=_parse_positive_int(
             values.get("registration_bonus_credits", DEFAULT_SYSTEM_SETTINGS["registration_bonus_credits"]),
             int(DEFAULT_SYSTEM_SETTINGS["registration_bonus_credits"]),
+        ),
+    )
+
+
+def load_referral_settings(db: Session) -> ReferralSettings:
+    values = _stored_values(db)
+    return ReferralSettings(
+        enabled=_parse_bool(values.get("referral.enabled", DEFAULT_SYSTEM_SETTINGS["referral.enabled"])),
+        commission_rate_bps=min(
+            10000,
+            _parse_positive_int(
+                values.get("referral.commission_rate_bps", DEFAULT_SYSTEM_SETTINGS["referral.commission_rate_bps"]),
+                int(DEFAULT_SYSTEM_SETTINGS["referral.commission_rate_bps"]),
+            ),
+        ),
+        pending_days=_parse_positive_int(
+            values.get("referral.pending_days", DEFAULT_SYSTEM_SETTINGS["referral.pending_days"]),
+            int(DEFAULT_SYSTEM_SETTINGS["referral.pending_days"]),
         ),
     )
 

@@ -62,6 +62,8 @@ export const zhCN = {
     packsDescription: '批量管理',
     billing: '点数',
     billingDescription: '充值流水',
+    rewards: '邀请奖励',
+    rewardsDescription: '好友返佣',
     admin: '后台',
     adminDescription: '运营配置',
     workspaceNavigation: '工作区导航',
