@@ -43,7 +43,8 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
   const { language, t } = useI18n()
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
   const downloadOptions = output ? buildDownloadOptions(job, output, t) : []
-  const previewUrl = output ? signedFileUrl(output.pixelized_url || output.preview_url || output.source_url || undefined) : signedFileUrl(job.input_image_url)
+  const isActive = isActiveJob(job)
+  const previewUrl = isActive ? null : output ? signedFileUrl(output.pixelized_url || output.preview_url || output.source_url || undefined) : signedFileUrl(job.input_image_url)
   const typeLabel = jobTypeLabel(job.job_type, language)
   const displayName = jobDisplayName(job, t)
   const summary = jobDisplaySummary(job, displayName, t)
@@ -70,7 +71,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
       }}
       className={`cursor-pointer overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/55 hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[hsl(var(--pix-dark-card))] ${selected ? 'border-primary shadow-[0_4px_12px_rgba(15,15,15,0.08)] ring-2 ring-primary/15' : job.status === 'failed' ? 'border-destructive/40' : 'border-border dark:border-[hsl(var(--pix-dark-hairline))]'}`}
     >
-      <PixPreviewFrame url={previewUrl} label={job.status === 'succeeded' ? 'PIX' : t('gallery.waitingOutput')} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" imageClassName="absolute inset-0 h-full max-h-none w-full p-0 object-contain" ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div></PixPreviewFrame>
+      <PixPreviewFrame url={previewUrl} loading={isActive} label={isActive ? jobStatusLabel(job, t) : job.status === 'succeeded' ? 'PIX' : t('gallery.waitingOutput')} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" imageClassName="absolute inset-0 h-full max-h-none w-full p-0 object-contain" ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div></PixPreviewFrame>
       <div className="grid gap-2.5 p-3">
         <div className="grid gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -135,6 +136,14 @@ function DownloadDialog({ job, options }: { job: GenerationJob; options: Downloa
       </DialogContent>
     </Dialog>
   )
+}
+
+function isActiveJob(job: GenerationJob) {
+  return job.status === 'pending' || job.status === 'running'
+}
+
+function jobStatusLabel(job: GenerationJob, t: (key: string, options?: Record<string, unknown>) => string) {
+  return job.status === 'pending' ? t('status.pending') : job.status === 'running' ? t('status.running') : t('gallery.waitingOutput')
 }
 
 function CandidateMiniGrid({ job, output, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {

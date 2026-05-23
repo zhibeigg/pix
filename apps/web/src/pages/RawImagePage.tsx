@@ -40,7 +40,8 @@ export function RawImagePage({ pricing, balance, jobs, loading, selectedJobId, o
   const selectedJob = rawJobs.find((job) => job.id === selectedJobId) ?? rawJobs[0] ?? null
   const price = pricing.find((item) => item.key === 'text_to_image')?.price_credits ?? 0
   const insufficientCredits = typeof balance?.available_credits === 'number' && balance.available_credits < price
-  const mainImageUrl = rawSourceUrl(selectedJob)
+  const isSelectedActive = selectedJob?.status === 'pending' || selectedJob?.status === 'running'
+  const mainImageUrl = isSelectedActive ? null : rawSourceUrl(selectedJob)
   const failedError = selectedJob?.status === 'failed' ? summarizeJobError(selectedJob.error_message, text) : null
   const mainImageLabel = failedError?.title ?? text('原始单图', 'Raw single image')
   const thumbs = useMemo(() => buildThumbs(rawJobs, selectedJob?.id ?? null), [rawJobs, selectedJob?.id])
@@ -71,7 +72,7 @@ export function RawImagePage({ pricing, balance, jobs, loading, selectedJobId, o
 
           <div className="grid gap-4 rounded-lg border border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-paper-soft))] p-4 text-[hsl(var(--pix-ink))] shadow-[inset_0_1px_0_rgba(255,255,255,0.68)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_22px_70px_-46px_rgba(0,0,0,0.95)]">
             <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.14em] text-primary dark:text-[hsl(var(--pix-brand-purple-300))]">{text('预览画布', 'Preview canvas')}</p><h3 className="text-xl font-semibold">{selectedJob ? `#${selectedJob.id} · ${mainImageLabel}` : text('等待第一张原图', 'Waiting for the first source image')}</h3></div>{selectedJob && <PixStatusBadge status={selectedJob.status} />}</div>
-            <PixPreviewFrame url={mainImageUrl} label={selectedJob ? rawStateLabel(selectedJob, text) : text('等待提示词点火', 'Waiting for prompt ignition')} className="min-h-[420px] border-[hsl(var(--pix-paper-border))] bg-card dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]" imageClassName="[image-rendering:auto]" />
+            <PixPreviewFrame url={mainImageUrl} loading={isSelectedActive} label={selectedJob ? rawStateLabel(selectedJob, text) : text('等待提示词点火', 'Waiting for prompt ignition')} className="min-h-[420px] border-[hsl(var(--pix-paper-border))] bg-card dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]" imageClassName="[image-rendering:auto]" />
             {selectedJob?.status === 'failed' && <JobErrorSummary error={selectedJob.error_message} />}
             <p className="text-sm text-muted-foreground dark:text-white/60">{selectedJob ? summarizePrompt(selectedJob.prompt, text('无提示词', 'No prompt')) : text('输入提示词后，生成结果会停留在本页。', 'After entering a prompt, generated results stay on this page.')}</p>
           </div>
