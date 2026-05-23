@@ -315,6 +315,7 @@ export const zhCN = {
     expanded: '已展开',
     retry: '重试',
     retrying: '重试中…',
+    delete: '删除',
     waitingOutput: '等待输出',
     noInputSummary: '无输入摘要',
     expandHint: '点击卡片展开查看生成结果。',

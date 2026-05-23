@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.51] - 2026-05-23
+
+### Added
+
+- 作品库新增手动删除作品能力，删除时同步清理输出目录、素材包引用和点数流水关联。
+
 ## [1.25.50] - 2026-05-23
 
 ### Fixed

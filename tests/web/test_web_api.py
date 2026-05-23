@@ -22,7 +22,7 @@ from cryptography.x509.oid import NameOID
 from pix.config import AppConfig
 from pix_web.config import WebSettings
 from pix_web.main import create_app
-from pix_web.models import AlipayGatewayMessage, CreditTransaction, GenerationBatch, GenerationJob, GenerationOutput, SystemSetting
+from pix_web.models import AlipayGatewayMessage, AssetPackItem, CreditTransaction, GenerationBatch, GenerationJob, GenerationOutput, SystemSetting
 from pix_web.payment_providers import _alipay_sign_content, _is_rsa_certificate, _rsa_sign
 from pix_web.pipeline_adapter import asset_pipeline_input_from_job, run_job_pipeline
 from pix_web.worker import process_next_job
@@ -800,6 +800,57 @@ def test_asset_pack_create_add_expand_and_capacity(client: TestClient) -> None:
     assert any(name.endswith("ore_03_pixelized.png") for name in names)
     assert not any("preview" in name for name in names)
     assert client.get("/credits/balance", headers=headers).json()["available_credits"] == 51
+
+
+def test_delete_gallery_work_removes_outputs_and_pack_references(client: TestClient) -> None:
+    user, headers = _register_and_login(client, "delete-work@example.com")
+    job_id = _insert_succeeded_job(client, user["id"], "delete me")
+    pack = client.post("/packs", headers=headers, json={"name": "临时包"}).json()
+    assert client.post(f"/packs/{pack['id']}/items", headers=headers, json={"job_id": job_id}).status_code == 200
+
+    db = client.app.state.SessionLocal()
+    try:
+        output = db.scalar(select(GenerationOutput).where(GenerationOutput.job_id == job_id))
+        assert output is not None
+        run_dir = Path(output.run_dir)
+        db.add(CreditTransaction(user_id=user["id"], type="consume", amount=-1, balance_after=0, job_id=job_id, note="delete-link"))
+        db.commit()
+    finally:
+        db.close()
+
+    deleted = client.delete(f"/jobs/{job_id}", headers=headers)
+
+    assert deleted.status_code == 200
+    assert deleted.json() == {"deleted": True}
+    assert not run_dir.exists()
+    assert client.get(f"/jobs/{job_id}", headers=headers).status_code == 404
+    assert client.get(f"/packs/{pack['id']}/jobs", headers=headers).json() == []
+    db = client.app.state.SessionLocal()
+    try:
+        assert db.scalar(select(AssetPackItem).where(AssetPackItem.job_id == job_id)) is None
+        assert db.scalar(select(GenerationOutput).where(GenerationOutput.job_id == job_id)) is None
+        assert db.scalar(select(GenerationJob).where(GenerationJob.id == job_id)) is None
+        transaction = db.scalar(select(CreditTransaction).where(CreditTransaction.note == "delete-link"))
+        assert transaction is not None
+        assert transaction.job_id is None
+    finally:
+        db.close()
+
+
+def test_delete_gallery_work_rejects_running_jobs(client: TestClient) -> None:
+    user, headers = _register_and_login(client, "delete-running@example.com")
+    db = client.app.state.SessionLocal()
+    try:
+        job = GenerationJob(user_id=user["id"], client_request_id=f"running-{uuid4().hex}", job_type="text_to_image", status="running", prompt="busy", params_json={}, price_credits=1)
+        db.add(job)
+        db.commit()
+        job_id = job.id
+    finally:
+        db.close()
+
+    deleted = client.delete(f"/jobs/{job_id}", headers=headers)
+
+    assert deleted.status_code == 409
 
 
 def test_asset_pack_keeps_saved_work_out_of_retention(client: TestClient) -> None:
