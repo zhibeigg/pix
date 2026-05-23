@@ -230,4 +230,4 @@ docker compose -f deploy/docker-compose.backend.yml --env-file deploy/.env.produ
 docker compose -f deploy/docker-compose.backend.yml --env-file deploy/.env.production logs -f worker
 ```
 
-确认 `PIX_WEB_QUEUE_BACKEND=rq`，且 `PIX_WEB_REDIS_URL=redis://redis:6379/0`。
+确认 `PIX_WEB_QUEUE_BACKEND=rq`，且 `PIX_WEB_REDIS_URL=redis://redis:6379/0`。RQ 部署的并发量由 worker 副本/进程数决定；数据库 worker 则使用 `PIX_WEB_WORKER_CONCURRENCY` 控制并发上限。

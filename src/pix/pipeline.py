@@ -67,6 +67,8 @@ class PipelineInput:
     refresh_cache: bool = False
     # Pixel Grid 低像素直绘/提取
     grid: GridDesignInput = field(default_factory=GridDesignInput)
+    # 原始单图模式：只调用一次生图/编辑 API，跳过候选、VL 分析和像素化后处理。
+    source_only: bool = False
 
 
 @dataclass
@@ -91,11 +93,17 @@ def _prepare_prompt(cfg: AppConfig, inputs: PipelineInput, notify: ProgressCb) -
     if inputs.prompt is None:
         return None, None
     try:
-        guard = validate_user_prompt(cfg, inputs.prompt)
+        guard = validate_user_prompt(
+            cfg,
+            inputs.prompt,
+            allow_template_break=inputs.source_only,
+        )
     except PromptPolicyError as exc:
         notify("prompt_guard_rejected", exc.result.to_metadata())
         raise ValueError(str(exc)) from exc
     notify("prompt_guard_ready", guard.to_metadata())
+    if inputs.source_only:
+        return (inputs.prompt or "").strip(), guard.to_metadata()
     description = guard.normalized_description or inputs.prompt
     if contact_sheet_enabled(cfg, has_prompt=True):
         if candidate_mode(cfg) == "n_sample":
@@ -526,8 +534,13 @@ def run_pipeline(
     contact_sheet_path = run_dir / "01_contact_sheet.png"
     samples_dir = run_dir / "_samples"
     source_mode = "upload"
-    use_sheet_overall = contact_sheet_enabled(cfg, has_prompt=True)
+    use_sheet_overall = (not inputs.source_only) and contact_sheet_enabled(cfg, has_prompt=True)
     candidate_mode_name = candidate_mode(cfg) if use_sheet_overall else "single"
+
+    def _job_material_prompt_fields(*, user_prompt: str, effective_prompt: str) -> dict:
+        if not use_sheet_overall:
+            return {"prompt": effective_prompt}
+        return _material_prompt_fields(cfg, user_prompt=user_prompt, effective_prompt=effective_prompt)
 
     def _run_n_sample_generation(*, do_edit: bool, image_path: Path | None) -> list[Path]:
         """根据 mode 生成 N 张独立单图；命中缓存的逐张复用，缺失的用一次 batch 调用补齐。"""
@@ -535,7 +548,7 @@ def run_pipeline(
         samples_dir.mkdir(parents=True, exist_ok=True)
         cached_paths: list[Path | None] = [None] * n
         material_base = {
-            **_material_prompt_fields(cfg, user_prompt=inputs.prompt or "", effective_prompt=effective_prompt or ""),
+            **_job_material_prompt_fields(user_prompt=inputs.prompt or "", effective_prompt=effective_prompt or ""),
             "size": inputs.image_size or cfg.image_gen.size,
             "quality": inputs.image_quality or cfg.image_gen.quality,
             "model": inputs.image_model or cfg.image_gen.model,
@@ -625,7 +638,7 @@ def run_pipeline(
             use_sheet = use_sheet_overall and candidate_mode_name == "contact_sheet"
             generated_path = contact_sheet_path if use_sheet else source_path
             material = {
-                **_material_prompt_fields(cfg, user_prompt=inputs.prompt, effective_prompt=effective_prompt),
+                **_job_material_prompt_fields(user_prompt=inputs.prompt, effective_prompt=effective_prompt),
                 "image_sha256": input_hash,
                 "size": inputs.image_size or cfg.image_gen.size,
                 "quality": inputs.image_quality or cfg.image_gen.quality,
@@ -708,7 +721,7 @@ def run_pipeline(
             use_sheet = use_sheet_overall and candidate_mode_name == "contact_sheet"
             generated_path = contact_sheet_path if use_sheet else source_path
             material = {
-                **_material_prompt_fields(cfg, user_prompt=inputs.prompt, effective_prompt=effective_prompt),
+                **_job_material_prompt_fields(user_prompt=inputs.prompt, effective_prompt=effective_prompt),
                 "size": inputs.image_size or cfg.image_gen.size,
                 "quality": inputs.image_quality or cfg.image_gen.quality,
                 "model": inputs.image_model or cfg.image_gen.model,
@@ -760,6 +773,64 @@ def run_pipeline(
                 else:
                     source_mode = "generated"
                 notify("source_ready", {"path": str(source_path), "mode": source_mode})
+
+    if inputs.source_only:
+        notify("pixelize_skipped", {"reason": "source_only", "source": str(source_path)})
+        meta = {
+            "version": __version__,
+            "duration_seconds": round(time.time() - start, 3),
+            "input": {
+                "prompt": inputs.prompt,
+                "effective_prompt": effective_prompt,
+                "image_path": str(inputs.image_path) if inputs.image_path else None,
+            },
+            "prompt_guard": prompt_guard_meta,
+            "image_gen": {
+                "model": inputs.image_model or cfg.image_gen.model,
+                "size": inputs.image_size or cfg.image_gen.size,
+                "quality": inputs.image_quality or cfg.image_gen.quality,
+                "output_format": cfg.image_gen.output_format,
+                "input_fidelity": cfg.image_gen.edit_input_fidelity,
+                "used": inputs.prompt is not None,
+                "mode": source_mode,
+                "source_only": True,
+                "contact_sheet": None,
+            },
+            "vision": {
+                "model": inputs.vl_model or cfg.vision.model,
+                "skipped": True,
+                "ok": False,
+            },
+            "pixelize": {
+                "skipped": True,
+                "reason": "source_only",
+                "grid": {"mode": "off"},
+            },
+            "cache": {"enabled": cache.enabled, "refresh": inputs.refresh_cache},
+            "outputs": {
+                "source": source_path.name,
+                "contact_sheet": None,
+                "candidate_scores": None,
+                "candidate_outputs": None,
+                "analysis": None,
+                "pixelized": source_path.name,
+                "preview": None,
+                "grid": None,
+            },
+        }
+        meta_path = run_dir / "meta.json"
+        meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+        return PipelineResult(
+            run_dir=run_dir,
+            source_path=source_path,
+            analysis_path=None,
+            analysis=None,
+            pixel_path=source_path,
+            preview_path=None,
+            meta_path=meta_path,
+            meta=meta,
+            grid_path=None,
+        )
 
     # 3. 多模态分析
     analysis: PixAnalysis | None = None

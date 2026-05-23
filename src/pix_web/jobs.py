@@ -69,6 +69,7 @@ def params_json_from_request(req: JobCreateRequest) -> dict:
         "image_model": req.image_model,
         "vl_model": req.vl_model,
         "skip_vl": req.skip_vl,
+        "source_only": req.source_only,
         "request_fields": sorted(req.model_fields_set),
         "pixelize": req.pixelize.model_dump(mode="json"),
         "pixelize_fields": sorted(req.pixelize.model_fields_set),
@@ -134,7 +135,7 @@ def create_job_in_transaction(
 def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
     request_id = req.client_request_id.strip()
     if _existing_job(db, user, request_id) is None:
-        enforce_prompt_policy(db, _prompt_policy_text(req))
+        enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only)
         enforce_generation_limits(db, user, new_jobs=1)
     try:
         job = create_job_in_transaction(db, user, req)
@@ -180,7 +181,7 @@ def create_jobs_batch(
             existing_by_index[index] = existing
             prices.append(0)
             continue
-        enforce_prompt_policy(db, _prompt_policy_text(req))
+        enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only)
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price
@@ -242,6 +243,7 @@ def _request_from_failed_job(job: GenerationJob) -> JobCreateRequest:
         image_model=params.get("image_model"),
         vl_model=params.get("vl_model"),
         skip_vl=bool(params.get("skip_vl", False)),
+        source_only=bool(params.get("source_only", False)),
         pixelize=PixelizeParamsSchema.model_validate(params.get("pixelize") or {}),
         grid=params.get("grid") or {},
         sprite=SpriteParamsSchema.model_validate(params.get("sprite") or {}),
@@ -262,7 +264,7 @@ def retry_failed_job(db: Session, user: User, job_id: int) -> GenerationJob:
 
     req = _request_from_failed_job(failed_job)
     validate_job_request(req)
-    enforce_prompt_policy(db, _prompt_policy_text(req))
+    enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only)
     enforce_generation_limits(db, user, new_jobs=1)
     price = _price_for_request(db, req)
 
@@ -304,7 +306,7 @@ def retry_failed_jobs_in_batch(db: Session, user: User, batch_id: int) -> tuple[
     prices: list[int] = []
     for req in reqs:
         validate_job_request(req)
-        enforce_prompt_policy(db, _prompt_policy_text(req))
+        enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only)
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price

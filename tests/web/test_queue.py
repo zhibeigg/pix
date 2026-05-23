@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from PIL import Image
+from sqlalchemy import select
 
 from pix_web.config import WebSettings
 from pix_web.db import init_db, make_engine, make_session_factory
@@ -12,7 +13,8 @@ from pix_web.rq_worker import process_job_id
 from pix_web.schemas import JobCreateRequest
 from pix_web.security import hash_password
 from pix_web.credits import adjust_credits
-from pix_web.models import User
+from pix_web.models import GenerationJob, User
+from pix_web.worker import claim_available_job_ids
 
 
 def _settings(tmp_path) -> WebSettings:
@@ -22,6 +24,27 @@ def _settings(tmp_path) -> WebSettings:
 def test_enqueue_job_database_backend_is_noop(tmp_path) -> None:
     settings = _settings(tmp_path)
     assert enqueue_job(settings, 123) is False
+
+
+def test_database_worker_claims_jobs_up_to_concurrency_limit(tmp_path) -> None:
+    settings = _settings(tmp_path)
+    engine = make_engine(settings.database_url)
+    init_db(engine)
+    session_factory = make_session_factory(engine)
+    with session_factory() as db:
+        user = User(email="concurrent@example.com", password_hash=hash_password("password123"), display_name="Concurrent")
+        db.add(user)
+        db.flush()
+        adjust_credits(db, user, 100)
+        for prompt in ("pixel cat", "pixel dog", "pixel fox"):
+            create_job(db, user, JobCreateRequest(job_type="text_to_image", prompt=prompt))
+
+    claimed_ids = claim_available_job_ids(session_factory, 2)
+
+    assert len(claimed_ids) == 2
+    with session_factory() as db:
+        statuses = list(db.scalars(select(GenerationJob.status).order_by(GenerationJob.id.asc())))
+    assert statuses == ["running", "running", "pending"]
 
 
 def test_rq_process_job_id_processes_pending_job(tmp_path, monkeypatch) -> None:

@@ -143,6 +143,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.sprite.shared_palette", "动画共享调色板", "动画精灵表", "boolean", ""),
     SettingDefinition("pix.sprite.prompt_template", "动画 Prompt 模板", "动画精灵表", "textarea", ""),
     SettingDefinition("web.poll_interval_seconds", "Worker 轮询间隔", "存储 / 队列 / 安全", "number", "", "保存后需重启 worker 才能稳定生效。", restart_required=True, env_var="PIX_WEB_POLL_INTERVAL_SECONDS"),
+    SettingDefinition("web.worker_concurrency", "Worker 并发上限", "存储 / 队列 / 安全", "number", "", "空闲槽位内任务会直接并发运行；超过该上限才保持排队。保存后需重启 worker。", restart_required=True, env_var="PIX_WEB_WORKER_CONCURRENCY"),
     SettingDefinition("web.access_token_minutes", "登录 token 有效分钟", "存储 / 队列 / 安全", "number", "", "新签发 token 生效；不影响已签发 token。", env_var="PIX_WEB_ACCESS_TOKEN_MINUTES"),
     SettingDefinition("env.database_url", "数据库连接", "存储 / 队列 / 安全", "status", "", "环境级配置，只显示状态，不在线修改。", editable=False, env_var="PIX_WEB_DATABASE_URL", source="environment_only"),
     SettingDefinition("env.jwt_secret", "JWT Secret", "存储 / 队列 / 安全", "status", "", "环境级配置；在线修改会导致现有 token 失效，第一阶段不提供。", secret=True, editable=False, env_var="PIX_WEB_JWT_SECRET", source="environment_only"),
@@ -448,10 +449,15 @@ def _blocked_terms(raw: str) -> list[str]:
     return [part.strip().lower() for part in normalized.split(",") if part.strip()]
 
 
-def enforce_prompt_policy(db: Session, prompt: str | None) -> None:
+def enforce_prompt_policy(
+    db: Session,
+    prompt: str | None,
+    *,
+    allow_template_break: bool = False,
+) -> None:
     if not prompt:
         return
-    local = local_prompt_guard(prompt)
+    local = local_prompt_guard(prompt, allow_template_break=allow_template_break)
     if not local.allowed:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=local.reason or "prompt 包含不允许的内容")
     settings = load_operational_settings(db)

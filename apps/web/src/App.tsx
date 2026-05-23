@@ -356,7 +356,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       const job = await api.createJob(token, payload)
       setSelectedJobId(job.id)
       navigate('gallery')
-      setMessage(text(`任务 #${job.id} 已入队`, `Job #${job.id} queued`))
+      setMessage(text(`任务 #${job.id} 已提交，空闲时会立即生成`, `Job #${job.id} submitted and will run as soon as a slot is free`))
       await refreshCore(token)
     } catch (error) {
       showError(error)
@@ -374,7 +374,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       const created = await api.createJobsBatch(token, payloads, batchName, mode)
       setSelectedJobId(created.jobs[0]?.id ?? null)
       navigate('gallery')
-      setMessage(text(`${created.jobs.length} 个任务已入队作品库，冻结 ${created.total_price_credits} 点。`, `${created.jobs.length} jobs queued to the gallery; ${created.total_price_credits} credits reserved.`))
+      setMessage(text(`${created.jobs.length} 个任务已提交到作品库，空闲槽位会并发生成，冻结 ${created.total_price_credits} 点。`, `${created.jobs.length} jobs submitted to the gallery; free slots will run concurrently; ${created.total_price_credits} credits reserved.`))
       await refreshCore(token)
     } catch (error) {
       showError(error)
@@ -394,28 +394,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       setSelectedJobId(job.id)
       setPage('raw-image')
       window.location.hash = '/raw-image'
-      setMessage(text(`原始生图任务 #${job.id} 已入队`, `Raw image job #${job.id} queued`))
-      await refreshCore(token)
-    } catch (error) {
-      showError(error)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function createRawImageJobs(payloads: JobCreateRequest[], batchName = '', mode = 'raw_image') {
-    if (!token || payloads.length === 0) return
-    if (!confirmPhotoRetentionBeforeCreate(payloads.length)) return
-    setBusy(true)
-    setMessage('')
-    try {
-      const created = await api.createJobsBatch(token, payloads, batchName, mode)
-      const firstJobId = created.jobs[0]?.id ?? null
-      setSelectedRawJobId(firstJobId)
-      setSelectedJobId(firstJobId)
-      setPage('raw-image')
-      window.location.hash = '/raw-image'
-      setMessage(text(`${created.jobs.length} 张原始生图已入队，冻结 ${created.total_price_credits} 点。`, `${created.jobs.length} raw images queued; ${created.total_price_credits} credits reserved.`))
+      setMessage(text(`原始生图任务 #${job.id} 已提交，空闲时会立即生成`, `Raw image job #${job.id} submitted and will run as soon as a slot is free`))
       await refreshCore(token)
     } catch (error) {
       showError(error)
@@ -597,7 +576,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       setSelectedJobId(created.id)
       setPage('gallery')
       window.location.hash = '/gallery'
-      setMessage(text(`任务 #${job.id} 已重试，新任务 #${created.id} 已入队。`, `Job #${job.id} retried; new job #${created.id} queued.`))
+      setMessage(text(`任务 #${job.id} 已重试，新任务 #${created.id} 已提交。`, `Job #${job.id} retried; new job #${created.id} submitted.`))
       await refreshCore(token)
     } catch (error) {
       showError(error)
@@ -782,7 +761,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           onNavigate={navigate}
         >
           {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
-          {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onCreateJobs={createRawImageJobs} onRefresh={() => refreshCore()} />}
+          {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={() => refreshCore()} />}
           {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} />}
           {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
           {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
