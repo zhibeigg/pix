@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.55] - 2026-05-23
+
+### Fixed
+
+- 作品库卡片预览图取消额外缩小限制，按原图比例尽量缩放至预览边框内。
+
 ## [1.25.54] - 2026-05-23
 
 ### Fixed
