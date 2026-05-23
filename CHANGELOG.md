@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.50] - 2026-05-23
+
+### Fixed
+
+- 素材包扩容改为增加可创建素材包数量；单个素材包默认容量调整为 100 个作品。
+
 ## [1.25.49] - 2026-05-23
 
 ### Fixed
@@ -24,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - 新增用户手动素材包，支持新建、命名、归档、ZIP 下载，以及从作品库拖入作品永久保存。
-- 素材包新增容量上限：默认 10 个槽位，每次扩容 +1 槽位消耗 99 点，并写入点数流水。
+- 素材包新增数量与容量上限：每个素材包默认最多保存 100 个作品，素材包数量扩容 +1 消耗 99 点并写入点数流水。
 
 ### Changed
 

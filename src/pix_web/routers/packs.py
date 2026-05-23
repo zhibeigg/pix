@@ -11,14 +11,15 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, spend_credits
-from pix_web.models import AssetPack, AssetPackItem, GenerationJob, GenerationOutput, User
-from pix_web.schemas import AssetPackAddItemRequest, AssetPackCreateRequest, AssetPackResponse, AssetPackUpdateRequest, JobResponse
+from pix_web.models import AssetPack, AssetPackItem, AssetPackQuota, GenerationJob, GenerationOutput, User
+from pix_web.schemas import AssetPackAddItemRequest, AssetPackCreateRequest, AssetPackQuotaResponse, AssetPackResponse, AssetPackUpdateRequest, JobResponse
 from pix_web.security import get_current_user, get_db
 
 router = APIRouter(prefix="/packs", tags=["packs"])
 
-DEFAULT_ASSET_PACK_CAPACITY = 10
-ASSET_PACK_EXPAND_PRICE_CREDITS = 99
+DEFAULT_ASSET_PACK_CAPACITY = 100
+DEFAULT_ASSET_PACK_LIMIT = 1
+ASSET_PACK_LIMIT_EXPAND_PRICE_CREDITS = 99
 
 
 def _safe_zip_name(value: str) -> str:
@@ -55,15 +56,47 @@ def _add_output_file(zip_file: ZipFile, path_value: str | None, archive_name: st
 def _pack_response(pack: AssetPack) -> AssetPackResponse:
     items = list(pack.items)
     item_count = len(items)
+    capacity = max(pack.capacity or DEFAULT_ASSET_PACK_CAPACITY, DEFAULT_ASSET_PACK_CAPACITY)
     return AssetPackResponse(
         id=pack.id,
         name=pack.name,
         status=pack.status,
-        capacity=pack.capacity,
+        capacity=capacity,
         item_count=item_count,
-        remaining_capacity=max(0, pack.capacity - item_count),
+        remaining_capacity=max(0, capacity - item_count),
         created_at=pack.created_at,
         updated_at=pack.updated_at,
+    )
+
+
+def _pack_count(db: Session, user: User) -> int:
+    return int(db.scalar(select(func.count(AssetPack.id)).where(AssetPack.user_id == user.id)) or 0)
+
+
+def _get_or_create_quota(db: Session, user: User) -> AssetPackQuota:
+    quota = db.scalar(select(AssetPackQuota).where(AssetPackQuota.user_id == user.id))
+    if quota is not None:
+        return quota
+    quota = AssetPackQuota(user_id=user.id, pack_limit=DEFAULT_ASSET_PACK_LIMIT)
+    db.add(quota)
+    db.flush()
+    return quota
+
+
+def _effective_pack_limit(quota: AssetPackQuota, current_count: int) -> int:
+    return max(DEFAULT_ASSET_PACK_LIMIT, quota.pack_limit, current_count)
+
+
+def _quota_response(db: Session, user: User) -> AssetPackQuotaResponse:
+    count = _pack_count(db, user)
+    quota = _get_or_create_quota(db, user)
+    limit = _effective_pack_limit(quota, count)
+    return AssetPackQuotaResponse(
+        pack_count=count,
+        pack_limit=limit,
+        remaining_packs=max(0, limit - count),
+        expand_price_credits=ASSET_PACK_LIMIT_EXPAND_PRICE_CREDITS,
+        pack_capacity=DEFAULT_ASSET_PACK_CAPACITY,
     )
 
 
@@ -121,11 +154,35 @@ def list_packs(user: User = Depends(get_current_user), db: Session = Depends(get
     return [_pack_response(pack) for pack in db.scalars(stmt)]
 
 
+@router.get("/quota", response_model=AssetPackQuotaResponse)
+def get_pack_quota(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> AssetPackQuotaResponse:
+    response = _quota_response(db, user)
+    db.commit()
+    return response
+
+
+@router.post("/expand", response_model=AssetPackQuotaResponse)
+def expand_pack_limit(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> AssetPackQuotaResponse:
+    quota = _get_or_create_quota(db, user)
+    current_count = _pack_count(db, user)
+    try:
+        spend_credits(db, user, ASSET_PACK_LIMIT_EXPAND_PRICE_CREDITS, note="素材包数量上限 +1")
+    except InsufficientCreditsError as exc:
+        raise insufficient_credits_http() from exc
+    quota.pack_limit = _effective_pack_limit(quota, current_count) + 1
+    db.commit()
+    return _quota_response(db, user)
+
+
 @router.post("", response_model=AssetPackResponse)
 def create_pack(req: AssetPackCreateRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> AssetPackResponse:
     name = req.name.strip()
     if not name:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="素材包名称不能为空")
+    quota = _get_or_create_quota(db, user)
+    current_count = _pack_count(db, user)
+    if current_count >= _effective_pack_limit(quota, current_count):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="素材包数量已达上限，请先扩容")
     pack = AssetPack(user_id=user.id, name=name, capacity=DEFAULT_ASSET_PACK_CAPACITY)
     db.add(pack)
     db.commit()
@@ -189,8 +246,8 @@ def add_pack_item(pack_id: int, req: AssetPackAddItemRequest, user: User = Depen
     existing = db.scalar(select(AssetPackItem).where(AssetPackItem.pack_id == pack.id, AssetPackItem.job_id == job.id))
     if existing is not None:
         return _pack_response(pack)
-    if len(pack.items) >= pack.capacity:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="素材包容量已满，请先扩容")
+    if len(pack.items) >= max(pack.capacity or DEFAULT_ASSET_PACK_CAPACITY, DEFAULT_ASSET_PACK_CAPACITY):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="素材包已满")
     item = AssetPackItem(user_id=user.id, pack_id=pack.id, job_id=job.id, position=_next_position(db, pack.id))
     db.add(item)
     db.commit()
@@ -209,20 +266,6 @@ def remove_pack_item(pack_id: int, job_id: int, user: User = Depends(get_current
     db.delete(item)
     db.commit()
     pack = _get_owned_pack(db, user, pack_id, with_items=True)
-    return _pack_response(pack)
-
-
-@router.post("/{pack_id}/expand", response_model=AssetPackResponse)
-def expand_pack(pack_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> AssetPackResponse:
-    pack = _get_owned_pack(db, user, pack_id, with_items=True)
-    _ensure_active(pack)
-    try:
-        spend_credits(db, user, ASSET_PACK_EXPAND_PRICE_CREDITS, note=f"素材包 #{pack.id} 扩容 +1")
-    except InsufficientCreditsError as exc:
-        raise insufficient_credits_http() from exc
-    pack.capacity += 1
-    db.commit()
-    db.refresh(pack)
     return _pack_response(pack)
 
 

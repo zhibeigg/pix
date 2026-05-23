@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.25.49-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.25.50-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-386%20passed-2ea44f.svg">
 </p>
 
@@ -330,7 +330,7 @@ Pix Web 是一个可运营的素材生产工作台：
 - 批量素材直出、批量 prompt / 批量图片任务，结果统一进入作品库
 - 作品库最多保留每个账户最新 10 张普通成功作品，继续生成时会提示并自动清理最旧作品
 - 手动素材包：用户可新建、命名、归档、下载 ZIP，并将作品库作品拖入永久保存
-- 素材包默认 10 个保存槽位，每扩容 1 个槽位消耗 99 点；已保存到素材包的作品不会被作品库自动清理
+- 每个素材包默认最多保存 100 个作品；素材包数量默认 1 个，每次扩容 +1 个可创建素材包数量消耗 99 点；已保存到素材包的作品不会被作品库自动清理
 - 作品库单任务失败重试、素材包 ZIP 下载
 - 前端国际化统一使用 `i18next` / `react-i18next` 翻译键；浅色/深色/跟随系统主题继续走 Tailwind `dark` class、Radix 组件和 CSS 变量 token，不引入分散特例写法
 - 管理后台：模型/API、价格、充值套餐、运营保护、邮件配置
@@ -452,7 +452,7 @@ https://你的域名/api/billing/webhook/alipay/app-gateway
 
 点数中心支持固定套餐和自定义点数充值。自定义充值金额由后端按当前启用基准套餐单价派生，并在创建订单时重新计算；前端只展示预计金额，不能传入或篡改最终支付金额。
 
-素材包与批量生成已解耦：批量生成只进入作品库；用户可以在“素材包”页手动新建素材包，并把作品库中的成功作品拖入保存。每个素材包默认 10 个槽位，扩容 1 个槽位消耗 99 点，扩容扣费写入点数流水。
+素材包与批量生成已解耦：批量生成只进入作品库；用户可以在“素材包”页手动新建素材包，并把作品库中的成功作品拖入保存。每个素材包默认最多保存 100 个作品；素材包数量默认 1 个，每扩容 1 个可创建素材包数量消耗 99 点，扩容扣费写入点数流水。
 
 ---
 

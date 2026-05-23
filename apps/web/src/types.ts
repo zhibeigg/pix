@@ -226,6 +226,14 @@ export type AssetPack = {
   updated_at: string
 }
 
+export type AssetPackQuota = {
+  pack_count: number
+  pack_limit: number
+  remaining_packs: number
+  expand_price_credits: number
+  pack_capacity: number
+}
+
 export type GenerationJob = {
   id: number
   batch_id: number | null
