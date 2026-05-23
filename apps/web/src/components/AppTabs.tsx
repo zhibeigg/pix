@@ -2,7 +2,7 @@ import { cn } from '../lib/utils'
 import { useI18n } from '../i18n'
 import type { User } from '../types'
 
-export type AppPage = 'home' | 'workspace' | 'raw-image' | 'gallery' | 'packs' | 'billing' | 'admin'
+export type AppPage = 'home' | 'workspace' | 'raw-image' | 'gallery' | 'packs' | 'billing' | 'rewards' | 'admin'
 
 type AppTab = { page: AppPage; labelKey: string; descriptionKey: string; adminOnly?: boolean }
 
@@ -12,6 +12,7 @@ const tabs: AppTab[] = [
   { page: 'gallery', labelKey: 'nav.gallery', descriptionKey: 'nav.galleryDescription' },
   { page: 'packs', labelKey: 'nav.packs', descriptionKey: 'nav.packsDescription' },
   { page: 'billing', labelKey: 'nav.billing', descriptionKey: 'nav.billingDescription' },
+  { page: 'rewards', labelKey: 'nav.rewards', descriptionKey: 'nav.rewardsDescription' },
   { page: 'admin', labelKey: 'nav.admin', descriptionKey: 'nav.adminDescription', adminOnly: true },
 ]
 
@@ -25,6 +26,8 @@ interface AppTabsProps {
 export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsProps) {
   const { t } = useI18n()
   const visibleTabs = tabs.filter((tab) => !tab.adminOnly || user?.role === 'admin')
+  const tabLabel = (tab: AppTab) => t(tab.labelKey)
+  const tabDescription = (tab: AppTab) => t(tab.descriptionKey)
 
   if (orientation === 'side') {
     return (
@@ -44,8 +47,8 @@ export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsPr
                   : 'text-[hsl(var(--pix-slate))] hover:bg-white/70 hover:text-[hsl(var(--pix-ink))] dark:text-white/62 dark:hover:bg-[hsl(var(--pix-dark-card-raised)/.72)] dark:hover:text-white',
               )}
             >
-              <span className="block text-sm font-semibold leading-tight">{t(tab.labelKey)}</span>
-              <span className={cn('mt-0.5 block text-[11px]', active ? 'text-[hsl(var(--pix-steel))] dark:text-white/58' : 'text-[hsl(var(--pix-muted))] group-hover:text-[hsl(var(--pix-steel))] dark:text-white/38 dark:group-hover:text-white/62')}>{t(tab.descriptionKey)}</span>
+              <span className="block text-sm font-semibold leading-tight">{tabLabel(tab)}</span>
+              <span className={cn('mt-0.5 block text-[11px]', active ? 'text-[hsl(var(--pix-steel))] dark:text-white/58' : 'text-[hsl(var(--pix-muted))] group-hover:text-[hsl(var(--pix-steel))] dark:text-white/38 dark:group-hover:text-white/62')}>{tabDescription(tab)}</span>
             </button>
           )
         })}
@@ -68,8 +71,8 @@ export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsPr
               active && 'bg-[hsl(var(--pix-ink))] text-white dark:bg-[hsl(var(--pix-brand-purple))] dark:text-white',
             )}
           >
-            <span className="block leading-tight">{t(tab.labelKey)}</span>
-            <span className={cn('hidden text-[11px] text-muted-foreground lg:block', active && 'text-white/70')}>{t(tab.descriptionKey)}</span>
+            <span className="block leading-tight">{tabLabel(tab)}</span>
+            <span className={cn('hidden text-[11px] text-muted-foreground lg:block', active && 'text-white/70')}>{tabDescription(tab)}</span>
           </button>
         )
       })}

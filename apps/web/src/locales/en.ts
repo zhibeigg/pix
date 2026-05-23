@@ -62,6 +62,8 @@ export const en = {
     packsDescription: 'Batch manage',
     billing: 'Billing',
     billingDescription: 'Credits & Orders',
+    rewards: 'Rewards',
+    rewardsDescription: 'Referrals',
     admin: 'Admin',
     adminDescription: 'Operations',
     workspaceNavigation: 'Workspace navigation',

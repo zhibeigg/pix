@@ -13,6 +13,8 @@ import type {
   PaymentCheckout,
   PaymentOrder,
   PricingRule,
+  ReferralSettlement,
+  ReferralSummary,
   CreditPackage,
   CustomRechargeOptions,
   RechargeRequest,
@@ -142,10 +144,10 @@ export const api = {
       body: JSON.stringify({ email }),
     })
   },
-  register(email: string, password: string, displayName: string, verificationCode: string) {
+  register(email: string, password: string, displayName: string, verificationCode: string, referralCode = '') {
     return request<User>('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password, display_name: displayName, verification_code: verificationCode }),
+      body: JSON.stringify({ email, password, display_name: displayName, verification_code: verificationCode, referral_code: referralCode }),
     })
   },
   login(email: string, password: string) {
@@ -186,6 +188,15 @@ export const api = {
   },
   mockPayOrder(token: string, orderId: number) {
     return request<PaymentOrder>(`/billing/mock-pay/${orderId}`, { method: 'POST' }, token)
+  },
+  referralSummary(token: string) {
+    return request<ReferralSummary>('/referrals/summary', {}, token)
+  },
+  transferReferralRewards(token: string, currency: string) {
+    return request<ReferralSettlement>('/referrals/transfer', { method: 'POST', body: JSON.stringify({ currency }) }, token)
+  },
+  withdrawReferralRewards(token: string, amountCents: number, currency: string, note = '') {
+    return request<ReferralSettlement>('/referrals/withdrawals', { method: 'POST', body: JSON.stringify({ amount_cents: amountCents, currency, note }) }, token)
   },
   uploadImage(token: string, file: File) {
     const form = new FormData()

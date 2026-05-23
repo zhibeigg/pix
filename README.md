@@ -16,8 +16,8 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.26.66-6f42c1.svg">
-  <img alt="tests" src="https://img.shields.io/badge/tests-414%20passed-2ea44f.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.26.67-6f42c1.svg">
+  <img alt="tests" src="https://img.shields.io/badge/tests-419%20passed-2ea44f.svg">
 </p>
 
 ---
@@ -84,7 +84,7 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
 
 - **Web 工作台**
   - FastAPI + React + Vite。
-  - 支持注册登录、管理员初始化、点数账户、任务队列、素材包、批量生成、ZIP 导出。
+  - 支持注册登录、管理员初始化、点数账户、邀请奖励返佣、任务队列、素材包、批量生成、ZIP 导出。
   - 单张/批量入口可直接调用 `pix asset` 同款游戏素材直出策略，按素材名称生成透明 PNG 与 Pixel Grid。
   - 主页与登录后工作台严格对齐 `apps/web/DESIGN.md` 的 Notion 式视觉：深海军蓝 Hero、紫色主 CTA、真实 Workspace 侧边栏、浅色 Canvas/Surface 与 pastel feature cards；76 套题材范例支持悬浮查看拆分后的 8 个物品格、UI 展示图、中文 Prompt 和文件名。
   - 管理后台可配置模型/API、价格、充值套餐、运营保护和素材默认值。
@@ -323,6 +323,7 @@ Pix Web 是一个可运营的素材生产工作台：
 - 首次启动管理员初始化
 - 邮箱验证码注册登录
 - 点数账户与任务扣费/退款
+- 邀请奖励：用户可复制专属邀请链接，好友注册并充值后默认按 10% 产生 CNY 返佣；返佣先待到账 30 天，成熟后可划转为点数余额或提交提现申请
 - 游戏素材直出：输入素材名称，复用 `pix asset` 白底单图模板、Pixel Grid 提取和透明 PNG 输出
 - 首页展示中文 prompt 全流程示例，鼠标悬浮或键盘聚焦物品格可展开源图 / Grid / 预览详情，并在动画卡片上播放 9 帧序列帧、显示横向精灵图
 - 独立原始生图页：只保留提供商、模型、尺寸、质量、敏感度和生成数量等基础参数，提交后停留在中央画布查看 source 原图与候选缩略图

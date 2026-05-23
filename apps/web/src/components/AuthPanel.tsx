@@ -8,9 +8,9 @@ import { Input } from './ui/input'
 import { PixField } from './pix/PixField'
 import { PixPanel } from './pix/PixPanel'
 
-type AuthPanelProps = { user: User | null; onLogin: (email: string, password: string) => Promise<void>; onRegister: (email: string, password: string, displayName: string, verificationCode: string) => Promise<void>; onRequestRegisterCode: (email: string) => Promise<EmailCodeResponse>; onLocalTestLogin: () => Promise<void>; onLogout: () => void; loading: boolean; registrationBonusCredits: number; localTestLoginAvailable: boolean; localTestAccountEmail: string | null }
+type AuthPanelProps = { user: User | null; onLogin: (email: string, password: string) => Promise<void>; onRegister: (email: string, password: string, displayName: string, verificationCode: string, referralCode?: string) => Promise<void>; onRequestRegisterCode: (email: string) => Promise<EmailCodeResponse>; onLocalTestLogin: () => Promise<void>; onLogout: () => void; loading: boolean; registrationBonusCredits: number; referralCode: string; localTestLoginAvailable: boolean; localTestAccountEmail: string | null }
 
-export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, onLocalTestLogin, onLogout, loading, registrationBonusCredits, localTestLoginAvailable, localTestAccountEmail }: AuthPanelProps) {
+export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, onLocalTestLogin, onLogout, loading, registrationBonusCredits, referralCode, localTestLoginAvailable, localTestAccountEmail }: AuthPanelProps) {
   const { text } = useI18n()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
@@ -26,7 +26,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
   const isRegister = mode === 'register'
   const registrationBonusCopy = registrationBonusCredits > 0 ? text(`新人注册赠送 ${registrationBonusCredits} 点数`, `New accounts get ${registrationBonusCredits} bonus credits`) : ''
 
-  async function submit(event: FormEvent) { event.preventDefault(); if (isRegister) await onRegister(email, password, displayName, verificationCode); else await onLogin(email, password) }
+  async function submit(event: FormEvent) { event.preventDefault(); if (isRegister) await onRegister(email, password, displayName, verificationCode, referralCode); else await onLogin(email, password) }
   async function requestCode() { if (!email.trim()) { setCodeError(text('请先填写邮箱', 'Enter your email first')); return } setSendingCode(true); setCodeMessage(''); setCodeError(''); try { const r = await onRequestRegisterCode(email.trim()); setCountdown(r.retry_after_seconds || 60); setCodeMessage(r.debug_code ? text(`验证码已发送。测试验证码：${r.debug_code}`, `Verification code sent. Test code: ${r.debug_code}`) : text('验证码已发送，请查看邮箱', 'Verification code sent. Check your inbox.')) } catch (e) { setCodeError(e instanceof Error ? e.message : text('验证码发送失败', 'Failed to send verification code')) } finally { setSendingCode(false) } }
 
   if (user) return <PixPanel eyebrow={text('账户', 'Account')} title={text('已进入工位台', 'Workbench connected')} description={text('账户已连接，可以开始创建素材、查看作品和管理点数。', 'Your account is connected. You can create assets, review works, and manage credits.')} action={<Button variant="outline" onClick={onLogout}>{text('退出', 'Sign out')}</Button>}><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-lg font-semibold">{user.display_name || user.email}</p><p className="text-sm text-muted-foreground">{user.email}</p></div><Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>{user.role === 'admin' ? text('管理员', 'Admin') : text('创作者', 'Creator')}</Badge></div><Alert className="mt-4" variant="success">{text('身份已验证，任务和点数会在后台持续同步。', 'Identity verified. Jobs and credits will keep syncing in the background.')}</Alert></PixPanel>
@@ -44,6 +44,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
       }
     >
       <form className="grid gap-4" onSubmit={submit}>
+        {isRegister && referralCode && <Alert variant="success">{text(`已识别邀请码 ${referralCode}，注册后会绑定邀请奖励。`, `Referral code ${referralCode} detected. It will be applied after registration.`)}</Alert>}
         {isRegister && <PixField label={text('昵称', 'Display name')}><Input value={displayName} autoComplete="name" onChange={(e) => setDisplayName(e.target.value)} /></PixField>}
         <PixField label={text('邮箱', 'Email')}><Input type="email" value={email} autoComplete="email" onChange={(e) => setEmail(e.target.value)} required /></PixField>
         {isRegister && <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><PixField label={text('邮箱验证码', 'Email verification code')}><Input value={verificationCode} autoComplete="one-time-code" inputMode="numeric" maxLength={6} onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required /></PixField><Button type="button" variant="outline" className="self-end" onClick={requestCode} disabled={loading || sendingCode || countdown > 0}>{sendingCode ? text('发送中…', 'Sending…') : countdown > 0 ? text(`${countdown}s 后重发`, `Resend in ${countdown}s`) : text('发送验证码', 'Send code')}</Button></div>}

@@ -51,6 +51,66 @@ export type CreditTransaction = {
   created_at: string
 }
 
+export type ReferralCurrencyTotals = {
+  currency: string
+  pending_cents: number
+  available_cents: number
+  total_reward_cents: number
+}
+
+export type ReferralInvite = {
+  id: number
+  referred_user_id: number
+  referred_user_email: string
+  referred_user_display_name: string
+  created_at: string
+}
+
+export type ReferralReward = {
+  id: number
+  referred_user_id: number
+  referred_user_email: string
+  order_id: number
+  order_amount_cents: number
+  order_credits: number
+  amount_cents: number
+  remaining_cents: number
+  currency: string
+  rate_bps: number
+  status: string
+  available_at: string
+  created_at: string
+}
+
+export type ReferralSettlement = {
+  id: number
+  type: string
+  amount_cents: number
+  currency: string
+  credits: number
+  status: string
+  note: string
+  created_at: string
+  updated_at: string
+}
+
+export type ReferralSummary = {
+  code: string
+  invite_url: string
+  enabled: boolean
+  commission_rate_bps: number
+  pending_days: number
+  primary_currency: string
+  pending_cents: number
+  available_cents: number
+  total_reward_cents: number
+  invited_count: number
+  totals_by_currency: ReferralCurrencyTotals[]
+  invites: ReferralInvite[]
+  rewards: ReferralReward[]
+  settlements: ReferralSettlement[]
+}
+
 export type JobType = 'asset' | 'text_to_image' | 'image_to_image' | 'local_pixelize' | 'repixelize' | 'sprite_sheet'
 
 export type PixelizeParams = {

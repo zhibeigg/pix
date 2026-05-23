@@ -201,6 +201,10 @@ def mark_order_paid(db: Session, order: PaymentOrder, *, provider_event_id: str,
         if user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订单用户不存在")
         recharge_credits(db, user, order.credits, note=f"充值订单 #{order.id} 到账")
+        from pix_web.referrals import create_reward_for_paid_order
+        from pix_web.system_settings import load_referral_settings
+
+        create_reward_for_paid_order(db, order, load_referral_settings(db))
 
     db.commit()
     db.refresh(order)

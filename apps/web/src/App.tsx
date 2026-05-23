@@ -16,6 +16,7 @@ import { BillingPage } from './pages/BillingPage'
 import { GalleryPage } from './pages/GalleryPage'
 import { PacksPage } from './pages/PacksPage'
 import { RawImagePage } from './pages/RawImagePage'
+import { RewardsPage } from './pages/RewardsPage'
 import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
 import { buildGridDesign, defaultPixelize } from './pixelize'
 import { useI18n } from './i18n'
@@ -35,11 +36,22 @@ type AppProps = {
 }
 
 const PHOTO_RETENTION_LIMIT = 10
+const REFERRAL_CODE_KEY = 'pix_referral_code'
+
+function referralCodeFromLocation() {
+  const candidates: string[] = []
+  if (typeof window === 'undefined') return ''
+  candidates.push(new URLSearchParams(window.location.search).get('aff') ?? '')
+  const hash = window.location.hash || ''
+  const queryIndex = hash.indexOf('?')
+  if (queryIndex >= 0) candidates.push(new URLSearchParams(hash.slice(queryIndex + 1)).get('aff') ?? '')
+  return candidates.map((item) => item.trim().toUpperCase()).find(Boolean) ?? ''
+}
 
 function pageFromHash(user: User | null): AppPage {
-  const raw = window.location.hash.replace(/^#\/?/, '')
+  const raw = window.location.hash.replace(/^#\/?/, '').split('?', 1)[0]
   if (!raw || raw === 'home') return 'home'
-  const page = ['workspace', 'raw-image', 'gallery', 'packs', 'billing', 'admin'].includes(raw) ? raw as AppPage : 'home'
+  const page = ['workspace', 'raw-image', 'gallery', 'packs', 'billing', 'rewards', 'admin'].includes(raw) ? raw as AppPage : 'home'
   if (page === 'admin' && user?.role !== 'admin') return 'workspace'
   return page
 }
@@ -76,6 +88,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [setupLoading, setSetupLoading] = useState(true)
   const [page, setPage] = useState<AppPage>(() => pageFromHash(null))
   const [mode, setMode] = useState<WorkMode>('single')
+  const [referralCode, setReferralCode] = useState(() => referralCodeFromLocation() || localStorage.getItem(REFERRAL_CODE_KEY) || '')
   const [selectedPackId, setSelectedPackId] = useState<number | null>(null)
   const [selectedPackJobs, setSelectedPackJobs] = useState<GenerationJob[]>([])
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
@@ -190,6 +203,13 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   }, [refreshSetupStatus, showError])
 
   useEffect(() => {
+    const fromUrl = referralCodeFromLocation()
+    if (!fromUrl) return
+    localStorage.setItem(REFERRAL_CODE_KEY, fromUrl)
+    setReferralCode(fromUrl)
+  }, [])
+
+  useEffect(() => {
     function syncHash() {
       setPage(pageFromHash(user))
     }
@@ -279,11 +299,13 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
-  async function register(email: string, password: string, displayName: string, verificationCode: string) {
+  async function register(email: string, password: string, displayName: string, verificationCode: string, nextReferralCode = referralCode) {
     setBusy(true)
     setMessage('')
     try {
-      await api.register(email, password, displayName, verificationCode)
+      await api.register(email, password, displayName, verificationCode, nextReferralCode)
+      localStorage.removeItem(REFERRAL_CODE_KEY)
+      setReferralCode('')
       await login(email, password)
       await refreshSetupStatus()
       setMessage(text('注册成功', 'Registered successfully'))
@@ -765,12 +787,13 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} />}
           {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
           {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
+          {page === 'rewards' && <RewardsPage token={token} onRefresh={() => refreshCore()} />}
           {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onTestEmail={testEmailSetting} />}
         </WorkspaceShell>
       ) : (
         <div>
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={packs.length} />
-          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} />} />
+          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} referralCode={referralCode} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} />} />
           <SiteFooter />
         </div>
       )}

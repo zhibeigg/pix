@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.67] - 2026-05-23
+
+### Added
+
+- Web 新增邀请奖励页面，支持专属邀请链接、注册归因、充值返佣、待到账/可用收益统计、划转点数余额与提现申请记录。
+
 ## [1.26.66] - 2026-05-23
 
 ### Added
