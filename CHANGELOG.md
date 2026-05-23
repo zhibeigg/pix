@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.64] - 2026-05-23
+
+### Fixed
+
+- Web 页脚 ICP 备案号更新为 `鲁ICP备2022023963号-1`。
+
 ## [1.26.63] - 2026-05-23
 
 ### Fixed
