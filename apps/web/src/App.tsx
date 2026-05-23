@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { CheckCircle2, CircleAlert, Info, X } from 'lucide-react'
+import { CheckCircle2, CircleAlert, Coins, Info, PackagePlus, X } from 'lucide-react'
 import type { PixLanguage, PixThemeMode, PixThemePreference } from './theme'
 import { api, ApiError, TOKEN_KEY } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
@@ -7,6 +7,7 @@ import { AccountMenu } from './components/AccountMenu'
 import { AppHero } from './components/AppHero'
 import { AuthPanel } from './components/AuthPanel'
 import { Button } from './components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './components/ui/dialog'
 import { HeaderUtilityBar } from './components/HeaderUtilityBar'
 import { LandingSections } from './components/LandingSections'
 import { SetupWizard } from './components/SetupWizard'
@@ -22,6 +23,7 @@ import type { AdminDashboard, AssetPack, AssetPackQuota, ContactSheetCandidate, 
 
 type ToastVariant = 'success' | 'info' | 'error'
 type AppToastState = { id: number; message: string; variant: ToastVariant }
+type PackExpandConfirmState = { price: number; currentCount: number; currentLimit: number; nextLimit: number; availableCredits: number | null }
 
 type AppProps = {
   themeMode: PixThemeMode
@@ -60,6 +62,8 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [jobs, setJobs] = useState<GenerationJob[]>([])
   const [packs, setPacks] = useState<AssetPack[]>([])
   const [packQuota, setPackQuota] = useState<AssetPackQuota | null>(null)
+  const [packExpandConfirm, setPackExpandConfirm] = useState<PackExpandConfirmState | null>(null)
+  const [expandingPackLimit, setExpandingPackLimit] = useState(false)
   const [pricing, setPricing] = useState<PricingRule[]>([])
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([])
@@ -515,17 +519,32 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
-  async function expandPackLimit() {
+  function expandPackLimit() {
     if (!token) return
     const price = packQuota?.expand_price_credits ?? 99
-    if (!window.confirm(text(`消耗 ${price} 点增加 1 个可创建素材包数量？`, `Spend ${price} credits to add one more pack slot?`))) return
+    const currentLimit = packQuota?.pack_limit ?? Math.max(1, packs.length)
+    setPackExpandConfirm({
+      price,
+      currentCount: packQuota?.pack_count ?? packs.length,
+      currentLimit,
+      nextLimit: currentLimit + 1,
+      availableCredits: balance?.available_credits ?? null,
+    })
+  }
+
+  async function confirmExpandPackLimit() {
+    if (!token || !packExpandConfirm) return
+    setExpandingPackLimit(true)
     try {
       const quota = await api.expandPackLimit(token)
       setPackQuota(quota)
+      setPackExpandConfirm(null)
       await refreshCore(token)
       setMessage(text('素材包数量上限已扩容', 'Pack slot limit expanded'))
     } catch (error) {
       showError(error)
+    } finally {
+      setExpandingPackLimit(false)
     }
   }
 
@@ -742,6 +761,12 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       </header>
 
       <AppToast toast={toast} onDismiss={dismissToast} />
+      <PackExpandConfirmDialog
+        state={packExpandConfirm}
+        loading={expandingPackLimit}
+        onCancel={() => setPackExpandConfirm(null)}
+        onConfirm={() => void confirmExpandPackLimit()}
+      />
 
       {setupLoading ? (
         <div className="grid min-h-[calc(100vh-76px)] place-items-center px-4 text-muted-foreground">{t('app.checkingSetup')}</div>
@@ -788,6 +813,58 @@ function showSystemNotification(title: string, body: string) {
       if (permission === 'granted') new Notification(title, options)
     }).catch(() => undefined)
   }
+}
+
+function PackExpandConfirmDialog({ state, loading, onCancel, onConfirm }: { state: PackExpandConfirmState | null; loading: boolean; onCancel: () => void; onConfirm: () => void }) {
+  const { t } = useI18n()
+  const available = state?.availableCredits ?? null
+  return (
+    <Dialog open={Boolean(state)} modal={false} onOpenChange={(open) => { if (!open && !loading) onCancel() }}>
+      <DialogContent className="overflow-hidden border-[hsl(var(--pix-paper-border))] bg-card p-0 shadow-[0_24px_80px_-24px_rgba(15,15,15,0.42)] sm:max-w-[480px] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
+        {state && (
+          <div className="relative grid gap-5 p-6">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_20%_0%,hsl(var(--primary)/.18),transparent_38%),linear-gradient(180deg,hsl(var(--pix-mint)/.62),transparent)] dark:bg-[radial-gradient(circle_at_20%_0%,hsl(var(--primary)/.32),transparent_38%),linear-gradient(180deg,hsl(var(--pix-navy)/.72),transparent)]" />
+            <DialogHeader className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-3 pr-8">
+              <div className="grid h-12 w-12 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary shadow-[0_12px_28px_-18px_rgba(79,70,229,0.72)] dark:border-primary/30 dark:bg-primary/18">
+                <PackagePlus className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-xl leading-tight">{t('packs.expandDialogTitle')}</DialogTitle>
+                <DialogDescription className="mt-2 leading-6">{t('packs.expandDialogDescription', { price: state.price })}</DialogDescription>
+              </div>
+            </DialogHeader>
+            <div className="relative grid gap-2 rounded-lg border border-border bg-background/82 p-3 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <DialogMetric label={t('packs.expandDialogCurrent')} value={`${state.currentCount}/${state.currentLimit}`} />
+                <DialogMetric label={t('packs.expandDialogAfter')} value={`${state.currentCount}/${state.nextLimit}`} tone="primary" />
+                <DialogMetric label={t('packs.expandDialogCost')} value={t('common.points', { count: state.price })} />
+              </div>
+              {available !== null && (
+                <div className="mt-1 flex items-center gap-2 rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground dark:bg-white/6 dark:text-white/58">
+                  <Coins className="h-4 w-4 text-primary" />
+                  <span>{t('packs.expandDialogBalance', { count: available })}</span>
+                </div>
+              )}
+            </div>
+            <DialogFooter className="relative">
+              <Button type="button" variant="outline" disabled={loading} onClick={onCancel}>{t('common.cancel')}</Button>
+              <Button type="button" disabled={loading} onClick={onConfirm}>{loading ? t('packs.expandDialogWorking') : t('packs.expandDialogConfirm')}</Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function DialogMetric({ label, value, tone = 'default' }: { label: ReactNode; value: ReactNode; tone?: 'default' | 'primary' }) {
+  const labelClass = tone === 'primary' ? 'text-primary/72 dark:text-primary/82' : 'text-muted-foreground dark:text-white/52'
+  return (
+    <div className={`rounded-md border px-2.5 py-2 ${tone === 'primary' ? 'border-primary/25 bg-primary/10 text-primary dark:bg-primary/18' : 'border-border bg-card dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]'}`}>
+      <p className={`text-[11px] font-semibold uppercase tracking-[.08em] ${labelClass}`}>{label}</p>
+      <p className="mt-1 text-sm font-bold leading-tight">{value}</p>
+    </div>
+  )
 }
 
 function AppToast({ toast, onDismiss }: { toast: AppToastState | null; onDismiss: () => void }) {
