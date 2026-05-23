@@ -400,7 +400,8 @@ code {
   .motion-action:where(:not(:disabled), :not([aria-disabled="true"])):active { transform: translateY(1px) scale(.97); }
   .motion-action:where(:not(:disabled), :not([aria-disabled="true"])):active::after { animation: pix-tap-ripple 420ms var(--ease-out-quint); }
   .motion-ambient-flow { isolation: isolate; overflow: hidden; position: relative; }
-  .motion-ambient-flow::before { animation: pix-ambient-drift 8s var(--ease-out-quart) infinite; background: radial-gradient(circle at 18% 20%, rgba(102, 240, 197, .34), transparent 26%), radial-gradient(circle at 72% 12%, rgba(122, 92, 255, .26), transparent 28%), radial-gradient(circle at 50% 78%, rgba(255, 190, 104, .18), transparent 24%); content: ""; inset: -38%; opacity: .82; pointer-events: none; position: absolute; z-index: -1; }
+  .motion-ambient-flow::before { animation: pix-ambient-drift 8s var(--ease-out-quart) infinite; background: radial-gradient(circle at 18% 20%, rgba(111, 66, 193, .20), transparent 26%), radial-gradient(circle at 72% 12%, rgba(68, 170, 226, .18), transparent 28%), radial-gradient(circle at 50% 78%, rgba(73, 190, 122, .12), transparent 24%); content: ""; inset: -38%; opacity: .8; pointer-events: none; position: absolute; z-index: -1; }
+  [data-theme="dark"] .motion-ambient-flow::before { background: radial-gradient(circle at 18% 20%, rgba(102, 240, 197, .34), transparent 26%), radial-gradient(circle at 72% 12%, rgba(122, 92, 255, .26), transparent 28%), radial-gradient(circle at 50% 78%, rgba(255, 190, 104, .18), transparent 24%); opacity: .82; }
   .motion-attention-pop { animation: pix-attention-pop 900ms var(--ease-out-quint) both; }
   .motion-shimmer { overflow: hidden; position: relative; }
   .motion-shimmer::after { animation: pix-shimmer 1.9s var(--ease-out-quart) infinite; background: linear-gradient(90deg, transparent, hsl(var(--foreground) / .08), transparent); content: ""; inset: 0; position: absolute; transform: translateX(-120%); }

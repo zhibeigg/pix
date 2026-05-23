@@ -109,20 +109,20 @@ export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
       />
 
       <PixPanel>
-        <div className="motion-ambient-flow overflow-hidden rounded-xl border border-border bg-[hsl(var(--pix-navy))] text-white shadow-[0_24px_80px_-46px_rgba(0,0,0,.78)] dark:border-white/10">
+        <div className="motion-ambient-flow overflow-hidden rounded-xl border border-[hsl(var(--pix-brand-purple)/.18)] bg-[linear-gradient(135deg,hsl(var(--pix-lavender)/.86),hsl(var(--pix-sky)/.72)_48%,hsl(var(--pix-mint)/.64))] text-[hsl(var(--pix-ink))] shadow-[0_18px_52px_-42px_rgba(72,52,155,.38)] dark:border-white/10 dark:bg-[hsl(var(--pix-navy))] dark:text-white dark:shadow-[0_24px_80px_-46px_rgba(0,0,0,.78)]">
           <div className="relative grid gap-6 p-5 sm:p-6">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(80,220,182,.28),transparent_34%),radial-gradient(circle_at_78%_6%,rgba(74,144,245,.24),transparent_28%),linear-gradient(120deg,rgba(18,119,117,.66),rgba(12,55,71,.82))]" />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(111,66,193,.16),transparent_31%),radial-gradient(circle_at_78%_4%,rgba(35,153,219,.13),transparent_28%),linear-gradient(120deg,rgba(255,255,255,.68),rgba(255,255,255,.26))] dark:bg-[radial-gradient(circle_at_18%_0%,rgba(80,220,182,.28),transparent_34%),radial-gradient(circle_at_78%_6%,rgba(74,144,245,.24),transparent_28%),linear-gradient(120deg,rgba(18,119,117,.66),rgba(12,55,71,.82))]" />
             <div className="relative flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="motion-attention-pop grid h-10 w-10 place-items-center rounded-full bg-emerald-400/18 text-emerald-200 ring-1 ring-emerald-200/20"><Gift className="h-5 w-5" /></div>
+                <div className="motion-attention-pop grid h-10 w-10 place-items-center rounded-full bg-white/78 text-[hsl(var(--pix-brand-purple))] shadow-[0_10px_24px_-18px_rgba(72,52,155,.55)] ring-1 ring-[hsl(var(--pix-brand-purple)/.18)] dark:bg-emerald-400/18 dark:text-emerald-200 dark:shadow-none dark:ring-emerald-200/20"><Gift className="h-5 w-5" /></div>
                 <div>
-                  <h2 className="text-lg font-semibold">{t('rewards.statsTitle')}</h2>
-                  <p className="text-sm text-white/68">{t('rewards.currentRate', { rate })}</p>
+                  <h2 className="text-lg font-semibold text-[hsl(var(--pix-ink))] dark:text-white">{t('rewards.statsTitle')}</h2>
+                  <p className="text-sm text-[hsl(var(--pix-slate))] dark:text-white/68">{t('rewards.currentRate', { rate })}</p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="secondary" disabled={working || available <= 0} onClick={() => void withdrawRewards()}><Banknote />{t('rewards.actions.withdraw')}</Button>
-                <Button size="sm" disabled={working || available <= 0} onClick={() => void transferRewards()}><ArrowRightLeft />{t('rewards.actions.transfer')}</Button>
+                <Button size="sm" variant="outline" className="border-[hsl(var(--pix-brand-purple)/.24)] bg-white/88 text-[hsl(var(--pix-brand-purple-800))] shadow-[0_12px_28px_-24px_rgba(72,52,155,.45)] hover:bg-white disabled:bg-white/58 dark:border-white/12 dark:bg-white/10 dark:text-white dark:hover:bg-white/16" disabled={working || available <= 0} onClick={() => void withdrawRewards()}><Banknote />{t('rewards.actions.withdraw')}</Button>
+                <Button size="sm" className="bg-[hsl(var(--pix-brand-purple))] text-white shadow-[0_14px_30px_-22px_hsl(var(--pix-brand-purple)/.78)] hover:bg-[hsl(var(--primary-pressed))] disabled:bg-[hsl(var(--pix-brand-purple)/.28)] disabled:text-white/70" disabled={working || available <= 0} onClick={() => void transferRewards()}><ArrowRightLeft />{t('rewards.actions.transfer')}</Button>
               </div>
             </div>
             <div className="motion-list-stagger relative grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -131,9 +131,9 @@ export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
               <RewardMetric icon={<Banknote />} label={t('rewards.metrics.total')} value={money(summary?.total_reward_cents ?? 0, primaryCurrency)} />
               <RewardMetric icon={<Users />} label={t('rewards.metrics.invited')} value={summary?.invited_count ?? 0} />
             </div>
-            <div className="relative grid gap-2 rounded-lg bg-black/24 p-2 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
-              <span className="px-2 text-xs font-semibold text-white/58">{t('rewards.inviteLink')}</span>
-              <code className="motion-shimmer min-w-0 overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-white/10 px-3 py-2 text-sm text-white">{summary?.invite_url ?? t('rewards.generatingLink')}</code>
+            <div className="relative grid gap-2 rounded-lg bg-white/62 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.7)] ring-1 ring-[hsl(var(--pix-brand-purple)/.12)] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center dark:bg-black/24 dark:shadow-none dark:ring-transparent">
+              <span className="px-2 text-xs font-semibold text-[hsl(var(--pix-brand-purple-800))] dark:text-white/58">{t('rewards.inviteLink')}</span>
+              <code className="motion-shimmer min-w-0 overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-white/74 px-3 py-2 text-sm text-[hsl(var(--pix-charcoal))] ring-1 ring-black/5 dark:bg-white/10 dark:text-white dark:ring-transparent">{summary?.invite_url ?? t('rewards.generatingLink')}</code>
               <Button size="sm" disabled={!summary?.invite_url} onClick={() => void copyInviteLink()}><Copy />{t('common.copy')}</Button>
             </div>
           </div>
@@ -180,9 +180,9 @@ export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
 
 function RewardMetric({ icon, label, value }: { icon: ReactNode; label: ReactNode; value: ReactNode }) {
   return (
-    <div className="rounded-lg bg-white/8 px-4 py-4 ring-1 ring-white/10">
-      <div className="flex items-center gap-2 text-white/68 [&_svg]:h-4 [&_svg]:w-4">{icon}<span className="text-xs font-semibold">{label}</span></div>
-      <p className="mt-3 text-3xl font-bold tabular-nums tracking-tight">{value}</p>
+    <div className="rounded-lg bg-white/58 px-4 py-4 shadow-[0_12px_32px_-28px_rgba(72,52,155,.36)] ring-1 ring-[hsl(var(--pix-brand-purple)/.12)] backdrop-blur-sm dark:bg-white/8 dark:shadow-none dark:ring-white/10">
+      <div className="flex items-center gap-2 text-[hsl(var(--pix-brand-purple-800))] dark:text-white/68 [&_svg]:h-4 [&_svg]:w-4">{icon}<span className="text-xs font-semibold">{label}</span></div>
+      <p className="mt-3 text-3xl font-bold tabular-nums tracking-tight text-[hsl(var(--pix-ink))] dark:text-white">{value}</p>
     </div>
   )
 }
