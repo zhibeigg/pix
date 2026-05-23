@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.69] - 2026-05-23
+
+### Fixed
+
+- Web 动效增强为更可见的点击涟漪、浮动与环境流动效果，并将邀请奖励相关新增文案迁移到 i18n key，避免中英文混用。
+
 ## [1.26.68] - 2026-05-23
 
 ### Added
