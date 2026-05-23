@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.70] - 2026-05-23
+
+### Fixed
+
+- Web 作品库和任务队列加载态改用 `jobs.status.*` 国际化状态文案，避免显示 `status.pending` / `status.running` key。
+
 ## [1.26.69] - 2026-05-23
 
 ### Fixed

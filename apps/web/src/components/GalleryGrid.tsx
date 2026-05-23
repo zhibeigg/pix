@@ -143,7 +143,7 @@ function isActiveJob(job: GenerationJob) {
 }
 
 function jobStatusLabel(job: GenerationJob, t: (key: string, options?: Record<string, unknown>) => string) {
-  return job.status === 'pending' ? t('status.pending') : job.status === 'running' ? t('status.running') : t('gallery.waitingOutput')
+  return job.status === 'pending' ? t('jobs.status.pending') : job.status === 'running' ? t('jobs.status.running') : t('gallery.waitingOutput')
 }
 
 function CandidateMiniGrid({ job, output, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
