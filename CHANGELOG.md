@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.58] - 2026-05-23
+
+### Fixed
+
+- 作品卡片预览图改为绝对限制在顶部预览框内，保持比例缩放且不越过信息区。
+
 ## [1.25.57] - 2026-05-23
 
 ### Changed
