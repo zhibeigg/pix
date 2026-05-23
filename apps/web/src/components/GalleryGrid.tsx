@@ -15,7 +15,7 @@ import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixStatusBadge } from './pix/PixStatusBadge'
 
 type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; draggableSucceeded?: boolean }
-type DownloadKind = 'source' | 'pixelized' | 'preview' | 'sprite_gif' | 'sprite_sheet' | 'contact_sheet'
+type DownloadKind = 'source' | 'pixelized' | 'sprite_gif' | 'sprite_sheet' | 'contact_sheet'
 type DownloadOption = { id: DownloadKind; label: string; description: string; path: string; url: string; filename: string }
 
 export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, onSelect, onCandidatePixelize, onRetryJob, onSaveToPack, onRemoveFromPack, draggableSucceeded = false }: GalleryGridProps) {
@@ -43,8 +43,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
   const { language, t } = useI18n()
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
   const downloadOptions = output ? buildDownloadOptions(job, output, t) : []
-  const primaryDownloadUrl = downloadOptions[0]?.url || ''
-  const previewUrl = primaryDownloadUrl || signedFileUrl(job.input_image_url)
+  const previewUrl = output ? signedFileUrl(output.pixelized_url || output.preview_url || output.source_url || undefined) : signedFileUrl(job.input_image_url)
   const typeLabel = jobTypeLabel(job.job_type, language)
   const displayName = jobDisplayName(job, t)
   const summary = jobDisplaySummary(job, displayName, t)
@@ -146,9 +145,8 @@ function CandidateMiniGrid({ job, output, onCandidatePixelize }: { job: Generati
 
 function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: string, options?: Record<string, unknown>) => string): DownloadOption[] {
   const specs: Array<{ id: DownloadKind; label: string; description: string; path?: string | null; url?: string | null; fallback: string }> = [
-    { id: 'source', label: t('downloads.source'), description: t('downloads.sourceDescription'), path: output.source_path, url: output.source_url, fallback: 'source.png' },
-    { id: 'pixelized', label: t('downloads.pixelized'), description: t('downloads.pixelizedDescription'), path: output.pixelized_path, url: output.pixelized_url, fallback: 'pixelized.png' },
-    { id: 'preview', label: t('downloads.preview'), description: t('downloads.previewDescription'), path: output.preview_path, url: output.preview_url, fallback: 'preview.png' },
+    { id: 'source', label: t('downloads.source'), description: t('downloads.sourceDescription'), path: output.source_path, url: output.source_url, fallback: '01_source.png' },
+    { id: 'pixelized', label: t('downloads.pixelized'), description: t('downloads.pixelizedDescription'), path: output.pixelized_path, url: output.pixelized_url, fallback: '03_pixelized.png' },
     { id: 'sprite_gif', label: t('downloads.spriteGif'), description: t('downloads.spriteGifDescription'), path: output.sprite_gif_path, url: output.sprite_gif_url, fallback: 'sprite.gif' },
     { id: 'sprite_sheet', label: t('downloads.spriteSheet'), description: t('downloads.spriteSheetDescription'), path: output.sprite_sheet_path, url: output.sprite_sheet_url, fallback: 'sprite-sheet.png' },
     { id: 'contact_sheet', label: t('downloads.contactSheet'), description: t('downloads.contactSheetDescription'), path: output.contact_sheet_path, url: output.contact_sheet_url, fallback: 'contact-sheet.png' },
@@ -171,9 +169,21 @@ function downloadImage(url: string, filename: string) {
 }
 
 function downloadFileName(job: GenerationJob, path: string) {
-  const raw = fileName(path || `pix-job-${job.id}.png`)
-  const safe = raw.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
-  return safe || `pix-job-${job.id}.png`
+  const raw = safeFileNamePart(fileName(path || `pix-job-${job.id}.png`))
+  const prefix = jobFileNamePrefix(job)
+  if (!raw) return `${prefix}.png`
+  return raw.startsWith(`${prefix}_`) ? raw : `${prefix}_${raw}`
+}
+
+function jobFileNamePrefix(job: GenerationJob) {
+  const asset = asRecord(job.params_json?.asset)
+  const assetName = typeof asset?.name === 'string' ? asset.name.trim() : ''
+  const prompt = (job.prompt ?? '').replace(/\s+/g, ' ').trim()
+  return safeFileNamePart(assetName || prompt || `pix-job-${job.id}`).slice(0, 80) || `pix-job-${job.id}`
+}
+
+function safeFileNamePart(value: string) {
+  return value.trim().replace(/\s+/g, '_').replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').replace(/^\.+$/, '').replace(/^_+|_+$/g, '')
 }
 
 function jobDisplayName(job: GenerationJob, t: (key: string, options?: Record<string, unknown>) => string) {
