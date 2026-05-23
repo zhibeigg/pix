@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.65] - 2026-05-23
+
+### Fixed
+
+- 排队中和生产中的作品预览改为加载动画，避免继续显示上传图或旧输出图。
+
 ## [1.26.64] - 2026-05-23
 
 ### Fixed

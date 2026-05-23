@@ -40,8 +40,9 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
   if (!job) return <PixPanel eyebrow={text('微调工位', 'Tuning station')} title={text('选择作品进行微调', 'Select a work to tune')} description={text('选择作品后可重新像素化或 AI 微调。', 'After selecting a work, you can repixelize it or run AI tuning.')} />
 
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
+  const isActive = job.status === 'pending' || job.status === 'running'
   const sourcePath = output?.source_path || output?.pixelized_path || job.input_image_path || ''
-  const previewUrl = signedFileUrl(output?.pixelized_url || output?.preview_url || output?.source_url || job.input_image_url || '')
+  const previewUrl = isActive ? null : signedFileUrl(output?.pixelized_url || output?.preview_url || output?.source_url || job.input_image_url || '')
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
 
@@ -60,7 +61,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
   return (
     <div className="sticky top-24 grid gap-4">
       <PixPanel eyebrow={text('微调工位', 'Tuning station')} title={`#${job.id}`} description={summarizePrompt(job.prompt || text('上传图片作品', 'Uploaded image work'))} action={<PixStatusBadge status={job.status} />}>
-        <PixPreviewFrame url={previewUrl} label={text('暂无可预览源图', 'No source preview available')} className="min-h-44" />
+        <PixPreviewFrame url={previewUrl} loading={isActive} label={isActive ? text('作品生成中…', 'Work is generating…') : text('暂无可预览源图', 'No source preview available')} className="min-h-44" />
       </PixPanel>
       {invalidSubAssetSize && <Alert variant="destructive">{text('素材最低支持 16×16。', 'Minimum asset size is 16×16.')}</Alert>}
       <form className="grid gap-4 rounded-lg border border-border bg-[hsl(var(--pix-mint)/.46)] p-5" onSubmit={submitLocal}>
