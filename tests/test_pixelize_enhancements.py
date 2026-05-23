@@ -535,7 +535,7 @@ class TestPixelizeRemoveBg:
         assert (arr[..., 3] == 0).any()
         assert meta["effective_params"]["remove_bg"] is True
 
-    def test_low_pixel_remove_bg_uses_outline_not_feather(self) -> None:
+    def test_low_pixel_remove_bg_respects_feather_choice(self) -> None:
         img = _solid_bg_with_subject(size=128)
         result, _, meta = pixelize(
             img,
@@ -550,9 +550,30 @@ class TestPixelizeRemoveBg:
             ),
         )
 
-        assert meta["effective_params"]["edge_style"] == "outline"
+        assert meta["effective_params"]["edge_style"] == "feather"
         assert meta["effective_params"]["bg_feather"] == 3
-        assert meta["edge_policy"]["applied"] is True
+        assert meta["edge_policy"]["applied"] is False
+        assert meta["edge_policy"]["reason"] == "user_edge_style_respected"
+        alpha = np.asarray(result.convert("RGBA"))[..., 3]
+        assert any(0 < value < 255 for value in np.unique(alpha))
+
+    def test_low_pixel_remove_bg_can_skip_extra_edge_treatment(self) -> None:
+        img = _solid_bg_with_subject(size=128)
+        result, _, meta = pixelize(
+            img,
+            PixelizeParams(
+                output_size=(16, 16),
+                colors=4,
+                remove_bg=True,
+                bg_tolerance=16,
+                bg_feather=3,
+                edge_style="hard",
+                preview_scale=0,
+            ),
+        )
+
+        assert meta["effective_params"]["edge_style"] == "hard"
+        assert meta["edge_policy"]["reason"] == "user_edge_style_respected"
         alpha = np.asarray(result.convert("RGBA"))[..., 3]
         assert set(np.unique(alpha)).issubset({0, 255})
 
@@ -569,8 +590,8 @@ class TestPixelizeRemoveBg:
                 output_size=(16, 16),
                 colors=4,
                 remove_bg=False,
-                bg_feather=0,
-                edge_style="feather",
+                bg_feather=1,
+                edge_style="outline",
                 preview_scale=0,
             ),
         )

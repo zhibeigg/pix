@@ -116,6 +116,8 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.asset.skip_vl", "默认跳过普通 VL 分析", "素材默认值", "boolean", ""),
     SettingDefinition("pix.asset.remove_bg", "默认移除背景", "素材默认值", "boolean", ""),
     SettingDefinition("pix.asset.bg_tolerance", "背景容差", "素材默认值", "number", ""),
+    SettingDefinition("pix.asset.bg_feather", "边缘强度", "素材默认值", "number", "feather=羽化半径；outline=描边宽度；hard=不额外处理。"),
+    SettingDefinition("pix.asset.edge_style", "默认边缘处理", "素材默认值", "select", "hard=不需要；feather=羽化边缘；outline=描边。", options=("hard", "feather", "outline")),
     SettingDefinition("pix.asset.auto_crop", "自动裁剪主体", "素材默认值", "boolean", ""),
     SettingDefinition("pix.asset.crop_padding", "裁剪留白", "素材默认值", "number", ""),
     SettingDefinition("pix.asset.crop_square", "裁剪为正方形", "素材默认值", "boolean", ""),

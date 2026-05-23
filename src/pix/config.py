@@ -143,7 +143,8 @@ class AssetConfig:
     skip_vl: bool = True
     remove_bg: bool = True
     bg_tolerance: int = 26
-    bg_feather: int = 0
+    bg_feather: int = 1
+    edge_style: str = "outline"
     auto_crop: bool = True
     crop_padding: float = 0.12
     crop_square: bool = True

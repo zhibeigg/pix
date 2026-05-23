@@ -16,8 +16,8 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.26.65-6f42c1.svg">
-  <img alt="tests" src="https://img.shields.io/badge/tests-413%20passed-2ea44f.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.26.66-6f42c1.svg">
+  <img alt="tests" src="https://img.shields.io/badge/tests-414%20passed-2ea44f.svg">
 </p>
 
 ---
@@ -51,7 +51,7 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
 | AI 图好看但不能进游戏 | 输出透明 PNG、固定尺寸、有限调色板、nearest 预览 |
 | 小图标缩小后糊掉 | 使用 Pixel Grid JSON 中间表示，最终由 Python 精确渲染 |
 | 一次生图结果不稳定 | n-sample / contact sheet 候选生成 + VL 自动评分选择 |
-| 背景难抠、边缘脏 | 动态 key color、透明背景处理、低像素描边策略 |
+| 背景难抠、边缘脏 | 动态 key color、透明背景处理，用户可选择描边、羽化边缘或不额外处理 |
 | 生成过程不可追溯 | 每次运行写入 `meta.json`、`provenance.json`、源图与参数 |
 | 网站化运营成本不可控 | Web 版支持账户、点数、队列、任务限制、批量包管理 |
 
@@ -76,7 +76,7 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
 - **游戏素材直出**
   - `pix asset` 默认按 16×16 RPG 道具图标优化。
   - 白底单图 → extract Pixel Grid → auto/K-means 调色 → 透明 PNG。
-  - 默认贴近早期稳定效果，不默认强制 ramp、outline、fit canvas。
+  - 默认贴近早期稳定效果，不默认强制 ramp / fit canvas；边缘处理可选择描边、羽化或不额外处理。
 
 - **动画精灵表**
   - `pix sprite` 让生图模型输出 3×3 连续动画关键帧。
@@ -326,7 +326,7 @@ Pix Web 是一个可运营的素材生产工作台：
 - 游戏素材直出：输入素材名称，复用 `pix asset` 白底单图模板、Pixel Grid 提取和透明 PNG 输出
 - 首页展示中文 prompt 全流程示例，鼠标悬浮或键盘聚焦物品格可展开源图 / Grid / 预览详情，并在动画卡片上播放 9 帧序列帧、显示横向精灵图
 - 独立原始生图页：只保留提供商、模型、尺寸、质量、敏感度和生成数量等基础参数，提交后停留在中央画布查看 source 原图与候选缩略图
-- 单图生成、图生图、本地像素化、动画精灵表
+- 单图生成、图生图、本地像素化、动画精灵表；透明背景可选择描边、羽化边缘或不额外边缘处理
 - 批量素材直出、批量 prompt / 批量图片任务，结果统一进入作品库
 - 作品库最多保留每个账户最新 10 张普通成功作品，继续生成时会提示并自动清理最旧作品
 - 手动素材包：用户可像文件资源管理器一样单击打开、内联重命名、归档、下载 ZIP，并将作品库作品拖入永久保存

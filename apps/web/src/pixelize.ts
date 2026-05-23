@@ -1,5 +1,17 @@
 import type { GenerationJob, GridDesignParams, PixelizeParams } from './types'
 
+export type EdgeStyleChoice = 'hard' | 'feather' | 'outline'
+
+export function normalizeEdgeStyle(value: unknown): EdgeStyleChoice {
+  return value === 'feather' || value === 'outline' ? value : 'hard'
+}
+
+export function edgeStylePixelize(edgeStyle: EdgeStyleChoice): Pick<PixelizeParams, 'edge_style' | 'bg_feather'> {
+  if (edgeStyle === 'outline') return { edge_style: 'outline', bg_feather: 1 }
+  if (edgeStyle === 'feather') return { edge_style: 'feather', bg_feather: 2 }
+  return { edge_style: 'hard', bg_feather: 0 }
+}
+
 export const defaultPixelize: PixelizeParams = {
   output_size: [128, 128],
   colors: 16,
@@ -28,8 +40,8 @@ export const defaultAssetPixelize: PixelizeParams = {
   preview_scale: 12,
   remove_bg: true,
   bg_tolerance: 26,
-  bg_feather: 0,
-  edge_style: 'hard',
+  bg_feather: 1,
+  edge_style: 'outline',
   auto_crop: true,
   crop_padding: 0.12,
   crop_square: true,
@@ -42,13 +54,7 @@ export function parsePixelSize(value: string): [number, number] {
 }
 
 export function buildPixelize(overrides: Partial<PixelizeParams> = {}): PixelizeParams {
-  const next = { ...defaultPixelize, ...overrides }
-  const lowPixel = Math.max(next.output_size[0], next.output_size[1]) <= 32
-  if (lowPixel && next.remove_bg) {
-    next.edge_style = 'outline'
-    next.bg_feather = Math.max(1, next.bg_feather || 0)
-  }
-  return next
+  return { ...defaultPixelize, ...overrides }
 }
 
 export function buildAssetPixelize(overrides: Partial<PixelizeParams> = {}): PixelizeParams {

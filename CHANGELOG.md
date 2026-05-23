@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.66] - 2026-05-23
+
+### Added
+
+- Web 像素参数新增“边缘处理”选择，可在描边、羽化边缘和不额外处理之间切换，并在低像素透明素材中尊重用户选择。
+
 ## [1.26.65] - 2026-05-23
 
 ### Fixed

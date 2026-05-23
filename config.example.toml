@@ -81,10 +81,10 @@ snap_to_grid   = true
 remove_bg      = false
 # 背景容差（每通道欧氏距离阈值，越大抠越狠；8-24 常用）
 bg_tolerance   = 12
-# 边缘风格：hard=硬边，feather=alpha 羽化，outline=外侧描边（三者互斥）
-# 32px 及以下低像素透明素材会自动改用 outline，避免羽化导致边缘发虚。
+# 边缘风格：hard=不额外处理，feather=alpha 羽化，outline=外侧描边（三者互斥）
+# 低像素透明素材会尊重用户/配置选择，不再自动强制改用 outline。
 edge_style     = "hard"
-# 边缘强度：edge_style=feather 时为羽化半径；outline 时为描边宽度；hard 时不生效；低像素描边至少 1px
+# 边缘强度：edge_style=feather 时为羽化半径；outline 时为描边宽度；hard 时不生效
 bg_feather     = 0
 # 自动裁剪主体后再缩小，适合图标/物品素材
 auto_crop      = false
@@ -110,7 +110,9 @@ image_quality  = "low"
 skip_vl        = true
 remove_bg      = true
 bg_tolerance   = 26
-bg_feather     = 0
+# 默认描边；可改为 feather 或 hard
+edge_style     = "outline"
+bg_feather     = 1
 auto_crop      = true
 crop_padding   = 0.12
 crop_square    = true
