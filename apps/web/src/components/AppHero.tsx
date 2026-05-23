@@ -24,7 +24,7 @@ type AppHeroProps = {
 
 export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, batchCount }: AppHeroProps) {
   const { text } = useI18n()
-  const chips = [text('单图生成', 'Single image'), text('批量素材包', 'Batch packs'), text('序列帧预览', 'Frame preview'), text('透明 PNG 导出', 'Transparent PNG export')]
+  const chips = [text('单图生成', 'Single image'), text('批量入库', 'Batch to gallery'), text('序列帧预览', 'Frame preview'), text('透明 PNG 导出', 'Transparent PNG export')]
   return (
     <section className="relative isolate overflow-hidden bg-background px-4 py-14 text-foreground md:px-8 md:py-20 lg:py-24 dark:bg-[hsl(var(--pix-navy))] dark:text-white lg:dark:py-[120px]">
       <HeroSurfaceDecor />
@@ -88,7 +88,7 @@ function WorkspaceMockup({ balance, activeJobs, batchCount }: { balance: CreditB
   const columns = [
     { title: text('提示词队列', 'Prompt queue'), eyebrow: '01', tint: 'bg-[hsl(var(--pix-peach))]', items: [text('暗月骑士', 'Darkmoon knight'), text('星盐药瓶', 'Starsalt potion'), text('铜芽齿轮', 'Copper sprout gear')] },
     { title: text('像素网格', 'Pixel grid'), eyebrow: '02', tint: 'bg-[hsl(var(--pix-sky))]', items: ['64×64', text('16 色', '16 colors'), text('透明 PNG', 'Transparent PNG')] },
-    { title: text('交付素材包', 'Delivery pack'), eyebrow: '03', tint: 'bg-[hsl(var(--pix-mint))]', items: [text('ZIP 导出', 'ZIP export'), text('路径复制', 'Copy path'), text('失败重试', 'Retry failed')] },
+    { title: text('交付素材包', 'Delivery pack'), eyebrow: '03', tint: 'bg-[hsl(var(--pix-mint))]', items: [text('ZIP 导出', 'ZIP export'), text('保存到包', 'Save to pack'), text('失败重试', 'Retry failed')] },
   ]
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card text-left text-[hsl(var(--pix-ink))] shadow-[0_24px_48px_-8px_rgba(15,15,15,0.20)] dark:border-white/12 dark:bg-[hsl(var(--pix-paper))] dark:text-[hsl(var(--pix-paper-ink))] dark:shadow-[0_34px_90px_-26px_rgba(0,0,0,0.75)]">

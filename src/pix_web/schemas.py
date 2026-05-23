@@ -421,6 +421,30 @@ class BatchUpdateRequest(BaseModel):
     status: str | None = Field(default=None, max_length=32)
 
 
+class AssetPackCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+
+
+class AssetPackUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, max_length=160)
+    status: str | None = Field(default=None, max_length=32)
+
+
+class AssetPackAddItemRequest(BaseModel):
+    job_id: int
+
+
+class AssetPackResponse(BaseModel):
+    id: int
+    name: str
+    status: str
+    capacity: int
+    item_count: int
+    remaining_capacity: int
+    created_at: datetime
+    updated_at: datetime
+
+
 class AdminAdjustCreditsRequest(BaseModel):
     amount: int
     note: str = ""

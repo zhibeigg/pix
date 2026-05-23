@@ -18,7 +18,7 @@ import { RawImagePage } from './pages/RawImagePage'
 import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
 import { buildGridDesign, defaultPixelize } from './pixelize'
 import { useI18n } from './i18n'
-import type { AdminDashboard, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationBatch, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SetupStatus, SystemSetting, User } from './types'
+import type { AdminDashboard, AssetPack, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SetupStatus, SystemSetting, User } from './types'
 
 type ToastVariant = 'success' | 'info' | 'error'
 type AppToastState = { id: number; message: string; variant: ToastVariant }
@@ -58,22 +58,21 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [orders, setOrders] = useState<PaymentOrder[]>([])
   const [checkout, setCheckout] = useState<PaymentCheckout | null>(null)
   const [jobs, setJobs] = useState<GenerationJob[]>([])
-  const [batches, setBatches] = useState<GenerationBatch[]>([])
+  const [packs, setPacks] = useState<AssetPack[]>([])
   const [pricing, setPricing] = useState<PricingRule[]>([])
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([])
   const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(null)
   const [busy, setBusy] = useState(false)
-  const [retryingBatchId, setRetryingBatchId] = useState<number | null>(null)
   const [retryingJobId, setRetryingJobId] = useState<number | null>(null)
-  const [downloadingBatchId, setDownloadingBatchId] = useState<number | null>(null)
+  const [downloadingPackId, setDownloadingPackId] = useState<number | null>(null)
   const [toast, setToast] = useState<AppToastState | null>(null)
   const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null)
   const [setupLoading, setSetupLoading] = useState(true)
   const [page, setPage] = useState<AppPage>(() => pageFromHash(null))
   const [mode, setMode] = useState<WorkMode>('single')
-  const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null)
-  const [selectedBatchJobs, setSelectedBatchJobs] = useState<GenerationJob[]>([])
+  const [selectedPackId, setSelectedPackId] = useState<number | null>(null)
+  const [selectedPackJobs, setSelectedPackJobs] = useState<GenerationJob[]>([])
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
   const [selectedRawJobId, setSelectedRawJobId] = useState<number | null>(null)
   const pollFailuresRef = useRef(0)
@@ -81,8 +80,8 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const jobStatusSeededRef = useRef(false)
 
   const isAdmin = user?.role === 'admin'
-  const selectedBatch = useMemo(() => batches.find((batch) => batch.id === selectedBatchId) ?? null, [batches, selectedBatchId])
-  const selectedJobPool = page === 'packs' && selectedBatchId ? selectedBatchJobs : jobs
+  const selectedPack = useMemo(() => packs.find((pack) => pack.id === selectedPackId) ?? null, [packs, selectedPackId])
+  const selectedJobPool = page === 'packs' && selectedPackId ? selectedPackJobs : jobs
   const selectedJob = useMemo(() => selectedJobPool.find((job) => job.id === selectedJobId) ?? null, [selectedJobPool, selectedJobId])
   const retainedPhotos = useMemo(() => retainedPhotoCount(jobs), [jobs])
   const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)).length, [jobs])
@@ -141,7 +140,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
-    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextBatches, nextPricing] = await Promise.all([
+    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextPacks, nextPricing] = await Promise.all([
       api.me(activeToken),
       api.balance(activeToken),
       api.transactions(activeToken),
@@ -149,7 +148,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       api.customRechargeOptions(),
       api.orders(activeToken),
       api.jobs(activeToken),
-      api.batches(activeToken),
+      api.packs(activeToken),
       api.pricing(activeToken),
     ])
     setUser(me)
@@ -160,10 +159,10 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setOrders(nextOrders)
     notifyJobCompletions(nextJobs)
     setJobs(nextJobs)
-    setBatches(nextBatches)
+    setPacks(nextPacks)
     setPricing(nextPricing)
-    if (selectedBatchId) {
-      setSelectedBatchJobs(await api.batchJobs(activeToken, selectedBatchId))
+    if (selectedPackId) {
+      setSelectedPackJobs(await api.packJobs(activeToken, selectedPackId))
     }
     if (me.role === 'admin') {
       const [users, settings, dashboard, nextAdminPackages] = await Promise.all([
@@ -177,7 +176,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       setAdminDashboard(dashboard)
       setAdminPackages(nextAdminPackages)
     }
-  }, [notifyJobCompletions, selectedBatchId, token])
+  }, [notifyJobCompletions, selectedPackId, token])
 
   useEffect(() => {
     refreshSetupStatus().catch(showError)
@@ -213,15 +212,15 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       const delay = document.visibilityState === 'hidden' ? Math.max(baseDelay, 15000) : baseDelay
       timer = window.setTimeout(poll, delay)
       try {
-        const [nextJobs, nextBatches, nextBalance, nextOrders] = await Promise.all([
+        const [nextJobs, nextPacks, nextBalance, nextOrders] = await Promise.all([
           api.jobs(token),
-          api.batches(token),
+          api.packs(token),
           api.balance(token),
           api.orders(token),
         ])
         notifyJobCompletions(nextJobs)
         setJobs(nextJobs)
-        setBatches(nextBatches)
+        setPacks(nextPacks)
         setBalance(nextBalance)
         setOrders(nextOrders)
         pollFailuresRef.current = 0
@@ -324,9 +323,9 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setPackages([])
     setOrders([])
     setJobs([])
-    setBatches([])
-    setSelectedBatchId(null)
-    setSelectedBatchJobs([])
+    setPacks([])
+    setSelectedPackId(null)
+    setSelectedPackJobs([])
     setPricing([])
     setAdminUsers([])
     setAdminPackages([])
@@ -364,8 +363,8 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     try {
       const created = await api.createJobsBatch(token, payloads, batchName, mode)
       setSelectedJobId(created.jobs[0]?.id ?? null)
-      navigate('packs')
-      setMessage(text(`${created.jobs.length} 个任务已入队，冻结 ${created.total_price_credits} 点。`, `${created.jobs.length} jobs queued; ${created.total_price_credits} credits reserved.`))
+      navigate('gallery')
+      setMessage(text(`${created.jobs.length} 个任务已入队作品库，冻结 ${created.total_price_credits} 点。`, `${created.jobs.length} jobs queued to the gallery; ${created.total_price_credits} credits reserved.`))
       await refreshCore(token)
     } catch (error) {
       showError(error)
@@ -415,25 +414,38 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
-  async function selectBatch(batch: GenerationBatch) {
+  async function createPack(name: string) {
     if (!token) return
-    setSelectedBatchId(batch.id)
-    setSelectedBatchJobs(await api.batchJobs(token, batch.id))
+    try {
+      const pack = await api.createPack(token, name)
+      setSelectedPackId(pack.id)
+      setSelectedPackJobs([])
+      await refreshCore(token)
+      setMessage(text('素材包已创建', 'Pack created'))
+    } catch (error) {
+      showError(error)
+    }
+  }
+
+  async function selectPack(pack: AssetPack) {
+    if (!token) return
+    setSelectedPackId(pack.id)
+    setSelectedPackJobs(await api.packJobs(token, pack.id))
     setSelectedJobId(null)
     navigate('packs')
-    setMessage(text(`已筛选素材包：${batch.name}`, `Filtered pack: ${batch.name}`), 'info')
+    setMessage(text(`已打开素材包：${pack.name}`, `Opened pack: ${pack.name}`), 'info')
   }
 
-  function clearBatchFilter() {
-    setSelectedBatchId(null)
-    setSelectedBatchJobs([])
+  function clearPackSelection() {
+    setSelectedPackId(null)
+    setSelectedPackJobs([])
     setSelectedJobId(null)
-    setMessage(text('已显示全部作品', 'Showing all works'), 'info')
+    setMessage(text('已取消素材包选择', 'Pack selection cleared'), 'info')
   }
 
-  async function renameBatch(batch: GenerationBatch) {
+  async function renamePack(pack: AssetPack) {
     if (!token) return
-    const name = window.prompt(text('新的素材包名称', 'New pack name'), batch.name)
+    const name = window.prompt(text('新的素材包名称', 'New pack name'), pack.name)
     if (name === null) return
     const trimmed = name.trim()
     if (!trimmed) {
@@ -441,7 +453,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       return
     }
     try {
-      await api.updateBatch(token, batch.id, { name: trimmed })
+      await api.updatePack(token, pack.id, { name: trimmed })
       await refreshCore(token)
       setMessage(text('素材包已重命名', 'Pack renamed'))
     } catch (error) {
@@ -449,12 +461,12 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
-  async function toggleArchiveBatch(batch: GenerationBatch) {
+  async function toggleArchivePack(pack: AssetPack) {
     if (!token) return
-    const nextStatus = batch.status === 'archived' ? 'active' : 'archived'
-    if (nextStatus === 'archived' && !window.confirm(text(`归档「${batch.name}」？`, `Archive “${batch.name}”?`))) return
+    const nextStatus = pack.status === 'archived' ? 'active' : 'archived'
+    if (nextStatus === 'archived' && !window.confirm(text(`归档「${pack.name}」？`, `Archive “${pack.name}”?`))) return
     try {
-      await api.updateBatch(token, batch.id, { status: nextStatus })
+      await api.updatePack(token, pack.id, { status: nextStatus })
       await refreshCore(token)
       setMessage(nextStatus === 'archived' ? text('素材包已归档', 'Pack archived') : text('素材包已恢复', 'Pack restored'))
     } catch (error) {
@@ -462,12 +474,12 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
-  async function deleteBatch(batch: GenerationBatch) {
+  async function deletePack(pack: AssetPack) {
     if (!token) return
-    if (!window.confirm(text(`删除空素材包「${batch.name}」？此操作无法撤销。`, `Delete empty pack “${batch.name}”? This cannot be undone.`))) return
+    if (!window.confirm(text(`删除空素材包「${pack.name}」？此操作无法撤销。`, `Delete empty pack “${pack.name}”? This cannot be undone.`))) return
     try {
-      await api.deleteBatch(token, batch.id)
-      if (selectedBatchId === batch.id) clearBatchFilter()
+      await api.deletePack(token, pack.id)
+      if (selectedPackId === pack.id) clearPackSelection()
       await refreshCore(token)
       setMessage(text('素材包已删除', 'Pack deleted'))
     } catch (error) {
@@ -475,25 +487,62 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
-  async function downloadBatch(batch: GenerationBatch) {
+  async function downloadPack(pack: AssetPack) {
     if (!token) return
-    setDownloadingBatchId(batch.id)
+    setDownloadingPackId(pack.id)
     setMessage('')
     try {
-      const blob = await api.downloadBatch(token, batch.id)
+      const blob = await api.downloadPack(token, pack.id)
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `pix-batch-${batch.id}.zip`
+      link.download = `pix-pack-${pack.id}.zip`
       document.body.appendChild(link)
       link.click()
       link.remove()
       URL.revokeObjectURL(url)
-      setMessage(text(`${batch.name} 开始下载`, `${batch.name} download started`), 'info')
+      setMessage(text(`${pack.name} 开始下载`, `${pack.name} download started`), 'info')
     } catch (error) {
       showError(error)
     } finally {
-      setDownloadingBatchId(null)
+      setDownloadingPackId(null)
+    }
+  }
+
+  async function expandPack(pack: AssetPack) {
+    if (!token) return
+    if (!window.confirm(text(`消耗 99 点为「${pack.name}」增加 1 个保存槽位？`, `Spend 99 credits to add one slot to “${pack.name}”?`))) return
+    try {
+      await api.expandPack(token, pack.id)
+      await refreshCore(token)
+      setMessage(text('素材包容量已扩容', 'Pack capacity expanded'))
+    } catch (error) {
+      showError(error)
+    }
+  }
+
+  async function addJobToPack(pack: AssetPack, job: GenerationJob) {
+    if (!token) return
+    try {
+      await api.addJobToPack(token, pack.id, job.id)
+      setSelectedPackId(pack.id)
+      setSelectedPackJobs(await api.packJobs(token, pack.id))
+      await refreshCore(token)
+      setMessage(text('作品已保存到素材包', 'Work saved to pack'))
+    } catch (error) {
+      showError(error)
+    }
+  }
+
+  async function removeJobFromPack(pack: AssetPack, job: GenerationJob) {
+    if (!token) return
+    try {
+      await api.removeJobFromPack(token, pack.id, job.id)
+      setSelectedPackJobs(await api.packJobs(token, pack.id))
+      await refreshCore(token)
+      setMessage(text('作品已从素材包移除', 'Work removed from pack'))
+    } catch (error) {
+      showError(error)
     }
   }
 
@@ -517,24 +566,6 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
-  async function retryFailedBatch(batch: GenerationBatch) {
-    if (!token) return
-    if (!confirmPhotoRetentionBeforeCreate(batch.failed_count)) return
-    if (!window.confirm(text(`重试「${batch.name}」的 ${batch.failed_count} 个失败项？`, `Retry ${batch.failed_count} failed items in “${batch.name}”?`))) return
-    setRetryingBatchId(batch.id)
-    setMessage('')
-    try {
-      const result = await api.retryFailedBatch(token, batch.id)
-      setMessage(text(`${result.jobs.length} 个失败项已重试，冻结 ${result.total_price_credits} 点。`, `${result.jobs.length} failed items retried; ${result.total_price_credits} credits reserved.`))
-      setSelectedBatchId(batch.id)
-      setSelectedBatchJobs(await api.batchJobs(token, batch.id))
-      await refreshCore(token)
-    } catch (error) {
-      showError(error)
-    } finally {
-      setRetryingBatchId(null)
-    }
-  }
 
   async function pixelizeCandidate(job: GenerationJob, candidate: ContactSheetCandidate) {
     const pixelize = (job.params_json?.pixelize as JobCreateRequest['pixelize'] | undefined) ?? defaultPixelize
@@ -707,13 +738,13 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
           {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onCreateJobs={createRawImageJobs} onRefresh={() => refreshCore()} />}
           {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} />}
-          {page === 'packs' && <PacksPage batches={batches} selectedBatch={selectedBatch} selectedBatchId={selectedBatchId} selectedBatchJobs={selectedBatchJobs} selectedJobId={selectedJobId} retrying={retryingBatchId !== null} downloading={downloadingBatchId !== null} onSelectBatch={selectBatch} onClearSelection={clearBatchFilter} onRetryFailed={retryFailedBatch} onDownloadBatch={downloadBatch} onRenameBatch={renameBatch} onToggleArchive={toggleArchiveBatch} onDeleteBatch={deleteBatch} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
+          {page === 'packs' && <PacksPage packs={packs} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPack={expandPack} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
           {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
           {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onTestEmail={testEmailSetting} />}
         </WorkspaceShell>
       ) : (
         <div>
-          <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={batches.length} />
+          <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={packs.length} />
           <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} />} />
           <SiteFooter />
         </div>

@@ -193,9 +193,16 @@ def create_jobs_batch(
     if available < total_price:
         raise insufficient_credits_http()
 
-    batch = GenerationBatch(user_id=user.id, name=batch_name.strip() or _default_batch_name(), mode=mode.strip() or "mixed")
-    db.add(batch)
-    db.flush()
+    batch: GenerationBatch | None = None
+    if new_jobs > 0:
+        batch = GenerationBatch(
+            user_id=user.id,
+            name=batch_name.strip() or _default_batch_name(),
+            mode=(mode or "mixed").strip() or "mixed",
+        )
+        db.add(batch)
+        db.flush()
+
     jobs: list[GenerationJob] = []
     try:
         for index, (req, price) in enumerate(zip(reqs, prices, strict=True)):

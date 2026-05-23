@@ -77,7 +77,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
         <SpriteShowcaseList />
       </SectionFrame>
 
-      <SectionFrame id="examples" eyebrow={text('范例图谱', 'Sample atlas')} title={text('76 套题材范例，像首屏一样悬浮验收', '76 sample themes with hover-to-review details')} description={text('默认用紧凑素材格展示题材边界；选择题材后拆开 8 个物品格，并展开 16:9 UI 展示图、当前语言提示词和文件名。', 'Compact sprite grids show theme boundaries by default; selecting a theme opens 8 item slots, a 16:9 UI showcase, localized prompts, and filenames.')}>
+      <SectionFrame id="examples" eyebrow={text('范例图谱', 'Sample atlas')} title={text('76 套题材范例，像首屏一样悬浮验收', '76 sample themes with hover-to-review details')} description={text('默认用紧凑素材格展示题材边界；选择题材后拆开 8 个物品格，并展开 16:9 UI 展示图和当前语言提示词。', 'Compact sprite grids show theme boundaries by default; selecting a theme opens 8 item slots, a 16:9 UI showcase, and localized prompts.')}>
         <ExampleAtlas />
       </SectionFrame>
 
@@ -91,7 +91,7 @@ function WorkflowSection() {
   const stickyNotes = [
     { label: text('任务单', 'Task sheet'), title: text('先定交付规格', 'Lock delivery specs first'), body: text('名称、尺寸、颜色数、透明背景和批次备注先进同一张生产单。', 'Names, sizes, color count, transparency, and batch notes land in one production sheet.'), mark: '01', tone: 'bg-[hsl(var(--pix-peach))]' },
     { label: text('工程图', 'Blueprint'), title: text('不只给一张图', 'More than one image'), body: text('源图、像素网格、透明 PNG、预览与 meta 一起归档，便于复查和返修。', 'Source images, pixel grids, transparent PNGs, previews, and metadata are archived together.'), mark: 'JSON', tone: 'bg-[hsl(var(--pix-lavender))]' },
-    { label: text('批量包', 'Batch pack'), title: text('按素材包推进', 'Move by asset pack'), body: text('一组素材统一入队；失败项单独重试，成功项直接打包下载。', 'Queue a group together; retry failed items separately and download successes as a pack.'), mark: 'ZIP', tone: 'bg-[hsl(var(--pix-mint))]' },
+    { label: text('批量入库', 'Batch gallery'), title: text('先入作品库，再进素材包', 'Gallery first, packs when needed'), body: text('一组素材统一入队；成功作品可拖入素材包长期保存。', 'Queue a group together; drag successful works into packs for long-term keeping.'), mark: 'SAVE', tone: 'bg-[hsl(var(--pix-mint))]' },
     { label: text('小尺寸', 'Small sizes'), title: text('交付前先验收', 'Review before delivery'), body: text('16×16、32×32 关注轮廓和色板，不把大图粗暴缩小当成像素资产。', 'Check silhouettes and palettes at 16×16 and 32×32 instead of treating downscaled art as pixel assets.'), mark: '16', tone: 'bg-[hsl(var(--pix-sky))]' },
   ]
   const pipelineProofs = [
@@ -138,7 +138,7 @@ function AssistantSection() {
   const assistantTiles = [
     { title: text('提示词助手', 'Prompt assistant'), body: text('把题材、用途、尺寸和透明背景整理成可复用提示词。', 'Turn theme, use case, size, and transparency needs into reusable prompts.'), badge: text('提示词', 'Prompt'), tone: 'bg-[hsl(var(--pix-peach))]' },
     { title: text('验收助手', 'Review assistant'), body: text('把源图、像素图和透明 PNG 放在一张卡片里比对。', 'Compare source, pixelized result, and transparent PNG in one card.'), badge: text('验收', 'Review'), tone: 'bg-[hsl(var(--pix-rose))]' },
-    { title: text('打包助手', 'Pack assistant'), body: text('批量导出、路径复制和失败重试从作品库直接完成。', 'Export packs, copy paths, and retry failures directly from the gallery.'), badge: text('打包', 'Pack'), tone: 'bg-[hsl(var(--pix-mint))]' },
+    { title: text('打包助手', 'Pack assistant'), body: text('批量导出、保存到素材包和失败重试从作品库直接完成。', 'Export, save to packs, and retry failures directly from the gallery.'), badge: text('打包', 'Pack'), tone: 'bg-[hsl(var(--pix-mint))]' },
   ]
   const steps = [text('提示词', 'Prompt'), text('网格', 'Grid'), text('打包', 'Pack')]
   return (
@@ -375,7 +375,7 @@ function AuthSection({ authSlot }: { authSlot: ReactNode }) {
         <div>
           <Badge>{text('开始生产', 'Start producing')}</Badge>
           <h2 className="mt-5 font-sans text-4xl font-semibold tracking-tight md:text-6xl">{text('进入像素工位台', 'Enter the pixel workbench')}</h2>
-          <p className="mt-5 max-w-xl text-base leading-8 text-muted-foreground">{text('创建单图或素材包，完成后在作品库挑选、重试、打包导出。', 'Create single images or asset packs, then review, retry, package, and export them from the gallery.')}</p>
+          <p className="mt-5 max-w-xl text-base leading-8 text-muted-foreground">{text('创建单图或批量任务，完成后在作品库挑选、保存到素材包、重试和导出。', 'Create single images or batch jobs, then review, save to packs, retry, and export from the gallery.')}</p>
           <div className="mt-6 flex flex-wrap gap-3"><Button asChild><a href="#auth-panel">{text('登录', 'Sign in')}</a></Button><Button variant="outline" asChild><a href="#workflow">{text('看优势', 'View benefits')}</a></Button></div>
         </div>
         <div>{authSlot}</div>

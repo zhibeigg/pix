@@ -215,6 +215,17 @@ export type GenerationBatch = {
   total_price_credits: number
 }
 
+export type AssetPack = {
+  id: number
+  name: string
+  status: string
+  capacity: number
+  item_count: number
+  remaining_capacity: number
+  created_at: string
+  updated_at: string
+}
+
 export type GenerationJob = {
   id: number
   batch_id: number | null

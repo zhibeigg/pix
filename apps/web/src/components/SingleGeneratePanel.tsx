@@ -54,7 +54,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
     setUploading(true); setUploadMessage(text('上传中…', 'Uploading…'))
     try {
       const uploaded = await api.uploadImage(token, file)
-      setInputImagePath(uploaded.path); setUploadUrl(uploaded.url ?? ''); setUploadMessage(text(`已上传 ${uploaded.filename}`, `Uploaded ${uploaded.filename}`))
+      setInputImagePath(uploaded.path); setUploadUrl(uploaded.url ?? ''); setUploadMessage(text('图片已上传，可继续提交任务。', 'Image uploaded. You can submit the job now.'))
     } catch (error) {
       setUploadMessage(error instanceof Error ? error.message : text('上传失败', 'Upload failed'))
     } finally { setUploading(false) }
@@ -87,7 +87,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
 
         {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><PixField label={text('素材名称', 'Asset name')} hint={text('会注入 pix asset 的游戏物品提示词模板。', 'Injected into the pix asset game-item prompt template.')}><Input value={assetName} onChange={(e) => setAssetName(e.target.value)} /></PixField><PixField label={text('额外风格描述', 'Extra style notes')}><Textarea value={assetExtraPrompt} rows={3} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField></div>}
         {needsPrompt && <PixField label={text('素材描述', 'Asset description')} hint={text('写清主体、材质和用途。', 'Describe the subject, material, and use case clearly.')}><Textarea value={prompt} rows={5} onChange={(e) => setPrompt(e.target.value)} /></PixField>}
-        {needsImage && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} label={text('等待上传预览', 'Waiting for upload preview')} /><PixField label={text('图片路径', 'Image path')}><Input value={inputImagePath} placeholder={text('上传后自动填充', 'Filled after upload')} onChange={(e) => setInputImagePath(e.target.value)} /></PixField></div>}
+        {needsImage && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} label={text('等待上传预览', 'Waiting for upload preview')} /></div>}
 
         <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} />
         {isSprite && <PixField label={text('GIF 帧间隔(ms)', 'GIF frame interval (ms)')}><Input type="number" value={durationMs} onChange={(e) => setDurationMs(Number(e.target.value))} /></PixField>}

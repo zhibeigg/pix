@@ -174,6 +174,35 @@ class GenerationBatch(Base):
     jobs: Mapped[list["GenerationJob"]] = relationship(back_populates="batch")
 
 
+class AssetPack(Base):
+    __tablename__ = "asset_packs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(160), default="")
+    status: Mapped[str] = mapped_column(String(32), default="active", index=True)
+    capacity: Mapped[int] = mapped_column(Integer, default=10)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    items: Mapped[list["AssetPackItem"]] = relationship(back_populates="pack", cascade="all, delete-orphan")
+
+
+class AssetPackItem(Base):
+    __tablename__ = "asset_pack_items"
+    __table_args__ = (UniqueConstraint("pack_id", "job_id", name="uq_asset_pack_item_pack_job"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    pack_id: Mapped[int] = mapped_column(ForeignKey("asset_packs.id"), index=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("generation_jobs.id"), index=True)
+    position: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+    pack: Mapped[AssetPack] = relationship(back_populates="items")
+    job: Mapped["GenerationJob"] = relationship(back_populates="pack_items")
+
+
 class GenerationJob(Base):
     __tablename__ = "generation_jobs"
     __table_args__ = (UniqueConstraint("user_id", "client_request_id", name="uq_job_user_request"),)
@@ -196,6 +225,7 @@ class GenerationJob(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     batch: Mapped[GenerationBatch | None] = relationship(back_populates="jobs")
+    pack_items: Mapped[list[AssetPackItem]] = relationship(back_populates="job")
     outputs: Mapped[list["GenerationOutput"]] = relationship(back_populates="job")
 
 

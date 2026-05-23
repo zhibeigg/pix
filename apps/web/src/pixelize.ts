@@ -75,5 +75,5 @@ export function jobInputSummary(job: GenerationJob, fallback = '无输入摘要'
     const name = (asset as { name?: unknown }).name
     if (typeof name === 'string' && name.trim()) return summarizePrompt(name, fallback)
   }
-  return summarizePrompt(job.prompt || job.input_image_path, fallback)
+  return summarizePrompt(job.prompt, fallback)
 }

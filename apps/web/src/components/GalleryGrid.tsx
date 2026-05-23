@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Download, FileDown, RotateCcw } from 'lucide-react'
+import { useMemo, useState, type DragEvent } from 'react'
+import { Download, FileDown, PackagePlus, RotateCcw, X } from 'lucide-react'
 import { fileName, signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { ContactSheetCandidate, GenerationJob, JobOutput } from '../types'
@@ -14,11 +14,11 @@ import { PixPanel } from './pix/PixPanel'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixStatusBadge } from './pix/PixStatusBadge'
 
-type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void> }
+type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; draggableSucceeded?: boolean }
 type DownloadKind = 'source' | 'pixelized' | 'preview' | 'sprite_gif' | 'sprite_sheet' | 'contact_sheet'
 type DownloadOption = { id: DownloadKind; label: string; description: string; path: string; url: string; filename: string }
 
-export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, onSelect, onCandidatePixelize, onRetryJob }: GalleryGridProps) {
+export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, onSelect, onCandidatePixelize, onRetryJob, onSaveToPack, onRemoveFromPack, draggableSucceeded = false }: GalleryGridProps) {
   const { t } = useI18n()
   const [page, setPage] = useState(1)
   const pageSize = 48
@@ -31,7 +31,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
     <PixPanel eyebrow={t('gallery.eyebrow')} title={t('gallery.title')} description={subtitle} action={<div className="flex flex-wrap gap-2"><Badge variant="info">{t('gallery.itemCount', { count: ordered.length })}</Badge><Badge variant="outline">{t('gallery.maxWorks')}</Badge><Badge variant="outline">{t('gallery.page', { page: safePage, total: totalPages })}</Badge></div>}>
       {ordered.length === 0 ? <div className="rounded-lg border border-dashed border-border bg-muted/45 p-8 text-center text-muted-foreground">{t('gallery.empty')}</div> : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((job) => <GalleryCard key={job.id} job={job} selected={selectedJobId === job.id} retrying={retryingJobId === job.id} onSelect={onSelect} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} />)}
+          {visible.map((job) => <GalleryCard key={job.id} job={job} selected={selectedJobId === job.id} retrying={retryingJobId === job.id} draggable={draggableSucceeded && job.status === 'succeeded'} onSelect={onSelect} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} onSaveToPack={onSaveToPack} onRemoveFromPack={onRemoveFromPack} />)}
         </div>
       )}
       {ordered.length > pageSize && <div className="mt-5 flex justify-center gap-2"><Button type="button" variant="outline" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>{t('gallery.previous')}</Button><Button type="button" variant="outline" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>{t('gallery.next')}</Button></div>}
@@ -39,7 +39,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
   )
 }
 
-function GalleryCard({ job, selected, retrying, onSelect, onCandidatePixelize, onRetryJob }: { job: GenerationJob; selected: boolean; retrying: boolean; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void> }) {
+function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidatePixelize, onRetryJob, onSaveToPack, onRemoveFromPack }: { job: GenerationJob; selected: boolean; retrying: boolean; draggable: boolean; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void> }) {
   const { language, t } = useI18n()
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
   const downloadOptions = output ? buildDownloadOptions(job, output, t) : []
@@ -48,10 +48,19 @@ function GalleryCard({ job, selected, retrying, onSelect, onCandidatePixelize, o
   const typeLabel = jobTypeLabel(job.job_type, language)
   const displayName = jobDisplayName(job, t)
   const summary = jobDisplaySummary(job, displayName, t)
+  function startDrag(event: DragEvent<HTMLElement>) {
+    if (!draggable) return
+    event.dataTransfer.effectAllowed = 'copy'
+    event.dataTransfer.setData('application/x-pix-job-id', String(job.id))
+    event.dataTransfer.setData('text/plain', String(job.id))
+  }
+
   return (
     <article
       tabIndex={0}
       aria-expanded={selected}
+      draggable={draggable}
+      onDragStart={startDrag}
       onClick={() => onSelect(job)}
       onKeyDown={(event) => {
         if (event.currentTarget !== event.target) return
@@ -76,7 +85,7 @@ function GalleryCard({ job, selected, retrying, onSelect, onCandidatePixelize, o
         </div>
         {selected && <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{t('common.points', { count: job.price_credits })}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge>{job.batch_name && <Badge variant="outline">{job.batch_name}</Badge>}</div>}
         {selected && output && <CandidateMiniGrid job={job} output={output} onCandidatePixelize={onCandidatePixelize} />}
-        <div className="flex flex-wrap gap-2"><Button size="sm" variant={selected ? 'default' : 'outline'} onClick={(event) => { event.stopPropagation(); onSelect(job) }}>{selected ? t('gallery.expanded') : t('gallery.details')}</Button>{job.status === 'failed' && onRetryJob && <Button size="sm" variant="destructive" disabled={retrying} onClick={(event) => { event.stopPropagation(); void onRetryJob(job) }}><RotateCcw />{retrying ? t('gallery.retrying') : t('gallery.retry')}</Button>}{downloadOptions.length > 0 && <DownloadDialog job={job} options={downloadOptions} />}</div>
+        <div className="flex flex-wrap gap-2"><Button size="sm" variant={selected ? 'default' : 'outline'} onClick={(event) => { event.stopPropagation(); onSelect(job) }}>{selected ? t('gallery.expanded') : t('gallery.details')}</Button>{job.status === 'succeeded' && onSaveToPack && <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); void onSaveToPack(job) }}><PackagePlus />{t('packs.saveWork')}</Button>}{onRemoveFromPack && <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); void onRemoveFromPack(job) }}><X />{t('packs.removeWork')}</Button>}{job.status === 'failed' && onRetryJob && <Button size="sm" variant="destructive" disabled={retrying} onClick={(event) => { event.stopPropagation(); void onRetryJob(job) }}><RotateCcw />{retrying ? t('gallery.retrying') : t('gallery.retry')}</Button>}{downloadOptions.length > 0 && <DownloadDialog job={job} options={downloadOptions} />}</div>
       </div>
     </article>
   )
@@ -115,7 +124,6 @@ function DownloadDialog({ job, options }: { job: GenerationJob; options: Downloa
               <Checkbox checked={selectedSet.has(option.id)} onCheckedChange={(checked) => toggleOption(option.id, Boolean(checked))} className="mt-0.5" />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2 text-sm font-semibold"><FileDown className="h-4 w-4 text-primary" />{option.label}</span>
-                <span className="mt-1 block truncate text-xs text-muted-foreground">{option.filename}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">{option.description}</span>
               </span>
             </label>
@@ -174,7 +182,7 @@ function jobDisplayName(job: GenerationJob, t: (key: string, options?: Record<st
   if (assetName) return clampText(assetName, 42)
   const prompt = (job.prompt ?? '').replace(/\s+/g, ' ').trim()
   if (prompt) return clampText(prompt, 42)
-  if (job.input_image_path) return clampText(fileName(job.input_image_path), 42)
+  if (job.input_image_path) return t('gallery.uploadedImage')
   return `#${job.id}`
 }
 
