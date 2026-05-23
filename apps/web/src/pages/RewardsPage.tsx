@@ -124,7 +124,7 @@ export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
                 <Button size="sm" disabled={working || available <= 0} onClick={() => void transferRewards()}><ArrowRightLeft />{text('划转到余额', 'Transfer to credits')}</Button>
               </div>
             </div>
-            <div className="relative grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="motion-list-stagger relative grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <RewardMetric icon={<Clock3 />} label={text('待到账收益', 'Pending rewards')} value={money(summary?.pending_cents ?? 0, primaryCurrency)} />
               <RewardMetric icon={<WalletCards />} label={text('可用收益', 'Available rewards')} value={money(available, primaryCurrency)} />
               <RewardMetric icon={<Banknote />} label={text('总收益', 'Total rewards')} value={money(summary?.total_reward_cents ?? 0, primaryCurrency)} />
@@ -189,24 +189,24 @@ function RewardMetric({ icon, label, value }: { icon: ReactNode; label: ReactNod
 function InviteRows({ rows, onCopy }: { rows: ReferralInvite[]; onCopy: () => void }) {
   const { text } = useI18n()
   if (!rows.length) return <RewardEmpty title={text('暂无邀请记录', 'No invites yet')} action={<Button size="sm" onClick={() => void onCopy()}><Copy />{text('复制邀请链接，邀请好友', 'Copy invite link')}</Button>} />
-  return <div className="grid gap-2">{rows.map((row) => <RecordRow key={row.id} title={row.referred_user_display_name || row.referred_user_email} meta={row.referred_user_email} right={formatDateTime(row.created_at)} />)}</div>
+  return <div className="motion-list-stagger grid gap-2">{rows.map((row) => <RecordRow key={row.id} title={row.referred_user_display_name || row.referred_user_email} meta={row.referred_user_email} right={formatDateTime(row.created_at)} />)}</div>
 }
 
 function RewardRows({ rows }: { rows: ReferralReward[] }) {
   const { text } = useI18n()
   if (!rows.length) return <RewardEmpty title={text('暂无返佣明细', 'No reward records yet')} />
-  return <div className="grid gap-2">{rows.map((row) => <RecordRow key={row.id} title={money(row.amount_cents, row.currency)} meta={text(`订单 #${row.order_id} · ${rewardStatus(row.status, text)} · ${row.referred_user_email}`, `Order #${row.order_id} · ${rewardStatus(row.status, text)} · ${row.referred_user_email}`)} right={formatDateTime(row.created_at)} />)}</div>
+  return <div className="motion-list-stagger grid gap-2">{rows.map((row) => <RecordRow key={row.id} title={money(row.amount_cents, row.currency)} meta={text(`订单 #${row.order_id} · ${rewardStatus(row.status, text)} · ${row.referred_user_email}`, `Order #${row.order_id} · ${rewardStatus(row.status, text)} · ${row.referred_user_email}`)} right={formatDateTime(row.created_at)} />)}</div>
 }
 
 function SettlementRows({ rows }: { rows: ReferralSettlement[] }) {
   const { text } = useI18n()
   if (!rows.length) return <RewardEmpty title={text('暂无提现或划转记录', 'No transfer or withdrawal records yet')} />
-  return <div className="grid gap-2">{rows.map((row) => <RecordRow key={row.id} title={settlementTitle(row, text)} meta={`${settlementStatus(row.status, text)} · ${row.note || text('无备注', 'No note')}`} right={formatDateTime(row.created_at)} />)}</div>
+  return <div className="motion-list-stagger grid gap-2">{rows.map((row) => <RecordRow key={row.id} title={settlementTitle(row, text)} meta={`${settlementStatus(row.status, text)} · ${row.note || text('无备注', 'No note')}`} right={formatDateTime(row.created_at)} />)}</div>
 }
 
 function RecordRow({ title, meta, right }: { title: ReactNode; meta: ReactNode; right: ReactNode }) {
   return (
-    <div className="grid gap-2 rounded-lg border border-border bg-card px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center dark:border-white/10 dark:bg-white/5">
+    <div className="grid gap-2 rounded-lg border border-border bg-card px-4 py-3 transition-[background-color,border-color,box-shadow,transform] duration-[var(--motion-fast)] ease-[var(--ease-out-quart)] hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-24px_rgba(15,15,15,.45)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center dark:border-white/10 dark:bg-white/5">
       <div className="min-w-0"><p className="truncate font-semibold">{title}</p><p className="mt-1 truncate text-sm text-muted-foreground">{meta}</p></div>
       <p className="text-xs text-muted-foreground">{right}</p>
     </div>
@@ -214,7 +214,7 @@ function RecordRow({ title, meta, right }: { title: ReactNode; meta: ReactNode; 
 }
 
 function RewardEmpty({ title, action }: { title: ReactNode; action?: ReactNode }) {
-  return <div className="grid min-h-56 place-items-center gap-3 rounded-lg border border-dashed border-border bg-muted/28 p-8 text-center dark:border-white/10 dark:bg-white/5"><Gift className="h-12 w-12 text-muted-foreground" /><p className="text-sm text-muted-foreground">{title}</p>{action}</div>
+  return <div className="motion-panel-enter grid min-h-56 place-items-center gap-3 rounded-lg border border-dashed border-border bg-muted/28 p-8 text-center dark:border-white/10 dark:bg-white/5"><Gift className="motion-float-soft h-12 w-12 text-muted-foreground" /><p className="text-sm text-muted-foreground">{title}</p>{action}</div>
 }
 
 function RuleItem({ children }: { children: ReactNode }) {

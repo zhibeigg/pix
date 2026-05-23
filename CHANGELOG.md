@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.68] - 2026-05-23
+
+### Added
+
+- Web UI 新增全局动效层，为按钮、表单、弹层、菜单、表格、面板、页面切换和奖励页关键操作提供轻量微交互，并尊重 reduced-motion 偏好。
+
 ## [1.26.67] - 2026-05-23
 
 ### Added
