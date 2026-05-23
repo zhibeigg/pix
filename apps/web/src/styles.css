@@ -293,8 +293,8 @@ code {
     linear-gradient(-45deg, hsl(var(--border) / .45) 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, hsl(var(--border) / .45) 75%),
     linear-gradient(-45deg, transparent 75%, hsl(var(--border) / .45) 75%);
-  background-size: 18px 18px;
-  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+  background-size: 10px 10px;
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

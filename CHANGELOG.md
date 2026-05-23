@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.49] - 2026-05-23
+
+### Fixed
+
+- 收紧作品网格卡片尺寸，并缩小透明棋盘背景方格，提升大屏作品库密度。
+
 ## [1.25.48] - 2026-05-23
 
 ### Fixed
