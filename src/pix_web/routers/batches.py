@@ -25,6 +25,22 @@ def _safe_zip_name(value: str) -> str:
     return cleaned.strip("-")[:80] or "asset-pack"
 
 
+def _safe_file_prefix(value: str) -> str:
+    cleaned = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in value.strip())
+    return cleaned.strip("._")[:80]
+
+
+def _job_item_prefix(job: GenerationJob) -> str:
+    params = job.params_json if isinstance(job.params_json, dict) else {}
+    asset = params.get("asset") if isinstance(params, dict) else None
+    asset_name = asset.get("name") if isinstance(asset, dict) else None
+    if isinstance(asset_name, str) and asset_name.strip():
+        return _safe_file_prefix(asset_name) or f"job-{job.id}"
+    if job.prompt and job.prompt.strip():
+        return _safe_file_prefix(job.prompt) or f"job-{job.id}"
+    return f"job-{job.id}"
+
+
 def _add_output_file(zip_file: ZipFile, job_id: int, path_value: str | None, archive_name: str) -> bool:
     if not path_value:
         return False
@@ -44,11 +60,12 @@ def _build_batch_zip(batch: GenerationBatch) -> bytes:
             if job.status != "succeeded" or not job.outputs:
                 continue
             output: GenerationOutput = job.outputs[0]
-            added += int(_add_output_file(zip_file, job.id, output.source_path, f"{root}/job-{job.id}/01_source.png"))
-            added += int(_add_output_file(zip_file, job.id, output.analysis_json_path, f"{root}/job-{job.id}/02_analysis.json"))
-            added += int(_add_output_file(zip_file, job.id, output.pixelized_path, f"{root}/job-{job.id}/03_pixelized.png"))
-            added += int(_add_output_file(zip_file, job.id, output.preview_path, f"{root}/job-{job.id}/04_preview.png"))
-            added += int(_add_output_file(zip_file, job.id, output.meta_json_path, f"{root}/job-{job.id}/meta.json"))
+            prefix = _job_item_prefix(job)
+            item_dir = f"{root}/{prefix}-job-{job.id}"
+            added += int(_add_output_file(zip_file, job.id, output.source_path, f"{item_dir}/{prefix}_01_source.png"))
+            added += int(_add_output_file(zip_file, job.id, output.analysis_json_path, f"{item_dir}/{prefix}_02_analysis.json"))
+            added += int(_add_output_file(zip_file, job.id, output.pixelized_path, f"{item_dir}/{prefix}_03_pixelized.png"))
+            added += int(_add_output_file(zip_file, job.id, output.meta_json_path, f"{item_dir}/{prefix}_meta.json"))
     if added == 0:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="没有可下载的成功任务")
     return buffer.getvalue()

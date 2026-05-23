@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.48] - 2026-05-23
+
+### Fixed
+
+- 下载弹窗不再提供预览图下载；单文件下载与素材包 ZIP 内文件统一以作品/物品名作为文件名前缀。
+
 ## [1.25.47] - 2026-05-23
 
 ### Added

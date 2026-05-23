@@ -794,6 +794,13 @@ def test_asset_pack_create_add_expand_and_capacity(client: TestClient) -> None:
     assert expanded.json()["capacity"] == 2
     assert added_after_expand.status_code == 200
     assert added_after_expand.json()["item_count"] == 2
+    downloaded = client.get(f"/packs/{pack['id']}/download", headers=headers)
+    assert downloaded.status_code == 200
+    with ZipFile(BytesIO(downloaded.content)) as archive:
+        names = set(archive.namelist())
+    assert any(name.endswith("crystal_03_pixelized.png") for name in names)
+    assert any(name.endswith("ore_03_pixelized.png") for name in names)
+    assert not any("preview" in name for name in names)
     assert client.get("/credits/balance", headers=headers).json()["available_credits"] == 51
 
 
@@ -1280,11 +1287,11 @@ def test_download_batch_zip_includes_successful_outputs(client: TestClient, tmp_
     assert response.headers["content-type"] == "application/zip"
     with ZipFile(BytesIO(response.content)) as archive:
         names = set(archive.namelist())
-    assert any(name.endswith("01_source.png") for name in names)
-    assert any(name.endswith("03_pixelized.png") for name in names)
-    assert any(name.endswith("04_preview.png") for name in names)
-    assert any(name.endswith("02_analysis.json") for name in names)
-    assert any(name.endswith("meta.json") for name in names)
+    assert any(name.endswith("pixel_cat_01_source.png") for name in names)
+    assert any(name.endswith("pixel_cat_03_pixelized.png") for name in names)
+    assert not any("preview" in name for name in names)
+    assert any(name.endswith("pixel_cat_02_analysis.json") for name in names)
+    assert any(name.endswith("pixel_cat_meta.json") for name in names)
 
     _other, other_headers = _register_and_login(client, "download-other@example.com")
     forbidden = client.get(f"/batches/{created['batch_id']}/download", headers=other_headers)
