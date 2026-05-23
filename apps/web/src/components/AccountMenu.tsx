@@ -19,7 +19,7 @@ type AccountMenuProps = {
 }
 
 export function AccountMenu({ user, balance, activeJobs, completedJobs, failedJobs, isAdmin, onNavigate, onRefresh, onLogout }: AccountMenuProps) {
-  const { t, text } = useI18n()
+  const { t } = useI18n()
   return (
     <div className="flex min-w-0 items-center justify-end gap-2">
       <div className="hidden items-center gap-2 sm:flex">
@@ -46,7 +46,7 @@ export function AccountMenu({ user, balance, activeJobs, completedJobs, failedJo
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => onNavigate('billing')}><WalletCards />{t('account.billingCenter')}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onNavigate('rewards')}><Gift />{text('邀请奖励', 'Referral rewards')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onNavigate('rewards')}><Gift />{t('account.referralRewards')}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onNavigate('gallery')}><GalleryHorizontalEnd />{t('account.gallery')}</DropdownMenuItem>
           {isAdmin && <DropdownMenuItem onClick={() => onNavigate('admin')}><Settings />{t('account.adminConsole')}</DropdownMenuItem>}
           <DropdownMenuItem onClick={() => void onRefresh()}><RefreshCw />{t('account.refreshData')}</DropdownMenuItem>

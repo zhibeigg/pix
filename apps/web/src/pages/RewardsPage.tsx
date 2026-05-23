@@ -12,6 +12,7 @@ import { PixPanel } from '../components/pix/PixPanel'
 
 const REWARD_TABS = ['invites', 'rewards', 'settlements'] as const
 type RewardTab = typeof REWARD_TABS[number]
+type Translate = ReturnType<typeof useI18n>['t']
 
 type RewardsPageProps = {
   token: string
@@ -19,7 +20,7 @@ type RewardsPageProps = {
 }
 
 export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
-  const { text } = useI18n()
+  const { t } = useI18n()
   const [summary, setSummary] = useState<ReferralSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
@@ -34,7 +35,7 @@ export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
     try {
       setSummary(await api.referralSummary(token))
     } catch (err) {
-      setError(err instanceof Error ? err.message : text('邀请奖励加载失败。', 'Failed to load referral rewards.'))
+      setError(err instanceof Error ? err.message : t('rewards.errors.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -57,9 +58,9 @@ export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
     if (!summary?.invite_url) return
     try {
       await navigator.clipboard.writeText(summary.invite_url)
-      setNotice(text('邀请链接已复制。', 'Invite link copied.'))
+      setNotice(t('rewards.messages.linkCopied'))
     } catch {
-      setError(text('复制失败，请手动选中邀请链接。', 'Copy failed. Please select the invite link manually.'))
+      setError(t('rewards.errors.copyFailed'))
     }
   }
 
@@ -70,11 +71,11 @@ export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
     setError('')
     try {
       const settlement = await api.transferReferralRewards(token, primaryCurrency)
-      setNotice(text(`已划转 ${settlement.credits} 点到余额。`, `${settlement.credits} credits transferred to your balance.`))
+      setNotice(t('rewards.messages.transferSuccess', { count: settlement.credits }))
       await load()
       await onRefresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : text('划转失败。', 'Transfer failed.'))
+      setError(err instanceof Error ? err.message : t('rewards.errors.transferFailed'))
     } finally {
       setWorking(false)
     }
@@ -82,17 +83,17 @@ export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
 
   async function withdrawRewards() {
     if (!summary || available <= 0) return
-    if (!window.confirm(text('申请提现当前全部可用邀请收益？', 'Request withdrawal for all available referral rewards?'))) return
+    if (!window.confirm(t('rewards.withdrawConfirm'))) return
     setWorking(true)
     setNotice('')
     setError('')
     try {
-      await api.withdrawReferralRewards(token, available, primaryCurrency, text('用户从邀请奖励页申请提现', 'User requested withdrawal from rewards page'))
-      setNotice(text('提现申请已提交，等待人工处理。', 'Withdrawal request submitted for review.'))
+      await api.withdrawReferralRewards(token, available, primaryCurrency, t('rewards.withdrawNote'))
+      setNotice(t('rewards.messages.withdrawSubmitted'))
       await load()
       await onRefresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : text('提现申请失败。', 'Withdrawal request failed.'))
+      setError(err instanceof Error ? err.message : t('rewards.errors.withdrawFailed'))
     } finally {
       setWorking(false)
     }
@@ -101,39 +102,39 @@ export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
   return (
     <div className="grid gap-6">
       <PageHeader
-        eyebrow={text('邀请奖励', 'Referral rewards')}
-        title={text('邀请好友，获得额外奖励', 'Invite friends and earn rewards')}
-        description={text('复制专属链接给好友。好友注册并充值后，返佣会先进入待到账，成熟后可划转到点数余额或申请提现。', 'Share your invite link. Rewards from friends’ paid top-ups become available after the pending period, then can be transferred to credits or withdrawn.')}
-        action={<Button variant="outline" disabled={loading} onClick={() => void load()}><RefreshCw />{text('刷新', 'Refresh')}</Button>}
+        eyebrow={t('rewards.eyebrow')}
+        title={t('rewards.title')}
+        description={t('rewards.description')}
+        action={<Button variant="outline" disabled={loading} onClick={() => void load()}><RefreshCw />{t('common.refresh')}</Button>}
       />
 
       <PixPanel>
-        <div className="overflow-hidden rounded-xl border border-border bg-[hsl(var(--pix-navy))] text-white shadow-[0_24px_80px_-46px_rgba(0,0,0,.78)] dark:border-white/10">
+        <div className="motion-ambient-flow overflow-hidden rounded-xl border border-border bg-[hsl(var(--pix-navy))] text-white shadow-[0_24px_80px_-46px_rgba(0,0,0,.78)] dark:border-white/10">
           <div className="relative grid gap-6 p-5 sm:p-6">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(80,220,182,.28),transparent_34%),radial-gradient(circle_at_78%_6%,rgba(74,144,245,.24),transparent_28%),linear-gradient(120deg,rgba(18,119,117,.66),rgba(12,55,71,.82))]" />
             <div className="relative flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-400/18 text-emerald-200 ring-1 ring-emerald-200/20"><Gift className="h-5 w-5" /></div>
+                <div className="motion-attention-pop grid h-10 w-10 place-items-center rounded-full bg-emerald-400/18 text-emerald-200 ring-1 ring-emerald-200/20"><Gift className="h-5 w-5" /></div>
                 <div>
-                  <h2 className="text-lg font-semibold">{text('收益统计', 'Reward stats')}</h2>
-                  <p className="text-sm text-white/68">{text(`当前返佣比例 ${rate}%`, `Current commission rate ${rate}%`)}</p>
+                  <h2 className="text-lg font-semibold">{t('rewards.statsTitle')}</h2>
+                  <p className="text-sm text-white/68">{t('rewards.currentRate', { rate })}</p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="secondary" disabled={working || available <= 0} onClick={() => void withdrawRewards()}><Banknote />{text('提现', 'Withdraw')}</Button>
-                <Button size="sm" disabled={working || available <= 0} onClick={() => void transferRewards()}><ArrowRightLeft />{text('划转到余额', 'Transfer to credits')}</Button>
+                <Button size="sm" variant="secondary" disabled={working || available <= 0} onClick={() => void withdrawRewards()}><Banknote />{t('rewards.actions.withdraw')}</Button>
+                <Button size="sm" disabled={working || available <= 0} onClick={() => void transferRewards()}><ArrowRightLeft />{t('rewards.actions.transfer')}</Button>
               </div>
             </div>
             <div className="motion-list-stagger relative grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <RewardMetric icon={<Clock3 />} label={text('待到账收益', 'Pending rewards')} value={money(summary?.pending_cents ?? 0, primaryCurrency)} />
-              <RewardMetric icon={<WalletCards />} label={text('可用收益', 'Available rewards')} value={money(available, primaryCurrency)} />
-              <RewardMetric icon={<Banknote />} label={text('总收益', 'Total rewards')} value={money(summary?.total_reward_cents ?? 0, primaryCurrency)} />
-              <RewardMetric icon={<Users />} label={text('邀请人数', 'Invited users')} value={summary?.invited_count ?? 0} />
+              <RewardMetric icon={<Clock3 />} label={t('rewards.metrics.pending')} value={money(summary?.pending_cents ?? 0, primaryCurrency)} />
+              <RewardMetric icon={<WalletCards />} label={t('rewards.metrics.available')} value={money(available, primaryCurrency)} />
+              <RewardMetric icon={<Banknote />} label={t('rewards.metrics.total')} value={money(summary?.total_reward_cents ?? 0, primaryCurrency)} />
+              <RewardMetric icon={<Users />} label={t('rewards.metrics.invited')} value={summary?.invited_count ?? 0} />
             </div>
             <div className="relative grid gap-2 rounded-lg bg-black/24 p-2 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
-              <span className="px-2 text-xs font-semibold text-white/58">{text('邀请链接', 'Invite link')}</span>
-              <code className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-white/10 px-3 py-2 text-sm text-white">{summary?.invite_url ?? text('正在生成邀请链接…', 'Generating invite link…')}</code>
-              <Button size="sm" disabled={!summary?.invite_url} onClick={() => void copyInviteLink()}><Copy />{text('复制', 'Copy')}</Button>
+              <span className="px-2 text-xs font-semibold text-white/58">{t('rewards.inviteLink')}</span>
+              <code className="motion-shimmer min-w-0 overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-white/10 px-3 py-2 text-sm text-white">{summary?.invite_url ?? t('rewards.generatingLink')}</code>
+              <Button size="sm" disabled={!summary?.invite_url} onClick={() => void copyInviteLink()}><Copy />{t('common.copy')}</Button>
             </div>
           </div>
         </div>
@@ -141,7 +142,7 @@ export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
         <div className="mt-4 grid gap-3">
           {notice && <Alert variant="success">{notice}</Alert>}
           {error && <Alert variant="destructive">{error}</Alert>}
-          {!summary?.enabled && <Alert variant="warning">{text('邀请奖励当前已关闭，已有收益仍可查看。', 'Referral rewards are currently disabled; existing rewards remain visible.')}</Alert>}
+          {!summary?.enabled && <Alert variant="warning">{t('rewards.disabled')}</Alert>}
         </div>
       </PixPanel>
 
@@ -150,26 +151,26 @@ export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
           <div className="flex flex-wrap gap-2 border-b border-border pb-3 dark:border-white/10">
             {REWARD_TABS.map((item) => (
               <Button key={item} type="button" size="sm" variant={tab === item ? 'default' : 'ghost'} onClick={() => setTab(item)}>
-                {tabLabel(item, text)}
+                {tabLabel(item, t)}
                 <Badge variant="secondary">{tabCount[item]}</Badge>
               </Button>
             ))}
           </div>
           <div className="mt-4">
-            {loading ? <RewardEmpty title={text('正在同步邀请奖励…', 'Syncing referral rewards…')} /> : null}
+            {loading ? <RewardEmpty title={t('rewards.loading')} /> : null}
             {!loading && tab === 'invites' && <InviteRows rows={summary?.invites ?? []} onCopy={copyInviteLink} />}
             {!loading && tab === 'rewards' && <RewardRows rows={summary?.rewards ?? []} />}
             {!loading && tab === 'settlements' && <SettlementRows rows={summary?.settlements ?? []} />}
           </div>
         </PixPanel>
 
-        <PixPanel eyebrow={text('奖励说明', 'Reward rules')} title={text('返佣如何到账', 'How rewards settle')}>
+        <PixPanel eyebrow={t('rewards.rulesEyebrow')} title={t('rewards.rulesTitle')}>
           <ul className="grid gap-3 text-sm leading-6 text-muted-foreground">
-            <RuleItem>{text(`当前返佣比例：${rate}%`, `Current commission rate: ${rate}%`)}</RuleItem>
-            <RuleItem>{text('邀请好友注册，好友充值后您可获得相应奖励。', 'Invite friends to register; you earn rewards after their paid top-ups.')}</RuleItem>
-            <RuleItem>{text(`好友充值后返利将进入待到账，${summary?.pending_days ?? 30} 天后自动转入可用收益。`, `Rewards stay pending and become available after ${summary?.pending_days ?? 30} days.`)}</RuleItem>
-            <RuleItem>{text('通过划转功能将奖励兑换到您的账户余额中。', 'Use transfer to convert rewards into account credits.')}</RuleItem>
-            <RuleItem>{text('提现申请会进入人工处理流程，处理完成后可在记录中追踪。', 'Withdrawal requests enter manual review and can be tracked in records.')}</RuleItem>
+            <RuleItem>{t('rewards.rules.rate', { rate })}</RuleItem>
+            <RuleItem>{t('rewards.rules.invite')}</RuleItem>
+            <RuleItem>{t('rewards.rules.pending', { days: summary?.pending_days ?? 30 })}</RuleItem>
+            <RuleItem>{t('rewards.rules.transfer')}</RuleItem>
+            <RuleItem>{t('rewards.rules.withdrawal')}</RuleItem>
           </ul>
         </PixPanel>
       </div>
@@ -187,21 +188,21 @@ function RewardMetric({ icon, label, value }: { icon: ReactNode; label: ReactNod
 }
 
 function InviteRows({ rows, onCopy }: { rows: ReferralInvite[]; onCopy: () => void }) {
-  const { text } = useI18n()
-  if (!rows.length) return <RewardEmpty title={text('暂无邀请记录', 'No invites yet')} action={<Button size="sm" onClick={() => void onCopy()}><Copy />{text('复制邀请链接，邀请好友', 'Copy invite link')}</Button>} />
+  const { t } = useI18n()
+  if (!rows.length) return <RewardEmpty title={t('rewards.empty.invites')} action={<Button size="sm" onClick={() => void onCopy()}><Copy />{t('rewards.empty.copyInvite')}</Button>} />
   return <div className="motion-list-stagger grid gap-2">{rows.map((row) => <RecordRow key={row.id} title={row.referred_user_display_name || row.referred_user_email} meta={row.referred_user_email} right={formatDateTime(row.created_at)} />)}</div>
 }
 
 function RewardRows({ rows }: { rows: ReferralReward[] }) {
-  const { text } = useI18n()
-  if (!rows.length) return <RewardEmpty title={text('暂无返佣明细', 'No reward records yet')} />
-  return <div className="motion-list-stagger grid gap-2">{rows.map((row) => <RecordRow key={row.id} title={money(row.amount_cents, row.currency)} meta={text(`订单 #${row.order_id} · ${rewardStatus(row.status, text)} · ${row.referred_user_email}`, `Order #${row.order_id} · ${rewardStatus(row.status, text)} · ${row.referred_user_email}`)} right={formatDateTime(row.created_at)} />)}</div>
+  const { t } = useI18n()
+  if (!rows.length) return <RewardEmpty title={t('rewards.empty.rewards')} />
+  return <div className="motion-list-stagger grid gap-2">{rows.map((row) => <RecordRow key={row.id} title={money(row.amount_cents, row.currency)} meta={t('rewards.rewardMeta', { orderId: row.order_id, status: rewardStatus(row.status, t), email: row.referred_user_email })} right={formatDateTime(row.created_at)} />)}</div>
 }
 
 function SettlementRows({ rows }: { rows: ReferralSettlement[] }) {
-  const { text } = useI18n()
-  if (!rows.length) return <RewardEmpty title={text('暂无提现或划转记录', 'No transfer or withdrawal records yet')} />
-  return <div className="motion-list-stagger grid gap-2">{rows.map((row) => <RecordRow key={row.id} title={settlementTitle(row, text)} meta={`${settlementStatus(row.status, text)} · ${row.note || text('无备注', 'No note')}`} right={formatDateTime(row.created_at)} />)}</div>
+  const { t } = useI18n()
+  if (!rows.length) return <RewardEmpty title={t('rewards.empty.settlements')} />
+  return <div className="motion-list-stagger grid gap-2">{rows.map((row) => <RecordRow key={row.id} title={settlementTitle(row, t)} meta={t('rewards.settlementMeta', { status: settlementStatus(row.status, t), note: row.note || t('rewards.noNote') })} right={formatDateTime(row.created_at)} />)}</div>
 }
 
 function RecordRow({ title, meta, right }: { title: ReactNode; meta: ReactNode; right: ReactNode }) {
@@ -221,28 +222,28 @@ function RuleItem({ children }: { children: ReactNode }) {
   return <li className="grid grid-cols-[10px_minmax(0,1fr)] gap-3"><span className="mt-2 h-2 w-2 rounded-full bg-emerald-500" />{children}</li>
 }
 
-function tabLabel(tab: RewardTab, text: (zh: string, en: string) => string) {
-  if (tab === 'invites') return text('邀请记录', 'Invites')
-  if (tab === 'rewards') return text('返佣明细', 'Rewards')
-  return text('提现记录', 'Settlements')
+function tabLabel(tab: RewardTab, t: Translate) {
+  if (tab === 'invites') return t('rewards.tabs.invites')
+  if (tab === 'rewards') return t('rewards.tabs.rewards')
+  return t('rewards.tabs.settlements')
 }
 
-function rewardStatus(status: string, text: (zh: string, en: string) => string) {
-  if (status === 'pending') return text('待到账', 'Pending')
-  if (status === 'available') return text('可用', 'Available')
-  if (status === 'settled') return text('已结算', 'Settled')
+function rewardStatus(status: string, t: Translate) {
+  if (status === 'pending') return t('rewards.rewardStatus.pending')
+  if (status === 'available') return t('rewards.rewardStatus.available')
+  if (status === 'settled') return t('rewards.rewardStatus.settled')
   return status
 }
 
-function settlementStatus(status: string, text: (zh: string, en: string) => string) {
-  if (status === 'pending') return text('待处理', 'Pending')
-  if (status === 'completed') return text('已完成', 'Completed')
+function settlementStatus(status: string, t: Translate) {
+  if (status === 'pending') return t('rewards.settlementStatus.pending')
+  if (status === 'completed') return t('rewards.settlementStatus.completed')
   return status
 }
 
-function settlementTitle(row: ReferralSettlement, text: (zh: string, en: string) => string) {
-  if (row.type === 'transfer') return text(`划转 ${row.credits} 点`, `Transferred ${row.credits} credits`)
-  return text(`提现 ${money(row.amount_cents, row.currency)}`, `Withdrawal ${money(row.amount_cents, row.currency)}`)
+function settlementTitle(row: ReferralSettlement, t: Translate) {
+  if (row.type === 'transfer') return t('rewards.settlementTitle.transfer', { count: row.credits })
+  return t('rewards.settlementTitle.withdrawal', { amount: money(row.amount_cents, row.currency) })
 }
 
 function money(cents: number, currency = 'cny') {

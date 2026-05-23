@@ -11,7 +11,7 @@ import { PixPanel } from './pix/PixPanel'
 type AuthPanelProps = { user: User | null; onLogin: (email: string, password: string) => Promise<void>; onRegister: (email: string, password: string, displayName: string, verificationCode: string, referralCode?: string) => Promise<void>; onRequestRegisterCode: (email: string) => Promise<EmailCodeResponse>; onLocalTestLogin: () => Promise<void>; onLogout: () => void; loading: boolean; registrationBonusCredits: number; referralCode: string; localTestLoginAvailable: boolean; localTestAccountEmail: string | null }
 
 export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, onLocalTestLogin, onLogout, loading, registrationBonusCredits, referralCode, localTestLoginAvailable, localTestAccountEmail }: AuthPanelProps) {
-  const { text } = useI18n()
+  const { text, t } = useI18n()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -44,7 +44,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
       }
     >
       <form className="grid gap-4" onSubmit={submit}>
-        {isRegister && referralCode && <Alert variant="success">{text(`已识别邀请码 ${referralCode}，注册后会绑定邀请奖励。`, `Referral code ${referralCode} detected. It will be applied after registration.`)}</Alert>}
+        {isRegister && referralCode && <Alert variant="success">{t('auth.referralDetected', { code: referralCode })}</Alert>}
         {isRegister && <PixField label={text('昵称', 'Display name')}><Input value={displayName} autoComplete="name" onChange={(e) => setDisplayName(e.target.value)} /></PixField>}
         <PixField label={text('邮箱', 'Email')}><Input type="email" value={email} autoComplete="email" onChange={(e) => setEmail(e.target.value)} required /></PixField>
         {isRegister && <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><PixField label={text('邮箱验证码', 'Email verification code')}><Input value={verificationCode} autoComplete="one-time-code" inputMode="numeric" maxLength={6} onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required /></PixField><Button type="button" variant="outline" className="self-end" onClick={requestCode} disabled={loading || sendingCode || countdown > 0}>{sendingCode ? text('发送中…', 'Sending…') : countdown > 0 ? text(`${countdown}s 后重发`, `Resend in ${countdown}s`) : text('发送验证码', 'Send code')}</Button></div>}
