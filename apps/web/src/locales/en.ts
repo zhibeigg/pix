@@ -315,6 +315,7 @@ export const en = {
     expanded: 'Expanded',
     retry: 'Retry',
     retrying: 'Retrying…',
+    delete: 'Delete',
     waitingOutput: 'Waiting for output',
     noInputSummary: 'No input summary',
     expandHint: 'Click the card to expand generated results.',

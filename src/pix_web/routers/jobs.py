@@ -10,7 +10,7 @@ from pix_web.config import WebSettings
 from pix_web.jobs import create_job, create_jobs_batch, retry_failed_job
 from pix_web.models import GenerationJob, User
 from pix_web.queue import enqueue_jobs
-from pix_web.retention import prune_user_photos
+from pix_web.retention import delete_user_job, prune_user_photos
 from pix_web.schemas import JobBatchCreateRequest, JobBatchCreateResponse, JobCreateRequest, JobResponse
 from pix_web.security import get_current_user, get_db, get_settings
 
@@ -70,6 +70,18 @@ def retry_job(
     job = retry_failed_job(db, user, job_id)
     enqueue_jobs(settings, [job.id])
     return job
+
+
+@router.delete("/{job_id}")
+def delete_job(
+    job_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> dict[str, bool]:
+    delete_user_job(db, user.id, job_id, settings)
+    db.commit()
+    return {"deleted": True}
 
 
 @router.get("/{job_id}", response_model=JobResponse)

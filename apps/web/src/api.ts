@@ -198,6 +198,9 @@ export const api = {
   retryJob(token: string, jobId: number) {
     return request<GenerationJob>(`/jobs/${jobId}/retry`, { method: 'POST' }, token)
   },
+  deleteJob(token: string, jobId: number) {
+    return request<{ deleted: boolean }>(`/jobs/${jobId}`, { method: 'DELETE' }, token)
+  },
   createJobsBatch(token: string, payloads: JobCreateRequest[], batchName = '', mode = 'mixed') {
     return request<JobBatchCreateResponse>('/jobs/batch', { method: 'POST', body: JSON.stringify({ jobs: payloads, batch_name: batchName, mode }) }, token)
   },
