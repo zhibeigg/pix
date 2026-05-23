@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.73] - 2026-05-23
+
+### Fixed
+
+- Web 作品预览加载态改为独立动态 loader，包含旋转环、呼吸光晕、轨道光点和文字点点动画，避免显示为静态图标。
+
 ## [1.26.72] - 2026-05-23
 
 ### Fixed
