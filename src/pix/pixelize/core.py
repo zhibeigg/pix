@@ -161,23 +161,20 @@ def _transparency_ratio(image: Image.Image) -> float:
 
 
 def _apply_low_pixel_edge_policy(params: PixelizeParams, *, has_transparency: bool) -> dict:
-    """低像素透明素材不使用 alpha 羽化，统一改为 1px+ 外描边。"""
+    """记录低像素透明素材的边缘策略，但不覆盖用户选择。"""
     width, height = params.output_size
     low_pixel = max(int(width), int(height)) <= LOW_PIXEL_OUTLINE_MAX_AXIS
     needs_transparent_edge_policy = bool(params.remove_bg or has_transparency)
     if not low_pixel or not needs_transparent_edge_policy:
         return {"applied": False, "reason": "not_low_pixel_or_no_transparency"}
-    before = {"edge_style": params.edge_style, "bg_feather": params.bg_feather}
-    params.edge_style = "outline"
-    params.bg_feather = max(1, int(params.bg_feather or 0))
+    selected = {"edge_style": params.edge_style, "bg_feather": params.bg_feather}
     return {
-        "applied": before["edge_style"] != params.edge_style or before["bg_feather"] != params.bg_feather,
-        "reason": "low_pixel_outline",
+        "applied": False,
+        "reason": "user_edge_style_respected",
         "max_axis": LOW_PIXEL_OUTLINE_MAX_AXIS,
         "source_alpha": bool(has_transparency),
         "background_removal": bool(params.remove_bg),
-        "before": before,
-        "after": {"edge_style": params.edge_style, "bg_feather": params.bg_feather},
+        "selected": selected,
     }
 
 

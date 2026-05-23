@@ -90,7 +90,7 @@ def asset_pixelize_params_from_json(data: dict[str, Any], cfg: AppConfig) -> Pix
         remove_bg=bool(_value_from_json(data, "remove_bg", cfg.asset.remove_bg)),
         bg_tolerance=int(_value_from_json(data, "bg_tolerance", cfg.asset.bg_tolerance)),
         bg_feather=int(_value_from_json(data, "bg_feather", cfg.asset.bg_feather)),
-        edge_style=str(_value_from_json(data, "edge_style", "hard")),  # type: ignore[arg-type]
+        edge_style=str(_value_from_json(data, "edge_style", cfg.asset.edge_style)),  # type: ignore[arg-type]
         auto_crop=bool(_value_from_json(data, "auto_crop", cfg.asset.auto_crop)),
         crop_padding=float(_value_from_json(data, "crop_padding", cfg.asset.crop_padding)),
         crop_square=bool(_value_from_json(data, "crop_square", cfg.asset.crop_square)),

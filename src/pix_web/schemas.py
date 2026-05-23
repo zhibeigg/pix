@@ -157,7 +157,7 @@ class PixelizeParamsSchema(BaseModel):
     remove_bg: bool = False
     bg_tolerance: int = Field(default=12, ge=0, le=128)
     bg_feather: int = Field(default=0, ge=0, le=8)
-    edge_style: str = "hard"
+    edge_style: Literal["hard", "feather", "outline"] = "hard"
     auto_crop: bool = False
     crop_padding: float = Field(default=0.12, ge=0.0, le=1.0)
     crop_square: bool = True

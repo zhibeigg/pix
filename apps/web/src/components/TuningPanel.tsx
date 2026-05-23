@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { GenerationJob, JobCreateRequest, PricingRule } from '../types'
-import { buildGridDesign, buildPixelize, hasInvalidSubAssetSize, parsePixelSize, summarizePrompt } from '../pixelize'
+import { buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, normalizeEdgeStyle, parsePixelSize, summarizePrompt, type EdgeStyleChoice } from '../pixelize'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
@@ -18,6 +18,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
   const [pixelSize, setPixelSize] = useState('128x128')
   const [colors, setColors] = useState(16)
   const [removeBg, setRemoveBg] = useState(true)
+  const [edgeStyle, setEdgeStyle] = useState<EdgeStyleChoice>('outline')
   const [aiPrompt, setAiPrompt] = useState(() => text('保留主体，优化材质和颜色', 'Keep the subject, improve material and color'))
   const aiPrice = useMemo(() => pricing.find((item) => item.key === 'image_to_image')?.price_credits ?? 0, [pricing])
 
@@ -35,6 +36,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
     if (typeof pixelize.remove_bg === 'boolean') {
       setRemoveBg(pixelize.remove_bg)
     }
+    setEdgeStyle(normalizeEdgeStyle(pixelize.edge_style))
   }, [job?.id])
 
   if (!job) return <PixPanel eyebrow={text('微调工位', 'Tuning station')} title={text('选择作品进行微调', 'Select a work to tune')} description={text('选择作品后可重新像素化或 AI 微调。', 'After selecting a work, you can repixelize it or run AI tuning.')} />
@@ -49,13 +51,13 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
   async function submitLocal(event: FormEvent) {
     event.preventDefault()
     if (!sourcePath) return
-    await onSubmit({ job_type: 'repixelize', prompt: null, input_image_path: sourcePath, client_request_id: crypto.randomUUID(), skip_vl: true, pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg }), grid: buildGridDesign() })
+    await onSubmit({ job_type: 'repixelize', prompt: null, input_image_path: sourcePath, client_request_id: crypto.randomUUID(), skip_vl: true, pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edgeStylePixelize(edgeStyle) }), grid: buildGridDesign() })
   }
 
   async function submitAi(event: FormEvent) {
     event.preventDefault()
     if (!sourcePath) return
-    await onSubmit({ job_type: 'image_to_image', prompt: aiPrompt, input_image_path: sourcePath, client_request_id: crypto.randomUUID(), skip_vl: false, pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg }), grid: buildGridDesign() })
+    await onSubmit({ job_type: 'image_to_image', prompt: aiPrompt, input_image_path: sourcePath, client_request_id: crypto.randomUUID(), skip_vl: false, pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edgeStylePixelize(edgeStyle) }), grid: buildGridDesign() })
   }
 
   return (
@@ -66,7 +68,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
       {invalidSubAssetSize && <Alert variant="destructive">{text('素材最低支持 16×16。', 'Minimum asset size is 16×16.')}</Alert>}
       <form className="grid gap-4 rounded-lg border border-border bg-[hsl(var(--pix-mint)/.46)] p-5" onSubmit={submitLocal}>
         <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-semibold">{text('本地像素化', 'Local pixelize')}</h3><p className="text-sm text-muted-foreground">{text('免费 · 不消耗点数', 'Free · no credits used')}</p></div><Badge variant="secondary">FREE</Badge></div>
-        <PixelControls compact pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} />
+        <PixelControls compact pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={!removeBg} />
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={removeBg} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{text('透明背景', 'Transparent background')}</label>
         <Button type="submit" disabled={loading || !sourcePath || invalidSubAssetSize}>{text('重新像素化', 'Repixelize')}</Button>
       </form>
