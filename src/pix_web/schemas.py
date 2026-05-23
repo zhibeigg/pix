@@ -197,6 +197,7 @@ class JobCreateRequest(BaseModel):
     image_model: str | None = None
     vl_model: str | None = None
     skip_vl: bool = False
+    source_only: bool = False
     pixelize: PixelizeParamsSchema = Field(default_factory=PixelizeParamsSchema)
     grid: GridDesignSchema = Field(default_factory=GridDesignSchema)
     sprite: SpriteParamsSchema = Field(default_factory=SpriteParamsSchema)

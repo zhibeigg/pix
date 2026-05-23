@@ -117,6 +117,7 @@ export type JobCreateRequest = {
   image_model?: string | null
   vl_model?: string | null
   skip_vl?: boolean
+  source_only?: boolean
   pixelize: PixelizeParams
   grid?: GridDesignParams
   sprite?: SpriteParams

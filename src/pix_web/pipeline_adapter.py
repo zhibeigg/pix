@@ -147,6 +147,7 @@ def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> Pipeli
         skip_vl=bool(data.get("skip_vl", False)),
         pixelize_params=pixelize_params_from_json(data),
         grid=grid_design_from_json(data),
+        source_only=bool(data.get("source_only", False)),
         out_root=out_root,
         use_cache=True,
         refresh_cache=False,

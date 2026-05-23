@@ -16,8 +16,8 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.25.58-6f42c1.svg">
-  <img alt="tests" src="https://img.shields.io/badge/tests-386%20passed-2ea44f.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.26.63-6f42c1.svg">
+  <img alt="tests" src="https://img.shields.io/badge/tests-413%20passed-2ea44f.svg">
 </p>
 
 ---
@@ -353,6 +353,7 @@ PIX_WEB_JWT_SECRET=change-me-to-a-long-random-secret
 PIX_WEB_STORAGE_ROOT=web_outputs
 PIX_WEB_AUTO_CREATE_DB=true
 PIX_WEB_QUEUE_BACKEND=database
+PIX_WEB_WORKER_CONCURRENCY=3
 PIX_WEB_EMAIL_PROVIDER=console
 ```
 
@@ -371,6 +372,8 @@ pix-web-worker
 # 测试时只处理一个任务
 pix-web-worker --once
 ```
+
+`pix-web-worker` 默认并发上限为 3：有空闲槽位时任务会直接进入生成中，只有超过 `PIX_WEB_WORKER_CONCURRENCY` 后才继续保持排队中。调整环境变量或管理后台的“Worker 并发上限”后需重启 worker。
 
 启动前端：
 

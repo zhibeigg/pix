@@ -5,11 +5,10 @@ from __future__ import annotations
 import argparse
 
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-
 from pix_web.config import load_web_settings
 from pix_web.db import init_db, make_engine, make_session_factory
 from pix_web.models import GenerationJob, utcnow
+from pix_web.system_settings import load_effective_web_settings
 from pix_web.worker import process_job
 
 
@@ -20,11 +19,8 @@ def process_job_id(job_id: int) -> int | None:
     init_db(engine, create_schema=settings.auto_create_db)
     session_factory = make_session_factory(engine)
     with session_factory() as db:
-        job = db.scalar(
-            select(GenerationJob)
-            .options(selectinload(GenerationJob.outputs))
-            .where(GenerationJob.id == job_id)
-        )
+        settings = load_effective_web_settings(db, settings)
+        job = db.scalar(select(GenerationJob).where(GenerationJob.id == job_id))
         if job is None or job.status != "pending":
             return None
         job.status = "running"
