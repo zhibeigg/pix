@@ -930,7 +930,7 @@ function SiteFooter() {
             {t('footer.brand')}
           </div>
           <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">{t('footer.description')}</p>
-          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" className="mt-4 inline-flex text-xs text-muted-foreground hover:text-foreground">鲁ICP备2022023963号</a>
+          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" className="mt-4 inline-flex text-xs text-muted-foreground hover:text-foreground">鲁ICP备2022023963号-1</a>
         </div>
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           {groups.map((group) => (
