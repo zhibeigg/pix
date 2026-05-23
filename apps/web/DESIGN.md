@@ -751,6 +751,7 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 - Pack and batch ZIP exports use a `work-name_ID` prefix for internal item folders and files so duplicated names remain traceable.
 - Gallery card previews use `object-contain` to preserve aspect ratio while scaling to the preview frame bounds.
 - Dropdown menus are non-modal by default so opening action menus never locks page scroll or shifts the layout horizontally.
+- Destructive or paid confirmations should use themed in-app dialogs rather than browser-native confirm prompts.
 - Gallery/download/upload surfaces should avoid exposing generated file names or storage directories; show work IDs, type, status, and action labels instead.
 
 ### Signature Components

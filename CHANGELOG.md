@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.56] - 2026-05-23
+
+### Fixed
+
+- 素材包数量扩容确认改为站内主题化弹窗，替代浏览器原生提示框。
+
 ## [1.25.55] - 2026-05-23
 
 ### Fixed
