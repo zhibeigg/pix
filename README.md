@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.25.56-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.25.57-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-386%20passed-2ea44f.svg">
 </p>
 
@@ -329,7 +329,7 @@ Pix Web 是一个可运营的素材生产工作台：
 - 单图生成、图生图、本地像素化、动画精灵表
 - 批量素材直出、批量 prompt / 批量图片任务，结果统一进入作品库
 - 作品库最多保留每个账户最新 10 张普通成功作品，继续生成时会提示并自动清理最旧作品
-- 手动素材包：用户可新建、命名、归档、下载 ZIP，并将作品库作品拖入永久保存
+- 手动素材包：用户可像文件资源管理器一样单击打开、内联重命名、归档、下载 ZIP，并将作品库作品拖入永久保存
 - 每个素材包默认最多保存 100 个作品；素材包数量默认 1 个，每次扩容 +1 个可创建素材包数量消耗 99 点；已保存到素材包的作品不会被作品库自动清理
 - 作品库单任务失败重试、手动删除作品、素材包 ZIP 下载；ZIP 内文件使用“作品名_ID”作为命名头
 - 前端国际化统一使用 `i18next` / `react-i18next` 翻译键；浅色/深色/跟随系统主题继续走 Tailwind `dark` class、Radix 组件和 CSS 变量 token，不引入分散特例写法

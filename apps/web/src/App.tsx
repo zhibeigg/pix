@@ -453,10 +453,8 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setMessage(text('已取消素材包选择', 'Pack selection cleared'), 'info')
   }
 
-  async function renamePack(pack: AssetPack) {
+  async function renamePack(pack: AssetPack, name: string) {
     if (!token) return
-    const name = window.prompt(text('新的素材包名称', 'New pack name'), pack.name)
-    if (name === null) return
     const trimmed = name.trim()
     if (!trimmed) {
       setMessage(text('素材包名称不能为空', 'Pack name cannot be empty'), 'error')

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.57] - 2026-05-23
+
+### Changed
+
+- 素材包面板改为资源管理器式命令栏与文件夹列表，支持单击打开、顶部操作和内联重命名。
+
 ## [1.25.56] - 2026-05-23
 
 ### Fixed

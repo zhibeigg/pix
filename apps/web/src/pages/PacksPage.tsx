@@ -20,7 +20,7 @@ interface PacksPageProps {
   onSelectPack: (pack: AssetPack) => void
   onClearSelection: () => void
   onCreatePack: (name: string) => Promise<void>
-  onRenamePack: (pack: AssetPack) => void
+  onRenamePack: (pack: AssetPack, name: string) => Promise<void>
   onToggleArchive: (pack: AssetPack) => void
   onDeletePack: (pack: AssetPack) => void
   onExpandPackLimit: () => void
