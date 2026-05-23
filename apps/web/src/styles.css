@@ -333,6 +333,160 @@ code {
   background-position: 0 0, 0 5px, 5px -5px, -5px 0;
 }
 
+.reward-summary-surface {
+  background: linear-gradient(135deg, hsl(var(--pix-lavender) / .92), hsl(var(--pix-sky) / .78) 48%, hsl(var(--pix-mint) / .7));
+  border-color: hsl(var(--pix-brand-purple) / .18);
+  box-shadow: 0 18px 52px -42px rgba(72, 52, 155, .38);
+  color: hsl(var(--pix-ink));
+}
+
+.reward-summary-overlay {
+  background: radial-gradient(circle at 18% 0%, rgba(111, 66, 193, .16), transparent 31%), radial-gradient(circle at 78% 4%, rgba(35, 153, 219, .13), transparent 28%), linear-gradient(120deg, rgba(255, 255, 255, .72), rgba(255, 255, 255, .28));
+}
+
+.reward-summary-icon {
+  background: rgba(255, 255, 255, .78);
+  box-shadow: 0 10px 24px -18px rgba(72, 52, 155, .55);
+  color: hsl(var(--pix-brand-purple));
+  --tw-ring-color: hsl(var(--pix-brand-purple) / .18);
+}
+
+.reward-summary-title {
+  color: hsl(var(--pix-ink));
+}
+
+.reward-summary-subtitle {
+  color: hsl(var(--pix-slate));
+}
+
+.reward-secondary-action {
+  background: rgba(255, 255, 255, .88);
+  border-color: hsl(var(--pix-brand-purple) / .24);
+  box-shadow: 0 12px 28px -24px rgba(72, 52, 155, .45);
+  color: hsl(var(--pix-brand-purple-800));
+}
+
+.reward-secondary-action:hover {
+  background: rgba(255, 255, 255, .98);
+}
+
+.reward-primary-action {
+  background: hsl(var(--pix-brand-purple));
+  box-shadow: 0 14px 30px -22px hsl(var(--pix-brand-purple) / .78);
+  color: white;
+}
+
+.reward-primary-action:hover {
+  background: hsl(var(--primary-pressed));
+}
+
+.reward-link-bar {
+  background: rgba(255, 255, 255, .62);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7);
+  --tw-ring-color: hsl(var(--pix-brand-purple) / .12);
+}
+
+.reward-link-label {
+  color: hsl(var(--pix-brand-purple-800));
+}
+
+.reward-link-code {
+  background: rgba(255, 255, 255, .74);
+  box-shadow: inset 0 0 0 1px rgba(15, 15, 15, .05);
+  color: hsl(var(--pix-charcoal));
+}
+
+.reward-metric-card {
+  background: rgba(255, 255, 255, .58);
+  box-shadow: 0 12px 32px -28px rgba(72, 52, 155, .36);
+  --tw-ring-color: hsl(var(--pix-brand-purple) / .12);
+}
+
+.reward-metric-label {
+  color: hsl(var(--pix-brand-purple-800));
+}
+
+.reward-metric-value {
+  color: hsl(var(--pix-ink));
+}
+
+[data-theme="dark"] .reward-summary-surface {
+  background: linear-gradient(135deg, hsl(var(--pix-navy)) 0%, hsl(var(--pix-navy-deep)) 100%);
+  border-color: rgba(255, 255, 255, .1);
+  box-shadow: 0 24px 80px -46px rgba(0, 0, 0, .78);
+  color: white;
+}
+
+[data-theme="dark"] .reward-summary-overlay {
+  background: radial-gradient(circle at 18% 0%, rgba(80, 220, 182, .28), transparent 34%), radial-gradient(circle at 78% 6%, rgba(74, 144, 245, .24), transparent 28%), linear-gradient(120deg, rgba(18, 119, 117, .66), rgba(12, 55, 71, .82));
+}
+
+[data-theme="dark"] .reward-summary-icon {
+  background: rgba(52, 211, 153, .18);
+  box-shadow: none;
+  color: rgb(167, 243, 208);
+  --tw-ring-color: rgba(167, 243, 208, .2);
+}
+
+[data-theme="dark"] .reward-summary-title {
+  color: white;
+}
+
+[data-theme="dark"] .reward-summary-subtitle {
+  color: rgba(255, 255, 255, .68);
+}
+
+[data-theme="dark"] .reward-secondary-action {
+  background: rgba(255, 255, 255, .1);
+  border-color: rgba(255, 255, 255, .12);
+  box-shadow: none;
+  color: white;
+}
+
+[data-theme="dark"] .reward-secondary-action:hover {
+  background: rgba(255, 255, 255, .16);
+}
+
+[data-theme="dark"] .reward-primary-action {
+  background: hsl(var(--primary));
+  box-shadow: 0 14px 30px -22px hsl(var(--primary) / .76);
+  color: white;
+}
+
+[data-theme="dark"] .reward-primary-action:hover {
+  background: hsl(var(--primary-pressed));
+}
+
+[data-theme="dark"] .reward-link-bar {
+  background: rgba(0, 0, 0, .24);
+  box-shadow: none;
+  --tw-ring-color: transparent;
+}
+
+[data-theme="dark"] .reward-link-label {
+  color: rgba(255, 255, 255, .58);
+}
+
+[data-theme="dark"] .reward-link-code {
+  background: rgba(255, 255, 255, .1);
+  box-shadow: none;
+  color: white;
+}
+
+[data-theme="dark"] .reward-metric-card {
+  background: rgba(255, 255, 255, .08);
+  box-shadow: none;
+  --tw-ring-color: rgba(255, 255, 255, .1);
+}
+
+[data-theme="dark"] .reward-metric-label {
+  color: rgba(255, 255, 255, .68);
+}
+
+[data-theme="dark"] .reward-metric-value {
+  color: white;
+}
+
 @keyframes pix-page-enter {
   from { opacity: 0; transform: translate3d(0, 14px, 0) scale(.992); }
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
