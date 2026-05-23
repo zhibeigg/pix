@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.52] - 2026-05-23
+
+### Fixed
+
+- 素材包与批次 ZIP 内部文件名前缀改为“作品名_ID”，避免同名作品导出时难以区分。
+
 ## [1.25.51] - 2026-05-23
 
 ### Added
@@ -29,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- 下载弹窗不再提供预览图下载；单文件下载与素材包 ZIP 内文件统一以作品/物品名作为文件名前缀。
+- 下载弹窗不再提供预览图下载；单文件下载以作品/物品名作为文件名前缀。
 
 ## [1.25.47] - 2026-05-23
 

@@ -35,10 +35,12 @@ def _job_item_prefix(job: GenerationJob) -> str:
     asset = params.get("asset") if isinstance(params, dict) else None
     asset_name = asset.get("name") if isinstance(asset, dict) else None
     if isinstance(asset_name, str) and asset_name.strip():
-        return _safe_file_prefix(asset_name) or f"job-{job.id}"
-    if job.prompt and job.prompt.strip():
-        return _safe_file_prefix(job.prompt) or f"job-{job.id}"
-    return f"job-{job.id}"
+        base = _safe_file_prefix(asset_name)
+    elif job.prompt and job.prompt.strip():
+        base = _safe_file_prefix(job.prompt)
+    else:
+        base = "job"
+    return f"{base or 'job'}_{job.id}"
 
 
 def _add_output_file(zip_file: ZipFile, job_id: int, path_value: str | None, archive_name: str) -> bool:
@@ -61,7 +63,7 @@ def _build_batch_zip(batch: GenerationBatch) -> bytes:
                 continue
             output: GenerationOutput = job.outputs[0]
             prefix = _job_item_prefix(job)
-            item_dir = f"{root}/{prefix}-job-{job.id}"
+            item_dir = f"{root}/{prefix}"
             added += int(_add_output_file(zip_file, job.id, output.source_path, f"{item_dir}/{prefix}_01_source.png"))
             added += int(_add_output_file(zip_file, job.id, output.analysis_json_path, f"{item_dir}/{prefix}_02_analysis.json"))
             added += int(_add_output_file(zip_file, job.id, output.pixelized_path, f"{item_dir}/{prefix}_03_pixelized.png"))
