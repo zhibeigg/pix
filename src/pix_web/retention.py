@@ -9,7 +9,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.config import WebSettings
-from pix_web.models import CreditTransaction, GenerationJob, GenerationOutput
+from pix_web.models import AssetPackItem, CreditTransaction, GenerationJob, GenerationOutput
 
 MAX_RETAINED_PHOTOS_PER_USER = 10
 
@@ -48,11 +48,16 @@ def prune_user_photos(db: Session, user_id: int, settings: WebSettings, *, keep:
 
 
 def _successful_jobs_with_outputs(db: Session, user_id: int) -> list[GenerationJob]:
+    packed_job_ids = select(AssetPackItem.job_id).where(AssetPackItem.user_id == user_id)
     stmt = (
         select(GenerationJob)
         .join(GenerationOutput)
         .options(selectinload(GenerationJob.outputs))
-        .where(GenerationJob.user_id == user_id, GenerationJob.status == "succeeded")
+        .where(
+            GenerationJob.user_id == user_id,
+            GenerationJob.status == "succeeded",
+            ~GenerationJob.id.in_(packed_job_ids),
+        )
         .order_by(
             GenerationJob.finished_at.desc(),
             GenerationJob.created_at.desc(),

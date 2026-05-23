@@ -1,11 +1,12 @@
 import type {
+  AdminDashboard,
+  AssetPack,
   CreditBalance,
   GenerationBatch,
   CreditTransaction,
   GenerationJob,
   JobBatchCreateResponse,
   JobCreateRequest,
-  AdminDashboard,
   BootstrapAdminResponse,
   EmailTestResponse,
   PaymentCheckout,
@@ -204,6 +205,33 @@ export const api = {
   },
   batches(token: string) {
     return request<GenerationBatch[]>('/batches?limit=50', {}, token)
+  },
+  packs(token: string) {
+    return request<AssetPack[]>('/packs?limit=100', {}, token)
+  },
+  createPack(token: string, name: string) {
+    return request<AssetPack>('/packs', { method: 'POST', body: JSON.stringify({ name }) }, token)
+  },
+  updatePack(token: string, packId: number, payload: { name?: string; status?: string }) {
+    return request<AssetPack>(`/packs/${packId}`, { method: 'PATCH', body: JSON.stringify(payload) }, token)
+  },
+  deletePack(token: string, packId: number) {
+    return request<{ deleted: boolean }>(`/packs/${packId}`, { method: 'DELETE' }, token)
+  },
+  packJobs(token: string, packId: number) {
+    return request<GenerationJob[]>(`/packs/${packId}/jobs`, {}, token)
+  },
+  addJobToPack(token: string, packId: number, jobId: number) {
+    return request<AssetPack>(`/packs/${packId}/items`, { method: 'POST', body: JSON.stringify({ job_id: jobId }) }, token)
+  },
+  removeJobFromPack(token: string, packId: number, jobId: number) {
+    return request<AssetPack>(`/packs/${packId}/items/${jobId}`, { method: 'DELETE' }, token)
+  },
+  expandPack(token: string, packId: number) {
+    return request<AssetPack>(`/packs/${packId}/expand`, { method: 'POST' }, token)
+  },
+  downloadPack(token: string, packId: number) {
+    return downloadBlob(`/packs/${packId}/download`, token)
   },
   batchJobs(token: string, batchId: number) {
     return request<GenerationJob[]>(`/batches/${batchId}/jobs`, {}, token)

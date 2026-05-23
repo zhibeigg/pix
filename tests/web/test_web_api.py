@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
+from uuid import uuid4
 from zipfile import ZipFile
 
 import pytest
@@ -21,7 +22,7 @@ from cryptography.x509.oid import NameOID
 from pix.config import AppConfig
 from pix_web.config import WebSettings
 from pix_web.main import create_app
-from pix_web.models import AlipayGatewayMessage, CreditTransaction, GenerationBatch, GenerationJob, GenerationOutput, SystemSetting
+from pix_web.models import AlipayGatewayMessage, AssetPack, CreditTransaction, GenerationBatch, GenerationJob, GenerationOutput, SystemSetting
 from pix_web.payment_providers import _alipay_sign_content, _is_rsa_certificate, _rsa_sign
 from pix_web.pipeline_adapter import asset_pipeline_input_from_job, run_job_pipeline
 from pix_web.worker import process_next_job
@@ -723,6 +724,113 @@ def test_alipay_certificate_checkout_and_webhook_are_idempotent(client: TestClie
     assert paid.text == "success"
     assert again.status_code == 200
     assert client.get("/credits/balance", headers=headers).json()["available_credits"] == starting_credits + order["credits"]
+
+
+def _insert_succeeded_job(client: TestClient, user_id: int, prompt: str) -> int:
+    db = client.app.state.SessionLocal()
+    try:
+        job = GenerationJob(
+            user_id=user_id,
+            client_request_id=f"test-pack-{uuid4().hex}",
+            job_type="text_to_image",
+            status="succeeded",
+            prompt=prompt,
+            params_json={},
+            price_credits=1,
+            finished_at=datetime.now(timezone.utc),
+        )
+        db.add(job)
+        db.flush()
+        run_dir = client.app.state.web_settings.storage_root / "runs" / f"job-{job.id}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        image_path = run_dir / "pixel.png"
+        image_path.write_bytes(b"fake-png")
+        db.add(
+            GenerationOutput(
+                job_id=job.id,
+                run_dir=str(run_dir),
+                source_path=str(image_path),
+                pixelized_path=str(image_path),
+                meta_json_path=str(image_path),
+            )
+        )
+        db.commit()
+        return job.id
+    finally:
+        db.close()
+
+
+def test_asset_pack_create_add_expand_and_capacity(client: TestClient) -> None:
+    user, headers = _register_and_login(client, "pack-owner@example.com")
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 150, "note": "pack test"})
+    first_job_id = _insert_succeeded_job(client, user["id"], "crystal")
+    second_job_id = _insert_succeeded_job(client, user["id"], "ore")
+
+    created = client.post("/packs", headers=headers, json={"name": "玄幻材料"})
+    assert created.status_code == 200
+    pack = created.json()
+    assert pack["capacity"] == 10
+    assert pack["item_count"] == 0
+
+    db = client.app.state.SessionLocal()
+    try:
+        db_pack = db.get(AssetPack, pack["id"])
+        assert db_pack is not None
+        db_pack.capacity = 1
+        db.commit()
+    finally:
+        db.close()
+
+    added = client.post(f"/packs/{pack['id']}/items", headers=headers, json={"job_id": first_job_id})
+    duplicate = client.post(f"/packs/{pack['id']}/items", headers=headers, json={"job_id": first_job_id})
+    full = client.post(f"/packs/{pack['id']}/items", headers=headers, json={"job_id": second_job_id})
+    expanded = client.post(f"/packs/{pack['id']}/expand", headers=headers)
+    added_after_expand = client.post(f"/packs/{pack['id']}/items", headers=headers, json={"job_id": second_job_id})
+
+    assert added.status_code == 200
+    assert duplicate.status_code == 200
+    assert full.status_code == 409
+    assert expanded.status_code == 200
+    assert expanded.json()["capacity"] == 2
+    assert added_after_expand.status_code == 200
+    assert added_after_expand.json()["item_count"] == 2
+    assert client.get("/credits/balance", headers=headers).json()["available_credits"] == 51
+
+
+def test_asset_pack_keeps_saved_work_out_of_retention(client: TestClient) -> None:
+    user, headers = _register_and_login(client, "pack-retention@example.com")
+    saved_job_id = _insert_succeeded_job(client, user["id"], "saved forever")
+    for index in range(12):
+        _insert_succeeded_job(client, user["id"], f"ordinary {index}")
+    pack = client.post("/packs", headers=headers, json={"name": "永久保存"}).json()
+    assert client.post(f"/packs/{pack['id']}/items", headers=headers, json={"job_id": saved_job_id}).status_code == 200
+
+    jobs = client.get("/jobs", headers=headers)
+    pack_jobs = client.get(f"/packs/{pack['id']}/jobs", headers=headers)
+
+    assert jobs.status_code == 200
+    assert pack_jobs.status_code == 200
+    assert any(job["id"] == saved_job_id for job in pack_jobs.json())
+    assert len(jobs.json()) == 11
+
+
+def test_batch_generation_no_longer_creates_asset_pack(client: TestClient) -> None:
+    user, headers = _register_and_login(client, "batch-gallery@example.com")
+    client.post(f"/admin/users/{user['id']}/adjust-credits", headers=headers, json={"amount": 50, "note": "batch test"})
+    payload = {
+        "jobs": [
+            {"job_type": "text_to_image", "prompt": "ruby", "client_request_id": f"batch-{uuid4().hex}"},
+            {"job_type": "text_to_image", "prompt": "sapphire", "client_request_id": f"batch-{uuid4().hex}"},
+        ],
+        "batch_name": "should-not-create-pack",
+        "mode": "text_to_image",
+    }
+
+    response = client.post("/jobs/batch", headers=headers, json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["batch_id"] is not None
+    assert client.get("/packs", headers=headers).json() == []
 
 
 def test_wechat_checkout_is_disabled(client: TestClient) -> None:

@@ -59,7 +59,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
 
   return (
     <div className="sticky top-24 grid gap-4">
-      <PixPanel eyebrow={text('微调工位', 'Tuning station')} title={`#${job.id}`} description={summarizePrompt(job.prompt || job.input_image_path)} action={<PixStatusBadge status={job.status} />}>
+      <PixPanel eyebrow={text('微调工位', 'Tuning station')} title={`#${job.id}`} description={summarizePrompt(job.prompt || text('上传图片作品', 'Uploaded image work'))} action={<PixStatusBadge status={job.status} />}>
         <PixPreviewFrame url={previewUrl} label={text('暂无可预览源图', 'No source preview available')} className="min-h-44" />
       </PixPanel>
       {invalidSubAssetSize && <Alert variant="destructive">{text('素材最低支持 16×16。', 'Minimum asset size is 16×16.')}</Alert>}
@@ -71,7 +71,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
       </form>
       <form className="grid gap-4 rounded-lg border border-border bg-[hsl(var(--pix-lavender)/.54)] p-5" onSubmit={submitAi}>
         <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-semibold">{text('AI 微调', 'AI tuning')}</h3><p className="text-sm text-muted-foreground">{text(`消耗 ${aiPrice} 点`, `Uses ${aiPrice} credits`)}</p></div><Badge variant="outline">{text(`${aiPrice} 点`, `${aiPrice} credits`)}</Badge></div>
-        {!sourcePath && <Alert variant="warning">{text('当前作品没有可用源图路径，暂时无法微调。', 'This work has no source image path, so tuning is unavailable for now.')}</Alert>}
+        {!sourcePath && <Alert variant="warning">{text('当前作品没有可用源图，暂时无法微调。', 'This work has no source image available, so tuning is unavailable for now.')}</Alert>}
         <Textarea value={aiPrompt} rows={3} onChange={(event) => setAiPrompt(event.target.value)} />
         <Button type="submit" variant="outline" disabled={loading || !sourcePath || invalidSubAssetSize}>{text('AI 微调并入队', 'Queue AI tuning')}</Button>
       </form>

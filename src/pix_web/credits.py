@@ -75,6 +75,24 @@ def recharge_credits(db: Session, user: User, amount: int, note: str = "") -> Cr
     )
 
 
+def spend_credits(db: Session, user: User, amount: int, note: str = "") -> CreditTransaction:
+    if amount <= 0:
+        raise ValueError("消费点数必须大于 0")
+    account = ensure_credit_account(db, user)
+    if account.available_credits < amount:
+        raise InsufficientCreditsError("点数不足")
+    account.available_credits -= amount
+    account.total_consumed += amount
+    return add_transaction(
+        db,
+        user_id=user.id,
+        type="consume",
+        amount=-amount,
+        balance_after=account.available_credits,
+        note=note,
+    )
+
+
 def reserve_credits(db: Session, user: User, job: GenerationJob, amount: int) -> CreditTransaction | None:
     if amount <= 0:
         job.reserved_credits = 0
