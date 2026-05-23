@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.54] - 2026-05-23
+
+### Fixed
+
+- 下拉菜单默认改为非模态，避免打开更多菜单时页面因滚动锁补偿发生横向抖动。
+
 ## [1.25.53] - 2026-05-23
 
 ### Fixed
