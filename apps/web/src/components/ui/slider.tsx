@@ -15,7 +15,7 @@ export function Slider({ className, value, onValueChange, min = 0, max = 100, st
       step={step}
       value={value}
       onChange={(event) => onValueChange(Number(event.target.value))}
-      className={cn('h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50', className)}
+      className={cn('h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary transition-[filter,opacity,transform] duration-[var(--motion-fast)] ease-[var(--ease-out-quart)] hover:brightness-105 active:scale-[.997] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50', className)}
       {...props}
     />
   )

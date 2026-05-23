@@ -2,7 +2,7 @@ import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
-const alertVariants = cva('relative w-full rounded-md border p-4 text-sm leading-6', {
+const alertVariants = cva('motion-panel-enter relative w-full rounded-md border p-4 text-sm leading-6 transition-[background-color,border-color,box-shadow,opacity,transform] duration-[var(--motion-base)] ease-[var(--ease-out-quart)]', {
   variants: {
     variant: {
       default: 'border-border bg-card text-card-foreground',

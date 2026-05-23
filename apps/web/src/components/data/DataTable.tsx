@@ -25,7 +25,7 @@ type DataTableProps = {
 
 export function DataTable({ eyebrow, title, metrics, filters, columns, rows, empty }: DataTableProps) {
   return (
-    <section className="overflow-hidden rounded-lg border border-[hsl(var(--data-line))] bg-[hsl(var(--data-surface))] text-[hsl(var(--data-text))] shadow-[var(--data-shadow)]">
+    <section className="motion-panel-enter overflow-hidden rounded-lg border border-[hsl(var(--data-line))] bg-[hsl(var(--data-surface))] text-[hsl(var(--data-text))] shadow-[var(--data-shadow)] transition-[border-color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-quart)]">
       {(eyebrow || title || metrics || filters) && (
         <div className="border-b border-[hsl(var(--data-line))] bg-[hsl(var(--data-surface-header))] p-4">
           {(eyebrow || title || metrics) && (
@@ -47,8 +47,8 @@ export function DataTable({ eyebrow, title, metrics, filters, columns, rows, emp
               {columns.map((column) => <th key={column.key} className={cn('px-4 py-3 font-semibold', column.align === 'right' && 'text-right', column.className)}>{column.header}</th>)}
             </tr>
           </thead>
-          <tbody>
-            {rows.length === 0 ? <tr><td colSpan={columns.length} className="px-4 py-10 text-center text-[hsl(var(--data-text-faint))]">{empty}</td></tr> : rows.map((row) => <tr key={row.key} className="border-b border-[hsl(var(--data-line))] bg-[hsl(var(--data-surface-row))] transition hover:bg-[hsl(var(--data-surface-row-hover))] last:border-b-0">{row.cells.map((cell, index) => <td key={`${row.key}-${columns[index]?.key ?? index}`} className={cn('px-4 py-3', columns[index]?.align === 'right' && 'text-right', columns[index]?.className)}>{cell}</td>)}</tr>)}
+          <tbody className="motion-list-stagger">
+            {rows.length === 0 ? <tr><td colSpan={columns.length} className="px-4 py-10 text-center text-[hsl(var(--data-text-faint))]">{empty}</td></tr> : rows.map((row) => <tr key={row.key} className="border-b border-[hsl(var(--data-line))] bg-[hsl(var(--data-surface-row))] transition-[background-color,box-shadow,transform] duration-[var(--motion-fast)] ease-[var(--ease-out-quart)] hover:bg-[hsl(var(--data-surface-row-hover))] hover:shadow-[inset_0_0_0_999px_hsl(var(--foreground)/.015)] last:border-b-0">{row.cells.map((cell, index) => <td key={`${row.key}-${columns[index]?.key ?? index}`} className={cn('px-4 py-3', columns[index]?.align === 'right' && 'text-right', columns[index]?.className)}>{cell}</td>)}</tr>)}
           </tbody>
         </table>
       </div>

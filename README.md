@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.26.67-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.26.68-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-419%20passed-2ea44f.svg">
 </p>
 
@@ -85,6 +85,7 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
 - **Web 工作台**
   - FastAPI + React + Vite。
   - 支持注册登录、管理员初始化、点数账户、邀请奖励返佣、任务队列、素材包、批量生成、ZIP 导出。
+  - UI 提供轻量动效层：按钮、表单、弹层、表格和页面切换都有即时反馈，并遵守 `prefers-reduced-motion`。
   - 单张/批量入口可直接调用 `pix asset` 同款游戏素材直出策略，按素材名称生成透明 PNG 与 Pixel Grid。
   - 主页与登录后工作台严格对齐 `apps/web/DESIGN.md` 的 Notion 式视觉：深海军蓝 Hero、紫色主 CTA、真实 Workspace 侧边栏、浅色 Canvas/Surface 与 pastel feature cards；76 套题材范例支持悬浮查看拆分后的 8 个物品格、UI 展示图、中文 Prompt 和文件名。
   - 管理后台可配置模型/API、价格、充值套餐、运营保护和素材默认值。

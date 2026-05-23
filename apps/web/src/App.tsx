@@ -880,7 +880,7 @@ function AppToast({ toast, onDismiss }: { toast: AppToastState | null; onDismiss
 
   return (
     <div className="pointer-events-none fixed left-1/2 top-5 z-[100] w-[min(calc(100vw-32px),420px)] -translate-x-1/2 px-0">
-      <div key={toast.id} role="status" aria-live="polite" className={`pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-[0_16px_48px_-8px_rgba(15,15,15,0.26)] ring-1 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-200 ${tone}`}>
+      <div key={toast.id} role="status" aria-live="polite" className={`motion-success-pop pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-[0_16px_48px_-8px_rgba(15,15,15,0.26)] ring-1 ring-black/5 ${tone}`}>
         <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${iconTone}`} />
         <p className="min-w-0 flex-1 leading-6">{toast.message}</p>
         <button type="button" onClick={onDismiss} aria-label={t('app.toastDismiss')} className="-mr-1 rounded-md p-1 opacity-72 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
@@ -916,7 +916,7 @@ function WorkspaceShell({ page, user, balance, activeJobs, completedJobs, failed
         </div>
       </aside>
       <section className="min-w-0 bg-[linear-gradient(180deg,hsl(var(--pix-paper))_0%,hsl(var(--background))_36rem)] px-4 py-5 md:px-8 md:py-8 dark:bg-[linear-gradient(180deg,hsl(var(--pix-navy))_0%,hsl(var(--pix-navy-deep))_42rem)]">
-        <div className="grid w-full gap-6">
+        <div key={page} className="motion-page-enter grid w-full gap-6">
           <div className="block lg:hidden">
             <AppTabs page={page} user={user} onChange={onNavigate} />
           </div>
