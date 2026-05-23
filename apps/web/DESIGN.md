@@ -749,6 +749,7 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 - Light/dark/system mode is implemented with Tailwind `dark` class, Radix primitives, and shared CSS variable tokens. Do not add one-off component-specific theme branches unless they are expressed through reusable tokens.
 - User asset packs are manual, persistent containers: batch generation lands in the gallery, then successful works can be saved into packs by standard browser drag-and-drop or the button fallback. Each pack defaults to 100 works; accounts start with 1 creatable pack and each +1 pack-count expansion costs 99 credits.
 - Pack and batch ZIP exports use a `work-name_ID` prefix for internal item folders and files so duplicated names remain traceable.
+- Gallery card previews keep pixel art centered and constrained within the checkerboard area instead of stretching to the full frame.
 - Gallery/download/upload surfaces should avoid exposing generated file names or storage directories; show work IDs, type, status, and action labels instead.
 
 ### Signature Components
