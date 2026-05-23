@@ -30,7 +30,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
   return (
     <PixPanel eyebrow={t('gallery.eyebrow')} title={t('gallery.title')} description={subtitle} action={<div className="flex flex-wrap gap-2"><Badge variant="info">{t('gallery.itemCount', { count: ordered.length })}</Badge><Badge variant="outline">{t('gallery.maxWorks')}</Badge><Badge variant="outline">{t('gallery.page', { page: safePage, total: totalPages })}</Badge></div>}>
       {ordered.length === 0 ? <div className="rounded-lg border border-dashed border-border bg-muted/45 p-8 text-center text-muted-foreground">{t('gallery.empty')}</div> : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {visible.map((job) => <GalleryCard key={job.id} job={job} selected={selectedJobId === job.id} retrying={retryingJobId === job.id} draggable={draggableSucceeded && job.status === 'succeeded'} onSelect={onSelect} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} onSaveToPack={onSaveToPack} onRemoveFromPack={onRemoveFromPack} />)}
         </div>
       )}
@@ -70,16 +70,16 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
       }}
       className={`cursor-pointer overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/55 hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[hsl(var(--pix-dark-card))] ${selected ? 'border-primary shadow-[0_4px_12px_rgba(15,15,15,0.08)] ring-2 ring-primary/15' : job.status === 'failed' ? 'border-destructive/40' : 'border-border dark:border-[hsl(var(--pix-dark-hairline))]'}`}
     >
-      <PixPreviewFrame url={previewUrl} label={job.status === 'succeeded' ? 'PIX' : t('gallery.waitingOutput')} className="min-h-40 rounded-none border-0 border-b" ><div className="absolute right-3 top-3"><PixStatusBadge status={job.status} /></div></PixPreviewFrame>
-      <div className="grid gap-3 p-4">
+      <PixPreviewFrame url={previewUrl} label={job.status === 'succeeded' ? 'PIX' : t('gallery.waitingOutput')} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div></PixPreviewFrame>
+      <div className="grid gap-2.5 p-3">
         <div className="grid gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant="outline">#{job.id}</Badge>
             <Badge variant="secondary" className="dark:border-[hsl(var(--pix-brand-purple-300)/.24)] dark:bg-[hsl(var(--pix-brand-purple-800)/.42)] dark:text-[hsl(var(--pix-brand-purple-300))]">{typeLabel}</Badge>
           </div>
           <div>
-            <h3 className="line-clamp-2 text-base font-semibold leading-snug">{displayName}</h3>
-            <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">{summary}</p>
+            <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{displayName}</h3>
+            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{summary}</p>
           </div>
         </div>
         {selected && <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{t('common.points', { count: job.price_credits })}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge>{job.batch_name && <Badge variant="outline">{job.batch_name}</Badge>}</div>}
