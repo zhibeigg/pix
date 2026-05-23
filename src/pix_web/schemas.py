@@ -445,6 +445,14 @@ class AssetPackResponse(BaseModel):
     updated_at: datetime
 
 
+class AssetPackQuotaResponse(BaseModel):
+    pack_count: int
+    pack_limit: int
+    remaining_packs: int
+    expand_price_credits: int
+    pack_capacity: int
+
+
 class AdminAdjustCreditsRequest(BaseModel):
     amount: int
     note: str = ""

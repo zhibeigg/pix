@@ -18,7 +18,7 @@ import { RawImagePage } from './pages/RawImagePage'
 import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
 import { buildGridDesign, defaultPixelize } from './pixelize'
 import { useI18n } from './i18n'
-import type { AdminDashboard, AssetPack, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SetupStatus, SystemSetting, User } from './types'
+import type { AdminDashboard, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SetupStatus, SystemSetting, User } from './types'
 
 type ToastVariant = 'success' | 'info' | 'error'
 type AppToastState = { id: number; message: string; variant: ToastVariant }
@@ -59,6 +59,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [checkout, setCheckout] = useState<PaymentCheckout | null>(null)
   const [jobs, setJobs] = useState<GenerationJob[]>([])
   const [packs, setPacks] = useState<AssetPack[]>([])
+  const [packQuota, setPackQuota] = useState<AssetPackQuota | null>(null)
   const [pricing, setPricing] = useState<PricingRule[]>([])
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([])
@@ -140,7 +141,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
-    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextPacks, nextPricing] = await Promise.all([
+    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextPacks, nextPackQuota, nextPricing] = await Promise.all([
       api.me(activeToken),
       api.balance(activeToken),
       api.transactions(activeToken),
@@ -149,6 +150,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       api.orders(activeToken),
       api.jobs(activeToken),
       api.packs(activeToken),
+      api.packQuota(activeToken),
       api.pricing(activeToken),
     ])
     setUser(me)
@@ -160,6 +162,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     notifyJobCompletions(nextJobs)
     setJobs(nextJobs)
     setPacks(nextPacks)
+    setPackQuota(nextPackQuota)
     setPricing(nextPricing)
     if (selectedPackId) {
       setSelectedPackJobs(await api.packJobs(activeToken, selectedPackId))
@@ -212,15 +215,17 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       const delay = document.visibilityState === 'hidden' ? Math.max(baseDelay, 15000) : baseDelay
       timer = window.setTimeout(poll, delay)
       try {
-        const [nextJobs, nextPacks, nextBalance, nextOrders] = await Promise.all([
+        const [nextJobs, nextPacks, nextPackQuota, nextBalance, nextOrders] = await Promise.all([
           api.jobs(token),
           api.packs(token),
+          api.packQuota(token),
           api.balance(token),
           api.orders(token),
         ])
         notifyJobCompletions(nextJobs)
         setJobs(nextJobs)
         setPacks(nextPacks)
+        setPackQuota(nextPackQuota)
         setBalance(nextBalance)
         setOrders(nextOrders)
         pollFailuresRef.current = 0
@@ -324,6 +329,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setOrders([])
     setJobs([])
     setPacks([])
+    setPackQuota(null)
     setSelectedPackId(null)
     setSelectedPackJobs([])
     setPricing([])
@@ -509,13 +515,15 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
-  async function expandPack(pack: AssetPack) {
+  async function expandPackLimit() {
     if (!token) return
-    if (!window.confirm(text(`消耗 99 点为「${pack.name}」增加 1 个保存槽位？`, `Spend 99 credits to add one slot to “${pack.name}”?`))) return
+    const price = packQuota?.expand_price_credits ?? 99
+    if (!window.confirm(text(`消耗 ${price} 点增加 1 个可创建素材包数量？`, `Spend ${price} credits to add one more pack slot?`))) return
     try {
-      await api.expandPack(token, pack.id)
+      const quota = await api.expandPackLimit(token)
+      setPackQuota(quota)
       await refreshCore(token)
-      setMessage(text('素材包容量已扩容', 'Pack capacity expanded'))
+      setMessage(text('素材包数量上限已扩容', 'Pack slot limit expanded'))
     } catch (error) {
       showError(error)
     }
@@ -738,7 +746,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
           {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onCreateJobs={createRawImageJobs} onRefresh={() => refreshCore()} />}
           {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} />}
-          {page === 'packs' && <PacksPage packs={packs} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPack={expandPack} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
+          {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
           {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
           {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onTestEmail={testEmailSetting} />}
         </WorkspaceShell>

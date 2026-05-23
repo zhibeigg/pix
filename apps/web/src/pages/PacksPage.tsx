@@ -6,10 +6,11 @@ import { GalleryGrid } from '../components/GalleryGrid'
 import { PageHeader } from '../components/PageHeader'
 import { Alert } from '../components/ui/alert'
 import { Badge } from '../components/ui/badge'
-import type { AssetPack, ContactSheetCandidate, GenerationJob } from '../types'
+import type { AssetPack, AssetPackQuota, ContactSheetCandidate, GenerationJob } from '../types'
 
 interface PacksPageProps {
   packs: AssetPack[]
+  packQuota: AssetPackQuota | null
   selectedPack: AssetPack | null
   selectedPackId: number | null
   selectedPackJobs: GenerationJob[]
@@ -22,7 +23,7 @@ interface PacksPageProps {
   onRenamePack: (pack: AssetPack) => void
   onToggleArchive: (pack: AssetPack) => void
   onDeletePack: (pack: AssetPack) => void
-  onExpandPack: (pack: AssetPack) => void
+  onExpandPackLimit: () => void
   onDownloadPack: (pack: AssetPack) => void
   onAddJobToPack: (pack: AssetPack, job: GenerationJob) => Promise<void>
   onRemoveJobFromPack: (pack: AssetPack, job: GenerationJob) => Promise<void>
@@ -31,7 +32,7 @@ interface PacksPageProps {
   onRefresh: () => void
 }
 
-export function PacksPage({ packs, selectedPack, selectedPackId, selectedPackJobs, jobs, selectedJobId, downloading, onSelectPack, onClearSelection, onCreatePack, onRenamePack, onToggleArchive, onDeletePack, onExpandPack, onDownloadPack, onAddJobToPack, onRemoveJobFromPack, onSelectJob, onCandidatePixelize, onRefresh }: PacksPageProps) {
+export function PacksPage({ packs, packQuota, selectedPack, selectedPackId, selectedPackJobs, jobs, selectedJobId, downloading, onSelectPack, onClearSelection, onCreatePack, onRenamePack, onToggleArchive, onDeletePack, onExpandPackLimit, onDownloadPack, onAddJobToPack, onRemoveJobFromPack, onSelectJob, onCandidatePixelize, onRefresh }: PacksPageProps) {
   const { t } = useI18n()
   const [dragOver, setDragOver] = useState(false)
   const successfulJobs = jobs.filter((job) => job.status === 'succeeded' && job.outputs.length > 0)
@@ -59,7 +60,7 @@ export function PacksPage({ packs, selectedPack, selectedPackId, selectedPackJob
 
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(300px,420px)_minmax(0,1fr)]">
-      <AssetPackPanel packs={packs} selectedPackId={selectedPackId} downloading={downloading} onSelectPack={onSelectPack} onClearSelection={onClearSelection} onCreatePack={onCreatePack} onRenamePack={onRenamePack} onToggleArchive={onToggleArchive} onDeletePack={onDeletePack} onExpandPack={onExpandPack} onDownloadPack={onDownloadPack} onRefresh={onRefresh} />
+      <AssetPackPanel packs={packs} quota={packQuota} selectedPackId={selectedPackId} downloading={downloading} onSelectPack={onSelectPack} onClearSelection={onClearSelection} onCreatePack={onCreatePack} onRenamePack={onRenamePack} onToggleArchive={onToggleArchive} onDeletePack={onDeletePack} onExpandPackLimit={onExpandPackLimit} onDownloadPack={onDownloadPack} onRefresh={onRefresh} />
       <div className="grid min-w-0 gap-6">
         <PageHeader eyebrow={t('pages.packs.eyebrow')} title={selectedPack ? selectedPack.name : t('pages.packs.title')} description={selectedPack ? t('pages.packs.selectedDescription') : t('pages.packs.emptyDescription')} />
         <section onDragOver={allowDrop} onDragLeave={leaveDrop} onDrop={(event) => void dropJob(event)} className={`rounded-lg border border-dashed p-4 transition ${dragOver ? 'border-primary bg-primary/10' : 'border-border bg-muted/25'}`}>

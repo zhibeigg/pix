@@ -747,7 +747,7 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 - Menus use `{colors.canvas}` surfaces, `{rounded.lg}` radius, and Level 4 modal/dropdown shadow.
 - Localization uses `i18next` / `react-i18next` resource keys for all new menu, navigation, account, gallery, packs, queue, and billing copy; `text(zh, en)` remains only as a deprecated compatibility bridge for areas not yet migrated.
 - Light/dark/system mode is implemented with Tailwind `dark` class, Radix primitives, and shared CSS variable tokens. Do not add one-off component-specific theme branches unless they are expressed through reusable tokens.
-- User asset packs are manual, persistent containers: batch generation lands in the gallery, then successful works can be saved into packs by standard browser drag-and-drop or the button fallback. Packs default to 10 slots; each +1 slot expansion costs 99 credits.
+- User asset packs are manual, persistent containers: batch generation lands in the gallery, then successful works can be saved into packs by standard browser drag-and-drop or the button fallback. Each pack defaults to 100 works; accounts start with 1 creatable pack and each +1 pack-count expansion costs 99 credits.
 - Gallery/download/upload surfaces should avoid exposing generated file names or storage directories; show work IDs, type, status, and action labels instead.
 
 ### Signature Components

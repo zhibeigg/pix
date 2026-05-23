@@ -22,7 +22,7 @@ from cryptography.x509.oid import NameOID
 from pix.config import AppConfig
 from pix_web.config import WebSettings
 from pix_web.main import create_app
-from pix_web.models import AlipayGatewayMessage, AssetPack, CreditTransaction, GenerationBatch, GenerationJob, GenerationOutput, SystemSetting
+from pix_web.models import AlipayGatewayMessage, CreditTransaction, GenerationBatch, GenerationJob, GenerationOutput, SystemSetting
 from pix_web.payment_providers import _alipay_sign_content, _is_rsa_certificate, _rsa_sign
 from pix_web.pipeline_adapter import asset_pipeline_input_from_job, run_job_pipeline
 from pix_web.worker import process_next_job
@@ -766,34 +766,32 @@ def test_asset_pack_create_add_expand_and_capacity(client: TestClient) -> None:
     first_job_id = _insert_succeeded_job(client, user["id"], "crystal")
     second_job_id = _insert_succeeded_job(client, user["id"], "ore")
 
+    initial_quota = client.get("/packs/quota", headers=headers)
     created = client.post("/packs", headers=headers, json={"name": "玄幻材料"})
+    blocked = client.post("/packs", headers=headers, json={"name": "第二个素材包"})
+    expanded = client.post("/packs/expand", headers=headers)
+    second_pack = client.post("/packs", headers=headers, json={"name": "第二个素材包"})
+
+    assert initial_quota.status_code == 200
+    assert initial_quota.json()["pack_limit"] == 1
+    assert initial_quota.json()["pack_capacity"] == 100
     assert created.status_code == 200
     pack = created.json()
-    assert pack["capacity"] == 10
+    assert pack["capacity"] == 100
     assert pack["item_count"] == 0
-
-    db = client.app.state.SessionLocal()
-    try:
-        db_pack = db.get(AssetPack, pack["id"])
-        assert db_pack is not None
-        db_pack.capacity = 1
-        db.commit()
-    finally:
-        db.close()
+    assert blocked.status_code == 409
+    assert expanded.status_code == 200
+    assert expanded.json()["pack_limit"] == 2
+    assert second_pack.status_code == 200
 
     added = client.post(f"/packs/{pack['id']}/items", headers=headers, json={"job_id": first_job_id})
     duplicate = client.post(f"/packs/{pack['id']}/items", headers=headers, json={"job_id": first_job_id})
-    full = client.post(f"/packs/{pack['id']}/items", headers=headers, json={"job_id": second_job_id})
-    expanded = client.post(f"/packs/{pack['id']}/expand", headers=headers)
-    added_after_expand = client.post(f"/packs/{pack['id']}/items", headers=headers, json={"job_id": second_job_id})
+    added_second = client.post(f"/packs/{pack['id']}/items", headers=headers, json={"job_id": second_job_id})
 
     assert added.status_code == 200
     assert duplicate.status_code == 200
-    assert full.status_code == 409
-    assert expanded.status_code == 200
-    assert expanded.json()["capacity"] == 2
-    assert added_after_expand.status_code == 200
-    assert added_after_expand.json()["item_count"] == 2
+    assert added_second.status_code == 200
+    assert added_second.json()["item_count"] == 2
     downloaded = client.get(f"/packs/{pack['id']}/download", headers=headers)
     assert downloaded.status_code == 200
     with ZipFile(BytesIO(downloaded.content)) as archive:

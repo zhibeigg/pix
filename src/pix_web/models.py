@@ -174,6 +174,16 @@ class GenerationBatch(Base):
     jobs: Mapped[list["GenerationJob"]] = relationship(back_populates="batch")
 
 
+class AssetPackQuota(Base):
+    __tablename__ = "asset_pack_quotas"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
+    pack_limit: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class AssetPack(Base):
     __tablename__ = "asset_packs"
 
@@ -181,7 +191,7 @@ class AssetPack(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     name: Mapped[str] = mapped_column(String(160), default="")
     status: Mapped[str] = mapped_column(String(32), default="active", index=True)
-    capacity: Mapped[int] = mapped_column(Integer, default=10)
+    capacity: Mapped[int] = mapped_column(Integer, default=100)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

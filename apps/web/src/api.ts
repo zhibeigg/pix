@@ -1,6 +1,7 @@
 import type {
   AdminDashboard,
   AssetPack,
+  AssetPackQuota,
   CreditBalance,
   GenerationBatch,
   CreditTransaction,
@@ -209,6 +210,9 @@ export const api = {
   packs(token: string) {
     return request<AssetPack[]>('/packs?limit=100', {}, token)
   },
+  packQuota(token: string) {
+    return request<AssetPackQuota>('/packs/quota', {}, token)
+  },
   createPack(token: string, name: string) {
     return request<AssetPack>('/packs', { method: 'POST', body: JSON.stringify({ name }) }, token)
   },
@@ -227,8 +231,8 @@ export const api = {
   removeJobFromPack(token: string, packId: number, jobId: number) {
     return request<AssetPack>(`/packs/${packId}/items/${jobId}`, { method: 'DELETE' }, token)
   },
-  expandPack(token: string, packId: number) {
-    return request<AssetPack>(`/packs/${packId}/expand`, { method: 'POST' }, token)
+  expandPackLimit(token: string) {
+    return request<AssetPackQuota>('/packs/expand', { method: 'POST' }, token)
   },
   downloadPack(token: string, packId: number) {
     return downloadBlob(`/packs/${packId}/download`, token)
