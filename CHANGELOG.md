@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.71] - 2026-05-23
+
+### Fixed
+
+- Web 邀请奖励收益统计区在浅色主题下改为柔和品牌渐变与高对比操作按钮，减少深蓝绿大色块的突兀感。
+
 ## [1.26.70] - 2026-05-23
 
 ### Fixed
