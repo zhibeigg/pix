@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.72] - 2026-05-23
+
+### Fixed
+
+- Web 邀请奖励统计区改为专用主题配色类，明确区分浅色模式与深色模式的背景、文字、指标卡和操作按钮颜色，避免主题样式串色。
+
 ## [1.26.71] - 2026-05-23
 
 ### Fixed
