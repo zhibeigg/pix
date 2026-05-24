@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.27.81-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.27.84-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-419%20passed-2ea44f.svg">
 </p>
 
