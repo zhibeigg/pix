@@ -46,6 +46,7 @@ def test_build_contact_sheet_prompt_uses_server_constraints() -> None:
 
     assert "3x3" in prompt
     assert "#FF0000" in prompt
+    assert "at least 48 RGB Euclidean distance" in prompt
     assert "暗紫色魔法水晶" in prompt
     assert "16x16" in prompt
 
@@ -138,6 +139,7 @@ def test_build_sample_prompt_no_rows_cols() -> None:
     cfg = AppConfig()
     prompt = build_sample_prompt(cfg, "魔法水晶", target_size=(16, 16))
     assert "魔法水晶" in prompt
+    assert "at least 48 RGB Euclidean distance" in prompt
     # 不能再出现 sheet/rows 用法
     assert "{rows}" not in prompt
     assert "contact sheet" not in prompt.lower()

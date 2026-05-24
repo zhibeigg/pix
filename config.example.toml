@@ -24,7 +24,7 @@ contact_sheet_cols = 3
 # 绿色背景不适合所有题材：玉石/毒液/草地等会和 #00FF00 撞色。
 green_screen_color = "auto"
 green_screen_tolerance = 48
-contact_sheet_prompt_template = "Create a {rows}x{cols} contact sheet containing exactly {count} distinct variations of: {description}. Each cell contains one centered isolated game asset icon, consistent scale, clear spacing, no overlap. Use a pure solid key-color background {green} across the entire image for easy chroma-key removal. No text, no watermark, no UI frame, no labels, no extra props outside each item. Readable silhouette, high contrast, thick dark outline, pixel-art friendly details, designed to become a {width}x{height} RPG inventory sprite."
+contact_sheet_prompt_template = "Create a {rows}x{cols} contact sheet containing exactly {count} distinct variations of: {description}. Each cell contains one centered isolated game asset icon, consistent scale, clear spacing, no overlap. Use a pure solid key-color background {green} across the entire image for easy chroma-key removal. Keep every visible subject color at least {key_tolerance} RGB Euclidean distance away from the background key color {green}. No text, no watermark, no UI frame, no labels, no extra props outside each item. Readable silhouette, high contrast, thick dark outline, pixel-art friendly details, designed to become a {width}x{height} RPG inventory sprite."
 # 用户描述审核：本地规则默认生效；remote=true 时会尝试用 VL/chat 模型审核用户原始输入，失败默认退回本地规则。
 prompt_guard_enabled = true
 prompt_guard_remote = true
@@ -48,7 +48,7 @@ n_sample_prompt_variations = [
     "slight variation in material texture emphasis.",
     "slight variation in silhouette pose.",
 ]
-n_sample_prompt_template = "Create a single game asset icon of: {description}. One centered isolated object, consistent scale, clear spacing, no overlap. Use a pure solid key-color background {green} for easy chroma-key removal. No text, no watermark, no UI frame, no labels, no extra props outside the item. Readable silhouette, high contrast, thick dark outline, pixel-art friendly details, designed to become a {width}x{height} RPG inventory sprite."
+n_sample_prompt_template = "Create a single game asset icon of: {description}. One centered isolated object, consistent scale, clear spacing, no overlap. Use a pure solid key-color background {green} for easy chroma-key removal. Keep every visible subject color at least {key_tolerance} RGB Euclidean distance away from the background key color {green}. No text, no watermark, no UI frame, no labels, no extra props outside the item. Readable silhouette, high contrast, thick dark outline, pixel-art friendly details, designed to become a {width}x{height} RPG inventory sprite."
 
 [vision]
 # Packy 支持的视觉模型，示例：claude-opus-4-7 / claude-sonnet-4-5 / gemini-2.5-pro / gpt-4o 等

@@ -135,6 +135,7 @@ def build_sample_prompt(
         "name": description.strip(),
         "green": key_hex,
         "key_color": key_hex,
+        "key_tolerance": int(cfg.image_gen.green_screen_tolerance),
         "width": int(width),
         "height": int(height),
     }
@@ -146,6 +147,7 @@ def build_sample_prompt(
     return (
         f"Create a single game asset icon of: {values['description']}. "
         f"One centered isolated object on pure solid {values['green']} background. "
+        f"Keep every visible subject color at least {values['key_tolerance']} RGB Euclidean distance away from the background key color {values['green']}. "
         f"No text, no watermark, thick dark outline, readable silhouette, "
         f"designed to become a {values['width']}x{values['height']} RPG inventory sprite."
     )
@@ -259,6 +261,7 @@ def build_contact_sheet_prompt(
         "count": rows * cols,
         "green": key_hex,
         "key_color": key_hex,
+        "key_tolerance": int(cfg.image_gen.green_screen_tolerance),
         "width": int(width),
         "height": int(height),
     }
@@ -272,7 +275,9 @@ def _fallback_prompt(**values: Any) -> str:
     return (
         f"Create a {values['rows']}x{values['cols']} contact sheet with {values['count']} distinct "
         f"game item icon variations of: {values['description']}. Use a pure solid key-color "
-        f"background {values['green']}. No text, no watermark, no UI frame. Each cell contains "
+        f"background {values['green']}. Keep every visible subject color at least "
+        f"{values['key_tolerance']} RGB Euclidean distance away from the background key color "
+        f"{values['green']}. No text, no watermark, no UI frame. Each cell contains "
         f"one centered isolated object with clear spacing, readable silhouette and pixel-art friendly "
         f"details for a {values['width']}x{values['height']} RPG inventory sprite."
     )
