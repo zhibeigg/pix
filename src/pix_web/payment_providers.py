@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import re
 from time import time
+from urllib.parse import urlencode
 from typing import Any
 from uuid import uuid4
 
@@ -228,13 +229,25 @@ def create_checkout(
     settings: WebSettings,
     package_key: str | None = None,
     custom_credits: int | None = None,
+    return_to: str | None = None,
 ) -> CheckoutResult:
     provider = normalize_payment_provider(provider)
     if provider == "mock":
-        order = create_custom_payment_order(db, user, custom_credits, provider="mock") if custom_credits is not None else create_payment_order(db, user, package_key or "", provider="mock")
+        order = (
+            create_custom_payment_order(db, user, custom_credits, provider="mock")
+            if custom_credits is not None
+            else create_payment_order(db, user, package_key or "", provider="mock")
+        )
         return CheckoutResult(order=order, provider="mock")
     if provider == "alipay":
-        return create_alipay_checkout(db, user, settings, package_key=package_key, custom_credits=custom_credits)
+        return create_alipay_checkout(
+            db,
+            user,
+            settings,
+            package_key=package_key,
+            custom_credits=custom_credits,
+            return_to=return_to,
+        )
     raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="不支持的支付方式")
 
 
@@ -249,6 +262,7 @@ def create_alipay_checkout(
     *,
     package_key: str | None = None,
     custom_credits: int | None = None,
+    return_to: str | None = None,
 ) -> CheckoutResult:
     mode = _alipay_mode(settings)
     if mode == "certificate":
@@ -262,7 +276,11 @@ def create_alipay_checkout(
         if custom_credits is not None
         else create_payment_order(db, user, package_key or "", provider="alipay")
     )
-    subject = f"Pix Credits 自定义 {order.credits}" if order.package_id is None else f"Pix Credits {order.credits}"
+    subject = (
+        f"Pix Credits 自定义 {order.credits}"
+        if order.package_id is None
+        else f"Pix Credits {order.credits}"
+    )
     model = AlipayTradePagePayModel()
     model.out_trade_no = order.provider_order_id
     model.product_code = "FAST_INSTANT_TRADE_PAY"
@@ -270,7 +288,13 @@ def create_alipay_checkout(
     model.subject = subject
     request = AlipayTradePagePayRequest(biz_model=model)
     request.notify_url = _public_url(settings, "/billing/webhook/alipay")
-    request.return_url = _public_url(settings, f"/billing/return/alipay?order_id={order.id}")
+    return_params: dict[str, str | int] = {"order_id": order.id}
+    if return_to:
+        return_params["return_to"] = return_to
+    request.return_url = _public_url(
+        settings,
+        f"/billing/return/alipay?{urlencode(return_params)}",
+    )
     if mode == "certificate":
         request.udf_params = {
             "app_cert_sn": _alipay_app_cert_sn(settings),

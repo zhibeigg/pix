@@ -18,14 +18,12 @@ import { PixelControls } from './PixelControls'
 
 type Props = { pricing: PricingRule[]; loading: boolean; token: string; onSubmit: (payload: JobCreateRequest) => Promise<void> }
 type AssetKindChoice = 'item_icon' | 'ui_component'
-type SubjectKindChoice = 'single_prop' | 'single_ui'
 
 export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props) {
   const { text } = useI18n()
   const [jobType, setJobType] = useState<JobType>('asset')
   const [assetName, setAssetName] = useState(() => text('冰霜之心', 'Frost Heart'))
   const [assetKind, setAssetKind] = useState<AssetKindChoice>('item_icon')
-  const [subjectKind, setSubjectKind] = useState<SubjectKindChoice>('single_prop')
   const [assetExtraPrompt, setAssetExtraPrompt] = useState('')
   const [prompt, setPrompt] = useState(() => text('一枚幻想 RPG 魔法药水图标，居中构图，轮廓清晰，透明背景', 'A fantasy RPG magic potion icon, centered composition, clear silhouette, transparent background'))
   const [inputImagePath, setInputImagePath] = useState('')
@@ -44,6 +42,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
   const isAsset = jobType === 'asset'
   const isSprite = jobType === 'sprite_sheet'
+  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : 'single_prop'
   const needsPrompt = jobType === 'text_to_image' || jobType === 'image_to_image' || isSprite
   const needsImage = jobType !== 'asset' && jobType !== 'text_to_image' && !isSprite
   const submitBlocked = invalidSubAssetSize || (isAsset && !assetName.trim()) || (needsPrompt && !prompt.trim()) || (needsImage && !inputImagePath.trim())
@@ -92,27 +91,16 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
         </PixField>
 
         {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <PixField label={text('素材类型', 'Asset type')}>
-              <Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="item_icon">{text('物品图标', 'Item icon')}</SelectItem>
-                  <SelectItem value="ui_component">{text('UI 组件', 'UI component')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </PixField>
-            <PixField label={text('主体类型', 'Subject type')}>
-              <Select value={subjectKind} onValueChange={(value) => setSubjectKind(value as SubjectKindChoice)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="single_prop">{text('单个道具', 'Single prop')}</SelectItem>
-                  <SelectItem value="single_ui">{text('单个 UI', 'Single UI')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </PixField>
-          </div>
-          <PixField label={text('主体', 'Subject')} hint={text('只填写“主体：”后面的内容，系统会按尺寸和类型自动拼完整 prompt。', 'Only enter the content after “Subject:”; the system builds the full prompt from size and type.')}><Input value={assetName} placeholder={text('例如：冰霜之心', 'e.g. Frost Heart')} onChange={(e) => setAssetName(e.target.value)} /></PixField>
+          <PixField label={text('素材类型', 'Asset type')}>
+            <Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="item_icon">{text('物品图标', 'Item icon')}</SelectItem>
+                <SelectItem value="ui_component">{text('UI 组件', 'UI component')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </PixField>
+          <PixField label={text('主体', 'Subject')}><Input value={assetName} placeholder={text('例如：冰霜之心', 'e.g. Frost Heart')} onChange={(e) => setAssetName(e.target.value)} /></PixField>
           <PixField label={text('额外风格描述（可选）', 'Extra style notes (optional)')}><Textarea value={assetExtraPrompt} rows={3} placeholder={text('可留空；如需补充材质、颜色或题材风格再填写。', 'Optional; add material, color, or theme notes if needed.')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
         </div>}
         {needsPrompt && <PixField label={text('素材描述', 'Asset description')} hint={text('写清主体、材质和用途。', 'Describe the subject, material, and use case clearly.')}><Textarea value={prompt} rows={5} onChange={(e) => setPrompt(e.target.value)} /></PixField>}
@@ -122,7 +110,6 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
         {isSprite && <PixField label={text('GIF 帧间隔(ms)', 'GIF frame interval (ms)')}><Input type="number" value={durationMs} onChange={(e) => setDurationMs(Number(e.target.value))} /></PixField>}
         <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={removeBg} disabled={isSprite} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{text('透明背景', 'Transparent background')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={isSprite || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? text('素材直出默认视觉理解策略', 'Default vision policy for asset output') : text('跳过参考图理解', 'Skip reference understanding')}</label></div>
         {invalidSubAssetSize && <Alert variant="destructive">{text('素材最低支持 16×16。', 'Minimum asset size is 16×16.')}</Alert>}
-        {isAsset && <Alert variant="info">{text('素材直出只需要填写主体；系统会按所选尺寸、素材类型和主体类型拼接像素游戏素材模板。', 'Asset output only needs a subject; the system builds the pixel-game asset prompt from size, asset type, and subject type.')}</Alert>}
         <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成动画精灵表', 'Generate animated sprite sheet') : isAsset ? text('生成游戏素材', 'Generate game asset') : text('生成单张素材', 'Generate single asset')}</Button>
       </form>
     </PixPanel>

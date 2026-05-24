@@ -256,6 +256,25 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Radix Select/Dialog can lock body scroll through react-remove-scroll.
+   The app already reserves scrollbar space on html, so its runtime gap compensation
+   makes the whole page jump horizontally when menus/dialogs open. */
+body[data-scroll-locked],
+body.with-scroll-bars-hidden {
+  margin-right: 0 !important;
+  padding-right: 0 !important;
+}
+
+body[data-scroll-locked] .right-scroll-bar-position,
+body.with-scroll-bars-hidden .right-scroll-bar-position {
+  right: 0 !important;
+}
+
+body[data-scroll-locked] .width-before-scroll-bar,
+body.with-scroll-bars-hidden .width-before-scroll-bar {
+  margin-right: 0 !important;
+}
+
 [data-theme="dark"] body {
   background: linear-gradient(180deg, hsl(var(--pix-navy-deep)), hsl(var(--background)) 34rem, hsl(222 32% 7%));
 }

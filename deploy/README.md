@@ -41,6 +41,7 @@ PACKY_API_KEY=sk-你的生图key
 PACKY_VL_API_KEY=sk-你的视觉模型key
 PIX_WEB_JWT_SECRET=至少32位随机字符串
 PIX_WEB_PUBLIC_BASE_URL=https://api.your-domain.com
+PIX_WEB_FRONTEND_BASE_URL=https://your-frontend-domain.com
 ```
 
 生成 JWT Secret 的示例：
@@ -54,6 +55,8 @@ openssl rand -hex 32
 ```env
 PIX_WEB_CORS_ORIGINS=https://your-frontend-domain.com
 ```
+
+`PIX_WEB_FRONTEND_BASE_URL` 用于支付宝支付完成后的浏览器跳转；不配置时会优先尝试使用当前前端请求来源或 `PIX_WEB_CORS_ORIGINS` 的第一个地址。
 
 ### 2. 执行数据库迁移
 

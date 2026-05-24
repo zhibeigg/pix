@@ -56,6 +56,23 @@ function pageFromHash(user: User | null): AppPage {
   return page
 }
 
+type PaymentReturnInfo = { provider: string; status: string; orderId: string }
+
+function paymentReturnFromHash(): PaymentReturnInfo | null {
+  if (typeof window === 'undefined') return null
+  const hash = window.location.hash || ''
+  const queryIndex = hash.indexOf('?')
+  if (queryIndex < 0) return null
+  const params = new URLSearchParams(hash.slice(queryIndex + 1))
+  const provider = params.get('payment') ?? ''
+  if (!provider) return null
+  return { provider, status: params.get('status') ?? '', orderId: params.get('order_id') ?? '' }
+}
+
+function clearPaymentReturnHash() {
+  window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/billing`)
+}
+
 function retainedPhotoCount(jobs: GenerationJob[]) {
   return jobs.filter((job) => job.status === 'succeeded' && job.outputs.length > 0).length
 }
@@ -94,6 +111,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
   const [selectedRawJobId, setSelectedRawJobId] = useState<number | null>(null)
   const pollFailuresRef = useRef(0)
+  const handledPaymentReturnRef = useRef('')
   const jobStatusSnapshotRef = useRef<Map<number, string>>(new Map())
   const jobStatusSeededRef = useRef(false)
 
@@ -227,6 +245,22 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       showError(error)
     })
   }, [refreshCore, showError, token])
+
+  useEffect(() => {
+    const returned = paymentReturnFromHash()
+    if (page !== 'billing' || !returned) return
+    const key = `${returned.provider}:${returned.orderId}:${returned.status}`
+    if (handledPaymentReturnRef.current === key) return
+    handledPaymentReturnRef.current = key
+    if (token) void refreshCore(token).catch(showError)
+    setMessage(
+      returned.orderId
+        ? text(`已返回充值页，正在刷新订单 #${returned.orderId} 状态。`, `Returned to billing; refreshing order #${returned.orderId}.`)
+        : text('已返回充值页，正在刷新订单状态。', 'Returned to billing; refreshing order status.'),
+      'info',
+    )
+    clearPaymentReturnHash()
+  }, [page, refreshCore, setMessage, showError, text, token])
 
   useEffect(() => {
     if (!token) return
