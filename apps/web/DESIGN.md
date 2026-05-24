@@ -462,6 +462,10 @@ The system uses a Notion-Sans typeface (Inter-based) across every UI surface —
 - 4-tier pricing comparison with dense feature table
 - Centered hero layout (different from the left-aligned norm of most B2B SaaS)
 
+### Pix Homepage Sample Atlas Interaction
+- 首页范例图谱的悬浮详情保持图片优先：物品组、UI 展示图和 Prompt 复制按钮需要放在同一验收面板中。
+- 单个物品格支持右键操作菜单，菜单只提供当前槽位的下载与 `主体：` 后 subject prompt 描述片段复制，并直接预览将复制内容，避免用户复制到整组旧 Prompt、单独物品名或完整模板。
+
 ## Colors
 
 > Source pages: notion.com/ (homepage), /enterprise, /product/ai, /product/agents, /startups, /pricing. Token coverage was identical across all six pages.
@@ -742,7 +746,7 @@ Notion's geometry is sober-editorial — `{rounded.md}` (8px) buttons distinguis
 
 **Header Utility Group** — Compact circular icon controls.
 - Three 40px circular controls for system announcements, theme mode, and language.
-- Announcement control opens a large light dialog with notification/system-announcement tabs and empty-state illustration.
+- Announcement control opens a large viewport-centered dialog with notification/system-announcement tabs; it shows the public system announcement published from the admin console, or the empty-state illustration when no announcement is active. On the homepage, a newly published active announcement should auto-open once, then use local seen state to avoid repeatedly interrupting the same visitor.
 - Theme and language controls reveal menus on hover/focus; theme offers light / dark / system, language offers Chinese / English.
 - Menus use `{colors.canvas}` surfaces, `{rounded.lg}` radius, and Level 4 modal/dropdown shadow.
 - Localization uses `i18next` / `react-i18next` resource keys for all new menu, navigation, account, gallery, packs, queue, and billing copy; `text(zh, en)` remains only as a deprecated compatibility bridge for areas not yet migrated.

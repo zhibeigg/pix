@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { AdminDashboard, CreditPackage, PricingRule, SystemSetting, User } from '../types'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
@@ -14,6 +14,11 @@ import { PixPanel } from './pix/PixPanel'
 
 type Props = { dashboard: AdminDashboard | null; users: User[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onTestEmail: (email: string) => Promise<void> }
 const settingTabs = ['运营保护', '邮件验证码', '模型与 API', '素材默认值', '支付与站点', '存储 / 队列 / 安全']
+const announcementSettingKeys = {
+  enabled: 'site.announcement.enabled',
+  title: 'site.announcement.title',
+  body: 'site.announcement.body',
+} as const
 
 export function AdminPanel({ dashboard, users, pricing, packages, settings, onRefresh, onAdjustCredits, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onTestEmail }: Props) {
   const [tab, setTab] = useState('dashboard')
@@ -26,9 +31,10 @@ export function AdminPanel({ dashboard, users, pricing, packages, settings, onRe
   return (
     <PixPanel eyebrow="Control Room" title="管理后台" description="配置站点、模型、邮件、套餐和运营保护。高风险环境项只显示状态。" action={<Button variant="outline" onClick={onRefresh}>刷新</Button>}>
       <div className="grid gap-6">
-        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
+        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
         {tab === 'dashboard' && dashboard && <DashboardGrid dashboard={dashboard} />}
         {tab === 'users' && <form className="grid max-w-xl gap-4" onSubmit={submitAdjust}><PixField label="用户"><Select value={selectedUser} onValueChange={setSelectedUser}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">选择用户</SelectItem>{users.map((u) => <SelectItem value={String(u.id)} key={u.id}>{u.email} · {u.role}</SelectItem>)}</SelectContent></Select></PixField><PixField label="点数变化"><Input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></PixField><PixField label="备注"><Input value={note} onChange={(e) => setNote(e.target.value)} /></PixField><Button type="submit">调整点数</Button></form>}
+        {tab === 'announcements' && <AnnouncementEditor settings={settings} onUpdate={onUpdateSetting} />}
         {tab === 'pricing' && <div className="grid gap-3"><h3 className="text-lg font-semibold">价格规则</h3>{pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}</div>}
         {tab === 'packages' && <PackageEditor packages={packages} onCreate={onCreatePackage} onUpdate={onUpdatePackage} />}
         {settingGroup && <div className="grid gap-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-semibold">{tab}</h3><p className="text-sm text-muted-foreground">保存后只影响新请求/新任务；带“需重启”的项目请重启服务或 worker。</p></div>{tab === '邮件验证码' && <EmailTestBox onTest={onTestEmail} />}</div>{settingGroup.map((setting) => <SettingRow setting={setting} onUpdate={onUpdateSetting} key={setting.key} />)}</div>}
@@ -40,6 +46,63 @@ export function AdminPanel({ dashboard, users, pricing, packages, settings, onRe
 function groupSettings(settings: SystemSetting[]) { return settings.reduce<Record<string, SystemSetting[]>>((acc, setting) => { const category = setting.category || '其他'; acc[category] = acc[category] || []; acc[category].push(setting); return acc }, {}) }
 function DashboardGrid({ dashboard }: { dashboard: AdminDashboard }) { return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><PixMetric label="今日任务" value={dashboard.jobs_today} tone="info" /><PixMetric label="成功 / 失败" value={`${dashboard.succeeded_today} / ${dashboard.failed_today}`} tone={dashboard.failed_today > 0 ? 'danger' : 'success'} /><PixMetric label="排队 / 运行" value={`${dashboard.pending_jobs} / ${dashboard.running_jobs}`} tone="info" /><PixMetric label="今日充值" value={dashboard.credits_recharged_today} tone="success" /><PixMetric label="今日消费" value={dashboard.credits_consumed_today} tone="warning" /><PixMetric label="今日上传" value={dashboard.uploads_today} /><PixMetric label="总用户" value={dashboard.total_users} /><PixMetric label="失败率" value={`${Math.round(dashboard.failure_rate * 100)}%`} tone={dashboard.failure_rate > 0.1 ? 'danger' : 'success'} /></div> }
 function EmailTestBox({ onTest }: { onTest: (email: string) => Promise<void> }) { const [email, setEmail] = useState('admin@example.com'); return <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void onTest(email) }}><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /><Button type="submit" variant="outline">发送测试</Button></form> }
+
+function settingValue(settings: SystemSetting[], key: string, fallback = '') {
+  return settings.find((setting) => setting.key === key)?.value ?? fallback
+}
+
+function AnnouncementEditor({ settings, onUpdate }: { settings: SystemSetting[]; onUpdate: (key: string, value: string, clear?: boolean) => Promise<void> }) {
+  const [title, setTitle] = useState(() => settingValue(settings, announcementSettingKeys.title, ''))
+  const [body, setBody] = useState(() => settingValue(settings, announcementSettingKeys.body, ''))
+  const [enabled, setEnabled] = useState(() => settingValue(settings, announcementSettingKeys.enabled, 'false') === 'true')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setTitle(settingValue(settings, announcementSettingKeys.title, ''))
+    setBody(settingValue(settings, announcementSettingKeys.body, ''))
+    setEnabled(settingValue(settings, announcementSettingKeys.enabled, 'false') === 'true')
+  }, [settings])
+
+  async function save(nextEnabled = enabled) {
+    setSaving(true)
+    try {
+      await onUpdate(announcementSettingKeys.title, title)
+      await onUpdate(announcementSettingKeys.body, body)
+      await onUpdate(announcementSettingKeys.enabled, nextEnabled ? 'true' : 'false')
+      setEnabled(nextEnabled)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <form className="grid gap-4 rounded-lg border border-border bg-card p-4" onSubmit={(event) => { event.preventDefault(); void save(true) }}>
+        <div>
+          <h3 className="text-lg font-semibold">系统公告</h3>
+          <p className="mt-1 text-sm text-muted-foreground">发布后会显示在顶部铃铛的系统公告弹窗中，访客和登录用户都能看到。</p>
+        </div>
+        <PixField label="公告标题"><Input value={title} maxLength={80} placeholder="例如：维护通知 / 新功能上线" onChange={(event) => setTitle(event.target.value)} /></PixField>
+        <PixField label="公告正文"><Textarea value={body} rows={6} maxLength={1200} placeholder="写清楚影响范围、时间和用户需要做什么。" onChange={(event) => setBody(event.target.value)} /></PixField>
+        <label className="flex items-center gap-2 text-sm"><Checkbox checked={enabled} onCheckedChange={(value) => setEnabled(Boolean(value))} />启用公告</label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" disabled={saving || (!title.trim() && !body.trim())}>{saving ? '发布中…' : '发布公告'}</Button>
+          <Button type="button" variant="outline" disabled={saving} onClick={() => void save(false)}>下线公告</Button>
+          <Button type="button" variant="soft" disabled={saving} onClick={() => void save(enabled)}>保存草稿</Button>
+        </div>
+      </form>
+      <aside className="rounded-lg border border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-paper-soft))] p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
+        <p className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground">Preview</p>
+        <div className="mt-3 rounded-lg border border-border bg-card p-4 shadow-[0_12px_32px_-26px_rgba(15,15,15,0.42)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
+          <p className="text-xs font-semibold text-primary">系统公告</p>
+          <h4 className="mt-2 text-base font-semibold">{title.trim() || '公告标题预览'}</h4>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{body.trim() || '公告正文会显示在这里。'}</p>
+          <Badge variant={enabled ? 'success' : 'muted'}>{enabled ? '当前启用' : '当前下线'}</Badge>
+        </div>
+      </aside>
+    </div>
+  )
+}
 
 function SettingRow({ setting, onUpdate }: { setting: SystemSetting; onUpdate: (key: string, value: string, clear?: boolean) => Promise<void> }) {
   const [value, setValue] = useState(setting.value)

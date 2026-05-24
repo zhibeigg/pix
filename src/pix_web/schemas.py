@@ -572,6 +572,15 @@ class SystemSettingUpdateRequest(BaseModel):
     clear: bool = False
 
 
+class AnnouncementResponse(BaseModel):
+    enabled: bool
+    title: str = ""
+    body: str = ""
+    updated_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class EmailTestRequest(BaseModel):
     email: EmailStr
 

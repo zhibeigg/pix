@@ -13,6 +13,7 @@ import type {
   PaymentCheckout,
   PaymentOrder,
   PricingRule,
+  PublicAnnouncement,
   ReferralSettlement,
   ReferralSummary,
   CreditPackage,
@@ -170,6 +171,9 @@ export const api = {
   },
   packages() {
     return request<CreditPackage[]>('/billing/packages')
+  },
+  currentAnnouncement() {
+    return request<PublicAnnouncement>('/announcements/current')
   },
   customRechargeOptions() {
     return request<CustomRechargeOptions>('/billing/custom-recharge-options')

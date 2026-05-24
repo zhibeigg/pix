@@ -69,12 +69,23 @@ class ReferralSettings:
     pending_days: int
 
 
+@dataclass(frozen=True)
+class PublicAnnouncement:
+    enabled: bool
+    title: str
+    body: str
+    updated_at: datetime | None
+
+
 SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("generation_enabled", "生成总开关", "运营保护", "boolean", "true", "关闭后普通用户不能创建新生成任务。"),
     SettingDefinition("max_pending_jobs_per_user", "每用户排队/运行上限（已停用）", "运营保护", "number", "0", "并发限制已取消；该字段仅兼容旧配置，不再限制任务提交。", editable=False),
     SettingDefinition("daily_job_limit_per_user", "每用户每日任务上限", "运营保护", "number", "50", "0 表示不限制。"),
     SettingDefinition("max_uploads_per_user_per_day", "每用户每日上传上限", "运营保护", "number", "50", "0 表示不限制。"),
     SettingDefinition("registration_bonus_credits", "注册赠送点数", "运营保护", "number", "30", "新用户注册时赠送的点数，0 表示不赠送。"),
+    SettingDefinition("site.announcement.enabled", "系统公告启用", "系统公告", "boolean", "false", "启用后会在顶部公告按钮内展示给所有访客和登录用户。"),
+    SettingDefinition("site.announcement.title", "系统公告标题", "系统公告", "string", "", "公告标题，建议 8-24 个字。"),
+    SettingDefinition("site.announcement.body", "系统公告正文", "系统公告", "textarea", "", "公告正文，可用于维护通知、活动说明或版本提醒。"),
     SettingDefinition("referral.enabled", "邀请奖励开关", "邀请奖励", "boolean", "true", "关闭后不再绑定新邀请或生成新返佣。"),
     SettingDefinition("referral.commission_rate_bps", "返佣比例 bps", "邀请奖励", "number", "1000", "1000 = 10%；按好友实际支付金额计算。"),
     SettingDefinition("referral.pending_days", "待到账天数", "邀请奖励", "number", "30", "好友充值后返佣进入待到账，达到天数后转为可用收益。"),
@@ -184,6 +195,9 @@ DEFAULT_SYSTEM_SETTINGS: dict[str, str] = {
         "blocked_prompt_terms",
         "max_uploads_per_user_per_day",
         "registration_bonus_credits",
+        "site.announcement.enabled",
+        "site.announcement.title",
+        "site.announcement.body",
         "referral.enabled",
         "referral.commission_rate_bps",
         "referral.pending_days",
@@ -388,6 +402,19 @@ def load_operational_settings(db: Session) -> OperationalSettings:
             int(DEFAULT_SYSTEM_SETTINGS["registration_bonus_credits"]),
         ),
     )
+
+
+def load_public_announcement(db: Session) -> PublicAnnouncement:
+    rows = _rows_by_key(db)
+    enabled_row = rows.get("site.announcement.enabled")
+    title_row = rows.get("site.announcement.title")
+    body_row = rows.get("site.announcement.body")
+    enabled = _parse_bool(enabled_row.value if enabled_row is not None else DEFAULT_SYSTEM_SETTINGS["site.announcement.enabled"])
+    title = (title_row.value if title_row is not None else DEFAULT_SYSTEM_SETTINGS["site.announcement.title"]).strip()
+    body = (body_row.value if body_row is not None else DEFAULT_SYSTEM_SETTINGS["site.announcement.body"]).strip()
+    updated_candidates = [row.updated_at for row in (enabled_row, title_row, body_row) if row is not None and row.updated_at is not None]
+    effective_enabled = enabled and bool(title or body)
+    return PublicAnnouncement(enabled=effective_enabled, title=title, body=body, updated_at=max(updated_candidates) if updated_candidates else None)
 
 
 def load_referral_settings(db: Session) -> ReferralSettings:
