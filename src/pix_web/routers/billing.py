@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import re
+from urllib.parse import urlencode, urlparse
+
 from fastapi import APIRouter, Depends, Request, Response
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from pix_web.config import WebSettings
 from pix_web.billing import (
     create_custom_payment_order,
     create_payment_order,
@@ -36,6 +41,70 @@ from pix_web.system_settings import load_effective_web_settings
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
+_LOCAL_FRONTEND_RE = re.compile(
+    r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$",
+    re.IGNORECASE,
+)
+
+
+def _same_origin_url(origin: str) -> str | None:
+    parsed = urlparse(origin.strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+
+
+def _is_allowed_frontend_origin(origin: str, settings: WebSettings) -> bool:
+    clean = _same_origin_url(origin)
+    if clean is None:
+        return False
+    allowed = {item.rstrip("/") for item in settings.cors_origins}
+    configured_frontend = (
+        _same_origin_url(settings.frontend_base_url) if settings.frontend_base_url else None
+    )
+    configured_public = _same_origin_url(settings.public_base_url)
+    return (
+        clean in allowed
+        or clean == configured_frontend
+        or clean == configured_public
+        or bool(_LOCAL_FRONTEND_RE.match(clean))
+    )
+
+
+def _fallback_frontend_base_url(settings: WebSettings) -> str:
+    if settings.frontend_base_url:
+        return settings.frontend_base_url.rstrip("/")
+    if settings.cors_origins:
+        return settings.cors_origins[0].rstrip("/")
+    public_base = settings.public_base_url.rstrip("/")
+    if public_base.endswith("/api"):
+        return public_base[:-4]
+    return public_base
+
+
+def _checkout_return_to(request: Request, settings: WebSettings) -> str:
+    origin = request.headers.get("origin", "")
+    if origin and _is_allowed_frontend_origin(origin, settings):
+        return _same_origin_url(origin) or _fallback_frontend_base_url(settings)
+    return _fallback_frontend_base_url(settings)
+
+
+def _alipay_return_target(
+    settings: WebSettings,
+    *,
+    order_id: int | None,
+    return_to: str | None,
+) -> str:
+    frontend_base = (
+        return_to.rstrip("/")
+        if return_to and _is_allowed_frontend_origin(return_to, settings)
+        else _fallback_frontend_base_url(settings)
+    )
+    query: dict[str, str | int] = {"payment": "alipay", "status": "returned"}
+    if order_id is not None:
+        query["order_id"] = order_id
+    return f"{frontend_base}/#/billing?{urlencode(query)}"
+
 
 @router.get("/packages", response_model=list[CreditPackageResponse])
 def packages(db: Session = Depends(get_db)) -> list[CreditPackage]:
@@ -62,6 +131,7 @@ def checkout(
         settings=settings,
         package_key=req.package_key,
         custom_credits=req.custom_credits,
+        return_to=_checkout_return_to(request, settings),
     )
     return PaymentCheckoutResponse(
         order=PaymentOrderResponse.model_validate(result.order),
@@ -138,5 +208,14 @@ async def wechat_webhook(request: Request, db: Session = Depends(get_db)) -> dic
 
 
 @router.get("/return/alipay")
-def alipay_return(order_id: int | None = None) -> dict[str, str | int | None]:
-    return {"status": "ok", "message": "请返回 Pix 页面刷新订单状态", "order_id": order_id}
+def alipay_return(
+    request: Request,
+    order_id: int | None = None,
+    return_to: str | None = None,
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    settings = load_effective_web_settings(db, request.app.state.web_settings)
+    return RedirectResponse(
+        _alipay_return_target(settings, order_id=order_id, return_to=return_to),
+        status_code=303,
+    )

@@ -513,7 +513,11 @@ def test_alipay_checkout_and_webhook_are_idempotent(client: TestClient) -> None:
     )
     _user, headers = _register_and_login(client)
     starting_credits = client.get("/credits/balance", headers=headers).json()["available_credits"]
-    checkout = client.post("/billing/checkout", headers=headers, json={"package_key": "starter", "provider": "alipay"})
+    checkout = client.post(
+        "/billing/checkout",
+        headers={**headers, "Origin": "https://pix.example.com"},
+        json={"package_key": "starter", "provider": "alipay"},
+    )
 
     assert checkout.status_code == 200
     body = checkout.json()
@@ -522,6 +526,11 @@ def test_alipay_checkout_and_webhook_are_idempotent(client: TestClient) -> None:
     assert "sign=" in body["payment_url"]
 
     order = body["order"]
+    payment_params = parse_qs(urlsplit(body["payment_url"]).query)
+    return_url = payment_params["return_url"][0]
+    return_params = parse_qs(urlsplit(return_url).query)
+    assert return_params["order_id"] == [str(order["id"])]
+    assert return_params["return_to"] == ["https://pix.example.com"]
     form = {
         "out_trade_no": order["provider_order_id"],
         "trade_no": "ali-trade-1",
@@ -538,6 +547,35 @@ def test_alipay_checkout_and_webhook_are_idempotent(client: TestClient) -> None:
     assert paid.text == "success"
     assert again.status_code == 200
     assert client.get("/credits/balance", headers=headers).json()["available_credits"] == starting_credits + order["credits"]
+
+
+def test_alipay_return_redirects_to_frontend_billing(client: TestClient) -> None:
+    client.app.state.web_settings = replace(
+        client.app.state.web_settings,
+        public_base_url="https://api.pix.example.com",
+        frontend_base_url="https://www.pix.example.com",
+        cors_origins=("https://www.pix.example.com",),
+    )
+
+    response = client.get(
+        "/billing/return/alipay?order_id=6&return_to=https%3A%2F%2Fwww.pix.example.com",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    location = response.headers["location"]
+    assert location.startswith("https://www.pix.example.com/#/billing?")
+    params = parse_qs(urlsplit(location).fragment.split("?", 1)[1])
+    assert params["payment"] == ["alipay"]
+    assert params["status"] == ["returned"]
+    assert params["order_id"] == ["6"]
+
+    unsafe = client.get(
+        "/billing/return/alipay?order_id=7&return_to=https%3A%2F%2Fevil.example.com",
+        follow_redirects=False,
+    )
+    assert unsafe.status_code == 303
+    assert unsafe.headers["location"].startswith("https://www.pix.example.com/#/billing?")
 
 
 def test_custom_alipay_checkout_and_webhook_recharges_exact_credits(client: TestClient) -> None:

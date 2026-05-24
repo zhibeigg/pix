@@ -224,7 +224,7 @@ pix history --query 紫檀 --limit 20
 
 ## 游戏素材直出
 
-`pix asset` 是给游戏资源目录准备的快捷命令。用户只需要输入模板里 `主体：` 后面的主体内容；尺寸、素材类型和主体类型会自动拼入完整 prompt。默认目标是稳定生成 16×16/32×32 等小图标，而不是追求高清插画感。
+`pix asset` 是给游戏资源目录准备的快捷命令。用户只需要输入模板里 `主体：` 后面的主体内容；尺寸和素材类型会自动拼入完整 prompt，主体类型由素材类型自动匹配。默认目标是稳定生成 16×16/32×32 等小图标，而不是追求高清插画感。
 
 ```bash
 pix asset "冰霜之心" --out 图片/冰霜之心.png
@@ -428,6 +428,9 @@ PIX_WEB_AUTO_CREATE_DB=false
 PIX_WEB_QUEUE_BACKEND=rq
 PIX_WEB_REDIS_URL=redis://localhost:6379/0
 PIX_WEB_EMAIL_PROVIDER=smtp
+PIX_WEB_PUBLIC_BASE_URL=https://api.example.com
+PIX_WEB_FRONTEND_BASE_URL=https://www.example.com
+PIX_WEB_CORS_ORIGINS=https://www.example.com
 
 # SMTP 465 implicit SSL（QQ/网易/企业邮箱等常见配置）
 PIX_WEB_SMTP_HOST=smtp.example.com
@@ -447,7 +450,7 @@ ALIPAY_PUBLIC_CERT_PATH=/run/secrets/alipay_public_cert.crt
 ALIPAY_ROOT_CERT_PATH=/run/secrets/alipay_root_cert.crt
 ```
 
-如需使用 SMTP 587 STARTTLS，请设置 `PIX_WEB_SMTP_PORT=587`、`PIX_WEB_SMTP_SSL=false`、`PIX_WEB_SMTP_TLS=true`。支付宝电脑网站支付已接入官方 `alipay-sdk-python` SDK 生成支付链接并校验回调签名；公钥模式继续使用 `ALIPAY_PUBLIC_KEY`，`ALIPAY_MODE=auto` 会在检测到证书配置时自动切换到证书模式。
+如需使用 SMTP 587 STARTTLS，请设置 `PIX_WEB_SMTP_PORT=587`、`PIX_WEB_SMTP_SSL=false`、`PIX_WEB_SMTP_TLS=true`。支付宝电脑网站支付已接入官方 `alipay-sdk-python` SDK 生成支付链接并校验回调签名；公钥模式继续使用 `ALIPAY_PUBLIC_KEY`，`ALIPAY_MODE=auto` 会在检测到证书配置时自动切换到证书模式。`PIX_WEB_FRONTEND_BASE_URL` 用于支付完成后浏览器跳回 Pix 充值页，前后端不同域名时建议显式配置。
 
 支付宝开放平台“应用网关”可配置为：
 

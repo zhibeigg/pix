@@ -24,6 +24,7 @@ class WebSettings:
     rq_queue_name: str = "pix-jobs"
     rq_worker_class: str = "simple"
     public_base_url: str = "http://127.0.0.1:8000"
+    frontend_base_url: str = ""
     cors_origins: tuple[str, ...] = ()
     alipay_app_id: str = ""
     alipay_private_key: str = ""
@@ -66,6 +67,7 @@ _DEFAULTS = {
     "PIX_WEB_RQ_QUEUE": WebSettings.rq_queue_name,
     "PIX_WEB_RQ_WORKER_CLASS": WebSettings.rq_worker_class,
     "PIX_WEB_PUBLIC_BASE_URL": WebSettings.public_base_url,
+    "PIX_WEB_FRONTEND_BASE_URL": WebSettings.frontend_base_url,
     "PIX_WEB_CORS_ORIGINS": "",
     "ALIPAY_GATEWAY": WebSettings.alipay_gateway,
     "ALIPAY_MODE": WebSettings.alipay_mode,
@@ -117,6 +119,7 @@ def load_web_settings() -> WebSettings:
     rq_queue_name = os.getenv("PIX_WEB_RQ_QUEUE", _DEFAULTS["PIX_WEB_RQ_QUEUE"])
     rq_worker_class = os.getenv("PIX_WEB_RQ_WORKER_CLASS", _DEFAULTS["PIX_WEB_RQ_WORKER_CLASS"]).lower()
     public_base_url = os.getenv("PIX_WEB_PUBLIC_BASE_URL", _DEFAULTS["PIX_WEB_PUBLIC_BASE_URL"]).rstrip("/")
+    frontend_base_url = os.getenv("PIX_WEB_FRONTEND_BASE_URL", _DEFAULTS["PIX_WEB_FRONTEND_BASE_URL"]).rstrip("/")
     cors_origins = _env_csv("PIX_WEB_CORS_ORIGINS")
     email_provider = os.getenv("PIX_WEB_EMAIL_PROVIDER", _DEFAULTS["PIX_WEB_EMAIL_PROVIDER"]).strip().lower()
     alipay_mode_raw = os.getenv("ALIPAY_MODE", _DEFAULTS["ALIPAY_MODE"]).strip().lower()
@@ -149,6 +152,7 @@ def load_web_settings() -> WebSettings:
         rq_queue_name=rq_queue_name or WebSettings.rq_queue_name,
         rq_worker_class=rq_worker_class if rq_worker_class in {"simple", "default"} else WebSettings.rq_worker_class,
         public_base_url=public_base_url,
+        frontend_base_url=frontend_base_url,
         cors_origins=cors_origins,
         alipay_app_id=os.getenv("ALIPAY_APP_ID", ""),
         alipay_private_key=os.getenv("ALIPAY_PRIVATE_KEY", ""),
