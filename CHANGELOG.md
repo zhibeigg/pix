@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.84] - 2026-05-24
+
+### Fixed
+
+- Web 首页范例图谱悬浮详情改为 requestAnimationFrame 更新位置，并缓存分组与卡片渲染，避免鼠标移动时反复触发整块图谱重渲染。
+
+## [1.27.83] - 2026-05-24
+
+### Fixed
+
+- Web 首页范例图谱恢复展示原 64×64 物品资源，并与新 32×32 outline 图标并列对比，避免只展示小图标却缺少原高像素资源。
+
 ## [1.27.81] - 2026-05-24
 
 ### Added
