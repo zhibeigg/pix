@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.27.85-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.29.87-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-419%20passed-2ea44f.svg">
 </p>
 
@@ -67,6 +67,7 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
 - **候选生成与评分**
   - 默认 `n_sample`：一次生成多张独立 full-res 候选。
   - 可切换 contact sheet：生成九宫格后自动切图。
+  - 生图 prompt 会把 `{key_tolerance}` 填成当前抠色容差，要求主体可见颜色与 key background 保持足够 RGB 欧氏距离，降低误抠。
   - VL 根据 prompt 符合度、轮廓、可读性、抠图质量评分。
 
 - **Pixel Grid 工程图**
@@ -504,6 +505,7 @@ size = "1024x1024"
 quality = "high"
 candidate_mode = "n_sample" # n_sample | contact_sheet
 n_sample_count = 4
+green_screen_tolerance = 48 # 同时作为 prompt 模板中的 {key_tolerance}
 contact_sheet_enabled = true
 prompt_guard_enabled = true
 candidate_vl_ranking_enabled = true

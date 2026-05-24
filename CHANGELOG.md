@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.29.87] - 2026-05-24
+
+### Changed
+
+- Web/CLI 候选生图 prompt 模板新增 `{key_tolerance}` 约束，构建时填入当前 `green_screen_tolerance`，要求主体可见颜色与 key background 保持足够 RGB 欧氏距离，降低后处理抠色误伤。
+
 ## [1.27.85] - 2026-05-24
 
 ### Fixed
