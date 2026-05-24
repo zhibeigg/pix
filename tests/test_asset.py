@@ -55,6 +55,32 @@ def test_build_asset_prompt_formats_template() -> None:
     assert prompt.endswith("red glow")
 
 
+def test_build_asset_prompt_supports_structured_subject_template() -> None:
+    prompt = build_asset_prompt(
+        "{size_label} 像素游戏{asset_kind_label}，复古8位像素风格，{subject_kind_label}，{canvas_shape}，主体：{name}",
+        "冰霜之心",
+        size=(16, 16),
+    )
+
+    assert prompt == "16×16 像素游戏物品图标，复古8位像素风格，单个道具，正方形画幅，主体：冰霜之心"
+
+
+def test_build_asset_prompt_supports_ui_component_options() -> None:
+    prompt = build_asset_prompt(
+        "{size_label} 像素游戏{asset_kind_label}，{subject_kind_label}，{canvas_shape}，主体：{name}",
+        "生命条",
+        size=(64, 16),
+        asset_kind="ui_component",
+        subject_kind="single_ui",
+        extra_prompt="红色血量槽",
+    )
+
+    assert "64×16 像素游戏UI组件" in prompt
+    assert "单个UI" in prompt
+    assert "适配 64×16 画幅" in prompt
+    assert prompt.endswith("红色血量槽")
+
+
 def test_validate_asset_image_ok(tmp_path: Path) -> None:
     img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     for y in range(4, 12):

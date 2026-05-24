@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from PIL import Image
 from sqlalchemy import select
 
+import pix_web.rq_worker as rq_worker
 from pix_web.config import WebSettings
 from pix_web.db import init_db, make_engine, make_session_factory
 from pix_web.jobs import create_job
@@ -45,6 +46,52 @@ def test_database_worker_claims_jobs_up_to_concurrency_limit(tmp_path) -> None:
     with session_factory() as db:
         statuses = list(db.scalars(select(GenerationJob.status).order_by(GenerationJob.id.asc())))
     assert statuses == ["running", "running", "pending"]
+
+
+def test_rq_worker_pool_uses_configured_concurrency(monkeypatch) -> None:
+    started: list[str] = []
+    terminated: list[str] = []
+
+    class FakeProcess:
+        def __init__(self, *, target, args, name):
+            self.target = target
+            self.args = args
+            self.name = name
+
+        def start(self):
+            started.append(self.name)
+
+        def is_alive(self):
+            return False
+
+        def join(self, timeout=None):
+            return None
+
+        def terminate(self):
+            terminated.append(self.name)
+
+    monkeypatch.setattr(rq_worker, "Process", FakeProcess)
+    settings = WebSettings(worker_concurrency=4)
+
+    rq_worker.run_worker_pool(settings)
+
+    assert started == [
+        "pix-rq-worker-1",
+        "pix-rq-worker-2",
+        "pix-rq-worker-3",
+        "pix-rq-worker-4",
+    ]
+    assert terminated == []
+
+
+def test_rq_worker_pool_keeps_single_worker_inline(monkeypatch) -> None:
+    called: list[WebSettings] = []
+    monkeypatch.setattr(rq_worker, "run_rq_worker", lambda settings: called.append(settings))
+    settings = WebSettings(worker_concurrency=1)
+
+    rq_worker.run_worker_pool(settings)
+
+    assert called == [settings]
 
 
 def test_rq_process_job_id_processes_pending_job(tmp_path, monkeypatch) -> None:

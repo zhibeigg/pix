@@ -16,6 +16,8 @@ import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
 
 type BatchMode = 'asset' | 'text_to_image' | 'image_to_image' | 'local_pixelize'
+type AssetKindChoice = 'item_icon' | 'ui_component'
+type SubjectKindChoice = 'single_prop' | 'single_ui'
 type BatchUpload = { id: string; status: 'uploading' | 'uploaded' | 'failed'; error?: string; upload?: UploadResponse }
 type Props = { pricing: PricingRule[]; balance: CreditBalance | null; loading: boolean; token: string; onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void> }
 
@@ -23,6 +25,8 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
   const { t } = useTranslation()
   const [batchMode, setBatchMode] = useState<BatchMode>('asset')
   const [prompts, setPrompts] = useState(() => t('batchForm.defaults.prompts'))
+  const [assetKind, setAssetKind] = useState<AssetKindChoice>('item_icon')
+  const [subjectKind, setSubjectKind] = useState<SubjectKindChoice>('single_prop')
   const [assetExtraPrompt, setAssetExtraPrompt] = useState(() => t('batchForm.defaults.assetExtraPrompt'))
   const [sharedPrompt, setSharedPrompt] = useState(() => t('batchForm.defaults.sharedPrompt'))
   const [uploads, setUploads] = useState<BatchUpload[]>([])
@@ -71,7 +75,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
     const pixelize = isAsset ? buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }) : buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge })
     const grid = buildGridDesign()
     let payloads: JobCreateRequest[] = []
-    if (batchMode === 'asset') payloads = lines.map((name) => ({ job_type: 'asset', prompt: name, input_image_path: null, client_request_id: crypto.randomUUID(), pixelize, grid, asset: { name, extra_prompt: assetExtraPrompt.trim(), no_preview: false } }))
+    if (batchMode === 'asset') payloads = lines.map((name) => ({ job_type: 'asset', prompt: name, input_image_path: null, client_request_id: crypto.randomUUID(), pixelize, grid, asset: { name, extra_prompt: assetExtraPrompt.trim(), asset_kind: assetKind, subject_kind: subjectKind, no_preview: false } }))
     else if (batchMode === 'text_to_image') payloads = lines.map((prompt) => ({ job_type: 'text_to_image', prompt, input_image_path: null, client_request_id: crypto.randomUUID(), skip_vl: skipVl, pixelize, grid }))
     else if (batchMode === 'image_to_image') payloads = uploaded.map((item) => ({ job_type: 'image_to_image', prompt: sharedPrompt, input_image_path: item.upload?.path ?? null, client_request_id: crypto.randomUUID(), skip_vl: skipVl, pixelize, grid }))
     else payloads = uploaded.map((item) => ({ job_type: 'local_pixelize', prompt: null, input_image_path: item.upload?.path ?? null, client_request_id: crypto.randomUUID(), skip_vl: true, pixelize, grid }))
@@ -84,7 +88,16 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
       <form className="grid gap-5" onSubmit={submit}>
         <BatchCostSummary taskCount={taskCount} unitPrice={unitPrice} totalPrice={totalPrice} availableCredits={availableCredits} insufficientCredits={insufficientCredits} />
         <PixField label={t('batchForm.typeLabel')}><Select value={batchMode} onValueChange={(value) => setBatchMode(value as BatchMode)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="asset">{t('batchForm.types.asset')}</SelectItem><SelectItem value="text_to_image">{t('batchForm.types.text_to_image')}</SelectItem><SelectItem value="image_to_image">{t('batchForm.types.image_to_image')}</SelectItem><SelectItem value="local_pixelize">{t('batchForm.types.local_pixelize')}</SelectItem></SelectContent></Select></PixField>
-        {batchMode === 'asset' || batchMode === 'text_to_image' ? <div className="grid gap-4">{isAsset && <PixField label={t('batchForm.extraStyle')}><Textarea value={assetExtraPrompt} rows={3} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>}<PixField label={isAsset ? t('batchForm.assetNames') : t('batchForm.assetDescriptions')}><Textarea value={prompts} rows={8} onChange={(e) => setPrompts(e.target.value)} /></PixField></div> : <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">{batchMode === 'image_to_image' && <PixField label={t('batchForm.sharedPrompt')}><Textarea value={sharedPrompt} rows={4} onChange={(e) => setSharedPrompt(e.target.value)} /></PixField>}<Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? t('batchForm.uploading') : t('batchForm.uploadImages')}<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void uploadFiles(e.currentTarget.files)} /></label></Button><UploadList uploads={uploads} /></div>}
+        {batchMode === 'asset' || batchMode === 'text_to_image' ? <div className="grid gap-4">
+          {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <PixField label={t('batchForm.assetKindLabel')}><Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="item_icon">{t('batchForm.assetKinds.item_icon')}</SelectItem><SelectItem value="ui_component">{t('batchForm.assetKinds.ui_component')}</SelectItem></SelectContent></Select></PixField>
+              <PixField label={t('batchForm.subjectKindLabel')}><Select value={subjectKind} onValueChange={(value) => setSubjectKind(value as SubjectKindChoice)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="single_prop">{t('batchForm.subjectKinds.single_prop')}</SelectItem><SelectItem value="single_ui">{t('batchForm.subjectKinds.single_ui')}</SelectItem></SelectContent></Select></PixField>
+            </div>
+            <PixField label={t('batchForm.extraStyle')}><Textarea value={assetExtraPrompt} rows={3} placeholder={t('batchForm.extraStylePlaceholder')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
+          </div>}
+          <PixField label={isAsset ? t('batchForm.assetSubjects') : t('batchForm.assetDescriptions')} hint={isAsset ? t('batchForm.assetSubjectHint') : undefined}><Textarea value={prompts} rows={8} placeholder={isAsset ? t('batchForm.assetSubjectPlaceholder') : undefined} onChange={(e) => setPrompts(e.target.value)} /></PixField>
+        </div> : <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">{batchMode === 'image_to_image' && <PixField label={t('batchForm.sharedPrompt')}><Textarea value={sharedPrompt} rows={4} onChange={(e) => setSharedPrompt(e.target.value)} /></PixField>}<Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? t('batchForm.uploading') : t('batchForm.uploadImages')}<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void uploadFiles(e.currentTarget.files)} /></label></Button><UploadList uploads={uploads} /></div>}
         <PixelControls pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={!removeBg} />
         <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={removeBg} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{t('batchForm.transparentBackground')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize' || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? t('batchForm.defaultVisionPolicy') : t('batchForm.skipReference')}</label></div>
         {invalidSubAssetSize && <Alert variant="destructive">{t('batchForm.minSize')}</Alert>}
@@ -104,5 +117,5 @@ function BatchCostSummary({ taskCount, unitPrice, totalPrice, availableCredits, 
 function UploadList({ uploads }: { uploads: BatchUpload[] }) {
   const { t } = useTranslation()
   if (!uploads.length) return <Alert variant="info">{t('batchForm.uploadEmpty')}</Alert>
-  return <div className="grid gap-2">{uploads.map((item, index) => <div key={item.id} className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-lg border border-border bg-card p-2">{item.upload?.url ? <img src={item.upload.url} alt={t('batchForm.uploadAlt', { index: index + 1 })} className="h-16 w-16 rounded-md object-contain [image-rendering:pixelated]" /> : <PixPreviewFrame className="min-h-16" label={t(`batchForm.status.${item.status}`)} />}<div className="min-w-0 self-center"><p className="truncate text-sm font-bold">{t('batchForm.imageNumber', { index: index + 1 })}</p><p className="truncate text-xs text-muted-foreground">{item.error || (item.status === 'uploaded' ? t('batchForm.uploaded') : t(`batchForm.status.${item.status}`))}</p></div></div>)}</div>
+  return <div className="grid gap-2">{uploads.map((item, index) => <div key={item.id} className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-lg border border-border bg-card p-2">{item.upload?.url ? <img src={item.upload.url} alt={t('batchForm.uploadAlt', { index: index + 1 })} className="h-16 w-16 rounded-md object-contain [image-rendering:pixelated]" /> : <PixPreviewFrame className="min-h-16" label={t(`batchForm.status.${item.status}`)} loading={item.status === 'uploading'} />}<div className="min-w-0 self-center"><p className="truncate text-sm font-bold">{t('batchForm.imageNumber', { index: index + 1 })}</p><p className="truncate text-xs text-muted-foreground">{item.error || (item.status === 'uploaded' ? t('batchForm.uploaded') : t(`batchForm.status.${item.status}`))}</p></div></div>)}</div>
 }

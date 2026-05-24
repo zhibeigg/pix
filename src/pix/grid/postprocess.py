@@ -20,6 +20,7 @@ class GridPostprocessParams:
     outline_strength: int = 1
     min_neighbors: int = 1
     max_colors: int = 12
+    force_new_outline: bool = False
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ def polish_pixel_grid(
     outline_strength: int = 1,
     min_neighbors: int = 1,
     max_colors: int | None = None,
+    force_new_outline: bool = False,
 ) -> PixelGrid:
     """对 PixelGrid 做确定性后处理，返回新的 Grid。"""
     params = GridPostprocessParams(
@@ -45,6 +47,7 @@ def polish_pixel_grid(
         outline_strength=max(0, int(outline_strength)),
         min_neighbors=max(0, int(min_neighbors)),
         max_colors=max(2, int(max_colors or len(grid.palette) or 2)),
+        force_new_outline=bool(force_new_outline),
     )
     pixels = [list(row) for row in grid.pixels]
     palette = [c.model_copy(deep=True) for c in grid.palette]
@@ -58,7 +61,12 @@ def polish_pixel_grid(
         )
         meta_steps.append("cleanup")
     if params.outline and params.outline_strength > 0:
-        outline_id, palette = _ensure_outline_color(palette, pixels, grid.canvas.transparent_index)
+        outline_id, palette = _ensure_outline_color(
+            palette,
+            pixels,
+            grid.canvas.transparent_index,
+            force_new=params.force_new_outline,
+        )
         pixels = _apply_outline(
             pixels,
             transparent=grid.canvas.transparent_index,
@@ -73,6 +81,7 @@ def polish_pixel_grid(
         "cleanup": params.cleanup,
         "outline": params.outline,
         "outline_strength": params.outline_strength,
+        "force_new_outline": params.force_new_outline,
         "min_neighbors": params.min_neighbors,
         "max_colors": params.max_colors,
     }
@@ -183,6 +192,8 @@ def _ensure_outline_color(
     palette: list[PixelGridColor],
     pixels: list[list[int]],
     transparent: int,
+    *,
+    force_new: bool = False,
 ) -> tuple[int, list[PixelGridColor]]:
     used = {v for row in pixels for v in row if v != transparent}
     used_palette = [c for c in palette if c.id in used]
@@ -192,8 +203,9 @@ def _ensure_outline_color(
     if outline_candidates:
         return min(outline_candidates, key=lambda c: _luma(hex_to_rgb(c.hex))).id, palette
     darkest = min(used_palette, key=lambda c: _luma(hex_to_rgb(c.hex)))
-    # 若最暗色已经够暗，直接作为 outline；避免增加颜色数。
-    if _luma(hex_to_rgb(darkest.hex)) < 90:
+    # 默认配置后处理沿用“最暗色足够暗就复用”的保守策略；
+    # 用户显式选择描边时强制生成更深的 outline，避免选项看起来没有生效。
+    if not force_new and _luma(hex_to_rgb(darkest.hex)) < 90:
         darkest.role = "outline"
         return darkest.id, palette
     rgb = hex_to_rgb(darkest.hex)

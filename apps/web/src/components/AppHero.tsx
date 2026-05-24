@@ -24,7 +24,7 @@ type AppHeroProps = {
 
 export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, batchCount }: AppHeroProps) {
   const { text } = useI18n()
-  const chips = [text('单图生成', 'Single image'), text('批量入库', 'Batch to gallery'), text('序列帧预览', 'Frame preview'), text('透明 PNG 导出', 'Transparent PNG export')]
+  const chips = [text('批量生成透明 PNG', 'Batch transparent PNGs'), text('统一尺寸和色板', 'Consistent sizes and palettes'), text('省 1–3 天打样时间', 'Save 1–3 days per prototype'), text('少花数百到数千元外包成本', 'Cut hundreds to thousands in outsourcing costs')]
   return (
     <section className="relative isolate overflow-hidden bg-background px-4 py-14 text-foreground md:px-8 md:py-20 lg:py-24 dark:bg-[hsl(var(--pix-navy))] dark:text-white lg:dark:py-[120px]">
       <HeroSurfaceDecor />
@@ -32,17 +32,17 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
         <div className="mx-auto max-w-5xl text-center">
           <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-[hsl(var(--pix-steel))] shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-white/15 dark:bg-white/10 dark:text-white/75 dark:shadow-none">
             <span className="h-2 w-2 rounded-[3px] bg-primary dark:bg-[hsl(var(--pix-amber))]" />
-            {text('像素工坊工作区', 'Pix Forge Workspace')}
+            {text('给游戏开发者的 AI 像素素材工具', 'AI pixel asset tool for game developers')}
           </div>
           <h2 className="mt-6 text-[40px] font-semibold leading-[1.05] tracking-[-1.4px] text-[hsl(var(--pix-ink))] md:text-[64px] md:tracking-[-2px] xl:text-[80px] dark:text-white">
-            {text('像素素材生产，', 'Pixel asset production,')}<br className="hidden md:block" />{text('一次整理到交付。', 'organized through delivery.')}
+            {text('10–30 分钟，', '10–30 minutes to')}<br className="hidden md:block" />{text('做出可进游戏的像素素材', 'game-ready pixel assets')}
           </h2>
           <p className="mx-auto mt-5 max-w-3xl text-lg leading-[1.55] text-[hsl(var(--pix-slate))] dark:text-white/70">
-            {text('从提示词、AI 原图、像素网格、透明 PNG 到素材包和点数系统，用 Notion 式清晰界面把游戏素材生产线收进一个工作区。', 'From prompts, AI source images, pixel grids, transparent PNGs, packs, and credits, Pix turns game asset production into one Notion-clear workspace.')}
+            {text('输入道具、角色、技能特效或 UI 描述，批量生成统一尺寸、透明背景、可导出的像素 PNG 和精灵帧。它解决美术排期慢、反复切图抠图、尺寸色板不统一、素材难归档的问题；早期原型通常可把 1–3 天打样压到 10–30 分钟，每批少花数百到数千元沟通与外包成本。', 'Describe items, characters, VFX, or UI, then batch-generate consistent, transparent, export-ready pixel PNGs and sprite frames. It removes slow art queues, repeated cutout/export work, inconsistent sizes and palettes, and messy asset handoff; early prototypes can usually shrink 1–3 days of mockup work to 10–30 minutes and reduce hundreds to thousands in coordination or outsourcing costs.')}
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Button size="lg" asChild><a href={user ? '#/workspace' : '#auth-panel'}>{text('进入工作台', 'Enter workspace')}</a></Button>
-            <Button size="lg" variant="outline" className="border-[hsl(var(--pix-stone))]/45 bg-card text-[hsl(var(--pix-ink))] hover:bg-[hsl(var(--secondary))] dark:border-white/45 dark:bg-transparent dark:text-white dark:hover:bg-white/10" asChild><a href="#workflow">{text('查看生产线', 'View pipeline')}</a></Button>
+            <Button size="lg" asChild><a href={user ? '#/workspace' : '#auth-panel'}>{text('开始生成素材', 'Start generating assets')}</a></Button>
+            <Button size="lg" variant="outline" className="border-[hsl(var(--pix-stone))]/45 bg-card text-[hsl(var(--pix-ink))] hover:bg-[hsl(var(--secondary))] dark:border-white/45 dark:bg-transparent dark:text-white dark:hover:bg-white/10" asChild><a href="#examples">{text('查看范例', 'View examples')}</a></Button>
           </div>
           <div className="mt-6 flex flex-wrap justify-center gap-2 text-sm text-[hsl(var(--pix-steel))] dark:text-white/65">
             {chips.map((item) => <span key={item} className="rounded-full border border-border bg-card px-3 py-1 dark:border-white/15 dark:bg-white/7">{item}</span>)}

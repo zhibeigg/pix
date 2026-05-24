@@ -1000,7 +1000,7 @@ def test_create_asset_job_reserves_credits_and_stores_asset_params(client: TestC
             "client_request_id": "asset-click",
             "pixelize": {"output_size": [16, 16], "colors": 12, "palette_mode": "auto"},
             "grid": {"mode": "extract"},
-            "asset": {"name": "血气灵玉", "extra_prompt": "红色晶体，深色描边"},
+            "asset": {"name": "血气灵玉", "extra_prompt": "红色晶体，深色描边", "asset_kind": "ui_component", "subject_kind": "single_ui"},
         },
     )
 
@@ -1012,6 +1012,8 @@ def test_create_asset_job_reserves_credits_and_stores_asset_params(client: TestC
     assert body["reserved_credits"] == 20
     assert body["params_json"]["asset"]["name"] == "血气灵玉"
     assert body["params_json"]["asset"]["extra_prompt"] == "红色晶体，深色描边"
+    assert body["params_json"]["asset"]["asset_kind"] == "ui_component"
+    assert body["params_json"]["asset"]["subject_kind"] == "single_ui"
     assert body["params_json"]["pixelize"]["palette_mode"] == "auto"
     assert "palette_mode" in body["params_json"]["pixelize_fields"]
 
@@ -1504,7 +1506,7 @@ def test_asset_pipeline_adapter_uses_asset_defaults_and_keeps_config_isolated(tm
         job_type="asset",
         prompt="紫檀木",
         params_json={
-            "asset": {"name": "紫檀木", "extra_prompt": "warm wood grain"},
+            "asset": {"name": "紫檀木", "extra_prompt": "warm wood grain", "asset_kind": "ui_component", "subject_kind": "single_ui"},
             "request_fields": ["asset"],
             "pixelize_fields": [],
         },
@@ -1513,6 +1515,9 @@ def test_asset_pipeline_adapter_uses_asset_defaults_and_keeps_config_isolated(tm
     inputs = asset_pipeline_input_from_job(job, settings, cfg)
 
     assert "紫檀木" in inputs.prompt
+    assert "16×16 像素游戏UI组件" in inputs.prompt
+    assert "单个UI" in inputs.prompt
+    assert "主体：紫檀木" in inputs.prompt
     assert "warm wood grain" in inputs.prompt
     assert inputs.pixelize_params.output_size == (16, 16)
     assert inputs.pixelize_params.colors == 12
@@ -1548,6 +1553,8 @@ def test_asset_pipeline_adapter_uses_asset_defaults_and_keeps_config_isolated(tm
     result = run_job_pipeline(job, settings, cfg=cfg)
 
     assert result.meta["asset"]["name"] == "紫檀木"
+    assert result.meta["asset"]["asset_kind"] == "ui_component"
+    assert result.meta["asset"]["subject_kind"] == "single_ui"
     assert result.meta["asset"]["palette_mode"] == "auto"
     assert captured["cfg"].image_gen.contact_sheet_enabled is False
     assert captured["cfg"].image_gen.prompt_guard_remote is False

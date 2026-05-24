@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.26.73-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.27.81-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-419%20passed-2ea44f.svg">
 </p>
 
@@ -74,9 +74,9 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
   - PNG 由确定性渲染器生成，避免“看起来像像素图但实际很糊”。
 
 - **游戏素材直出**
-  - `pix asset` 默认按 16×16 RPG 道具图标优化。
-  - 白底单图 → extract Pixel Grid → auto/K-means 调色 → 透明 PNG。
-  - 默认贴近早期稳定效果，不默认强制 ramp / fit canvas；边缘处理可选择描边、羽化或不额外处理。
+  - `pix asset` 默认按输出尺寸拼接“像素游戏素材”模板，用户只需填写 `主体：` 后面的主体内容。
+  - 支持物品图标 / UI 组件、单个道具 / 单个 UI 等类型选择，再进入 extract Pixel Grid → auto/K-means 调色 → 透明 PNG。
+  - 默认强调复古 8 位像素风、纯色干净背景、清晰轮廓和分明色块；边缘处理可选择描边、羽化或不额外处理。
 
 - **动画精灵表**
   - `pix sprite` 让生图模型输出 3×3 连续动画关键帧。
@@ -86,7 +86,7 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
   - FastAPI + React + Vite。
   - 支持注册登录、管理员初始化、点数账户、邀请奖励返佣、任务队列、素材包、批量生成、ZIP 导出。
   - UI 提供可见动效层：按钮点击涟漪、表单聚焦、弹层/表格/页面进入和奖励页环境流动都有即时反馈，并遵守 `prefers-reduced-motion`。
-  - 单张/批量入口可直接调用 `pix asset` 同款游戏素材直出策略，按素材名称生成透明 PNG 与 Pixel Grid。
+  - 单张/批量入口可直接调用 `pix asset` 同款游戏素材直出策略，按主体内容和类型选项生成透明 PNG 与 Pixel Grid。
   - 主页与登录后工作台严格对齐 `apps/web/DESIGN.md` 的 Notion 式视觉：深海军蓝 Hero、紫色主 CTA、真实 Workspace 侧边栏、浅色 Canvas/Surface 与 pastel feature cards；76 套题材范例支持悬浮查看拆分后的 8 个物品格、UI 展示图、中文 Prompt 和文件名。
   - 管理后台可配置模型/API、价格、充值套餐、运营保护和素材默认值。
 
@@ -224,12 +224,12 @@ pix history --query 紫檀 --limit 20
 
 ## 游戏素材直出
 
-`pix asset` 是给游戏资源目录准备的快捷命令。默认目标是稳定生成 16×16/32×32 等小图标，而不是追求高清插画感。
+`pix asset` 是给游戏资源目录准备的快捷命令。用户只需要输入模板里 `主体：` 后面的主体内容；尺寸、素材类型和主体类型会自动拼入完整 prompt。默认目标是稳定生成 16×16/32×32 等小图标，而不是追求高清插画感。
 
 ```bash
-pix asset "血气灵玉" --out 图片/血气灵玉.png
+pix asset "冰霜之心" --out 图片/冰霜之心.png
 pix asset "幽香腐骨菇" --extra-prompt "purple poisonous mushroom, green spores" --overwrite
-pix asset "青铜钥匙" --pixel-size 32x32 --colors 16
+pix asset "青铜按钮" --asset-kind ui_component --subject-kind single_ui --pixel-size 32x32 --colors 16
 ```
 
 默认产物：
@@ -247,7 +247,9 @@ pix asset "青铜钥匙" --pixel-size 32x32 --colors 16
 | 项 | 默认值 | 说明 |
 |---|---|---|
 | 最低尺寸 | 16×16 | 16×16 以下不再支持 |
-| 生图背景 | plain white background | 更接近早期稳定素材效果 |
+| Prompt 构建 | `主体：{name}` | 用户只写主体，系统自动加入尺寸、类型、像素风格和画幅约束 |
+| 类型选择 | 物品图标 / 单个道具 | 可切换为 UI 组件 / 单个 UI |
+| 生图背景 | 纯色干净背景 | 避免复杂背景干扰抠图和小尺寸可读性 |
 | Grid | 开启 | 先提取像素工程图，再渲染 PNG |
 | 调色 | `auto` / K-means | 保留自然手感 |
 | `grid_cleanup` | 关闭 | 需要清噪时显式开启 |
@@ -264,8 +266,8 @@ pix asset "毒蘑菇" --grid-cleanup
 # 加强外轮廓
 pix asset "铁剑" --grid-outline
 
-# UI 条、按钮、面板贴合目标画布
-pix asset "生命条" --pixel-size 64x16 --fit-canvas --fit-mode smart
+# UI 条、按钮、面板可切换为 UI 组件模板并贴合目标画布
+pix asset "生命条" --asset-kind ui_component --subject-kind single_ui --pixel-size 64x16 --fit-canvas --fit-mode smart
 ```
 
 ---
@@ -325,7 +327,7 @@ Pix Web 是一个可运营的素材生产工作台：
 - 邮箱验证码注册登录
 - 点数账户与任务扣费/退款
 - 邀请奖励：用户可复制专属邀请链接，好友注册并充值后默认按 10% 产生 CNY 返佣；返佣先待到账 30 天，成熟后可划转为点数余额或提交提现申请
-- 游戏素材直出：输入素材名称，复用 `pix asset` 白底单图模板、Pixel Grid 提取和透明 PNG 输出
+- 游戏素材直出：只输入主体内容，前端选择物品图标 / UI 组件、单个道具 / 单个 UI 后由后端拼接完整 prompt，再进行 Pixel Grid 提取和透明 PNG 输出
 - 首页展示中文 prompt 全流程示例，鼠标悬浮或键盘聚焦物品格可展开源图 / Grid / 预览详情，并在动画卡片上播放 9 帧序列帧、显示横向精灵图
 - 独立原始生图页：只保留提供商、模型、尺寸、质量、敏感度和生成数量等基础参数，提交后停留在中央画布查看 source 原图与候选缩略图
 - 单图生成、图生图、本地像素化、动画精灵表；透明背景可选择描边、羽化边缘或不额外边缘处理
@@ -375,7 +377,7 @@ pix-web-worker
 pix-web-worker --once
 ```
 
-`pix-web-worker` 默认并发上限为 3：有空闲槽位时任务会直接进入生成中，只有超过 `PIX_WEB_WORKER_CONCURRENCY` 后才继续保持排队中。调整环境变量或管理后台的“Worker 并发上限”后需重启 worker。
+`pix-web-worker` 默认并发上限为 3：有空闲槽位时任务会直接进入生成中，只有超过 `PIX_WEB_WORKER_CONCURRENCY` 后才继续保持排队中。`pix-web-rq-worker` 也会读取同一并发上限，并在单个 worker 容器内启动多个独立 RQ worker 子进程；生图/图生图等网络等待可并发，本地像素化、拆图和写盘阶段会串行执行。调整环境变量或管理后台的“Worker 并发上限”后需重启 worker。高并发还需要同步评估数据库连接数、Redis、外部生图 API 限流和 RQ `job_timeout`。
 
 启动前端：
 

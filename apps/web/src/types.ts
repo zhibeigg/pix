@@ -152,6 +152,8 @@ export type SpriteParams = {
 export type AssetParams = {
   name: string
   extra_prompt?: string
+  asset_kind?: 'item_icon' | 'ui_component'
+  subject_kind?: 'single_prop' | 'single_ui'
   use_vl?: boolean | null
   no_preview?: boolean
 }

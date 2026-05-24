@@ -161,10 +161,9 @@ class AssetConfig:
     # Asset 直出默认使用经典 K-means/auto 调色，贴近早期白底单图素材效果
     palette_mode: str = "auto"
     prompt_template: str = (
-        "A single fantasy pixel game inventory item icon of {name}. "
-        "Centered object, isolated on plain white background, no text, no UI frame, "
-        "no shadow outside the item, thick dark outline, high contrast, readable silhouette, "
-        "designed to become a {width}x{height} RPG inventory sprite."
+        "{size_label} 像素游戏{asset_kind_label}，复古8位像素风格，{subject_kind_label}，"
+        "纯色干净背景，轮廓清晰，色块分明，线条锐利，简约游戏资产，无多余杂色，"
+        "{canvas_shape}，主体：{name}"
     )
 
 

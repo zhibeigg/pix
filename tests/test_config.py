@@ -25,7 +25,8 @@ def test_defaults(tmp_cwd: Path) -> None:
     assert cfg.asset.grid_cleanup is False
     assert cfg.asset.grid_outline is False
     assert cfg.asset.fit_canvas is False
-    assert "plain white background" in cfg.asset.prompt_template
+    assert "主体：{name}" in cfg.asset.prompt_template
+    assert "{asset_kind_label}" in cfg.asset.prompt_template
     assert cfg.sprite.pixel_size == (64, 64)
     assert cfg.sprite.duration_ms == 120
     assert cfg.sprite.shared_palette is True

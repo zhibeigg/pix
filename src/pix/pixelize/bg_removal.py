@@ -532,6 +532,29 @@ def _flood_fill_mask(
     return visited
 
 
+def apply_transparent_edge_style(
+    image: Image.Image,
+    *,
+    feather: int = 0,
+    edge_style: Literal["hard", "feather", "outline"] = "hard",
+) -> Image.Image:
+    """对已有透明背景的图片应用羽化或描边边缘处理。"""
+    if image.mode != "RGBA":
+        image = image.convert("RGBA")
+    rgba = np.asarray(image).copy()
+    mask_bg = rgba[..., 3] == 0
+    style = edge_style if edge_style in ("hard", "feather", "outline") else "hard"
+    strength = max(0, int(feather))
+    if style == "outline" and strength > 0:
+        _apply_outline_edge(rgba, mask_bg, strength)
+    else:
+        _apply_alpha_feather(rgba, mask_bg, strength if style == "feather" else 0)
+    transparent = rgba[..., 3] == 0
+    if transparent.any():
+        rgba[transparent, :3] = 0
+    return Image.fromarray(rgba, mode="RGBA")
+
+
 def remove_background(
     image: Image.Image,
     *,

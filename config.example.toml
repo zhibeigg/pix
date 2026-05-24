@@ -133,7 +133,8 @@ fit_min_axis_coverage = 0.7
 # Asset 直出默认使用经典 auto/K-means 调色，贴近早期白底单图素材效果；可手动改为 ramp。
 # 可选：auto | ramp | kmeans。
 palette_mode    = "auto"
-prompt_template = "A single fantasy pixel game inventory item icon of {name}. Centered object, isolated on plain white background, no text, no UI frame, no shadow outside the item, thick dark outline, high contrast, readable silhouette, designed to become a {width}x{height} RPG inventory sprite."
+# 默认模板只需要用户填写“主体：”后面的主体内容；Web 可通过 asset_kind/subject_kind 选择“物品图标/UI组件”和“单个道具/单个UI”。
+prompt_template = "{size_label} 像素游戏{asset_kind_label}，复古8位像素风格，{subject_kind_label}，纯色干净背景，轮廓清晰，色块分明，线条锐利，简约游戏资产，无多余杂色，{canvas_shape}，主体：{name}"
 
 [sprite]
 # 九宫格动画精灵表命令 pix sprite 的默认值；主页序列帧展示也必须使用该全流程产物。

@@ -59,16 +59,6 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
   const { text } = useI18n()
   return (
     <>
-      <SectionFrame id="workflow" eyebrow={text('全天候推进生产', 'Keep work moving 24/7')} title={text('不是 AI 生图相册，是像素素材生产线', 'Not an AI image album — a pixel asset pipeline')} description={text('深色模式沿用 DESIGN.md 的深海军蓝主视觉与清晰卡片层级：作品、队列、成本和导出状态都能在夜间工作台里快速辨认。', 'Dark mode follows the deep navy hero and clear card hierarchy from DESIGN.md, so work, queues, costs, and exports stay legible at night.')}>
-        <WorkflowSection />
-      </SectionFrame>
-
-      <StatRow />
-
-      <SectionFrame id="assistant" surface="soft" eyebrow={text('按需助手', 'On-demand assistants')} title={text('把提示词、验收和打包拆成三张助手卡', 'Split prompts, review, and packaging into three assistant cards')} description={text('用 Notion 式柔和彩色功能卡承接复杂流程：每张卡只负责一个动作，进入工作台后再展开完整参数。', 'Notion-style pastel feature cards carry the complex workflow: each card owns one action, with full controls inside the workspace.')}>
-        <AssistantSection />
-      </SectionFrame>
-
       <SectionFrame id="pixel-ui" eyebrow={text('统一验收', 'Bring work together')} title={text('道具、UI 和动作帧在同一个素材工作区里验收', 'Review items, UI, and motion frames in one asset workspace')} description={text('图标、HUD、按钮、面板、角色动作和技能特效可以放进同一批素材；先把原型需要的交互表面补齐。', 'Icons, HUDs, buttons, panels, character actions, and skill VFX can live in the same batch so prototypes get the surfaces they need first.')}>
         <WorkTogetherSection />
       </SectionFrame>
@@ -83,100 +73,6 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
 
       <AuthSection authSlot={authSlot} />
     </>
-  )
-}
-
-function WorkflowSection() {
-  const { text } = useI18n()
-  const stickyNotes = [
-    { label: text('任务单', 'Task sheet'), title: text('先定交付规格', 'Lock delivery specs first'), body: text('名称、尺寸、颜色数、透明背景和批次备注先进同一张生产单。', 'Names, sizes, color count, transparency, and batch notes land in one production sheet.'), mark: '01', tone: 'bg-[hsl(var(--pix-peach))]' },
-    { label: text('工程图', 'Blueprint'), title: text('不只给一张图', 'More than one image'), body: text('源图、像素网格、透明 PNG、预览与 meta 一起归档，便于复查和返修。', 'Source images, pixel grids, transparent PNGs, previews, and metadata are archived together.'), mark: 'JSON', tone: 'bg-[hsl(var(--pix-lavender))]' },
-    { label: text('批量入库', 'Batch gallery'), title: text('先入作品库，再进素材包', 'Gallery first, packs when needed'), body: text('一组素材统一入队；成功作品可拖入素材包长期保存。', 'Queue a group together; drag successful works into packs for long-term keeping.'), mark: 'SAVE', tone: 'bg-[hsl(var(--pix-mint))]' },
-    { label: text('小尺寸', 'Small sizes'), title: text('交付前先验收', 'Review before delivery'), body: text('16×16、32×32 关注轮廓和色板，不把大图粗暴缩小当成像素资产。', 'Check silhouettes and palettes at 16×16 and 32×32 instead of treating downscaled art as pixel assets.'), mark: '16', tone: 'bg-[hsl(var(--pix-sky))]' },
-  ]
-  const pipelineProofs = [
-    { step: '01', title: text('定规格', 'Specify'), body: text('提示词、尺寸、透明背景和颜色数进入同一张任务单。', 'Prompt, size, transparency, and color count share one task sheet.') },
-    { step: '02', title: text('跑流水线', 'Run pipeline'), body: text('图像模型、网格提取、像素化与后处理串联。', 'Image model, grid extraction, pixelization, and post-processing stay chained.') },
-    { step: '03', title: text('验收导出', 'Review export'), body: text('查看结果、点数、失败原因，再决定重试或下载。', 'Review output, credits, and failure reasons before retrying or downloading.') },
-  ]
-  return (
-    <div className="grid items-stretch gap-6 lg:grid-cols-[.95fr_1.05fr]">
-      <div className="flex min-h-[430px] flex-col justify-between rounded-lg bg-[hsl(var(--pix-amber))] p-8 text-[hsl(var(--pix-charcoal))] md:p-10">
-        <div>
-          <Badge className="bg-[hsl(var(--pix-navy))] text-white">{text('为什么是 Pix', 'Why Pix')}</Badge>
-          <h3 className="mt-5 max-w-2xl text-3xl font-semibold tracking-tight md:text-5xl">{text('从“生成图片”推进到“交付素材”', 'Move from “generate an image” to “deliver an asset”')}</h3>
-          <p className="mt-5 max-w-2xl text-base leading-8 text-[hsl(var(--pix-slate))]">{text('普通 AI 图像工具停在预览图。Pix 把源图、像素工程图、透明 PNG、任务状态、失败重试和 ZIP 导出放在同一条流水线里，适合独立游戏和 RPG 素材包快速打样。', 'Typical AI image tools stop at previews. Pix keeps source images, pixel blueprints, transparent PNGs, job status, retry logic, and ZIP exports in one pipeline for fast indie-game and RPG asset prototyping.')}</p>
-        </div>
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">
-          {pipelineProofs.map((item) => <div key={item.step} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-3"><p className="text-xs font-semibold text-primary">{item.step}</p><p className="mt-2 font-bold">{item.title}</p><p className="mt-1 text-xs leading-5 text-[hsl(var(--pix-slate))]">{item.body}</p></div>)}
-        </div>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {stickyNotes.map((item) => <FeatureNote key={item.title} {...item} />)}
-      </div>
-    </div>
-  )
-}
-
-function FeatureNote({ label, title, body, mark, tone }: { label: string; title: string; body: string; mark: string; tone: string }) {
-  return (
-    <article className={`rounded-lg border border-border p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_1px_2px_rgba(15,15,15,0.04)] transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] ${tone}`}>
-      <div className="grid grid-cols-[56px_minmax(0,1fr)] items-start gap-4">
-        <div className="grid h-14 w-14 place-items-center rounded-lg border border-border bg-card font-semibold text-[hsl(var(--pix-ink))] dark:border-white/15 dark:bg-white/7 dark:text-white">{mark}</div>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.12em] text-[hsl(var(--pix-steel))] dark:text-white/55">{label}</p>
-          <h3 className="mt-1 text-xl font-semibold">{title}</h3>
-          <p className="mt-2 text-sm leading-6 text-[hsl(var(--pix-slate))] dark:text-white/66">{body}</p>
-        </div>
-      </div>
-    </article>
-  )
-}
-
-function AssistantSection() {
-  const { text } = useI18n()
-  const assistantTiles = [
-    { title: text('提示词助手', 'Prompt assistant'), body: text('把题材、用途、尺寸和透明背景整理成可复用提示词。', 'Turn theme, use case, size, and transparency needs into reusable prompts.'), badge: text('提示词', 'Prompt'), tone: 'bg-[hsl(var(--pix-peach))]' },
-    { title: text('验收助手', 'Review assistant'), body: text('把源图、像素图和透明 PNG 放在一张卡片里比对。', 'Compare source, pixelized result, and transparent PNG in one card.'), badge: text('验收', 'Review'), tone: 'bg-[hsl(var(--pix-rose))]' },
-    { title: text('打包助手', 'Pack assistant'), body: text('批量导出、保存到素材包和失败重试从作品库直接完成。', 'Export, save to packs, and retry failures directly from the gallery.'), badge: text('打包', 'Pack'), tone: 'bg-[hsl(var(--pix-mint))]' },
-  ]
-  const steps = [text('提示词', 'Prompt'), text('网格', 'Grid'), text('打包', 'Pack')]
-  return (
-    <div className="grid gap-6 lg:grid-cols-[.92fr_1.08fr]">
-      <article className="rounded-lg bg-[hsl(var(--pix-amber))] p-8 text-[hsl(var(--pix-charcoal))] md:p-10">
-        <Badge className="bg-primary text-primary-foreground">{text('调用助手', 'Ask the assistant')}</Badge>
-        <h3 className="mt-5 max-w-2xl text-3xl font-semibold tracking-tight md:text-5xl">{text('把复杂素材需求拆成可执行队列', 'Split complex asset requests into executable queues')}</h3>
-        <p className="mt-5 max-w-2xl text-base leading-8 text-[hsl(var(--pix-slate))]">{text('主页用高强调黄色卡片说明核心价值，再把具体动作分配给右侧三张功能卡；即使在暗背景里也能一眼分清提示词、网格和打包。', 'The highlighted yellow card states the core value, while three action cards split prompt, grid, and pack work even on a dark background.')}</p>
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">
-          {steps.map((item) => <div key={item} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-4 text-center font-semibold">{item}</div>)}
-        </div>
-      </article>
-      <div className="grid gap-4">
-        {assistantTiles.map((tile) => <AssistantTile key={tile.title} {...tile} />)}
-      </div>
-    </div>
-  )
-}
-
-function AssistantTile({ title, body, badge, tone }: { title: string; body: string; badge: string; tone: string }) {
-  return (
-    <article className={`rounded-lg border border-border p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] ${tone}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Badge variant="outline" className="bg-white/65 text-[hsl(var(--pix-navy))] dark:border-white/20 dark:bg-white/7 dark:text-white/75">{badge}</Badge>
-          <h3 className="mt-4 text-2xl font-semibold">{title}</h3>
-          <p className="mt-2 text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{body}</p>
-        </div>
-        <div className="hidden w-36 rounded-lg border border-border bg-white/60 p-3 dark:border-white/12 dark:bg-white/7 sm:block">
-          <div className="h-2 rounded-full bg-[hsl(var(--pix-stone))]/45 dark:bg-white/25" />
-          <div className="mt-2 h-2 w-2/3 rounded-full bg-[hsl(var(--pix-stone))]/30 dark:bg-white/15" />
-          <div className="mt-4 grid gap-1.5">
-            <span className="h-8 rounded-md bg-card dark:bg-white/10" />
-            <span className="h-8 rounded-md bg-card dark:bg-white/10" />
-          </div>
-        </div>
-      </div>
-    </article>
   )
 }
 
@@ -228,26 +124,6 @@ function WorkTogetherSection() {
         </article>
       </div>
     </div>
-  )
-}
-
-function StatRow() {
-  const { text } = useI18n()
-  const statRowItems = [
-    { value: '12', label: text('真实全流程样本', 'Full-pipeline samples'), icon: '◆' },
-    { value: '76', label: text('题材范例可追溯', 'Traceable theme examples'), icon: '◇' },
-    { value: 'PNG', label: text('透明成品导出', 'Transparent exports'), icon: '▣' },
-    { value: 'ZIP', label: text('素材包一键下载', 'One-click pack download'), icon: '▤' },
-  ]
-  return (
-    <section className="border-y border-border bg-[hsl(var(--secondary))] px-4 py-12 md:px-8 dark:border-white/10 dark:bg-[hsl(var(--pix-dark-band))]">
-      <div className="mx-auto max-w-7xl">
-        <p className="mb-6 text-center text-xs font-semibold uppercase tracking-[.16em] text-muted-foreground dark:text-white/55">{text('更高效率，更少工具', 'More throughput, fewer tools')}</p>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {statRowItems.map((item) => <div key={item.label} className="rounded-lg border border-border bg-background p-5 text-center transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-white/10 dark:bg-white/7 dark:hover:bg-white/10"><p className="text-xl opacity-50">{item.icon}</p><p className="mt-1 text-3xl font-semibold text-primary">{item.value}</p><p className="mt-1 text-sm text-muted-foreground dark:text-white/62">{item.label}</p></div>)}
-        </div>
-      </div>
-    </section>
   )
 }
 
@@ -376,7 +252,7 @@ function AuthSection({ authSlot }: { authSlot: ReactNode }) {
           <Badge>{text('开始生产', 'Start producing')}</Badge>
           <h2 className="mt-5 font-sans text-4xl font-semibold tracking-tight md:text-6xl">{text('进入像素工位台', 'Enter the pixel workbench')}</h2>
           <p className="mt-5 max-w-xl text-base leading-8 text-muted-foreground">{text('创建单图或批量任务，完成后在作品库挑选、保存到素材包、重试和导出。', 'Create single images or batch jobs, then review, save to packs, retry, and export from the gallery.')}</p>
-          <div className="mt-6 flex flex-wrap gap-3"><Button asChild><a href="#auth-panel">{text('登录', 'Sign in')}</a></Button><Button variant="outline" asChild><a href="#workflow">{text('看优势', 'View benefits')}</a></Button></div>
+          <div className="mt-6 flex flex-wrap gap-3"><Button asChild><a href="#auth-panel">{text('登录', 'Sign in')}</a></Button><Button variant="outline" asChild><a href="#examples">{text('看范例', 'View samples')}</a></Button></div>
         </div>
         <div>{authSlot}</div>
       </div>

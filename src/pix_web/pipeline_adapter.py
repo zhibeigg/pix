@@ -9,11 +9,25 @@ from typing import Any
 
 from pix.asset import build_asset_prompt
 from pix.config import AppConfig, load_config
+from pix.io_utils import file_lock
 from pix.pipeline import GridDesignInput, PipelineInput, PipelineResult, run_pipeline
 from pix.pixelize.core import PixelizeParams
 from pix.sprite import SpritePipelineInput, SpritePipelineResult, run_sprite_pipeline
 from pix_web.config import WebSettings
 from pix_web.models import GenerationJob
+
+
+_LOCAL_STAGE_LOCK_TIMEOUT_SECONDS = 1800.0
+_LOCAL_STAGE_LOCK_POLL_SECONDS = 0.1
+
+
+def _local_stage_context(settings: WebSettings):
+    lock_path = settings.storage_root / ".locks" / "local-pipeline.lock"
+    return lambda: file_lock(
+        lock_path,
+        timeout=_LOCAL_STAGE_LOCK_TIMEOUT_SECONDS,
+        poll_interval=_LOCAL_STAGE_LOCK_POLL_SECONDS,
+    )
 
 
 def _as_fields(value: Any) -> set[str] | None:
@@ -151,6 +165,7 @@ def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> Pipeli
         out_root=out_root,
         use_cache=True,
         refresh_cache=False,
+        local_stage_context=_local_stage_context(settings),
     )
 
 
@@ -164,6 +179,8 @@ def asset_pipeline_input_from_job(job: GenerationJob, settings: WebSettings, cfg
         name,
         size=params.output_size,
         extra_prompt=str(asset.get("extra_prompt") or ""),
+        asset_kind=str(asset.get("asset_kind") or "item_icon"),
+        subject_kind=str(asset.get("subject_kind") or "single_prop"),
     )
     image_quality = data.get("image_quality") if _request_includes(data, "image_quality") else cfg.asset.image_quality
     return PipelineInput(
@@ -179,6 +196,7 @@ def asset_pipeline_input_from_job(job: GenerationJob, settings: WebSettings, cfg
         out_root=settings.storage_root / "runs" / f"job-{job.id}",
         use_cache=True,
         refresh_cache=False,
+        local_stage_context=_local_stage_context(settings),
     )
 
 
@@ -204,6 +222,7 @@ def sprite_input_from_job(job: GenerationJob, settings: WebSettings) -> SpritePi
         key_softness=sprite.get("key_softness"),
         key_alpha_floor=sprite.get("key_alpha_floor"),
         key_despill=sprite.get("key_despill"),
+        local_stage_context=_local_stage_context(settings),
     )
 
 
@@ -213,6 +232,8 @@ def _write_asset_meta(result: PipelineResult, job: GenerationJob, inputs: Pipeli
     result.meta["asset"] = {
         "name": _asset_name(job),
         "extra_prompt": str(asset.get("extra_prompt") or ""),
+        "asset_kind": str(asset.get("asset_kind") or "item_icon"),
+        "subject_kind": str(asset.get("subject_kind") or "single_prop"),
         "prompt": inputs.prompt,
         "grid_mode": inputs.grid.mode,
         "pixel_size": list(inputs.pixelize_params.output_size),

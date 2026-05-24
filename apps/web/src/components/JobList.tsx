@@ -10,6 +10,7 @@ import { Badge } from './ui/badge'
 import { PixPanel } from './pix/PixPanel'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixStatusBadge } from './pix/PixStatusBadge'
+import { JobErrorSummary } from './JobErrorSummary'
 
 type JobListProps = { jobs: GenerationJob[]; onRefresh: () => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }
 
@@ -33,14 +34,14 @@ function JobCard({ job, onCandidatePixelize }: { job: GenerationJob; onCandidate
   const isActive = job.status === 'pending' || job.status === 'running'
   const preview = isActive ? null : signedFileUrl(output?.sprite_gif_url || output?.preview_url || output?.pixelized_url || output?.source_url || job.input_image_url)
   return (
-    <article className="grid gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-[120px_minmax(0,1fr)]">
+    <article className={`grid gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-[120px_minmax(0,1fr)] ${isActive ? 'pix-work-card-loading' : ''}`}>
       <PixPreviewFrame url={preview} loading={isActive} label={job.status === 'pending' ? t('jobs.status.pending') : job.status === 'running' ? t('jobs.status.running') : job.status} className="min-h-28" />
       <div className="min-w-0 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-semibold">#{job.id} · {jobTypeLabel(job.job_type, language)}</h3><p className="mt-1 text-sm text-muted-foreground">{jobInputSummary(job, t('gallery.noInputSummary'))}</p></div><PixStatusBadge status={job.status} /></div>
         <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{t('common.points', { count: job.price_credits })}</Badge><Badge variant="outline">{t('queue.reserved', { count: job.reserved_credits })}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge></div>
         {output && <GridQualitySummary output={output} />}
         {output && <CandidateStrip job={job} output={output} onCandidatePixelize={onCandidatePixelize} />}
-        {job.error_message && <pre className="max-h-36 overflow-auto rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{job.error_message.slice(0, 600)}</pre>}
+        {job.status === 'failed' && <JobErrorSummary error={job.error_message} compact />}
       </div>
     </article>
   )

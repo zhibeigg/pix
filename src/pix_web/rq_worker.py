@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import argparse
+from multiprocessing import Process
 
 from sqlalchemy import select
-from pix_web.config import load_web_settings
+from pix_web.config import WebSettings, load_web_settings
 from pix_web.db import init_db, make_engine, make_session_factory
 from pix_web.models import GenerationJob, utcnow
 from pix_web.system_settings import load_effective_web_settings
@@ -31,19 +32,65 @@ def process_job_id(job_id: int) -> int | None:
         return processed.id
 
 
-def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Pix Web Redis/RQ worker")
-    parser.parse_args(argv)
+def load_effective_rq_settings() -> WebSettings:
+    settings = load_web_settings()
+    engine = make_engine(settings.database_url)
+    init_db(engine, create_schema=settings.auto_create_db)
+    session_factory = make_session_factory(engine)
+    with session_factory() as db:
+        return load_effective_web_settings(db, settings)
 
+
+def run_rq_worker(settings: WebSettings) -> None:
+    """运行一个 RQ worker；每个进程独立创建 Redis 连接。"""
     from redis import Redis
     from rq import Queue, SimpleWorker, Worker
 
-    settings = load_web_settings()
     redis_conn = Redis.from_url(settings.redis_url)
     queue = Queue(settings.rq_queue_name, connection=redis_conn)
     worker_cls = SimpleWorker if settings.rq_worker_class == "simple" else Worker
     worker = worker_cls([queue], connection=redis_conn)
     worker.work()
+
+
+def _terminate_processes(processes: list[Process]) -> None:
+    for process in processes:
+        if process.is_alive():
+            process.terminate()
+    for process in processes:
+        process.join(timeout=5)
+
+
+def run_worker_pool(settings: WebSettings) -> None:
+    """按 worker_concurrency 在当前容器内启动多个独立 RQ worker 进程。"""
+    concurrency = max(1, int(settings.worker_concurrency))
+    if concurrency == 1:
+        run_rq_worker(settings)
+        return
+
+    processes = [
+        Process(target=run_rq_worker, args=(settings,), name=f"pix-rq-worker-{index}")
+        for index in range(1, concurrency + 1)
+    ]
+    try:
+        for process in processes:
+            process.start()
+        while any(process.is_alive() for process in processes):
+            for process in processes:
+                process.join(timeout=0.5)
+    except KeyboardInterrupt:
+        _terminate_processes(processes)
+        raise
+    finally:
+        _terminate_processes(processes)
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Pix Web Redis/RQ worker")
+    parser.parse_args(argv)
+
+    settings = load_effective_rq_settings()
+    run_worker_pool(settings)
 
 
 if __name__ == "__main__":  # pragma: no cover
