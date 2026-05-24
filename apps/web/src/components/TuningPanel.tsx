@@ -44,7 +44,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
   const isActive = job.status === 'pending' || job.status === 'running'
   const sourcePath = output?.source_path || output?.pixelized_path || job.input_image_path || ''
-  const previewUrl = isActive ? null : signedFileUrl(output?.pixelized_url || output?.preview_url || output?.source_url || job.input_image_url || '')
+  const previewUrl = isActive ? null : signedFileUrl(output?.sprite_gif_url || output?.pixelized_url || output?.preview_url || output?.source_url || job.input_image_url || '')
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
 

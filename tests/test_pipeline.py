@@ -7,11 +7,12 @@ import json
 from pathlib import Path
 
 import httpx
+import numpy as np
 import pytest
 from PIL import Image
 
 from pix.config import AppConfig
-from pix.pipeline import PipelineInput, run_pipeline
+from pix.pipeline import GridDesignInput, PipelineInput, run_pipeline
 from pix.pixelize.core import PixelizeParams
 
 
@@ -19,6 +20,15 @@ def _png_bytes() -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", (32, 32), (100, 100, 100)).save(buf, format="PNG")
     return buf.getvalue()
+
+
+def _white_square_source(path: Path) -> Path:
+    img = Image.new("RGB", (64, 64), (255, 255, 255))
+    for y in range(20, 44):
+        for x in range(20, 44):
+            img.putpixel((x, y), (220, 40, 60))
+    img.save(path)
+    return path
 
 
 _ANALYSIS_BLOCK = """```json
@@ -166,6 +176,48 @@ def test_pipeline_skip_vl(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     assert result.pixel_path.exists()
 
 
+def test_pipeline_local_stage_context_starts_after_image_generation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    png = _png_bytes()
+    events: list[str] = []
+
+    class LocalStageRecorder:
+        def __enter__(self):
+            events.append("lock_enter")
+
+        def __exit__(self, exc_type, exc, tb):
+            events.append("lock_exit")
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.path == "/v1/images/generations":
+            events.append("image_gen")
+            return httpx.Response(200, json={"data": [{"url": "https://cdn.test/a.png"}]})
+        if req.url.host == "cdn.test":
+            return httpx.Response(200, content=png)
+        if req.url.path == "/v1/chat/completions":
+            events.append("prompt_guard")
+            return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"allowed": True, "reason": "", "normalized_description": "a cat"})}}]})
+        return httpx.Response(404)
+
+    _install_mock(monkeypatch, handler)
+    cfg = _cfg(tmp_path)
+    cfg.image_gen.contact_sheet_enabled = False
+    inputs = PipelineInput(
+        prompt="a cat",
+        pixelize_params=PixelizeParams(output_size=(16, 16), colors=4, preview_scale=0),
+        skip_vl=True,
+        use_cache=False,
+        local_stage_context=lambda: LocalStageRecorder(),
+    )
+
+    result = run_pipeline(cfg, inputs)
+
+    assert result.pixel_path.exists()
+    assert events.index("image_gen") < events.index("lock_enter")
+    assert events[-1] == "lock_exit"
+
+
 def test_pipeline_from_image_edit(
     tmp_path: Path, sample_image: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -239,6 +291,67 @@ def test_pipeline_from_image(tmp_path: Path, sample_image: Path, monkeypatch: py
     assert vl_calls["n"] == 1
     assert result.pixel_path.exists()
     assert result.analysis is not None
+
+
+def test_grid_pipeline_applies_outline_edge_style(tmp_path: Path) -> None:
+    cfg = _cfg(tmp_path)
+    src = _white_square_source(tmp_path / "square.png")
+    inputs = PipelineInput(
+        image_path=src,
+        skip_vl=True,
+        use_cache=False,
+        grid=GridDesignInput(mode="extract"),
+        pixelize_params=PixelizeParams(
+            output_size=(16, 16),
+            colors=4,
+            preview_scale=0,
+            remove_bg=True,
+            bg_tolerance=16,
+            bg_feather=1,
+            edge_style="outline",
+        ),
+    )
+
+    result = run_pipeline(cfg, inputs)
+
+    arr = np.asarray(Image.open(result.pixel_path).convert("RGBA"))
+    assert result.grid_path is not None and result.grid_path.exists()
+    assert result.meta["pixelize"]["effective_params"]["edge_style"] == "outline"
+    assert result.meta["pixelize"]["effective_params"]["bg_feather"] == 1
+    assert result.meta["pixelize"]["grid"]["edge_treatment"]["applied"] == "grid_outline"
+    visible_rgb = arr[arr[..., 3] > 0][:, :3]
+    unique_rgb = np.unique(visible_rgb, axis=0)
+    luma = unique_rgb[:, 0] * 0.2126 + unique_rgb[:, 1] * 0.7152 + unique_rgb[:, 2] * 0.0722
+    assert len(unique_rgb) >= 2
+    assert float(luma.min()) < float(luma.max()) * 0.7
+
+
+def test_grid_pipeline_applies_feather_edge_style_to_rendered_png(tmp_path: Path) -> None:
+    cfg = _cfg(tmp_path)
+    src = _white_square_source(tmp_path / "square.png")
+    inputs = PipelineInput(
+        image_path=src,
+        skip_vl=True,
+        use_cache=False,
+        grid=GridDesignInput(mode="extract"),
+        pixelize_params=PixelizeParams(
+            output_size=(16, 16),
+            colors=4,
+            preview_scale=0,
+            remove_bg=True,
+            bg_tolerance=16,
+            bg_feather=2,
+            edge_style="feather",
+        ),
+    )
+
+    result = run_pipeline(cfg, inputs)
+
+    alpha = np.asarray(Image.open(result.pixel_path).convert("RGBA"))[..., 3]
+    assert result.meta["pixelize"]["effective_params"]["edge_style"] == "feather"
+    assert result.meta["pixelize"]["effective_params"]["bg_feather"] == 2
+    assert result.meta["pixelize"]["grid"]["edge_treatment"]["applied"] == "render_feather"
+    assert any(0 < value < 255 for value in np.unique(alpha))
 
 
 def test_pipeline_requires_input(tmp_path: Path) -> None:

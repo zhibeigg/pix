@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Callable, ContextManager, Literal
 
 from PIL import Image
 
@@ -36,10 +37,12 @@ from pix.grid.readability import evaluate_grid_readability
 from pix.grid.render import render_pixel_grid
 from pix.grid.schema import PixelGrid, save_grid
 from pix.io_utils import new_run_dir, sha256_of_file
+from pix.pixelize.bg_removal import apply_transparent_edge_style
 from pix.pixelize.core import PixelizeParams, pixelize
 
 
 ProgressCb = Callable[[str, dict], None]
+LocalStageContext = Callable[[], ContextManager[None]]
 
 
 @dataclass
@@ -69,6 +72,8 @@ class PipelineInput:
     grid: GridDesignInput = field(default_factory=GridDesignInput)
     # 原始单图模式：只调用一次生图/编辑 API，跳过候选、VL 分析和像素化后处理。
     source_only: bool = False
+    # Web worker 可注入跨进程本地阶段锁；核心 pipeline 不直接依赖 pix_web。
+    local_stage_context: LocalStageContext | None = None
 
 
 @dataclass
@@ -86,6 +91,10 @@ class PipelineResult:
 
 def _noop(_step: str, _payload: dict) -> None:
     pass
+
+
+def _local_stage(factory: LocalStageContext | None) -> ContextManager[None]:
+    return factory() if factory is not None else nullcontext()
 
 
 def _prepare_prompt(cfg: AppConfig, inputs: PipelineInput, notify: ProgressCb) -> tuple[str | None, dict | None]:
@@ -160,20 +169,22 @@ def _postprocess_contact_sheet(
     target_size: tuple[int, int],
     rank_with_vl: bool,
     notify: ProgressCb,
+    local_stage_context: LocalStageContext | None = None,
 ) -> dict | None:
     if not contact_sheet_enabled(cfg, has_prompt=True):
         return None
     key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, user_prompt)
-    result = split_contact_sheet(
-        sheet_path,
-        run_dir / "candidates",
-        rows=cfg.image_gen.contact_sheet_rows,
-        cols=cfg.image_gen.contact_sheet_cols,
-        green_screen_color=key_hex,
-        tolerance=cfg.image_gen.green_screen_tolerance,
-        crop_padding=cfg.asset.crop_padding,
-        crop_square=cfg.asset.crop_square,
-    )
+    with _local_stage(local_stage_context):
+        result = split_contact_sheet(
+            sheet_path,
+            run_dir / "candidates",
+            rows=cfg.image_gen.contact_sheet_rows,
+            cols=cfg.image_gen.contact_sheet_cols,
+            green_screen_color=key_hex,
+            tolerance=cfg.image_gen.green_screen_tolerance,
+            crop_padding=cfg.asset.crop_padding,
+            crop_square=cfg.asset.crop_square,
+        )
     return _finalize_candidate_result(
         cfg,
         result,
@@ -186,6 +197,7 @@ def _postprocess_contact_sheet(
         notify=notify,
         candidate_mode_name="contact_sheet",
         sheet_path=sheet_path,
+        local_stage_context=local_stage_context,
     )
 
 
@@ -200,18 +212,20 @@ def _postprocess_n_sample_candidates(
     target_size: tuple[int, int],
     rank_with_vl: bool,
     notify: ProgressCb,
+    local_stage_context: LocalStageContext | None = None,
 ) -> dict | None:
     if not contact_sheet_enabled(cfg, has_prompt=True):
         return None
     key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, user_prompt)
-    result = collect_independent_candidates(
-        sample_paths,
-        run_dir / "candidates",
-        green_screen_color=key_hex,
-        tolerance=cfg.image_gen.green_screen_tolerance,
-        crop_padding=cfg.asset.crop_padding,
-        crop_square=cfg.asset.crop_square,
-    )
+    with _local_stage(local_stage_context):
+        result = collect_independent_candidates(
+            sample_paths,
+            run_dir / "candidates",
+            green_screen_color=key_hex,
+            tolerance=cfg.image_gen.green_screen_tolerance,
+            crop_padding=cfg.asset.crop_padding,
+            crop_square=cfg.asset.crop_square,
+        )
     return _finalize_candidate_result(
         cfg,
         result,
@@ -224,6 +238,7 @@ def _postprocess_n_sample_candidates(
         notify=notify,
         candidate_mode_name="n_sample",
         sheet_path=None,
+        local_stage_context=local_stage_context,
     )
 
 
@@ -240,6 +255,7 @@ def _finalize_candidate_result(
     notify: ProgressCb,
     candidate_mode_name: str,
     sheet_path: Path | None,
+    local_stage_context: LocalStageContext | None = None,
 ) -> dict:
     """共用流程：评分 → 选最优 → 复制到 source_path → 落 meta。"""
     key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, user_prompt)
@@ -274,8 +290,9 @@ def _finalize_candidate_result(
 
     result = apply_candidate_ranking(result, [item.to_metadata() for item in ranking.candidates])
     scores_path = run_dir / "01_candidate_scores.json"
-    scores_path.write_text(json.dumps(ranking.to_metadata(), ensure_ascii=False, indent=2), encoding="utf-8")
-    copy_selected_candidate(result, source_path)
+    with _local_stage(local_stage_context):
+        scores_path.write_text(json.dumps(ranking.to_metadata(), ensure_ascii=False, indent=2), encoding="utf-8")
+        copy_selected_candidate(result, source_path)
     meta = result.to_metadata(
         run_dir,
         enabled=True,
@@ -405,15 +422,31 @@ def _run_grid_pixelize(
     notify("grid_extract_start", {"size": list(params.output_size), "colors": params.colors})
     grid = _extract_grid_from_source(cfg, inputs, source_path)
 
-    if cfg.asset.grid_cleanup or cfg.asset.grid_outline:
+    edge_style = params.edge_style if params.edge_style in ("hard", "feather", "outline") else "hard"
+    edge_strength = max(0, int(params.bg_feather))
+    edge_treatment: dict = {
+        "style": edge_style,
+        "strength": edge_strength,
+        "remove_bg": bool(params.remove_bg),
+        "applied": False,
+        "stage": None,
+    }
+    user_outline = bool(params.remove_bg and edge_style == "outline" and edge_strength > 0)
+    outline_enabled = bool(cfg.asset.grid_outline or user_outline)
+    outline_strength = edge_strength if user_outline else cfg.asset.grid_outline_strength
+    if cfg.asset.grid_cleanup or outline_enabled:
         grid = polish_pixel_grid(
             grid,
             cleanup=cfg.asset.grid_cleanup,
-            outline=cfg.asset.grid_outline,
-            outline_strength=cfg.asset.grid_outline_strength,
+            outline=outline_enabled,
+            outline_strength=outline_strength,
             min_neighbors=cfg.asset.grid_min_neighbors,
             max_colors=params.colors,
+            force_new_outline=user_outline,
         )
+        if outline_enabled:
+            edge_treatment["applied"] = "grid_outline" if user_outline else "config_grid_outline"
+            edge_treatment["stage"] = "grid"
     if cfg.asset.fit_canvas:
         grid = fit_pixel_grid_to_canvas(
             grid,
@@ -469,10 +502,23 @@ def _run_grid_pixelize(
 
     report = evaluate_grid_readability(grid, max_colors=params.colors)
     grid.metadata["readability"] = report.to_dict()
+    grid.metadata["edge_treatment"] = dict(edge_treatment)
     grid_meta["readability"] = report.to_dict()
+    grid_meta["edge_treatment"] = dict(edge_treatment)
     grid_path = run_dir / "03_pixelized.grid.json"
     save_grid(grid, grid_path)
     pixel_img = render_pixel_grid(grid)
+    if params.remove_bg and edge_style == "feather" and edge_strength > 0:
+        pixel_img = apply_transparent_edge_style(
+            pixel_img,
+            feather=edge_strength,
+            edge_style="feather",
+        )
+        grid_meta["edge_treatment"] = {
+            **edge_treatment,
+            "applied": "render_feather",
+            "stage": "rendered_png",
+        }
     preview_img = None
     scale = max(0, int(params.preview_scale))
     if scale > 1:
@@ -486,8 +532,17 @@ def _run_grid_pixelize(
             "dither": params.dither,
             "preset": params.preset or "auto",
             "preview_scale": params.preview_scale,
+            "edge_enhance": params.edge_enhance,
+            "saturation": params.saturation,
+            "resample": params.resample,
+            "snap_to_grid": params.snap_to_grid,
             "remove_bg": params.remove_bg,
+            "bg_tolerance": params.bg_tolerance,
+            "bg_feather": params.bg_feather,
+            "edge_style": edge_style,
             "auto_crop": params.auto_crop,
+            "crop_padding": params.crop_padding,
+            "crop_square": params.crop_square,
             "palette_mode": palette_mode_eff,
         },
         "palette": [color.hex for color in grid.palette],
@@ -630,6 +685,7 @@ def run_pipeline(
                 target_size=inputs.pixelize_params.output_size,
                 rank_with_vl=not inputs.skip_vl,
                 notify=notify,
+                local_stage_context=inputs.local_stage_context,
             )
             source_mode = "edited_n_sample"
             notify("source_ready", {"path": str(source_path), "mode": source_mode})
@@ -660,6 +716,7 @@ def run_pipeline(
                         target_size=inputs.pixelize_params.output_size,
                         rank_with_vl=not inputs.skip_vl,
                         notify=notify,
+                        local_stage_context=inputs.local_stage_context,
                     )
                     source_mode = "edit_contact_sheet_cache"
                 else:
@@ -688,6 +745,7 @@ def run_pipeline(
                         target_size=inputs.pixelize_params.output_size,
                         rank_with_vl=not inputs.skip_vl,
                         notify=notify,
+                        local_stage_context=inputs.local_stage_context,
                     )
                     source_mode = "edited_contact_sheet"
                 else:
@@ -714,6 +772,7 @@ def run_pipeline(
                 target_size=inputs.pixelize_params.output_size,
                 rank_with_vl=not inputs.skip_vl,
                 notify=notify,
+                local_stage_context=inputs.local_stage_context,
             )
             source_mode = "n_sample_generated"
             notify("source_ready", {"path": str(source_path), "mode": source_mode})
@@ -741,6 +800,7 @@ def run_pipeline(
                         target_size=inputs.pixelize_params.output_size,
                         rank_with_vl=not inputs.skip_vl,
                         notify=notify,
+                        local_stage_context=inputs.local_stage_context,
                     )
                     source_mode = "contact_sheet_cache"
                 else:
@@ -768,6 +828,7 @@ def run_pipeline(
                         target_size=inputs.pixelize_params.output_size,
                         rank_with_vl=not inputs.skip_vl,
                         notify=notify,
+                        local_stage_context=inputs.local_stage_context,
                     )
                     source_mode = "generated_contact_sheet"
                 else:
@@ -866,60 +927,61 @@ def run_pipeline(
                 )
 
     # 4. 像素化 / Pixel Grid 直绘
-    notify("pixelize_start", {"grid_mode": inputs.grid.mode})
     preview_path: Path | None = None
     grid_path: Path | None = None
     pixel_path = run_dir / "03_pixelized.png"
-    candidate_outputs_meta = _render_candidate_pixel_outputs(
-        contact_sheet_meta,
-        run_dir,
-        inputs.pixelize_params,
-        analysis,
-        grid_mode=inputs.grid.mode,
-        notify=notify,
-        cfg=cfg,
-        source_description=inputs.prompt or "",
-    )
-    selected_candidate = None
-    if contact_sheet_meta and isinstance(contact_sheet_meta.get("candidates"), list):
-        selected_candidate = next((item for item in contact_sheet_meta["candidates"] if isinstance(item, dict) and item.get("selected")), None)
-
-    if selected_candidate and selected_candidate.get("pixelized_path"):
-        candidate_pixel_path = run_dir / str(selected_candidate["pixelized_path"])
-        pixel_path.write_bytes(candidate_pixel_path.read_bytes())
-        preview_rel = selected_candidate.get("preview_path")
-        pix_meta = selected_candidate.get("pixelized_meta") if isinstance(selected_candidate.get("pixelized_meta"), dict) else {}
-        pix_meta = dict(pix_meta)
-        pix_meta["candidate_outputs"] = candidate_outputs_meta
-        if preview_rel:
-            preview_src = run_dir / str(preview_rel)
-            if preview_src.exists():
-                preview_path = run_dir / "04_pixelized_preview.png"
-                preview_path.write_bytes(preview_src.read_bytes())
-    elif inputs.grid.mode == "off":
-        pixel_img, preview_img, pix_meta = pixelize(
-            source_path,
+    with _local_stage(inputs.local_stage_context):
+        notify("pixelize_start", {"grid_mode": inputs.grid.mode})
+        candidate_outputs_meta = _render_candidate_pixel_outputs(
+            contact_sheet_meta,
+            run_dir,
             inputs.pixelize_params,
-            analysis=analysis,
+            analysis,
+            grid_mode=inputs.grid.mode,
+            notify=notify,
             cfg=cfg,
             source_description=inputs.prompt or "",
-            auto_skip_redundant_bg=True,
         )
-        pixel_img.save(pixel_path)
-        if preview_img is not None:
-            preview_path = run_dir / "04_pixelized_preview.png"
-            preview_img.save(preview_path)
-        pix_meta["candidate_outputs"] = candidate_outputs_meta
-    else:
-        pixel_img, preview_img, pix_meta, grid_path = _run_grid_pixelize(
-            cfg, inputs, source_path, run_dir, notify
-        )
-        pixel_img.save(pixel_path)
-        if preview_img is not None:
-            preview_path = run_dir / "04_pixelized_preview.png"
-            preview_img.save(preview_path)
-        pix_meta["candidate_outputs"] = candidate_outputs_meta
-    notify("pixelize_ready", {"path": str(pixel_path), "grid": str(grid_path) if grid_path else None})
+        selected_candidate = None
+        if contact_sheet_meta and isinstance(contact_sheet_meta.get("candidates"), list):
+            selected_candidate = next((item for item in contact_sheet_meta["candidates"] if isinstance(item, dict) and item.get("selected")), None)
+
+        if selected_candidate and selected_candidate.get("pixelized_path"):
+            candidate_pixel_path = run_dir / str(selected_candidate["pixelized_path"])
+            pixel_path.write_bytes(candidate_pixel_path.read_bytes())
+            preview_rel = selected_candidate.get("preview_path")
+            pix_meta = selected_candidate.get("pixelized_meta") if isinstance(selected_candidate.get("pixelized_meta"), dict) else {}
+            pix_meta = dict(pix_meta)
+            pix_meta["candidate_outputs"] = candidate_outputs_meta
+            if preview_rel:
+                preview_src = run_dir / str(preview_rel)
+                if preview_src.exists():
+                    preview_path = run_dir / "04_pixelized_preview.png"
+                    preview_path.write_bytes(preview_src.read_bytes())
+        elif inputs.grid.mode == "off":
+            pixel_img, preview_img, pix_meta = pixelize(
+                source_path,
+                inputs.pixelize_params,
+                analysis=analysis,
+                cfg=cfg,
+                source_description=inputs.prompt or "",
+                auto_skip_redundant_bg=True,
+            )
+            pixel_img.save(pixel_path)
+            if preview_img is not None:
+                preview_path = run_dir / "04_pixelized_preview.png"
+                preview_img.save(preview_path)
+            pix_meta["candidate_outputs"] = candidate_outputs_meta
+        else:
+            pixel_img, preview_img, pix_meta, grid_path = _run_grid_pixelize(
+                cfg, inputs, source_path, run_dir, notify
+            )
+            pixel_img.save(pixel_path)
+            if preview_img is not None:
+                preview_path = run_dir / "04_pixelized_preview.png"
+                preview_img.save(preview_path)
+            pix_meta["candidate_outputs"] = candidate_outputs_meta
+        notify("pixelize_ready", {"path": str(pixel_path), "grid": str(grid_path) if grid_path else None})
 
     # 5. meta
     meta = {

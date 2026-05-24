@@ -230,4 +230,4 @@ docker compose -f deploy/docker-compose.backend.yml --env-file deploy/.env.produ
 docker compose -f deploy/docker-compose.backend.yml --env-file deploy/.env.production logs -f worker
 ```
 
-确认 `PIX_WEB_QUEUE_BACKEND=rq`，且 `PIX_WEB_REDIS_URL=redis://redis:6379/0`。RQ 部署的并发量由 worker 副本/进程数决定；数据库 worker 则使用 `PIX_WEB_WORKER_CONCURRENCY` 控制并发上限。
+确认 `PIX_WEB_QUEUE_BACKEND=rq`，且 `PIX_WEB_REDIS_URL=redis://redis:6379/0`。RQ 部署会读取 `PIX_WEB_WORKER_CONCURRENCY` / 管理后台“Worker 并发上限”，并在每个 worker 容器内启动对应数量的独立 RQ worker 子进程；也可以继续用 `--scale worker=N` 横向扩容。生图/图生图等网络等待可并发，本地像素化、拆图和写盘阶段会通过文件锁串行执行。并发调高时请同步评估数据库连接数、Redis、外部生图 API 限流和 RQ `job_timeout`。

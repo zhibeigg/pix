@@ -46,7 +46,7 @@ def validate_job_request(req: JobCreateRequest) -> None:
     except AssetSizePolicyError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     if req.job_type == "asset" and not _asset_name(req):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="素材直出任务需要素材名称")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="素材直出任务需要主体内容")
     if req.job_type == "text_to_image" and not prompt:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="文生图任务需要 prompt")
     if req.job_type == "image_to_image" and not prompt:

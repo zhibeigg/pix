@@ -99,24 +99,57 @@ def safe_asset_filename(name: str, fallback: str = "asset") -> str:
     return cleaned or fallback
 
 
+ASSET_KIND_LABELS: dict[str, str] = {
+    "item_icon": "物品图标",
+    "ui_component": "UI组件",
+}
+SUBJECT_KIND_LABELS: dict[str, str] = {
+    "single_prop": "单个道具",
+    "single_ui": "单个UI",
+}
+
+
+def _label_for(value: str, labels: dict[str, str], fallback_key: str) -> str:
+    key = (value or fallback_key).strip()
+    return labels.get(key, labels[fallback_key])
+
+
 def build_asset_prompt(
     template: str,
     name: str,
     *,
     size: tuple[int, int],
     extra_prompt: str = "",
+    asset_kind: str = "item_icon",
+    subject_kind: str = "single_prop",
 ) -> str:
     """按游戏素材模板生成最终生图 prompt。"""
     width, height = size
+    size_label = f"{width}×{height}"
+    asset_kind_label = _label_for(asset_kind, ASSET_KIND_LABELS, "item_icon")
+    subject_kind_label = _label_for(subject_kind, SUBJECT_KIND_LABELS, "single_prop")
+    canvas_shape = "正方形画幅" if width == height else f"适配 {size_label} 画幅"
+    values = {
+        "name": name,
+        "width": width,
+        "height": height,
+        "size_label": size_label,
+        "asset_kind": asset_kind,
+        "asset_kind_label": asset_kind_label,
+        "subject_kind": subject_kind,
+        "subject_kind_label": subject_kind_label,
+        "canvas_shape": canvas_shape,
+    }
     try:
-        prompt = template.format(name=name, width=width, height=height)
+        prompt = template.format(**values)
     except Exception:
         prompt = (
-            f"A single fantasy pixel game inventory item icon of {name}. "
-            f"Designed to become a {width}x{height} RPG inventory sprite."
+            f"{size_label} 像素游戏{asset_kind_label}，复古8位像素风格，"
+            f"{subject_kind_label}，纯色干净背景，轮廓清晰，色块分明，线条锐利，"
+            f"简约游戏资产，无多余杂色，{canvas_shape}，主体：{name}"
         )
     if extra_prompt.strip():
-        prompt = f"{prompt} {extra_prompt.strip()}"
+        prompt = f"{prompt.strip()} {extra_prompt.strip()}"
     return prompt.strip()
 
 

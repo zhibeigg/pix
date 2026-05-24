@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import math
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, ContextManager, Iterable
 
 import numpy as np
 from PIL import Image
@@ -21,6 +22,9 @@ from pix.io_utils import new_run_dir
 from pix.pixelize.bg_removal import remove_translucent_edge_halo
 from pix.pixelize.core import PixelizeParams, pixelize
 from pix.pixelize.palette import build_palette_image, kmeans_palette, rgb_to_hex
+
+
+LocalStageContext = Callable[[], ContextManager[None]]
 
 
 @dataclass(frozen=True)
@@ -64,6 +68,7 @@ class SpritePipelineInput:
     key_softness: int | None = None
     key_alpha_floor: int | None = None
     key_despill: bool | None = None
+    local_stage_context: LocalStageContext | None = None
 
 
 @dataclass
@@ -95,6 +100,10 @@ ProgressCb = Any
 
 def _noop(_step: str, _payload: dict) -> None:
     pass
+
+
+def _local_stage(factory: LocalStageContext | None) -> ContextManager[None]:
+    return factory() if factory is not None else nullcontext()
 
 
 def _rel(path: Path, root: Path) -> str:
@@ -600,68 +609,69 @@ def run_sprite_pipeline(
         cache.store_copy("sprite_imagegen", material, "png", source_path)
         notify("sprite_source_ready", {"path": str(source_path), "mode": "generated"})
 
-    split = split_sprite_sheet(
-        source_path,
-        raw_dir,
-        rows=rows,
-        cols=cols,
-        key_color=key_hex,
-        tolerance=key_tolerance,
-        crop_padding=cfg.sprite.crop_padding,
-        crop_square=cfg.sprite.crop_square,
-        key_mode=key_mode,
-        key_softness=key_softness,
-        key_alpha_floor=key_alpha_floor,
-        key_despill=key_despill,
-    )
-    notify("sprite_frames_split", {"count": len(split.raw_frames), "dir": str(raw_dir)})
-
-    params = PixelizeParams(
-        output_size=pixel_size,
-        colors=int(inputs.pixelize_params.colors or cfg.sprite.colors),
-        dither=inputs.pixelize_params.dither,
-        preset=inputs.pixelize_params.preset,
-        preview_scale=0,
-        edge_enhance=inputs.pixelize_params.edge_enhance,
-        saturation=inputs.pixelize_params.saturation,
-        resample=inputs.pixelize_params.resample,
-        snap_to_grid=inputs.pixelize_params.snap_to_grid,
-        remove_bg=False,
-        bg_tolerance=cfg.sprite.bg_tolerance,
-        bg_feather=inputs.pixelize_params.bg_feather,
-        edge_style=inputs.pixelize_params.edge_style,
-        auto_crop=False,
-        crop_padding=cfg.sprite.crop_padding,
-        crop_square=cfg.sprite.crop_square,
-        palette_mode="auto",
-    )
-    frame_paths, frame_meta = pixelize_sprite_frames(
-        split.raw_frames,
-        frames_dir,
-        params,
-        shared_palette=cfg.sprite.shared_palette,
-        cfg=cfg,
-        source_description=inputs.prompt,
-    )
-    notify("sprite_frames_pixelized", {"count": len(frame_paths), "dir": str(frames_dir)})
-
-    compose_horizontal_sprite_sheet(frame_paths, sheet_path)
-    duration_ms = int(inputs.duration_ms or cfg.sprite.duration_ms)
-    loop = int(cfg.sprite.loop if inputs.loop is None else inputs.loop)
-    compose_gif(frame_paths, gif_path, duration_ms=duration_ms, loop=loop)
-    notify("sprite_outputs_ready", {"sheet": str(sheet_path), "gif": str(gif_path)})
-
-    frames = [
-        SpriteFrame(
-            index=index,
-            row=(index - 1) // cols,
-            col=(index - 1) % cols,
-            raw_path=raw,
-            path=path,
-            bbox=split.bboxes[index - 1] if index - 1 < len(split.bboxes) else None,
+    with _local_stage(inputs.local_stage_context):
+        split = split_sprite_sheet(
+            source_path,
+            raw_dir,
+            rows=rows,
+            cols=cols,
+            key_color=key_hex,
+            tolerance=key_tolerance,
+            crop_padding=cfg.sprite.crop_padding,
+            crop_square=cfg.sprite.crop_square,
+            key_mode=key_mode,
+            key_softness=key_softness,
+            key_alpha_floor=key_alpha_floor,
+            key_despill=key_despill,
         )
-        for index, (raw, path) in enumerate(zip(split.raw_frames, frame_paths, strict=True), start=1)
-    ]
+        notify("sprite_frames_split", {"count": len(split.raw_frames), "dir": str(raw_dir)})
+
+        params = PixelizeParams(
+            output_size=pixel_size,
+            colors=int(inputs.pixelize_params.colors or cfg.sprite.colors),
+            dither=inputs.pixelize_params.dither,
+            preset=inputs.pixelize_params.preset,
+            preview_scale=0,
+            edge_enhance=inputs.pixelize_params.edge_enhance,
+            saturation=inputs.pixelize_params.saturation,
+            resample=inputs.pixelize_params.resample,
+            snap_to_grid=inputs.pixelize_params.snap_to_grid,
+            remove_bg=False,
+            bg_tolerance=cfg.sprite.bg_tolerance,
+            bg_feather=inputs.pixelize_params.bg_feather,
+            edge_style=inputs.pixelize_params.edge_style,
+            auto_crop=False,
+            crop_padding=cfg.sprite.crop_padding,
+            crop_square=cfg.sprite.crop_square,
+            palette_mode="auto",
+        )
+        frame_paths, frame_meta = pixelize_sprite_frames(
+            split.raw_frames,
+            frames_dir,
+            params,
+            shared_palette=cfg.sprite.shared_palette,
+            cfg=cfg,
+            source_description=inputs.prompt,
+        )
+        notify("sprite_frames_pixelized", {"count": len(frame_paths), "dir": str(frames_dir)})
+
+        compose_horizontal_sprite_sheet(frame_paths, sheet_path)
+        duration_ms = int(inputs.duration_ms or cfg.sprite.duration_ms)
+        loop = int(cfg.sprite.loop if inputs.loop is None else inputs.loop)
+        compose_gif(frame_paths, gif_path, duration_ms=duration_ms, loop=loop)
+        notify("sprite_outputs_ready", {"sheet": str(sheet_path), "gif": str(gif_path)})
+
+        frames = [
+            SpriteFrame(
+                index=index,
+                row=(index - 1) // cols,
+                col=(index - 1) % cols,
+                raw_path=raw,
+                path=path,
+                bbox=split.bboxes[index - 1] if index - 1 < len(split.bboxes) else None,
+            )
+            for index, (raw, path) in enumerate(zip(split.raw_frames, frame_paths, strict=True), start=1)
+        ]
     meta = {
         "version": __version__,
         "input": {

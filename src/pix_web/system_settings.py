@@ -140,7 +140,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.asset.fit_mode", "贴合模式", "素材默认值", "select", "", options=("smart", "contain", "cover")),
     SettingDefinition("pix.asset.fit_padding", "贴合留白", "素材默认值", "number", ""),
     SettingDefinition("pix.asset.fit_min_axis_coverage", "主体最小覆盖率", "素材默认值", "number", ""),
-    SettingDefinition("pix.asset.prompt_template", "素材 Prompt 模板", "素材默认值", "textarea", ""),
+    SettingDefinition("pix.asset.prompt_template", "素材 Prompt 模板", "素材默认值", "textarea", "", "可用占位符：{size_label}/{asset_kind_label}/{subject_kind_label}/{canvas_shape}/{name}；用户通常只填写主体内容。"),
     SettingDefinition("pix.sprite.pixel_size", "动画帧尺寸", "动画精灵表", "string", "", "格式 64x64。"),
     SettingDefinition("pix.sprite.colors", "动画帧颜色数", "动画精灵表", "number", ""),
     SettingDefinition("pix.sprite.image_quality", "动画源图质量", "动画精灵表", "select", "", options=("low", "medium", "high", "auto")),

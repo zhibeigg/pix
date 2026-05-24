@@ -154,7 +154,8 @@ def test_asset_cli_direct_output(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> 
 
     def fake_run_pipeline(cfg, inputs, progress=None):
         assert "血气灵玉" in inputs.prompt
-        assert "plain white background" in inputs.prompt
+        assert "16×16 像素游戏物品图标" in inputs.prompt
+        assert "主体：血气灵玉" in inputs.prompt
         assert cfg.image_gen.contact_sheet_enabled is False
         assert cfg.image_gen.prompt_guard_remote is False
         assert cfg.asset.grid_cleanup is False
@@ -210,6 +211,8 @@ def test_asset_cli_direct_output(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> 
     assert "血气灵玉_source.png" in sidecar_text
 
     sidecar = json.loads(sidecar_text)
+    assert sidecar["asset_kind"] == "item_icon"
+    assert sidecar["subject_kind"] == "single_prop"
     assert sidecar["fit_canvas"] == {
         "enabled": False,
         "mode": "smart",

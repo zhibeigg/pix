@@ -421,11 +421,13 @@ def cmd_grid_polish(
 
 @app.command("asset")
 def cmd_asset(
-    name: str = typer.Argument(..., help="素材名称，会注入游戏物品 prompt 模板"),
+    name: str = typer.Argument(..., help="主体描述，会填入素材 prompt 模板中的“主体：”后面"),
     out: Optional[Path] = typer.Option(None, help="最终 PNG 路径；默认写到 [asset].output_dir/name.png"),
     pixel_size: Optional[str] = typer.Option(None, help="输出像素尺寸，默认读 [asset].pixel_size"),
     colors: int = typer.Option(0, min=0, max=256, help="可见颜色数；0 表示读 [asset].colors"),
     extra_prompt: str = typer.Option("", help="追加到内置游戏素材模板后的额外英文/中文提示"),
+    asset_kind: str = typer.Option("item_icon", help="素材类型：item_icon=物品图标，ui_component=UI组件"),
+    subject_kind: str = typer.Option("single_prop", help="主体类型：single_prop=单个道具，single_ui=单个UI"),
     image_size: Optional[str] = typer.Option(None, help="生图尺寸，默认读 [image_gen].size"),
     image_quality: Optional[str] = typer.Option(None, help="生图质量，默认读 [asset].image_quality"),
     vl_model: Optional[str] = typer.Option(None, help="启用 --use-vl 时覆盖视觉模型"),
@@ -498,11 +500,18 @@ def cmd_asset(
             console.print(f"[red]目标已存在：{p}[/red]\n如需覆盖请加 --overwrite。")
             raise typer.Exit(code=2)
 
+    if asset_kind not in {"item_icon", "ui_component"}:
+        raise typer.BadParameter("asset-kind 必须是 item_icon 或 ui_component", param_hint="--asset-kind")
+    if subject_kind not in {"single_prop", "single_ui"}:
+        raise typer.BadParameter("subject-kind 必须是 single_prop 或 single_ui", param_hint="--subject-kind")
+
     prompt = build_asset_prompt(
         cfg.asset.prompt_template,
         name,
         size=size,
         extra_prompt=extra_prompt,
+        asset_kind=asset_kind,
+        subject_kind=subject_kind,
     )
     # asset 入口使用服务端构造好的完整 prompt，恢复经典单图白底流程；
     # 仍保留本地 prompt guard，但关闭远程归一化与候选包装，避免把模板改写成 n-sample/chroma-key 风格。
@@ -572,6 +581,8 @@ def cmd_asset(
         grid_meta = result.meta.get("pixelize", {}).get("grid") if effective_grid_mode else None
         sidecar = {
             "name": name,
+            "asset_kind": asset_kind,
+            "subject_kind": subject_kind,
             "prompt": prompt,
             "target": str(target),
             "preview": str(copied_preview) if copied_preview else None,

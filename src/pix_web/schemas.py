@@ -256,6 +256,8 @@ class SpriteParamsSchema(BaseModel):
 class AssetParamsSchema(BaseModel):
     name: str = Field(default="", max_length=160)
     extra_prompt: str = Field(default="", max_length=1000)
+    asset_kind: Literal["item_icon", "ui_component"] = "item_icon"
+    subject_kind: Literal["single_prop", "single_ui"] = "single_prop"
     use_vl: bool | None = None
     no_preview: bool = False
 
