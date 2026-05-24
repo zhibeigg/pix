@@ -369,7 +369,10 @@ function SectionFrame({ id, eyebrow, title, description, children, surface = 'de
 
 function itemSlotSrc(example: HomepageExample, index: number, variant: ItemSpriteVariant = 'outline32') {
   const slotSrc = example.itemSrc.replace('.png', `_${String(index + 1).padStart(2, '0')}.png`)
-  return variant === 'original64' ? slotSrc.replace('/homepage-examples/items/', '/homepage-examples/items-64/') : slotSrc
+  return slotSrc.replace(
+    '/homepage-examples/items/',
+    variant === 'original64' ? '/homepage-examples/items-64/' : '/homepage-examples/items-32-outline/',
+  )
 }
 function buildChineseItemPrompt(example: HomepageExample) { return `像素风「${example.theme}」物品图标组，拆成 4×2 共 8 个独立道具格；主页同时展示原 64×64 透明资源和新 32×32 outline 图标，居中构图、硬边像素、有限调色板、无抗锯齿，适合作为背包图标或掉落物素材。` }
 function buildChineseUiPrompt(example: HomepageExample) { return `像素风「${example.theme}」16:9 UI 展示图，包含主题面板、边框、按钮、图标、状态区和游戏界面示例；整体为 16-bit RPG / 独立游戏可用风格。` }

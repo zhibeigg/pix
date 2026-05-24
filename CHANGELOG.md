@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.85] - 2026-05-24
+
+### Fixed
+
+- Web 首页 32×32 outline 范例资源改用新的静态目录，避免部署后浏览器或 CDN 复用旧 `/homepage-examples/items/` 缓存导致两组图片看起来相同。
+
 ## [1.27.84] - 2026-05-24
 
 ### Fixed
