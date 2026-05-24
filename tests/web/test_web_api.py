@@ -360,6 +360,29 @@ def test_admin_settings_metadata_secret_masking_and_pix_override(client: TestCli
     assert overrides["api"]["image_api_key"] == "sk-test-managed"
 
 
+def test_public_announcement_uses_admin_settings(client: TestClient) -> None:
+    _admin, headers = _register_and_login(client, "announcement-admin@example.com")
+
+    initial = client.get("/announcements/current")
+    assert initial.status_code == 200
+    assert initial.json()["enabled"] is False
+
+    assert client.put("/admin/settings/site.announcement.title", headers=headers, json={"value": "维护通知"}).status_code == 200
+    assert client.put("/admin/settings/site.announcement.body", headers=headers, json={"value": "今晚 23:00 短暂维护。"}).status_code == 200
+    assert client.put("/admin/settings/site.announcement.enabled", headers=headers, json={"value": "true"}).status_code == 200
+
+    published = client.get("/announcements/current")
+    assert published.status_code == 200
+    payload = published.json()
+    assert payload["enabled"] is True
+    assert payload["title"] == "维护通知"
+    assert payload["body"] == "今晚 23:00 短暂维护。"
+    assert payload["updated_at"] is not None
+
+    assert client.put("/admin/settings/site.announcement.enabled", headers=headers, json={"value": "false"}).status_code == 200
+    assert client.get("/announcements/current").json()["enabled"] is False
+
+
 def test_admin_test_email_uses_effective_settings(client: TestClient) -> None:
     _admin, headers = _register_and_login(client, "mail-admin@example.com")
 

@@ -333,6 +333,13 @@ export type PricingRule = {
 
 export type SettingType = 'string' | 'number' | 'boolean' | 'textarea' | 'select' | 'secret' | 'status'
 
+export type PublicAnnouncement = {
+  enabled: boolean
+  title: string
+  body: string
+  updated_at: string | null
+}
+
 export type SystemSetting = {
   key: string
   value: string

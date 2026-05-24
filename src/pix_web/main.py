@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pix import __version__
 from pix_web.config import WebSettings, load_web_settings
 from pix_web.db import init_db, make_engine, make_session_factory
-from pix_web.routers import admin, auth, batches, billing, credits, files, jobs, packs, pricing, referrals, uploads
+from pix_web.routers import admin, announcements, auth, batches, billing, credits, files, jobs, packs, pricing, referrals, uploads
 
 
 def create_app(settings: WebSettings | None = None) -> FastAPI:
@@ -41,6 +41,7 @@ def create_app(settings: WebSettings | None = None) -> FastAPI:
     app.include_router(uploads.router)
     app.include_router(files.router)
     app.include_router(pricing.router)
+    app.include_router(announcements.router)
     app.include_router(admin.router)
 
     @app.get("/health")

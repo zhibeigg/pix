@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type Ref } from 'react'
+import { Check, Copy, Download } from 'lucide-react'
 import { useI18n } from '../i18n'
-import { homepageExampleCategories, homepageExamples, getHomepageExampleLabel, type HomepageExample } from '../homepageExamples'
+import { homepageExampleCategories, homepageExamples, getHomepageExampleItemSubject, getHomepageExampleItemSubjectPrompt, getHomepageExampleLabel, type HomepageExample, type HomepageExampleItemVariant } from '../homepageExamples'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
@@ -45,7 +46,7 @@ const spriteShowcases = [
 ]
 
 const itemSpriteSlots = Array.from({ length: 8 }, (_, index) => index)
-type ItemSpriteVariant = 'original64' | 'outline32'
+type ItemSpriteVariant = HomepageExampleItemVariant
 
 const examplesByCategory = homepageExampleCategories.map((category) => ({
   category,
@@ -55,6 +56,14 @@ const examplesByCategory = homepageExampleCategories.map((category) => ({
 const featuredExamples = homepageExamples.slice(0, 4)
 
 type LandingSectionsProps = { authSlot: ReactNode }
+type ItemContextMenuHandler = (example: HomepageExample, variant: ItemSpriteVariant, index: number, event: MouseEvent<HTMLElement>) => void
+type ExampleItemActionTarget = {
+  example: HomepageExample
+  variant: ItemSpriteVariant
+  index: number
+  x: number
+  y: number
+}
 
 export function LandingSections({ authSlot }: LandingSectionsProps) {
   const { text } = useI18n()
@@ -196,6 +205,7 @@ function ExampleAtlas() {
   const { language, text } = useI18n()
   const [activeId, setActiveId] = useState(homepageExamples[0]?.id ?? '')
   const [floatingExample, setFloatingExample] = useState<HomepageExample | null>(null)
+  const [itemActionTarget, setItemActionTarget] = useState<ExampleItemActionTarget | null>(null)
   const floatingPanelRef = useRef<HTMLElement | null>(null)
   const floatingFrameRef = useRef<number | null>(null)
   const floatingPointerRef = useRef({ x: 0, y: 0 })
@@ -265,6 +275,24 @@ function ExampleAtlas() {
     scheduleFloatingPosition(event)
   }, [scheduleFloatingPosition])
 
+  const closeItemActionMenu = useCallback(() => setItemActionTarget(null), [])
+
+  const openItemActionMenu = useCallback<ItemContextMenuHandler>((example, variant, index, event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    selectExample(example.id)
+    setFloatingExample((current) => (current?.id === example.id ? current : example))
+    const menuWidth = 288
+    const menuHeight = 180
+    setItemActionTarget({
+      example,
+      variant,
+      index,
+      x: Math.max(12, Math.min(event.clientX, window.innerWidth - menuWidth - 12)),
+      y: Math.max(12, Math.min(event.clientY, window.innerHeight - menuHeight - 12)),
+    })
+  }, [selectExample])
+
   const labeledGroups = useMemo(() => examplesByCategory.map((group) => ({
     ...group,
     label: getHomepageExampleLabel(group.examples[0] ?? { category: group.category, theme: group.category } as HomepageExample, language).category,
@@ -274,14 +302,15 @@ function ExampleAtlas() {
     <div className="relative grid gap-6" onMouseLeave={hideFloating}>
       <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] md:p-8">
         <div className="grid items-center gap-6 lg:grid-cols-[.9fr_1.1fr]">
-          <div><Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('范例图谱', 'Sample atlas')}</Badge><h3 className="mt-5 text-3xl font-semibold md:text-5xl">{text('题材不是列表，是可验收的样本墙', 'Themes are reviewable sample walls, not lists')}</h3><p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('每套范例同时保留原 64×64 透明资源、新 32×32 outline 图标和一张 1920×1080 界面展示图。悬浮左侧卡片即可在鼠标旁展开详情。', 'Each sample keeps the original 64×64 transparent resources, new 32×32 outline icons, and a 1920×1080 UI showcase. Hover a card to open the detail panel near the cursor.')}</p></div>
+          <div><Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('范例图谱', 'Sample atlas')}</Badge><h3 className="mt-5 text-3xl font-semibold md:text-5xl">{text('题材不是列表，是可验收的样本墙', 'Themes are reviewable sample walls, not lists')}</h3><p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('每套范例同时保留原 64×64 透明资源、新 32×32 outline 图标和一张 1920×1080 界面展示图。悬浮卡片可展开详情；右键任意物品格可下载该图或复制它自己的 Prompt。', 'Each sample keeps the original 64×64 transparent resources, new 32×32 outline icons, and a 1920×1080 UI showcase. Hover a card for details; right-click any item slot to download that image or copy its own prompt.')}</p></div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">{labeledGroups.map((group) => <button type="button" key={group.category} onClick={() => selectCategory(group.examples[0]?.id)} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/65 p-3 text-left transition hover:bg-white dark:border-white/10 dark:bg-white/7 dark:hover:bg-white/10"><p className="font-semibold">{group.label}</p><p className="text-xs text-[hsl(var(--pix-steel))] dark:text-white/55">{text(`${group.examples.length} 套范例`, `${group.examples.length} samples`)}</p></button>)}</div>
         </div>
       </div>
       <div className="grid gap-6">
-        {labeledGroups.map((group) => <div key={group.category}><div className="mb-4 flex items-end justify-between gap-3"><div><h3 className="text-3xl font-semibold">{group.label}</h3><p className="text-sm text-muted-foreground">{text(`${group.examples.length} 套双尺寸物品 + 界面范例`, `${group.examples.length} dual-size item + UI samples`)}</p></div><Badge variant="outline">{group.examples[0]?.number}—{group.examples[group.examples.length - 1]?.number}</Badge></div><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">{group.examples.map((example) => <ExampleTile key={example.id} example={example} active={activeId === example.id} onSelect={selectExample} onHoverStart={showFloating} onHoverMove={moveFloating} />)}</div></div>)}
+        {labeledGroups.map((group) => <div key={group.category}><div className="mb-4 flex items-end justify-between gap-3"><div><h3 className="text-3xl font-semibold">{group.label}</h3><p className="text-sm text-muted-foreground">{text(`${group.examples.length} 套双尺寸物品 + 界面范例`, `${group.examples.length} dual-size item + UI samples`)}</p></div><Badge variant="outline">{group.examples[0]?.number}—{group.examples[group.examples.length - 1]?.number}</Badge></div><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">{group.examples.map((example) => <ExampleTile key={example.id} example={example} active={activeId === example.id} onSelect={selectExample} onHoverStart={showFloating} onHoverMove={moveFloating} onItemContextMenu={openItemActionMenu} />)}</div></div>)}
       </div>
-      {floatingExample && <ExampleFloatingDetail key={floatingExample.id} example={floatingExample} panelRef={bindFloatingPanel} />}
+      {floatingExample && <ExampleFloatingDetail key={floatingExample.id} example={floatingExample} panelRef={bindFloatingPanel} onItemContextMenu={openItemActionMenu} />}
+      {itemActionTarget && <ExampleItemActionMenu target={itemActionTarget} onClose={closeItemActionMenu} />}
     </div>
   )
 }
@@ -292,46 +321,138 @@ type ExampleTileProps = {
   onSelect: (id: string) => void
   onHoverStart: (example: HomepageExample, event: MouseEvent<HTMLButtonElement>) => void
   onHoverMove: (event: MouseEvent<HTMLButtonElement>) => void
+  onItemContextMenu: ItemContextMenuHandler
 }
 
-const ExampleTile = memo(function ExampleTile({ example, active, onSelect, onHoverStart, onHoverMove }: ExampleTileProps) {
+const ExampleTile = memo(function ExampleTile({ example, active, onSelect, onHoverStart, onHoverMove, onItemContextMenu }: ExampleTileProps) {
   const { language, text } = useI18n()
   const label = getHomepageExampleLabel(example, language)
   const handleSelect = useCallback(() => onSelect(example.id), [example.id, onSelect])
   const handleHoverStart = useCallback((event: MouseEvent<HTMLButtonElement>) => onHoverStart(example, event), [example, onHoverStart])
-  return <button type="button" onClick={handleSelect} onMouseEnter={handleHoverStart} onMouseMove={onHoverMove} className={`rounded-lg border bg-card p-3 text-left transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] ${active ? 'border-primary ring-2 ring-primary/15' : 'border-border'}`}><div className="pix-checkerboard rounded-lg p-2"><ItemVariantPair example={example} compact /></div><div className="mt-3 flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-base font-semibold leading-tight">{label.theme}</p><p className="mt-1 text-xs text-muted-foreground">{label.category} · {text('64×64 + 32×32 + 界面', '64×64 + 32×32 + UI')}</p></div><Badge variant="outline" className="shrink-0">{example.number}</Badge></div></button>
+  return <button type="button" onClick={handleSelect} onMouseEnter={handleHoverStart} onMouseMove={onHoverMove} className={`rounded-lg border bg-card p-3 text-left transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] ${active ? 'border-primary ring-2 ring-primary/15' : 'border-border'}`}><div className="pix-checkerboard rounded-lg p-2"><ItemVariantPair example={example} compact onItemContextMenu={onItemContextMenu} /></div><div className="mt-3 flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-base font-semibold leading-tight">{label.theme}</p><p className="mt-1 text-xs text-muted-foreground">{label.category} · {text('64×64 + 32×32 + 界面', '64×64 + 32×32 + UI')}</p></div><Badge variant="outline" className="shrink-0">{example.number}</Badge></div></button>
 })
 
-const ExampleFloatingDetail = memo(function ExampleFloatingDetail({ example, panelRef }: { example: HomepageExample; panelRef: Ref<HTMLElement> }) {
+const ExampleFloatingDetail = memo(function ExampleFloatingDetail({ example, panelRef, onItemContextMenu }: { example: HomepageExample; panelRef: Ref<HTMLElement>; onItemContextMenu: ItemContextMenuHandler }) {
   const { language, text } = useI18n()
   const label = getHomepageExampleLabel(example, language)
-  return <aside ref={panelRef} className="pointer-events-none fixed left-0 top-0 z-[90] grid w-[760px] max-w-[calc(100vw-32px)] gap-3 rounded-lg border border-border bg-card/96 p-4 shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)] backdrop-blur-xl will-change-transform" style={{ transform: 'translate3d(-9999px, -9999px, 0)' }}><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.14em] text-primary">{text('Pix 范例', 'Pix sample')}</p><h3 className="mt-1 text-2xl font-semibold">{example.number} · {label.theme}</h3><p className="text-sm text-muted-foreground">{label.category} / {text('原 64×64 + 新 32×32 outline / 16:9 界面', 'Original 64×64 + new 32×32 outline / 16:9 UI')}</p></div><Badge>{label.category}</Badge></div><div className="grid gap-3 lg:grid-cols-[1.05fr_.95fr]"><div className="pix-checkerboard rounded-lg border border-border p-3"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-semibold">{text('物品资源对比', 'Item resource comparison')}</p><Badge variant="outline">64×64 + 32×32</Badge></div><ItemVariantPair example={example} /></div><div className="overflow-hidden rounded-lg border border-border bg-muted"><img src={example.uiSrc} alt={text(`${example.theme} 像素界面展示图`, `${label.theme} pixel UI showcase`)} loading="lazy" decoding="async" className="h-full min-h-44 w-full object-cover [image-rendering:pixelated]" /></div></div><PromptBox title={text('物品提示词', 'Item prompt')} text={language === 'en' ? example.itemPrompt : buildChineseItemPrompt(example)} /><PromptBox title={text('界面提示词', 'UI prompt')} text={language === 'en' ? example.uiPrompt : buildChineseUiPrompt(example)} /></aside>
+  const downloadItemSet = useCallback(() => downloadStaticFile(example.itemSrc, example.itemFile), [example.itemFile, example.itemSrc])
+  const downloadUi = useCallback(() => downloadStaticFile(example.uiSrc, example.uiFile), [example.uiFile, example.uiSrc])
+  return (
+    <aside ref={panelRef} className="pointer-events-auto fixed left-0 top-0 z-[90] grid w-[760px] max-w-[calc(100vw-32px)] gap-3 rounded-lg border border-border bg-card/96 p-4 shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)] backdrop-blur-xl will-change-transform" style={{ transform: 'translate3d(-9999px, -9999px, 0)' }}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[.14em] text-primary">{text('Pix 范例', 'Pix sample')}</p>
+          <h3 className="mt-1 text-2xl font-semibold">{example.number} · {label.theme}</h3>
+          <p className="text-sm text-muted-foreground">{label.category} / {text('右键物品格可复制主体 Prompt', 'Right-click item slots to copy the subject prompt')}</p>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button size="sm" variant="outline" onClick={downloadItemSet}><Download />{text('物品组', 'Items')}</Button>
+          <Button size="sm" variant="outline" onClick={downloadUi}><Download />{text('UI 图', 'UI image')}</Button>
+          <Badge>{label.category}</Badge>
+        </div>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-[1.05fr_.95fr]">
+        <div className="pix-checkerboard rounded-lg border border-border p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold">{text('物品资源对比', 'Item resource comparison')}</p>
+            <Badge variant="outline">64×64 + 32×32</Badge>
+          </div>
+          <ItemVariantPair example={example} onItemContextMenu={onItemContextMenu} />
+        </div>
+        <div className="overflow-hidden rounded-lg border border-border bg-muted">
+          <img src={example.uiSrc} alt={text(`${example.theme} 像素界面展示图`, `${label.theme} pixel UI showcase`)} loading="lazy" decoding="async" className="h-full min-h-44 w-full object-cover [image-rendering:pixelated]" />
+        </div>
+      </div>
+    </aside>
+  )
 })
 
-function ItemVariantPair({ example, compact = false }: { example: HomepageExample; compact?: boolean }) {
+function ItemVariantPair({ example, compact = false, onItemContextMenu }: { example: HomepageExample; compact?: boolean; onItemContextMenu?: ItemContextMenuHandler }) {
   const { text } = useI18n()
-  return <div className={`grid gap-2 ${compact ? '' : 'sm:grid-cols-2'}`}><ItemVariantPanel example={example} variant="original64" compact={compact} title={text('原 64×64', 'Original 64×64')} badge="64×64" /><ItemVariantPanel example={example} variant="outline32" compact={compact} title={text('新 32×32 outline', 'New 32×32 outline')} badge="32×32" /></div>
+  return <div className={`grid gap-2 ${compact ? '' : 'sm:grid-cols-2'}`}><ItemVariantPanel example={example} variant="original64" compact={compact} title={text('原 64×64', 'Original 64×64')} badge="64×64" onItemContextMenu={onItemContextMenu} /><ItemVariantPanel example={example} variant="outline32" compact={compact} title={text('新 32×32 outline', 'New 32×32 outline')} badge="32×32" onItemContextMenu={onItemContextMenu} /></div>
 }
 
-function ItemVariantPanel({ example, variant, compact, title, badge }: { example: HomepageExample; variant: ItemSpriteVariant; compact: boolean; title: string; badge: string }) {
-  return <div className={`rounded-lg border border-border bg-card/75 ${compact ? 'p-1.5' : 'p-2'}`}><div className={`flex items-center justify-between gap-2 ${compact ? 'mb-1' : 'mb-2'}`}><p className={`${compact ? 'text-[10px]' : 'text-xs'} font-semibold text-muted-foreground`}>{title}</p><Badge variant="outline" className="shrink-0 text-[10px]">{badge}</Badge></div><ItemSpriteGrid example={example} variant={variant} compact={compact} /></div>
+function ItemVariantPanel({ example, variant, compact, title, badge, onItemContextMenu }: { example: HomepageExample; variant: ItemSpriteVariant; compact: boolean; title: string; badge: string; onItemContextMenu?: ItemContextMenuHandler }) {
+  return <div className={`rounded-lg border border-border bg-card/75 ${compact ? 'p-1.5' : 'p-2'}`}><div className={`flex items-center justify-between gap-2 ${compact ? 'mb-1' : 'mb-2'}`}><p className={`${compact ? 'text-[10px]' : 'text-xs'} font-semibold text-muted-foreground`}>{title}</p><Badge variant="outline" className="shrink-0 text-[10px]">{badge}</Badge></div><ItemSpriteGrid example={example} variant={variant} compact={compact} onItemContextMenu={onItemContextMenu} /></div>
 }
 
-function ItemSpriteGrid({ example, variant = 'outline32', compact = false }: { example: HomepageExample; variant?: ItemSpriteVariant; compact?: boolean }) {
+function ItemSpriteGrid({ example, variant = 'outline32', compact = false, onItemContextMenu }: { example: HomepageExample; variant?: ItemSpriteVariant; compact?: boolean; onItemContextMenu?: ItemContextMenuHandler }) {
   const { language, text } = useI18n()
   const label = getHomepageExampleLabel(example, language)
   const variantAlt = variant === 'original64' ? text('原 64×64 物品', 'original 64×64 item') : text('32×32 outline 物品', '32×32 outline item')
-  return <div className="grid grid-cols-4 gap-1">{itemSpriteSlots.map((index) => <div key={index} className={`aspect-square overflow-hidden rounded-lg border border-border bg-card ${compact ? 'p-0.5' : 'p-1'}`}><img src={itemSlotSrc(example, index, variant)} alt={text(`${example.theme} ${variantAlt} ${index + 1}`, `${label.theme} ${variantAlt} ${index + 1}`)} loading="lazy" decoding="async" className="h-full w-full object-contain [image-rendering:pixelated]" /></div>)}</div>
+  return <div className="grid grid-cols-4 gap-1">{itemSpriteSlots.map((index) => {
+    const subject = getHomepageExampleItemSubject(example, index, language)
+    return <div key={index} title={onItemContextMenu ? text(`右键下载或复制「${subject}」主体 Prompt`, `Right-click to download or copy the subject prompt for ${subject}`) : undefined} onContextMenu={(event) => onItemContextMenu?.(example, variant, index, event)} className={`aspect-square overflow-hidden rounded-lg border border-border bg-card ${compact ? 'p-0.5' : 'p-1'} ${onItemContextMenu ? 'cursor-context-menu transition hover:border-primary/60 hover:bg-primary/5' : ''}`}><img src={itemSlotSrc(example, index, variant)} alt={text(`${example.theme} ${subject} ${variantAlt}`, `${label.theme} ${subject} ${variantAlt}`)} loading="lazy" decoding="async" draggable={false} className="h-full w-full object-contain [image-rendering:pixelated]" /></div>
+  })}</div>
 }
 
-function PromptBox({ title, text, tone = 'default' }: { title: string; text: string; tone?: 'default' | 'light' | 'dark' }) {
+function ExampleItemActionMenu({ target, onClose }: { target: ExampleItemActionTarget; onClose: () => void }) {
+  const { language, text } = useI18n()
+  const [copied, setCopied] = useState(false)
+  const label = getHomepageExampleLabel(target.example, language)
+  const subject = getHomepageExampleItemSubject(target.example, target.index, language)
+  const subjectPrompt = getHomepageExampleItemSubjectPrompt(target.example, target.index, language)
+  const variantLabel = target.variant === 'original64' ? text('原 64×64', 'Original 64×64') : text('32×32 outline', '32×32 outline')
+  const prompt = subjectPrompt
+  const imageUrl = itemSlotSrc(target.example, target.index, target.variant)
+
+  useEffect(() => {
+    const closeOnPointerDown = () => onClose()
+    const closeOnScroll = () => onClose()
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('pointerdown', closeOnPointerDown)
+    window.addEventListener('scroll', closeOnScroll, true)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('pointerdown', closeOnPointerDown)
+      window.removeEventListener('scroll', closeOnScroll, true)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [onClose])
+
+  const handleDownload = useCallback(() => {
+    downloadStaticFile(imageUrl, itemSlotFileName(target.example, target.index, target.variant))
+    onClose()
+  }, [imageUrl, onClose, target.example, target.index, target.variant])
+
+  const handleCopy = useCallback(async () => {
+    const ok = await copyTextToClipboard(prompt)
+    setCopied(ok)
+    if (ok) window.setTimeout(onClose, 650)
+  }, [onClose, prompt])
+
+  return (
+    <div role="menu" aria-label={text('范例物品操作', 'Sample item actions')} className="fixed z-[110] w-72 rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)]" style={{ left: target.x, top: target.y }} onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => event.preventDefault()}>
+      <div className="px-2 pb-2 pt-1">
+        <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">{variantLabel} · {String(target.index + 1).padStart(2, '0')}</p>
+        <p className="mt-1 text-sm font-semibold">{label.theme} / {subject}</p>
+        <p className="mt-1 line-clamp-3 text-xs leading-5 text-muted-foreground">{subjectPrompt}</p>
+        <p className="mt-1 text-[11px] leading-5 text-muted-foreground/80">{text('只复制上面这段 `主体：` 后的 prompt，不带尺寸/风格模板。', 'Only copies the prompt above after `subject:`, without size or style template.')}</p>
+      </div>
+      <div className="grid gap-1">
+        <Button type="button" variant="ghost" className="justify-start" onClick={handleDownload}><Download />{text('下载这张图', 'Download this image')}</Button>
+        <Button type="button" variant="ghost" className="justify-start" onClick={handleCopy}>{copied ? <Check /> : <Copy />}{copied ? text('已复制主体 Prompt', 'Subject prompt copied') : text('复制主体 Prompt', 'Copy subject prompt')}</Button>
+      </div>
+    </div>
+  )
+}
+
+function PromptBox({ title, text: promptText, tone = 'default' }: { title: string; text: string; tone?: 'default' | 'light' | 'dark' }) {
+  const { text } = useI18n()
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const boxClass = tone === 'dark'
     ? 'border-white/12 bg-white/7 text-white/70'
     : tone === 'light'
       ? 'border-[hsl(var(--pix-navy))]/15 bg-white/55 text-[hsl(var(--pix-slate))] dark:border-white/12 dark:bg-white/7 dark:text-white/68'
       : 'border-border bg-muted/40 text-muted-foreground'
   const titleClass = tone === 'dark' ? 'text-white/65' : tone === 'light' ? 'text-[hsl(var(--pix-steel))] dark:text-white/55' : 'text-muted-foreground'
-  return <div className={`mt-4 rounded-lg border p-3 ${boxClass}`}><p className={`text-xs font-semibold uppercase tracking-[.12em] ${titleClass}`}>{title}</p><p className="mt-2 text-xs leading-6">{text}</p></div>
+  const handleCopy = useCallback(async () => {
+    const copied = await copyTextToClipboard(promptText)
+    setCopyState(copied ? 'copied' : 'failed')
+    window.setTimeout(() => setCopyState('idle'), 1300)
+  }, [promptText])
+  const copyLabel = copyState === 'copied' ? text('已复制', 'Copied') : copyState === 'failed' ? text('复制失败', 'Copy failed') : text('复制', 'Copy')
+  return <div className={`mt-4 rounded-lg border p-3 ${boxClass}`}><div className="flex items-center justify-between gap-3"><p className={`text-xs font-semibold uppercase tracking-[.12em] ${titleClass}`}>{title}</p><Button type="button" size="sm" variant="ghost" onClick={handleCopy} className="h-7 px-2 text-[11px]">{copyState === 'copied' ? <Check /> : <Copy />}{copyLabel}</Button></div><p className="mt-2 text-xs leading-6">{promptText}</p></div>
 }
 
 function AuthSection({ authSlot }: { authSlot: ReactNode }) {
@@ -374,5 +495,40 @@ function itemSlotSrc(example: HomepageExample, index: number, variant: ItemSprit
     variant === 'original64' ? '/homepage-examples/items-64/' : '/homepage-examples/items-32-outline/',
   )
 }
-function buildChineseItemPrompt(example: HomepageExample) { return `像素风「${example.theme}」物品图标组，拆成 4×2 共 8 个独立道具格；主页同时展示原 64×64 透明资源和新 32×32 outline 图标，居中构图、硬边像素、有限调色板、无抗锯齿，适合作为背包图标或掉落物素材。` }
-function buildChineseUiPrompt(example: HomepageExample) { return `像素风「${example.theme}」16:9 UI 展示图，包含主题面板、边框、按钮、图标、状态区和游戏界面示例；整体为 16-bit RPG / 独立游戏可用风格。` }
+
+function itemSlotFileName(example: HomepageExample, index: number, variant: ItemSpriteVariant) {
+  const variantLabel = variant === 'original64' ? '64x64' : '32x32-outline'
+  return `pix-${example.id}-${variantLabel}-${String(index + 1).padStart(2, '0')}.png`
+}
+
+function downloadStaticFile(url: string, filename: string) {
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.rel = 'noopener'
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+}
+
+async function copyTextToClipboard(value: string) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value)
+      return true
+    }
+    const textArea = document.createElement('textarea')
+    textArea.value = value
+    textArea.setAttribute('readonly', '')
+    textArea.style.position = 'fixed'
+    textArea.style.left = '-9999px'
+    textArea.style.top = '0'
+    document.body.appendChild(textArea)
+    textArea.select()
+    const copied = document.execCommand('copy')
+    textArea.remove()
+    return copied
+  } catch {
+    return false
+  }
+}

@@ -1,12 +1,16 @@
-import { useState, type ComponentType, type ReactNode } from 'react'
+import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Bell, Check, Languages, Megaphone, Monitor, Moon, Plus, Sun } from 'lucide-react'
+import { api } from '../api'
 import type { PixLanguage, PixThemeMode, PixThemePreference } from '../theme'
+import type { PublicAnnouncement } from '../types'
 import { useI18n } from '../i18n'
 import { cn } from '../lib/utils'
 import { Button } from './ui/button'
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
+import { Dialog, DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogPortal, DialogTitle, DialogTrigger } from './ui/dialog'
 
 const ANNOUNCEMENT_MUTE_KEY = 'pix_announcement_muted_date'
+const ANNOUNCEMENT_SEEN_KEY = 'pix_announcement_seen_signature'
 
 const languageOptions: Array<{ value: PixLanguage; labelKey: string; flag: string }> = [
   { value: 'zh-CN', labelKey: 'utility.language.chinese', flag: '🇨🇳' },
@@ -24,13 +28,14 @@ interface HeaderUtilityBarProps {
   themePreference: PixThemePreference
   resolvedMode: PixThemeMode
   systemMode: PixThemeMode
+  autoOpenAnnouncement?: boolean
   onLanguageChange: (language: PixLanguage) => void
   onThemePreferenceChange: (preference: PixThemePreference) => void
 }
 
 type UtilityMenu = 'theme' | 'language'
 
-export function HeaderUtilityBar({ language, themePreference, resolvedMode, systemMode, onLanguageChange, onThemePreferenceChange }: HeaderUtilityBarProps) {
+export function HeaderUtilityBar({ language, themePreference, resolvedMode, systemMode, autoOpenAnnouncement = false, onLanguageChange, onThemePreferenceChange }: HeaderUtilityBarProps) {
   const [activeMenu, setActiveMenu] = useState<UtilityMenu | null>(null)
   const [announcementOpen, setAnnouncementOpen] = useState(false)
 
@@ -46,29 +51,89 @@ export function HeaderUtilityBar({ language, themePreference, resolvedMode, syst
 
   return (
     <div className="flex items-center gap-1.5">
-      <AnnouncementButton open={announcementOpen} onOpenChange={changeAnnouncementOpen} />
+      <AnnouncementButton open={announcementOpen} autoOpen={autoOpenAnnouncement} onOpenChange={changeAnnouncementOpen} />
       <ThemeHoverMenu open={activeMenu === 'theme'} onOpenChange={(open) => setMenuOpen('theme', open)} preference={themePreference} resolvedMode={resolvedMode} systemMode={systemMode} onChange={onThemePreferenceChange} />
       <LanguageHoverMenu open={activeMenu === 'language'} onOpenChange={(open) => setMenuOpen('language', open)} language={language} onChange={onLanguageChange} />
     </div>
   )
 }
 
-function AnnouncementButton({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+function AnnouncementButton({ open, autoOpen, onOpenChange }: { open: boolean; autoOpen: boolean; onOpenChange: (open: boolean) => void }) {
   const { t } = useI18n()
+  const [announcement, setAnnouncement] = useState<PublicAnnouncement | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function loadAnnouncement() {
+    setLoading(true)
+    try {
+      setAnnouncement(await api.currentAnnouncement())
+    } catch {
+      setAnnouncement(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadAnnouncement()
+  }, [])
+
+  useEffect(() => {
+    if (open) void loadAnnouncement()
+  }, [open])
+
+  const hasAnnouncement = Boolean(announcement?.enabled && (announcement.title || announcement.body))
+  const signature = announcementSignature(announcement)
+
+  function markAnnouncementSeen() {
+    if (signature) localStorage.setItem(ANNOUNCEMENT_SEEN_KEY, signature)
+  }
+
+  function changeOpen(nextOpen: boolean) {
+    if (!nextOpen) markAnnouncementSeen()
+    onOpenChange(nextOpen)
+  }
+
+  useEffect(() => {
+    if (!autoOpen || open || !hasAnnouncement || !signature) return
+    if (localStorage.getItem(ANNOUNCEMENT_MUTE_KEY) === announcementMuteValue(signature)) return
+    if (localStorage.getItem(ANNOUNCEMENT_SEEN_KEY) === signature) return
+    localStorage.setItem(ANNOUNCEMENT_SEEN_KEY, signature)
+    onOpenChange(true)
+  }, [autoOpen, hasAnnouncement, onOpenChange, open, signature])
+
   function muteToday() {
-    localStorage.setItem(ANNOUNCEMENT_MUTE_KEY, todayKey())
+    if (signature) localStorage.setItem(ANNOUNCEMENT_MUTE_KEY, announcementMuteValue(signature))
+    markAnnouncementSeen()
     onOpenChange(false)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+    <Dialog open={open} onOpenChange={changeOpen} modal={false}>
       <DialogTrigger asChild>
-        <button type="button" className={utilityButtonClass} aria-label={t('utility.announcements.open')}>
-          <Bell className="h-4 w-4" />
+        <button type="button" className={cn(utilityButtonClass, hasAnnouncement && 'border-primary/30 bg-card text-primary shadow-[0_4px_12px_rgba(15,15,15,0.08)]')} aria-label={t('utility.announcements.open')}>
+          <span className="relative grid place-items-center">
+            <Bell className="h-4 w-4" />
+            {hasAnnouncement && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-primary ring-2 ring-card" />}
+          </span>
         </button>
       </DialogTrigger>
-      <DialogContent onCloseAutoFocus={(event) => event.preventDefault()} className="min-h-[456px] w-[min(92vw,920px)] content-start gap-0 p-0">
-        <div className="flex items-start justify-between gap-6 px-6 pb-4 pt-8 md:px-7">
+      <DialogPortal>
+        <DialogOverlay />
+        <DialogPrimitive.Content
+          onCloseAutoFocus={(event) => event.preventDefault()}
+          className="announcement-dialog-content fixed z-50 grid min-h-[456px] content-start gap-0 overflow-hidden rounded-lg border border-border bg-card p-0 shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)] focus:outline-none dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]"
+          style={{
+            left: '50%',
+            maxHeight: 'calc(100dvh - 32px)',
+            maxWidth: 'none',
+            position: 'fixed',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 'min(920px, calc(100vw - 32px))',
+          }}
+        >
+          <div className="flex items-start justify-between gap-6 px-6 pb-4 pt-8 md:px-7">
           <DialogHeader className="gap-0">
             <DialogTitle className="text-2xl font-semibold tracking-[-0.02em]">{t('utility.announcements.title')}</DialogTitle>
             <DialogDescription className="sr-only">{t('utility.announcements.description')}</DialogDescription>
@@ -83,18 +148,36 @@ function AnnouncementButton({ open, onOpenChange }: { open: boolean; onOpenChang
           </div>
         </div>
 
-        <div className="grid min-h-[300px] place-items-center px-6 py-4">
-          <div className="grid justify-items-center gap-4 text-center">
-            <EmptyAnnouncementArt />
-            <p className="text-sm text-[hsl(var(--pix-slate))]">{t('utility.announcements.empty')}</p>
-          </div>
+          <div className="grid min-h-[300px] place-items-center px-6 py-4">
+          {hasAnnouncement ? (
+            <article className="motion-panel-enter w-full max-w-2xl rounded-lg border border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-paper-soft))] p-5 text-left shadow-[0_16px_48px_-34px_rgba(15,15,15,0.36)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
+              <div className="flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[hsl(var(--pix-sky))] text-primary dark:bg-white/8 dark:text-sky-200"><Megaphone className="h-5 w-5" /></span>
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold tracking-[-0.01em]">{announcement?.title || t('utility.announcements.system')}</h3>
+                  {announcement?.body && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[hsl(var(--pix-slate))] dark:text-white/68">{announcement.body}</p>}
+                  {announcement?.updated_at && <p className="mt-4 text-xs text-muted-foreground">{t('utility.announcements.updatedAt', { time: new Date(announcement.updated_at).toLocaleString() })}</p>}
+                </div>
+              </div>
+            </article>
+          ) : (
+            <div className="grid justify-items-center gap-4 text-center">
+              <EmptyAnnouncementArt />
+              <p className="text-sm text-[hsl(var(--pix-slate))]">{loading ? t('utility.announcements.loading') : t('utility.announcements.empty')}</p>
+            </div>
+          )}
         </div>
 
-        <DialogFooter className="px-6 pb-6 md:px-7">
+          <DialogFooter className="px-6 pb-6 md:px-7">
           <Button type="button" variant="soft" onClick={muteToday}>{t('utility.announcements.muteToday')}</Button>
           <DialogClose asChild><Button type="button">{t('utility.announcements.close')}</Button></DialogClose>
         </DialogFooter>
-      </DialogContent>
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
+          <span aria-hidden="true">×</span>
+          <span className="sr-only">{t('utility.announcements.close')}</span>
+        </DialogPrimitive.Close>
+        </DialogPrimitive.Content>
+      </DialogPortal>
     </Dialog>
   )
 }
@@ -202,6 +285,15 @@ function EmptyAnnouncementArt() {
       </svg>
     </div>
   )
+}
+
+function announcementSignature(announcement: PublicAnnouncement | null) {
+  if (!announcement?.enabled || (!announcement.title && !announcement.body)) return ''
+  return JSON.stringify({ title: announcement.title, body: announcement.body, updatedAt: announcement.updated_at ?? '' })
+}
+
+function announcementMuteValue(signature: string) {
+  return `${todayKey()}:${signature}`
 }
 
 function todayKey() {
