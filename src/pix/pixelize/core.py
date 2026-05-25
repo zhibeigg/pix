@@ -19,6 +19,7 @@ from pix.pixelize.palette import (
     merge_palette,
     swatches_to_rgb_list,
 )
+from pix.pixelize.perfect_pixel import preprocess_generated_image
 from pix.pixelize.presets import Preset, load_preset
 from pix.pixelize.ramp import (
     RampPalette,
@@ -34,6 +35,7 @@ Dither = Literal["none", "ordered", "floyd_steinberg"]
 ResampleMode = Literal["smart", "box", "bicubic", "lanczos", "nearest"]
 EdgeStyle = Literal["hard", "feather", "outline"]
 PaletteMode = Literal["auto", "ramp", "kmeans"]
+GeneratedPreprocessMode = Literal["legacy", "none", "perfect_pixel"]
 LOW_PIXEL_OUTLINE_MAX_AXIS = 32
 
 
@@ -56,6 +58,8 @@ class PixelizeParams:
     crop_padding: float = 0.12
     crop_square: bool = True
     palette_mode: PaletteMode = "auto"
+    # 仅当 pipeline 标记输入来自 AI 生图/图生图时使用；本地 pixelize 默认仍走旧流程。
+    generated_preprocess_method: GeneratedPreprocessMode = "perfect_pixel"
 
     @classmethod
     def from_config(cls, cfg: PixelizeConfig) -> "PixelizeParams":
@@ -77,6 +81,7 @@ class PixelizeParams:
             crop_padding=getattr(cfg, "crop_padding", 0.12),
             crop_square=getattr(cfg, "crop_square", True),
             palette_mode=getattr(cfg, "palette_mode", "auto"),  # type: ignore[arg-type]
+            generated_preprocess_method=getattr(cfg, "generated_preprocess_method", "perfect_pixel"),  # type: ignore[arg-type]
         )
 
 
@@ -123,6 +128,7 @@ def _effective_params(
         crop_padding=params.crop_padding,
         crop_square=params.crop_square,
         palette_mode=params.palette_mode,
+        generated_preprocess_method=params.generated_preprocess_method,
     )
 
     if preset is not None:
@@ -587,6 +593,7 @@ def pixelize(
     cfg=None,
     source_description: str = "",
     auto_skip_redundant_bg: bool = False,
+    generated_preprocess_method: str | None = None,
 ) -> tuple[Image.Image, Image.Image | None, dict]:
     """执行像素化。
 
@@ -601,6 +608,9 @@ def pixelize(
             源图是已抠图（如 pipeline 候选选出来的 01_source.png）时启用，
             避免重复抠图把主体压扁。直接用 ``pixelize()`` 处理任意图片时保持 False
             以保留原行为。
+        generated_preprocess_method: 仅 pipeline 标记输入来自 AI 生图/图生图时传入。
+            ``None`` 表示本地/直接调用，保持旧流程；``perfect_pixel`` 会先按目标网格
+            做 perfectPixel 风格采样对齐。
 
     Returns:
         (pixel_image, preview_image_or_None, meta_dict)
@@ -651,7 +661,17 @@ def pixelize(
             square=eff.crop_square,
         )
 
-    # 2. 下采样到目标尺寸（smart/box/bicubic/lanczos/nearest）
+    # 3. AI 生成结果的首步网格对齐预处理：本地直接 pixelize 默认不启用。
+    generated_method = generated_preprocess_method if generated_preprocess_method is not None else "legacy"
+    generated_preprocess = preprocess_generated_image(
+        img,
+        method=generated_method,
+        target_size=eff.output_size,
+    )
+    img = generated_preprocess.image
+    generated_preprocess_meta = generated_preprocess.meta
+
+    # 4. 下采样到目标尺寸（smart/box/bicubic/lanczos/nearest）
     detected_grid: int | None = None
     if eff.resample == "smart" and eff.snap_to_grid:
         detected_grid = _detect_grid_size(img)
@@ -726,12 +746,14 @@ def pixelize(
             "crop_padding": eff.crop_padding,
             "crop_square": eff.crop_square,
             "palette_mode": eff.palette_mode,
+            "generated_preprocess_method": eff.generated_preprocess_method,
         },
         "palette": ["#{:02X}{:02X}{:02X}".format(*c) for c in palette_rgb],
         "palette_size": len(palette_rgb),
         "used_analysis": analysis is not None,
         "edge_policy": edge_policy,
         "input_transparency_ratio": round(pre_transparency_ratio, 4),
+        "generated_preprocess": generated_preprocess_meta,
         "skipped_remove_bg": skipped_remove_bg,
         "skipped_auto_crop": skipped_auto_crop,
         "detected_grid": detected_grid,

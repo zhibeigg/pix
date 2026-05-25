@@ -83,6 +83,7 @@ def pixelize_params_from_json(data: dict[str, Any]) -> PixelizeParams:
         crop_padding=float(pix.get("crop_padding", 0.12)),
         crop_square=bool(pix.get("crop_square", True)),
         palette_mode=str(pix.get("palette_mode", "auto")),  # type: ignore[arg-type]
+        generated_preprocess_method=str(pix.get("generated_preprocess_method", "perfect_pixel")),  # type: ignore[arg-type]
     )
 
 
@@ -109,6 +110,7 @@ def asset_pixelize_params_from_json(data: dict[str, Any], cfg: AppConfig) -> Pix
         crop_padding=float(_value_from_json(data, "crop_padding", cfg.asset.crop_padding)),
         crop_square=bool(_value_from_json(data, "crop_square", cfg.asset.crop_square)),
         palette_mode=str(_value_from_json(data, "palette_mode", cfg.asset.palette_mode)),  # type: ignore[arg-type]
+        generated_preprocess_method=str(_value_from_json(data, "generated_preprocess_method", cfg.pixelize.generated_preprocess_method)),  # type: ignore[arg-type]
     )
 
 
@@ -239,6 +241,7 @@ def _write_asset_meta(result: PipelineResult, job: GenerationJob, inputs: Pipeli
         "pixel_size": list(inputs.pixelize_params.output_size),
         "colors": inputs.pixelize_params.colors,
         "palette_mode": inputs.pixelize_params.palette_mode,
+        "generated_preprocess_method": inputs.pixelize_params.generated_preprocess_method,
         "preview_scale": inputs.pixelize_params.preview_scale,
         "skip_vl": inputs.skip_vl,
         "no_preview": bool(asset.get("no_preview", False)),

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.34.92] - 2026-05-25
+
+### Changed
+
+- AI 生图/图生图源图在进入像素化或 Pixel Grid 提取前默认启用内置 perfectPixel 风格网格对齐预处理，按目标尺寸进行 FFT/Sobel 网格采样；本地上传像素化默认保持旧流程。
+
 ## [1.32.90] - 2026-05-24
 
 ### Fixed

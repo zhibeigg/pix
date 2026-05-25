@@ -330,6 +330,7 @@ def _render_candidate_pixel_outputs(
     notify: ProgressCb,
     cfg: AppConfig | None = None,
     source_description: str = "",
+    generated_preprocess_method: str | None = None,
 ) -> dict | None:
     """为 contact sheet 的每个候选生成最终像素图，并更新候选 meta。"""
     if not result_meta or not isinstance(result_meta.get("candidates"), list):
@@ -370,6 +371,7 @@ def _render_candidate_pixel_outputs(
                 cfg=cfg,
                 source_description=source_description,
                 auto_skip_redundant_bg=True,
+                generated_preprocess_method=generated_preprocess_method,
             )
             pixel_img.save(pixel_path)
             if preview_img is not None:
@@ -395,7 +397,13 @@ def _render_candidate_pixel_outputs(
     }
 
 
-def _extract_grid_from_source(cfg: AppConfig, inputs: PipelineInput, source_path: Path) -> PixelGrid:
+def _extract_grid_from_source(
+    cfg: AppConfig,
+    inputs: PipelineInput,
+    source_path: Path,
+    *,
+    generated_preprocess_method: str | None = None,
+) -> PixelGrid:
     params = inputs.pixelize_params
     return extract_pixel_grid(
         source_path,
@@ -407,6 +415,7 @@ def _extract_grid_from_source(cfg: AppConfig, inputs: PipelineInput, source_path
         remove_bg=params.remove_bg,
         bg_tolerance=params.bg_tolerance,
         metadata={"generator": "extract_grid"},
+        generated_preprocess_method=generated_preprocess_method,
     )
 
 
@@ -416,11 +425,18 @@ def _run_grid_pixelize(
     source_path: Path,
     run_dir: Path,
     notify: ProgressCb,
+    *,
+    generated_preprocess_method: str | None = None,
 ) -> tuple[Image.Image, Image.Image | None, dict, Path]:
     params = inputs.pixelize_params
     grid_meta: dict = {"mode": "extract"}
     notify("grid_extract_start", {"size": list(params.output_size), "colors": params.colors})
-    grid = _extract_grid_from_source(cfg, inputs, source_path)
+    grid = _extract_grid_from_source(
+        cfg,
+        inputs,
+        source_path,
+        generated_preprocess_method=generated_preprocess_method,
+    )
 
     edge_style = params.edge_style if params.edge_style in ("hard", "feather", "outline") else "hard"
     edge_strength = max(0, int(params.bg_feather))
@@ -544,6 +560,7 @@ def _run_grid_pixelize(
             "crop_padding": params.crop_padding,
             "crop_square": params.crop_square,
             "palette_mode": palette_mode_eff,
+            "generated_preprocess_method": params.generated_preprocess_method,
         },
         "palette": [color.hex for color in grid.palette],
         "palette_size": len(grid.palette),
@@ -930,6 +947,9 @@ def run_pipeline(
     preview_path: Path | None = None
     grid_path: Path | None = None
     pixel_path = run_dir / "03_pixelized.png"
+    generated_preprocess_method = (
+        inputs.pixelize_params.generated_preprocess_method if source_mode != "upload" else "legacy"
+    )
     with _local_stage(inputs.local_stage_context):
         notify("pixelize_start", {"grid_mode": inputs.grid.mode})
         candidate_outputs_meta = _render_candidate_pixel_outputs(
@@ -941,6 +961,7 @@ def run_pipeline(
             notify=notify,
             cfg=cfg,
             source_description=inputs.prompt or "",
+            generated_preprocess_method=generated_preprocess_method if contact_sheet_meta else "legacy",
         )
         selected_candidate = None
         if contact_sheet_meta and isinstance(contact_sheet_meta.get("candidates"), list):
@@ -966,6 +987,7 @@ def run_pipeline(
                 cfg=cfg,
                 source_description=inputs.prompt or "",
                 auto_skip_redundant_bg=True,
+                generated_preprocess_method=generated_preprocess_method,
             )
             pixel_img.save(pixel_path)
             if preview_img is not None:
@@ -974,7 +996,12 @@ def run_pipeline(
             pix_meta["candidate_outputs"] = candidate_outputs_meta
         else:
             pixel_img, preview_img, pix_meta, grid_path = _run_grid_pixelize(
-                cfg, inputs, source_path, run_dir, notify
+                cfg,
+                inputs,
+                source_path,
+                run_dir,
+                notify,
+                generated_preprocess_method=generated_preprocess_method,
             )
             pixel_img.save(pixel_path)
             if preview_img is not None:

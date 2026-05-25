@@ -40,6 +40,24 @@ def test_infer_grid_aligned_output_size_uses_detected_source_grid(tmp_path: Path
     assert inferred.capped is False
 
 
+def test_extract_generated_preprocess_records_meta(tmp_path: Path) -> None:
+    src = _scaled_grid(tmp_path / "generated.png")
+
+    grid = extract_pixel_grid(
+        src,
+        output_size=(4, 4),
+        max_colors=4,
+        auto_crop=False,
+        remove_bg=False,
+        generated_preprocess_method="perfect_pixel",
+    )
+
+    meta = grid.metadata["generated_preprocess"]
+    assert meta["applied"] is True
+    assert meta["refined_size"] == [4, 4]
+    assert grid.metadata["processed_size"] == [4, 4]
+
+
 def test_extract_scaled_pixel_grid(tmp_path: Path) -> None:
     src = _scaled_grid(tmp_path / "source.png")
 

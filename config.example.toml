@@ -95,6 +95,9 @@ crop_square    = true
 #   ramp   —— VL（失败时本地按 HSL 聚合兜底）给出 outline→shadow→mid→highlight 色相阶梯，Lab 最近色量化
 #   kmeans —— 强制 K-means，禁止 VL 介入
 palette_mode   = "auto"
+# AI 生图/图生图源图进入像素化前的首步网格对齐预处理；本地上传 pixelize 默认不启用。
+# perfect_pixel=使用内置 perfectPixel 风格 FFT+Sobel 网格采样；legacy/none=旧流程。
+generated_preprocess_method = "perfect_pixel"
 
 [asset]
 # 游戏素材直出命令 pix asset 的默认值；Web 工作台 asset 任务也复用这些默认值。

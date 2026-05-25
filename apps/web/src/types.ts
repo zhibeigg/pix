@@ -131,6 +131,7 @@ export type PixelizeParams = {
   crop_padding: number
   crop_square: boolean
   palette_mode: 'auto' | 'ramp' | 'kmeans' | string
+  generated_preprocess_method: 'perfect_pixel' | 'legacy' | 'none' | string
 }
 
 export type GridDesignParams = {

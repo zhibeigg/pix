@@ -534,6 +534,7 @@ def cmd_asset(
         crop_padding=cfg.asset.crop_padding,
         crop_square=cfg.asset.crop_square,
         palette_mode=cfg.asset.palette_mode,  # type: ignore[arg-type]
+        generated_preprocess_method=cfg.pixelize.generated_preprocess_method,  # type: ignore[arg-type]
     )
     console.log(f"生成素材：{name!r} → {target}")
     result = run_pipeline(
@@ -779,6 +780,7 @@ def cmd_gen(
         preset=preset,
         bg_feather=bg_feather,
         edge_style=edge_style,  # type: ignore[arg-type]
+        generated_preprocess_method=cfg.pixelize.generated_preprocess_method,  # type: ignore[arg-type]
     )
     inputs = PipelineInput(
         prompt=prompt,
@@ -827,6 +829,7 @@ def cmd_run(
         preset=preset,
         bg_feather=bg_feather,
         edge_style=edge_style,  # type: ignore[arg-type]
+        generated_preprocess_method=cfg.pixelize.generated_preprocess_method,  # type: ignore[arg-type]
     )
     inputs = PipelineInput(
         prompt=prompt.strip() if prompt else None,

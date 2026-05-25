@@ -235,6 +235,7 @@ class PixelizeParamsSchema(BaseModel):
     crop_padding: float = Field(default=0.12, ge=0.0, le=1.0)
     crop_square: bool = True
     palette_mode: Literal["auto", "ramp", "kmeans"] = "auto"
+    generated_preprocess_method: Literal["perfect_pixel", "legacy", "none"] = "perfect_pixel"
 
 
 class GridDesignSchema(BaseModel):
