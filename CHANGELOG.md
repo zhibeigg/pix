@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.101] - 2026-05-25
+
+### Fixed
+
+- 调用 `perfectPixel-main` 时不再强制传入目标输出尺寸，改为与官方演示一致自动检测网格，再由后续 Pixel Grid 提取归一到用户选择尺寸。
+
 ## [1.37.100] - 2026-05-25
 
 ### Fixed

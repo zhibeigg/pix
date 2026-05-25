@@ -122,6 +122,9 @@ class TestGeneratedPerfectPixelPreprocess:
 
         assert result.meta["applied"] is True
         assert result.meta["backend"] in {"perfectPixel-main/noCV2", "builtin_numpy"}
+        if result.meta["backend"] == "perfectPixel-main/noCV2":
+            assert result.meta["grid_size"] is None
+            assert result.meta["requested_target_size"] == [4, 4]
         assert result.image.size == (4, 4)
         rgba = np.asarray(result.image.convert("RGBA"))
         assert rgba[0, 0, 3] == 0
