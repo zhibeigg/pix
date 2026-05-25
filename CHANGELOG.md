@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.106] - 2026-05-25
+
+### Fixed
+
+- 透明画布补齐改为按预设尺寸档位向上取整，例如 40x40 会补到 48x48，而不是 8 的倍数 40x40。
+
 ## [1.37.105] - 2026-05-25
 
 ### Added
