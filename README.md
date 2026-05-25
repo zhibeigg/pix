@@ -149,10 +149,11 @@ Convert the input image or described subject into a TRUE pixel-art game asset de
 - 尺寸 tag 应来自最终 PNG 的真实宽高；不要把清单里的 `64x64` 当成最终固定尺寸。
 - 右键某个主页 icon 时，只复制主体 prompt 片段，例如“物品名 + 题材单个道具 + 可识别造型/材质特征”，不复制整组 prompt、尺寸或旧 64/32 说明。
 - 新增或重生成主页素材时，必须走上方网站素材生成流水线。
+- 主页示例 icon 默认不做额外边缘处理：`edge_style=hard`、`bg_feather=0`，不要使用 `outline` 描边或 `feather` 羽化。
 
 ## 版本与发布
 
-当前版本：`1.40.107`。
+当前版本：`1.40.108`。
 
 版本号格式为 `A.B.C`：
 

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.108] - 2026-05-25
+
+### Changed
+
+- 主页示例 icon 生成参数改为无额外边缘处理：默认 `edge_style=hard`、`bg_feather=0`，不再使用 `outline` 描边。
+- 用无描边参数重新走真实网站素材生成流水线生成前 3 个武侠物品 icon，并同步最终 PNG 真实尺寸映射。
+
 ## [1.40.107] - 2026-05-25
 
 ### Fixed

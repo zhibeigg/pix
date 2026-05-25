@@ -12,9 +12,9 @@ export type HomepageExampleItemIcon = {
 }
 
 export const homepageExampleItemIconDimensions: Record<string, readonly [number, number]> = {
-  '01_wuxia_item_01.png': [64, 64],
-  '01_wuxia_item_02.png': [48, 48],
-  '01_wuxia_item_03.png': [48, 48],
+  '01_wuxia_item_01.png': [32, 32],
+  '01_wuxia_item_02.png': [64, 64],
+  '01_wuxia_item_03.png': [24, 24],
   '01_wuxia_item_04.png': [48, 48],
   '01_wuxia_item_05.png': [64, 64],
   '01_wuxia_item_06.png': [24, 24],
