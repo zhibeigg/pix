@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.107] - 2026-05-25
+
+### Fixed
+
+- 修复网站素材流水线加载像素化预设时缺少 `sys` 导入导致无法启动的问题。
+
+### Changed
+
+- 按 `homepage示例物品icon清单.md` 重新走真实网站素材生成流水线生成前 3 个武侠物品 icon，并覆盖主页静态 PNG。
+
 ## [1.40.106] - 2026-05-25
 
 ### Changed
