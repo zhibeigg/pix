@@ -132,7 +132,7 @@ class PixelizeConfig:
     crop_square: bool = True
     # 调色板策略：auto（保持原 K-means） | ramp（VL/本地色相阶梯） | kmeans（强制 K-means）
     palette_mode: str = "auto"
-    # AI 生图/图生图结果进入像素化前的网格对齐预处理；本地上传默认不启用。
+    # AI 生图/图生图结果的第一步网格对齐预处理；本地上传默认不启用。
     # perfect_pixel | legacy | none
     generated_preprocess_method: str = "perfect_pixel"
 

@@ -7,7 +7,12 @@ Sobel/梯度峰值细化网格线，再按网格采样得到对齐后的低分�
 
 from __future__ import annotations
 
+from contextlib import redirect_stdout
 from dataclasses import dataclass
+from functools import lru_cache
+import importlib.util
+import io
+from pathlib import Path
 from typing import Literal
 
 import numpy as np
@@ -61,7 +66,7 @@ def preprocess_generated_image(
         return GeneratedPreprocessResult(image=image, meta=base_meta)
 
     try:
-        refined_w, refined_h, refined, details = _get_perfect_pixel_like(
+        refined_w, refined_h, refined, details = _get_external_perfect_pixel(
             image,
             grid_size=target_size,
             sample_method=sample_method,
@@ -69,18 +74,34 @@ def preprocess_generated_image(
             peak_width=peak_width,
             refine_intensity=refine_intensity,
         )
-    except Exception as exc:  # noqa: BLE001 - 预处理失败必须回退旧流程
-        return GeneratedPreprocessResult(
-            image=image,
-            meta={**base_meta, "reason": "error", "error": str(exc)},
-        )
+    except Exception as external_exc:  # noqa: BLE001 - 外部 perfectPixel 不可用时回退内置实现
+        try:
+            refined_w, refined_h, refined, details = _get_perfect_pixel_like(
+                image,
+                grid_size=target_size,
+                sample_method=sample_method,
+                min_size=min_size,
+                peak_width=peak_width,
+                refine_intensity=refine_intensity,
+            )
+            details = {
+                **details,
+                "backend": "builtin_numpy",
+                "external_backend_error": str(external_exc),
+            }
+        except Exception as exc:  # noqa: BLE001 - 预处理失败必须回退旧流程
+            return GeneratedPreprocessResult(
+                image=image,
+                meta={**base_meta, "reason": "error", "error": str(exc), "external_backend_error": str(external_exc)},
+            )
 
     if refined_w is None or refined_h is None or refined is None:
         return GeneratedPreprocessResult(
             image=image,
             meta={**base_meta, "reason": details.get("reason", "failed"), **details},
         )
-    if target_size is not None and (int(refined_w), int(refined_h)) != (int(target_size[0]), int(target_size[1])):
+    target_mismatch = target_size is not None and (int(refined_w), int(refined_h)) != (int(target_size[0]), int(target_size[1]))
+    if target_mismatch and details.get("backend") != "perfectPixel-main/noCV2":
         return GeneratedPreprocessResult(
             image=image,
             meta={
@@ -98,12 +119,66 @@ def preprocess_generated_image(
         meta={
             **base_meta,
             "applied": True,
-            "reason": "ok",
+            "reason": "target_size_mismatch_accepted" if target_mismatch else "ok",
             "refined_size": [int(refined_w), int(refined_h)],
+            "target_size_mismatch": bool(target_mismatch),
             "output_size": list(out.size),
             **details,
         },
     )
+
+
+@lru_cache(maxsize=1)
+def _load_external_perfect_pixel():
+    """优先加载仓库根目录下的 theamusing/perfectPixel 源码。"""
+    repo_root = Path(__file__).resolve().parents[3]
+    module_path = repo_root / "perfectPixel-main" / "src" / "perfect_pixel" / "perfect_pixel_noCV2.py"
+    if not module_path.exists():
+        raise FileNotFoundError(str(module_path))
+    spec = importlib.util.spec_from_file_location("pix_external_perfect_pixel_noCV2", module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"无法加载 perfectPixel 模块：{module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    get_perfect_pixel = getattr(module, "get_perfect_pixel", None)
+    if get_perfect_pixel is None:
+        raise ImportError(f"perfectPixel 模块缺少 get_perfect_pixel：{module_path}")
+    return get_perfect_pixel, module_path
+
+
+def _get_external_perfect_pixel(
+    image: Image.Image,
+    *,
+    grid_size: tuple[int, int] | None,
+    sample_method: SampleMethod,
+    min_size: float,
+    peak_width: int,
+    refine_intensity: float,
+) -> tuple[int | None, int | None, np.ndarray | None, dict]:
+    get_perfect_pixel, module_path = _load_external_perfect_pixel()
+    has_alpha = "A" in image.getbands() or "transparency" in image.info
+    sample_image = image.convert("RGBA" if has_alpha else "RGB")
+    sample_arr = np.asarray(sample_image, dtype=np.uint8)
+    stdout = io.StringIO()
+    with redirect_stdout(stdout):
+        refined_w, refined_h, refined = get_perfect_pixel(
+            sample_arr,
+            sample_method=sample_method,
+            grid_size=grid_size,
+            min_size=min_size,
+            peak_width=peak_width,
+            refine_intensity=refine_intensity,
+            fix_square=True,
+            debug=False,
+        )
+    if refined is not None:
+        refined = np.asarray(refined, dtype=np.uint8)
+    return refined_w, refined_h, refined, {
+        "backend": "perfectPixel-main/noCV2",
+        "backend_path": str(module_path),
+        "grid_size": list(grid_size) if grid_size else None,
+        "stdout": stdout.getvalue().strip(),
+    }
 
 
 def _get_perfect_pixel_like(

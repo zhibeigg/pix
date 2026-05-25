@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.100] - 2026-05-25
+
+### Fixed
+
+- AI 生图本地处理顺序改为先执行 `perfectPixel-main` 的 perfectPixel 网格对齐，再裁剪、去背景和提取 Pixel Grid。
+
 ## [1.37.99] - 2026-05-25
 
 ### Fixed

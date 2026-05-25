@@ -76,20 +76,30 @@ def infer_grid_aligned_output_size(
     nearest 放大得到，会推断出 4x4，而不是硬压到最终 16x16。若没有明显
     像素格，则使用处理后源图比例并限制最大轴。
     """
-    _, image, original_size, crop_bbox = _load_preprocessed_image(
-        image_path,
-        auto_crop=auto_crop,
-        crop_padding=crop_padding,
-        crop_square=crop_square,
-        remove_bg=remove_bg,
-        bg_tolerance=bg_tolerance,
-    )
+    _source_path, image, original_size = _load_source_image(image_path)
     generated_preprocess = preprocess_generated_image(
         image,
         method=generated_preprocess_method if generated_preprocess_method is not None else "legacy",
         target_size=None,
     )
     image = generated_preprocess.image
+    crop_bbox: tuple[int, int, int, int] | None = None
+    if auto_crop:
+        image, crop_bbox = _auto_crop(
+            image,
+            bg_tolerance=bg_tolerance,
+            padding=crop_padding,
+            square=crop_square,
+        )
+    if remove_bg:
+        image = remove_background(
+            image,
+            tolerance=max(0, int(bg_tolerance)),
+            feather=0,
+            keep_border_bleed=True,
+        )
+    else:
+        image = image.convert("RGBA")
     detected_grid = _detect_source_grid_size(
         image.convert("RGB"),
         max_probe=max(24, int(max_axis) * 4),
@@ -149,20 +159,30 @@ def extract_pixel_grid(
         alpha_threshold=alpha_threshold,
         sample_ratio=sample_ratio,
     )
-    source_path, image, original_size, crop_bbox = _load_preprocessed_image(
-        image_path,
-        auto_crop=params.auto_crop,
-        crop_padding=params.crop_padding,
-        crop_square=params.crop_square,
-        remove_bg=params.remove_bg,
-        bg_tolerance=params.bg_tolerance,
-    )
+    source_path, image, original_size = _load_source_image(image_path)
     generated_preprocess = preprocess_generated_image(
         image,
         method=generated_preprocess_method if generated_preprocess_method is not None else "legacy",
         target_size=params.output_size,
     )
     image = generated_preprocess.image
+    crop_bbox: tuple[int, int, int, int] | None = None
+    if params.auto_crop:
+        image, crop_bbox = _auto_crop(
+            image,
+            bg_tolerance=params.bg_tolerance,
+            padding=params.crop_padding,
+            square=params.crop_square,
+        )
+    if params.remove_bg:
+        image = remove_background(
+            image,
+            tolerance=max(0, int(params.bg_tolerance)),
+            feather=0,
+            keep_border_bleed=True,
+        )
+    else:
+        image = image.convert("RGBA")
 
     detected_grid = _detect_source_grid_size(
         image.convert("RGB"),
@@ -202,6 +222,7 @@ def extract_pixel_grid(
         "source_cell_size": [image.width / width, image.height / height],
         "grid_confidence": _grid_confidence(image.size, params.output_size, detected_grid),
         "generated_preprocess": generated_preprocess.meta,
+        "preprocess_order": ["perfect_pixel", "auto_crop", "remove_background"],
         "max_colors": params.max_colors,
         "remove_bg": params.remove_bg,
         "bg_tolerance": params.bg_tolerance,
@@ -219,39 +240,11 @@ def extract_pixel_grid(
     )
 
 
-def _load_preprocessed_image(
-    image_path: str | Path,
-    *,
-    auto_crop: bool,
-    crop_padding: float,
-    crop_square: bool,
-    remove_bg: bool,
-    bg_tolerance: int,
-) -> tuple[Path, Image.Image, tuple[int, int], tuple[int, int, int, int] | None]:
+def _load_source_image(image_path: str | Path) -> tuple[Path, Image.Image, tuple[int, int]]:
     source_path = Path(image_path)
     with Image.open(source_path) as opened:
         image = opened.convert("RGBA" if ("A" in opened.getbands() or "transparency" in opened.info) else "RGB")
-
-    original_size = image.size
-    crop_bbox: tuple[int, int, int, int] | None = None
-    if auto_crop:
-        image, crop_bbox = _auto_crop(
-            image,
-            bg_tolerance=bg_tolerance,
-            padding=crop_padding,
-            square=crop_square,
-        )
-
-    if remove_bg:
-        image = remove_background(
-            image,
-            tolerance=max(0, int(bg_tolerance)),
-            feather=0,
-            keep_border_bleed=True,
-        )
-    else:
-        image = image.convert("RGBA")
-    return source_path, image, original_size, crop_bbox
+    return source_path, image, image.size
 
 
 def _cap_size_to_max_axis(size: tuple[int, int], *, max_axis: int) -> tuple[tuple[int, int], bool]:
@@ -307,21 +300,28 @@ def _sample_cells(
     rgba = np.asarray(image.convert("RGBA"), dtype=np.uint8)
     img_h, img_w, _ = rgba.shape
     out_w, out_h = output_size
+    if img_h <= 0 or img_w <= 0 or out_w <= 0 or out_h <= 0:
+        total = max(0, int(out_w) * int(out_h))
+        return [None for _ in range(total)], [True for _ in range(total)]
     ratio = min(1.0, max(0.1, float(sample_ratio)))
     colors: list[tuple[int, int, int] | None] = []
     transparent: list[bool] = []
 
     for y in range(out_h):
-        y0 = int(round(y * img_h / out_h))
-        y1 = int(round((y + 1) * img_h / out_h))
+        y0 = min(img_h - 1, max(0, int(round(y * img_h / out_h))))
+        y1 = min(img_h, max(y0 + 1, int(round((y + 1) * img_h / out_h))))
         for x in range(out_w):
-            x0 = int(round(x * img_w / out_w))
-            x1 = int(round((x + 1) * img_w / out_w))
-            patch = rgba[y0:max(y1, y0 + 1), x0:max(x1, x0 + 1), :]
+            x0 = min(img_w - 1, max(0, int(round(x * img_w / out_w))))
+            x1 = min(img_w, max(x0 + 1, int(round((x + 1) * img_w / out_w))))
+            patch = rgba[y0:y1, x0:x1, :]
+            if patch.size == 0:
+                colors.append(None)
+                transparent.append(True)
+                continue
             patch = _center_crop_patch(patch, ratio)
             alpha = patch[..., 3]
             visible = alpha > max(0, int(alpha_threshold))
-            if visible.mean() < 0.28:
+            if visible.size == 0 or visible.mean() < 0.28:
                 colors.append(None)
                 transparent.append(True)
                 continue
