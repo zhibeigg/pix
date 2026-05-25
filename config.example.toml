@@ -137,8 +137,8 @@ fit_min_axis_coverage = 0.7
 # 可选：auto | ramp | kmeans。
 palette_mode    = "auto"
 # 默认模板只需要用户填写主体内容；Web 可通过 asset_kind/subject_kind 选择“物品图标/UI组件”和“单个道具/单个UI”。
-# {width}x{height} 会随实际输出尺寸自动填充，例如 16x16、32x32、64x64。
-prompt_template = "Convert the input image or described subject into a TRUE pixel-art game asset designed for game inventory/UI use, not a painted digital illustration. Subject: {name}. Target asset: game {asset_kind_label}; {subject_kind_label}. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and easy placement in game UI. Use a pure solid clean background for empty cells. No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. The output image should be pixel-perfect, each grid cell only contains one color."
+# {size_label}/{canvas_shape} 会随实际输出尺寸自动填充，例如 16×16、32×32、64×64。
+prompt_template = "{size_label} 像素游戏{asset_kind_label}，复古8位像素风格，{subject_kind_label}，纯色干净背景，轮廓清晰，色块分明，线条锐利，简约游戏资产，无多余杂色，{canvas_shape}，主体：{name}"
 
 [sprite]
 # 九宫格动画精灵表命令 pix sprite 的默认值；主页序列帧展示也必须使用该全流程产物。

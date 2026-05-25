@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.93] - 2026-05-25
+
+### Fixed
+
+- 统一素材直出 Prompt 为主页示例清单同款中文模板，确保 Web/CLI 生成记录使用 `主体：{name}` 结构而不是旧英文模板。
+
 ## [1.37.92] - 2026-05-25
 
 ### Changed
