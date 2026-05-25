@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.113] - 2026-05-25
+
+### Fixed
+
+- 强化 key-color soft matte 清理策略，对贴近透明背景的高 alpha 混色粉/灰边缘直接硬清理，避免放大后仍能看到品红残留。
+
 ## [1.40.112] - 2026-05-25
 
 ### Fixed

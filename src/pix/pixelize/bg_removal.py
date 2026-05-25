@@ -818,10 +818,10 @@ def remove_background(
                 key_rgb=ref_rgb,
                 background_mask=mask_bg,
                 tolerance=max(0, int(tolerance)),
-                softness=max(160, int(tolerance) + 160),
-                alpha_floor=8,
-                radius=2,
-                passes=3,
+                softness=255,
+                alpha_floor=224,
+                radius=3,
+                passes=4,
             )
     transparent = rgba[..., 3] == 0
     if transparent.any():
