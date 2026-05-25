@@ -341,6 +341,8 @@ def test_asset_cli_fit_canvas_options(tmp_path: Path, tmp_cwd: Path, monkeypatch
     assert result.exit_code == 0, result.stdout
     assert out.exists()
     sidecar = json.loads(out.with_name("ui-bar.asset.json").read_text(encoding="utf-8"))
+    assert "no more than 6 visible subject colors" in sidecar["prompt"]
+    assert "Use pure solid key-color #" not in sidecar["prompt"]
     assert sidecar["fit_canvas"] == {
         "enabled": True,
         "mode": "stretch",

@@ -1589,6 +1589,9 @@ def test_asset_pipeline_adapter_uses_asset_defaults_and_keeps_config_isolated(tm
     assert "紫檀木" in inputs.prompt
     assert "TRUE pixel-art game asset" in inputs.prompt
     assert "exactly 16x16 pixels" in inputs.prompt
+    assert "no more than 12 visible subject colors" in inputs.prompt
+    assert "not close to any visible subject color" in inputs.prompt
+    assert "Use pure solid key-color #" not in inputs.prompt
     assert "game UI组件" in inputs.prompt
     assert "单个UI" in inputs.prompt
     assert "warm wood grain" in inputs.prompt

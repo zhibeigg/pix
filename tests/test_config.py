@@ -26,8 +26,9 @@ def test_defaults(tmp_cwd: Path) -> None:
     assert cfg.asset.grid_outline is False
     assert cfg.asset.fit_canvas is False
     assert "Subject: {name}" in cfg.asset.prompt_template
-    assert "{green}" in cfg.asset.prompt_template
+    assert "{max_colors}" in cfg.asset.prompt_template
     assert "{key_tolerance}" in cfg.asset.prompt_template
+    assert "{green}" not in cfg.asset.prompt_template
     assert cfg.sprite.pixel_size == (64, 64)
     assert cfg.sprite.duration_ms == 120
     assert cfg.sprite.shared_palette is True

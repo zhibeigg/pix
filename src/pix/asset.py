@@ -53,13 +53,13 @@ class AssetSizeStrategy:
 def resolve_size_strategy(size: tuple[int, int]) -> AssetSizeStrategy:
     """所有支持尺寸统一推荐 extract + auto/K-means。
 
-    AI Grid / 普通 resize 分支已废弃；默认保留经典白底单图效果：
+    AI Grid / 普通 resize 分支已废弃；默认保留经典单图纯色背景效果：
     从源图反推像素格 → 按原始 K-means/auto 调色 → 精确渲染。
     """
     return AssetSizeStrategy(
         palette_mode="auto",
         grid_mode="extract",
-        notes="extract Pixel Grid + auto/K-means（经典白底单图风格，AI Grid / resize 路径已删除）",
+        notes="extract Pixel Grid + auto/K-means（经典单图纯色背景风格，AI Grid / resize 路径已删除）",
     )
 
 
@@ -109,19 +109,29 @@ SUBJECT_KIND_LABELS: dict[str, str] = {
 }
 
 
-def _canonical_asset_prompt(name: str, width: int, height: int, key_color: str, key_tolerance: int) -> str:
+def _canonical_asset_prompt(
+    name: str,
+    width: int,
+    height: int,
+    key_tolerance: int,
+    max_colors: int,
+    asset_kind_label: str,
+    subject_kind_label: str,
+) -> str:
     return (
         "Convert the input image or described subject into a TRUE pixel-art game asset designed "
         "for game inventory/UI use, not a painted digital illustration. "
-        f"Subject: {name}. Canvas size must be exactly {width}x{height} pixels, "
+        f"Subject: {name}. Asset type: game {asset_kind_label}. Subject kind: {subject_kind_label}. "
+        f"Canvas size must be exactly {width}x{height} pixels, "
         "where each pixel is one square grid cell. Use large, chunky readable pixels, "
         "limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. "
+        f"Use no more than {max_colors} visible subject colors; background color does not count. "
         "For human characters, make sure the face is flat and no shadow. "
         "The subject must be centered with clear empty pixel rows around all edges for safe sprite "
         "padding and easy placement in game UI. "
-        f"Use pure solid key-color {key_color} for all empty/background cells for chroma-key removal; "
-        "keep every visible subject color outside the maximum key-color tolerance "
-        f"({key_tolerance} RGB Euclidean distance) from {key_color}. "
+        "Use a pure solid single-color background for chroma-key removal; choose a background color "
+        "that is not close to any visible subject color, with color-distance greater than the removal "
+        f"tolerance ({key_tolerance} RGB Euclidean distance). "
         "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
         "The output image should be pixel-perfect, each grid cell only contains one color. "
         "No text, no watermark, no UI frame, no labels."
@@ -143,6 +153,7 @@ def build_asset_prompt(
     subject_kind: str = "single_prop",
     key_color: str = "#00FF00",
     key_tolerance: int = 48,
+    max_colors: int = 16,
 ) -> str:
     """按游戏素材模板生成最终生图 prompt。"""
     width, height = size
@@ -163,11 +174,33 @@ def build_asset_prompt(
         "green": key_color,
         "key_color": key_color,
         "key_tolerance": int(key_tolerance),
+        "colors": int(max_colors),
+        "max_colors": int(max_colors),
     }
-    try:
-        prompt = template.format(**values)
-    except Exception:
-        prompt = _canonical_asset_prompt(name, width, height, key_color, int(key_tolerance))
+    template_text = (template or "").strip()
+    if template_text:
+        try:
+            prompt = template_text.format(**values)
+        except Exception:
+            prompt = _canonical_asset_prompt(
+                name,
+                width,
+                height,
+                int(key_tolerance),
+                int(max_colors),
+                asset_kind_label,
+                subject_kind_label,
+            )
+    else:
+        prompt = _canonical_asset_prompt(
+            name,
+            width,
+            height,
+            int(key_tolerance),
+            int(max_colors),
+            asset_kind_label,
+            subject_kind_label,
+        )
     if extra_prompt.strip():
         prompt = f"{prompt.strip()} {extra_prompt.strip()}"
     return prompt.strip()

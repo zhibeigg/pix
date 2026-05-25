@@ -187,6 +187,7 @@ def asset_pipeline_input_from_job(job: GenerationJob, settings: WebSettings, cfg
         subject_kind=str(asset.get("subject_kind") or "single_prop"),
         key_color=key_hex,
         key_tolerance=cfg.image_gen.green_screen_tolerance,
+        max_colors=params.colors,
     )
     image_quality = data.get("image_quality") if _request_includes(data, "image_quality") else cfg.asset.image_quality
     user_prompt_parts = [name, str(asset.get("extra_prompt") or "").strip()]

@@ -76,9 +76,9 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
   - PNG 由确定性渲染器生成，避免“看起来像像素图但实际很糊”。
 
 - **游戏素材直出**
-  - `pix asset` 默认按输出尺寸拼接“像素游戏素材”模板，用户只需填写 `主体：` 后面的主体内容。
+  - `pix asset` 默认按输出尺寸拼接“像素游戏素材”模板，用户只需填写 `Subject:` 后面的主体内容。
   - 支持物品图标 / UI 组件、单个道具 / 单个 UI 等类型选择，再进入 extract Pixel Grid → auto/K-means 调色 → 透明 PNG。
-  - 默认强调像素游戏素材语义、固定像素画布、清晰轮廓、有限颜色和无抗锯齿网格；边缘处理可选择描边、羽化或不额外处理。
+  - 默认强调像素游戏素材语义、固定像素画布、清晰轮廓、按实际选择 `--colors` 写入可见主体颜色上限，并要求模型自行选择与主体颜色距离足够远的纯色背景；边缘处理可选择描边、羽化或不额外处理。
 
 - **动画精灵表**
   - `pix sprite` 让生图模型输出 3×3 连续动画关键帧。
@@ -227,7 +227,7 @@ pix history --query 紫檀 --limit 20
 
 ## 游戏素材直出
 
-`pix asset` 是给游戏资源目录准备的快捷命令。用户只需要输入模板里 `主体：` 后面的主体内容；尺寸和素材类型会自动拼入完整 prompt，主体类型由素材类型自动匹配。默认目标是稳定生成 16×16/32×32 等小图标，而不是追求高清插画感。
+`pix asset` 是给游戏资源目录准备的快捷命令。用户只需要输入模板里 `Subject:` 后面的主体内容；尺寸、素材类型和实际颜色上限会自动拼入完整 prompt，主体类型由素材类型自动匹配。默认目标是稳定生成 16×16/32×32 等小图标，而不是追求高清插画感。
 
 ```bash
 pix asset "冰霜之心" --out 图片/冰霜之心.png
@@ -250,9 +250,9 @@ pix asset "青铜按钮" --asset-kind ui_component --subject-kind single_ui --pi
 | 项 | 默认值 | 说明 |
 |---|---|---|
 | 最低尺寸 | 16×16 | 16×16 以下不再支持 |
-| Prompt 构建 | `主体：{name}` | 用户只写主体，系统自动加入尺寸、类型、像素风格和画幅约束 |
+| Prompt 构建 | `Subject: {name}` | 用户只写主体，系统自动加入尺寸、类型、像素风格、画幅约束和 `{max_colors}` 实际颜色上限 |
 | 类型选择 | 物品图标 / 单个道具 | 可切换为 UI 组件 / 单个 UI |
-| 生图背景 | 纯色干净背景 | 避免复杂背景干扰抠图和小尺寸可读性 |
+| 生图背景 | 动态纯色背景 | 不固定为某个 HEX，只要求背景色与主体可见颜色距离大于当前抠色容差 |
 | Grid | 开启 | 先提取像素工程图，再渲染 PNG |
 | 调色 | `auto` / K-means | 保留自然手感 |
 | `grid_cleanup` | 关闭 | 需要清噪时显式开启 |
@@ -527,9 +527,9 @@ snap_to_grid = true
 palette_mode = "auto" # auto | ramp | kmeans
 generated_preprocess_method = "perfect_pixel" # AI 生图/图生图首步网格对齐；本地上传默认不启用
 
-# image_gen / asset 的 prompt 模板中，{width}x{height} 会随实际输出尺寸填充，
-# {green}/{key_tolerance} 会使用当前动态 key color 与抠色容差，
-# 用于约束像素游戏素材画布尺寸和背景抠色边界。
+# image_gen / asset 的 prompt 模板中，{width}x{height} 会随实际输出尺寸填充。
+# asset 模板还会把 {max_colors}/{colors} 填成用户实际选择的颜色上限；
+# 默认不固定背景 HEX，只要求纯色背景与主体可见颜色距离大于 {key_tolerance}。
 
 [asset]
 output_dir = "图片"
@@ -656,7 +656,7 @@ pix pixelize source.png --pixel-size 64x64 --colors 16
 
 ### 为什么 asset 默认不用 ramp？
 
-小尺寸图标里，ramp 重映射可能改变材质手感。`pix asset` 默认使用经典 `auto` / K-means，是为了贴近早期白底单图的稳定效果。需要更强色阶时可改配置：
+小尺寸图标里，ramp 重映射可能改变材质手感。`pix asset` 默认使用经典 `auto` / K-means，是为了贴近早期单图素材的稳定效果。需要更强色阶时可改配置：
 
 ```toml
 [asset]

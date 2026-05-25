@@ -45,13 +45,15 @@ def test_resolve_size_strategy_always_extract_with_classic_palette() -> None:
 
 def test_build_asset_prompt_formats_template() -> None:
     prompt = build_asset_prompt(
-        "Icon of {name}, target {width}x{height}.",
+        "Icon of {name}, target {width}x{height}, max {max_colors} colors.",
         "血气灵玉",
         size=(16, 16),
         extra_prompt="red glow",
+        max_colors=8,
     )
     assert "血气灵玉" in prompt
     assert "16x16" in prompt
+    assert "max 8 colors" in prompt
     assert prompt.endswith("red glow")
 
 
@@ -69,6 +71,24 @@ def test_build_asset_prompt_supports_key_color_template() -> None:
         "Subject: 冰霜之心. Canvas size must be exactly 16x16 pixels. "
         "Use pure solid key-color #FF00FF; tolerance 48."
     )
+
+
+def test_build_asset_prompt_default_uses_flexible_background_and_color_limit() -> None:
+    prompt = build_asset_prompt(
+        "",
+        "酒壶",
+        size=(16, 16),
+        key_color="#FF00FF",
+        key_tolerance=48,
+        max_colors=12,
+    )
+
+    assert "Subject: 酒壶" in prompt
+    assert "no more than 12 visible subject colors" in prompt
+    assert "background color does not count" in prompt
+    assert "not close to any visible subject color" in prompt
+    assert "48 RGB Euclidean distance" in prompt
+    assert "#FF00FF" not in prompt
 
 
 def test_build_asset_prompt_supports_ui_component_options() -> None:
