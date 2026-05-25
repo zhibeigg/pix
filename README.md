@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.35.92-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.36.92-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-419%20passed-2ea44f.svg">
 </p>
 
@@ -67,7 +67,7 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
 - **候选生成与评分**
   - 默认 `n_sample`：一次生成多张独立 full-res 候选。
   - 可切换 contact sheet：生成九宫格后自动切图。
-  - 生图 prompt 使用 TRUE perler bead 物理拼豆约束，`{width}x{height}` 会按实际目标尺寸自动填充（例如 16x16、32x32、64x64），并把 `{key_tolerance}` 填成当前抠色最大色容差，要求主体可见颜色保持在 key background 的最大容差边界之外，降低误抠。
+  - 生图 prompt 使用像素游戏素材约束，`{width}x{height}` 会按实际目标尺寸自动填充（例如 16x16、32x32、64x64），并把 `{key_tolerance}` 填成当前抠色最大色容差，要求主体可见颜色保持在 key background 的最大容差边界之外，降低误抠。
   - VL 根据 prompt 符合度、轮廓、可读性、抠图质量评分。
 
 - **Pixel Grid 工程图**
@@ -78,7 +78,7 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
 - **游戏素材直出**
   - `pix asset` 默认按输出尺寸拼接“像素游戏素材”模板，用户只需填写 `主体：` 后面的主体内容。
   - 支持物品图标 / UI 组件、单个道具 / 单个 UI 等类型选择，再进入 extract Pixel Grid → auto/K-means 调色 → 透明 PNG。
-  - 默认强调复古 8 位像素风、纯色干净背景、清晰轮廓和分明色块；边缘处理可选择描边、羽化或不额外处理。
+  - 默认强调像素游戏素材语义、固定像素画布、清晰轮廓、有限颜色和无抗锯齿网格；边缘处理可选择描边、羽化或不额外处理。
 
 - **动画精灵表**
   - `pix sprite` 让生图模型输出 3×3 连续动画关键帧。
@@ -528,7 +528,7 @@ palette_mode = "auto" # auto | ramp | kmeans
 generated_preprocess_method = "perfect_pixel" # AI 生图/图生图首步网格对齐；本地上传默认不启用
 
 # image_gen / asset 的 prompt 模板中，{width}x{height} 会随实际输出尺寸填充，
-# 用于约束 TRUE perler bead 拼豆图案画布尺寸（如 16x16、32x32、64x64）。
+# 用于约束像素游戏素材画布尺寸（如 16x16、32x32、64x64）。
 
 [asset]
 output_dir = "图片"

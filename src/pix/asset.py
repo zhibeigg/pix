@@ -144,15 +144,15 @@ def build_asset_prompt(
         prompt = template.format(**values)
     except Exception:
         prompt = (
-            "Convert the input image or described subject into a TRUE perler bead pixel pattern designed for physical bead crafting, not digital illustration. "
+            "Convert the input image or described subject into a TRUE pixel-art game asset designed for game inventory/UI use, not a painted digital illustration. "
             f"Subject: {name}. Target asset: game {asset_kind_label}; {subject_kind_label}. "
-            f"Canvas size must be exactly {width}x{height} pixels, where each pixel represents exactly one perler bead. "
-            "Use extremely large, chunky pixels with very few active pixels overall. Simplicity is critical. "
+            f"Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. "
+            "Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. "
             "For human characters, make sure the face is flat and no shadow. "
-            "The subject must be centered with clear empty bead rows around all edges to allow easy mounting on a bead board. "
+            "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and easy placement in game UI. "
             "Use a pure solid clean background for empty cells. "
-            "No anti-aliasing or smoothing — every pixel must be a perfect square bead aligned to the grid. "
-            "The output image should be pixel-perfect, each grid only contains one color."
+            "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
+            "The output image should be pixel-perfect, each grid cell only contains one color."
         )
     if extra_prompt.strip():
         prompt = f"{prompt.strip()} {extra_prompt.strip()}"

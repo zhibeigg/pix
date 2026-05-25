@@ -154,7 +154,7 @@ def test_asset_cli_direct_output(tmp_path: Path, tmp_cwd: Path, monkeypatch) -> 
 
     def fake_run_pipeline(cfg, inputs, progress=None):
         assert "血气灵玉" in inputs.prompt
-        assert "TRUE perler bead pixel pattern" in inputs.prompt
+        assert "TRUE pixel-art game asset" in inputs.prompt
         assert "exactly 16x16 pixels" in inputs.prompt
         assert "game 物品图标" in inputs.prompt
         assert cfg.image_gen.contact_sheet_enabled is False

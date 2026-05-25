@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.36.92] - 2026-05-25
+
+### Changed
+
+- 将默认生图 prompt 从物理拼豆表述调整为像素游戏素材语义，保留 `{width}x{height}` 动态尺寸、网格对齐和无抗锯齿约束。
+
 ## [1.35.92] - 2026-05-25
 
 ### Changed
