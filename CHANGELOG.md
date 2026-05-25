@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.115] - 2026-05-25
+
+### Fixed
+
+- 收紧 key-color soft matte 的候选条件，只清理具有 key 色通道方向的混色边缘，避免灰白/金属扇面因与品红欧氏距离较近而被误删。
+
 ## [1.40.114] - 2026-05-25
 
 ### Fixed

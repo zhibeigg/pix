@@ -690,7 +690,8 @@ def _apply_key_color_soft_matte(
 
         rgb = rgba[..., :3].astype(np.float32)
         dist = np.sqrt(((rgb - key) ** 2).sum(axis=2))
-        candidates = visible & near & (dist <= soft)
+        key_tinted = _key_tinted_mask(rgb, key, min_chroma=24.0)
+        candidates = visible & near & key_tinted & (dist <= soft)
         if background_mask is not None and background_mask.shape == (h, w):
             candidates &= ~background_mask
         if not candidates.any():
@@ -728,6 +729,23 @@ def _looks_like_chroma_key(rgb: np.ndarray) -> bool:
     channel_max = float(rgb.max())
     channel_min = float(rgb.min())
     return bool(channel_max >= 160.0 and (channel_max - channel_min) >= 96.0)
+
+
+def _key_tinted_mask(rgb: np.ndarray, key: np.ndarray, *, min_chroma: float = 24.0) -> np.ndarray:
+    """只匹配具有 key 色方向的混色像素，避免误伤灰/白/金属色。
+
+    例如 #FF00FF 背景的真实残留应表现为 R/B 明显高于 G；普通灰白色虽然
+    到品红的欧氏距离也可能小于 255，但不具有这种通道方向，不能被当成 key halo。
+    """
+    key_max = float(key.max())
+    key_min = float(key.min())
+    high_channels = key >= key_max - 16.0
+    low_channels = key <= key_min + 16.0
+    if not high_channels.any() or not low_channels.any():
+        return np.zeros(rgb.shape[:2], dtype=bool)
+    high = rgb[..., high_channels].mean(axis=2)
+    low = rgb[..., low_channels].mean(axis=2)
+    return (high - low) >= float(min_chroma)
 
 
 def apply_transparent_edge_style(
