@@ -260,26 +260,38 @@ def _load_source_image(image_path: str | Path) -> tuple[Path, Image.Image, tuple
     return source_path, image, image.size
 
 
+CANVAS_SIZE_STEPS = (16, 24, 32, 48, 64, 96, 128, 256)
+
+
+def _next_canvas_size(side: int, *, steps: tuple[int, ...] = CANVAS_SIZE_STEPS) -> int:
+    safe_side = max(1, int(side))
+    for value in steps:
+        safe_value = int(value)
+        if safe_side <= safe_value:
+            return safe_value
+    rounded = 256
+    while rounded < safe_side:
+        rounded *= 2
+    return rounded
+
+
 def _pad_to_rounded_square_canvas(
     image: Image.Image,
     *,
-    step: int = 8,
-    min_size: int = 16,
+    size_steps: tuple[int, ...] = CANVAS_SIZE_STEPS,
 ) -> tuple[Image.Image, dict]:
-    """不缩放图像，补透明画布到向上取整的正方形尺寸。"""
+    """不缩放图像，补透明画布到预设档位中的下一个正方形尺寸。"""
     rgba = image.convert("RGBA")
     width, height = rgba.size
-    safe_step = max(1, int(step))
-    side = max(width, height, int(min_size))
-    rounded = int(np.ceil(side / safe_step) * safe_step)
-    rounded = max(1, rounded)
+    side = max(width, height)
+    rounded = _next_canvas_size(side, steps=size_steps)
     offset_x = (rounded - width) // 2
     offset_y = (rounded - height) // 2
     meta = {
         "applied": (rounded, rounded) != rgba.size,
         "source_size": [width, height],
         "output_size": [rounded, rounded],
-        "round_step": safe_step,
+        "size_steps": [int(value) for value in size_steps],
         "offset": [offset_x, offset_y],
     }
     if (rounded, rounded) == rgba.size:
