@@ -53,15 +53,15 @@ class ImageGenConfig:
     green_screen_color: str = "auto"
     green_screen_tolerance: int = 48
     contact_sheet_prompt_template: str = (
-        "Create a {rows}x{cols} contact sheet containing exactly {count} distinct variations of this TRUE perler bead pixel pattern subject: {description}. "
-        "In every cell, convert the subject into a TRUE perler bead pixel pattern designed for physical bead crafting, not digital illustration. "
-        "Canvas size for each candidate must be exactly {width}x{height} pixels, where each pixel represents exactly one perler bead. "
-        "Use extremely large, chunky pixels with very few active pixels overall. Simplicity is critical. "
+        "Create a {rows}x{cols} contact sheet containing exactly {count} distinct variations of this pixel game asset subject: {description}. "
+        "In every cell, convert the subject into a TRUE pixel-art game asset designed for game inventory/UI use, not a painted digital illustration. "
+        "Canvas size for each candidate must be exactly {width}x{height} pixels, where each pixel is one square grid cell. "
+        "Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. "
         "For human characters, make sure the face is flat and no shadow. "
-        "The subject must be centered with clear empty bead rows around all edges to allow easy mounting on a bead board. "
+        "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and easy placement in game UI. "
         "Use pure solid key-color {green} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
-        "No anti-aliasing or smoothing — every pixel must be a perfect square bead aligned to the grid. "
-        "The output image should be pixel-perfect, each grid only contains one color. No text, no watermark, no UI frame, no labels."
+        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
+        "The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no UI frame, no labels."
     )
     # Prompt guard 只审核用户原始输入，不把服务端模板暴露给模型。
     prompt_guard_enabled: bool = True
@@ -88,14 +88,14 @@ class ImageGenConfig:
     ])
     # n-sample 单图 prompt 模板；与 contact_sheet_prompt_template 类似但不含 rows/cols
     n_sample_prompt_template: str = (
-        "Convert the input image or described subject into a TRUE perler bead pixel pattern designed for physical bead crafting, not digital illustration. "
-        "Subject: {description}. Canvas size must be exactly {width}x{height} pixels, where each pixel represents exactly one perler bead. "
-        "Use extremely large, chunky pixels with very few active pixels overall. Simplicity is critical. "
+        "Convert the input image or described subject into a TRUE pixel-art game asset designed for game inventory/UI use, not a painted digital illustration. "
+        "Subject: {description}. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. "
+        "Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. "
         "For human characters, make sure the face is flat and no shadow. "
-        "The subject must be centered with clear empty bead rows around all edges to allow easy mounting on a bead board. "
+        "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and easy placement in game UI. "
         "Use pure solid key-color {green} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
-        "No anti-aliasing or smoothing — every pixel must be a perfect square bead aligned to the grid. "
-        "The output image should be pixel-perfect, each grid only contains one color. No text, no watermark, no UI frame, no labels."
+        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
+        "The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no UI frame, no labels."
     )
 
 
@@ -169,15 +169,15 @@ class AssetConfig:
     # Asset 直出默认使用经典 K-means/auto 调色，贴近早期白底单图素材效果
     palette_mode: str = "auto"
     prompt_template: str = (
-        "Convert the input image or described subject into a TRUE perler bead pixel pattern designed for physical bead crafting, not digital illustration. "
+        "Convert the input image or described subject into a TRUE pixel-art game asset designed for game inventory/UI use, not a painted digital illustration. "
         "Subject: {name}. Target asset: game {asset_kind_label}; {subject_kind_label}. "
-        "Canvas size must be exactly {width}x{height} pixels, where each pixel represents exactly one perler bead. "
-        "Use extremely large, chunky pixels with very few active pixels overall. Simplicity is critical. "
+        "Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. "
+        "Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. "
         "For human characters, make sure the face is flat and no shadow. "
-        "The subject must be centered with clear empty bead rows around all edges to allow easy mounting on a bead board. "
+        "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and easy placement in game UI. "
         "Use a pure solid clean background for empty cells. "
-        "No anti-aliasing or smoothing — every pixel must be a perfect square bead aligned to the grid. "
-        "The output image should be pixel-perfect, each grid only contains one color."
+        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
+        "The output image should be pixel-perfect, each grid cell only contains one color."
     )
 
 

@@ -145,14 +145,14 @@ def build_sample_prompt(
         except Exception:
             pass
     return (
-        "Convert the input image or described subject into a TRUE perler bead pixel pattern designed for physical bead crafting, not digital illustration. "
-        f"Subject: {values['description']}. Canvas size must be exactly {values['width']}x{values['height']} pixels, where each pixel represents exactly one perler bead. "
-        "Use extremely large, chunky pixels with very few active pixels overall. Simplicity is critical. "
+        "Convert the input image or described subject into a TRUE pixel-art game asset designed for game inventory/UI use, not a painted digital illustration. "
+        f"Subject: {values['description']}. Canvas size must be exactly {values['width']}x{values['height']} pixels, where each pixel is one square grid cell. "
+        "Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. "
         "For human characters, make sure the face is flat and no shadow. "
-        "The subject must be centered with clear empty bead rows around all edges to allow easy mounting on a bead board. "
+        "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and easy placement in game UI. "
         f"Use pure solid key-color {values['green']} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
-        "No anti-aliasing or smoothing — every pixel must be a perfect square bead aligned to the grid. "
-        "The output image should be pixel-perfect, each grid only contains one color. No text, no watermark, no UI frame, no labels."
+        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
+        "The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no UI frame, no labels."
     )
 
 
@@ -276,15 +276,15 @@ def build_contact_sheet_prompt(
 
 def _fallback_prompt(**values: Any) -> str:
     return (
-        f"Create a {values['rows']}x{values['cols']} contact sheet with {values['count']} distinct variations of this TRUE perler bead pixel pattern subject: {values['description']}. "
-        "In every cell, convert the subject into a TRUE perler bead pixel pattern designed for physical bead crafting, not digital illustration. "
-        f"Canvas size for each candidate must be exactly {values['width']}x{values['height']} pixels, where each pixel represents exactly one perler bead. "
-        "Use extremely large, chunky pixels with very few active pixels overall. Simplicity is critical. "
+        f"Create a {values['rows']}x{values['cols']} contact sheet with {values['count']} distinct variations of this pixel game asset subject: {values['description']}. "
+        "In every cell, convert the subject into a TRUE pixel-art game asset designed for game inventory/UI use, not a painted digital illustration. "
+        f"Canvas size for each candidate must be exactly {values['width']}x{values['height']} pixels, where each pixel is one square grid cell. "
+        "Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. "
         "For human characters, make sure the face is flat and no shadow. "
-        "The subject must be centered with clear empty bead rows around all edges to allow easy mounting on a bead board. "
+        "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and easy placement in game UI. "
         f"Use pure solid key-color {values['green']} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
-        "No anti-aliasing or smoothing — every pixel must be a perfect square bead aligned to the grid. "
-        "The output image should be pixel-perfect, each grid only contains one color. No text, no watermark, no UI frame, no labels."
+        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
+        "The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no UI frame, no labels."
     )
 
 
