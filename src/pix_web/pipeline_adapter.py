@@ -189,8 +189,11 @@ def asset_pipeline_input_from_job(job: GenerationJob, settings: WebSettings, cfg
         key_tolerance=cfg.image_gen.green_screen_tolerance,
     )
     image_quality = data.get("image_quality") if _request_includes(data, "image_quality") else cfg.asset.image_quality
+    user_prompt_parts = [name, str(asset.get("extra_prompt") or "").strip()]
+    prompt_guard_text = "\n".join(part for part in user_prompt_parts if part)
     return PipelineInput(
         prompt=prompt,
+        prompt_guard_text=prompt_guard_text,
         image_path=None,
         image_size=data.get("image_size") or cfg.image_gen.size,
         image_quality=image_quality,
@@ -260,9 +263,6 @@ def run_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: AppCo
     asset_cfg.image_gen.contact_sheet_enabled = False
     asset_cfg.image_gen.prompt_guard_remote = False
     inputs = asset_pipeline_input_from_job(job, settings, asset_cfg)
-    asset_cfg.image_gen.prompt_guard_max_chars = max(
-        int(asset_cfg.image_gen.prompt_guard_max_chars), len(inputs.prompt or "") + 64
-    )
     result = run_pipeline(asset_cfg, inputs)
     _write_asset_meta(result, job, inputs)
     return result
