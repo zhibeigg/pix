@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.112] - 2026-05-25
+
+### Fixed
+
+- 背景移除增加 key-color soft matte / despill，修复纯色背景经抗锯齿或缩放后形成的半透明、混色品红边缘无法被去除的问题。
+
 ## [1.40.111] - 2026-05-25
 
 ### Changed
