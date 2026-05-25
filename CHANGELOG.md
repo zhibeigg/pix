@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.98] - 2026-05-25
+
+### Fixed
+
+- 背景去除会同步清理与边缘背景色相同、但被主体轮廓封闭的孔洞区域，避免茶壶把手等闭环内残留纯色背景块。
+
 ## [1.37.97] - 2026-05-25
 
 ### Fixed

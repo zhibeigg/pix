@@ -532,6 +532,73 @@ def _flood_fill_mask(
     return visited
 
 
+def _is_single_solid_background_reference(
+    ref_colors: list[tuple[int, int, int]],
+    tolerance: int,
+) -> bool:
+    """判断边缘背景是否足够接近单一纯色，避免把棋盘格内高光当孔洞删除。"""
+    if not ref_colors:
+        return False
+    refs = np.asarray(ref_colors, dtype=np.int16)
+    channel_span = refs.max(axis=0) - refs.min(axis=0)
+    # 只在背景近似单一纯色时清理封闭孔洞；假透明棋盘格通常会超过该范围。
+    max_channel_span = max(4, min(12, int(tolerance) // 2))
+    return bool((channel_span <= max_channel_span).all())
+
+
+def _background_color_mask(
+    arr: np.ndarray,
+    ref_colors: list[tuple[int, int, int]],
+    tolerance: int,
+) -> np.ndarray:
+    """返回所有接近背景参考色的像素，不要求与边缘连通。"""
+    h, w, _ = arr.shape
+    if not ref_colors:
+        return np.zeros((h, w), dtype=bool)
+    rgb = arr.astype(np.int32)
+    tol_sq = max(0, int(tolerance)) ** 2 * 3
+    mask = np.zeros((h, w), dtype=bool)
+    for ref_color in ref_colors:
+        ref = np.asarray(ref_color, dtype=np.int32)
+        diff = rgb - ref
+        mask |= (diff * diff).sum(axis=2) <= tol_sq
+    return mask
+
+
+def _closed_background_hole_mask(
+    background_like: np.ndarray,
+    border_connected: np.ndarray,
+    *,
+    max_area_ratio: float = 0.35,
+) -> np.ndarray:
+    """找出被主体轮廓封闭、但颜色仍像背景色的孔洞区域。"""
+    candidates = background_like & ~border_connected
+    h, w = candidates.shape
+    visited = np.zeros(candidates.shape, dtype=bool)
+    result = np.zeros(candidates.shape, dtype=bool)
+    max_area = max(1, int(round(h * w * float(max_area_ratio))))
+    for y in range(h):
+        for x in range(w):
+            if not candidates[y, x] or visited[y, x]:
+                continue
+            q: deque[tuple[int, int]] = deque([(y, x)])
+            visited[y, x] = True
+            pixels: list[tuple[int, int]] = []
+            touches_border = False
+            while q:
+                cy, cx = q.popleft()
+                pixels.append((cy, cx))
+                touches_border |= cy in (0, h - 1) or cx in (0, w - 1)
+                for ny, nx in ((cy - 1, cx), (cy + 1, cx), (cy, cx - 1), (cy, cx + 1)):
+                    if 0 <= ny < h and 0 <= nx < w and candidates[ny, nx] and not visited[ny, nx]:
+                        visited[ny, nx] = True
+                        q.append((ny, nx))
+            if not touches_border and len(pixels) <= max_area:
+                for py, px in pixels:
+                    result[py, px] = True
+    return result
+
+
 def apply_transparent_edge_style(
     image: Image.Image,
     *,
@@ -596,6 +663,13 @@ def remove_background(
     mask_bg = _flood_fill_mask(arr, seed_points, seeds, tolerance)
 
     rgba = np.asarray(image).copy()
+    visible_input = rgba[..., 3] > 0
+    if _is_single_solid_background_reference(seeds, tolerance):
+        background_like = _background_color_mask(arr, seeds, tolerance) & visible_input
+        closed_holes = _closed_background_hole_mask(background_like, mask_bg)
+        if closed_holes.any():
+            mask_bg |= closed_holes
+
     style = edge_style if edge_style in ("hard", "feather", "outline") else "hard"
     strength = max(0, int(feather))
     if style == "outline" and strength > 0:
