@@ -616,6 +616,120 @@ def _closed_background_hole_mask(
     return result
 
 
+def apply_key_color_soft_matte(
+    image: Image.Image,
+    *,
+    key_rgb: tuple[int, int, int],
+    background_mask: np.ndarray | None = None,
+    tolerance: int = 48,
+    softness: int = 220,
+    alpha_floor: int = 8,
+    radius: int = 2,
+    passes: int = 3,
+) -> Image.Image:
+    """用 key color 软抠 + despill 清理半透明/混色背景边缘。
+
+    硬抠只能删除接近纯 key color 的像素；模型生成、缩放或抗锯齿后，边缘常会变成
+    `前景 * alpha + key * (1-alpha)` 的混色。这里按与 key color 的距离估算 alpha，
+    再反混合去掉 RGB 里的 key 污染，只作用在透明背景附近，避免误伤主体内部颜色。
+    """
+    rgba = np.asarray(image.convert("RGBA")).copy()
+    _apply_key_color_soft_matte(
+        rgba,
+        key_rgb=key_rgb,
+        background_mask=background_mask,
+        tolerance=tolerance,
+        softness=softness,
+        alpha_floor=alpha_floor,
+        radius=radius,
+        passes=passes,
+    )
+    transparent = rgba[..., 3] == 0
+    if transparent.any():
+        rgba[transparent, :3] = 0
+    return Image.fromarray(rgba, mode="RGBA")
+
+
+def _apply_key_color_soft_matte(
+    rgba: np.ndarray,
+    *,
+    key_rgb: tuple[int, int, int],
+    background_mask: np.ndarray | None,
+    tolerance: int,
+    softness: int = 220,
+    alpha_floor: int = 8,
+    radius: int = 2,
+    passes: int = 3,
+) -> dict:
+    if rgba.ndim != 3 or rgba.shape[-1] < 4:
+        return {"applied": False, "reason": "not_rgba"}
+    key = np.asarray(key_rgb, dtype=np.float32)
+    if not _looks_like_chroma_key(key):
+        return {"applied": False, "reason": "background_not_chroma_key"}
+
+    h, w = rgba.shape[:2]
+    soft = max(float(tolerance) + 1.0, min(255.0, float(softness)))
+    hard = max(0.0, float(tolerance))
+    floor = max(0.0, min(255.0, float(alpha_floor))) / 255.0
+    safe_radius = max(1, int(radius))
+    changed = 0
+
+    if background_mask is not None and background_mask.shape == (h, w):
+        seed = background_mask.copy()
+    else:
+        seed = rgba[..., 3] == 0
+
+    for _ in range(max(1, int(passes))):
+        alpha = rgba[..., 3].astype(np.float32) / 255.0
+        visible = alpha > 0.0
+        if not visible.any():
+            break
+        near = seed | (rgba[..., 3] == 0)
+        for _distance in range(safe_radius):
+            near = _dilate_mask_8(near)
+
+        rgb = rgba[..., :3].astype(np.float32)
+        dist = np.sqrt(((rgb - key) ** 2).sum(axis=2))
+        candidates = visible & near & (dist <= soft)
+        if background_mask is not None and background_mask.shape == (h, w):
+            candidates &= ~background_mask
+        if not candidates.any():
+            break
+
+        estimated_alpha = np.clip((dist - hard) / max(1.0, soft - hard), 0.0, 1.0)
+        new_alpha = np.minimum(alpha, estimated_alpha)
+        improve = candidates & (new_alpha < alpha - (1.0 / 255.0))
+        if not improve.any():
+            break
+
+        safe_alpha = np.maximum(new_alpha[improve], 1.0 / 255.0)
+        rgb_improve = rgb[improve]
+        decontaminated = (rgb_improve - key * (1.0 - safe_alpha[:, None])) / safe_alpha[:, None]
+        rgba[improve, :3] = np.clip(decontaminated, 0, 255).astype(np.uint8)
+        rgba[improve, 3] = np.clip(np.rint(new_alpha[improve] * 255.0), 0, 255).astype(np.uint8)
+        low_alpha = improve & (new_alpha <= floor)
+        if low_alpha.any():
+            rgba[low_alpha, :3] = 0
+            rgba[low_alpha, 3] = 0
+            seed |= low_alpha
+        changed += int(improve.sum())
+
+    return {
+        "applied": changed > 0,
+        "changed_pixels": changed,
+        "tolerance": int(tolerance),
+        "softness": int(soft),
+        "alpha_floor": int(alpha_floor),
+        "radius": safe_radius,
+    }
+
+
+def _looks_like_chroma_key(rgb: np.ndarray) -> bool:
+    channel_max = float(rgb.max())
+    channel_min = float(rgb.min())
+    return bool(channel_max >= 160.0 and (channel_max - channel_min) >= 96.0)
+
+
 def apply_transparent_edge_style(
     image: Image.Image,
     *,
@@ -683,8 +797,10 @@ def remove_background(
 
     rgba = np.asarray(image).copy()
     visible_input = rgba[..., 3] > 0
-    if _is_single_solid_background_reference(seeds, tolerance):
-        background_like = _background_color_mask(arr, seeds, tolerance) & visible_input
+    # 判断是否纯色 key background 应优先看四角；整圈边缘可能包含贴边主体色。
+    solid_background = _is_single_solid_background_reference(corner_seeds, tolerance)
+    if solid_background:
+        background_like = _background_color_mask(arr, corner_seeds, tolerance) & visible_input
         closed_holes = _closed_background_hole_mask(background_like, mask_bg)
         if closed_holes.any():
             mask_bg |= closed_holes
@@ -695,6 +811,18 @@ def remove_background(
         _apply_outline_edge(rgba, mask_bg, strength)
     else:
         _apply_alpha_feather(rgba, mask_bg, strength if style == "feather" else 0)
+        if solid_background:
+            ref_rgb = tuple(int(v) for v in np.median(np.asarray(corner_seeds, dtype=np.float32), axis=0))
+            _apply_key_color_soft_matte(
+                rgba,
+                key_rgb=ref_rgb,
+                background_mask=mask_bg,
+                tolerance=max(0, int(tolerance)),
+                softness=max(160, int(tolerance) + 160),
+                alpha_floor=8,
+                radius=2,
+                passes=3,
+            )
     transparent = rgba[..., 3] == 0
     if transparent.any():
         rgba[transparent, :3] = 0

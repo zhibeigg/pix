@@ -12,6 +12,7 @@ import numpy as np
 from PIL import Image
 
 from pix.config import AppConfig
+from pix.pixelize.bg_removal import apply_key_color_soft_matte
 
 
 KEY_COLOR_CANDIDATES = (
@@ -354,11 +355,10 @@ def remove_green_screen(
 
     处理步骤：
     1. 全局移除与 key-color 距离 <= tolerance 的像素
-    2. 对紧邻透明区域的半透明边缘做 decontaminate（去除 key-color 对 RGB 的污染）
+    2. 对背景附近的半透明/混色边缘做 soft matte + despill（去除 key-color 对 RGB 的污染）
     3. 完全透明像素 RGB 置黑（防止缩放时渗出背景色）
     """
     rgba = np.asarray(image.convert("RGBA")).copy()
-    h, w = rgba.shape[:2]
     rgb = rgba[..., :3].astype(np.float64)
     ref = np.array(green_rgb, dtype=np.float64)
     dist = np.sqrt(((rgb - ref) ** 2).sum(axis=2))
@@ -367,23 +367,21 @@ def remove_green_screen(
     bg_mask = dist <= max(0, int(tolerance))
     rgba[bg_mask, 3] = 0
 
-    # 2. Decontaminate 半透明边缘
-    transparent = rgba[..., 3] == 0
-    near_transparent = np.zeros((h, w), dtype=bool)
-    if h > 1:
-        near_transparent[1:, :] |= transparent[:-1, :]
-        near_transparent[:-1, :] |= transparent[1:, :]
-    if w > 1:
-        near_transparent[:, 1:] |= transparent[:, :-1]
-        near_transparent[:, :-1] |= transparent[:, 1:]
-
-    semi_mask = near_transparent & (rgba[..., 3] > 0) & (rgba[..., 3] < 255)
-    if semi_mask.any():
-        a = rgba[semi_mask, 3].astype(np.float64) / 255.0
-        for c in range(3):
-            channel = rgba[semi_mask, c].astype(np.float64)
-            decontaminated = (channel - ref[c] * (1.0 - a)) / np.maximum(a, 0.01)
-            rgba[semi_mask, c] = np.clip(decontaminated, 0, 255).astype(np.uint8)
+    # 2. 对背景附近的半透明/混色边缘做 soft matte + despill。
+    # 抗锯齿或缩放会把纯 key-color 混入主体边缘，形成不再接近纯背景色的脏边；
+    # 这里用 key 色反混合恢复前景 RGB，并降低仍接近 key 色的边缘 alpha。
+    rgba = np.asarray(
+        apply_key_color_soft_matte(
+            Image.fromarray(rgba, mode="RGBA"),
+            key_rgb=green_rgb,
+            background_mask=bg_mask,
+            tolerance=max(0, int(tolerance)),
+            softness=max(160, int(tolerance) + 160),
+            alpha_floor=8,
+            radius=2,
+            passes=3,
+        )
+    ).copy()
 
     # 3. 透明像素 RGB 置黑
     fully_transparent = rgba[..., 3] == 0
