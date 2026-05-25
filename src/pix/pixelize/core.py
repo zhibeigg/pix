@@ -39,6 +39,19 @@ GeneratedPreprocessMode = Literal["legacy", "none", "perfect_pixel"]
 LOW_PIXEL_OUTLINE_MAX_AXIS = 32
 
 
+def _bg_removal_options(cfg) -> dict:
+    asset = getattr(cfg, "asset", None)
+    if asset is None:
+        return {}
+    return {
+        "bg_removal_algorithm": getattr(asset, "bg_removal_algorithm", "auto"),
+        "color_to_alpha_shape": getattr(asset, "color_to_alpha_shape", "sphere"),
+        "color_to_alpha_transparency": getattr(asset, "color_to_alpha_transparency", 48),
+        "color_to_alpha_opacity": getattr(asset, "color_to_alpha_opacity", 255),
+        "color_to_alpha_interpolation": getattr(asset, "color_to_alpha_interpolation", "linear"),
+    }
+
+
 @dataclass
 class PixelizeParams:
     output_size: tuple[int, int] = (128, 128)
@@ -665,6 +678,7 @@ def pixelize(
             tolerance=max(0, int(eff.bg_tolerance)),
             feather=0,
             keep_border_bleed=True,
+            **_bg_removal_options(cfg),
         )
 
     # 3. 可选主体裁剪：在 perfectPixel 对齐后的像素网格上贴边裁剪主体。
@@ -722,6 +736,7 @@ def pixelize(
             tolerance=max(0, int(eff.bg_tolerance)),
             feather=max(0, int(eff.bg_feather)),
             edge_style=eff.edge_style,
+            **_bg_removal_options(cfg),
         )
     elif edge_policy.get("source_alpha") and eff.edge_style == "outline":
         pixelized = _apply_low_pixel_alpha_outline(pixelized, strength=max(1, int(eff.bg_feather)))

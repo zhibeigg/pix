@@ -616,6 +616,74 @@ def _closed_background_hole_mask(
     return result
 
 
+def _interpolate_alpha(value: np.ndarray, interpolation: str | None) -> np.ndarray:
+    mode = (interpolation or "linear").strip().lower()
+    if mode == "power":
+        return value ** 2
+    if mode == "root":
+        return np.sqrt(value)
+    if mode == "smooth":
+        return (np.sin(np.pi / 2 * value)) ** 2
+    if mode in {"inverse-sin", "inverse_sin"}:
+        return np.arcsin(2 * value - 1) / np.pi + 0.5
+    return value
+
+
+def _color_distance(rgb: np.ndarray, key: np.ndarray, shape: str) -> np.ndarray:
+    mode = (shape or "sphere").strip().lower()
+    diff = np.abs(rgb.astype(np.float32) - key.astype(np.float32))
+    if mode == "cube":
+        return diff.max(axis=2)
+    return np.linalg.norm(diff, axis=2)
+
+
+def apply_color_to_alpha(
+    image: Image.Image,
+    *,
+    key_rgb: tuple[int, int, int],
+    transparency_threshold: int = 48,
+    opacity_threshold: int = 255,
+    shape: str = "sphere",
+    interpolation: str | None = "linear",
+    protect_non_key_tinted: bool = True,
+    min_key_chroma: float = 24.0,
+) -> Image.Image:
+    """GIMP Color-to-Alpha 风格 key 色移除，并清理透明 RGB。
+
+    与原算法相比默认启用 key 色方向保护：只有纯 key 色或带 key 色通道方向的混色
+    才会被改 alpha，避免灰白/金属色因为欧氏距离接近品红而被误删。
+    """
+    rgba_f = np.asarray(image.convert("RGBA"), dtype=np.float32)
+    rgb = rgba_f[..., :3]
+    source_alpha = rgba_f[..., 3] / 255.0
+    key = np.asarray(key_rgb, dtype=np.float32)
+    transparent_t = max(0.0, float(transparency_threshold))
+    opaque_t = max(transparent_t + 1.0, float(opacity_threshold))
+    distances = _color_distance(rgb, key, shape)
+    alpha = np.clip((distances - transparent_t) / max(1.0, opaque_t - transparent_t), 0.0, 1.0)
+    alpha = _interpolate_alpha(alpha, interpolation)
+
+    if protect_non_key_tinted:
+        key_tinted = _key_tinted_mask(rgb, key, min_chroma=min_key_chroma)
+        pure_key = distances <= transparent_t
+        apply_mask = pure_key | key_tinted
+        alpha = np.where(apply_mask, alpha, 1.0)
+
+    alpha = np.minimum(alpha, source_alpha)
+    proportion = np.maximum(distances / max(1.0, opaque_t), 1e-5)
+    extrapolated = (rgb - key) / proportion[..., None] + key
+    out_rgb = rgb.copy()
+    intermediate = (alpha > 0.0) & (alpha < 1.0)
+    out_rgb[intermediate] = extrapolated[intermediate]
+    out = np.zeros_like(rgba_f)
+    out[..., :3] = np.clip(np.rint(out_rgb), 0, 255)
+    out[..., 3] = np.clip(np.rint(alpha * 255.0), 0, 255)
+    transparent = out[..., 3] == 0
+    if transparent.any():
+        out[transparent, :3] = 0
+    return Image.fromarray(out.astype(np.uint8), mode="RGBA")
+
+
 def apply_key_color_soft_matte(
     image: Image.Image,
     *,
@@ -778,6 +846,11 @@ def remove_background(
     feather: int = 0,
     edge_style: Literal["hard", "feather", "outline"] = "hard",
     keep_border_bleed: bool = True,
+    bg_removal_algorithm: str = "auto",
+    color_to_alpha_shape: str = "sphere",
+    color_to_alpha_transparency: int = 48,
+    color_to_alpha_opacity: int = 255,
+    color_to_alpha_interpolation: str = "linear",
 ) -> Image.Image:
     """把图片四角连通的背景色抠成透明。
 
@@ -788,6 +861,8 @@ def remove_background(
             edge_style=outline 时表示描边宽度；hard 时不生效。
         edge_style: hard=硬边透明；feather=主体边缘 alpha 羽化；outline=主体外侧补深色描边。
         keep_border_bleed: True 时如果主体压到边缘（四角色与主体色相近），不硬抠
+        bg_removal_algorithm: auto | flood_fill | color_to_alpha | hybrid。
+            auto/hybrid 遇到纯 chroma-key 背景时优先使用 Color-to-Alpha。
     """
     if image.mode != "RGBA":
         image = image.convert("RGBA")
@@ -825,12 +900,32 @@ def remove_background(
 
     style = edge_style if edge_style in ("hard", "feather", "outline") else "hard"
     strength = max(0, int(feather))
+    algorithm = (bg_removal_algorithm or "auto").strip().lower().replace("-", "_")
+    if algorithm not in {"auto", "flood_fill", "color_to_alpha", "hybrid"}:
+        algorithm = "auto"
+    ref_rgb = tuple(int(v) for v in np.median(np.asarray(corner_seeds, dtype=np.float32), axis=0)) if corner_seeds else (0, 0, 0)
+    can_use_color_to_alpha = solid_background and _looks_like_chroma_key(np.asarray(ref_rgb, dtype=np.float32))
+    use_color_to_alpha = algorithm in {"color_to_alpha", "hybrid"} or (algorithm == "auto" and can_use_color_to_alpha)
+
+    if use_color_to_alpha and can_use_color_to_alpha:
+        out = apply_color_to_alpha(
+            image,
+            key_rgb=ref_rgb,
+            transparency_threshold=max(0, int(color_to_alpha_transparency)),
+            opacity_threshold=max(1, int(color_to_alpha_opacity)),
+            shape=color_to_alpha_shape,
+            interpolation=color_to_alpha_interpolation,
+            protect_non_key_tinted=True,
+        )
+        if style in {"feather", "outline"} and strength > 0:
+            out = apply_transparent_edge_style(out, feather=strength, edge_style=style)
+        return out
+
     if style == "outline" and strength > 0:
         _apply_outline_edge(rgba, mask_bg, strength)
     else:
         _apply_alpha_feather(rgba, mask_bg, strength if style == "feather" else 0)
         if solid_background:
-            ref_rgb = tuple(int(v) for v in np.median(np.asarray(corner_seeds, dtype=np.float32), axis=0))
             _apply_key_color_soft_matte(
                 rgba,
                 key_rgb=ref_rgb,

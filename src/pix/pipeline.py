@@ -197,6 +197,7 @@ def _postprocess_contact_sheet(
             generated_preprocess_method=generated_preprocess_method,
             target_size=target_size,
         )
+
     return _finalize_candidate_result(
         cfg,
         result,
@@ -436,6 +437,7 @@ def _extract_grid_from_source(
         bg_tolerance=params.bg_tolerance,
         metadata={"generator": "extract_grid"},
         generated_preprocess_method=generated_preprocess_method,
+        cfg=cfg,
     )
 
 
