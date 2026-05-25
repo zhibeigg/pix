@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.95] - 2026-05-25
+
+### Fixed
+
+- 放宽 asset 全模板 Prompt 的本地审核长度上限，避免 `prompt构建.md` 标准英文模板在 Web/CLI 全流程中因超过 500 字符被拒绝。
+
 ## [1.37.94] - 2026-05-25
 
 ### Fixed

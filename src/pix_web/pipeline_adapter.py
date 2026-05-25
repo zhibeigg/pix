@@ -260,6 +260,9 @@ def run_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: AppCo
     asset_cfg.image_gen.contact_sheet_enabled = False
     asset_cfg.image_gen.prompt_guard_remote = False
     inputs = asset_pipeline_input_from_job(job, settings, asset_cfg)
+    asset_cfg.image_gen.prompt_guard_max_chars = max(
+        int(asset_cfg.image_gen.prompt_guard_max_chars), len(inputs.prompt or "") + 64
+    )
     result = run_pipeline(asset_cfg, inputs)
     _write_asset_meta(result, job, inputs)
     return result
