@@ -479,6 +479,7 @@ def _run_grid_pixelize(
             mode=cfg.asset.fit_mode,
             min_axis_coverage=cfg.asset.fit_min_axis_coverage,
         )
+    actual_output_size = (grid.canvas.width, grid.canvas.height)
 
     # Ramp 调色板：把 grid 的 palette 重映射到 ramp 上的最近色，获得手绘色阶感。
     palette_mode_eff = (params.palette_mode or cfg.asset.palette_mode or "auto").lower()
@@ -499,7 +500,7 @@ def _run_grid_pixelize(
                 cfg,
                 source_path,
                 max_colors=max(3, params.colors),
-                output_size=params.output_size,
+                output_size=actual_output_size,
                 description=inputs.prompt or "",
                 draft_palette_hex=[c.hex for c in grid.palette],
                 model=inputs.vl_model,
@@ -552,7 +553,8 @@ def _run_grid_pixelize(
         )
     pix_meta = {
         "effective_params": {
-            "output_size": list(params.output_size),
+            "output_size": list(actual_output_size),
+            "requested_output_size": list(params.output_size),
             "colors": params.colors,
             "dither": params.dither,
             "preset": params.preset or "auto",
