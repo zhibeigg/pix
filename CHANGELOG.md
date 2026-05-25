@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.102] - 2026-05-25
+
+### Fixed
+
+- perfectPixel 之后的自动裁剪改为贴住主体边缘的最小 bbox，不再额外 padding 或强制正方形。
+
 ## [1.37.101] - 2026-05-25
 
 ### Fixed

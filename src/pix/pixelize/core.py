@@ -283,8 +283,13 @@ def _auto_crop(
     bg_tolerance: int,
     padding: float,
     square: bool,
+    tight: bool = False,
 ) -> tuple[Image.Image, tuple[int, int, int, int] | None]:
-    """按透明通道或四角背景估计主体并裁剪。"""
+    """按透明通道或四角背景估计主体并裁剪。
+
+    tight=True 时直接使用主体 bbox，不加 padding、不强制正方形；用于 perfectPixel
+    之后的低分辨率网格，避免 03_auto_crop 继续保留多余背景格。
+    """
     bbox = _foreground_bbox(image, bg_tolerance)
     if bbox is None:
         return image, None
@@ -293,6 +298,8 @@ def _auto_crop(
     # 全图都被视作前景时不要裁，避免误伤背景复杂的输入。
     if left <= 0 and top <= 0 and right >= w and bottom >= h:
         return image, None
+    if tight:
+        return image.crop(bbox), bbox
     expanded = _expand_bbox(bbox, image.size, padding=padding, square=square)
     return image.crop(expanded), expanded
 
@@ -660,14 +667,16 @@ def pixelize(
             keep_border_bleed=True,
         )
 
-    # 3. 可选主体裁剪：在 perfectPixel 对齐后的像素网格上裁剪主体。
+    # 3. 可选主体裁剪：在 perfectPixel 对齐后的像素网格上贴边裁剪主体。
     crop_bbox: tuple[int, int, int, int] | None = None
+    tight_crop = bool(generated_preprocess_meta.get("applied"))
     if eff.auto_crop and not skipped_auto_crop:
         img, crop_bbox = _auto_crop(
             img,
             bg_tolerance=eff.bg_tolerance,
-            padding=eff.crop_padding,
-            square=eff.crop_square,
+            padding=0.0 if tight_crop else eff.crop_padding,
+            square=False if tight_crop else eff.crop_square,
+            tight=tight_crop,
         )
 
     # 4. 下采样到目标尺寸（smart/box/bicubic/lanczos/nearest）
@@ -754,6 +763,7 @@ def pixelize(
         "input_transparency_ratio": round(pre_transparency_ratio, 4),
         "generated_preprocess": generated_preprocess_meta,
         "preprocess_order": ["perfect_pixel", "remove_background", "auto_crop"],
+        "auto_crop_policy": "tight_after_perfect_pixel" if tight_crop else "configured_padding",
         "skipped_remove_bg": skipped_remove_bg,
         "skipped_auto_crop": skipped_auto_crop,
         "detected_grid": detected_grid,
