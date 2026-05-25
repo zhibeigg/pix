@@ -152,7 +152,7 @@ Convert the input image or described subject into a TRUE pixel-art game asset de
 
 ## 版本与发布
 
-当前版本：`1.40.106`。
+当前版本：`1.40.107`。
 
 版本号格式为 `A.B.C`：
 
