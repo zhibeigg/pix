@@ -113,9 +113,9 @@ image_quality  = "low"
 skip_vl        = true
 remove_bg      = true
 bg_tolerance   = 26
-# 默认描边；可改为 feather 或 hard
-edge_style     = "outline"
-bg_feather     = 1
+# 默认不做额外边缘处理；可按需改为 feather 或 outline
+edge_style     = "hard"
+bg_feather     = 0
 auto_crop      = true
 crop_padding   = 0.12
 crop_square    = true
