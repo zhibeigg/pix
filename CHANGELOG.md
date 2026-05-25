@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.111] - 2026-05-25
+
+### Changed
+
+- 继续精简素材与候选图 prompt，移除额外的简洁性强调句，只保留基础轮廓、颜色数、像素对齐和背景抠色要求。
+
 ## [1.40.110] - 2026-05-25
 
 ### Changed
