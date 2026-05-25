@@ -249,6 +249,7 @@ export type JobOutput = {
   sprite_frames: SpriteFrameOutput[]
   pixelized_path: string
   pixelized_url: string | null
+  pixelized_size?: [number, number] | null
   preview_path: string | null
   preview_url: string | null
   analysis_json_path: string | null

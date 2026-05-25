@@ -47,6 +47,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
   const isActive = isActiveJob(job)
   const previewUrl = isActive ? null : output ? signedFileUrl(output.sprite_gif_url || output.pixelized_url || output.preview_url || output.source_url || undefined) : signedFileUrl(job.input_image_url)
   const typeLabel = jobTypeLabel(job.job_type, language)
+  const sizeTag = jobPixelSizeTag(job, output)
   const displayName = jobDisplayName(job, t)
   const summary = jobDisplaySummary(job, displayName, t)
   function startDrag(event: DragEvent<HTMLElement>) {
@@ -78,6 +79,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant="outline">#{job.id}</Badge>
             <Badge variant="secondary" className="dark:border-[hsl(var(--pix-brand-purple-300)/.24)] dark:bg-[hsl(var(--pix-brand-purple-800)/.42)] dark:text-[hsl(var(--pix-brand-purple-300))]">{typeLabel}</Badge>
+            {sizeTag && <Badge variant="outline" className={pixelSizeBadgeClass(sizeTag.size)} title={sizeTag.title}>{sizeTag.label}</Badge>}
           </div>
           <div>
             <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{displayName}</h3>
@@ -213,6 +215,37 @@ function jobDisplaySummary(job: GenerationJob, displayName: string, t: (key: str
   if (extraPrompt) return clampText(extraPrompt, 96)
   const summary = jobInputSummary(job, t('gallery.noInputSummary'))
   return summary === displayName ? t('gallery.expandHint') : summary
+}
+
+function jobPixelSizeTag(job: GenerationJob, output?: JobOutput): { size: [number, number]; label: string; title: string } | null {
+  const realSize = asNumberPair(output?.pixelized_size)
+  const requestedSize = asNumberPair(asRecord(job.params_json?.pixelize)?.output_size)
+  const size = realSize ?? requestedSize
+  if (!size) return null
+  const [width, height] = size
+  const label = width === height ? `${width}x` : `${width}×${height}`
+  return {
+    size,
+    label,
+    title: realSize ? `真实输出尺寸：${width}×${height}` : `请求尺寸：${width}×${height}`,
+  }
+}
+
+function asNumberPair(value: unknown): [number, number] | null {
+  if (!Array.isArray(value) || value.length !== 2) return null
+  const width = Number(value[0])
+  const height = Number(value[1])
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null
+  return [Math.round(width), Math.round(height)]
+}
+
+function pixelSizeBadgeClass(size: [number, number]) {
+  const side = Math.max(size[0], size[1])
+  if (side <= 16) return 'border-[hsl(var(--pix-brand-green)/.28)] bg-[hsl(var(--pix-mint)/.84)] text-[hsl(var(--pix-brand-green))] dark:border-[hsl(var(--pix-brand-green)/.42)] dark:bg-[hsl(var(--pix-brand-green)/.18)] dark:text-[hsl(var(--pix-mint))]'
+  if (side <= 24) return 'border-[hsl(var(--pix-brand-teal)/.28)] bg-[hsl(var(--pix-sky)/.88)] text-[hsl(var(--pix-brand-teal))] dark:border-[hsl(var(--pix-brand-teal)/.42)] dark:bg-[hsl(var(--pix-brand-teal)/.18)] dark:text-[hsl(var(--pix-sky))]'
+  if (side <= 32) return 'border-[hsl(var(--pix-brand-yellow)/.42)] bg-[hsl(var(--pix-yellow)/.9)] text-[hsl(var(--pix-brand-brown))] dark:border-[hsl(var(--pix-brand-yellow)/.5)] dark:bg-[hsl(var(--pix-brand-yellow)/.18)] dark:text-[hsl(var(--pix-yellow))]'
+  if (side <= 64) return 'border-[hsl(var(--pix-brand-purple)/.26)] bg-[hsl(var(--pix-lavender)/.9)] text-[hsl(var(--pix-brand-purple-800))] dark:border-[hsl(var(--pix-brand-purple-300)/.36)] dark:bg-[hsl(var(--pix-brand-purple-800)/.46)] dark:text-[hsl(var(--pix-brand-purple-300))]'
+  return 'border-[hsl(var(--pix-brand-orange)/.28)] bg-[hsl(var(--pix-peach)/.92)] text-[hsl(var(--pix-brand-orange-deep))] dark:border-[hsl(var(--pix-brand-orange)/.45)] dark:bg-[hsl(var(--pix-brand-orange)/.18)] dark:text-[hsl(var(--pix-peach))]'
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
