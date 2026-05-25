@@ -13,6 +13,7 @@ from PIL import Image
 
 from pix.config import AppConfig
 from pix.pixelize.bg_removal import apply_key_color_soft_matte
+from pix.pixelize.perfect_pixel import preprocess_generated_image
 
 
 KEY_COLOR_CANDIDATES = (
@@ -47,6 +48,8 @@ class ContactSheetCandidate:
     rank: int | None = None
     reason: str = ""
     selected: bool = False
+    preprocessed_path: Path | None = None
+    preprocess_meta: dict[str, Any] | None = None
 
     def to_metadata(self, run_dir: Path, *, selected: bool | None = None) -> dict[str, Any]:
         try:
@@ -55,6 +58,13 @@ class ContactSheetCandidate:
         except ValueError:
             path_text = str(self.path)
         is_selected = self.selected if selected is None else selected
+        if self.preprocessed_path is not None:
+            try:
+                preprocessed_path_text = self.preprocessed_path.relative_to(run_dir).as_posix()
+            except ValueError:
+                preprocessed_path_text = str(self.preprocessed_path)
+        else:
+            preprocessed_path_text = None
         return {
             "index": self.index,
             "row": self.row,
@@ -65,6 +75,8 @@ class ContactSheetCandidate:
             "rank": self.rank,
             "reason": self.reason,
             "selected": bool(is_selected),
+            "preprocessed_path": preprocessed_path_text,
+            "preprocess": self.preprocess_meta,
         }
 
 
@@ -176,43 +188,34 @@ def collect_independent_candidates(
     crop_padding: float = 0.12,
     crop_square: bool = True,
 ) -> ContactSheetResult:
-    """把一组独立单图当作候选：每张单独做 chroma-key + 裁剪，走和 split_contact_sheet 相同的结构。
+    """把一组独立单图当作候选。
 
-    用于 n_sample 模式替代 split_contact_sheet；保持 ContactSheetResult 不变，
-    下游（ranking、render_candidate_pixel_outputs）零改动。
+    n_sample 模式的候选本身就是模型原始返回图；这里必须保持 raw，不做
+    perfect pixel、chroma-key 或裁剪。后续选中候选复制为 01_source.png 后，
+    pixelize 阶段的第一步才是 perfect pixel。
     """
+    _ = (green_screen_color, tolerance, crop_padding, crop_square)
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
-    green = parse_hex_color(green_screen_color)
     candidates: list[ContactSheetCandidate] = []
     first_source: Path | None = None
     for index, image_path in enumerate(image_paths, start=1):
         image_path = Path(image_path)
         if first_source is None:
             first_source = image_path
-        with Image.open(image_path) as opened:
-            image = opened.convert("RGBA")
-        processed, bbox = remove_green_screen(
-            image,
-            green_rgb=green,
-            tolerance=tolerance,
-            crop_padding=crop_padding,
-            crop_square=crop_square,
-        )
         candidate_path = dest / f"candidate_{index:02d}.png"
-        processed.save(candidate_path)
+        candidate_path.write_bytes(image_path.read_bytes())
         candidates.append(
             ContactSheetCandidate(
                 index=index,
                 row=0,
                 col=index - 1,
                 path=candidate_path,
-                bbox=bbox,
+                bbox=None,
             )
         )
     if not candidates:
         raise ValueError("n-sample 模式下没有任何候选图片")
-    # sheet_path 用第一张原图，仅为 meta 展示；与 split_contact_sheet 保持合同
     return ContactSheetResult(
         sheet_path=first_source if first_source is not None else candidates[0].path,
         candidates=candidates,
@@ -225,10 +228,7 @@ def normalize_hex_color(rgb: tuple[int, int, int]) -> str:
 
 
 def resolve_key_color(value: str, description: str = "") -> tuple[str, tuple[int, int, int]]:
-    """解析或按 prompt 动态选择背景抠色。
-
-    `auto` / `dynamic` 会避开 prompt 中出现的颜色语义，降低素材本体和背景色撞色的概率。
-    """
+    """解析或按 prompt 动态选择背景抠色。"""
     text = (value or "").strip().lower()
     if text in {"auto", "dynamic", ""}:
         lowered = (description or "").lower()
@@ -309,6 +309,8 @@ def split_contact_sheet(
     tolerance: int,
     crop_padding: float = 0.12,
     crop_square: bool = True,
+    generated_preprocess_method: str | None = None,
+    target_size: tuple[int, int] | None = None,
 ) -> ContactSheetResult:
     """把一张 contact sheet 等分为候选，并把纯色 key background 转为透明。"""
     sheet_path = Path(image_path)
@@ -329,6 +331,19 @@ def split_contact_sheet(
                 right = int(round((col + 1) * cell_w))
                 bottom = int(round((row + 1) * cell_h))
                 cell = image.crop((left, top, right, bottom))
+                index = row * safe_cols + col + 1
+                preprocessed_path: Path | None = None
+                preprocess_meta: dict[str, Any] | None = None
+                if generated_preprocess_method is not None:
+                    preprocessed = preprocess_generated_image(
+                        cell,
+                        method=generated_preprocess_method,
+                        target_size=target_size,
+                    )
+                    cell = preprocessed.image
+                    preprocess_meta = preprocessed.meta
+                    preprocessed_path = dest / f"candidate_{index:02d}_perfect_pixel.png"
+                    cell.save(preprocessed_path)
                 processed, bbox = remove_green_screen(
                     cell,
                     green_rgb=green,
@@ -336,10 +351,17 @@ def split_contact_sheet(
                     crop_padding=crop_padding,
                     crop_square=crop_square,
                 )
-                index = row * safe_cols + col + 1
                 candidate_path = dest / f"candidate_{index:02d}.png"
                 processed.save(candidate_path)
-                candidates.append(ContactSheetCandidate(index=index, row=row, col=col, path=candidate_path, bbox=bbox))
+                candidates.append(ContactSheetCandidate(
+                    index=index,
+                    row=row,
+                    col=col,
+                    path=candidate_path,
+                    bbox=bbox,
+                    preprocessed_path=preprocessed_path,
+                    preprocess_meta=preprocess_meta,
+                ))
     return ContactSheetResult(sheet_path=sheet_path, candidates=candidates, selected_index=0)
 
 
