@@ -107,7 +107,7 @@ npm run build
 4. 默认 `skip_vl = true`，不走普通 VL 分析。
 5. Pixel Grid extract：
    - `perfect_pixel` 网格对齐；
-   - `remove_background` 去背景；
+   - `remove_background` 去背景；默认 `bg_removal_algorithm=auto`，AI 纯色 key 背景会优先用 GIMP Color-to-Alpha 风格算法，普通背景回退 flood-fill；
    - `auto_crop` / tight bbox 贴主体裁剪；
    - `transparent_canvas_pad` 补到预设尺寸档；
    - sample cells / cluster palette；
@@ -118,7 +118,7 @@ npm run build
 ```text
 01_source_raw.png
 02_perfect_pixel_auto_detect.png
-03_remove_background.png
+03_color_to_alpha_remove_background.png
 04_auto_crop_tight_bbox.png
 05_rounded_transparent_canvas.png
 06_final_grid_asset.png
@@ -154,7 +154,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.40.115`。
+当前版本：`1.40.116`。
 
 版本号格式为 `A.B.C`：
 

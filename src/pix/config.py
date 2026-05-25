@@ -154,6 +154,11 @@ class AssetConfig:
     bg_tolerance: int = 26
     bg_feather: int = 0
     edge_style: str = "hard"
+    bg_removal_algorithm: str = "auto"  # auto | flood_fill | color_to_alpha | hybrid
+    color_to_alpha_shape: str = "sphere"  # sphere | cube
+    color_to_alpha_transparency: int = 48
+    color_to_alpha_opacity: int = 255
+    color_to_alpha_interpolation: str = "linear"
     auto_crop: bool = True
     crop_padding: float = 0.12
     crop_square: bool = True

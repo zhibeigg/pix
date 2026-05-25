@@ -113,6 +113,12 @@ image_quality  = "low"
 skip_vl        = true
 remove_bg      = true
 bg_tolerance   = 26
+# 背景移除算法：auto 会对 AI 纯色 key 背景使用 Color-to-Alpha，对普通背景回退 flood-fill。
+bg_removal_algorithm = "auto" # auto | flood_fill | color_to_alpha | hybrid
+color_to_alpha_shape = "sphere" # sphere | cube
+color_to_alpha_transparency = 48
+color_to_alpha_opacity = 255
+color_to_alpha_interpolation = "linear"
 # 默认不做额外边缘处理；可按需改为 feather 或 outline
 edge_style     = "hard"
 bg_feather     = 0

@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 
 from pix.config import AppConfig
-from pix.pixelize.bg_removal import apply_key_color_soft_matte
+from pix.pixelize.bg_removal import apply_color_to_alpha
 from pix.pixelize.perfect_pixel import preprocess_generated_image
 
 
@@ -389,19 +389,16 @@ def remove_green_screen(
     bg_mask = dist <= max(0, int(tolerance))
     rgba[bg_mask, 3] = 0
 
-    # 2. 对背景附近的半透明/混色边缘做 soft matte + despill。
-    # 抗锯齿或缩放会把纯 key-color 混入主体边缘，形成不再接近纯背景色的脏边；
-    # 这里用 key 色反混合恢复前景 RGB，并降低仍接近 key 色的边缘 alpha。
+    # 2. 对背景附近的半透明/混色边缘做 GIMP Color-to-Alpha 风格 despill。
     rgba = np.asarray(
-        apply_key_color_soft_matte(
+        apply_color_to_alpha(
             Image.fromarray(rgba, mode="RGBA"),
             key_rgb=green_rgb,
-            background_mask=bg_mask,
-            tolerance=max(0, int(tolerance)),
-            softness=255,
-            alpha_floor=224,
-            radius=3,
-            passes=4,
+            transparency_threshold=max(0, int(tolerance)),
+            opacity_threshold=255,
+            shape="sphere",
+            interpolation="linear",
+            protect_non_key_tinted=True,
         )
     ).copy()
 

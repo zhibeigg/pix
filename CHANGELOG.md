@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.116] - 2026-05-25
+
+### Changed
+
+- 将 GIMP Color-to-Alpha 风格算法内置为 AI 纯色 key 背景的默认去背景路径，保留普通 flood-fill 作为非 chroma-key 场景回退。
+- 新增 `bg_removal_algorithm` 与 Color-to-Alpha 阈值配置，统一 Pixel Grid 与传统 pixelize 两条路径的背景移除行为。
+
 ## [1.40.115] - 2026-05-25
 
 ### Fixed

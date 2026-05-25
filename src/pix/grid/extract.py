@@ -15,6 +15,19 @@ from pix.pixelize.core import _auto_crop, _detect_grid_size
 from pix.pixelize.perfect_pixel import preprocess_generated_image
 
 
+def _bg_removal_options(cfg) -> dict:
+    asset = getattr(cfg, "asset", None)
+    if asset is None:
+        return {}
+    return {
+        "bg_removal_algorithm": getattr(asset, "bg_removal_algorithm", "auto"),
+        "color_to_alpha_shape": getattr(asset, "color_to_alpha_shape", "sphere"),
+        "color_to_alpha_transparency": getattr(asset, "color_to_alpha_transparency", 48),
+        "color_to_alpha_opacity": getattr(asset, "color_to_alpha_opacity", 255),
+        "color_to_alpha_interpolation": getattr(asset, "color_to_alpha_interpolation", "linear"),
+    }
+
+
 @dataclass(frozen=True)
 class GridExtractParams:
     output_size: tuple[int, int] = (16, 16)
@@ -142,6 +155,7 @@ def extract_pixel_grid(
     sample_ratio: float = 0.62,
     metadata: dict | None = None,
     generated_preprocess_method: str | None = None,
+    cfg=None,
 ) -> PixelGrid:
     """把一张伪像素图抽取成严格的 PixelGrid。
 
@@ -174,6 +188,7 @@ def extract_pixel_grid(
             tolerance=max(0, int(params.bg_tolerance)),
             feather=0,
             keep_border_bleed=True,
+            **_bg_removal_options(cfg),
         )
     else:
         image = image.convert("RGBA")
