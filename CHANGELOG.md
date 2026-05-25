@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.92] - 2026-05-25
+
+### Changed
+
+- 重新从 64x64 单图源资源批量后处理首页展示的 608 张 32x32 outline 物品图标，使用当前 perfectPixel 生成图网格预处理和 Pixel Grid outline 流程。
+
 ## [1.36.92] - 2026-05-25
 
 ### Changed
