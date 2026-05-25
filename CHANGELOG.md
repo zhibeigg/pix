@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.94] - 2026-05-25
+
+### Fixed
+
+- 以 `prompt构建.md` 为准恢复素材直出 TRUE pixel-art 英文模板，并为 Web/CLI asset prompt 正确填充动态 `{green}` 与 `{key_tolerance}`。
+
 ## [1.37.93] - 2026-05-25
 
 ### Fixed

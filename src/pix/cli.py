@@ -505,6 +505,7 @@ def cmd_asset(
     if subject_kind not in {"single_prop", "single_ui"}:
         raise typer.BadParameter("subject-kind 必须是 single_prop 或 single_ui", param_hint="--subject-kind")
 
+    key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, name)
     prompt = build_asset_prompt(
         cfg.asset.prompt_template,
         name,
@@ -512,6 +513,8 @@ def cmd_asset(
         extra_prompt=extra_prompt,
         asset_kind=asset_kind,
         subject_kind=subject_kind,
+        key_color=key_hex,
+        key_tolerance=cfg.image_gen.green_screen_tolerance,
     )
     # asset 入口使用服务端构造好的完整 prompt，恢复经典单图白底流程；
     # 仍保留本地 prompt guard，但关闭远程归一化与候选包装，避免把模板改写成 n-sample/chroma-key 风格。
