@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.106] - 2026-05-25
+
+### Changed
+
+- 仓库收敛为网站版：保留 React 前端、FastAPI 后端、Web worker、数据库迁移与网站素材生成核心，移除历史 CLI/GUI、测试、旧静态素材、临时输出和打包/部署杂项。
+- README 合并 prompt 构建规则，明确网站 asset 直出必须走 `build_asset_prompt`、本地 prompt guard、`gpt-image-2` 单图、生图后 Pixel Grid extract 的当前流水线。
+- 主页示例区移除旧 UI、64×64/32×32 对比字段，只保留现行全流程生成的物品 icon 与真实最终 PNG 尺寸。
+- 后端依赖与 Docker 镜像改为网站运行所需集合，并把 `assets/presets` 一并复制进镜像。
+
+## [1.39.106] - 2026-05-25
+
+### Added
+
+- 新增 `scripts/generate_homepage_item_icons_from_manifest.py`，可按 `homepage示例物品icon清单.md` 逐个走真实 Pix 全流程重生成 608 张主页物品 icon，先写入 staging 并在完整验证后发布。
+
+### Changed
+
+- Web 主页移除旧 UI/精灵图展示素材，只保留全流程重生成的 608 张物品 PNG 图标墙，并同步清理旧静态资源目录引用。
+
 ## [1.38.106] - 2026-05-25
 
 ### Added
@@ -120,6 +139,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - AI 生图/图生图源图在进入像素化或 Pixel Grid 提取前默认启用内置 perfectPixel 风格网格对齐预处理，按目标尺寸进行 FFT/Sobel 网格采样；本地上传像素化默认保持旧流程。
+
+## [1.33.92] - 2026-05-24
+
+### Changed
+
+- CLI/Web 候选生图 prompt 的 RGB 容差约束改为“保持在最大色容差之外”语义，`{key_tolerance}` 作为当前抠色最大容差边界写入模板和 fallback prompt。
+
+## [1.32.92] - 2026-05-24
+
+### Fixed
+
+- Web 删除确认弹窗使用专用视口居中样式，避免通用 Dialog 动画 transform 导致位置偏移。
+
+## [1.32.91] - 2026-05-24
+
+### Fixed
+
+- Web 邀请链接生成优先使用前端公开地址，并在仅配置后端 `/api` 公开地址时自动去除 `/api` 前缀；兼容已发出的 `/api/?aff=...` 旧链接，自动重定向到前端注册锚点。
 
 ## [1.32.90] - 2026-05-24
 

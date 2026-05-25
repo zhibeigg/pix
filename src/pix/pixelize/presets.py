@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -26,17 +25,8 @@ class Preset:
 
 
 def _builtin_presets_dir() -> Path:
-    """返回内置预设目录，兼容源码运行和 PyInstaller 冻结后运行。
-
-    - 源码运行：仓库根的 assets/presets/
-    - PyInstaller one-dir/one-file 运行：sys._MEIPASS/assets/presets/
-    """
-    meipass = getattr(sys, "_MEIPASS", None)
-    if meipass:
-        candidate = Path(meipass) / "assets" / "presets"
-        if candidate.exists():
-            return candidate
-    # 源码布局：src/pix/pixelize/presets.py → ../../../assets/presets
+    """返回仓库内置预设目录。"""
+    # 源码 / Docker 布局：src/pix/pixelize/presets.py → ../../../assets/presets
     return Path(__file__).resolve().parents[3] / "assets" / "presets"
 
 

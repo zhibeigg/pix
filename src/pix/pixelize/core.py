@@ -89,7 +89,7 @@ def _resolve_preset(params: PixelizeParams, analysis: PixAnalysis | None) -> Pre
     """解析预设。
 
     只有用户明确选择的预设才会覆盖尺寸、色数等参数；VL 的 recommended_preset
-    仅作为分析信息保留，不再自动改写用户在 GUI / CLI 中填写的值。
+    仅作为分析信息保留，不再自动改写网站表单中的用户选择。
     """
     if params.preset and params.preset != "auto":
         return load_preset(params.preset)
@@ -105,7 +105,7 @@ def _effective_params(
     我们只在 preset 存在且 params 的对应字段还是 **配置默认值** 的情况下填充；
     这通过引入 "sentinel" 来做不实用。
     实际策略：preset 只在 params.preset 明确指定或 analysis 推荐时启用；
-    启用后，preset 字段如果为非 None 就生效，用户自己再在 CLI 里覆盖具体字段。
+    启用后，preset 字段如果为非 None 就生效，调用方仍可覆盖具体字段。
     """
     if preset is None and analysis is None:
         return params

@@ -12,10 +12,11 @@ RUN apt-get update \
 
 COPY pyproject.toml README.md LICENSE alembic.ini ./
 COPY src ./src
+COPY assets ./assets
 COPY migrations ./migrations
 
 RUN pip install --upgrade pip \
-    && pip install -e ".[web]"
+    && pip install -e .
 
 EXPOSE 8000
 
