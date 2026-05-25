@@ -109,6 +109,25 @@ SUBJECT_KIND_LABELS: dict[str, str] = {
 }
 
 
+def _canonical_asset_prompt(name: str, width: int, height: int, key_color: str, key_tolerance: int) -> str:
+    return (
+        "Convert the input image or described subject into a TRUE pixel-art game asset designed "
+        "for game inventory/UI use, not a painted digital illustration. "
+        f"Subject: {name}. Canvas size must be exactly {width}x{height} pixels, "
+        "where each pixel is one square grid cell. Use large, chunky readable pixels, "
+        "limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. "
+        "For human characters, make sure the face is flat and no shadow. "
+        "The subject must be centered with clear empty pixel rows around all edges for safe sprite "
+        "padding and easy placement in game UI. "
+        f"Use pure solid key-color {key_color} for all empty/background cells for chroma-key removal; "
+        "keep every visible subject color outside the maximum key-color tolerance "
+        f"({key_tolerance} RGB Euclidean distance) from {key_color}. "
+        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
+        "The output image should be pixel-perfect, each grid cell only contains one color. "
+        "No text, no watermark, no UI frame, no labels."
+    )
+
+
 def _label_for(value: str, labels: dict[str, str], fallback_key: str) -> str:
     key = (value or fallback_key).strip()
     return labels.get(key, labels[fallback_key])
@@ -122,6 +141,8 @@ def build_asset_prompt(
     extra_prompt: str = "",
     asset_kind: str = "item_icon",
     subject_kind: str = "single_prop",
+    key_color: str = "#00FF00",
+    key_tolerance: int = 48,
 ) -> str:
     """按游戏素材模板生成最终生图 prompt。"""
     width, height = size
@@ -139,21 +160,14 @@ def build_asset_prompt(
         "subject_kind": subject_kind,
         "subject_kind_label": subject_kind_label,
         "canvas_shape": canvas_shape,
+        "green": key_color,
+        "key_color": key_color,
+        "key_tolerance": int(key_tolerance),
     }
     try:
         prompt = template.format(**values)
     except Exception:
-        prompt = (
-            "Convert the input image or described subject into a TRUE pixel-art game asset designed for game inventory/UI use, not a painted digital illustration. "
-            f"Subject: {name}. Target asset: game {asset_kind_label}; {subject_kind_label}. "
-            f"Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. "
-            "Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. "
-            "For human characters, make sure the face is flat and no shadow. "
-            "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and easy placement in game UI. "
-            "Use a pure solid clean background for empty cells. "
-            "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
-            "The output image should be pixel-perfect, each grid cell only contains one color."
-        )
+        prompt = _canonical_asset_prompt(name, width, height, key_color, int(key_tolerance))
     if extra_prompt.strip():
         prompt = f"{prompt.strip()} {extra_prompt.strip()}"
     return prompt.strip()

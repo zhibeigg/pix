@@ -9,6 +9,7 @@ from typing import Any
 
 from pix.asset import build_asset_prompt
 from pix.config import AppConfig, load_config
+from pix.contact_sheet import resolve_key_color
 from pix.io_utils import file_lock
 from pix.pipeline import GridDesignInput, PipelineInput, PipelineResult, run_pipeline
 from pix.pixelize.core import PixelizeParams
@@ -176,6 +177,7 @@ def asset_pipeline_input_from_job(job: GenerationJob, settings: WebSettings, cfg
     asset = _asset_data(job)
     name = _asset_name(job)
     params = asset_pixelize_params_from_json(data, cfg)
+    key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, name)
     prompt = build_asset_prompt(
         cfg.asset.prompt_template,
         name,
@@ -183,6 +185,8 @@ def asset_pipeline_input_from_job(job: GenerationJob, settings: WebSettings, cfg
         extra_prompt=str(asset.get("extra_prompt") or ""),
         asset_kind=str(asset.get("asset_kind") or "item_icon"),
         subject_kind=str(asset.get("subject_kind") or "single_prop"),
+        key_color=key_hex,
+        key_tolerance=cfg.image_gen.green_screen_tolerance,
     )
     image_quality = data.get("image_quality") if _request_includes(data, "image_quality") else cfg.asset.image_quality
     return PipelineInput(

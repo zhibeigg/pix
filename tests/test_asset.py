@@ -55,14 +55,20 @@ def test_build_asset_prompt_formats_template() -> None:
     assert prompt.endswith("red glow")
 
 
-def test_build_asset_prompt_supports_structured_subject_template() -> None:
+def test_build_asset_prompt_supports_key_color_template() -> None:
     prompt = build_asset_prompt(
-        "{size_label} 像素游戏{asset_kind_label}，复古8位像素风格，{subject_kind_label}，{canvas_shape}，主体：{name}",
+        "Subject: {name}. Canvas size must be exactly {width}x{height} pixels. "
+        "Use pure solid key-color {green}; tolerance {key_tolerance}.",
         "冰霜之心",
         size=(16, 16),
+        key_color="#FF00FF",
+        key_tolerance=48,
     )
 
-    assert prompt == "16×16 像素游戏物品图标，复古8位像素风格，单个道具，正方形画幅，主体：冰霜之心"
+    assert prompt == (
+        "Subject: 冰霜之心. Canvas size must be exactly 16x16 pixels. "
+        "Use pure solid key-color #FF00FF; tolerance 48."
+    )
 
 
 def test_build_asset_prompt_supports_ui_component_options() -> None:

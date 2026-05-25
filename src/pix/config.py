@@ -166,12 +166,20 @@ class AssetConfig:
     fit_mode: str = "smart"
     fit_padding: int = 1
     fit_min_axis_coverage: float = 0.7
-    # Asset 直出默认使用清单同款中文模板，确保 Web/CLI 与主页示例生成口径一致
+    # Asset 直出默认使用 prompt构建.md 的 TRUE pixel-art + key-color 标准模板
     palette_mode: str = "auto"
     prompt_template: str = (
-        "{size_label} 像素游戏{asset_kind_label}，复古8位像素风格，{subject_kind_label}，"
-        "纯色干净背景，轮廓清晰，色块分明，线条锐利，简约游戏资产，无多余杂色，"
-        "{canvas_shape}，主体：{name}"
+        "Convert the input image or described subject into a TRUE pixel-art game asset designed "
+        "for game inventory/UI use, not a painted digital illustration. Subject: {name}. "
+        "Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. "
+        "Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. "
+        "Simplicity is critical. For human characters, make sure the face is flat and no shadow. "
+        "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding "
+        "and easy placement in game UI. Use pure solid key-color {green} for all empty/background cells "
+        "for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance "
+        "({key_tolerance} RGB Euclidean distance) from {green}. No anti-aliasing or smoothing — every pixel "
+        "must be a perfect square aligned to the grid. The output image should be pixel-perfect, each grid cell "
+        "only contains one color. No text, no watermark, no UI frame, no labels."
     )
 
 
