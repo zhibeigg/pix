@@ -178,6 +178,7 @@ def _postprocess_contact_sheet(
     target_size: tuple[int, int],
     rank_with_vl: bool,
     notify: ProgressCb,
+    generated_preprocess_method: str | None = None,
     local_stage_context: LocalStageContext | None = None,
 ) -> dict | None:
     if not contact_sheet_enabled(cfg, has_prompt=True):
@@ -193,6 +194,8 @@ def _postprocess_contact_sheet(
             tolerance=cfg.image_gen.green_screen_tolerance,
             crop_padding=cfg.asset.crop_padding,
             crop_square=cfg.asset.crop_square,
+            generated_preprocess_method=generated_preprocess_method,
+            target_size=target_size,
         )
     return _finalize_candidate_result(
         cfg,
@@ -206,6 +209,8 @@ def _postprocess_contact_sheet(
         notify=notify,
         candidate_mode_name="contact_sheet",
         sheet_path=sheet_path,
+        selected_source_preprocessed=generated_preprocess_method is not None,
+        selected_source_preprocess_method=generated_preprocess_method,
         local_stage_context=local_stage_context,
     )
 
@@ -247,6 +252,8 @@ def _postprocess_n_sample_candidates(
         notify=notify,
         candidate_mode_name="n_sample",
         sheet_path=None,
+        selected_source_preprocessed=False,
+        selected_source_preprocess_method=None,
         local_stage_context=local_stage_context,
     )
 
@@ -264,6 +271,8 @@ def _finalize_candidate_result(
     notify: ProgressCb,
     candidate_mode_name: str,
     sheet_path: Path | None,
+    selected_source_preprocessed: bool = False,
+    selected_source_preprocess_method: str | None = None,
     local_stage_context: LocalStageContext | None = None,
 ) -> dict:
     """共用流程：评分 → 选最优 → 复制到 source_path → 落 meta。"""
@@ -314,6 +323,8 @@ def _finalize_candidate_result(
     meta["ranking"] = ranking.to_metadata()
     meta["scores"] = scores_path.name
     meta["candidate_mode"] = candidate_mode_name
+    meta["selected_source_preprocessed"] = bool(selected_source_preprocessed)
+    meta["selected_source_preprocess_method"] = selected_source_preprocess_method
     if sheet_path is not None:
         meta.setdefault("sheet", sheet_path.name)
     notify(
@@ -744,6 +755,7 @@ def run_pipeline(
                         target_size=inputs.pixelize_params.output_size,
                         rank_with_vl=not inputs.skip_vl,
                         notify=notify,
+                        generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
                         local_stage_context=inputs.local_stage_context,
                     )
                     source_mode = "edit_contact_sheet_cache"
@@ -773,6 +785,7 @@ def run_pipeline(
                         target_size=inputs.pixelize_params.output_size,
                         rank_with_vl=not inputs.skip_vl,
                         notify=notify,
+                        generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
                         local_stage_context=inputs.local_stage_context,
                     )
                     source_mode = "edited_contact_sheet"
@@ -828,6 +841,7 @@ def run_pipeline(
                         target_size=inputs.pixelize_params.output_size,
                         rank_with_vl=not inputs.skip_vl,
                         notify=notify,
+                        generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
                         local_stage_context=inputs.local_stage_context,
                     )
                     source_mode = "contact_sheet_cache"
@@ -856,6 +870,7 @@ def run_pipeline(
                         target_size=inputs.pixelize_params.output_size,
                         rank_with_vl=not inputs.skip_vl,
                         notify=notify,
+                        generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
                         local_stage_context=inputs.local_stage_context,
                     )
                     source_mode = "generated_contact_sheet"
@@ -958,9 +973,15 @@ def run_pipeline(
     preview_path: Path | None = None
     grid_path: Path | None = None
     pixel_path = run_dir / "03_pixelized.png"
-    generated_preprocess_method = (
-        inputs.pixelize_params.generated_preprocess_method if source_mode != "upload" else "legacy"
+    selected_source_preprocessed = bool(
+        contact_sheet_meta and contact_sheet_meta.get("selected_source_preprocessed")
     )
+    if selected_source_preprocessed:
+        generated_preprocess_method = "none"
+    elif source_mode != "upload":
+        generated_preprocess_method = inputs.pixelize_params.generated_preprocess_method
+    else:
+        generated_preprocess_method = "legacy"
     with _local_stage(inputs.local_stage_context):
         notify("pixelize_start", {"grid_mode": inputs.grid.mode})
         candidate_outputs_meta = _render_candidate_pixel_outputs(

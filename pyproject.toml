@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pix"
-version = "1.40.113"
+version = "1.40.114"
 description = "Web pixel-art asset generation service with FastAPI backend and React frontend."
 readme = "README.md"
 requires-python = ">=3.10"

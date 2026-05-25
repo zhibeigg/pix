@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.114] - 2026-05-25
+
+### Fixed
+
+- 调整 `n_sample` 候选处理：候选与 `01_source.png` 保持模型原始返回图，不再提前 key 色抠图/裁剪；后续 pixelize 的第一步始终是 perfect pixel。
+- contact-sheet 候选元数据新增 perfect pixel 中间图与预处理信息，便于调试区分候选图和最终像素化 source。
+
 ## [1.40.113] - 2026-05-25
 
 ### Fixed
