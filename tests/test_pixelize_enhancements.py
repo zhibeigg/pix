@@ -18,6 +18,7 @@ from pix.pixelize.bg_removal import (
 )
 from pix.pixelize.core import (
     PixelizeParams,
+    _auto_crop,
     _detect_grid_size,
     _downsample,
     pixelize,
@@ -173,6 +174,23 @@ class TestPixelizeWithSmart:
 
 
 class TestAutoCrop:
+    def test_tight_auto_crop_uses_exact_foreground_bbox(self) -> None:
+        img = Image.new("RGBA", (12, 10), (0, 0, 0, 0))
+        arr = np.asarray(img).copy()
+        arr[3:7, 2:9] = [240, 80, 80, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        cropped, bbox = _auto_crop(
+            img,
+            bg_tolerance=4,
+            padding=0.5,
+            square=True,
+            tight=True,
+        )
+
+        assert bbox == (2, 3, 9, 7)
+        assert cropped.size == (7, 4)
+
     def test_auto_crop_solid_background_before_downsample(self) -> None:
         img = _solid_bg_with_subject(size=128)
         result, _, meta = pixelize(

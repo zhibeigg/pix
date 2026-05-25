@@ -167,12 +167,14 @@ def extract_pixel_grid(
     )
     image = generated_preprocess.image
     crop_bbox: tuple[int, int, int, int] | None = None
+    tight_crop = bool(generated_preprocess.meta.get("applied"))
     if params.auto_crop:
         image, crop_bbox = _auto_crop(
             image,
             bg_tolerance=params.bg_tolerance,
-            padding=params.crop_padding,
-            square=params.crop_square,
+            padding=0.0 if tight_crop else params.crop_padding,
+            square=False if tight_crop else params.crop_square,
+            tight=tight_crop,
         )
     if params.remove_bg:
         image = remove_background(
@@ -223,6 +225,7 @@ def extract_pixel_grid(
         "grid_confidence": _grid_confidence(image.size, params.output_size, detected_grid),
         "generated_preprocess": generated_preprocess.meta,
         "preprocess_order": ["perfect_pixel", "auto_crop", "remove_background"],
+        "auto_crop_policy": "tight_after_perfect_pixel" if tight_crop else "configured_padding",
         "max_colors": params.max_colors,
         "remove_bg": params.remove_bg,
         "bg_tolerance": params.bg_tolerance,
