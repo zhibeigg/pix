@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.110] - 2026-05-25
+
+### Changed
+
+- 精简素材与候选图 prompt，移除 `with very few noisy details` 约束，保留简洁轮廓和像素对齐要求。
+
 ## [1.40.109] - 2026-05-25
 
 ### Fixed

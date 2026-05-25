@@ -153,7 +153,7 @@ def _canonical_asset_prompt(
         f"Subject: {name}. Subject kind: {subject_kind_label}. "
         f"Canvas size must be exactly {width}x{height} pixels, "
         "where each pixel is one square grid cell. Use large, chunky readable pixels, "
-        "limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. "
+        "limited colors, and a simple silhouette. Simplicity is critical. "
         f"Use no more than {max_colors} visible subject colors; background color does not count. "
         "For human characters, make sure the face is flat and no shadow. "
         "The subject must be centered with clear empty pixel rows around all edges for safe sprite "
