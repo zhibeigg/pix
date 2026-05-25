@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.38.106] - 2026-05-25
+
+### Added
+
+- Web 主页范例区只保留 608 张新版后处理物品 PNG，并新增实际尺寸 tag、题材风格 tag、尺寸/大类/风格筛选器和单图右键下载/复制主体 prompt 操作。
+
 ## [1.37.106] - 2026-05-25
 
 ### Fixed
