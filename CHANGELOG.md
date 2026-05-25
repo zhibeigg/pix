@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.96] - 2026-05-25
+
+### Fixed
+
+- Asset 全模板 Prompt 审核改为只按用户原始主体/描述计算长度，模板内容不计入本地长度限制。
+
 ## [1.37.95] - 2026-05-25
 
 ### Fixed

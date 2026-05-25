@@ -520,9 +520,6 @@ def cmd_asset(
     # 仍保留本地 prompt guard，但关闭远程归一化与候选包装，避免把模板改写成 n-sample/chroma-key 风格。
     cfg.image_gen.contact_sheet_enabled = False
     cfg.image_gen.prompt_guard_remote = False
-    cfg.image_gen.prompt_guard_max_chars = max(
-        int(cfg.image_gen.prompt_guard_max_chars), len(prompt) + 64
-    )
     params = PixelizeParams(
         output_size=size,
         colors=effective_colors,
@@ -547,6 +544,9 @@ def cmd_asset(
         cfg,
         PipelineInput(
             prompt=prompt,
+            prompt_guard_text="\n".join(
+                part for part in (name, extra_prompt.strip()) if part
+            ),
             image_size=image_size or cfg.image_gen.size,
             image_quality=image_quality or cfg.asset.image_quality,
             vl_model=vl_model,

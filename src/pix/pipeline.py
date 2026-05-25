@@ -53,6 +53,8 @@ class GridDesignInput:
 @dataclass
 class PipelineInput:
     prompt: str | None = None
+    # 可选：仅用于 prompt guard 的用户原始输入；为空时审核 prompt 本身。
+    prompt_guard_text: str | None = None
     image_path: Path | None = None
     # 生图参数
     image_size: str | None = None
@@ -101,10 +103,13 @@ def _prepare_prompt(cfg: AppConfig, inputs: PipelineInput, notify: ProgressCb) -
     """审核用户原始输入，并生成发给生图模型的受控 prompt。"""
     if inputs.prompt is None:
         return None, None
+    guard_text = (
+        inputs.prompt_guard_text if inputs.prompt_guard_text is not None else inputs.prompt
+    )
     try:
         guard = validate_user_prompt(
             cfg,
-            inputs.prompt,
+            guard_text,
             allow_template_break=inputs.source_only,
         )
     except PromptPolicyError as exc:
@@ -113,7 +118,11 @@ def _prepare_prompt(cfg: AppConfig, inputs: PipelineInput, notify: ProgressCb) -
     notify("prompt_guard_ready", guard.to_metadata())
     if inputs.source_only:
         return (inputs.prompt or "").strip(), guard.to_metadata()
-    description = guard.normalized_description or inputs.prompt
+    description = (
+        inputs.prompt
+        if inputs.prompt_guard_text is not None
+        else (guard.normalized_description or inputs.prompt)
+    )
     if contact_sheet_enabled(cfg, has_prompt=True):
         if candidate_mode(cfg) == "n_sample":
             effective = build_sample_prompt(

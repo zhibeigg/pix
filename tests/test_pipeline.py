@@ -12,7 +12,7 @@ import pytest
 from PIL import Image
 
 from pix.config import AppConfig
-from pix.pipeline import GridDesignInput, PipelineInput, run_pipeline
+from pix.pipeline import GridDesignInput, PipelineInput, _prepare_prompt, run_pipeline
 from pix.pixelize.core import PixelizeParams
 
 
@@ -56,6 +56,24 @@ def _cfg(tmp_path: Path) -> AppConfig:
     # 这些用例锁定旧 3x3 contact sheet 行为，n_sample 路径有专门测试。
     cfg.image_gen.candidate_mode = "contact_sheet"
     return cfg
+
+
+def test_prompt_guard_text_limits_only_user_input(tmp_path: Path) -> None:
+    cfg = _cfg(tmp_path)
+    cfg.image_gen.contact_sheet_enabled = False
+    cfg.image_gen.prompt_guard_remote = False
+    cfg.image_gen.prompt_guard_max_chars = 8
+    full_prompt = (
+        "Convert the input image or described subject into a TRUE pixel-art game asset. "
+        "Subject: 酒壶."
+    )
+    inputs = PipelineInput(prompt=full_prompt, prompt_guard_text="酒壶")
+
+    effective, guard_meta = _prepare_prompt(cfg, inputs, lambda _step, _payload: None)
+
+    assert effective == full_prompt
+    assert guard_meta is not None
+    assert guard_meta["normalized_description"] == "酒壶"
 
 
 def _install_mock(monkeypatch: pytest.MonkeyPatch, handler):
