@@ -641,27 +641,7 @@ def pixelize(
         and bool(eff.auto_crop)
     )
 
-    # 1. 可选前置抠背景：先处理模型画出来的纯色/棋盘格假透明背景，
-    # 避免后续语义区域或量化把背景变成可见色块。
-    if eff.remove_bg and not skipped_remove_bg:
-        img = remove_background(
-            img,
-            tolerance=max(0, int(eff.bg_tolerance)),
-            feather=0,
-            keep_border_bleed=True,
-        )
-
-    # 2. 可选主体裁剪：先把大图裁成图标主体，再缩小，避免 16x16 时主体过小。
-    crop_bbox: tuple[int, int, int, int] | None = None
-    if eff.auto_crop and not skipped_auto_crop:
-        img, crop_bbox = _auto_crop(
-            img,
-            bg_tolerance=eff.bg_tolerance,
-            padding=eff.crop_padding,
-            square=eff.crop_square,
-        )
-
-    # 3. AI 生成结果的首步网格对齐预处理：本地直接 pixelize 默认不启用。
+    # 1. AI 生成结果首先走 perfectPixel 网格对齐；本地直接 pixelize 默认不启用。
     generated_method = generated_preprocess_method if generated_preprocess_method is not None else "legacy"
     generated_preprocess = preprocess_generated_image(
         img,
@@ -670,6 +650,25 @@ def pixelize(
     )
     img = generated_preprocess.image
     generated_preprocess_meta = generated_preprocess.meta
+
+    # 2. 可选前置抠背景：处理模型画出来的纯色/棋盘格假透明背景。
+    if eff.remove_bg and not skipped_remove_bg:
+        img = remove_background(
+            img,
+            tolerance=max(0, int(eff.bg_tolerance)),
+            feather=0,
+            keep_border_bleed=True,
+        )
+
+    # 3. 可选主体裁剪：在 perfectPixel 对齐后的像素网格上裁剪主体。
+    crop_bbox: tuple[int, int, int, int] | None = None
+    if eff.auto_crop and not skipped_auto_crop:
+        img, crop_bbox = _auto_crop(
+            img,
+            bg_tolerance=eff.bg_tolerance,
+            padding=eff.crop_padding,
+            square=eff.crop_square,
+        )
 
     # 4. 下采样到目标尺寸（smart/box/bicubic/lanczos/nearest）
     detected_grid: int | None = None
@@ -754,6 +753,7 @@ def pixelize(
         "edge_policy": edge_policy,
         "input_transparency_ratio": round(pre_transparency_ratio, 4),
         "generated_preprocess": generated_preprocess_meta,
+        "preprocess_order": ["perfect_pixel", "remove_background", "auto_crop"],
         "skipped_remove_bg": skipped_remove_bg,
         "skipped_auto_crop": skipped_auto_crop,
         "detected_grid": detected_grid,

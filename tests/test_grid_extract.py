@@ -54,7 +54,9 @@ def test_extract_generated_preprocess_records_meta(tmp_path: Path) -> None:
 
     meta = grid.metadata["generated_preprocess"]
     assert meta["applied"] is True
+    assert meta["backend"] in {"perfectPixel-main/noCV2", "builtin_numpy"}
     assert meta["refined_size"] == [4, 4]
+    assert grid.metadata["preprocess_order"] == ["perfect_pixel", "auto_crop", "remove_background"]
     assert grid.metadata["processed_size"] == [4, 4]
 
 
@@ -109,6 +111,27 @@ def test_extract_removes_closed_background_hole_after_alignment(tmp_path: Path) 
     rendered = render_pixel_grid(grid)
     out = np.asarray(rendered)
     assert out[7, 7, 3] == 0
+
+
+def test_extract_handles_crop_smaller_than_output_grid(tmp_path: Path) -> None:
+    img = Image.new("RGBA", (3, 2), (0, 0, 0, 0))
+    img.putpixel((1, 0), (220, 40, 60, 255))
+    img.putpixel((1, 1), (30, 20, 20, 255))
+    src = tmp_path / "tiny-crop.png"
+    img.save(src)
+
+    grid = extract_pixel_grid(
+        src,
+        output_size=(16, 16),
+        max_colors=4,
+        auto_crop=False,
+        remove_bg=False,
+        generated_preprocess_method="none",
+    )
+
+    assert grid.canvas.width == 16
+    assert grid.canvas.height == 16
+    assert any(v != -1 for row in grid.pixels for v in row)
 
 
 def test_extract_auto_crop_keeps_subject(tmp_path: Path) -> None:

@@ -121,6 +121,7 @@ class TestGeneratedPerfectPixelPreprocess:
         )
 
         assert result.meta["applied"] is True
+        assert result.meta["backend"] in {"perfectPixel-main/noCV2", "builtin_numpy"}
         assert result.image.size == (4, 4)
         rgba = np.asarray(result.image.convert("RGBA"))
         assert rgba[0, 0, 3] == 0
@@ -145,6 +146,7 @@ class TestGeneratedPerfectPixelPreprocess:
         assert result.size == (4, 4)
         assert meta["generated_preprocess"]["applied"] is True
         assert meta["generated_preprocess"]["refined_size"] == [4, 4]
+        assert meta["preprocess_order"][0] == "perfect_pixel"
 
 
 class TestPixelizeWithSmart:
