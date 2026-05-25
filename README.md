@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.32.90-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.34.92-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-419%20passed-2ea44f.svg">
 </p>
 
@@ -49,7 +49,7 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
 | 问题 | Pix 的处理方式 |
 |---|---|
 | AI 图好看但不能进游戏 | 输出透明 PNG、固定尺寸、有限调色板、nearest 预览 |
-| 小图标缩小后糊掉 | 使用 Pixel Grid JSON 中间表示，最终由 Python 精确渲染 |
+| 小图标缩小后糊掉 | AI 生图后先做 perfectPixel 风格网格对齐，再使用 Pixel Grid JSON 中间表示，最终由 Python 精确渲染 |
 | 一次生图结果不稳定 | n-sample / contact sheet 候选生成 + VL 自动评分选择 |
 | 背景难抠、边缘脏 | 动态 key color、透明背景处理，用户可选择描边、羽化边缘或不额外处理 |
 | 生成过程不可追溯 | 每次运行写入 `meta.json`、`provenance.json`、源图与参数 |
@@ -71,6 +71,7 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
   - VL 根据 prompt 符合度、轮廓、可读性、抠图质量评分。
 
 - **Pixel Grid 工程图**
+  - AI 生图/图生图结果会在首步经过内置 perfectPixel 风格预处理：按目标尺寸用 FFT/Sobel 网格对齐采样，修正伪像素格错位；本地上传像素化默认不改变旧行为。
   - `.grid.json` 保存画布、调色板、像素矩阵、可读性元数据。
   - PNG 由确定性渲染器生成，避免“看起来像像素图但实际很糊”。
 
@@ -257,6 +258,7 @@ pix asset "青铜按钮" --asset-kind ui_component --subject-kind single_ui --pi
 | `grid_cleanup` | 关闭 | 需要清噪时显式开启 |
 | `grid_outline` | 关闭 | 需要硬轮廓时显式开启 |
 | `fit_canvas` | 关闭 | UI 条/按钮贴合画布时显式开启 |
+| `generated_preprocess_method=perfect_pixel` | 开启（仅 AI 生成结果） | 生图/图生图后先按目标尺寸做网格对齐采样，本地上传像素化默认不启用 |
 | `palette_mode=ramp` | 关闭 | 需要色阶重映射时手动开启 |
 
 常见增强：
@@ -523,6 +525,7 @@ preset = "auto"
 resample = "smart"
 snap_to_grid = true
 palette_mode = "auto" # auto | ramp | kmeans
+generated_preprocess_method = "perfect_pixel" # AI 生图/图生图首步网格对齐；本地上传默认不启用
 
 [asset]
 output_dir = "图片"

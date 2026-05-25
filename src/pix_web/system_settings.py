@@ -132,6 +132,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.vision.temperature", "VL 温度", "模型与 API", "number", ""),
     SettingDefinition("pix.vision.max_tokens", "VL 最大输出 tokens", "模型与 API", "number", ""),
     SettingDefinition("pix.vision.retry_on_parse", "VL 解析失败重试", "模型与 API", "number", ""),
+    SettingDefinition("pix.pixelize.generated_preprocess_method", "生成图预处理", "素材默认值", "select", "", "perfect_pixel=AI 生图/图生图源图先做网格对齐；legacy/none=旧流程。", options=("perfect_pixel", "legacy", "none")),
     SettingDefinition("pix.asset.pixel_size", "默认素材尺寸", "素材默认值", "string", "", "格式 16x16。"),
     SettingDefinition("pix.asset.colors", "默认颜色数", "素材默认值", "number", ""),
     SettingDefinition("pix.asset.image_quality", "素材源图质量", "素材默认值", "select", "", options=("low", "medium", "high", "auto")),

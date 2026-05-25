@@ -344,6 +344,15 @@ def test_admin_settings_metadata_secret_masking_and_pix_override(client: TestCli
     assert image_key["secret"] is True
     assert image_key["category"] == "模型与 API"
     assert image_key["value"] == ""
+    preprocess_key = next(item for item in settings_payload if item["key"] == "pix.pixelize.generated_preprocess_method")
+    assert preprocess_key["options"] == ["perfect_pixel", "legacy", "none"]
+
+    preprocess_update = client.put(
+        "/admin/settings/pix.pixelize.generated_preprocess_method",
+        headers=headers,
+        json={"value": "legacy"},
+    )
+    assert preprocess_update.status_code == 200
 
     update = client.put(
         "/admin/settings/pix.api.image_api_key",
@@ -358,6 +367,7 @@ def test_admin_settings_metadata_secret_masking_and_pix_override(client: TestCli
     with session_factory() as db:
         overrides = managed_pix_overrides_from_db(db)
     assert overrides["api"]["image_api_key"] == "sk-test-managed"
+    assert overrides["pixelize"]["generated_preprocess_method"] == "legacy"
 
 
 def test_public_announcement_uses_admin_settings(client: TestClient) -> None:
@@ -1559,6 +1569,7 @@ def test_asset_pipeline_adapter_uses_asset_defaults_and_keeps_config_isolated(tm
     cfg.asset.auto_crop = True
     cfg.asset.palette_mode = "auto"
     cfg.asset.grid_mode = True
+    cfg.pixelize.generated_preprocess_method = "legacy"
     cfg.image_gen.contact_sheet_enabled = True
     cfg.image_gen.prompt_guard_remote = True
     settings = WebSettings(storage_root=tmp_path / "storage")
@@ -1587,6 +1598,7 @@ def test_asset_pipeline_adapter_uses_asset_defaults_and_keeps_config_isolated(tm
     assert inputs.pixelize_params.bg_tolerance == 26
     assert inputs.pixelize_params.auto_crop is True
     assert inputs.pixelize_params.palette_mode == "auto"
+    assert inputs.pixelize_params.generated_preprocess_method == "legacy"
     assert inputs.grid.mode == "extract"
     assert inputs.image_quality == "low"
     assert inputs.skip_vl is True

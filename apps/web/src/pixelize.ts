@@ -30,6 +30,7 @@ export const defaultPixelize: PixelizeParams = {
   crop_padding: 0.12,
   crop_square: true,
   palette_mode: 'auto',
+  generated_preprocess_method: 'perfect_pixel',
 }
 
 export const defaultAssetPixelize: PixelizeParams = {

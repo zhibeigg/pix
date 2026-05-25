@@ -12,6 +12,7 @@ from PIL import Image
 from pix.grid.schema import PixelGrid, PixelGridAxes, PixelGridCanvas, PixelGridColor
 from pix.pixelize.bg_removal import remove_background
 from pix.pixelize.core import _auto_crop, _detect_grid_size
+from pix.pixelize.perfect_pixel import preprocess_generated_image
 
 
 @dataclass(frozen=True)
@@ -67,6 +68,7 @@ def infer_grid_aligned_output_size(
     remove_bg: bool = True,
     bg_tolerance: int = 26,
     max_axis: int = 64,
+    generated_preprocess_method: str | None = None,
 ) -> GridAlignedSize:
     """从源图推断 draft 网格尺寸，用于辅助 extract 时对齐网格。
 
@@ -82,6 +84,12 @@ def infer_grid_aligned_output_size(
         remove_bg=remove_bg,
         bg_tolerance=bg_tolerance,
     )
+    generated_preprocess = preprocess_generated_image(
+        image,
+        method=generated_preprocess_method if generated_preprocess_method is not None else "legacy",
+        target_size=None,
+    )
+    image = generated_preprocess.image
     detected_grid = _detect_source_grid_size(
         image.convert("RGB"),
         max_probe=max(24, int(max_axis) * 4),
@@ -123,6 +131,7 @@ def extract_pixel_grid(
     alpha_threshold: int = 8,
     sample_ratio: float = 0.62,
     metadata: dict | None = None,
+    generated_preprocess_method: str | None = None,
 ) -> PixelGrid:
     """把一张伪像素图抽取成严格的 PixelGrid。
 
@@ -148,6 +157,12 @@ def extract_pixel_grid(
         remove_bg=params.remove_bg,
         bg_tolerance=params.bg_tolerance,
     )
+    generated_preprocess = preprocess_generated_image(
+        image,
+        method=generated_preprocess_method if generated_preprocess_method is not None else "legacy",
+        target_size=params.output_size,
+    )
+    image = generated_preprocess.image
 
     detected_grid = _detect_source_grid_size(
         image.convert("RGB"),
@@ -186,6 +201,7 @@ def extract_pixel_grid(
         "detected_grid": detected_grid,
         "source_cell_size": [image.width / width, image.height / height],
         "grid_confidence": _grid_confidence(image.size, params.output_size, detected_grid),
+        "generated_preprocess": generated_preprocess.meta,
         "max_colors": params.max_colors,
         "remove_bg": params.remove_bg,
         "bg_tolerance": params.bg_tolerance,

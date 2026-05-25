@@ -22,6 +22,7 @@ from pix.pixelize.core import (
     _downsample,
     pixelize,
 )
+from pix.pixelize.perfect_pixel import preprocess_generated_image
 
 
 def _pixel_art(size_px: int = 128, grid: int = 8, n_colors: int = 4) -> Image.Image:
@@ -100,6 +101,50 @@ class TestDownsample:
         assert (arr[15:, :, 3] == 0).all()
         assert (arr[5:15, :, 3] == 255).all()
         assert tuple(arr[10, 10, :3]) == (255, 0, 0)
+
+
+class TestGeneratedPerfectPixelPreprocess:
+    def _transparent_pixel_source(self) -> Image.Image:
+        base = Image.new("RGBA", (4, 4), (0, 0, 0, 0))
+        arr = np.asarray(base).copy()
+        arr[1, 1] = [220, 40, 60, 255]
+        arr[2, 1] = [40, 20, 25, 255]
+        arr[1, 2] = [40, 20, 25, 255]
+        arr[2, 2] = [220, 40, 60, 255]
+        return Image.fromarray(arr, mode="RGBA").resize((64, 64), Image.Resampling.NEAREST)
+
+    def test_wrapper_preserves_alpha_and_target_size(self) -> None:
+        result = preprocess_generated_image(
+            self._transparent_pixel_source(),
+            method="perfect_pixel",
+            target_size=(4, 4),
+        )
+
+        assert result.meta["applied"] is True
+        assert result.image.size == (4, 4)
+        rgba = np.asarray(result.image.convert("RGBA"))
+        assert rgba[0, 0, 3] == 0
+        assert rgba[1, 1, 3] == 255
+
+    def test_pixelize_local_default_keeps_legacy_preprocess(self) -> None:
+        _, _, meta = pixelize(
+            self._transparent_pixel_source(),
+            PixelizeParams(output_size=(4, 4), colors=4, dither="none", preview_scale=0),
+        )
+
+        assert meta["generated_preprocess"]["method"] == "legacy"
+        assert meta["generated_preprocess"]["applied"] is False
+
+    def test_pixelize_generated_input_applies_preprocess(self) -> None:
+        result, _, meta = pixelize(
+            self._transparent_pixel_source(),
+            PixelizeParams(output_size=(4, 4), colors=4, dither="none", preview_scale=0),
+            generated_preprocess_method="perfect_pixel",
+        )
+
+        assert result.size == (4, 4)
+        assert meta["generated_preprocess"]["applied"] is True
+        assert meta["generated_preprocess"]["refined_size"] == [4, 4]
 
 
 class TestPixelizeWithSmart:
