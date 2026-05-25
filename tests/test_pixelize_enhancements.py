@@ -265,6 +265,23 @@ class TestRemoveBackground:
         # 中心像素只有对角方向接触背景；8 邻域羽化应覆盖它。
         assert 0 < alpha[2, 2] < 255
 
+    def test_remove_background_clears_closed_background_holes(self) -> None:
+        img = Image.new("RGBA", (12, 12), (255, 0, 255, 255))
+        arr = np.asarray(img).copy()
+        arr[3:9, 3] = [20, 20, 20, 255]
+        arr[3:9, 8] = [20, 20, 20, 255]
+        arr[3, 3:9] = [20, 20, 20, 255]
+        arr[8, 3:9] = [20, 20, 20, 255]
+        img = Image.fromarray(arr, mode="RGBA")
+
+        out = remove_background(img, tolerance=4)
+        out_arr = np.asarray(out)
+
+        assert out_arr[0, 0, 3] == 0
+        assert out_arr[5, 5, 3] == 0
+        assert tuple(out_arr[5, 5, :3]) == (0, 0, 0)
+        assert out_arr[3, 3, 3] == 255
+
     def test_remove_key_color_clears_closed_holes(self) -> None:
         img = Image.new("RGBA", (12, 12), (255, 0, 255, 255))
         arr = np.asarray(img).copy()

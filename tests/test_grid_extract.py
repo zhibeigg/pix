@@ -83,6 +83,34 @@ def test_extract_scaled_pixel_grid(tmp_path: Path) -> None:
     assert arr[1, 1, 3] == 255
 
 
+def test_extract_removes_closed_background_hole_after_alignment(tmp_path: Path) -> None:
+    base = Image.new("RGBA", (16, 16), (255, 0, 255, 255))
+    arr = np.asarray(base).copy()
+    arr[5:11, 5] = [20, 12, 10, 255]
+    arr[5:11, 10] = [20, 12, 10, 255]
+    arr[5, 5:11] = [20, 12, 10, 255]
+    arr[10, 5:11] = [20, 12, 10, 255]
+    src = tmp_path / "closed-hole.png"
+    Image.fromarray(arr, mode="RGBA").resize((128, 128), Image.Resampling.NEAREST).save(src)
+
+    grid = extract_pixel_grid(
+        src,
+        output_size=(16, 16),
+        max_colors=4,
+        auto_crop=False,
+        remove_bg=True,
+        bg_tolerance=4,
+        generated_preprocess_method="perfect_pixel",
+    )
+
+    assert grid.pixels[0][0] == -1
+    assert grid.pixels[7][7] == -1
+    assert grid.pixels[5][5] != -1
+    rendered = render_pixel_grid(grid)
+    out = np.asarray(rendered)
+    assert out[7, 7, 3] == 0
+
+
 def test_extract_auto_crop_keeps_subject(tmp_path: Path) -> None:
     img = Image.new("RGB", (128, 128), (255, 255, 255))
     for y in range(40, 88):
