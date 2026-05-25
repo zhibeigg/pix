@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.37.94-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.37.95-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-419%20passed-2ea44f.svg">
 </p>
 
@@ -691,7 +691,7 @@ palette_mode = "ramp"
 | `B` | 功能更新 | 新增功能 |
 | `C` | 修复 | Bug 修复、兼容性修复、清理 |
 
-当前版本：`1.37.94`
+当前版本：`1.37.95`
 
 ---
 
