@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.109] - 2026-05-25
+
+### Fixed
+
+- 素材 prompt 模板按 `asset_kind` 分流：物品图标不再同时出现 UI 语义，UI 组件不再混入物品/背包语义；旧 `inventory/UI use` 模板会在构建时自动转换为类型感知占位符。
+- 候选图 n-sample/contact-sheet 包装模板改为通用 generation brief，不再额外写死 `inventory/UI use` 或 `game UI`。
+
 ## [1.40.108] - 2026-05-25
 
 ### Changed
