@@ -186,14 +186,21 @@ def extract_pixel_grid(
     else:
         image = image.convert("RGBA")
 
+    requested_output_size = params.output_size
+    effective_output_size = params.output_size
+    canvas_pad_meta: dict = {"applied": False}
+    if tight_crop and params.auto_crop:
+        image, canvas_pad_meta = _pad_to_rounded_square_canvas(image)
+        effective_output_size = image.size
+
     detected_grid = _detect_source_grid_size(
         image.convert("RGB"),
-        max_probe=max(24, int(max(image.size) / max(1, min(params.output_size)))),
+        max_probe=max(24, int(max(image.size) / max(1, min(effective_output_size)))),
     )
-    width, height = params.output_size
+    width, height = effective_output_size
     colors, transparent_mask = _sample_cells(
         image,
-        output_size=params.output_size,
+        output_size=effective_output_size,
         alpha_threshold=params.alpha_threshold,
         sample_ratio=params.sample_ratio,
     )
@@ -201,13 +208,13 @@ def extract_pixel_grid(
         transparent_mask = _mark_border_background_transparent(
             colors,
             transparent_mask,
-            output_size=params.output_size,
+            output_size=effective_output_size,
             tolerance=params.bg_tolerance,
         )
     palette_rgb, pixels = _cluster_cell_colors(
         colors,
         transparent_mask,
-        output_size=params.output_size,
+        output_size=effective_output_size,
         max_colors=max(2, min(256, int(params.max_colors))),
     )
     palette = [
@@ -219,13 +226,16 @@ def extract_pixel_grid(
         "source": str(source_path),
         "original_size": list(original_size),
         "processed_size": list(image.size),
+        "requested_output_size": list(requested_output_size),
+        "effective_output_size": list(effective_output_size),
         "crop_bbox": list(crop_bbox) if crop_bbox else None,
         "detected_grid": detected_grid,
         "source_cell_size": [image.width / width, image.height / height],
-        "grid_confidence": _grid_confidence(image.size, params.output_size, detected_grid),
+        "grid_confidence": _grid_confidence(image.size, effective_output_size, detected_grid),
         "generated_preprocess": generated_preprocess.meta,
-        "preprocess_order": ["perfect_pixel", "auto_crop", "remove_background"],
+        "preprocess_order": ["perfect_pixel", "auto_crop", "remove_background", "transparent_canvas_pad"],
         "auto_crop_policy": "tight_after_perfect_pixel" if tight_crop else "configured_padding",
+        "canvas_pad": canvas_pad_meta,
         "max_colors": params.max_colors,
         "remove_bg": params.remove_bg,
         "bg_tolerance": params.bg_tolerance,
@@ -248,6 +258,35 @@ def _load_source_image(image_path: str | Path) -> tuple[Path, Image.Image, tuple
     with Image.open(source_path) as opened:
         image = opened.convert("RGBA" if ("A" in opened.getbands() or "transparency" in opened.info) else "RGB")
     return source_path, image, image.size
+
+
+def _pad_to_rounded_square_canvas(
+    image: Image.Image,
+    *,
+    step: int = 8,
+    min_size: int = 16,
+) -> tuple[Image.Image, dict]:
+    """不缩放图像，补透明画布到向上取整的正方形尺寸。"""
+    rgba = image.convert("RGBA")
+    width, height = rgba.size
+    safe_step = max(1, int(step))
+    side = max(width, height, int(min_size))
+    rounded = int(np.ceil(side / safe_step) * safe_step)
+    rounded = max(1, rounded)
+    offset_x = (rounded - width) // 2
+    offset_y = (rounded - height) // 2
+    meta = {
+        "applied": (rounded, rounded) != rgba.size,
+        "source_size": [width, height],
+        "output_size": [rounded, rounded],
+        "round_step": safe_step,
+        "offset": [offset_x, offset_y],
+    }
+    if (rounded, rounded) == rgba.size:
+        return rgba, meta
+    canvas = Image.new("RGBA", (rounded, rounded), (0, 0, 0, 0))
+    canvas.alpha_composite(rgba, (offset_x, offset_y))
+    return canvas, meta
 
 
 def _cap_size_to_max_axis(size: tuple[int, int], *, max_axis: int) -> tuple[tuple[int, int], bool]:

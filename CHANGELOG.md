@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.103] - 2026-05-25
+
+### Fixed
+
+- perfectPixel 贴边裁剪并去背景后不再缩放回用户请求尺寸，改为向上取整到 8 的倍数正方形并用透明像素补画布。
+
 ## [1.37.102] - 2026-05-25
 
 ### Fixed

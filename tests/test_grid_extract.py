@@ -7,7 +7,9 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+import pix.grid.extract as extract_mod
 from pix.grid.extract import extract_pixel_grid, infer_grid_aligned_output_size
+from pix.pixelize.perfect_pixel import GeneratedPreprocessResult
 from pix.grid.render import render_pixel_grid
 
 
@@ -56,7 +58,12 @@ def test_extract_generated_preprocess_records_meta(tmp_path: Path) -> None:
     assert meta["applied"] is True
     assert meta["backend"] in {"perfectPixel-main/noCV2", "builtin_numpy"}
     assert meta["refined_size"] == [4, 4]
-    assert grid.metadata["preprocess_order"] == ["perfect_pixel", "auto_crop", "remove_background"]
+    assert grid.metadata["preprocess_order"] == [
+        "perfect_pixel",
+        "auto_crop",
+        "remove_background",
+        "transparent_canvas_pad",
+    ]
     assert grid.metadata["processed_size"] == [4, 4]
 
 
@@ -111,6 +118,46 @@ def test_extract_removes_closed_background_hole_after_alignment(tmp_path: Path) 
     rendered = render_pixel_grid(grid)
     out = np.asarray(rendered)
     assert out[7, 7, 3] == 0
+
+
+def test_extract_pads_tight_perfect_pixel_crop_to_rounded_square(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    source = tmp_path / "source.png"
+    Image.new("RGB", (128, 128), (255, 0, 255)).save(source)
+    preprocessed = Image.new("RGBA", (20, 15), (220, 40, 60, 255))
+
+    def fake_preprocess(*args, **kwargs):
+        return GeneratedPreprocessResult(
+            image=preprocessed,
+            meta={"applied": True, "backend": "test", "refined_size": [20, 15]},
+        )
+
+    monkeypatch.setattr(extract_mod, "preprocess_generated_image", fake_preprocess)
+
+    grid = extract_pixel_grid(
+        source,
+        output_size=(16, 16),
+        max_colors=4,
+        auto_crop=True,
+        remove_bg=False,
+        generated_preprocess_method="perfect_pixel",
+    )
+
+    assert (grid.canvas.width, grid.canvas.height) == (24, 24)
+    assert grid.metadata["requested_output_size"] == [16, 16]
+    assert grid.metadata["effective_output_size"] == [24, 24]
+    assert grid.metadata["canvas_pad"] == {
+        "applied": True,
+        "source_size": [20, 15],
+        "output_size": [24, 24],
+        "round_step": 8,
+        "offset": [2, 4],
+    }
+    rendered = render_pixel_grid(grid)
+    assert rendered.size == (24, 24)
+    assert rendered.getchannel("A").getbbox() == (2, 4, 22, 19)
 
 
 def test_extract_handles_crop_smaller_than_output_grid(tmp_path: Path) -> None:

@@ -613,7 +613,7 @@ def cmd_asset(
 
     report = validate_asset_image(
         target,
-        expected_size=size,
+        expected_size=None if effective_grid_mode else size,
         max_colors=effective_colors,
         require_alpha=True,
         require_transparency=params.remove_bg,
