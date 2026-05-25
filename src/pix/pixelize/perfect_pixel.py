@@ -49,9 +49,9 @@ def preprocess_generated_image(
 ) -> GeneratedPreprocessResult:
     """按生成图预处理策略返回图像和可追踪 metadata。
 
-    直接传入 ``legacy`` / ``none`` 时不改变图像。``perfect_pixel`` 会优先使用
-    ``target_size`` 作为目标网格尺寸，避免 perfectPixel 自动检测出的低分辨率网格
-    与 Pix 最终 output_size 不一致而产生二次缩放。
+    直接传入 ``legacy`` / ``none`` 时不改变图像。``perfect_pixel`` 优先调用
+    ``perfectPixel-main`` 官方实现并让它自动检测网格；``target_size`` 只作为后续
+    Pix Grid 提取的目标尺寸记录，不强行覆盖 official perfectPixel 的检测结果。
     """
     normalized = normalize_generated_preprocess_method(method)
     base_meta = {
@@ -68,7 +68,8 @@ def preprocess_generated_image(
     try:
         refined_w, refined_h, refined, details = _get_external_perfect_pixel(
             image,
-            grid_size=target_size,
+            grid_size=None,
+            requested_target_size=target_size,
             sample_method=sample_method,
             min_size=min_size,
             peak_width=peak_width,
@@ -150,6 +151,7 @@ def _get_external_perfect_pixel(
     image: Image.Image,
     *,
     grid_size: tuple[int, int] | None,
+    requested_target_size: tuple[int, int] | None,
     sample_method: SampleMethod,
     min_size: float,
     peak_width: int,
@@ -177,6 +179,7 @@ def _get_external_perfect_pixel(
         "backend": "perfectPixel-main/noCV2",
         "backend_path": str(module_path),
         "grid_size": list(grid_size) if grid_size else None,
+        "requested_target_size": list(requested_target_size) if requested_target_size else None,
         "stdout": stdout.getvalue().strip(),
     }
 
