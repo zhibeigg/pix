@@ -60,8 +60,8 @@ def test_extract_generated_preprocess_records_meta(tmp_path: Path) -> None:
     assert meta["refined_size"] == [4, 4]
     assert grid.metadata["preprocess_order"] == [
         "perfect_pixel",
-        "auto_crop",
         "remove_background",
+        "auto_crop",
         "transparent_canvas_pad",
     ]
     assert grid.metadata["processed_size"] == [4, 4]
@@ -158,6 +158,46 @@ def test_extract_pads_tight_perfect_pixel_crop_to_rounded_square(
     rendered = render_pixel_grid(grid)
     assert rendered.size == (24, 24)
     assert rendered.getchannel("A").getbbox() == (2, 4, 22, 19)
+
+
+def test_extract_removes_background_before_tight_crop(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    source = tmp_path / "source.png"
+    Image.new("RGB", (128, 128), (255, 0, 255)).save(source)
+    preprocessed = Image.new("RGB", (20, 15), (0, 230, 230))
+    arr = np.asarray(preprocessed).copy()
+    arr[3:12, 4:16] = [220, 180, 90]
+    preprocessed = Image.fromarray(arr, mode="RGB")
+
+    def fake_preprocess(*args, **kwargs):
+        return GeneratedPreprocessResult(
+            image=preprocessed,
+            meta={"applied": True, "backend": "test", "refined_size": [20, 15]},
+        )
+
+    monkeypatch.setattr(extract_mod, "preprocess_generated_image", fake_preprocess)
+
+    grid = extract_pixel_grid(
+        source,
+        output_size=(16, 16),
+        max_colors=4,
+        auto_crop=True,
+        remove_bg=True,
+        bg_tolerance=8,
+        generated_preprocess_method="perfect_pixel",
+    )
+
+    assert grid.metadata["preprocess_order"] == [
+        "perfect_pixel",
+        "remove_background",
+        "auto_crop",
+        "transparent_canvas_pad",
+    ]
+    assert grid.metadata["crop_bbox"] == [4, 3, 16, 12]
+    assert grid.metadata["canvas_pad"]["source_size"] == [12, 9]
+    assert grid.metadata["canvas_pad"]["output_size"] == [16, 16]
 
 
 def test_extract_handles_crop_smaller_than_output_grid(tmp_path: Path) -> None:
