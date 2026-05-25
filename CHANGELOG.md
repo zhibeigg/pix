@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.105] - 2026-05-25
+
+### Added
+
+- 作品网格卡片显示真实生成像素尺寸 tag，并按尺寸区间使用不同颜色区分。
+
 ## [1.37.104] - 2026-05-25
 
 ### Fixed

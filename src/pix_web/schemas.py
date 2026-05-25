@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field, computed_field, model_validator
+from PIL import Image
 
 from pix_web.storage import file_url
 
@@ -49,6 +50,47 @@ def _sprite_meta(path: str | None) -> dict[str, Any]:
 def _outputs_meta(path: str | None) -> dict[str, Any]:
     outputs = _load_meta_json(path).get("outputs")
     return outputs if isinstance(outputs, dict) else {}
+
+
+def _as_size_pair(value: Any) -> list[int] | None:
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        return None
+    try:
+        width, height = int(value[0]), int(value[1])
+    except (TypeError, ValueError):
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    return [width, height]
+
+
+def _meta_pixelized_size(path: str | None) -> list[int] | None:
+    pixelize = _load_meta_json(path).get("pixelize")
+    if not isinstance(pixelize, dict):
+        return None
+    effective = pixelize.get("effective_params")
+    if isinstance(effective, dict):
+        size = _as_size_pair(effective.get("output_size"))
+        if size:
+            return size
+    grid = pixelize.get("grid")
+    if isinstance(grid, dict):
+        readability = grid.get("readability")
+        if isinstance(readability, dict):
+            size = _as_size_pair([readability.get("width"), readability.get("height")])
+            if size:
+                return size
+    return None
+
+
+def _image_pixel_size(path: str | None) -> list[int] | None:
+    if not path:
+        return None
+    try:
+        with Image.open(path) as opened:
+            return [int(opened.width), int(opened.height)]
+    except Exception:  # noqa: BLE001 - API 响应不能因为旧文件缺失/损坏失败
+        return None
 
 
 def _resolve_meta_relative_path(meta_json_path: str | None, value: str | None) -> str | None:
@@ -301,6 +343,11 @@ class JobOutputResponse(BaseModel):
     preview_path: str | None
     analysis_json_path: str | None
     meta_json_path: str
+
+    @computed_field
+    @property
+    def pixelized_size(self) -> list[int] | None:
+        return _image_pixel_size(self.pixelized_path) or _meta_pixelized_size(self.meta_json_path)
 
     @computed_field
     @property

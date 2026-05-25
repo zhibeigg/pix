@@ -25,6 +25,7 @@ from pix_web.main import create_app
 from pix_web.models import AlipayGatewayMessage, AssetPackItem, CreditTransaction, GenerationBatch, GenerationJob, GenerationOutput, SystemSetting
 from pix_web.payment_providers import _alipay_sign_content, _is_rsa_certificate, _rsa_sign
 from pix_web.pipeline_adapter import asset_pipeline_input_from_job, run_job_pipeline
+from pix_web.schemas import JobOutputResponse
 from pix_web.worker import process_next_job
 from pix_web.system_settings import managed_pix_overrides_from_db
 
@@ -829,6 +830,27 @@ def _insert_succeeded_job(client: TestClient, user_id: int, prompt: str) -> int:
         return job.id
     finally:
         db.close()
+
+
+def test_job_output_response_exposes_real_pixelized_size(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    pixel = run_dir / "pixel.png"
+    Image.new("RGBA", (24, 24), (0, 0, 0, 0)).save(pixel)
+    meta = run_dir / "meta.json"
+    meta.write_text(json.dumps({"pixelize": {"effective_params": {"output_size": [16, 16]}}}), encoding="utf-8")
+
+    output = JobOutputResponse(
+        run_dir=str(run_dir),
+        source_path=str(pixel),
+        pixelized_path=str(pixel),
+        preview_path=None,
+        analysis_json_path=None,
+        meta_json_path=str(meta),
+    )
+
+    assert output.pixelized_size == [24, 24]
+    assert output.model_dump()["pixelized_size"] == [24, 24]
 
 
 def test_asset_pack_create_add_expand_and_capacity(client: TestClient) -> None:
