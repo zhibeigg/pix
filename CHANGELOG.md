@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.104] - 2026-05-25
+
+### Fixed
+
+- Grid 流程调整为先在完整 perfectPixel 图上去背景，再贴边裁剪主体，避免裁剪后背景参考色被误判。
+
 ## [1.37.103] - 2026-05-25
 
 ### Fixed
