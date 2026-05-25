@@ -50,8 +50,8 @@ def preprocess_generated_image(
     """按生成图预处理策略返回图像和可追踪 metadata。
 
     直接传入 ``legacy`` / ``none`` 时不改变图像。``perfect_pixel`` 优先调用
-    ``perfectPixel-main`` 官方实现并让它自动检测网格；``target_size`` 只作为后续
-    Pix Grid 提取的目标尺寸记录，不强行覆盖 official perfectPixel 的检测结果。
+    项目内置的 noCV2 perfectPixel 后端并让它自动检测网格；``target_size`` 只作为后续
+    Pix Grid 提取的目标尺寸记录，不强行覆盖 noCV2 后端的检测结果。
     """
     normalized = normalize_generated_preprocess_method(method)
     base_meta = {
@@ -102,7 +102,7 @@ def preprocess_generated_image(
             meta={**base_meta, "reason": details.get("reason", "failed"), **details},
         )
     target_mismatch = target_size is not None and (int(refined_w), int(refined_h)) != (int(target_size[0]), int(target_size[1]))
-    if target_mismatch and details.get("backend") != "perfectPixel-main/noCV2":
+    if target_mismatch and details.get("backend") != "vendor/perfectPixel-noCV2":
         return GeneratedPreprocessResult(
             image=image,
             meta={
@@ -131,12 +131,11 @@ def preprocess_generated_image(
 
 @lru_cache(maxsize=1)
 def _load_external_perfect_pixel():
-    """优先加载仓库根目录下的 theamusing/perfectPixel 源码。"""
-    repo_root = Path(__file__).resolve().parents[3]
-    module_path = repo_root / "perfectPixel-main" / "src" / "perfect_pixel" / "perfect_pixel_noCV2.py"
+    """加载项目内置的 theamusing/perfectPixel noCV2 后端。"""
+    module_path = Path(__file__).resolve().parent / "vendor" / "perfect_pixel_no_cv2.py"
     if not module_path.exists():
         raise FileNotFoundError(str(module_path))
-    spec = importlib.util.spec_from_file_location("pix_external_perfect_pixel_noCV2", module_path)
+    spec = importlib.util.spec_from_file_location("pix_vendor_perfect_pixel_no_cv2", module_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"无法加载 perfectPixel 模块：{module_path}")
     module = importlib.util.module_from_spec(spec)
@@ -176,7 +175,7 @@ def _get_external_perfect_pixel(
     if refined is not None:
         refined = np.asarray(refined, dtype=np.uint8)
     return refined_w, refined_h, refined, {
-        "backend": "perfectPixel-main/noCV2",
+        "backend": "vendor/perfectPixel-noCV2",
         "backend_path": str(module_path),
         "grid_size": list(grid_size) if grid_size else None,
         "requested_target_size": list(requested_target_size) if requested_target_size else None,

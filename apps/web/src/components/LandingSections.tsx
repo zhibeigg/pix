@@ -5,49 +5,8 @@ import { homepageExampleIconSizes, homepageExampleItemIcons, getHomepageIconsFor
 import { homepageExampleCategories, homepageExamples, getHomepageExampleItemSubject, getHomepageExampleItemSubjectPrompt, getHomepageExampleLabel, type HomepageExample } from '../homepageExamples'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import { PixPreviewFrame } from './pix/PixPreviewFrame'
-
-const spriteShowcases = [
-  {
-    name: '月刃骑士挥剑',
-    nameEn: 'Moonblade knight slash',
-    status: '9 帧',
-    statusEn: '9 frames',
-    prompt: '月刃骑士挥剑三段斩，银蓝盔甲小角色，侧身站姿，连续挥剑动作，适合 RPG 战斗序列帧，透明背景，像素动画精灵',
-    promptEn: 'Moonblade knight three-hit slash, silver-blue armored small character, side stance, continuous sword motion for RPG combat animation frames, transparent background, pixel animated sprite.',
-    brief: 'Pix sprite 全流程输出：3×3 生图 → 9 帧切分 → 共享调色板像素化 → 横向精灵图 + 序列帧播放。',
-    briefEn: 'Full Pix sprite pipeline: 3×3 source image → 9 frame split → shared-palette pixelization → horizontal sprite sheet + frame playback.',
-    source: '/hero-sprites/pipeline/moonblade-knight-source.png',
-    sourceLabel: '3×3 源图',
-    sourceLabelEn: '3×3 source',
-    sheet: '/hero-sprites/pipeline/moonblade-knight-sheet.png',
-    frameCount: 9,
-    durationMs: 120,
-    tone: 'bg-[hsl(var(--pix-lavender))] text-[hsl(var(--pix-charcoal))] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)]',
-    frames: Array.from({ length: 9 }, (_, index) => `/hero-sprites/pipeline/moonblade-knight-frame-${String(index + 1).padStart(2, '0')}.png`),
-  },
-  {
-    name: '黑紫魔气爆炸特效',
-    nameEn: 'Black-purple magic burst VFX',
-    status: '9 帧特效',
-    statusEn: '9-frame VFX',
-    prompt: '黑紫魔气爆炸特效，64×64 low-detail pixel art VFX，暗紫能量核心、黑色烟雾外扩、九帧爆发消散，透明背景，适合技能命中特效',
-    promptEn: 'Black-purple magic explosion VFX, 64×64 low-detail pixel art, dark purple energy core, black smoke expansion, nine-frame burst and fade, transparent background, suitable for skill hit effects.',
-    brief: '9 帧 64×64 像素特效：单帧 PNG → 横向精灵图 → 序列帧播放，可直接用于技能爆炸/魔法命中动画。',
-    briefEn: '9-frame 64×64 pixel VFX: single-frame PNGs → horizontal sprite sheet → frame playback, ready for skill explosions or magic hit animations.',
-    source: '/hero-sprites/pipeline/dark-purple-magic-explosion-source.png',
-    sourceLabel: '3×3 帧源图',
-    sourceLabelEn: '3×3 frame source',
-    sheet: '/hero-sprites/pipeline/dark-purple-magic-explosion-sheet.png',
-    frameCount: 9,
-    durationMs: 90,
-    tone: 'bg-[hsl(var(--pix-rose))] text-[hsl(var(--pix-charcoal))] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)]',
-    frames: Array.from({ length: 9 }, (_, index) => `/hero-sprites/pipeline/dark-purple-magic-explosion-frame-${String(index + 1).padStart(2, '0')}.png`),
-  },
-]
 
 const homepageExampleById = new Map(homepageExamples.map((example) => [example.id, example]))
-const featuredExamples = homepageExamples.slice(0, 4)
 
 type LandingSectionsProps = { authSlot: ReactNode }
 type IconSizeFilter = 'all' | string
@@ -64,136 +23,13 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
   const { text } = useI18n()
   return (
     <>
-      <SectionFrame id="pixel-ui" eyebrow={text('统一验收', 'Bring work together')} title={text('道具、UI 和动作帧在同一个素材工作区里验收', 'Review items, UI, and motion frames in one asset workspace')} description={text('图标、HUD、按钮、面板、角色动作和技能特效可以放进同一批素材；先把原型需要的交互表面补齐。', 'Icons, HUDs, buttons, panels, character actions, and skill VFX can live in the same batch so prototypes get the surfaces they need first.')}>
-        <WorkTogetherSection />
-      </SectionFrame>
-
-      <SectionFrame id="sprite-preview" surface="soft" eyebrow={text('精灵图流水线', 'Sprite pipeline')} title={text('角色动作和技能特效都能做成可播放的精灵图', 'Character actions and skill VFX become playable sprite sheets')} description={text('九宫格源图或单帧序列会切成帧、统一调色板像素化，并导出横向精灵图与真实序列帧播放。', '3×3 sources or single-frame sequences are split, palette-aligned, pixelized, and exported as horizontal sheets with real frame playback.')}>
-        <SpriteShowcaseList />
-      </SectionFrame>
-
-      <SectionFrame id="examples" eyebrow={text('新版图标墙', 'Processed icon wall')} title={text('608 张后处理图标，按真实尺寸和风格筛选', '608 processed icons filtered by real size and style')} description={text('主页范例区只展示当前新版物品图；每张卡片标出 PNG 实际尺寸、题材风格和物品主体，方便按尺寸档位或世界观题材快速筛选观看。', 'The sample area now shows only the current processed item icons; every card exposes the real PNG size, theme style, and subject so you can quickly review by size tier or setting.')}>
+      <SectionFrame id="examples" eyebrow={text('新版图标墙', 'Regenerated icon wall')} title={text('608 张全流程重生成图标，按真实尺寸和风格筛选', '608 fully regenerated icons filtered by real size and style')} description={text('主页只保留按清单逐图全流程重生成的物品 PNG；每张卡片标出实际尺寸、题材风格和物品主体，方便按尺寸档位或世界观题材筛选观看。', 'The homepage keeps only the item PNGs fully regenerated from the manifest; every card exposes the real size, theme style, and subject so you can filter by size tier or setting.')}>
         <ExampleAtlas />
       </SectionFrame>
 
       <AuthSection authSlot={authSlot} />
     </>
   )
-}
-
-function WorkTogetherSection() {
-  const { language, text } = useI18n()
-  const uiWorks = [
-    { name: text('背包格', 'Inventory slot'), src: '/hero-ui/inventory-slot.png', note: text('物品栏 / 装备槽', 'Inventory / Equipment'), span: 'sm:col-span-1' },
-    { name: text('技能按钮', 'Skill button'), src: '/hero-ui/skill-button.png', note: text('技能栏 / 快捷键', 'Skill bar / Hotkey'), span: 'sm:col-span-1' },
-    { name: text('生命条', 'Health bar'), src: '/hero-ui/health-bar.png', note: text('HUD / 战斗状态', 'HUD / Combat state'), span: 'sm:col-span-2' },
-    { name: text('对话框', 'Dialog panel'), src: '/hero-ui/dialog-panel.png', note: text('NPC 对话 / 提示窗', 'NPC dialog / Prompt'), span: 'sm:col-span-2' },
-    { name: text('任务牌', 'Quest card'), src: '/hero-ui/quest-card.png', note: text('任务列表 / 公告板', 'Quest list / Board'), span: 'sm:col-span-2' },
-    { name: text('金币计数器', 'Coin counter'), src: '/hero-ui/coin-counter.png', note: text('经济系统 / 商店', 'Economy / Shop'), span: 'sm:col-span-2' },
-    { name: text('菜单标签', 'Menu tab'), src: '/hero-ui/menu-tab.png', note: text('页签 / 设置面板', 'Tabs / Settings'), span: 'sm:col-span-2' },
-    { name: text('确认勾选', 'Check toggle'), src: '/hero-ui/check-toggle.png', note: text('开关 / 选项状态', 'Toggle / Option state'), span: 'sm:col-span-1' },
-  ]
-  const chips = [text('透明 PNG', 'Transparent PNG'), text('像素网格', 'Pixel grid'), text('ZIP 导出', 'ZIP export')]
-  return (
-    <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
-      <article className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card))] dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] lg:col-span-2">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('界面套件', 'UI kit')}</Badge>
-            <h3 className="mt-4 text-3xl font-semibold">{text('同一批次补齐道具和界面', 'Complete items and UI in one batch')}</h3>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/68">{text('少切工具，先把原型需要的图标、血条、按钮和对话面板做出来。素材和界面使用同一套队列与点数规则，结果统一进作品库。', 'Switch tools less: create icons, health bars, buttons, and dialog panels needed by the prototype first. Assets and UI share the same queue and credit rules, then land in the gallery.')}</p>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-xs font-bold text-[hsl(var(--pix-charcoal))] dark:text-white/75">
-            {chips.map((item) => <span key={item} className="rounded-lg border border-border bg-[hsl(var(--secondary))] px-3 py-2 dark:border-white/10 dark:bg-white/7">{item}</span>)}
-          </div>
-        </div>
-        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-4">
-          {uiWorks.map((item) => <article key={item.name} className={`rounded-lg border border-border bg-card p-3 transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] ${item.span}`}><PixPreviewFrame url={item.src} className="min-h-32" /><p className="mt-3 text-sm font-semibold">{item.name}</p><p className="text-xs text-muted-foreground">{item.note}</p></article>)}
-        </div>
-      </article>
-
-      <div className="grid gap-4 lg:self-start">
-        <article className="rounded-lg bg-[hsl(var(--pix-lavender))] p-5 text-[hsl(var(--pix-charcoal))] dark:border dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)]">
-          <Badge variant="secondary">{text('精灵帧', 'Sprite')}</Badge>
-          <h3 className="mt-4 text-xl font-semibold">{text('动作帧可播放验收', 'Playable action-frame review')}</h3>
-          <div className="mt-4 grid h-32 place-items-center rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-4 dark:border-white/12 dark:bg-white/7">
-            <SpriteFramePlayer showcase={spriteShowcases[0]} className="h-24 w-24" />
-          </div>
-        </article>
-        <article className="rounded-lg bg-[hsl(var(--pix-sky))] p-5 text-[hsl(var(--pix-charcoal))] dark:border dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)]">
-          <Badge variant="info">{text('图谱', 'Atlas')}</Badge>
-          <h3 className="mt-4 text-xl font-semibold">{text('题材样本带真实尺寸', 'Theme samples keep real sizes')}</h3>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {featuredExamples.map((example) => <div key={example.id} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-2 dark:border-white/10 dark:bg-white/7"><ExampleIconStrip example={example} compact /><p className="mt-2 truncate text-xs font-semibold">{getHomepageExampleLabel(example, language).theme}</p></div>)}
-          </div>
-        </article>
-      </div>
-    </div>
-  )
-}
-
-function SpriteShowcaseList() {
-  return <div className="grid gap-8">{spriteShowcases.map((showcase) => <SpriteShowcase key={showcase.name} showcase={showcase} />)}</div>
-}
-
-function SpriteShowcase({ showcase }: { showcase: typeof spriteShowcases[number] }) {
-  const { text } = useI18n()
-  const name = text(showcase.name, showcase.nameEn)
-  const status = text(showcase.status, showcase.statusEn)
-  const prompt = text(showcase.prompt, showcase.promptEn)
-  const brief = text(showcase.brief, showcase.briefEn)
-  const sourceLabel = text(showcase.sourceLabel, showcase.sourceLabelEn)
-  const mutedTextClass = 'text-[hsl(var(--pix-slate))] dark:text-white/70'
-  const insetCardClass = 'border-[hsl(var(--pix-navy))]/15 bg-white/65 dark:border-white/12 dark:bg-white/7'
-  const statusBadgeClass = 'border-[hsl(var(--pix-navy))]/20 bg-white/55 text-[hsl(var(--pix-navy))] dark:border-white/20 dark:bg-white/7 dark:text-white'
-  return (
-    <div className="grid items-center gap-8 lg:grid-cols-[.82fr_1.18fr]">
-      <div className={`rounded-lg border border-border p-6 shadow-[0_4px_12px_rgba(15,15,15,0.08)] ${showcase.tone}`}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('精灵图流水线', 'Sprite pipeline')}</Badge>
-            <h3 className="mt-5 text-3xl font-semibold">{name}</h3>
-            <p className={`mt-3 text-sm leading-7 ${mutedTextClass}`}>{brief}</p>
-          </div>
-          <Badge variant="outline" className={statusBadgeClass}>{status}</Badge>
-        </div>
-        <div className={`mt-6 grid place-items-center rounded-lg border p-6 ${insetCardClass}`}>
-          <SpriteFramePlayer showcase={showcase} className="h-24 w-24" />
-        </div>
-        <PromptBox title={text('中文提示词', 'English prompt')} text={prompt} tone="light" />
-      </div>
-      <div className="grid gap-4">
-        <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_2px_rgba(15,15,15,0.04)]">
-          <div className="mb-3 flex items-center justify-between gap-3"><p className="text-sm font-semibold">{text('横向精灵图', 'Horizontal sprite sheet')}</p><Badge variant="outline">{text(`${showcase.frameCount} 帧`, `${showcase.frameCount} frames`)}</Badge></div>
-          <div className="pix-checkerboard overflow-hidden rounded-lg border border-border p-3">
-            <img src={showcase.sheet} alt={text(`${showcase.name} 横向精灵图`, `${showcase.nameEn} horizontal sprite sheet`)} loading="lazy" decoding="async" className="h-20 w-full object-contain [image-rendering:pixelated]" />
-          </div>
-        </div>
-        <div className="grid grid-cols-9 gap-1.5 rounded-lg border border-border bg-card p-4 shadow-[0_1px_2px_rgba(15,15,15,0.04)]">
-          {showcase.frames.map((frame, index) => (
-            <img key={frame} src={frame} alt={text(`${showcase.name} 第 ${index + 1} 帧`, `${showcase.nameEn} frame ${index + 1}`)} loading="lazy" decoding="async" className="aspect-square w-full rounded-lg border border-border bg-muted/35 object-contain p-1 [image-rendering:pixelated]" />
-          ))}
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-lg border border-border bg-card p-4"><p className="mb-2 text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{sourceLabel}</p><PixPreviewFrame url={showcase.source} className="min-h-44" /></div>
-          <div className="rounded-lg border border-border bg-card p-4"><p className="mb-2 text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{text('序列帧播放', 'Frame playback')}</p><div className="pix-checkerboard grid min-h-44 place-items-center rounded-lg border border-border p-4"><SpriteFramePlayer showcase={showcase} className="h-32 w-32" /></div></div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function SpriteFramePlayer({ showcase, className }: { showcase: typeof spriteShowcases[number]; className: string }) {
-  const { text } = useI18n()
-  const [frameIndex, setFrameIndex] = useState(0)
-  useEffect(() => {
-    showcase.frames.forEach((frame) => { const image = new Image(); image.src = frame })
-    if (showcase.frames.length <= 1) return
-    const timer = window.setInterval(() => setFrameIndex((value) => (value + 1) % showcase.frames.length), showcase.durationMs)
-    return () => window.clearInterval(timer)
-  }, [showcase.durationMs, showcase.frames])
-  const frame = showcase.frames[frameIndex] ?? showcase.frames[0]
-  return <img src={frame} alt={text(`${showcase.name} 序列帧播放预览`, `${showcase.nameEn} frame playback preview`)} className={`${className} object-contain [image-rendering:pixelated]`} draggable={false} />
 }
 
 function ExampleAtlas() {
@@ -433,24 +269,6 @@ function sizeToneClass(sizeKey: string) {
   if (sizeKey === '64x64') return 'border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-300/20 dark:bg-violet-300/12 dark:text-violet-100'
   if (sizeKey === '96x96') return 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-300/20 dark:bg-rose-300/12 dark:text-rose-100'
   return 'border-stone-300 bg-stone-100 text-stone-800 dark:border-white/15 dark:bg-white/10 dark:text-white/80'
-}
-
-function PromptBox({ title, text: promptText, tone = 'default' }: { title: string; text: string; tone?: 'default' | 'light' | 'dark' }) {
-  const { text } = useI18n()
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
-  const boxClass = tone === 'dark'
-    ? 'border-white/12 bg-white/7 text-white/70'
-    : tone === 'light'
-      ? 'border-[hsl(var(--pix-navy))]/15 bg-white/55 text-[hsl(var(--pix-slate))] dark:border-white/12 dark:bg-white/7 dark:text-white/68'
-      : 'border-border bg-muted/40 text-muted-foreground'
-  const titleClass = tone === 'dark' ? 'text-white/65' : tone === 'light' ? 'text-[hsl(var(--pix-steel))] dark:text-white/55' : 'text-muted-foreground'
-  const handleCopy = useCallback(async () => {
-    const copied = await copyTextToClipboard(promptText)
-    setCopyState(copied ? 'copied' : 'failed')
-    window.setTimeout(() => setCopyState('idle'), 1300)
-  }, [promptText])
-  const copyLabel = copyState === 'copied' ? text('已复制', 'Copied') : copyState === 'failed' ? text('复制失败', 'Copy failed') : text('复制', 'Copy')
-  return <div className={`mt-4 rounded-lg border p-3 ${boxClass}`}><div className="flex items-center justify-between gap-3"><p className={`text-xs font-semibold uppercase tracking-[.12em] ${titleClass}`}>{title}</p><Button type="button" size="sm" variant="ghost" onClick={handleCopy} className="h-7 px-2 text-[11px]">{copyState === 'copied' ? <Check /> : <Copy />}{copyLabel}</Button></div><p className="mt-2 text-xs leading-6">{promptText}</p></div>
 }
 
 function AuthSection({ authSlot }: { authSlot: ReactNode }) {

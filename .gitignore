@@ -44,6 +44,9 @@ htmlcov/
 scripts/_smoke_*.py
 testlist.md
 pix-*-redesign-check.png
+homepage-examples-preview.png
+tmp-home-*.png
+perfectPixel-main/
 
 # IDE
 .idea/

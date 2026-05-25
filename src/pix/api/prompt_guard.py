@@ -85,7 +85,7 @@ def validate_user_prompt(
 ) -> PromptGuardResult:
     """审核用户原始素材描述。
 
-    默认先跑本地规则；没有 VL key 或模型异常时退回本地规则，避免 CLI/Web 在未配置
+    默认先跑本地规则；没有 VL key 或模型异常时退回本地规则，避免 Web 在未配置
     VL key 时无法使用生图。若 `prompt_guard_failure_policy=reject`，模型异常会拒绝。
     `allow_template_break` 仅用于原始单图模式，允许用户要求单张、无候选和无抠色。
     """

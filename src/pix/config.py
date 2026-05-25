@@ -1,7 +1,7 @@
 """统一的配置加载与合并。
 
 优先级（后者覆盖前者）：
-    默认值 < config.toml < .env < 环境变量 < CLI 显式传入参数
+    默认值 < config.toml < .env < 环境变量 < 调用方显式覆盖
 """
 
 from __future__ import annotations
@@ -166,7 +166,7 @@ class AssetConfig:
     fit_mode: str = "smart"
     fit_padding: int = 1
     fit_min_axis_coverage: float = 0.7
-    # Asset 直出默认使用 prompt构建.md 的 TRUE pixel-art + 动态纯色背景标准模板
+    # Asset 直出默认使用 README 中的 TRUE pixel-art + 动态纯色背景标准模板
     palette_mode: str = "auto"
     prompt_template: str = (
         "Convert the input image or described subject into a TRUE pixel-art game asset designed "
@@ -339,7 +339,7 @@ def load_config(
 
     Args:
         config_file: 可选 TOML 配置文件路径；默认检索 ./config.toml。
-        overrides: CLI/GUI 传入的覆盖值，结构与 AppConfig 一致（section -> field -> value）。
+        overrides: 调用方传入的覆盖值，结构与 AppConfig 一致（section -> field -> value）。
         env_file: .env 路径，None 表示跳过。
     """
     # 1. 加载 .env

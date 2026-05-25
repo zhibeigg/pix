@@ -4,23 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pix"
-version = "1.38.106"
-description = "Prompt → AI image → multimodal JSON → pixel art pipeline, with CLI and PySide6 GUI."
+version = "1.40.106"
+description = "Web pixel-art asset generation service with FastAPI backend and React frontend."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "纸杯 (zhibeigg)", email = "92575122+zhibeigg@users.noreply.github.com" }]
-keywords = ["pixel-art", "ai", "image-generation", "multimodal", "packy", "gpt-image"]
+keywords = ["pixel-art", "ai", "image-generation", "fastapi", "gpt-image"]
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Environment :: X11 Applications :: Qt",
-    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
     "Topic :: Multimedia :: Graphics",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
@@ -30,21 +30,8 @@ dependencies = [
     "Pillow>=10.2",
     "numpy>=1.26",
     "scikit-learn>=1.3",
-    "typer>=0.12",
-    "rich>=13.7",
     "python-dotenv>=1.0",
     "tomli>=2.0; python_version < '3.11'",
-    "tomli-w>=1.0",
-]
-
-[project.urls]
-Homepage = "https://github.com/zhibeigg/pix"
-Repository = "https://github.com/zhibeigg/pix"
-Issues = "https://github.com/zhibeigg/pix/issues"
-
-[project.optional-dependencies]
-gui = ["PySide6>=6.6"]
-web = [
     "fastapi>=0.115",
     "uvicorn>=0.30",
     "sqlalchemy>=2.0",
@@ -59,10 +46,16 @@ web = [
     "cryptography>=42",
     "alipay-sdk-python>=3.7.1160",
 ]
-dev = ["pytest>=8.0", "ruff>=0.4"]
+
+[project.urls]
+Homepage = "https://github.com/zhibeigg/pix"
+Repository = "https://github.com/zhibeigg/pix"
+Issues = "https://github.com/zhibeigg/pix/issues"
+
+[project.optional-dependencies]
+dev = ["ruff>=0.4"]
 
 [project.scripts]
-pix = "pix.cli:app"
 pix-web-api = "pix_web.main:run_dev"
 pix-web-worker = "pix_web.worker:main"
 pix-web-rq-worker = "pix_web.rq_worker:main"
@@ -71,14 +64,11 @@ pix-web-check = "pix_web.checks:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.setuptools.package-data]
-pix = ["py.typed", "assets/icons/*"]
-
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-src = ["src", "tests"]
-extend-exclude = ["outputs", ".pix_cache", "build", "dist"]
+src = ["src"]
+extend-exclude = ["outputs", "web_outputs", ".pix_cache", "build", "dist"]
 
 [tool.ruff.lint]
 select = [
@@ -92,10 +82,6 @@ select = [
 # 如果想启用：把 "I" / "UP" 加回来并单独跑 `ruff check --select I --fix`。
 ignore = [
     "E501",  # 行长度交给 formatter 自觉遵循，避免为几个字符频繁打断
-    "B008",  # Typer/FastAPI 风格的 Depends()/Argument() 在默认值里调用是惯例
+    "B008",  # FastAPI 风格的 Depends() 在默认值里调用是惯例
     "B904",  # raise ... from 强制打开后约束太严
-    "B017",  # pytest.raises(Exception) 在 smoke 测试里是合理的
 ]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["B011", "E712"]  # assert False 在测试里是常见写法

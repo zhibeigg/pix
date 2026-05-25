@@ -627,7 +627,7 @@ const homepageItemSlotCount = 8
 export const homepageExampleItemIcons: HomepageExampleItemIcon[] = homepageExamples.flatMap((example) =>
   Array.from({ length: homepageItemSlotCount }, (_, index) => {
     const slotLabel = String(index + 1).padStart(2, '0')
-    const file = example.itemFile.replace('.png', `_${slotLabel}.png`)
+    const file = `${example.id}_item_${slotLabel}.png`
     const [width, height] = homepageExampleItemIconDimensions[file] ?? [0, 0]
     return {
       id: `${example.id}_${slotLabel}`,

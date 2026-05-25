@@ -1,713 +1,163 @@
-# Pix
+# Pix Web
 
-<p align="center">
-  <strong>AI 像素素材生产线：从一句话、源图或批量清单，生成可进游戏的透明 PNG 与 Pixel Grid 工程图。</strong>
-</p>
+Pix 是一个面向网站的像素素材生成服务：React 前端 + FastAPI 后端 + `src/pix` 素材生成核心。当前仓库只保留网站运行所需内容；历史 CLI、桌面 GUI、旧素材、测试与临时输出已移除。
 
-<p align="center">
-  <a href="#快速开始">快速开始</a> ·
-  <a href="#cli">CLI</a> ·
-  <a href="#游戏素材直出">素材直出</a> ·
-  <a href="#web-工作台">Web 工作台</a> ·
-  <a href="#配置">配置</a> ·
-  <a href="#开发">开发</a>
-</p>
-
-<p align="center">
-  <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
-  <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.38.106-6f42c1.svg">
-  <img alt="tests" src="https://img.shields.io/badge/tests-419%20passed-2ea44f.svg">
-</p>
-
----
-
-## Pix 是什么？
-
-Pix 不是普通的“AI 生图相册”。它是一条面向游戏素材生产的工程化流水线：
+## 仓库结构
 
 ```text
-Prompt / Image
-    ↓
-受控生图 / 图生图编辑 / 本地像素化
-    ↓
-候选生成与 VL 评分
-    ↓
-结构化图像理解 JSON
-    ↓
-Pixel Grid 提取 / 调色 / 后处理
-    ↓
-透明 PNG + .grid.json + preview + meta
+apps/web/                         # React/Vite 前端
+apps/web/public/homepage-examples/ # 主页示例物品 icon 静态资源
+migrations/                       # Alembic 数据库迁移
+src/pix/                          # 网站后端依赖的素材生成核心
+src/pix_web/                      # FastAPI API、worker、账号/计费/任务系统
+assets/presets/                   # 像素化预设，后端运行时会读取
+homepage示例物品icon清单.md        # 主页 608 个示例 icon 的维护清单
+config.example.toml               # Pix 核心可选配置示例
+.env.example                      # 本地后端环境变量示例
+.env.production.example           # Docker/生产环境变量示例
+Dockerfile / docker-compose.yml    # 后端镜像与整站编排
 ```
 
-Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交付**的游戏资产：图标、道具、UI、精灵表、动画 GIF、素材包。
+> 注意：Web 后端不仅依赖 `src/pix_web`，还依赖 `src/pix` 中的 `asset.py`、`pipeline.py`、`pixelize/*`、`grid/*`、`api/*`、`sprite.py` 等核心代码。
 
----
+## 本地开发
 
-## 为什么用 Pix？
-
-| 问题 | Pix 的处理方式 |
-|---|---|
-| AI 图好看但不能进游戏 | 输出透明 PNG、固定尺寸、有限调色板、nearest 预览 |
-| 小图标缩小后糊掉 | AI 生图后先做 perfectPixel 风格网格对齐，再使用 Pixel Grid JSON 中间表示，最终由 Python 精确渲染 |
-| 一次生图结果不稳定 | n-sample / contact sheet 候选生成 + VL 自动评分选择 |
-| 背景难抠、边缘脏 | 动态 key color、透明背景处理，用户可选择描边、羽化边缘或不额外处理 |
-| 生成过程不可追溯 | 每次运行写入 `meta.json`、`provenance.json`、源图与参数 |
-| 网站化运营成本不可控 | Web 版支持账户、点数、队列、任务限制、批量包管理 |
-
----
-
-## 核心能力
-
-- **三种入口**
-  - 文生图：一句 prompt 生成源图并像素化。
-  - 图生图：上传图片 + 修改描述，先 AI 编辑再像素化。
-  - 本地像素化：已有图片直接转像素图，不需要网络。
-
-- **候选生成与评分**
-  - 默认 `n_sample`：一次生成多张独立 full-res 候选。
-  - 可切换 contact sheet：生成九宫格后自动切图。
-  - 生图 prompt 使用像素游戏素材约束，`{width}x{height}` 会按实际目标尺寸自动填充（例如 16x16、32x32、64x64），并把 `{key_tolerance}` 填成当前抠色最大色容差，要求主体可见颜色保持在 key background 的最大容差边界之外，降低误抠。
-  - VL 根据 prompt 符合度、轮廓、可读性、抠图质量评分。
-
-- **Pixel Grid 工程图**
-  - AI 生图/图生图结果会在首步经过内置 perfectPixel 风格预处理：按目标尺寸用 FFT/Sobel 网格对齐采样，修正伪像素格错位；本地上传像素化默认不改变旧行为。
-  - `.grid.json` 保存画布、调色板、像素矩阵、可读性元数据。
-  - PNG 由确定性渲染器生成，避免“看起来像像素图但实际很糊”。
-
-- **游戏素材直出**
-  - `pix asset` 默认按输出尺寸拼接“像素游戏素材”模板，用户只需填写 `Subject:` 后面的主体内容。
-  - 支持物品图标 / UI 组件、单个道具 / 单个 UI 等类型选择，再进入 extract Pixel Grid → auto/K-means 调色 → 透明 PNG。
-  - 默认强调像素游戏素材语义、固定像素画布、清晰轮廓、按实际选择 `--colors` 写入可见主体颜色上限，并要求模型自行选择与主体颜色距离足够远的纯色背景；边缘处理可选择描边、羽化或不额外处理。
-
-- **动画精灵表**
-  - `pix sprite` 让生图模型输出 3×3 连续动画关键帧。
-  - 后端自动切出 9 帧、逐帧像素化、统一调色板，并输出 GIF 与横向精灵表 PNG。
-
-- **Web 工作台**
-  - FastAPI + React + Vite。
-  - 支持注册登录、管理员初始化、点数账户、邀请奖励返佣、任务队列、素材包、批量生成、ZIP 导出。
-  - 作品与素材包删除使用 Pix Forge 风格确认弹窗，明确展示影响范围并避免浏览器原生提示割裂体验。
-  - UI 提供始终启用的可见动效层：按钮点击涟漪、表单聚焦、弹层/表格/页面进入和奖励页环境流动都有即时反馈，不再根据 `prefers-reduced-motion` 降低或关闭动效。
-  - 单张/批量入口可直接调用 `pix asset` 同款游戏素材直出策略，按主体内容和类型选项生成透明 PNG 与 Pixel Grid。
-  - 主页与登录后工作台严格对齐 `apps/web/DESIGN.md` 的 Notion 式视觉：深海军蓝 Hero、紫色主 CTA、真实 Workspace 侧边栏、浅色 Canvas/Surface 与 pastel feature cards；主页范例区只展示 608 张新版后处理物品 PNG，并为每张图标标注实际尺寸 tag、题材风格 tag，支持按尺寸档位、大类和具体风格筛选观看，也可右键下载或复制该槽位主体 prompt。
-  - 管理后台可配置模型/API、价格、充值套餐、运营保护、素材默认值和面向全站展示的系统公告；首页会自动弹出新的已启用公告。
-
-- **可测试、可部署**
-  - Python CLI、GUI、Web API、worker 共用同一套核心流水线。
-  - 当前全量测试：`385 passed`。
-  - 支持 Docker Compose 生产预览部署。
-
----
-
-## 快速开始
-
-### 1. 环境要求
-
-- Python 3.10+
-- Node.js 18+（仅 Web 前端需要）
-- Packy API 或 OpenAI 兼容图像/视觉模型端点
-
-### 2. 安装
+### 后端
 
 ```bash
-git clone https://github.com/zhibeigg/pix
-cd pix
-
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS / Linux
-source .venv/bin/activate
-
-pip install -e ".[dev,web,gui]"
-```
-
-如果只用 CLI，可安装核心依赖：
-
-```bash
+py -m venv .venv
+. .venv/Scripts/activate
 pip install -e .
-```
-
-### 3. 配置密钥
-
-复制环境变量模板：
-
-```bash
 cp .env.example .env
-```
-
-至少配置：
-
-```env
-PACKY_API_KEY=sk-xxxxxxxxxx
-PACKY_VL_API_KEY=sk-xxxxxxxxxx
-```
-
-也可以复制默认配置：
-
-```bash
-cp config.example.toml config.toml
-```
-
-> `config.toml` 和 `.env` 默认被忽略，不会提交到仓库。
-
-### 4. 第一次运行
-
-```bash
-# 本地像素化，不走网络
-pix pixelize ./your_image.png --pixel-size 64x64 --colors 16
-
-# 文生图 → 分析 → 像素化
-pix gen "一枚红色宝石戒指，像素风 RPG 道具图标"
-
-# 游戏素材直出
-pix asset "紫檀木" --out 图片/紫檀木.png
-
-# 九宫格动画精灵表 → 9 帧 + GIF + 横向 PNG
-pix sprite "暗黑骑士挥剑三段斩，紫色暗影拖尾" \
-  --pixel-size 64x64 \
-  --colors 16 \
-  --duration-ms 120
-```
-
----
-
-## CLI
-
-Pix 的 CLI 命令：
-
-| 命令 | 用途 |
-|---|---|
-| `pix gen` | 文生图并完整跑完像素化流水线 |
-| `pix run` | 图片输入；可选 prompt 时走图生图编辑 |
-| `pix gen-only` | 只调用生图模型，保存候选/源图 |
-| `pix sprite` | 生成 3×3 动画关键帧，输出 9 帧、GIF 和横向精灵表 |
-| `pix analyze` | 只调用 VL，输出 PixAnalysis JSON |
-| `pix pixelize` | 只做本地像素化，不依赖网络 |
-| `pix asset` | 游戏素材直出：源图、Grid、透明 PNG、预览、元数据 |
-| `pix grid-extract` | 从源图提取 Pixel Grid JSON |
-| `pix grid-render` | 从 Pixel Grid JSON 渲染 PNG |
-| `pix grid-polish` | 对 Grid 做清噪、轮廓、调色板整理 |
-| `pix validate` | 检查素材尺寸、透明度、颜色数等 |
-| `pix batch` | 批量处理目录 |
-| `pix history` | 查询 `outputs/` 历史记录 |
-| `pix presets` | 查看内置风格预设 |
-| `pix gui` | 启动桌面 GUI |
-
-常用示例：
-
-```bash
-# 文生图全流程
-pix gen "一只橘猫戴着橙色围巾，温暖像素风" \
-  --image-size 1024x1024 \
-  --pixel-size 128x128 \
-  --colors 16
-
-# 图片 → 像素图
-pix run ./source.png --pixel-size 64x64 --preset pico8
-
-# 图片 + prompt → 图生图编辑 → 像素图
-pix run ./sword.png \
-  --prompt "保留剑的轮廓，改成冰蓝水晶材质" \
-  --pixel-size 64x64
-
-# 只做本地像素化
-pix pixelize ./source.png \
-  --pixel-size 32x32 \
-  --colors 12 \
-  --remove-bg \
-  --edge-style outline
-
-# 查询历史
-pix history --query 紫檀 --limit 20
-```
-
----
-
-## 游戏素材直出
-
-`pix asset` 是给游戏资源目录准备的快捷命令。用户只需要输入模板里 `Subject:` 后面的主体内容；尺寸、素材类型和实际颜色上限会自动拼入完整 prompt，主体类型由素材类型自动匹配。默认目标是稳定生成 16×16/32×32 等小图标，而不是追求高清插画感。
-
-```bash
-pix asset "冰霜之心" --out 图片/冰霜之心.png
-pix asset "幽香腐骨菇" --extra-prompt "purple poisonous mushroom, green spores" --overwrite
-pix asset "青铜按钮" --asset-kind ui_component --subject-kind single_ui --pixel-size 32x32 --colors 16
-```
-
-默认产物：
-
-```text
-图片/血气灵玉.png           # 最终透明 PNG
-图片/血气灵玉_source.png    # 原始生图源文件
-图片/血气灵玉.grid.json     # Pixel Grid 工程图
-图片/血气灵玉_preview.png   # nearest 放大预览
-图片/血气灵玉.asset.json    # 生产元数据
-```
-
-默认策略：
-
-| 项 | 默认值 | 说明 |
-|---|---|---|
-| 最低尺寸 | 16×16 | 16×16 以下不再支持 |
-| Prompt 构建 | `Subject: {name}` | 用户只写主体，系统自动加入尺寸、类型、像素风格、画幅约束和 `{max_colors}` 实际颜色上限 |
-| 类型选择 | 物品图标 / 单个道具 | 可切换为 UI 组件 / 单个 UI |
-| 生图背景 | 动态纯色背景 | 不固定为某个 HEX，只要求背景色与主体可见颜色距离大于当前抠色容差 |
-| Grid | 开启 | 先提取像素工程图，再渲染 PNG |
-| 调色 | `auto` / K-means | 保留自然手感 |
-| `grid_cleanup` | 关闭 | 需要清噪时显式开启 |
-| `grid_outline` | 关闭 | 需要硬轮廓时显式开启 |
-| `fit_canvas` | 关闭 | UI 条/按钮贴合画布时显式开启 |
-| `generated_preprocess_method=perfect_pixel` | 开启（仅 AI 生成结果） | 生图/图生图后先按目标尺寸做网格对齐采样，本地上传像素化默认不启用 |
-| `palette_mode=ramp` | 关闭 | 需要色阶重映射时手动开启 |
-
-常见增强：
-
-```bash
-# 清理孤立噪点
-pix asset "毒蘑菇" --grid-cleanup
-
-# 加强外轮廓
-pix asset "铁剑" --grid-outline
-
-# UI 条、按钮、面板可切换为 UI 组件模板并贴合目标画布
-pix asset "生命条" --asset-kind ui_component --subject-kind single_ui --pixel-size 64x16 --fit-canvas --fit-mode smart
-```
-
----
-
-## Pixel Grid JSON
-
-Pixel Grid 是 Pix 的核心中间表示：
-
-```jsonc
-{
-  "version": 1,
-  "canvas": { "width": 16, "height": 16, "transparent_index": -1 },
-  "axes": { "x": [0, 1, 2], "y": [0, 1, 2] },
-  "palette": [
-    { "id": 0, "hex": "#2A1115", "role": "outline" },
-    { "id": 1, "hex": "#C93A45", "role": "primary" }
-  ],
-  "pixels": [
-    [-1, -1, 0],
-    [-1, 0, 1],
-    [-1, -1, 0]
-  ],
-  "metadata": {
-    "generator": "extract_grid",
-    "readability": {}
-  }
-}
-```
-
-独立使用：
-
-```bash
-# 源图 → Grid JSON + PNG
-pix grid-extract source.png \
-  --pixel-size 16x16 \
-  --colors 12 \
-  --out item.grid.json \
-  --render item.png \
-  --preview-scale 12
-
-# Grid JSON → PNG
-pix grid-render item.grid.json --out item.png --preview-scale 12
-
-# 后处理 Grid
-pix grid-polish item.grid.json \
-  --out item.polished.grid.json \
-  --render item.polished.png
-```
-
----
-
-## Web 工作台
-
-Pix Web 是一个可运营的素材生产工作台：
-
-- 首次启动管理员初始化
-- 邮箱验证码注册登录
-- 点数账户与任务扣费/退款
-- 邀请奖励：用户可复制专属邀请链接，好友注册并充值后默认按 10% 产生 CNY 返佣；返佣先待到账 30 天，成熟后可划转为点数余额或提交提现申请
-- 游戏素材直出：只输入主体内容，前端选择物品图标 / UI 组件、单个道具 / 单个 UI 后由后端拼接完整 prompt，再进行 Pixel Grid 提取和透明 PNG 输出
-- 首页展示中文 prompt 全流程示例，鼠标悬浮或键盘聚焦物品格可展开源图 / Grid / 预览详情，并在动画卡片上播放 9 帧序列帧、显示横向精灵图
-- 独立原始生图页：只保留提供商、模型、尺寸、质量、敏感度和生成数量等基础参数，提交后停留在中央画布查看 source 原图与候选缩略图
-- 单图生成、图生图、本地像素化、动画精灵表；透明背景可选择描边、羽化边缘或不额外边缘处理
-- 批量素材直出、批量 prompt / 批量图片任务，结果统一进入作品库
-- 作品库最多保留每个账户最新 10 张普通成功作品，继续生成时会提示并自动清理最旧作品
-- 手动素材包：用户可像文件资源管理器一样单击打开、内联重命名、归档、下载 ZIP，并将作品库作品拖入永久保存
-- 每个素材包默认最多保存 100 个作品；素材包数量默认 1 个，每次扩容 +1 个可创建素材包数量消耗 99 点；已保存到素材包的作品不会被作品库自动清理
-- 作品库单任务失败重试、手动删除作品、素材包 ZIP 下载；ZIP 内文件使用“作品名_ID”作为命名头
-- 前端国际化统一使用 `i18next` / `react-i18next` 翻译键；浅色/深色/跟随系统主题继续走 Tailwind `dark` class、Radix 组件和 CSS 变量 token，不引入分散特例写法
-- 管理后台：模型/API、价格、充值套餐、运营保护、邮件配置
-- 支付模型：mock pay、支付宝电脑网站支付（基于官方 `alipay-sdk-python`，支持公钥模式 / 证书模式）、微信 Native 扫码支付
-
-### 本地启动
-
-安装 Web 依赖：
-
-```bash
-pip install -e ".[web]"
-npm install --prefix apps/web
-```
-
-配置 `.env`：
-
-```env
-PIX_WEB_DATABASE_URL=sqlite:///pix_web.db
-PIX_WEB_JWT_SECRET=change-me-to-a-long-random-secret
-PIX_WEB_STORAGE_ROOT=web_outputs
-PIX_WEB_AUTO_CREATE_DB=true
-PIX_WEB_QUEUE_BACKEND=database
-PIX_WEB_WORKER_CONCURRENCY=3
-PIX_WEB_EMAIL_PROVIDER=console
-```
-
-启动 API：
-
-```bash
 pix-web-api
-# 或
-uvicorn pix_web.main:app --reload
 ```
 
-启动 worker：
+常用后端命令：
 
 ```bash
-pix-web-worker
-# 测试时只处理一个任务
-pix-web-worker --once
+pix-web-api           # 启动 FastAPI 开发服务，默认 127.0.0.1:8000
+pix-web-worker        # 数据库队列 worker
+pix-web-rq-worker     # Redis/RQ worker
+pix-web-check         # 后端配置/环境检查
 ```
 
-`pix-web-worker` 默认并发上限为 3：有空闲槽位时任务会直接进入生成中，只有超过 `PIX_WEB_WORKER_CONCURRENCY` 后才继续保持排队中。`pix-web-rq-worker` 也会读取同一并发上限，并在单个 worker 容器内启动多个独立 RQ worker 子进程；生图/图生图等网络等待可并发，本地像素化、拆图和写盘阶段会串行执行。调整环境变量或管理后台的“Worker 并发上限”后需重启 worker。高并发还需要同步评估数据库连接数、Redis、外部生图 API 限流和 RQ `job_timeout`。
-
-启动前端：
+### 前端
 
 ```bash
-npm run dev --prefix apps/web
+cd apps/web
+npm install
+npm run dev
 ```
 
-默认访问：
-
-```text
-http://localhost:5173
-```
-
-本地访问时登录/注册面板会显示“使用本地测试账号”，点击后后端会创建/复用 `local-test@pix.example` 普通用户并补足 1000 点数；该入口与签发的 token 都只接受 `localhost` / `127.0.0.1` / `::1` 请求，也兼容本地 Docker/Nginx 反向代理，生产域名不会显示也不能调用。
-
-Vite 默认把 `/api` 代理到 `http://localhost:8000`；从 `127.0.0.1` 打开前端时，浏览器端会自动改走 `localhost` 代理，避免 Windows 本地 loopback 绑定差异。若需改后端地址：
+前端构建：
 
 ```bash
-VITE_PIX_API_PROXY_TARGET=http://localhost:8000 npm run dev --prefix apps/web
+cd apps/web
+npm run build
 ```
 
-### Docker Compose 预览部署
+## Docker 部署
 
-```bash
-cp .env.production.example .env.production
-# 编辑 .env.production，至少替换 PACKY_API_KEY、PIX_WEB_JWT_SECRET、POSTGRES_PASSWORD
+1. 复制生产环境变量：
 
-docker compose --env-file .env.production run --rm migrate
-docker compose --env-file .env.production up --build
-```
+   ```bash
+   cp .env.production.example .env.production
+   ```
 
-默认访问：
+2. 修改 `.env.production` 中的数据库密码、JWT secret、Packy API key、邮件与支付配置。
+3. 启动：
 
-```text
-http://localhost:8080
-```
+   ```bash
+   docker compose up --build
+   ```
 
-上线前检查：
+默认服务：
 
-```bash
-pix-web-check
-```
+- `web`：Nginx 托管前端，默认宿主机 `8080`。
+- `api`：FastAPI 后端。
+- `worker`：RQ 生成任务 worker。
+- `postgres` / `redis`：生产编排依赖。
 
-生产建议：
+## 关键环境变量
 
-```env
-PIX_WEB_AUTO_CREATE_DB=false
-PIX_WEB_QUEUE_BACKEND=rq
-PIX_WEB_REDIS_URL=redis://localhost:6379/0
-PIX_WEB_EMAIL_PROVIDER=smtp
-PIX_WEB_PUBLIC_BASE_URL=https://api.example.com
-PIX_WEB_FRONTEND_BASE_URL=https://www.example.com
-PIX_WEB_CORS_ORIGINS=https://www.example.com
-
-# SMTP 465 implicit SSL（QQ/网易/企业邮箱等常见配置）
-PIX_WEB_SMTP_HOST=smtp.example.com
-PIX_WEB_SMTP_PORT=465
-PIX_WEB_SMTP_USER=noreply@example.com
-PIX_WEB_SMTP_PASSWORD=change-me
-PIX_WEB_SMTP_FROM="Pix <noreply@example.com>"
-PIX_WEB_SMTP_SSL=true
-PIX_WEB_SMTP_TLS=false
-
-# 支付宝证书模式；证书内容可直接放变量，也可用 *_PATH 指向 Secret 文件。
-ALIPAY_MODE=certificate
-ALIPAY_APP_ID=your-app-id
-ALIPAY_PRIVATE_KEY=/run/secrets/alipay_private_key.pem
-ALIPAY_APP_CERT_PATH=/run/secrets/alipay_app_cert.crt
-ALIPAY_PUBLIC_CERT_PATH=/run/secrets/alipay_public_cert.crt
-ALIPAY_ROOT_CERT_PATH=/run/secrets/alipay_root_cert.crt
-```
-
-如需使用 SMTP 587 STARTTLS，请设置 `PIX_WEB_SMTP_PORT=587`、`PIX_WEB_SMTP_SSL=false`、`PIX_WEB_SMTP_TLS=true`。支付宝电脑网站支付已接入官方 `alipay-sdk-python` SDK 生成支付链接并校验回调签名；公钥模式继续使用 `ALIPAY_PUBLIC_KEY`，`ALIPAY_MODE=auto` 会在检测到证书配置时自动切换到证书模式。`PIX_WEB_FRONTEND_BASE_URL` 用于支付完成后浏览器跳回 Pix 充值页，前后端不同域名时建议显式配置。
-
-支付宝开放平台“应用网关”可配置为：
-
-```text
-https://你的域名/api/billing/webhook/alipay/app-gateway
-```
-
-该入口用于接收 `msg_method` / `biz_content` / `notify_id` 形式的开放平台消息通知，会复用支付宝公钥或证书配置验签，按 `notify_id` 幂等保存消息，并按支付宝要求返回纯文本 `success`。支付结果异步通知仍使用 `/billing/webhook/alipay`。
-
-点数中心支持固定套餐和自定义点数充值。自定义充值金额由后端按当前启用基准套餐单价派生，并在创建订单时重新计算；前端只展示预计金额，不能传入或篡改最终支付金额。
-
-素材包与批量生成已解耦：批量生成只进入作品库；用户可以在“素材包”页手动新建素材包，并把作品库中的成功作品拖入保存。每个素材包默认最多保存 100 个作品；素材包数量默认 1 个，每扩容 1 个可创建素材包数量消耗 99 点，扩容扣费写入点数流水。
-
----
-
-## GUI
-
-```bash
-pix gui
-```
-
-GUI 适合本地调参和快速预览：
-
-- 原图 / JSON / 像素图三联预览
-- 鼠标拖拽、滚轮缩放、双击复位
-- 右键复制图片、另存、打开所在目录
-- 设置对话框管理 Base URL、模型、API key
-- 支持 9 种语言界面
-
----
-
-## 配置
-
-配置优先级：
-
-```text
-默认值 < config.toml < .env < 环境变量 < CLI / GUI 显式参数
-```
-
-常用配置片段：
-
-```toml
-[api]
-base_url = "https://www.packyapi.com"
-timeout = 180.0
-max_retries = 3
-
-[image_gen]
-model = "gpt-image-2"
-size = "1024x1024"
-quality = "high"
-candidate_mode = "n_sample" # n_sample | contact_sheet
-n_sample_count = 4
-green_screen_tolerance = 48 # 同时作为 prompt 模板中的 {key_tolerance}
-contact_sheet_enabled = true
-prompt_guard_enabled = true
-candidate_vl_ranking_enabled = true
-
-[vision]
-model = "claude-opus-4-7"
-temperature = 0.2
-
-[pixelize]
-output_size = [128, 128]
-colors = 16
-dither = "floyd_steinberg"
-preset = "auto"
-resample = "smart"
-snap_to_grid = true
-palette_mode = "auto" # auto | ramp | kmeans
-generated_preprocess_method = "perfect_pixel" # AI 生图/图生图首步网格对齐；本地上传默认不启用
-
-# image_gen / asset 的 prompt 模板中，{width}x{height} 会随实际输出尺寸填充。
-# asset 模板还会把 {max_colors}/{colors} 填成用户实际选择的颜色上限；
-# 默认不固定背景 HEX，只要求纯色背景与主体可见颜色距离大于 {key_tolerance}。
-
-[asset]
-output_dir = "图片"
-pixel_size = [16, 16]
-colors = 12
-dither = "none"
-source_copy = true
-image_quality = "low"
-skip_vl = true
-remove_bg = true
-auto_crop = true
-grid_mode = true
-grid_json = true
-grid_cleanup = false
-grid_outline = false
-fit_canvas = false
-palette_mode = "auto"
-```
-
-密钥建议只放 `.env` 或部署平台 Secret：
-
-```env
-PACKY_API_KEY=sk-...
-PACKY_VL_API_KEY=sk-...
-```
-
----
-
-## 输出目录
-
-一次完整运行会在 `outputs/` 下创建独立目录：
-
-```text
-outputs/20260514-120000-a1b2c3d4/
-├── 00_input.txt
-├── 01_source.png
-├── 02_analysis.json
-├── 03_pixelized.png
-├── 03_pixelized.grid.json
-├── 04_pixelized_preview.png
-├── candidates/
-├── candidate_outputs/
-└── meta.json
-```
-
-首页示例图会额外记录：
-
-```text
-apps/web/public/homepage-examples/provenance.json
-```
-
-用于追踪示例图来自哪个 prompt、run directory、source、analysis 和 meta。
-
----
-
-## 风格预设
-
-内置预设：
-
-| 预设 | 说明 |
+| 变量 | 用途 |
 |---|---|
-| `auto` | 不强行套风格，保留用户参数与 VL 建议 |
-| `gameboy` | 复古掌机绿调 |
-| `nes` | 8-bit 游戏风格 |
-| `modern_pixel` | 更精细的现代像素插画 |
-| `pico8` | PICO-8 调色板 |
+| `PACKY_API_KEY` | 生图 API key，需支持 `gpt-image-2`。 |
+| `PACKY_VL_API_KEY` | 视觉模型 API key，可与 `PACKY_API_KEY` 共用。 |
+| `PACKY_BASE_URL` | Packy API Base URL，默认 `https://www.packyapi.com`。 |
+| `PIX_WEB_DATABASE_URL` | 后端数据库连接。开发可用 SQLite，生产建议 PostgreSQL。 |
+| `PIX_WEB_JWT_SECRET` | 登录 token 签名密钥，生产必须替换为长随机值。 |
+| `PIX_WEB_STORAGE_ROOT` | 用户上传、生成结果和任务文件根目录，默认 `web_outputs`。 |
+| `PIX_WEB_QUEUE_BACKEND` | `database` 或 `rq`。生产推荐 `rq`。 |
+| `PIX_WEB_REDIS_URL` | RQ/Redis 连接。 |
+| `PIX_WEB_PIX_CONFIG` | 可选：让 Web worker 加载指定 `config.toml`。 |
+| `PIX_WEB_CORS_ORIGINS` | 前后端不同源部署时填写允许的 Origin，多个用逗号分隔。 |
 
-查看：
+更多配置见 `.env.example`、`.env.production.example` 和 `config.example.toml`。
 
-```bash
-pix presets
-```
+## 网站素材生成流水线
 
----
+当前 `job_type = asset` 的网站直出流程是单图素材流水线，不再使用旧的“逐图补 64×64 / 32×32 outline”静态流程。
 
-## 开发
+实际步骤：
 
-安装开发依赖：
+1. `build_asset_prompt` 根据用户主体、素材类型、尺寸、颜色数和抠色容差构建 prompt。
+2. 本地 prompt guard 只审核用户原始输入，不把服务端模板暴露给审核模型。
+3. 使用 `gpt-image-2` 生成单张源图。
+4. 默认 `skip_vl = true`，不走普通 VL 分析。
+5. Pixel Grid extract：
+   - `perfect_pixel` 网格对齐；
+   - `remove_background` 去背景；
+   - `auto_crop` / tight bbox 贴主体裁剪；
+   - `transparent_canvas_pad` 补到预设尺寸档；
+   - sample cells / cluster palette；
+   - 渲染最终 PNG 与 `.grid.json`。
 
-```bash
-pip install -e ".[dev,web,gui]"
-npm install --prefix apps/web
-```
-
-常用命令：
-
-```bash
-py -m ruff check src tests scripts/generate_homepage_examples.py
-py -m pytest
-npm run build --prefix apps/web
-```
-
-当前验证基线：
+调试可视化阶段以 `fullflow-perfect-first-v2/step-preview-bg-first` 的顺序为准：
 
 ```text
-Ruff: all checks passed
-Pytest: 382 passed
-Web build: vite build passed
+01_source_raw.png
+02_perfect_pixel_auto_detect.png
+03_remove_background.png
+04_auto_crop_tight_bbox.png
+05_rounded_transparent_canvas.png
+06_final_grid_asset.png
 ```
 
-提交前建议：
+这些 `outputs/` 调试产物不入库。
 
-```bash
-git status --short
-git diff --check
-py -m ruff check src tests scripts/generate_homepage_examples.py
-py -m pytest
-npm run build --prefix apps/web
+## Prompt 构建规则
+
+网站输入框只要求用户填写主体/描述，服务端再拼装完整素材 prompt。模板中的动态值必须来自用户或当前任务参数：
+
+- `Canvas size must be exactly {width}x{height} pixels` 必须与用户实际选择的输出尺寸一致，例如 `16x16`、`32x32`、`64x64`。
+- `{asset_kind_label}` / `{subject_kind_label}` 由素材类型、主体类型选择自动填入。
+- `{max_colors}` / `{colors}` 使用用户实际选择的颜色数量上限，例如选择 12 色就写入 `no more than 12 visible subject colors`。
+- `{key_tolerance}` 使用当前实际抠色最大色距容差，例如网站素材默认 48。
+- 背景要求是“用于 chroma-key 移除的纯色背景，并与主体所有可见颜色保持足够色距”，不要固定写死为 `#FF00FF` 或任何单一 HEX。
+
+默认模板：
+
+```text
+Convert the input image or described subject into a TRUE pixel-art game asset designed for game inventory/UI use, not a painted digital illustration. Subject: {name}. Asset type: game {asset_kind_label}. Subject kind: {subject_kind_label}. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. Use no more than {max_colors} visible subject colors; background color does not count. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and easy placement in game UI. Use a pure solid single-color background for chroma-key removal; choose a background color that is not close to any visible subject color, with color-distance greater than the removal tolerance ({key_tolerance} RGB Euclidean distance). No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no UI frame, no labels.
 ```
 
----
+## 主页示例 icon 维护规则
 
-## 常见问题
+- `homepage示例物品icon清单.md` 必须保留，它是 76 个题材 × 8 个物品的维护清单。
+- 主页展示读取 `apps/web/public/homepage-examples/items/*.png` 中的最终 PNG。
+- 尺寸 tag 应来自最终 PNG 的真实宽高；不要把清单里的 `64x64` 当成最终固定尺寸。
+- 右键某个主页 icon 时，只复制主体 prompt 片段，例如“物品名 + 题材单个道具 + 可识别造型/材质特征”，不复制整组 prompt、尺寸或旧 64/32 说明。
+- 新增或重生成主页素材时，必须走上方网站素材生成流水线。
 
-### 不想调用 AI，可以只做本地像素化吗？
+## 版本与发布
 
-可以：
+当前版本：`1.40.106`。
 
-```bash
-pix pixelize source.png --pixel-size 64x64 --colors 16
-```
+版本号格式为 `A.B.C`：
 
-这条命令不依赖生图模型或 VL。
+- `A`：公开接口不兼容变更；
+- `B`：功能更新；
+- `C`：Bug 修复、兼容性修复。
 
-### 为什么 asset 默认不用 ramp？
-
-小尺寸图标里，ramp 重映射可能改变材质手感。`pix asset` 默认使用经典 `auto` / K-means，是为了贴近早期单图素材的稳定效果。需要更强色阶时可改配置：
-
-```toml
-[asset]
-palette_mode = "ramp"
-```
-
-### 8×8 还能生成吗？
-
-当前 `pix asset` 最低支持 16×16。8×8 的 AI Grid 直绘路径已经删除，避免维护多套不稳定策略。
-
-### Web 生产环境要注意什么？
-
-至少确认：
-
-- `PIX_WEB_JWT_SECRET` 已替换为强随机值。
-- `PACKY_API_KEY` 已配置。
-- `PIX_WEB_STORAGE_ROOT` 挂载到持久化卷。
-- 生产环境关闭 `PIX_WEB_AUTO_CREATE_DB`，改用 Alembic 迁移。
-- 邮件使用 SMTP，不使用开发用 `console`。
-- Redis/RQ worker 正常运行。
-- 支付密钥通过 Secret 管理，不写入仓库。
-
----
-
-## 版本规则
-
-版本格式：`A.B.C`
-
-| 位 | 含义 | 递增时机 |
-|---|---|---|
-| `A` | API 变动 | 公开接口发生不兼容变更 |
-| `B` | 功能更新 | 新增功能 |
-| `C` | 修复 | Bug 修复、兼容性修复、清理 |
-
-当前版本：`1.37.96`
-
----
-
-## License
-
-MIT © 2026 [纸杯 (zhibeigg)](https://github.com/zhibeigg)
-
-See [LICENSE](./LICENSE) for details.
-
----
-
-## 致谢
-
-- [Packy API](https://www.packyapi.com) — 图像生成与视觉模型访问
-- [Pillow](https://github.com/python-pillow/Pillow) — 图像处理
-- [Pydantic](https://docs.pydantic.dev/) — 结构化模型校验
-- [Typer](https://typer.tiangolo.com/) — CLI
-- [FastAPI](https://fastapi.tiangolo.com/) — Web API
-- [React](https://react.dev/) + [Vite](https://vite.dev/) — Web 前端
+完整变更记录见 `CHANGELOG.md`。
