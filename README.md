@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.37.96-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.38.106-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-419%20passed-2ea44f.svg">
 </p>
 
@@ -90,7 +90,7 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
   - 作品与素材包删除使用 Pix Forge 风格确认弹窗，明确展示影响范围并避免浏览器原生提示割裂体验。
   - UI 提供始终启用的可见动效层：按钮点击涟漪、表单聚焦、弹层/表格/页面进入和奖励页环境流动都有即时反馈，不再根据 `prefers-reduced-motion` 降低或关闭动效。
   - 单张/批量入口可直接调用 `pix asset` 同款游戏素材直出策略，按主体内容和类型选项生成透明 PNG 与 Pixel Grid。
-  - 主页与登录后工作台严格对齐 `apps/web/DESIGN.md` 的 Notion 式视觉：深海军蓝 Hero、紫色主 CTA、真实 Workspace 侧边栏、浅色 Canvas/Surface 与 pastel feature cards；76 套题材范例支持悬浮查看拆分后的 8 个物品格和 UI 展示图，并可右键下载指定案例图或复制该物品槽位 `主体：` 后面的 subject prompt 描述片段，而不是只复制物品名。
+  - 主页与登录后工作台严格对齐 `apps/web/DESIGN.md` 的 Notion 式视觉：深海军蓝 Hero、紫色主 CTA、真实 Workspace 侧边栏、浅色 Canvas/Surface 与 pastel feature cards；主页范例区只展示 608 张新版后处理物品 PNG，并为每张图标标注实际尺寸 tag、题材风格 tag，支持按尺寸档位、大类和具体风格筛选观看，也可右键下载或复制该槽位主体 prompt。
   - 管理后台可配置模型/API、价格、充值套餐、运营保护、素材默认值和面向全站展示的系统公告；首页会自动弹出新的已启用公告。
 
 - **可测试、可部署**

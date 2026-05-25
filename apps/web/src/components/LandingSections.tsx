@@ -1,7 +1,8 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type Ref } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
 import { Check, Copy, Download } from 'lucide-react'
 import { useI18n } from '../i18n'
-import { homepageExampleCategories, homepageExamples, getHomepageExampleItemSubject, getHomepageExampleItemSubjectPrompt, getHomepageExampleLabel, type HomepageExample, type HomepageExampleItemVariant } from '../homepageExamples'
+import { homepageExampleIconSizes, homepageExampleItemIcons, getHomepageIconsForExample, type HomepageExampleItemIcon } from '../homepageIconExamples'
+import { homepageExampleCategories, homepageExamples, getHomepageExampleItemSubject, getHomepageExampleItemSubjectPrompt, getHomepageExampleLabel, type HomepageExample } from '../homepageExamples'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
@@ -45,22 +46,16 @@ const spriteShowcases = [
   },
 ]
 
-const itemSpriteSlots = Array.from({ length: 8 }, (_, index) => index)
-type ItemSpriteVariant = HomepageExampleItemVariant
-
-const examplesByCategory = homepageExampleCategories.map((category) => ({
-  category,
-  examples: homepageExamples.filter((example) => example.category === category),
-}))
-
+const homepageExampleById = new Map(homepageExamples.map((example) => [example.id, example]))
 const featuredExamples = homepageExamples.slice(0, 4)
 
 type LandingSectionsProps = { authSlot: ReactNode }
-type ItemContextMenuHandler = (example: HomepageExample, variant: ItemSpriteVariant, index: number, event: MouseEvent<HTMLElement>) => void
+type IconSizeFilter = 'all' | string
+type CategoryFilter = 'all' | string
+type ThemeFilter = 'all' | string
+type ItemContextMenuHandler = (icon: HomepageExampleItemIcon, event: MouseEvent<HTMLElement>) => void
 type ExampleItemActionTarget = {
-  example: HomepageExample
-  variant: ItemSpriteVariant
-  index: number
+  icon: HomepageExampleItemIcon
   x: number
   y: number
 }
@@ -77,7 +72,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
         <SpriteShowcaseList />
       </SectionFrame>
 
-      <SectionFrame id="examples" eyebrow={text('范例图谱', 'Sample atlas')} title={text('76 套题材范例，像首屏一样悬浮验收', '76 sample themes with hover-to-review details')} description={text('默认同时展示原 64×64 资源和新 32×32 outline 图标；选择题材后拆开两套物品格，并展开 16:9 UI 展示图和当前语言提示词。', 'Show both original 64×64 resources and new 32×32 outline icons by default; selecting a theme opens both item sets, a 16:9 UI showcase, and localized prompts.')}>
+      <SectionFrame id="examples" eyebrow={text('新版图标墙', 'Processed icon wall')} title={text('608 张后处理图标，按真实尺寸和风格筛选', '608 processed icons filtered by real size and style')} description={text('主页范例区只展示当前新版物品图；每张卡片标出 PNG 实际尺寸、题材风格和物品主体，方便按尺寸档位或世界观题材快速筛选观看。', 'The sample area now shows only the current processed item icons; every card exposes the real PNG size, theme style, and subject so you can quickly review by size tier or setting.')}>
         <ExampleAtlas />
       </SectionFrame>
 
@@ -127,9 +122,9 @@ function WorkTogetherSection() {
         </article>
         <article className="rounded-lg bg-[hsl(var(--pix-sky))] p-5 text-[hsl(var(--pix-charcoal))] dark:border dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)]">
           <Badge variant="info">{text('图谱', 'Atlas')}</Badge>
-          <h3 className="mt-4 text-xl font-semibold">{text('题材范例可追溯', 'Traceable theme samples')}</h3>
+          <h3 className="mt-4 text-xl font-semibold">{text('题材样本带真实尺寸', 'Theme samples keep real sizes')}</h3>
           <div className="mt-4 grid grid-cols-2 gap-2">
-            {featuredExamples.map((example) => <div key={example.id} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-2 dark:border-white/10 dark:bg-white/7"><ItemVariantPair example={example} compact /><p className="mt-2 truncate text-xs font-semibold">{getHomepageExampleLabel(example, language).theme}</p></div>)}
+            {featuredExamples.map((example) => <div key={example.id} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/55 p-2 dark:border-white/10 dark:bg-white/7"><ExampleIconStrip example={example} compact /><p className="mt-2 truncate text-xs font-semibold">{getHomepageExampleLabel(example, language).theme}</p></div>)}
           </div>
         </article>
       </div>
@@ -203,198 +198,178 @@ function SpriteFramePlayer({ showcase, className }: { showcase: typeof spriteSho
 
 function ExampleAtlas() {
   const { language, text } = useI18n()
-  const [activeId, setActiveId] = useState(homepageExamples[0]?.id ?? '')
-  const [floatingExample, setFloatingExample] = useState<HomepageExample | null>(null)
+  const [sizeFilter, setSizeFilter] = useState<IconSizeFilter>('all')
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
+  const [themeFilter, setThemeFilter] = useState<ThemeFilter>('all')
   const [itemActionTarget, setItemActionTarget] = useState<ExampleItemActionTarget | null>(null)
-  const floatingPanelRef = useRef<HTMLElement | null>(null)
-  const floatingFrameRef = useRef<number | null>(null)
-  const floatingPointerRef = useRef({ x: 0, y: 0 })
-  const floatingSizeRef = useRef({ width: 760, height: 720 })
 
-  const updateFloatingPosition = useCallback(() => {
-    floatingFrameRef.current = null
-    const panel = floatingPanelRef.current
-    if (!panel) return
-
-    const { x, y } = floatingPointerRef.current
-    const { width, height } = floatingSizeRef.current
-    const left = Math.max(16, Math.min(x + 22, window.innerWidth - width - 16))
-    const top = Math.max(16, Math.min(y + 22, window.innerHeight - height - 16))
-    panel.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`
-  }, [])
-
-  const scheduleFloatingPosition = useCallback((event?: MouseEvent<HTMLButtonElement>) => {
-    if (event) floatingPointerRef.current = { x: event.clientX, y: event.clientY }
-    if (floatingFrameRef.current !== null) return
-    floatingFrameRef.current = window.requestAnimationFrame(updateFloatingPosition)
-  }, [updateFloatingPosition])
-
-  const cancelFloatingPosition = useCallback(() => {
-    if (floatingFrameRef.current === null) return
-    window.cancelAnimationFrame(floatingFrameRef.current)
-    floatingFrameRef.current = null
-  }, [])
-
-  const bindFloatingPanel = useCallback((node: HTMLElement | null) => {
-    floatingPanelRef.current = node
-    if (!node) return
-    floatingSizeRef.current = {
-      width: node.offsetWidth || 760,
-      height: node.offsetHeight || 720,
+  const categoryOptions = useMemo(() => homepageExampleCategories.map((category) => {
+    const example = homepageExamples.find((item) => item.category === category)
+    return {
+      category,
+      label: example ? getHomepageExampleLabel(example, language).category : category,
+      count: homepageExampleItemIcons.filter((icon) => homepageExampleById.get(icon.exampleId)?.category === category).length,
     }
-    scheduleFloatingPosition()
-  }, [scheduleFloatingPosition])
+  }), [language])
 
-  useEffect(() => () => cancelFloatingPosition(), [cancelFloatingPosition])
+  const themeOptions = useMemo(() => homepageExamples.filter((example) => categoryFilter === 'all' || example.category === categoryFilter), [categoryFilter])
 
-  useEffect(() => {
-    if (floatingExample) scheduleFloatingPosition()
-  }, [floatingExample, scheduleFloatingPosition])
+  const filteredIcons = useMemo(() => homepageExampleItemIcons.filter((icon) => {
+    const example = homepageExampleById.get(icon.exampleId)
+    if (!example) return false
+    if (sizeFilter !== 'all' && iconSizeKey(icon) !== sizeFilter) return false
+    if (categoryFilter !== 'all' && example.category !== categoryFilter) return false
+    if (themeFilter !== 'all' && example.id !== themeFilter) return false
+    return true
+  }), [categoryFilter, sizeFilter, themeFilter])
 
-  const hideFloating = useCallback(() => {
-    cancelFloatingPosition()
-    setFloatingExample(null)
-  }, [cancelFloatingPosition])
-
-  const selectExample = useCallback((id: string) => {
-    setActiveId((current) => (current === id ? current : id))
+  const activeFilterCount = [sizeFilter, categoryFilter, themeFilter].filter((value) => value !== 'all').length
+  const clearFilters = useCallback(() => {
+    setSizeFilter('all')
+    setCategoryFilter('all')
+    setThemeFilter('all')
   }, [])
-
-  const selectCategory = useCallback((id?: string) => {
-    if (!id) return
-    selectExample(id)
-  }, [selectExample])
-
-  const showFloating = useCallback((example: HomepageExample, event: MouseEvent<HTMLButtonElement>) => {
-    selectExample(example.id)
-    setFloatingExample((current) => (current?.id === example.id ? current : example))
-    scheduleFloatingPosition(event)
-  }, [scheduleFloatingPosition, selectExample])
-
-  const moveFloating = useCallback((event: MouseEvent<HTMLButtonElement>) => {
-    scheduleFloatingPosition(event)
-  }, [scheduleFloatingPosition])
-
+  const selectCategory = useCallback((nextCategory: CategoryFilter) => {
+    setCategoryFilter(nextCategory)
+    setThemeFilter('all')
+  }, [])
   const closeItemActionMenu = useCallback(() => setItemActionTarget(null), [])
-
-  const openItemActionMenu = useCallback<ItemContextMenuHandler>((example, variant, index, event) => {
+  const openItemActionMenu = useCallback<ItemContextMenuHandler>((icon, event) => {
     event.preventDefault()
     event.stopPropagation()
-    selectExample(example.id)
-    setFloatingExample((current) => (current?.id === example.id ? current : example))
-    const menuWidth = 288
-    const menuHeight = 180
+    const menuWidth = 304
+    const menuHeight = 188
     setItemActionTarget({
-      example,
-      variant,
-      index,
+      icon,
       x: Math.max(12, Math.min(event.clientX, window.innerWidth - menuWidth - 12)),
       y: Math.max(12, Math.min(event.clientY, window.innerHeight - menuHeight - 12)),
     })
-  }, [selectExample])
-
-  const labeledGroups = useMemo(() => examplesByCategory.map((group) => ({
-    ...group,
-    label: getHomepageExampleLabel(group.examples[0] ?? { category: group.category, theme: group.category } as HomepageExample, language).category,
-  })), [language])
+  }, [])
 
   return (
-    <div className="relative grid gap-6" onMouseLeave={hideFloating}>
+    <div className="grid gap-6">
       <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] md:p-8">
-        <div className="grid items-center gap-6 lg:grid-cols-[.9fr_1.1fr]">
-          <div><Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('范例图谱', 'Sample atlas')}</Badge><h3 className="mt-5 text-3xl font-semibold md:text-5xl">{text('题材不是列表，是可验收的样本墙', 'Themes are reviewable sample walls, not lists')}</h3><p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('每套范例同时保留原 64×64 透明资源、新 32×32 outline 图标和一张 1920×1080 界面展示图。悬浮卡片可展开详情；右键任意物品格可下载该图或复制它自己的 Prompt。', 'Each sample keeps the original 64×64 transparent resources, new 32×32 outline icons, and a 1920×1080 UI showcase. Hover a card for details; right-click any item slot to download that image or copy its own prompt.')}</p></div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">{labeledGroups.map((group) => <button type="button" key={group.category} onClick={() => selectCategory(group.examples[0]?.id)} className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/65 p-3 text-left transition hover:bg-white dark:border-white/10 dark:bg-white/7 dark:hover:bg-white/10"><p className="font-semibold">{group.label}</p><p className="text-xs text-[hsl(var(--pix-steel))] dark:text-white/55">{text(`${group.examples.length} 套范例`, `${group.examples.length} samples`)}</p></button>)}</div>
+        <div className="grid items-start gap-6 lg:grid-cols-[.86fr_1.14fr]">
+          <div>
+            <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('新版后处理', 'Processed set')}</Badge>
+            <h3 className="mt-5 text-3xl font-semibold md:text-5xl">{text('所有样本拆成单张图标，尺寸一眼可查', 'Every sample is a single icon with visible dimensions')}</h3>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('这里不再混入旧 64×64 对比图或 UI 展示图，只展示当前替换后的 608 张物品 PNG。点击任意图标可打开原图，右键可下载或复制该物品主体 Prompt。', 'This area no longer mixes old 64×64 comparisons or UI showcases; it only displays the 608 current processed item PNGs. Click any icon to open the source image, or right-click to download it or copy the subject prompt.')}</p>
+          </div>
+          <div className="grid gap-3 rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/60 p-4 dark:border-white/10 dark:bg-white/7">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <AtlasStat label={text('当前命中', 'Showing')} value={filteredIcons.length} />
+              <AtlasStat label={text('全部图标', 'Total icons')} value={homepageExampleItemIcons.length} />
+              <AtlasStat label={text('尺寸档位', 'Size tiers')} value={homepageExampleIconSizes.length} />
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[hsl(var(--pix-steel))] dark:text-white/58">
+              <span>{text('已按实际 PNG 宽高生成 tag', 'Tags are generated from real PNG dimensions')}</span>
+              {activeFilterCount > 0 && <Button type="button" size="sm" variant="ghost" onClick={clearFilters} className="h-7 px-2 text-xs">{text('清空筛选', 'Clear filters')}</Button>}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4">
+          <FilterGroup label={text('尺寸', 'Size')}>
+            <FilterChip active={sizeFilter === 'all'} onClick={() => setSizeFilter('all')}>{text('全部尺寸', 'All sizes')}</FilterChip>
+            {homepageExampleIconSizes.map((sizeKey) => <FilterChip key={sizeKey} active={sizeFilter === sizeKey} onClick={() => setSizeFilter(sizeKey)}><span className="font-mono">{formatIconSize(sizeKey)}</span></FilterChip>)}
+          </FilterGroup>
+
+          <FilterGroup label={text('大类', 'Category')}>
+            <FilterChip active={categoryFilter === 'all'} onClick={() => selectCategory('all')}>{text('全部大类', 'All categories')}</FilterChip>
+            {categoryOptions.map((option) => <FilterChip key={option.category} active={categoryFilter === option.category} onClick={() => selectCategory(option.category)}>{option.label}<span className="ml-1 opacity-60">{option.count}</span></FilterChip>)}
+          </FilterGroup>
+
+          <label className="grid gap-2 sm:max-w-sm">
+            <span className="text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{text('风格 / 题材', 'Style / theme')}</span>
+            <select value={themeFilter} onChange={(event) => setThemeFilter(event.target.value)} className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(15,15,15,0.04)] outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:bg-[hsl(var(--pix-dark-card))]">
+              <option value="all">{text('全部风格', 'All styles')}</option>
+              {themeOptions.map((example) => {
+                const label = getHomepageExampleLabel(example, language)
+                return <option key={example.id} value={example.id}>{example.number} · {label.theme}</option>
+              })}
+            </select>
+          </label>
         </div>
       </div>
-      <div className="grid gap-6">
-        {labeledGroups.map((group) => <div key={group.category}><div className="mb-4 flex items-end justify-between gap-3"><div><h3 className="text-3xl font-semibold">{group.label}</h3><p className="text-sm text-muted-foreground">{text(`${group.examples.length} 套双尺寸物品 + 界面范例`, `${group.examples.length} dual-size item + UI samples`)}</p></div><Badge variant="outline">{group.examples[0]?.number}—{group.examples[group.examples.length - 1]?.number}</Badge></div><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">{group.examples.map((example) => <ExampleTile key={example.id} example={example} active={activeId === example.id} onSelect={selectExample} onHoverStart={showFloating} onHoverMove={moveFloating} onItemContextMenu={openItemActionMenu} />)}</div></div>)}
-      </div>
-      {floatingExample && <ExampleFloatingDetail key={floatingExample.id} example={floatingExample} panelRef={bindFloatingPanel} onItemContextMenu={openItemActionMenu} />}
+
+      {filteredIcons.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          {filteredIcons.map((icon) => {
+            const example = homepageExampleById.get(icon.exampleId)
+            if (!example) return null
+            return <ExampleIconCard key={icon.id} icon={icon} example={example} onItemContextMenu={openItemActionMenu} />
+          })}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
+          <p className="text-base font-semibold text-foreground">{text('没有匹配的图标', 'No matching icons')}</p>
+          <p className="mt-2 text-sm">{text('换一个尺寸或风格筛选条件再看看。', 'Try another size or style filter.')}</p>
+          <Button type="button" variant="outline" onClick={clearFilters} className="mt-4">{text('查看全部 608 张', 'Show all 608')}</Button>
+        </div>
+      )}
       {itemActionTarget && <ExampleItemActionMenu target={itemActionTarget} onClose={closeItemActionMenu} />}
     </div>
   )
 }
 
-type ExampleTileProps = {
-  example: HomepageExample
-  active: boolean
-  onSelect: (id: string) => void
-  onHoverStart: (example: HomepageExample, event: MouseEvent<HTMLButtonElement>) => void
-  onHoverMove: (event: MouseEvent<HTMLButtonElement>) => void
-  onItemContextMenu: ItemContextMenuHandler
+function AtlasStat({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/70 px-3 py-2 dark:border-white/10 dark:bg-white/7"><p className="text-[11px] text-[hsl(var(--pix-steel))] dark:text-white/55">{label}</p><p className="text-xl font-semibold leading-tight">{value}</p></div>
 }
 
-const ExampleTile = memo(function ExampleTile({ example, active, onSelect, onHoverStart, onHoverMove, onItemContextMenu }: ExampleTileProps) {
-  const { language, text } = useI18n()
-  const label = getHomepageExampleLabel(example, language)
-  const handleSelect = useCallback(() => onSelect(example.id), [example.id, onSelect])
-  const handleHoverStart = useCallback((event: MouseEvent<HTMLButtonElement>) => onHoverStart(example, event), [example, onHoverStart])
-  return <button type="button" onClick={handleSelect} onMouseEnter={handleHoverStart} onMouseMove={onHoverMove} className={`rounded-lg border bg-card p-3 text-left transition hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] ${active ? 'border-primary ring-2 ring-primary/15' : 'border-border'}`}><div className="pix-checkerboard rounded-lg p-2"><ItemVariantPair example={example} compact onItemContextMenu={onItemContextMenu} /></div><div className="mt-3 flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-base font-semibold leading-tight">{label.theme}</p><p className="mt-1 text-xs text-muted-foreground">{label.category} · {text('64×64 + 32×32 + 界面', '64×64 + 32×32 + UI')}</p></div><Badge variant="outline" className="shrink-0">{example.number}</Badge></div></button>
-})
+function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="grid gap-2"><p className="text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{label}</p><div className="flex flex-wrap gap-2">{children}</div></div>
+}
 
-const ExampleFloatingDetail = memo(function ExampleFloatingDetail({ example, panelRef, onItemContextMenu }: { example: HomepageExample; panelRef: Ref<HTMLElement>; onItemContextMenu: ItemContextMenuHandler }) {
+function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return <button type="button" onClick={onClick} className={filterChipClass(active)} aria-pressed={active}>{children}</button>
+}
+
+const ExampleIconCard = memo(function ExampleIconCard({ icon, example, onItemContextMenu }: { icon: HomepageExampleItemIcon; example: HomepageExample; onItemContextMenu: ItemContextMenuHandler }) {
   const { language, text } = useI18n()
   const label = getHomepageExampleLabel(example, language)
-  const downloadItemSet = useCallback(() => downloadStaticFile(example.itemSrc, example.itemFile), [example.itemFile, example.itemSrc])
-  const downloadUi = useCallback(() => downloadStaticFile(example.uiSrc, example.uiFile), [example.uiFile, example.uiSrc])
+  const subject = getHomepageExampleItemSubject(example, icon.slot, language)
+  const sizeKey = iconSizeKey(icon)
   return (
-    <aside ref={panelRef} className="pointer-events-auto fixed left-0 top-0 z-[90] grid w-[760px] max-w-[calc(100vw-32px)] gap-3 rounded-lg border border-border bg-card/96 p-4 shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)] backdrop-blur-xl will-change-transform" style={{ transform: 'translate3d(-9999px, -9999px, 0)' }}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[.14em] text-primary">{text('Pix 范例', 'Pix sample')}</p>
-          <h3 className="mt-1 text-2xl font-semibold">{example.number} · {label.theme}</h3>
-          <p className="text-sm text-muted-foreground">{label.category} / {text('右键物品格可复制主体 Prompt', 'Right-click item slots to copy the subject prompt')}</p>
+    <article onContextMenu={(event) => onItemContextMenu(icon, event)} className="group rounded-lg border border-border bg-card p-3 transition hover:-translate-y-0.5 hover:border-primary/55 hover:shadow-[0_10px_24px_-18px_rgba(15,15,15,0.45)] dark:bg-[hsl(var(--pix-dark-card))]">
+      <a href={icon.src} target="_blank" rel="noreferrer" className="block" title={text(`打开 ${subject} 原图`, `Open source image for ${subject}`)}>
+        <div className="pix-checkerboard grid aspect-square place-items-center overflow-hidden rounded-lg border border-border bg-card p-3 dark:bg-[hsl(var(--pix-dark-band))]">
+          <img src={icon.src} alt={text(`${label.theme} ${subject}，实际尺寸 ${formatIconSize(sizeKey)}`, `${label.theme} ${subject}, actual size ${formatIconSize(sizeKey)}`)} loading="lazy" decoding="async" draggable={false} className="h-full w-full object-contain [image-rendering:pixelated]" />
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button size="sm" variant="outline" onClick={downloadItemSet}><Download />{text('物品组', 'Items')}</Button>
-          <Button size="sm" variant="outline" onClick={downloadUi}><Download />{text('UI 图', 'UI image')}</Button>
-          <Badge>{label.category}</Badge>
-        </div>
-      </div>
-      <div className="grid gap-3 lg:grid-cols-[1.05fr_.95fr]">
-        <div className="pix-checkerboard rounded-lg border border-border p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold">{text('物品资源对比', 'Item resource comparison')}</p>
-            <Badge variant="outline">64×64 + 32×32</Badge>
-          </div>
-          <ItemVariantPair example={example} onItemContextMenu={onItemContextMenu} />
-        </div>
-        <div className="overflow-hidden rounded-lg border border-border bg-muted">
-          <img src={example.uiSrc} alt={text(`${example.theme} 像素界面展示图`, `${label.theme} pixel UI showcase`)} loading="lazy" decoding="async" className="h-full min-h-44 w-full object-cover [image-rendering:pixelated]" />
+      </a>
+      <div className="mt-3 min-w-0">
+        <p className="truncate text-sm font-semibold">{subject}</p>
+        <p className="mt-1 truncate text-xs text-muted-foreground">{label.category} · {example.number}-{icon.slotLabel}</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <IconSizeBadge sizeKey={sizeKey} />
+          <span className="rounded-full border border-border bg-[hsl(var(--secondary))] px-2 py-0.5 text-[11px] font-semibold text-[hsl(var(--pix-slate))] dark:bg-white/7 dark:text-white/68">{label.theme}</span>
         </div>
       </div>
-    </aside>
+    </article>
   )
 })
 
-function ItemVariantPair({ example, compact = false, onItemContextMenu }: { example: HomepageExample; compact?: boolean; onItemContextMenu?: ItemContextMenuHandler }) {
-  const { text } = useI18n()
-  return <div className={`grid gap-2 ${compact ? '' : 'sm:grid-cols-2'}`}><ItemVariantPanel example={example} variant="original64" compact={compact} title={text('原 64×64', 'Original 64×64')} badge="64×64" onItemContextMenu={onItemContextMenu} /><ItemVariantPanel example={example} variant="outline32" compact={compact} title={text('新 32×32 outline', 'New 32×32 outline')} badge="32×32" onItemContextMenu={onItemContextMenu} /></div>
-}
-
-function ItemVariantPanel({ example, variant, compact, title, badge, onItemContextMenu }: { example: HomepageExample; variant: ItemSpriteVariant; compact: boolean; title: string; badge: string; onItemContextMenu?: ItemContextMenuHandler }) {
-  return <div className={`rounded-lg border border-border bg-card/75 ${compact ? 'p-1.5' : 'p-2'}`}><div className={`flex items-center justify-between gap-2 ${compact ? 'mb-1' : 'mb-2'}`}><p className={`${compact ? 'text-[10px]' : 'text-xs'} font-semibold text-muted-foreground`}>{title}</p><Badge variant="outline" className="shrink-0 text-[10px]">{badge}</Badge></div><ItemSpriteGrid example={example} variant={variant} compact={compact} onItemContextMenu={onItemContextMenu} /></div>
-}
-
-function ItemSpriteGrid({ example, variant = 'outline32', compact = false, onItemContextMenu }: { example: HomepageExample; variant?: ItemSpriteVariant; compact?: boolean; onItemContextMenu?: ItemContextMenuHandler }) {
+function ExampleIconStrip({ example, compact = false, onItemContextMenu }: { example: HomepageExample; compact?: boolean; onItemContextMenu?: ItemContextMenuHandler }) {
   const { language, text } = useI18n()
   const label = getHomepageExampleLabel(example, language)
-  const variantAlt = variant === 'original64' ? text('原 64×64 物品', 'original 64×64 item') : text('32×32 outline 物品', '32×32 outline item')
-  return <div className="grid grid-cols-4 gap-1">{itemSpriteSlots.map((index) => {
-    const subject = getHomepageExampleItemSubject(example, index, language)
-    return <div key={index} title={onItemContextMenu ? text(`右键下载或复制「${subject}」主体 Prompt`, `Right-click to download or copy the subject prompt for ${subject}`) : undefined} onContextMenu={(event) => onItemContextMenu?.(example, variant, index, event)} className={`aspect-square overflow-hidden rounded-lg border border-border bg-card ${compact ? 'p-0.5' : 'p-1'} ${onItemContextMenu ? 'cursor-context-menu transition hover:border-primary/60 hover:bg-primary/5' : ''}`}><img src={itemSlotSrc(example, index, variant)} alt={text(`${example.theme} ${subject} ${variantAlt}`, `${label.theme} ${subject} ${variantAlt}`)} loading="lazy" decoding="async" draggable={false} className="h-full w-full object-contain [image-rendering:pixelated]" /></div>
+  const icons = getHomepageIconsForExample(example.id)
+  return <div className="grid grid-cols-4 gap-1">{icons.map((icon) => {
+    const subject = getHomepageExampleItemSubject(example, icon.slot, language)
+    return <a key={icon.id} href={icon.src} target="_blank" rel="noreferrer" title={text(`${subject} · ${formatIconSize(iconSizeKey(icon))}`, `${subject} · ${formatIconSize(iconSizeKey(icon))}`)} onContextMenu={(event) => onItemContextMenu?.(icon, event)} className={`pix-checkerboard grid aspect-square place-items-center overflow-hidden rounded-md border border-border bg-card transition hover:border-primary/60 ${compact ? 'p-0.5' : 'p-1'}`}><img src={icon.src} alt={text(`${label.theme} ${subject}`, `${label.theme} ${subject}`)} loading="lazy" decoding="async" draggable={false} className="h-full w-full object-contain [image-rendering:pixelated]" /></a>
   })}</div>
+}
+
+function IconSizeBadge({ sizeKey }: { sizeKey: string }) {
+  return <span className={`rounded-full border px-2 py-0.5 font-mono text-[11px] font-semibold ${sizeToneClass(sizeKey)}`}>{formatIconSize(sizeKey)}</span>
 }
 
 function ExampleItemActionMenu({ target, onClose }: { target: ExampleItemActionTarget; onClose: () => void }) {
   const { language, text } = useI18n()
   const [copied, setCopied] = useState(false)
-  const label = getHomepageExampleLabel(target.example, language)
-  const subject = getHomepageExampleItemSubject(target.example, target.index, language)
-  const subjectPrompt = getHomepageExampleItemSubjectPrompt(target.example, target.index, language)
-  const variantLabel = target.variant === 'original64' ? text('原 64×64', 'Original 64×64') : text('32×32 outline', '32×32 outline')
-  const prompt = subjectPrompt
-  const imageUrl = itemSlotSrc(target.example, target.index, target.variant)
+  const example = homepageExampleById.get(target.icon.exampleId)
+  const label = example ? getHomepageExampleLabel(example, language) : null
+  const subject = example ? getHomepageExampleItemSubject(example, target.icon.slot, language) : target.icon.file
+  const subjectPrompt = example ? getHomepageExampleItemSubjectPrompt(example, target.icon.slot, language) : target.icon.file
+  const sizeLabel = formatIconSize(iconSizeKey(target.icon))
 
   useEffect(() => {
     const closeOnPointerDown = () => onClose()
@@ -411,23 +386,23 @@ function ExampleItemActionMenu({ target, onClose }: { target: ExampleItemActionT
   }, [onClose])
 
   const handleDownload = useCallback(() => {
-    downloadStaticFile(imageUrl, itemSlotFileName(target.example, target.index, target.variant))
+    downloadStaticFile(target.icon.src, target.icon.file)
     onClose()
-  }, [imageUrl, onClose, target.example, target.index, target.variant])
+  }, [onClose, target.icon.file, target.icon.src])
 
   const handleCopy = useCallback(async () => {
-    const ok = await copyTextToClipboard(prompt)
+    const ok = await copyTextToClipboard(subjectPrompt)
     setCopied(ok)
     if (ok) window.setTimeout(onClose, 650)
-  }, [onClose, prompt])
+  }, [onClose, subjectPrompt])
 
   return (
-    <div role="menu" aria-label={text('范例物品操作', 'Sample item actions')} className="fixed z-[110] w-72 rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)]" style={{ left: target.x, top: target.y }} onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => event.preventDefault()}>
+    <div role="menu" aria-label={text('范例物品操作', 'Sample item actions')} className="fixed z-[110] w-72 max-w-[calc(100vw-24px)] rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)]" style={{ left: target.x, top: target.y }} onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => event.preventDefault()}>
       <div className="px-2 pb-2 pt-1">
-        <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">{variantLabel} · {String(target.index + 1).padStart(2, '0')}</p>
-        <p className="mt-1 text-sm font-semibold">{label.theme} / {subject}</p>
+        <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">{sizeLabel} · {target.icon.slotLabel}</p>
+        <p className="mt-1 text-sm font-semibold">{label ? `${label.theme} / ${subject}` : subject}</p>
         <p className="mt-1 line-clamp-3 text-xs leading-5 text-muted-foreground">{subjectPrompt}</p>
-        <p className="mt-1 text-[11px] leading-5 text-muted-foreground/80">{text('只复制上面这段 `主体：` 后的 prompt，不带尺寸/风格模板。', 'Only copies the prompt above after `subject:`, without size or style template.')}</p>
+        <p className="mt-1 text-[11px] leading-5 text-muted-foreground/80">{text('复制的是主体 Prompt；下载会保存当前新版后处理 PNG。', 'Copies the subject prompt; download saves the current processed PNG.')}</p>
       </div>
       <div className="grid gap-1">
         <Button type="button" variant="ghost" className="justify-start" onClick={handleDownload}><Download />{text('下载这张图', 'Download this image')}</Button>
@@ -435,6 +410,29 @@ function ExampleItemActionMenu({ target, onClose }: { target: ExampleItemActionT
       </div>
     </div>
   )
+}
+
+function iconSizeKey(icon: Pick<HomepageExampleItemIcon, 'width' | 'height'>) {
+  return `${icon.width}x${icon.height}`
+}
+
+function formatIconSize(sizeKey: string) {
+  return sizeKey.replace('x', '×')
+}
+
+function filterChipClass(active: boolean) {
+  const base = 'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-primary/20'
+  if (active) return `${base} border-primary bg-primary text-primary-foreground shadow-[0_8px_18px_-14px_rgba(0,0,0,0.5)]`
+  return `${base} border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground dark:bg-white/7`
+}
+
+function sizeToneClass(sizeKey: string) {
+  if (sizeKey === '24x24') return 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-300/20 dark:bg-amber-300/12 dark:text-amber-100'
+  if (sizeKey === '32x32') return 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-300/20 dark:bg-emerald-300/12 dark:text-emerald-100'
+  if (sizeKey === '48x48') return 'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-300/20 dark:bg-sky-300/12 dark:text-sky-100'
+  if (sizeKey === '64x64') return 'border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-300/20 dark:bg-violet-300/12 dark:text-violet-100'
+  if (sizeKey === '96x96') return 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-300/20 dark:bg-rose-300/12 dark:text-rose-100'
+  return 'border-stone-300 bg-stone-100 text-stone-800 dark:border-white/15 dark:bg-white/10 dark:text-white/80'
 }
 
 function PromptBox({ title, text: promptText, tone = 'default' }: { title: string; text: string; tone?: 'default' | 'light' | 'dark' }) {
@@ -486,19 +484,6 @@ function SectionFrame({ id, eyebrow, title, description, children, surface = 'de
       </div>
     </section>
   )
-}
-
-function itemSlotSrc(example: HomepageExample, index: number, variant: ItemSpriteVariant = 'outline32') {
-  const slotSrc = example.itemSrc.replace('.png', `_${String(index + 1).padStart(2, '0')}.png`)
-  return slotSrc.replace(
-    '/homepage-examples/items/',
-    variant === 'original64' ? '/homepage-examples/items-64/' : '/homepage-examples/items-32-outline/',
-  )
-}
-
-function itemSlotFileName(example: HomepageExample, index: number, variant: ItemSpriteVariant) {
-  const variantLabel = variant === 'original64' ? '64x64' : '32x32-outline'
-  return `pix-${example.id}-${variantLabel}-${String(index + 1).padStart(2, '0')}.png`
 }
 
 function downloadStaticFile(url: string, filename: string) {
