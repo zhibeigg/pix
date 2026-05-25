@@ -495,6 +495,23 @@ def _sample_edge_colors(
     return refs
 
 
+def _corner_colors_consistent(
+    colors: list[tuple[int, int, int]],
+    tolerance: int,
+) -> bool:
+    """判断四角主色是否只是同一背景的轻微波动。"""
+    if len(colors) <= 1:
+        return True
+    tol_sq = max(0, int(tolerance)) ** 2 * 3
+    refs = [np.asarray(color, dtype=np.int32) for color in colors]
+    for i, left in enumerate(refs):
+        for right in refs[i + 1:]:
+            diff = left - right
+            if int((diff * diff).sum()) > tol_sq:
+                return False
+    return True
+
+
 def _flood_fill_mask(
     arr: np.ndarray,
     seeds: Iterable[tuple[int, int]],
@@ -649,8 +666,10 @@ def remove_background(
 
     if keep_border_bleed:
         unique_corners = {tuple(int(c) for c in s) for s in corner_seeds}
-        if len(unique_corners) > 2:
-            # 四角色差异大，说明主体可能压到边，贸然抠会毁图
+        if len(unique_corners) > 2 and not _corner_colors_consistent(corner_seeds, tolerance):
+            # 四角色差异大，说明主体可能压到边，贸然抠会毁图。
+            # 但 AI 生成的纯色 key background 常会有轻微明暗波动；若四角仍在当前容差内，
+            # 应按单一背景处理，避免整张品红/绿幕背景被保留下来。
             return image
 
     h, w, _ = arr.shape
