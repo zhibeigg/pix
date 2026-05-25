@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.99] - 2026-05-25
+
+### Fixed
+
+- 背景去除在四角 key background 存在轻微明暗波动时仍按单一背景处理，避免实际生图的品红背景整张残留。
+
 ## [1.37.98] - 2026-05-25
 
 ### Fixed

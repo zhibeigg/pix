@@ -254,6 +254,23 @@ class TestRemoveBackground:
         a = np.asarray(out)[..., 3]
         assert (a == 255).all()
 
+    def test_key_background_with_slight_corner_variation_is_removed(self) -> None:
+        img = Image.new("RGB", (64, 64), (252, 3, 251))
+        arr = np.asarray(img).copy()
+        arr[:8, -8:] = [246, 15, 241]
+        arr[-8:, :8] = [238, 34, 236]
+        arr[-8:, -8:] = [242, 29, 239]
+        arr[24:40, 24:40] = [238, 210, 128]
+        img = Image.fromarray(arr, mode="RGB")
+
+        out = remove_background(img, tolerance=26)
+        alpha = np.asarray(out)[..., 3]
+
+        assert alpha[0, 0] == 0
+        assert alpha[4, 60] == 0
+        assert alpha[60, 4] == 0
+        assert alpha[32, 32] == 255
+
     def test_feather_uses_diagonal_neighbors(self) -> None:
         img = Image.new("RGB", (5, 5), (240, 240, 240))
         for x, y in ((2, 2), (1, 2), (2, 1), (3, 2), (2, 3)):
