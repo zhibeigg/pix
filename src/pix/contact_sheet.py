@@ -145,11 +145,14 @@ def build_sample_prompt(
         except Exception:
             pass
     return (
-        f"Create a single game asset icon of: {values['description']}. "
-        f"One centered isolated object on pure solid {values['green']} background. "
-        f"Keep every visible subject color at least {values['key_tolerance']} RGB Euclidean distance away from the background key color {values['green']}. "
-        f"No text, no watermark, thick dark outline, readable silhouette, "
-        f"designed to become a {values['width']}x{values['height']} RPG inventory sprite."
+        "Convert the input image or described subject into a TRUE perler bead pixel pattern designed for physical bead crafting, not digital illustration. "
+        f"Subject: {values['description']}. Canvas size must be exactly {values['width']}x{values['height']} pixels, where each pixel represents exactly one perler bead. "
+        "Use extremely large, chunky pixels with very few active pixels overall. Simplicity is critical. "
+        "For human characters, make sure the face is flat and no shadow. "
+        "The subject must be centered with clear empty bead rows around all edges to allow easy mounting on a bead board. "
+        f"Use pure solid key-color {values['green']} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
+        "No anti-aliasing or smoothing — every pixel must be a perfect square bead aligned to the grid. "
+        "The output image should be pixel-perfect, each grid only contains one color. No text, no watermark, no UI frame, no labels."
     )
 
 
@@ -273,13 +276,15 @@ def build_contact_sheet_prompt(
 
 def _fallback_prompt(**values: Any) -> str:
     return (
-        f"Create a {values['rows']}x{values['cols']} contact sheet with {values['count']} distinct "
-        f"game item icon variations of: {values['description']}. Use a pure solid key-color "
-        f"background {values['green']}. Keep every visible subject color at least "
-        f"{values['key_tolerance']} RGB Euclidean distance away from the background key color "
-        f"{values['green']}. No text, no watermark, no UI frame. Each cell contains "
-        f"one centered isolated object with clear spacing, readable silhouette and pixel-art friendly "
-        f"details for a {values['width']}x{values['height']} RPG inventory sprite."
+        f"Create a {values['rows']}x{values['cols']} contact sheet with {values['count']} distinct variations of this TRUE perler bead pixel pattern subject: {values['description']}. "
+        "In every cell, convert the subject into a TRUE perler bead pixel pattern designed for physical bead crafting, not digital illustration. "
+        f"Canvas size for each candidate must be exactly {values['width']}x{values['height']} pixels, where each pixel represents exactly one perler bead. "
+        "Use extremely large, chunky pixels with very few active pixels overall. Simplicity is critical. "
+        "For human characters, make sure the face is flat and no shadow. "
+        "The subject must be centered with clear empty bead rows around all edges to allow easy mounting on a bead board. "
+        f"Use pure solid key-color {values['green']} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
+        "No anti-aliasing or smoothing — every pixel must be a perfect square bead aligned to the grid. "
+        "The output image should be pixel-perfect, each grid only contains one color. No text, no watermark, no UI frame, no labels."
     )
 
 

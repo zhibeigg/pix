@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.34.92-6f42c1.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.35.92-6f42c1.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-419%20passed-2ea44f.svg">
 </p>
 
@@ -67,7 +67,7 @@ Pix 的目标是让 AI 生成结果变成**可复用、可追溯、可批量交�
 - **候选生成与评分**
   - 默认 `n_sample`：一次生成多张独立 full-res 候选。
   - 可切换 contact sheet：生成九宫格后自动切图。
-  - 生图 prompt 会把 `{key_tolerance}` 填成当前抠色容差，要求主体可见颜色与 key background 保持足够 RGB 欧氏距离，降低误抠。
+  - 生图 prompt 使用 TRUE perler bead 物理拼豆约束，`{width}x{height}` 会按实际目标尺寸自动填充（例如 16x16、32x32、64x64），并把 `{key_tolerance}` 填成当前抠色最大色容差，要求主体可见颜色保持在 key background 的最大容差边界之外，降低误抠。
   - VL 根据 prompt 符合度、轮廓、可读性、抠图质量评分。
 
 - **Pixel Grid 工程图**
@@ -526,6 +526,9 @@ resample = "smart"
 snap_to_grid = true
 palette_mode = "auto" # auto | ramp | kmeans
 generated_preprocess_method = "perfect_pixel" # AI 生图/图生图首步网格对齐；本地上传默认不启用
+
+# image_gen / asset 的 prompt 模板中，{width}x{height} 会随实际输出尺寸填充，
+# 用于约束 TRUE perler bead 拼豆图案画布尺寸（如 16x16、32x32、64x64）。
 
 [asset]
 output_dir = "图片"

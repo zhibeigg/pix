@@ -1587,9 +1587,10 @@ def test_asset_pipeline_adapter_uses_asset_defaults_and_keeps_config_isolated(tm
     inputs = asset_pipeline_input_from_job(job, settings, cfg)
 
     assert "紫檀木" in inputs.prompt
-    assert "16×16 像素游戏UI组件" in inputs.prompt
+    assert "TRUE perler bead pixel pattern" in inputs.prompt
+    assert "exactly 16x16 pixels" in inputs.prompt
+    assert "game UI组件" in inputs.prompt
     assert "单个UI" in inputs.prompt
-    assert "主体：紫檀木" in inputs.prompt
     assert "warm wood grain" in inputs.prompt
     assert inputs.pixelize_params.output_size == (16, 16)
     assert inputs.pixelize_params.colors == 12

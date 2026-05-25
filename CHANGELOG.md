@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.35.92] - 2026-05-25
+
+### Changed
+
+- 将生图/图生图与素材直出的默认 prompt 优化为 TRUE perler bead 物理拼豆图案约束，并按实际目标尺寸自动填充 `{width}x{height}`（如 16x16/32x32/64x64）。
+
 ## [1.34.92] - 2026-05-25
 
 ### Changed

@@ -1,10 +1,10 @@
 # 示例
 
-16×16 像素游戏物品图标，复古8位像素风格，单个道具，纯色干净背景，主体可见颜色与背景 key color 保持至少 {key_tolerance} 的 RGB 欧氏距离，轮廓清晰，色块分明，线条锐利，简约游戏资产，无多余杂色，正方形画幅，主体：冰霜之心
+Convert the input image or described subject into a TRUE perler bead pixel pattern designed for physical bead crafting, not digital illustration. Subject: 冰霜之心. Canvas size must be exactly 16x16 pixels, where each pixel represents exactly one perler bead. Use extremely large, chunky pixels with very few active pixels overall. Simplicity is critical. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty bead rows around all edges to allow easy mounting on a bead board. Use pure solid key-color {green} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. No anti-aliasing or smoothing — every pixel must be a perfect square bead aligned to the grid. The output image should be pixel-perfect, each grid only contains one color. No text, no watermark, no UI frame, no labels.
 
 ## 解释
 
-16x16位置，可根据用户实际选择的输出大小来构建，物品图标/UI组件 可让用户自选来构建，单个道具/UI 同理，`{key_tolerance}` 根据当前实际抠色容差填入（例如网站素材生图默认 48），用户只需要输入 "主体：" 后面的主体描述就行了，记得在输入框提醒用户。
+示例里的 `16x16` 位置必须根据用户实际选择的输出大小自动替换（例如 16x16、32x32、64x64），确保 prompt 中的 “Canvas size must be exactly ... pixels” 与最终像素网格一致。物品图标/UI组件、单个道具/UI 同理可由用户选项构建。`{green}` 使用当前动态 key color，`{key_tolerance}` 根据当前实际抠色最大色容差填入（例如网站素材生图默认 48），用于要求主体可见颜色保持在 key color 最大容差边界之外；用户只需要输入 `Subject:` 后面的主体描述即可，输入框应提示“主体/描述”。
 
 ## 主页范例图谱
 
