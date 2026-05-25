@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.97] - 2026-05-25
+
+### Fixed
+
+- Asset Prompt 不再固定写入 `#FF00FF` 等背景 HEX，改为要求模型选择与主体颜色距离足够远的纯色背景，并按用户实际选择的颜色上限填充 `{max_colors}` / `{colors}`。
+
 ## [1.37.96] - 2026-05-25
 
 ### Fixed
