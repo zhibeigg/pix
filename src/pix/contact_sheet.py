@@ -26,6 +26,15 @@ KEY_COLOR_CANDIDATES = (
 )
 
 
+def _legacy_candidate_template_to_generic(template: str) -> str:
+    return (
+        template
+        .replace("designed for game inventory/UI use", "based on this generation brief")
+        .replace("easy placement in game UI", "clean extraction")
+        .replace("No text, no watermark, no UI frame, no labels.", "No text, no watermark, no extra frame, no labels.")
+    )
+
+
 @dataclass(frozen=True)
 class ContactSheetCandidate:
     index: int
@@ -128,7 +137,7 @@ def build_sample_prompt(
 ) -> str:
     """n_sample 模式下的单图 prompt（不含 rows/cols）。"""
     width, height = target_size or cfg.asset.pixel_size
-    template = (getattr(cfg.image_gen, "n_sample_prompt_template", "") or "").strip()
+    template = _legacy_candidate_template_to_generic((getattr(cfg.image_gen, "n_sample_prompt_template", "") or "").strip())
     key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, description)
     values = {
         "description": description.strip(),
@@ -145,14 +154,15 @@ def build_sample_prompt(
         except Exception:
             pass
     return (
-        "Convert the input image or described subject into a TRUE pixel-art game asset designed for game inventory/UI use, not a painted digital illustration. "
-        f"Subject: {values['description']}. Canvas size must be exactly {values['width']}x{values['height']} pixels, where each pixel is one square grid cell. "
+        f"Create one TRUE pixel-art game asset candidate from this generation brief: {values['description']}. "
+        "Follow the generation brief exactly, not a painted digital illustration. "
+        f"Canvas size must be exactly {values['width']}x{values['height']} pixels, where each pixel is one square grid cell. "
         "Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. "
         "For human characters, make sure the face is flat and no shadow. "
-        "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and easy placement in game UI. "
+        "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and clean extraction. "
         f"Use pure solid key-color {values['green']} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
         "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
-        "The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no UI frame, no labels."
+        "The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no extra frame, no labels."
     )
 
 
@@ -254,7 +264,7 @@ def build_contact_sheet_prompt(
     rows = max(1, int(cfg.image_gen.contact_sheet_rows))
     cols = max(1, int(cfg.image_gen.contact_sheet_cols))
     width, height = target_size or cfg.asset.pixel_size
-    template = cfg.image_gen.contact_sheet_prompt_template.strip()
+    template = _legacy_candidate_template_to_generic(cfg.image_gen.contact_sheet_prompt_template.strip())
     key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, description)
     values = {
         "description": description.strip(),
@@ -276,15 +286,15 @@ def build_contact_sheet_prompt(
 
 def _fallback_prompt(**values: Any) -> str:
     return (
-        f"Create a {values['rows']}x{values['cols']} contact sheet with {values['count']} distinct variations of this pixel game asset subject: {values['description']}. "
-        "In every cell, convert the subject into a TRUE pixel-art game asset designed for game inventory/UI use, not a painted digital illustration. "
+        f"Create a {values['rows']}x{values['cols']} contact sheet with {values['count']} distinct TRUE pixel-art game asset candidates from this generation brief: {values['description']}. "
+        "In every cell, follow the generation brief exactly, not a painted digital illustration. "
         f"Canvas size for each candidate must be exactly {values['width']}x{values['height']} pixels, where each pixel is one square grid cell. "
         "Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. "
         "For human characters, make sure the face is flat and no shadow. "
-        "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and easy placement in game UI. "
+        "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and clean extraction. "
         f"Use pure solid key-color {values['green']} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
         "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
-        "The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no UI frame, no labels."
+        "The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no extra frame, no labels."
     )
 
 

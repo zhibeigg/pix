@@ -131,15 +131,16 @@ npm run build
 网站输入框只要求用户填写主体/描述，服务端再拼装完整素材 prompt。模板中的动态值必须来自用户或当前任务参数：
 
 - `Canvas size must be exactly {width}x{height} pixels` 必须与用户实际选择的输出尺寸一致，例如 `16x16`、`32x32`、`64x64`。
-- `{asset_kind_label}` / `{subject_kind_label}` 由素材类型、主体类型选择自动填入。
+- `{asset_kind_label}` / `{subject_kind_label}` / `{asset_usage_label}` / `{placement_context}` / `{forbidden_elements}` 由素材类型、主体类型选择自动填入；物品图标只出现物品/背包语义，UI 组件只出现界面组件语义，不能混写。
 - `{max_colors}` / `{colors}` 使用用户实际选择的颜色数量上限，例如选择 12 色就写入 `no more than 12 visible subject colors`。
 - `{key_tolerance}` 使用当前实际抠色最大色距容差，例如网站素材默认 48。
 - 背景要求是“用于 chroma-key 移除的纯色背景，并与主体所有可见颜色保持足够色距”，不要固定写死为 `#FF00FF` 或任何单一 HEX。
+- n-sample/contact-sheet 候选包装只引用完整 generation brief，不再额外写死 `inventory/UI use`；具体是物品还是 UI 只由 asset prompt 决定。
 
 默认模板：
 
 ```text
-Convert the input image or described subject into a TRUE pixel-art game asset designed for game inventory/UI use, not a painted digital illustration. Subject: {name}. Asset type: game {asset_kind_label}. Subject kind: {subject_kind_label}. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. Use no more than {max_colors} visible subject colors; background color does not count. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and easy placement in game UI. Use a pure solid single-color background for chroma-key removal; choose a background color that is not close to any visible subject color, with color-distance greater than the removal tolerance ({key_tolerance} RGB Euclidean distance). No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no UI frame, no labels.
+Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} designed for {asset_usage_label}, not a painted digital illustration. Subject: {name}. Subject kind: {subject_kind_label}. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. Use no more than {max_colors} visible subject colors; background color does not count. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and {placement_context}. Use a pure solid single-color background for chroma-key removal; choose a background color that is not close to any visible subject color, with color-distance greater than the removal tolerance ({key_tolerance} RGB Euclidean distance). No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. The output image should be pixel-perfect, each grid cell only contains one color. {forbidden_elements}
 ```
 
 ## 主页示例 icon 维护规则
@@ -153,7 +154,7 @@ Convert the input image or described subject into a TRUE pixel-art game asset de
 
 ## 版本与发布
 
-当前版本：`1.40.108`。
+当前版本：`1.40.109`。
 
 版本号格式为 `A.B.C`：
 

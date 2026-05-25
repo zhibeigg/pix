@@ -100,12 +100,40 @@ def safe_asset_filename(name: str, fallback: str = "asset") -> str:
 
 
 ASSET_KIND_LABELS: dict[str, str] = {
-    "item_icon": "物品图标",
-    "ui_component": "UI组件",
+    "item_icon": "item icon",
+    "ui_component": "UI component",
 }
 SUBJECT_KIND_LABELS: dict[str, str] = {
-    "single_prop": "单个道具",
-    "single_ui": "单个UI",
+    "single_prop": "single prop",
+    "single_ui": "single UI element",
+}
+COMPATIBLE_SUBJECT_KINDS: dict[str, set[str]] = {
+    "item_icon": {"single_prop"},
+    "ui_component": {"single_ui"},
+}
+
+
+@dataclass(frozen=True)
+class AssetPromptProfile:
+    default_subject_kind: str
+    usage_label: str
+    placement_context: str
+    forbidden_elements: str
+
+
+ASSET_PROMPT_PROFILES: dict[str, AssetPromptProfile] = {
+    "item_icon": AssetPromptProfile(
+        default_subject_kind="single_prop",
+        usage_label="inventory use",
+        placement_context="easy placement in inventory slots",
+        forbidden_elements="No text, no watermark, no frame, no labels.",
+    ),
+    "ui_component": AssetPromptProfile(
+        default_subject_kind="single_ui",
+        usage_label="game interface use",
+        placement_context="easy placement in HUD or menu layouts",
+        forbidden_elements="No text, no watermark, no unrelated outer frame, no labels.",
+    ),
 }
 
 
@@ -117,30 +145,51 @@ def _canonical_asset_prompt(
     max_colors: int,
     asset_kind_label: str,
     subject_kind_label: str,
+    profile: AssetPromptProfile,
 ) -> str:
     return (
-        "Convert the input image or described subject into a TRUE pixel-art game asset designed "
-        "for game inventory/UI use, not a painted digital illustration. "
-        f"Subject: {name}. Asset type: game {asset_kind_label}. Subject kind: {subject_kind_label}. "
+        f"Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} "
+        f"designed for {profile.usage_label}, not a painted digital illustration. "
+        f"Subject: {name}. Subject kind: {subject_kind_label}. "
         f"Canvas size must be exactly {width}x{height} pixels, "
         "where each pixel is one square grid cell. Use large, chunky readable pixels, "
         "limited colors, and a simple silhouette with very few noisy details. Simplicity is critical. "
         f"Use no more than {max_colors} visible subject colors; background color does not count. "
         "For human characters, make sure the face is flat and no shadow. "
         "The subject must be centered with clear empty pixel rows around all edges for safe sprite "
-        "padding and easy placement in game UI. "
+        f"padding and {profile.placement_context}. "
         "Use a pure solid single-color background for chroma-key removal; choose a background color "
         "that is not close to any visible subject color, with color-distance greater than the removal "
         f"tolerance ({key_tolerance} RGB Euclidean distance). "
         "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
         "The output image should be pixel-perfect, each grid cell only contains one color. "
-        "No text, no watermark, no UI frame, no labels."
+        f"{profile.forbidden_elements}"
     )
 
 
-def _label_for(value: str, labels: dict[str, str], fallback_key: str) -> str:
-    key = (value or fallback_key).strip()
-    return labels.get(key, labels[fallback_key])
+def _asset_kind_key(value: str) -> str:
+    key = (value or "item_icon").strip()
+    return key if key in ASSET_KIND_LABELS else "item_icon"
+
+
+def _subject_kind_key(asset_kind: str, subject_kind: str) -> str:
+    profile = ASSET_PROMPT_PROFILES[asset_kind]
+    key = (subject_kind or profile.default_subject_kind).strip()
+    if key not in COMPATIBLE_SUBJECT_KINDS[asset_kind]:
+        return profile.default_subject_kind
+    return key
+
+
+def _legacy_template_to_type_aware(template: str) -> str:
+    return (
+        template
+        .replace(
+            "TRUE pixel-art game asset designed for game inventory/UI use",
+            "TRUE pixel-art game {asset_kind_label} designed for {asset_usage_label}",
+        )
+        .replace("easy placement in game UI", "{placement_context}")
+        .replace("No text, no watermark, no UI frame, no labels.", "{forbidden_elements}")
+    )
 
 
 def build_asset_prompt(
@@ -158,18 +207,24 @@ def build_asset_prompt(
     """按游戏素材模板生成最终生图 prompt。"""
     width, height = size
     size_label = f"{width}×{height}"
-    asset_kind_label = _label_for(asset_kind, ASSET_KIND_LABELS, "item_icon")
-    subject_kind_label = _label_for(subject_kind, SUBJECT_KIND_LABELS, "single_prop")
+    asset_kind_key = _asset_kind_key(asset_kind)
+    subject_kind_key = _subject_kind_key(asset_kind_key, subject_kind)
+    profile = ASSET_PROMPT_PROFILES[asset_kind_key]
+    asset_kind_label = ASSET_KIND_LABELS[asset_kind_key]
+    subject_kind_label = SUBJECT_KIND_LABELS[subject_kind_key]
     canvas_shape = "正方形画幅" if width == height else f"适配 {size_label} 画幅"
     values = {
         "name": name,
         "width": width,
         "height": height,
         "size_label": size_label,
-        "asset_kind": asset_kind,
+        "asset_kind": asset_kind_key,
         "asset_kind_label": asset_kind_label,
-        "subject_kind": subject_kind,
+        "asset_usage_label": profile.usage_label,
+        "subject_kind": subject_kind_key,
         "subject_kind_label": subject_kind_label,
+        "placement_context": profile.placement_context,
+        "forbidden_elements": profile.forbidden_elements,
         "canvas_shape": canvas_shape,
         "green": key_color,
         "key_color": key_color,
@@ -177,7 +232,7 @@ def build_asset_prompt(
         "colors": int(max_colors),
         "max_colors": int(max_colors),
     }
-    template_text = (template or "").strip()
+    template_text = _legacy_template_to_type_aware((template or "").strip())
     if template_text:
         try:
             prompt = template_text.format(**values)
@@ -190,6 +245,7 @@ def build_asset_prompt(
                 int(max_colors),
                 asset_kind_label,
                 subject_kind_label,
+                profile,
             )
     else:
         prompt = _canonical_asset_prompt(
@@ -200,6 +256,7 @@ def build_asset_prompt(
             int(max_colors),
             asset_kind_label,
             subject_kind_label,
+            profile,
         )
     if extra_prompt.strip():
         prompt = f"{prompt.strip()} {extra_prompt.strip()}"
