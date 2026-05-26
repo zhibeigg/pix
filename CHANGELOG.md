@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.123] - 2026-05-26
+
+### Fixed
+
+- 修复 PerfectPixel 后 chroma-key 角点轻微波动时错误退回 flood-fill 的问题，避免将贴边主体暗色作为背景 seed 误删主体边缘。
+- 重新以后处理结果替换主页 `06_sanguo_item_01` 青龙偃月刀图标，并同步图标尺寸映射。
+
 ## [1.40.122] - 2026-05-26
 
 ### Fixed
