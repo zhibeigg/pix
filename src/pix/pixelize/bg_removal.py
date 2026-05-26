@@ -563,6 +563,31 @@ def _is_single_solid_background_reference(
     return bool((channel_span <= max_channel_span).all())
 
 
+def _is_chroma_key_background_reference(
+    ref_colors: list[tuple[int, int, int]],
+    tolerance: int,
+) -> bool:
+    """判断角点是否属于同一 chroma-key 背景，即使亮度/混色有轻微波动。
+
+    PerfectPixel 自动采样后，纯 key 背景角点可能从 #fb03f8 变成
+    #ee22ec 这类同色相混色。它不满足严格单色 channel span，但仍应走
+    Color-to-Alpha；否则 fallback flood-fill 会把整圈边缘里的主体暗色采作背景
+    seed，导致主体边缘被误删。
+    """
+    if not ref_colors:
+        return False
+    refs = np.asarray(ref_colors, dtype=np.float32)
+    key = np.median(refs, axis=0)
+    if not _looks_like_chroma_key(key):
+        return False
+    distances = np.linalg.norm(refs - key, axis=1)
+    max_distance = max(float(tolerance) * 2.0, 48.0)
+    if bool((distances > max_distance).any()):
+        return False
+    tinted = _key_tinted_mask(refs.reshape((len(refs), 1, 3)), key, min_chroma=24.0).reshape(-1)
+    return bool(tinted.all())
+
+
 def _background_color_mask(
     arr: np.ndarray,
     ref_colors: list[tuple[int, int, int]],
@@ -869,14 +894,18 @@ def remove_background(
     arr = np.asarray(image.convert("RGB"))
     corner_seeds = _sample_corner_colors(arr)
     edge_refs = _sample_edge_colors(arr)
-    seeds = list(dict.fromkeys(corner_seeds + edge_refs))
+    chroma_key_background = _is_chroma_key_background_reference(corner_seeds, tolerance)
+    # chroma-key 图的整圈边缘可能采到贴边主体色（例如黑色刀杆/轮廓）。
+    # 一旦把这类边缘色加入 flood-fill 背景参考，就会误删主体边缘；
+    # chroma-key 场景只信任四角背景色，优先交给 Color-to-Alpha。
+    seeds = list(dict.fromkeys(corner_seeds if chroma_key_background else corner_seeds + edge_refs))
 
     if keep_border_bleed:
         unique_corners = {tuple(int(c) for c in s) for s in corner_seeds}
-        if len(unique_corners) > 2 and not _corner_colors_consistent(corner_seeds, tolerance):
+        if len(unique_corners) > 2 and not chroma_key_background and not _corner_colors_consistent(corner_seeds, tolerance):
             # 四角色差异大，说明主体可能压到边，贸然抠会毁图。
-            # 但 AI 生成的纯色 key background 常会有轻微明暗波动；若四角仍在当前容差内，
-            # 应按单一背景处理，避免整张品红/绿幕背景被保留下来。
+            # 但 AI 生成的纯色 key background 常会有轻微明暗波动；若四角仍属于同一 chroma-key，
+            # 应按背景处理，避免退回 flood-fill 误删主体边缘。
             return image
 
     h, w, _ = arr.shape
@@ -904,7 +933,7 @@ def remove_background(
     if algorithm not in {"auto", "flood_fill", "color_to_alpha", "hybrid"}:
         algorithm = "auto"
     ref_rgb = tuple(int(v) for v in np.median(np.asarray(corner_seeds, dtype=np.float32), axis=0)) if corner_seeds else (0, 0, 0)
-    can_use_color_to_alpha = solid_background and _looks_like_chroma_key(np.asarray(ref_rgb, dtype=np.float32))
+    can_use_color_to_alpha = (solid_background or chroma_key_background) and _looks_like_chroma_key(np.asarray(ref_rgb, dtype=np.float32))
     use_color_to_alpha = algorithm in {"color_to_alpha", "hybrid"} or (algorithm == "auto" and can_use_color_to_alpha)
 
     if use_color_to_alpha and can_use_color_to_alpha:
