@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.122] - 2026-05-26
+
+### Fixed
+
+- 修复 PerfectPixel center sample 在边界网格上可能访问越界的问题，避免回退到强制 64x64 采样。
+- PerfectPixel 外部后端失败后的内置回退改为继续自动检测网格，保持与 webdemo 更一致的输出尺寸。
+
 ## [1.40.121] - 2026-05-26
 
 ### Fixed

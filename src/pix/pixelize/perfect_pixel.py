@@ -79,7 +79,7 @@ def preprocess_generated_image(
         try:
             refined_w, refined_h, refined, details = _get_perfect_pixel_like(
                 image,
-                grid_size=target_size,
+                grid_size=None,
                 sample_method=sample_method,
                 min_size=min_size,
                 peak_width=peak_width,
@@ -102,7 +102,10 @@ def preprocess_generated_image(
             meta={**base_meta, "reason": details.get("reason", "failed"), **details},
         )
     target_mismatch = target_size is not None and (int(refined_w), int(refined_h)) != (int(target_size[0]), int(target_size[1]))
-    if target_mismatch and details.get("backend") != "vendor/perfectPixel-noCV2":
+    # 与 webdemo 保持一致：target_size 只作为后续 Pix Grid 的目标提示，PerfectPixel
+    # 本身应优先相信自动检测到的网格尺寸。只有明确使用 target_size 强制采样的
+    # builtin 回退结果尺寸仍不匹配时，才视为失败。
+    if target_mismatch and details.get("backend") != "vendor/perfectPixel-noCV2" and details.get("grid_source") == "target_size":
         return GeneratedPreprocessResult(
             image=image,
             meta={
