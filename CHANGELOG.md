@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.124] - 2026-05-26
+
+### Changed
+
+- 背景移除默认固定使用四角纯色作为 key 的 Color-to-Alpha 路径，不再从 auto 回退到 flood-fill。
+- 更新默认配置、示例配置与文档，明确 `bg_removal_algorithm` 使用 `color_to_alpha`。
+
 ## [1.40.123] - 2026-05-26
 
 ### Fixed

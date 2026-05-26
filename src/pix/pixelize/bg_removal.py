@@ -1,9 +1,9 @@
-"""背景去除：flood-fill 从四个角向内抠连通背景色。
+"""背景去除：以四角纯色为 key，固定使用 Color-to-Alpha 抠背景。
 
 设计原则：
 - 不依赖 rembg 这种重模型；对"单主体 + 纯色底"的图片效果最好
 - 对已经像素化的图操作最稳，因为边缘清晰、色块整齐
-- 提供 tolerance（颜色容差）与 feather（透明边缘羽化）参数
+- 保留 flood-fill 工具函数用于历史兼容/调试，但默认流程不再回退 flood-fill
 """
 
 from __future__ import annotations
@@ -877,98 +877,38 @@ def remove_background(
     color_to_alpha_opacity: int = 255,
     color_to_alpha_interpolation: str = "linear",
 ) -> Image.Image:
-    """把图片四角连通的背景色抠成透明。
+    """以四角纯色作为 key，固定使用 Color-to-Alpha 抠背景。
 
     Args:
         image: 原图（RGB 或 RGBA）
-        tolerance: 每个通道的颜色容差（0 = 只抠完全相同色；12 是默认）
+        tolerance: 保留用于兼容旧调用；Color-to-Alpha 使用独立阈值参数。
         feather: 边缘强度。edge_style=feather 时表示 alpha 羽化半径；
             edge_style=outline 时表示描边宽度；hard 时不生效。
         edge_style: hard=硬边透明；feather=主体边缘 alpha 羽化；outline=主体外侧补深色描边。
-        keep_border_bleed: True 时如果主体压到边缘（四角色与主体色相近），不硬抠
-        bg_removal_algorithm: auto | flood_fill | color_to_alpha | hybrid。
-            auto/hybrid 遇到纯 chroma-key 背景时优先使用 Color-to-Alpha。
+        keep_border_bleed: 保留用于兼容旧调用；固定 Color-to-Alpha 路径不再做 flood-fill 贴边保护。
+        bg_removal_algorithm: 保留用于兼容旧配置；当前无论 auto/flood_fill/hybrid 都走 Color-to-Alpha。
     """
     if image.mode != "RGBA":
         image = image.convert("RGBA")
     arr = np.asarray(image.convert("RGB"))
     corner_seeds = _sample_corner_colors(arr)
-    edge_refs = _sample_edge_colors(arr)
-    chroma_key_background = _is_chroma_key_background_reference(corner_seeds, tolerance)
-    # chroma-key 图的整圈边缘可能采到贴边主体色（例如黑色刀杆/轮廓）。
-    # 一旦把这类边缘色加入 flood-fill 背景参考，就会误删主体边缘；
-    # chroma-key 场景只信任四角背景色，优先交给 Color-to-Alpha。
-    seeds = list(dict.fromkeys(corner_seeds if chroma_key_background else corner_seeds + edge_refs))
+    ref_rgb = tuple(int(v) for v in np.median(np.asarray(corner_seeds, dtype=np.float32), axis=0)) if corner_seeds else (0, 0, 0)
+    ref = np.asarray(ref_rgb, dtype=np.float32)
 
-    if keep_border_bleed:
-        unique_corners = {tuple(int(c) for c in s) for s in corner_seeds}
-        if len(unique_corners) > 2 and not chroma_key_background and not _corner_colors_consistent(corner_seeds, tolerance):
-            # 四角色差异大，说明主体可能压到边，贸然抠会毁图。
-            # 但 AI 生成的纯色 key background 常会有轻微明暗波动；若四角仍属于同一 chroma-key，
-            # 应按背景处理，避免退回 flood-fill 误删主体边缘。
-            return image
-
-    h, w, _ = arr.shape
-    # 从四角各放若干 seed 点，不只角点一个
-    seed_points = [
-        (0, 0), (0, w - 1), (h - 1, 0), (h - 1, w - 1),
-        (0, w // 2), (h - 1, w // 2),
-        (h // 2, 0), (h // 2, w - 1),
-    ]
-    mask_bg = _flood_fill_mask(arr, seed_points, seeds, tolerance)
-
-    rgba = np.asarray(image).copy()
-    visible_input = rgba[..., 3] > 0
-    # 判断是否纯色 key background 应优先看四角；整圈边缘可能包含贴边主体色。
-    solid_background = _is_single_solid_background_reference(corner_seeds, tolerance)
-    if solid_background:
-        background_like = _background_color_mask(arr, corner_seeds, tolerance) & visible_input
-        closed_holes = _closed_background_hole_mask(background_like, mask_bg)
-        if closed_holes.any():
-            mask_bg |= closed_holes
-
+    out = apply_color_to_alpha(
+        image,
+        key_rgb=ref_rgb,
+        transparency_threshold=max(0, int(color_to_alpha_transparency)),
+        opacity_threshold=max(1, int(color_to_alpha_opacity)),
+        shape=color_to_alpha_shape,
+        interpolation=color_to_alpha_interpolation,
+        protect_non_key_tinted=_looks_like_chroma_key(ref),
+    )
     style = edge_style if edge_style in ("hard", "feather", "outline") else "hard"
     strength = max(0, int(feather))
-    algorithm = (bg_removal_algorithm or "auto").strip().lower().replace("-", "_")
-    if algorithm not in {"auto", "flood_fill", "color_to_alpha", "hybrid"}:
-        algorithm = "auto"
-    ref_rgb = tuple(int(v) for v in np.median(np.asarray(corner_seeds, dtype=np.float32), axis=0)) if corner_seeds else (0, 0, 0)
-    can_use_color_to_alpha = (solid_background or chroma_key_background) and _looks_like_chroma_key(np.asarray(ref_rgb, dtype=np.float32))
-    use_color_to_alpha = algorithm in {"color_to_alpha", "hybrid"} or (algorithm == "auto" and can_use_color_to_alpha)
-
-    if use_color_to_alpha and can_use_color_to_alpha:
-        out = apply_color_to_alpha(
-            image,
-            key_rgb=ref_rgb,
-            transparency_threshold=max(0, int(color_to_alpha_transparency)),
-            opacity_threshold=max(1, int(color_to_alpha_opacity)),
-            shape=color_to_alpha_shape,
-            interpolation=color_to_alpha_interpolation,
-            protect_non_key_tinted=True,
-        )
-        if style in {"feather", "outline"} and strength > 0:
-            out = apply_transparent_edge_style(out, feather=strength, edge_style=style)
-        return out
-
-    if style == "outline" and strength > 0:
-        _apply_outline_edge(rgba, mask_bg, strength)
-    else:
-        _apply_alpha_feather(rgba, mask_bg, strength if style == "feather" else 0)
-        if solid_background:
-            _apply_key_color_soft_matte(
-                rgba,
-                key_rgb=ref_rgb,
-                background_mask=mask_bg,
-                tolerance=max(0, int(tolerance)),
-                softness=255,
-                alpha_floor=224,
-                radius=3,
-                passes=4,
-            )
-    transparent = rgba[..., 3] == 0
-    if transparent.any():
-        rgba[transparent, :3] = 0
-    return Image.fromarray(rgba, mode="RGBA")
+    if style in {"feather", "outline"} and strength > 0:
+        out = apply_transparent_edge_style(out, feather=strength, edge_style=style)
+    return out
 
 
 def _apply_alpha_feather(rgba: np.ndarray, mask_bg: np.ndarray, radius: int) -> None:
