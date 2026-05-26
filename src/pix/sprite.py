@@ -20,7 +20,7 @@ from pix.config import AppConfig
 from pix.contact_sheet import resolve_key_color
 from pix.io_utils import new_run_dir
 from pix.pixelize.bg_removal import remove_background, remove_translucent_edge_halo
-from pix.pixelize.core import PixelizeParams, pixelize
+from pix.pixelize.core import PixelizeParams
 from pix.pixelize.perfect_pixel import preprocess_generated_image
 from pix.pixelize.palette import build_palette_image, kmeans_palette, rgb_to_hex
 
@@ -94,6 +94,12 @@ class SpriteSplitResult:
     raw_frames: list[Path]
     bboxes: list[tuple[int, int, int, int] | None]
     crop_box: tuple[int, int, int, int] | None
+    preprocessed_path: Path | None = None
+    alpha_path: Path | None = None
+    cell_size: tuple[int, int] | None = None
+    frame_canvas_size: tuple[int, int] | None = None
+    sheet_canvas_size: tuple[int, int] | None = None
+    preprocess_meta: dict[str, Any] = field(default_factory=dict)
 
 
 ProgressCb = Any
@@ -394,6 +400,56 @@ def _expand_crop_box(
     return int(left), int(top), int(right), int(bottom)
 
 
+SPRITE_FRAME_SIZE_PRESETS = (16, 24, 32, 48, 64, 96, 128, 256)
+
+
+def _ceil_to_multiple(value: int, divisor: int) -> int:
+    safe_divisor = max(1, int(divisor))
+    safe_value = max(1, int(value))
+    return ((safe_value + safe_divisor - 1) // safe_divisor) * safe_divisor
+
+
+def _ceil_to_preset(value: int, requested: int) -> int:
+    threshold = max(1, int(value), int(requested))
+    for preset in sorted(set(SPRITE_FRAME_SIZE_PRESETS + (max(1, int(requested)),))):
+        if preset >= threshold:
+            return preset
+    return threshold
+
+
+def _pad_to_canvas(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+    canvas = Image.new("RGBA", size, (0, 0, 0, 0))
+    frame = image.convert("RGBA")
+    x = max(0, (size[0] - frame.width) // 2)
+    y = max(0, (size[1] - frame.height) // 2)
+    canvas.alpha_composite(frame, (x, y))
+    return canvas
+
+
+def _pad_sheet_for_equal_cells(image: Image.Image, *, rows: int, cols: int) -> tuple[Image.Image, dict[str, Any]]:
+    safe_rows = max(1, int(rows))
+    safe_cols = max(1, int(cols))
+    target_size = (_ceil_to_multiple(image.width, safe_cols), _ceil_to_multiple(image.height, safe_rows))
+    if target_size == image.size:
+        return image.convert("RGBA"), {"applied": False, "input_size": list(image.size), "output_size": list(image.size)}
+    return _pad_to_canvas(image, target_size), {
+        "applied": True,
+        "input_size": list(image.size),
+        "output_size": list(target_size),
+        "rows": safe_rows,
+        "cols": safe_cols,
+    }
+
+
+def _frame_canvas_size(cell_size: tuple[int, int], requested_size: tuple[int, int] | None) -> tuple[int, int]:
+    if requested_size is None:
+        return cell_size
+    return (
+        _ceil_to_preset(cell_size[0], requested_size[0]),
+        _ceil_to_preset(cell_size[1], requested_size[1]),
+    )
+
+
 def _sprite_bg_removal_options(cfg: AppConfig | None, *, tolerance: int) -> dict[str, Any]:
     asset = getattr(cfg, "asset", None)
     if asset is None:
@@ -436,80 +492,86 @@ def split_sprite_sheet(
     target_size: tuple[int, int] | None = None,
     cfg: AppConfig | None = None,
     generated_preprocess_method: str = "perfect_pixel",
+    preprocessed_sheet_path: str | Path | None = None,
+    alpha_sheet_path: str | Path | None = None,
 ) -> SpriteSplitResult:
-    """把模型生成的九宫格动画图切成连续帧，并统一裁剪区域。
+    """整表后处理后切帧。
 
-    每帧先按素材同款顺序执行 perfectPixel 网格对齐，再用四角纯色作为 key 的
-    Color-to-Alpha 去背景；随后把不同检测尺寸居中到共同透明画布，再计算 9 帧联合裁剪框。
-    key_* 参数保留为历史兼容字段，当前不再走 sprite 专用 key 透明分支。
+    顺序固定为：整张 3×3 源图 perfectPixel → Color-to-Alpha → 透明补到可等分画布
+    → 切 9 张相同宽高帧 → 每帧透明补到目标/预设帧尺寸。这里不再逐帧二次
+    perfectPixel，也不再按联合 bbox 裁剪，避免破坏模型生成的九宫格空间关系。
     """
 
-    _ = (key_color, key_mode, key_softness, key_alpha_floor, key_despill)
+    _ = (key_color, crop_padding, crop_square, key_mode, key_softness, key_alpha_floor, key_despill)
     source_path = Path(image_path)
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
     safe_rows = max(1, int(rows))
     safe_cols = max(1, int(cols))
-    transparent_cells: list[Image.Image] = []
-    normalized_cells: list[Image.Image] = []
-    bboxes: list[tuple[int, int, int, int] | None] = []
+    requested_sheet_size = (safe_cols * target_size[0], safe_rows * target_size[1]) if target_size else None
     raw_frames: list[Path] = []
-    crop_box: tuple[int, int, int, int] | None = None
 
     with Image.open(source_path) as opened:
-        image = opened.convert("RGBA")
-        cell_w = image.width / safe_cols
-        cell_h = image.height / safe_rows
-        for row in range(safe_rows):
-            for col in range(safe_cols):
-                left = int(round(col * cell_w))
-                top = int(round(row * cell_h))
-                right = int(round((col + 1) * cell_w))
-                bottom = int(round((row + 1) * cell_h))
-                cell = image.crop((left, top, right, bottom))
-                preprocessed = preprocess_generated_image(
-                    cell,
-                    method=generated_preprocess_method,
-                    target_size=target_size,
-                ).image
-                transparent = remove_background(
-                    preprocessed,
-                    tolerance=max(0, int(tolerance)),
-                    feather=0,
-                    edge_style="hard",
-                    keep_border_bleed=True,
-                    **_sprite_bg_removal_options(cfg, tolerance=tolerance),
-                )
-                transparent_cells.append(remove_translucent_edge_halo(transparent))
+        source = opened.convert("RGBA")
 
-    if transparent_cells:
-        canvas_size = (
-            max(frame.width for frame in transparent_cells),
-            max(frame.height for frame in transparent_cells),
-        )
-        normalized_cells = [_center_on_transparent_canvas(frame, canvas_size) for frame in transparent_cells]
-        bboxes = [_visible_bbox(frame) for frame in normalized_cells]
+    preprocessed_result = preprocess_generated_image(
+        source,
+        method=generated_preprocess_method,
+        target_size=requested_sheet_size,
+    )
+    preprocessed = preprocessed_result.image.convert("RGBA")
+    preprocessed_path = Path(preprocessed_sheet_path) if preprocessed_sheet_path else None
+    if preprocessed_path is not None:
+        preprocessed_path.parent.mkdir(parents=True, exist_ok=True)
+        preprocessed.save(preprocessed_path)
 
-    union = _union_bboxes(bboxes)
-    if union is not None and normalized_cells:
-        crop_box = _expand_crop_box(
-            union,
-            normalized_cells[0].size,
-            padding=crop_padding,
-            square=crop_square,
-        )
+    alpha = remove_background(
+        preprocessed,
+        tolerance=max(0, int(tolerance)),
+        feather=0,
+        edge_style="hard",
+        keep_border_bleed=True,
+        **_sprite_bg_removal_options(cfg, tolerance=tolerance),
+    )
+    alpha_path = Path(alpha_sheet_path) if alpha_sheet_path else None
+    if alpha_path is not None:
+        alpha_path.parent.mkdir(parents=True, exist_ok=True)
+        alpha.save(alpha_path)
 
-    for index, cell in enumerate(normalized_cells, start=1):
-        frame = cell.crop(crop_box) if crop_box is not None else cell
-        frame_path = dest / f"frame_{index:02d}.png"
-        frame.save(frame_path)
-        raw_frames.append(frame_path)
+    equal_sheet, sheet_pad_meta = _pad_sheet_for_equal_cells(alpha, rows=safe_rows, cols=safe_cols)
+    cell_size = (equal_sheet.width // safe_cols, equal_sheet.height // safe_rows)
+    frame_canvas_size = _frame_canvas_size(cell_size, target_size)
+    bboxes: list[tuple[int, int, int, int] | None] = []
 
+    for row in range(safe_rows):
+        for col in range(safe_cols):
+            index = row * safe_cols + col + 1
+            left = col * cell_size[0]
+            top = row * cell_size[1]
+            right = left + cell_size[0]
+            bottom = top + cell_size[1]
+            cell = equal_sheet.crop((left, top, right, bottom))
+            frame = _pad_to_canvas(remove_translucent_edge_halo(cell), frame_canvas_size)
+            bboxes.append(_visible_bbox(frame))
+            frame_path = dest / f"frame_{index:02d}.png"
+            frame.save(frame_path)
+            raw_frames.append(frame_path)
+
+    preprocess_meta = dict(preprocessed_result.meta)
+    preprocess_meta["requested_sheet_size"] = list(requested_sheet_size) if requested_sheet_size else None
+    preprocess_meta["alpha_size"] = list(alpha.size)
+    preprocess_meta["equal_sheet_pad"] = sheet_pad_meta
     return SpriteSplitResult(
         source_path=source_path,
         raw_frames=raw_frames,
         bboxes=bboxes,
-        crop_box=crop_box,
+        crop_box=None,
+        preprocessed_path=preprocessed_path,
+        alpha_path=alpha_path,
+        cell_size=cell_size,
+        frame_canvas_size=frame_canvas_size,
+        sheet_canvas_size=equal_sheet.size,
+        preprocess_meta=preprocess_meta,
     )
 
 
@@ -551,41 +613,22 @@ def pixelize_sprite_frames(
     cfg: AppConfig | None = None,
     source_description: str = "",
 ) -> tuple[list[Path], dict[str, Any]]:
-    """逐帧像素化，并可用共享调色板统一全部帧。"""
+    """保存最终帧，并可用共享调色板统一全部帧。
 
+    进入这里的 raw frame 已经来自整表 perfectPixel + Color-to-Alpha + 透明补画布，
+    不再逐帧缩放或二次 pixelize，避免破坏等宽高序列帧。
+    """
+
+    _ = (cfg, source_description)
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
-    frame_params = PixelizeParams(
-        output_size=params.output_size,
-        colors=params.colors,
-        dither=params.dither,
-        preset=params.preset,
-        preview_scale=0,
-        edge_enhance=params.edge_enhance,
-        saturation=params.saturation,
-        resample=params.resample,
-        snap_to_grid=params.snap_to_grid,
-        remove_bg=False,
-        bg_tolerance=params.bg_tolerance,
-        bg_feather=params.bg_feather,
-        edge_style=params.edge_style,
-        auto_crop=False,
-        crop_padding=params.crop_padding,
-        crop_square=params.crop_square,
-        palette_mode="auto",
-    )
     images: list[Image.Image] = []
     per_frame_meta: list[dict[str, Any]] = []
     for raw in raw_frames:
-        frame_img, _preview, meta = pixelize(
-            raw,
-            frame_params,
-            cfg=cfg,
-            source_description=source_description,
-            auto_skip_redundant_bg=True,
-        )
-        images.append(frame_img.convert("RGBA"))
-        per_frame_meta.append(meta)
+        with Image.open(raw) as opened:
+            image = opened.convert("RGBA")
+        images.append(image)
+        per_frame_meta.append({"path": str(raw), "input_size": list(image.size), "output_size": list(image.size), "resized": False})
 
     shared_palette_hex: list[str] = []
     if shared_palette and images:
@@ -601,6 +644,8 @@ def pixelize_sprite_frames(
         paths.append(path)
 
     return paths, {
+        "mode": "preserve_perfect_pixel_frames",
+        "resized": False,
         "shared_palette": bool(shared_palette),
         "shared_palette_colors": shared_palette_hex,
         "frame_meta": per_frame_meta,
@@ -736,10 +781,12 @@ def run_sprite_pipeline(
         key_tolerance=key_tolerance,
     )
     source_path = run_dir / "01_sprite_grid.png"
-    raw_dir = run_dir / "02_frames_raw"
-    frames_dir = run_dir / "03_frames"
-    sheet_path = run_dir / "04_sprite_sheet.png"
-    gif_path = run_dir / "05_sprite.gif"
+    preprocessed_sheet_path = run_dir / "02_perfect_pixel_sheet.png"
+    alpha_sheet_path = run_dir / "03_color_to_alpha_sheet.png"
+    raw_dir = run_dir / "04_frames_raw"
+    frames_dir = run_dir / "05_frames"
+    sheet_path = run_dir / "06_sprite_sheet.png"
+    gif_path = run_dir / "07_sprite.gif"
     cache = Cache(cfg.cache.dir, enabled=cfg.cache.enabled and inputs.use_cache)
     material = {
         "prompt": effective_prompt,
@@ -785,6 +832,8 @@ def run_sprite_pipeline(
             target_size=pixel_size,
             cfg=cfg,
             generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
+            preprocessed_sheet_path=preprocessed_sheet_path,
+            alpha_sheet_path=alpha_sheet_path,
         )
         notify("sprite_frames_split", {"count": len(split.raw_frames), "dir": str(raw_dir)})
 
@@ -815,7 +864,7 @@ def run_sprite_pipeline(
             cfg=cfg,
             source_description=inputs.prompt,
         )
-        notify("sprite_frames_pixelized", {"count": len(frame_paths), "dir": str(frames_dir)})
+        notify("sprite_frames_finalized", {"count": len(frame_paths), "dir": str(frames_dir)})
 
         compose_horizontal_sprite_sheet(frame_paths, sheet_path)
         duration_ms = int(inputs.duration_ms or cfg.sprite.duration_ms)
@@ -859,13 +908,20 @@ def run_sprite_pipeline(
             "loop": loop,
             "green_screen_color": key_hex,
             "green_screen_tolerance": key_tolerance,
-            "frame_background_flow": "perfect_pixel_to_color_to_alpha",
+            "frame_background_flow": "sheet_perfect_pixel_to_color_to_alpha_equal_split_transparent_pad",
             "key_mode": key_mode,
             "key_softness": key_softness,
             "key_alpha_floor": key_alpha_floor,
             "key_despill": key_despill,
             "crop_box": list(split.crop_box) if split.crop_box else None,
+            "preprocess": split.preprocess_meta,
             "source_sheet": source_path.name,
+            "perfect_pixel_sheet": preprocessed_sheet_path.name,
+            "color_to_alpha_sheet": alpha_sheet_path.name,
+            "sheet_canvas_size": list(split.sheet_canvas_size) if split.sheet_canvas_size else None,
+            "split_cell_size": list(split.cell_size) if split.cell_size else None,
+            "frame_canvas_size": list(split.frame_canvas_size) if split.frame_canvas_size else None,
+            "raw_frames_dir": raw_dir.name,
             "frames_dir": frames_dir.name,
             "horizontal_sheet": sheet_path.name,
             "gif": gif_path.name,
@@ -875,6 +931,8 @@ def run_sprite_pipeline(
         "cache": {"enabled": cache.enabled, "refresh": inputs.refresh_cache},
         "outputs": {
             "source": source_path.name,
+            "perfect_pixel_sheet": preprocessed_sheet_path.name,
+            "color_to_alpha_sheet": alpha_sheet_path.name,
             "sprite_frames": frames_dir.name,
             "sprite_sheet": sheet_path.name,
             "sprite_gif": gif_path.name,

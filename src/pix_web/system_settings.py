@@ -169,7 +169,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.sprite.key_softness", "动画软抠色范围", "动画精灵表", "number", "soft 模式中达到完全不透明的颜色距离。"),
     SettingDefinition("pix.sprite.key_alpha_floor", "动画低 alpha 裁切", "动画精灵表", "number", "soft 模式中低于该 alpha 的像素直接清除。"),
     SettingDefinition("pix.sprite.key_despill", "动画边缘去污染", "动画精灵表", "boolean", "soft 模式去掉 key color 对半透明边缘的染色。"),
-    SettingDefinition("pix.sprite.crop_padding", "动画统一裁剪留白", "动画精灵表", "number", ""),
+    SettingDefinition("pix.sprite.crop_padding", "动画裁剪留白（兼容）", "动画精灵表", "number", "整表后处理流程按等分切帧并透明补画布；该字段保留给旧配置兼容。"),
     SettingDefinition("pix.sprite.shared_palette", "动画共享调色板", "动画精灵表", "boolean", ""),
     SettingDefinition("pix.sprite.prompt_template", "动画 Prompt 模板", "动画精灵表", "textarea", ""),
     SettingDefinition("web.poll_interval_seconds", "Worker 轮询间隔", "存储 / 队列 / 安全", "number", "", "保存后需重启 worker 才能稳定生效。", restart_required=True, env_var="PIX_WEB_POLL_INTERVAL_SECONDS"),

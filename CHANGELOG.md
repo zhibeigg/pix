@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.130] - 2026-05-26
+
+### Changed
+
+- 调整九宫格动画后处理为整表 `perfectPixel -> Color-to-Alpha`，再等分切 9 帧并透明补到目标/预设帧尺寸。
+- 横向精灵表与 GIF 现在直接使用等宽高最终帧合成，作品库继续优先播放 `sprite_gif_url` 作为序列帧预览。
+- 更新 sprite 文档和后台设置说明，标注 `crop_*` 为历史兼容字段。
+
 ## [1.40.129] - 2026-05-26
 
 ### Changed
