@@ -17,10 +17,11 @@ from pix.api.image_gen import generate_image
 from pix.api.prompt_guard import PromptPolicyError, validate_user_prompt
 from pix.cache import Cache
 from pix.config import AppConfig
-from pix.contact_sheet import parse_hex_color, resolve_key_color
+from pix.contact_sheet import resolve_key_color
 from pix.io_utils import new_run_dir
-from pix.pixelize.bg_removal import remove_translucent_edge_halo
+from pix.pixelize.bg_removal import remove_background, remove_translucent_edge_halo
 from pix.pixelize.core import PixelizeParams, pixelize
+from pix.pixelize.perfect_pixel import preprocess_generated_image
 from pix.pixelize.palette import build_palette_image, kmeans_palette, rgb_to_hex
 
 
@@ -328,6 +329,31 @@ def _expand_crop_box(
     return int(left), int(top), int(right), int(bottom)
 
 
+def _sprite_bg_removal_options(cfg: AppConfig | None, *, tolerance: int) -> dict[str, Any]:
+    asset = getattr(cfg, "asset", None)
+    if asset is None:
+        return {
+            "bg_removal_algorithm": "color_to_alpha",
+            "color_to_alpha_transparency": max(0, int(tolerance)),
+        }
+    return {
+        "bg_removal_algorithm": "color_to_alpha",
+        "color_to_alpha_shape": getattr(asset, "color_to_alpha_shape", "sphere"),
+        "color_to_alpha_transparency": max(0, int(tolerance)),
+        "color_to_alpha_opacity": getattr(asset, "color_to_alpha_opacity", 255),
+        "color_to_alpha_interpolation": getattr(asset, "color_to_alpha_interpolation", "linear"),
+    }
+
+
+def _center_on_transparent_canvas(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+    canvas = Image.new("RGBA", size, (0, 0, 0, 0))
+    frame = image.convert("RGBA")
+    x = max(0, (size[0] - frame.width) // 2)
+    y = max(0, (size[1] - frame.height) // 2)
+    canvas.alpha_composite(frame, (x, y))
+    return canvas
+
+
 def split_sprite_sheet(
     image_path: str | Path,
     dest_dir: str | Path,
@@ -342,16 +368,25 @@ def split_sprite_sheet(
     key_softness: int = 150,
     key_alpha_floor: int = 12,
     key_despill: bool = True,
+    target_size: tuple[int, int] | None = None,
+    cfg: AppConfig | None = None,
+    generated_preprocess_method: str = "perfect_pixel",
 ) -> SpriteSplitResult:
-    """把模型生成的九宫格动画图切成连续帧，并统一裁剪区域。"""
+    """把模型生成的九宫格动画图切成连续帧，并统一裁剪区域。
 
+    每帧先按素材同款顺序执行 perfectPixel 网格对齐，再用四角纯色作为 key 的
+    Color-to-Alpha 去背景；随后把不同检测尺寸居中到共同透明画布，再计算 9 帧联合裁剪框。
+    key_* 参数保留为历史兼容字段，当前不再走 sprite 专用 key 透明分支。
+    """
+
+    _ = (key_color, key_mode, key_softness, key_alpha_floor, key_despill)
     source_path = Path(image_path)
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
     safe_rows = max(1, int(rows))
     safe_cols = max(1, int(cols))
-    key_rgb = parse_hex_color(key_color)
     transparent_cells: list[Image.Image] = []
+    normalized_cells: list[Image.Image] = []
     bboxes: list[tuple[int, int, int, int] | None] = []
     raw_frames: list[Path] = []
     crop_box: tuple[int, int, int, int] | None = None
@@ -367,30 +402,40 @@ def split_sprite_sheet(
                 right = int(round((col + 1) * cell_w))
                 bottom = int(round((row + 1) * cell_h))
                 cell = image.crop((left, top, right, bottom))
-                transparent = _apply_key_transparency(
+                preprocessed = preprocess_generated_image(
                     cell,
-                    key_rgb=key_rgb,
-                    tolerance=tolerance,
-                    mode=key_mode,
-                    softness=key_softness,
-                    alpha_floor=key_alpha_floor,
-                    despill=key_despill,
+                    method=generated_preprocess_method,
+                    target_size=target_size,
+                ).image
+                transparent = remove_background(
+                    preprocessed,
+                    tolerance=max(0, int(tolerance)),
+                    feather=0,
+                    edge_style="hard",
+                    keep_border_bleed=True,
+                    **_sprite_bg_removal_options(cfg, tolerance=tolerance),
                 )
-                transparent_cells.append(transparent)
-                bboxes.append(_visible_bbox(transparent))
+                transparent_cells.append(remove_translucent_edge_halo(transparent))
+
+    if transparent_cells:
+        canvas_size = (
+            max(frame.width for frame in transparent_cells),
+            max(frame.height for frame in transparent_cells),
+        )
+        normalized_cells = [_center_on_transparent_canvas(frame, canvas_size) for frame in transparent_cells]
+        bboxes = [_visible_bbox(frame) for frame in normalized_cells]
 
     union = _union_bboxes(bboxes)
-    if union is not None and transparent_cells:
+    if union is not None and normalized_cells:
         crop_box = _expand_crop_box(
             union,
-            transparent_cells[0].size,
+            normalized_cells[0].size,
             padding=crop_padding,
             square=crop_square,
         )
 
-    for index, cell in enumerate(transparent_cells, start=1):
+    for index, cell in enumerate(normalized_cells, start=1):
         frame = cell.crop(crop_box) if crop_box is not None else cell
-        frame = remove_translucent_edge_halo(frame)
         frame_path = dest / f"frame_{index:02d}.png"
         frame.save(frame_path)
         raw_frames.append(frame_path)
@@ -623,6 +668,9 @@ def run_sprite_pipeline(
             key_softness=key_softness,
             key_alpha_floor=key_alpha_floor,
             key_despill=key_despill,
+            target_size=pixel_size,
+            cfg=cfg,
+            generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
         )
         notify("sprite_frames_split", {"count": len(split.raw_frames), "dir": str(raw_dir)})
 
@@ -697,6 +745,7 @@ def run_sprite_pipeline(
             "loop": loop,
             "green_screen_color": key_hex,
             "green_screen_tolerance": key_tolerance,
+            "frame_background_flow": "perfect_pixel_to_color_to_alpha",
             "key_mode": key_mode,
             "key_softness": key_softness,
             "key_alpha_floor": key_alpha_floor,

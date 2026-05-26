@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.127] - 2026-05-26
+
+### Changed
+
+- 九宫格动画精灵表切帧后改为逐帧执行 `perfectPixel -> Color-to-Alpha` 背景处理，再统一 bbox 裁剪与像素化。
+- 在 sprite 元数据中记录 `frame_background_flow=perfect_pixel_to_color_to_alpha`，便于追踪序列帧后处理链路。
+
 ## [1.40.126] - 2026-05-26
 
 ### Changed
