@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.42.131] - 2026-05-26
+
+### Fixed
+
+- 修复图生图/本地像素化上传成功后预览区域显示破图的问题：上传接口返回的 `/files` 相对地址现在会在前端转换为带 API Base 与 token 的可访问地址。
+
 ## [1.42.130] - 2026-05-26
 
 ### Added

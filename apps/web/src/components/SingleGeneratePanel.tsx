@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { api } from '../api'
+import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { JobCreateRequest, JobType, PricingRule } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
@@ -62,7 +63,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
     setUploading(true); setUploadMessage(text('上传中…', 'Uploading…'))
     try {
       const uploaded = await api.uploadImage(token, file)
-      setInputImagePath(uploaded.path); setUploadUrl(uploaded.url ?? ''); setUploadMessage(text('图片已上传，可继续提交任务。', 'Image uploaded. You can submit the job now.'))
+      setInputImagePath(uploaded.path); setUploadUrl(signedFileUrl(uploaded.url)); setUploadMessage(text('图片已上传，可继续提交任务。', 'Image uploaded. You can submit the job now.'))
     } catch (error) {
       setUploadMessage(error instanceof Error ? error.message : text('上传失败', 'Upload failed'))
     } finally { setUploading(false) }
