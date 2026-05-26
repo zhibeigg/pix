@@ -231,20 +231,20 @@ class SpriteConfig:
         "The character/effect should fit inside this frame whenever possible. "
         "Use no more than {max_colors} visible subject/effect colors; background color does not count. "
         "Use pure solid key-color {green} for all empty/background pixels for chroma-key removal; keep visible colors outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
-        "Anchor: keep the subject aligned to {anchor}. "
+        "Anchor: keep the subject aligned to {anchor}. {loop_closure} "
         "Style: crisp pixel art, hard edges, limited palette, no painterly blending, no anti-aliased soft brush. "
         "Do not draw a sprite sheet, do not draw multiple frames, do not add text, watermark, UI, border, grid, labels, or shadows outside the sprite."
     )
     next_frame_prompt_template: str = (
         "Generate frame {frame_index} of {frame_count} in the same TRUE pixel-art animation sequence. "
-        "Use the provided previous frame as the motion-continuity reference, while preserving the original subject identity from the sequence description. "
+        "{reference_instruction} "
         "Subject/action identity to preserve: {description}. "
         "Keep the same character identity, costume, palette, outline thickness, camera, scale, facing direction, and anchor. "
         "Previous phase: {previous_action_phase}. Current action phase: {action_phase}. "
         "Canvas contract: one single frame only, target frame size {width}x{height} logical pixels, where each pixel is one square grid cell. "
         "The subject should remain inside the frame and aligned consistently. "
         "Use pure solid key-color {green} for all empty/background pixels for chroma-key removal; keep visible colors outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
-        "Use no more than {max_colors} visible subject/effect colors; background color does not count. "
+        "Use no more than {max_colors} visible subject/effect colors; background color does not count. {loop_closure} "
         "Do not create a grid, collage, sprite sheet, duplicate character, text, watermark, background scene, labels, numbers, or extra frames. {retry_hint}"
     )
 

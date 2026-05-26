@@ -287,31 +287,56 @@ def _format_frame_bounds(bounds: Iterable[dict[str, int]]) -> str:
 
 
 def build_action_timeline(description: str, frame_count: int) -> list[str]:
-    """根据整体动作描述生成轻量、可复现的内部动作时间线。"""
+    """根据整体动作描述生成轻量、可复现、可闭环的内部动作时间线。"""
 
     count = max(1, int(frame_count))
     if count == 1:
         return [f"单帧展示：完整呈现动作主体与关键姿势。动作描述：{description}"]
     phase_bank = [
-        "起始姿势，主体稳定站位，动作尚未展开",
-        "预备动作开始，身体或特效出现轻微方向变化",
-        "蓄力或动作幅度增强，重心开始转移",
-        "动作进入主要推进阶段，轮廓保持一致",
-        "动作接近峰值，武器、肢体或特效达到最大幅度",
-        "动作峰值或释放瞬间，视觉重点最强",
-        "动作离开峰值，拖尾、余波或跟随动作展开",
-        "回收阶段，主体逐渐回到稳定姿态",
-        "结束姿势，保留少量余势，适合序列播放衔接",
+        "闭环起始锚点：主体处于清晰待机/接触姿势，记录基准高度、锚点、朝向和轮廓，供最后一帧回接",
+        "预备动作：主体轻微压缩或蓄力，锚点仍贴近起始位置，不改变身份和朝向",
+        "离开起始：动作开始展开，主体向动作方向推进，但仍保留与第 1 帧一致的比例和轮廓语言",
+        "中段推进：动作幅度继续增加，运动轨迹清楚，锚点变化平滑",
+        "动作峰值：跳跃/挥动/释放达到最高或最远位置，是视觉重点最强的一帧",
+        "回落/跟随：动作从峰值回收，拖尾或余势开始向起始锚点靠近",
+        "落地/回收：主体接近起始高度和位置，可有轻微压缩或余波，但身份、比例和朝向不变",
+        "闭环前一拍：几乎回到第 1 帧的锚点、高度、比例和轮廓，只保留极小余势，下一帧切回第 1 帧不能明显跳变",
     ]
     timeline: list[str] = []
     for index in range(1, count + 1):
-        if count == 1:
-            phase = phase_bank[-1]
-        else:
-            bank_index = round((index - 1) * (len(phase_bank) - 1) / max(1, count - 1))
-            phase = phase_bank[max(0, min(len(phase_bank) - 1, bank_index))]
+        bank_index = round((index - 1) * (len(phase_bank) - 1) / max(1, count - 1))
+        phase = phase_bank[max(0, min(len(phase_bank) - 1, bank_index))]
         timeline.append(f"第 {index}/{count} 帧：{phase}。动作描述：{description}")
     return timeline
+
+
+def _reference_instruction(frame_index: int, frame_count: int) -> str:
+    if frame_count > 2 and frame_index == frame_count:
+        return (
+            "The provided reference image is frame 1, the loop anchor. Use it to close the loop: keep this last frame very close to frame 1's anchor, scale, facing direction, ground/contact height, and silhouette, "
+            "with only a tiny residual motion before returning to frame 1."
+        )
+    return "The provided reference image is the previous frame. Advance the motion smoothly while preserving identity, scale, facing direction, and anchor."
+
+
+def _loop_closure_instruction(frame_index: int, frame_count: int) -> str:
+    if frame_count <= 1:
+        return ""
+    if frame_index == 1:
+        return (
+            "Closed-loop contract: this first frame is the loop anchor. Make the pose readable and reusable as the frame that immediately follows the last frame. "
+            "Keep the anchor, scale, facing direction, and silhouette easy to return to."
+        )
+    if frame_index == frame_count:
+        return (
+            "Closed-loop contract: this is the frame immediately before frame 1. It must return very close to frame 1's anchor, ground/contact height, scale, facing direction, and silhouette; "
+            "do not end on a new pose, new location, or different size. Keep only a tiny amount of residual motion so the next displayed frame 1 feels seamless."
+        )
+    if frame_index == frame_count - 1:
+        return (
+            "Closed-loop contract: begin returning toward frame 1 now. Reduce motion amplitude and bring the anchor/ground contact back toward the starting pose so the final frame can close the loop."
+        )
+    return "Closed-loop contract: preserve the same anchor, scale, facing direction, and identity so all frames can loop back into frame 1 smoothly."
 
 
 def build_sprite_sheet_prompt(
@@ -374,11 +399,15 @@ def build_sequence_first_frame_prompt(
         "max_colors": int(max_colors),
         "colors": int(max_colors),
         "anchor": anchor,
+        "loop_closure": _loop_closure_instruction(1, int(frame_count)),
     }
     template = (getattr(cfg.sprite, "prompt_template", "") or "").strip()
     if template:
         try:
-            return template.format(**values).strip()
+            formatted = template.format(**values).strip()
+            if values["loop_closure"] and "{loop_closure}" not in template:
+                formatted = f"{formatted} {values['loop_closure']}".strip()
+            return formatted
         except Exception:
             pass
     return _fallback_first_frame_prompt(**values)
@@ -408,6 +437,7 @@ def build_sequence_next_frame_prompt(
         "action_phase": action_phase,
         "previous_action_phase": previous_action_phase,
         "motion_delta_description": f"Advance smoothly from: {previous_action_phase}",
+        "reference_instruction": _reference_instruction(int(frame_index), int(frame_count)),
         "width": int(width),
         "height": int(height),
         "target_frame_width": int(width),
@@ -418,12 +448,18 @@ def build_sequence_next_frame_prompt(
         "max_colors": int(max_colors),
         "colors": int(max_colors),
         "anchor": anchor,
+        "loop_closure": _loop_closure_instruction(int(frame_index), int(frame_count)),
         "retry_hint": retry_hint.strip(),
     }
     template = (getattr(cfg.sprite, "next_frame_prompt_template", "") or "").strip()
     if template:
         try:
-            return template.format(**values).strip()
+            formatted = template.format(**values).strip()
+            if values["reference_instruction"] and "{reference_instruction}" not in template:
+                formatted = f"{formatted} {values['reference_instruction']}".strip()
+            if values["loop_closure"] and "{loop_closure}" not in template:
+                formatted = f"{formatted} {values['loop_closure']}".strip()
+            return formatted
         except Exception:
             pass
     return _fallback_next_frame_prompt(**values)
@@ -440,16 +476,18 @@ def _fallback_first_frame_prompt(**values: Any) -> str:
         f"Use pure solid key-color {values['green']} for all empty/background pixels for chroma-key removal; "
         f"keep visible colors outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
         f"Anchor: keep the subject aligned to {values['anchor']}. "
+        f"{values['loop_closure']} "
         "Style: crisp pixel art, hard edges, limited palette, no painterly blending, no anti-aliased soft brush. "
         "Do not draw a sprite sheet, do not draw multiple frames, do not add text, watermark, UI, border, grid, labels, or shadows outside the sprite."
     )
 
 
 def _fallback_next_frame_prompt(**values: Any) -> str:
+    loop_closure = f" {values['loop_closure']}" if values.get("loop_closure") else ""
     retry_hint = f" {values['retry_hint']}" if values.get("retry_hint") else ""
     return (
         f"Generate frame {values['frame_index']} of {values['frame_count']} in the same TRUE pixel-art animation sequence. "
-        "Use the provided previous frame as the motion-continuity reference, while preserving the original subject identity from the sequence description. "
+        f"{values['reference_instruction']} "
         f"Subject/action identity to preserve: {values['description']}. "
         "Keep the same character identity, costume, palette, outline thickness, camera, scale, facing direction, and anchor. "
         f"Previous phase: {values['previous_action_phase']}. "
@@ -459,6 +497,7 @@ def _fallback_next_frame_prompt(**values: Any) -> str:
         f"Use pure solid key-color {values['green']} for all empty/background pixels for chroma-key removal; "
         f"keep visible colors outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
         f"Use no more than {values['max_colors']} visible subject/effect colors; background color does not count. "
+        f"{loop_closure} "
         "Do not create a grid, collage, sprite sheet, duplicate character, text, watermark, background scene, labels, numbers, or extra frames."
         f"{retry_hint}"
     )
@@ -489,8 +528,8 @@ def _resolve_settings(cfg: AppConfig, inputs: SpritePipelineInput, description: 
         key_tolerance=int(sprite.green_screen_tolerance if inputs.key_tolerance is None else inputs.key_tolerance),
         max_colors=int(inputs.pixelize_params.colors or sprite.colors),
         reference_policy_requested=str(getattr(sprite, "reference_policy", "first_frame_and_previous_frame") or "first_frame_and_previous_frame"),
-        reference_policy_effective="previous_frame_with_first_frame_prompt_lock",
-        reference_policy_fallback_reason="Packy image edit wrapper currently exposes one multipart image field; first-frame identity is locked in prompt text.",
+        reference_policy_effective="single_reference_previous_frames_with_final_frame_first_anchor",
+        reference_policy_fallback_reason="Packy image edit wrapper currently exposes one multipart image field; middle frames use the previous frame, and the final frame uses frame 1 as loop-anchor reference.",
     )
 
 
@@ -706,7 +745,7 @@ def _generate_frame_with_retries(
             else:
                 if previous_reference_path is None:
                     raise ValueError("缺少上一帧参考图")
-                material["previous_reference_sha256"] = sha256_of_file(previous_reference_path)
+                material["reference_sha256"] = sha256_of_file(previous_reference_path)
                 mode = _generate_or_load_next_frame(
                     cfg,
                     cache,
@@ -1041,6 +1080,11 @@ def run_sprite_pipeline(
     with _local_stage(inputs.local_stage_context):
         for index in range(1, settings.frame_count + 1):
             notify("sprite_frame_start", {"frame_index": index, "frame_count": settings.frame_count})
+            reference_path_for_frame = (
+                drafts[0].reference_path
+                if index == settings.frame_count and settings.frame_count > 2 and drafts
+                else previous_reference_path
+            )
             draft = _generate_frame_with_retries(
                 cfg,
                 cache,
@@ -1051,7 +1095,7 @@ def run_sprite_pipeline(
                 timeline=timeline,
                 raw_dir=raw_dir,
                 reference_dir=reference_dir,
-                previous_reference_path=previous_reference_path,
+                previous_reference_path=reference_path_for_frame,
                 notify=notify,
             )
             drafts.append(draft)
