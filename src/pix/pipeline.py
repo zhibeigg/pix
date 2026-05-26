@@ -424,6 +424,7 @@ def _extract_grid_from_source(
     source_path: Path,
     *,
     generated_preprocess_method: str | None = None,
+    preprocess_output_path: Path | None = None,
 ) -> PixelGrid:
     params = inputs.pixelize_params
     return extract_pixel_grid(
@@ -437,6 +438,7 @@ def _extract_grid_from_source(
         bg_tolerance=params.bg_tolerance,
         metadata={"generator": "extract_grid"},
         generated_preprocess_method=generated_preprocess_method,
+        preprocess_output_path=preprocess_output_path,
         cfg=cfg,
     )
 
@@ -449,6 +451,7 @@ def _run_grid_pixelize(
     notify: ProgressCb,
     *,
     generated_preprocess_method: str | None = None,
+    preprocess_output_path: Path | None = None,
 ) -> tuple[Image.Image, Image.Image | None, dict, Path]:
     params = inputs.pixelize_params
     grid_meta: dict = {"mode": "extract"}
@@ -458,6 +461,7 @@ def _run_grid_pixelize(
         inputs,
         source_path,
         generated_preprocess_method=generated_preprocess_method,
+        preprocess_output_path=preprocess_output_path,
     )
 
     edge_style = params.edge_style if params.edge_style in ("hard", "feather", "outline") else "hard"
@@ -975,6 +979,7 @@ def run_pipeline(
     preview_path: Path | None = None
     grid_path: Path | None = None
     pixel_path = run_dir / "03_pixelized.png"
+    preprocess_path = run_dir / "02_perfect_pixel_preprocess.png"
     selected_source_preprocessed = bool(
         contact_sheet_meta and contact_sheet_meta.get("selected_source_preprocessed")
     )
@@ -1000,6 +1005,10 @@ def run_pipeline(
         selected_candidate = None
         if contact_sheet_meta and isinstance(contact_sheet_meta.get("candidates"), list):
             selected_candidate = next((item for item in contact_sheet_meta["candidates"] if isinstance(item, dict) and item.get("selected")), None)
+        if selected_candidate and selected_candidate.get("preprocessed_path") and not preprocess_path.exists():
+            selected_preprocess = run_dir / str(selected_candidate["preprocessed_path"])
+            if selected_preprocess.exists():
+                preprocess_path.write_bytes(selected_preprocess.read_bytes())
 
         if selected_candidate and selected_candidate.get("pixelized_path"):
             candidate_pixel_path = run_dir / str(selected_candidate["pixelized_path"])
@@ -1022,6 +1031,7 @@ def run_pipeline(
                 source_description=inputs.prompt or "",
                 auto_skip_redundant_bg=True,
                 generated_preprocess_method=generated_preprocess_method,
+                preprocess_output_path=preprocess_path,
             )
             pixel_img.save(pixel_path)
             if preview_img is not None:
@@ -1036,6 +1046,7 @@ def run_pipeline(
                 run_dir,
                 notify,
                 generated_preprocess_method=generated_preprocess_method,
+                preprocess_output_path=preprocess_path,
             )
             pixel_img.save(pixel_path)
             if preview_img is not None:
@@ -1077,6 +1088,7 @@ def run_pipeline(
             "candidate_scores": "01_candidate_scores.json" if (run_dir / "01_candidate_scores.json").exists() else None,
             "candidate_outputs": "candidate_outputs" if (run_dir / "candidate_outputs").exists() else None,
             "analysis": analysis_path.name if analysis_path else None,
+            "perfect_pixel_preprocess": preprocess_path.name if preprocess_path.exists() else None,
             "pixelized": pixel_path.name,
             "preview": preview_path.name if preview_path else None,
             "grid": grid_path.name if grid_path else None,

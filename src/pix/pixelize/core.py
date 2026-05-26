@@ -614,6 +614,7 @@ def pixelize(
     source_description: str = "",
     auto_skip_redundant_bg: bool = False,
     generated_preprocess_method: str | None = None,
+    preprocess_output_path: str | Path | None = None,
 ) -> tuple[Image.Image, Image.Image | None, dict]:
     """执行像素化。
 
@@ -631,6 +632,7 @@ def pixelize(
         generated_preprocess_method: 仅 pipeline 标记输入来自 AI 生图/图生图时传入。
             ``None`` 表示本地/直接调用，保持旧流程；``perfect_pixel`` 会先按目标网格
             做 perfectPixel 风格采样对齐。
+        preprocess_output_path: 需要调试/追踪时保存 perfect pixel 预处理图。
 
     Returns:
         (pixel_image, preview_image_or_None, meta_dict)
@@ -670,6 +672,11 @@ def pixelize(
     )
     img = generated_preprocess.image
     generated_preprocess_meta = generated_preprocess.meta
+    if preprocess_output_path is not None and generated_preprocess_meta.get("method") == "perfect_pixel":
+        preprocess_path = Path(preprocess_output_path)
+        preprocess_path.parent.mkdir(parents=True, exist_ok=True)
+        img.save(preprocess_path)
+        generated_preprocess_meta["output_path"] = str(preprocess_path)
 
     # 2. 可选前置抠背景：处理模型画出来的纯色/棋盘格假透明背景。
     if eff.remove_bg and not skipped_remove_bg:

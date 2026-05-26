@@ -155,6 +155,7 @@ def extract_pixel_grid(
     sample_ratio: float = 0.62,
     metadata: dict | None = None,
     generated_preprocess_method: str | None = None,
+    preprocess_output_path: str | Path | None = None,
     cfg=None,
 ) -> PixelGrid:
     """把一张伪像素图抽取成严格的 PixelGrid。
@@ -180,6 +181,11 @@ def extract_pixel_grid(
         target_size=params.output_size,
     )
     image = generated_preprocess.image
+    if preprocess_output_path is not None and generated_preprocess.meta.get("method") == "perfect_pixel":
+        preprocess_path = Path(preprocess_output_path)
+        preprocess_path.parent.mkdir(parents=True, exist_ok=True)
+        image.save(preprocess_path)
+        generated_preprocess.meta["output_path"] = str(preprocess_path)
     crop_bbox: tuple[int, int, int, int] | None = None
     tight_crop = bool(generated_preprocess.meta.get("applied"))
     if params.remove_bg:
