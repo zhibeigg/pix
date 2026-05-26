@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.129] - 2026-05-26
+
+### Changed
+
+- 强化九宫格动画 prompt 的单帧尺寸合同：按用户选择的导出尺寸写入每帧 `{width}x{height}`、整表 `{sheet_width}x{sheet_height}` 以及每帧逻辑坐标范围。
+- `00_input.txt` 现在记录 raw prompt、归一化描述、sprite 设置、帧坐标和完整 effective prompt，便于排查生图规则是否生效。
+
 ## [1.40.128] - 2026-05-26
 
 ### Changed

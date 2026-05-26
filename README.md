@@ -144,7 +144,7 @@ npm run build
 Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} designed for {asset_usage_label}, not a painted digital illustration. Subject: {name}. Subject kind: {subject_kind_label}. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, and a simple silhouette. Use no more than {max_colors} visible subject colors; background color does not count. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and {placement_context}. Use a pure solid single-color background for chroma-key removal; choose a background color that is not close to any visible subject color, with color-distance greater than the removal tolerance ({key_tolerance} RGB Euclidean distance). No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. The output image should be pixel-perfect, each grid cell only contains one color. {forbidden_elements}
 ```
 
-默认 sprite 模板同样使用 TRUE pixel-art 约束，并额外要求每个九宫格 cell 都是 `{width}x{height}` 帧、角色锚点/相机/比例一致、按左到右上到下连续播放、无网格线/编号/缩放变化。
+默认 sprite 模板同样使用 TRUE pixel-art 约束，并把用户选择的单帧导出尺寸写成硬合同：每帧必须是 `{width}x{height}` 逻辑像素，整张表必须是 `{sheet_width}x{sheet_height}`，并列出每帧在逻辑表里的 x/y 坐标范围；3×3 默认明确指定第 1 帧在左上、第 5 帧在中心动作峰值、第 9 帧在右下回收/待机，并禁止网格线/编号/缩放变化。
 
 ## 主页示例 icon 维护规则
 
