@@ -7,6 +7,7 @@ import secrets
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -40,8 +41,23 @@ def _coerce_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-def _invite_url(public_base_url: str, code: str) -> str:
-    base = public_base_url.rstrip("/") or "http://127.0.0.1:8000"
+def frontend_invite_base_url(frontend_base_url: str, public_base_url: str) -> str:
+    configured = (frontend_base_url or "").strip().rstrip("/")
+    if configured:
+        return configured
+    base = (public_base_url or "").strip().rstrip("/") or "http://127.0.0.1:8000"
+    parts = urlsplit(base)
+    path = parts.path.rstrip("/")
+    if path.lower() == "/api":
+        path = ""
+    elif path.lower().endswith("/api"):
+        path = path[:-4].rstrip("/")
+    normalized = urlunsplit((parts.scheme, parts.netloc, path, "", "")).rstrip("/")
+    return normalized or base
+
+
+def _invite_url(frontend_base_url: str, public_base_url: str, code: str) -> str:
+    base = frontend_invite_base_url(frontend_base_url, public_base_url)
     return f"{base}/?aff={code}#auth-panel"
 
 
@@ -249,7 +265,7 @@ def create_withdrawal_request(
     return settlement
 
 
-def referral_summary(db: Session, user: User, *, public_base_url: str) -> dict[str, Any]:
+def referral_summary(db: Session, user: User, *, public_base_url: str, frontend_base_url: str = "") -> dict[str, Any]:
     settings = load_referral_settings(db)
     profile = ensure_referral_profile(db, user)
     mature_available_rewards(db, user.id)
@@ -302,7 +318,7 @@ def referral_summary(db: Session, user: User, *, public_base_url: str) -> dict[s
 
     return {
         "code": profile.code,
-        "invite_url": _invite_url(public_base_url, profile.code),
+        "invite_url": _invite_url(frontend_base_url, public_base_url, profile.code),
         "enabled": settings.enabled,
         "commission_rate_bps": settings.commission_rate_bps,
         "pending_days": settings.pending_days,

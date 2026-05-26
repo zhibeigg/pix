@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlencode
+
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 
 from pix import __version__
 from pix_web.config import WebSettings, load_web_settings
 from pix_web.db import init_db, make_engine, make_session_factory
+from pix_web.referrals import frontend_invite_base_url
 from pix_web.routers import admin, announcements, auth, batches, billing, credits, files, jobs, packs, pricing, referrals, uploads
 
 
@@ -43,6 +47,15 @@ def create_app(settings: WebSettings | None = None) -> FastAPI:
     app.include_router(pricing.router)
     app.include_router(announcements.router)
     app.include_router(admin.router)
+
+    @app.get("/", include_in_schema=False)
+    def referral_root_redirect(request: Request):
+        aff = (request.query_params.get("aff") or "").strip()
+        if not aff:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+        active_settings: WebSettings = request.app.state.web_settings
+        frontend_base = frontend_invite_base_url(active_settings.frontend_base_url, active_settings.public_base_url)
+        return RedirectResponse(f"{frontend_base}/?{urlencode({'aff': aff})}#auth-panel", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     @app.get("/health")
     def health() -> dict[str, str]:

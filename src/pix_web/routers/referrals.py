@@ -26,7 +26,7 @@ def summary(
     settings: WebSettings = Depends(get_settings),
 ) -> dict:
     effective = load_effective_web_settings(db, settings)
-    data = referral_summary(db, user, public_base_url=effective.public_base_url)
+    data = referral_summary(db, user, public_base_url=effective.public_base_url, frontend_base_url=effective.frontend_base_url)
     db.commit()
     return data
 
