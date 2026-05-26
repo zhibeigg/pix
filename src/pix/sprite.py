@@ -145,6 +145,8 @@ def build_sprite_sheet_prompt(
         "count": safe_rows * safe_cols,
         "green": key_hex,
         "key_color": key_hex,
+        "key_tolerance": int(sprite_cfg.green_screen_tolerance),
+        "max_colors": int(sprite_cfg.colors),
         "width": int(width),
         "height": int(height),
     }
@@ -159,14 +161,22 @@ def build_sprite_sheet_prompt(
 
 def _fallback_sprite_prompt(**values: Any) -> str:
     return (
-        f"Create a detailed pixel art animation contact sheet for a game: exactly "
-        f"{values['rows']}x{values['cols']} grid, {values['count']} sequential animation keyframes. "
-        f"Animation subject/action: {values['description']}. Read order is left-to-right, top-to-bottom. "
-        f"Keep the same character, camera angle, scale, anchor point and lighting in every cell. "
-        f"Each cell is one clean keyframe of the continuous motion, centered with enough padding, "
-        f"designed to become {values['width']}x{values['height']} game sprite frames. "
-        f"Use a pure solid key-color background {values['green']} across the whole image for chroma-key removal. "
-        f"No text, no watermark, no labels, no numbers, no UI frame, no grid lines."
+        "Create a TRUE pixel-art animation contact sheet for a game, not a painted digital illustration: "
+        f"exactly {values['rows']}x{values['cols']} grid, {values['count']} sequential animation keyframes. "
+        f"Animation subject/action: {values['description']}. "
+        f"Each grid cell must be one {values['width']}x{values['height']} sprite frame, "
+        "where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, "
+        "and a clear silhouette in every frame. "
+        f"Use no more than {values['max_colors']} visible subject/effect colors per frame; background color does not count. "
+        "Read order is left-to-right, top-to-bottom. Keep the same character, camera angle, scale, anchor point, "
+        "lighting, and ground/contact position in every cell. Each cell is one clean keyframe of the continuous motion, "
+        "centered with clear empty pixel rows around all edges for safe sprite padding and stable extraction. "
+        f"Use pure solid key-color {values['green']} for all empty/background pixels across the whole image for chroma-key removal; "
+        "keep every visible subject/effect color outside the maximum key-color tolerance "
+        f"({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
+        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
+        "The output should be pixel-perfect; each sprite pixel cell contains only one flat color. "
+        "No text, no watermark, no labels, no numbers, no UI frame, no grid lines, no camera zoom changes."
     )
 
 

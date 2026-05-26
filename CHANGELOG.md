@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.128] - 2026-05-26
+
+### Changed
+
+- 强化九宫格动画精灵表 prompt 模板，使其与 asset 模板同样明确要求 TRUE pixel-art、单帧尺寸、像素格、颜色上限、纯色 key 背景、禁止抗锯齿和稳定锚点。
+- 更新示例配置与 README，说明 sprite 模板的额外连续帧约束。
+
 ## [1.40.127] - 2026-05-26
 
 ### Changed
