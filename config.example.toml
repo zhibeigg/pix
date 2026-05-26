@@ -168,7 +168,7 @@ key_softness   = 150
 key_alpha_floor = 12
 key_despill    = true
 bg_tolerance   = 26
-# 切帧时对 9 帧使用统一裁剪框，减少动画抖动
+# 动画后处理顺序：整张 3x3 图先 perfectPixel -> Color-to-Alpha，再等分切 9 帧；crop_* 为历史兼容字段。
 crop_padding   = 0.12
 crop_square    = true
 # 对 9 帧应用共享调色板，减少 GIF 闪色

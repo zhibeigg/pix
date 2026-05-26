@@ -108,7 +108,7 @@ npm run build
 5. Pixel Grid extract：
    - `perfect_pixel` 网格对齐，并保存 `02_perfect_pixel_preprocess.png`；
    - `remove_background` 去背景；默认固定使用四角纯色作为 key 的 GIMP Color-to-Alpha 风格算法，不再回退 flood-fill；
-   - 九宫格动画切帧后，每帧也按 `perfectPixel -> Color-to-Alpha` 顺序处理，再统一 bbox 裁剪以减少动画抖动；
+   - 九宫格动画按整表顺序处理：整张 3×3 图先 `perfectPixel -> Color-to-Alpha`，再等分切 9 张相同宽高帧图，每帧透明补到目标/预设像素尺寸，最后合成横向精灵表与 GIF；
    - `auto_crop` / tight bbox 贴主体裁剪；
    - `transparent_canvas_pad` 补到预设尺寸档；
    - sample cells / cluster palette；
