@@ -226,13 +226,6 @@ def extract_pixel_grid(
         sample_ratio=params.sample_ratio,
     )
     sampled_transparent_ratio = sum(1 for item in transparent_mask if item) / max(1, len(transparent_mask))
-    if params.remove_bg and sampled_transparent_ratio < 0.02:
-        transparent_mask = _mark_border_background_transparent(
-            colors,
-            transparent_mask,
-            output_size=effective_output_size,
-            tolerance=params.bg_tolerance,
-        )
     palette_rgb, pixels = _cluster_cell_colors(
         colors,
         transparent_mask,
@@ -263,7 +256,6 @@ def extract_pixel_grid(
         "bg_tolerance": params.bg_tolerance,
         "sample_ratio": params.sample_ratio,
         "sampled_transparent_ratio": sampled_transparent_ratio,
-        "border_background_transparent_applied": bool(params.remove_bg and sampled_transparent_ratio < 0.02),
     }
     if metadata:
         meta.update(metadata)
@@ -420,74 +412,6 @@ def _center_crop_patch(patch: np.ndarray, ratio: float) -> np.ndarray:
     x0 = max(0, (w - cw) // 2)
     return patch[y0:y0 + ch, x0:x0 + cw]
 
-
-def _mark_border_background_transparent(
-    colors: list[tuple[int, int, int] | None],
-    transparent: list[bool],
-    *,
-    output_size: tuple[int, int],
-    tolerance: int,
-) -> list[bool]:
-    """从采样网格边缘推断连通背景，并标为透明。
-
-    这一步专门处理“高清白底伪像素图裁剪后 remove_background 失效”的情况：
-    即使源图 alpha 全不透明，也可以根据边缘主色把白底 cell 转成 -1。
-    """
-    width, height = output_size
-    if len(colors) != width * height:
-        return transparent
-
-    def _idx(x: int, y: int) -> int:
-        return y * width + x
-
-    border_colors: list[tuple[int, int, int]] = []
-    for y in range(height):
-        for x in range(width):
-            if x not in (0, width - 1) and y not in (0, height - 1):
-                continue
-            i = _idx(x, y)
-            if transparent[i] or colors[i] is None:
-                continue
-            border_colors.append(colors[i])
-    if not border_colors:
-        return transparent
-
-    ref = tuple(int(v) for v in np.median(np.asarray(border_colors, dtype=np.float32), axis=0))
-    tol_sq = max(0, int(tolerance)) ** 2 * 3
-    visible_colors = [c for c, t in zip(colors, transparent, strict=True) if not t and c is not None]
-    if visible_colors:
-        close_ratio = sum(1 for c in visible_colors if _rgb_distance_sq(c, ref) <= tol_sq) / len(visible_colors)
-        # 如果几乎整张图都接近边缘色，说明主体可能已经被裁到铺满画布，
-        # 贸然把边缘连通色当背景会把主体整张抠空。
-        if close_ratio > 0.85:
-            return transparent
-    result = list(transparent)
-    seen = set()
-    queue: list[tuple[int, int]] = []
-    for x in range(width):
-        queue.append((x, 0))
-        queue.append((x, height - 1))
-    for y in range(height):
-        queue.append((0, y))
-        queue.append((width - 1, y))
-
-    while queue:
-        x, y = queue.pop(0)
-        if (x, y) in seen:
-            continue
-        seen.add((x, y))
-        i = _idx(x, y)
-        if result[i]:
-            pass
-        else:
-            color = colors[i]
-            if color is None or _rgb_distance_sq(color, ref) > tol_sq:
-                continue
-            result[i] = True
-        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
-            if 0 <= nx < width and 0 <= ny < height and (nx, ny) not in seen:
-                queue.append((nx, ny))
-    return result
 
 
 def _cluster_cell_colors(
