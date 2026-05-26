@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.120] - 2026-05-26
+
+### Changed
+
+- 将主页展示用物品图标替换为最新重处理的 `visual` 输出，并按 PNG 实际尺寸同步前端图标尺寸映射。
+
 ## [1.40.119] - 2026-05-25
 
 ### Changed
