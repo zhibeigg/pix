@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.121] - 2026-05-26
+
+### Fixed
+
+- 重新生成缺失的主页示例物品 `68_sea_item_07` visual 图标，并替换主页展示 PNG 与尺寸映射。
+
 ## [1.40.120] - 2026-05-26
 
 ### Changed
