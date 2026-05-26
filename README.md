@@ -127,6 +127,8 @@ npm run build
 
 这些 `outputs/` 调试产物不入库。
 
+作品库卡片支持“参数”快览：展开作品后可以查看任务提交时的 prompt、输入图、模型、像素化、素材直出、序列帧、计费快照和输出文件路径；快览里的完整 JSON 可一键复制，用于复现生成或排查问题。
+
 ## Prompt 构建规则
 
 网站输入框只要求用户填写主体/描述，服务端再拼装完整素材 prompt。模板中的动态值必须来自用户或当前任务参数：
@@ -157,7 +159,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.42.131`。
+当前版本：`1.43.131`。
 
 版本号格式为 `A.B.C`：
 
