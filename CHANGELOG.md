@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.125] - 2026-05-26
+
+### Changed
+
+- 使用固定 Color-to-Alpha 后处理全量重跑 608 个主页展示物品图标，并以最新 visual 输出替换主页展示资源。
+- 同步更新主页图标实际 PNG 尺寸映射。
+
 ## [1.40.124] - 2026-05-26
 
 ### Changed
