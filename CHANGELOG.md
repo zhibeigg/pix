@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.119] - 2026-05-25
+
+### Changed
+
+- 删除 Pixel Grid 采样后的边缘连通背景兜底步骤；AI 纯色 key 背景以 Color-to-Alpha 结果为准，避免后续推断再次破坏主体。
+
 ## [1.40.118] - 2026-05-25
 
 ### Fixed
