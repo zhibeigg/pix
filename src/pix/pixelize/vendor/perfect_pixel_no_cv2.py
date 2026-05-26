@@ -176,11 +176,11 @@ def find_best_grid(origin, range_val_min, range_val_max, grad_mag, thr = 0):
 
 
 def sample_center(image, x_coords, y_coords):
-    x = np.asarray(x_coords)
-    y = np.asarray(y_coords)
-    centers_x = ((x[1:] + x[:-1]) * 0.5).astype(np.int32)
-    centers_y = ((y[1:] + y[:-1]) * 0.5).astype(np.int32)
-    return image[centers_y[:, None], centers_x[None, :]]
+    x = np.asarray(x_coords, dtype=np.float32)
+    y = np.asarray(y_coords, dtype=np.float32)
+    centers_x = np.clip(np.floor((x[1:] + x[:-1]) * 0.5), 0, image.shape[1] - 1).astype(np.intp)
+    centers_y = np.clip(np.floor((y[1:] + y[:-1]) * 0.5), 0, image.shape[0] - 1).astype(np.intp)
+    return image[centers_y[:, None], centers_x[None, :]].copy()
 
 
 def sample_majority(image, x_coords, y_coords, max_samples=128, iters=6, seed=0):
