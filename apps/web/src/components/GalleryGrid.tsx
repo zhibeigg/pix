@@ -15,6 +15,7 @@ import { PixStatusBadge } from './pix/PixStatusBadge'
 import { JobErrorSummary } from './JobErrorSummary'
 import { SpriteSequencePreview } from './SpriteSequencePreview'
 import { SpriteSequenceAlignmentEditor } from './SpriteSequenceAlignmentEditor'
+import { JobParameterSnapshotDialog } from './JobParameterSnapshotDialog'
 
 type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; draggableSucceeded?: boolean }
 type DownloadKind = 'source' | 'pixelized' | 'sprite_gif' | 'sprite_sheet' | 'sequence_json' | 'contact_sheet'
@@ -102,11 +103,13 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
             <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{summary}</p>
           </div>
         </div>
-        {selected && <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{t('common.points', { count: job.price_credits })}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge>{job.batch_name && <Badge variant="outline">{job.batch_name}</Badge>}</div>}
+        {selected && <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{t('common.points', { count: job.price_credits })}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge>{job.batch_name && <Badge variant="outline">{job.batch_name}</Badge>}<QuickParameterBadges job={job} output={output} /></div>}
         {selected && job.status === 'failed' && <JobErrorSummary error={job.error_message} compact />}
         {selected && output && <CandidateMiniGrid job={job} output={output} onCandidatePixelize={onCandidatePixelize} />}
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant={selected ? 'default' : 'outline'} onClick={(event) => { event.stopPropagation(); onSelect(job) }}>{selected ? t('gallery.expanded') : t('gallery.details')}</Button>
+          {output && <JobParameterSnapshotDialog job={job} output={output} />}
+          {!output && <JobParameterSnapshotDialog job={job} />}
           {job.status === 'succeeded' && output && output.sprite_frames.length > 0 && onSaveSequenceAlignment && <Dialog open={alignmentOpen} onOpenChange={setAlignmentOpen}>
             <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); setAlignmentOpen(true) }}><Crosshair />{t('gallery.alignFrames')}</Button>
             <DialogContent onClick={(event) => event.stopPropagation()} className="w-[min(96vw,1180px)] max-h-[92vh] overflow-y-auto sm:max-w-none">
@@ -126,6 +129,28 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
       </div>
     </article>
   )
+}
+
+function QuickParameterBadges({ job, output }: { job: GenerationJob; output?: JobOutput }) {
+  const params = asRecord(job.params_json)
+  const pixelize = asRecord(params?.pixelize)
+  const sprite = asRecord(params?.sprite)
+  const model = typeof params?.image_model === 'string' && params.image_model ? params.image_model : null
+  const colors = Number(pixelize?.colors)
+  const requestedSize = asNumberPair(pixelize?.output_size)
+  const realSize = asNumberPair(output?.pixelized_size)
+  const size = realSize ?? requestedSize
+  const chips: string[] = []
+  if (size) chips.push(size[0] === size[1] ? `${size[0]}×${size[0]}` : `${size[0]}×${size[1]}`)
+  if (Number.isFinite(colors) && colors > 0) chips.push(`${Math.round(colors)} 色`)
+  if (model) chips.push(model)
+  if (job.job_type === 'sprite_sheet') {
+    const frameCount = Number(sprite?.frame_count)
+    const fps = Number(sprite?.fps)
+    if (Number.isFinite(frameCount) && frameCount > 0) chips.push(`${Math.round(frameCount)} 帧`)
+    if (Number.isFinite(fps) && fps > 0) chips.push(`${Math.round(fps)} FPS`)
+  }
+  return <>{chips.slice(0, 5).map((chip) => <Badge key={chip} variant="outline">{chip}</Badge>)}</>
 }
 
 function DownloadDialog({ job, options }: { job: GenerationJob; options: DownloadOption[] }) {
