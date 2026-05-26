@@ -108,7 +108,7 @@ npm run build
 5. Pixel Grid extract：
    - `perfect_pixel` 网格对齐，并保存 `02_perfect_pixel_preprocess.png`；
    - `remove_background` 去背景；默认固定使用四角纯色作为 key 的 GIMP Color-to-Alpha 风格算法，不再回退 flood-fill；
-   - 九宫格动画按整表顺序处理：整张 3×3 图先 `perfectPixel -> Color-to-Alpha`，再等分切 9 张相同宽高帧图，每帧透明补到目标/预设像素尺寸，最后合成横向精灵表与 GIF；
+   - 序列帧任务按逐帧流程处理：首帧使用序列帧专属 asset prompt 文生图，后续帧使用上一帧图生图推进；每帧先做 `perfectPixel` 参考预处理，最终复用 asset 的 Color-to-Alpha 后处理，按有效单帧尺寸透明补齐，再合成横向 `sprite_sheet.png` 与 `sequence.json`；
    - `auto_crop` / tight bbox 贴主体裁剪；
    - `transparent_canvas_pad` 补到预设尺寸档；
    - sample cells / cluster palette；
@@ -144,7 +144,7 @@ npm run build
 Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} designed for {asset_usage_label}, not a painted digital illustration. Subject: {name}. Subject kind: {subject_kind_label}. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, and a simple silhouette. Use no more than {max_colors} visible subject colors; background color does not count. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and {placement_context}. Use a pure solid single-color background for chroma-key removal; choose a background color that is not close to any visible subject color, with color-distance greater than the removal tolerance ({key_tolerance} RGB Euclidean distance). No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. The output image should be pixel-perfect, each grid cell only contains one color. {forbidden_elements}
 ```
 
-默认 sprite 模板同样使用 TRUE pixel-art 约束，并把用户选择的单帧导出尺寸写成硬合同：每帧必须是 `{width}x{height}` 逻辑像素，整张表必须是 `{sheet_width}x{sheet_height}`，并列出每帧在逻辑表里的 x/y 坐标范围；3×3 默认明确指定第 1 帧在左上、第 5 帧在中心动作峰值、第 9 帧在右下回收/待机，并禁止网格线/编号/缩放变化。
+默认 sprite 模板已改为序列帧模板，同样使用 TRUE pixel-art 约束，并把用户选择的单帧导出尺寸写成目标合同。`frame_count` 可由用户自定义，范围为 1-12；后端会为每帧生成动作阶段描述，第一帧文生图，后续帧以上一帧作为图生图参考并在 prompt 中锁定第一帧身份特征。最终导出使用 `effective_frame_size` 统一补齐，扩大时按 16 像素步长取整，并生成横向 `sprite_sheet.png`、独立帧图和 `sequence.json`。作品库优先读取 `sprite_sheet.png + sequence.json` 播放，GIF 仅作为可选兼容导出。`sprite_sheet` 价格规则现在表示“单帧基础价”，实际扣点为 `frame_count × 单帧基础价`。
 
 ## 主页示例 icon 维护规则
 

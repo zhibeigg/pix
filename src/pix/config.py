@@ -193,17 +193,27 @@ class AssetConfig:
 
 @dataclass
 class SpriteConfig:
-    """九宫格动画精灵表默认参数。"""
+    """逐帧序列帧默认参数。"""
 
     output_dir: str = "图片/sprites"
-    rows: int = 3
-    cols: int = 3
+    # rows/cols 为历史兼容字段；新序列帧流程不再生成九宫格。
+    rows: int = 1
+    cols: int = 9
+    frame_count: int = 9
+    max_frame_count: int = 12
+    fps: int = 8
     pixel_size: tuple[int, int] = (64, 64)
     colors: int = 16
     dither: str = "none"
     image_quality: str = "high"
-    duration_ms: int = 120
+    duration_ms: int = 125
     loop: int = 0
+    gif_export: bool = False
+    frame_size_step: int = 16
+    oversize_regenerate_threshold: float = 1.5
+    max_frame_retries: int = 2
+    anchor: str = "bottom_center"
+    reference_policy: str = "first_frame_and_previous_frame"
     green_screen_color: str = "auto"
     green_screen_tolerance: int = 48
     key_mode: str = "soft"
@@ -215,23 +225,27 @@ class SpriteConfig:
     crop_square: bool = True
     shared_palette: bool = True
     prompt_template: str = (
-        "Create a TRUE pixel-art animation contact sheet for a game, not a painted digital illustration: "
-        "exactly {rows}x{cols} grid, {count} sequential animation keyframes. Animation subject/action: {description}. "
-        "Single-frame size is a hard contract from the user export target: every frame must be exactly {width}x{height} logical pixels, where each pixel is one square grid cell. "
-        "The complete logical sprite sheet must be exactly {sheet_width}x{sheet_height} pixels: {cols} columns × {width}px and {rows} rows × {height}px. "
-        "Frame cell coordinate bounds in the logical sheet are: {frame_bounds} "
-        "Do not make larger or smaller frames, do not merge cells, and do not add gutters between cells. "
-        "Use large, chunky readable pixels, limited colors, and a clear silhouette in every frame. "
-        "Use no more than {max_colors} visible subject/effect colors per frame; background color does not count. "
-        "Read order is left-to-right, top-to-bottom. {frame_layout} "
-        "Keep the same character, camera angle, scale, anchor point, "
-        "lighting, and ground/contact position in every cell. Each cell is one clean keyframe of the continuous motion, "
-        "centered with clear empty pixel rows around all edges for safe sprite padding and stable extraction. "
-        "Use pure solid key-color {green} for all empty/background pixels across the whole image for chroma-key removal; "
-        "keep every visible subject/effect color outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
-        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
-        "The output should be pixel-perfect; each sprite pixel cell contains only one flat color. "
-        "No text, no watermark, no labels, no numbers, no UI frame, no grid lines, no camera zoom changes."
+        "Create frame 1 of a {frame_count}-frame TRUE pixel-art animation sequence. "
+        "Subject/action: {description}. Action phase: {action_phase}. "
+        "Canvas contract: one single frame only, target frame size {width}x{height} logical pixels, where each pixel is one square grid cell. "
+        "The character/effect should fit inside this frame whenever possible. "
+        "Use no more than {max_colors} visible subject/effect colors; background color does not count. "
+        "Use pure solid key-color {green} for all empty/background pixels for chroma-key removal; keep visible colors outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
+        "Anchor: keep the subject aligned to {anchor}. "
+        "Style: crisp pixel art, hard edges, limited palette, no painterly blending, no anti-aliased soft brush. "
+        "Do not draw a sprite sheet, do not draw multiple frames, do not add text, watermark, UI, border, grid, labels, or shadows outside the sprite."
+    )
+    next_frame_prompt_template: str = (
+        "Generate frame {frame_index} of {frame_count} in the same TRUE pixel-art animation sequence. "
+        "Use the provided previous frame as the motion-continuity reference, while preserving the original subject identity from the sequence description. "
+        "Subject/action identity to preserve: {description}. "
+        "Keep the same character identity, costume, palette, outline thickness, camera, scale, facing direction, and anchor. "
+        "Previous phase: {previous_action_phase}. Current action phase: {action_phase}. "
+        "Canvas contract: one single frame only, target frame size {width}x{height} logical pixels, where each pixel is one square grid cell. "
+        "The subject should remain inside the frame and aligned consistently. "
+        "Use pure solid key-color {green} for all empty/background pixels for chroma-key removal; keep visible colors outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
+        "Use no more than {max_colors} visible subject/effect colors; background color does not count. "
+        "Do not create a grid, collage, sprite sheet, duplicate character, text, watermark, background scene, labels, numbers, or extra frames. {retry_hint}"
     )
 
 

@@ -139,6 +139,9 @@ export type GridDesignParams = {
 }
 
 export type SpriteParams = {
+  frame_count: number
+  fps: number
+  gif_export?: boolean
   duration_ms: number
   loop: number
   rows: number
@@ -167,6 +170,10 @@ export type SpriteFrameOutput = {
   url: string | null
   raw_path?: string | null
   raw_url?: string | null
+  reference_path?: string | null
+  reference_url?: string | null
+  sheet_rect?: { x: number; y: number; w: number; h: number } | null
+  action_phase?: string | null
   bbox?: [number, number, number, number] | null
 }
 
@@ -246,6 +253,8 @@ export type JobOutput = {
   sprite_sheet_url: string | null
   sprite_gif_path: string | null
   sprite_gif_url: string | null
+  sequence_json_path: string | null
+  sequence_json_url: string | null
   sprite_frames: SpriteFrameOutput[]
   pixelized_path: string
   pixelized_url: string | null

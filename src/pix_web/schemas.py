@@ -285,10 +285,14 @@ class GridDesignSchema(BaseModel):
 
 
 class SpriteParamsSchema(BaseModel):
-    duration_ms: int = Field(default=120, ge=20, le=2000)
+    frame_count: int = Field(default=9, ge=1, le=12)
+    fps: int = Field(default=8, ge=1, le=60)
+    gif_export: bool = False
+    # 以下字段为历史兼容；新序列帧流程不再依赖 rows/cols 九宫格。
+    duration_ms: int = Field(default=125, ge=20, le=2000)
     loop: int = Field(default=0, ge=0, le=999)
-    rows: int = Field(default=3, ge=1, le=3)
-    cols: int = Field(default=3, ge=1, le=3)
+    rows: int = Field(default=1, ge=1, le=12)
+    cols: int = Field(default=9, ge=1, le=12)
     key_mode: Literal["hard", "soft"] | None = None
     key_tolerance: int | None = Field(default=None, ge=0, le=441)
     key_softness: int | None = Field(default=None, ge=1, le=441)
@@ -446,6 +450,18 @@ class JobOutputResponse(BaseModel):
 
     @computed_field
     @property
+    def sequence_json_path(self) -> str | None:
+        outputs = _outputs_meta(self.meta_json_path)
+        sequence = outputs.get("sequence_json") or _sprite_meta(self.meta_json_path).get("sequence_json")
+        return _resolve_meta_relative_path(self.meta_json_path, str(sequence)) if sequence else None
+
+    @computed_field
+    @property
+    def sequence_json_url(self) -> str | None:
+        return file_url(self.sequence_json_path)
+
+    @computed_field
+    @property
     def sprite_frames(self) -> list[dict[str, Any]]:
         raw_frames = _sprite_meta(self.meta_json_path).get("frames")
         if not isinstance(raw_frames, list):
@@ -456,6 +472,7 @@ class JobOutputResponse(BaseModel):
                 continue
             path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("path") or ""))
             raw_path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("raw_path") or ""))
+            reference_path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("reference_path") or ""))
             if not path:
                 continue
             frames.append({
@@ -466,6 +483,10 @@ class JobOutputResponse(BaseModel):
                 "url": file_url(path),
                 "raw_path": raw_path,
                 "raw_url": file_url(raw_path),
+                "reference_path": reference_path,
+                "reference_url": file_url(reference_path),
+                "sheet_rect": item.get("sheet_rect"),
+                "action_phase": item.get("action_phase"),
                 "bbox": item.get("bbox"),
             })
         return frames

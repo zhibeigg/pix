@@ -148,32 +148,42 @@ palette_mode    = "auto"
 prompt_template = "Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} designed for {asset_usage_label}, not a painted digital illustration. Subject: {name}. Subject kind: {subject_kind_label}. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, and a simple silhouette. Use no more than {max_colors} visible subject colors; background color does not count. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and {placement_context}. Use a pure solid single-color background for chroma-key removal; choose a background color that is not close to any visible subject color, with color-distance greater than the removal tolerance ({key_tolerance} RGB Euclidean distance). No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. The output image should be pixel-perfect, each grid cell only contains one color. {forbidden_elements}"
 
 [sprite]
-# 网站九宫格动画精灵表任务的默认值；主页序列帧展示也必须使用该全流程产物。
+# 网站序列帧任务默认值：首帧文生图，后续逐帧图生图，最终输出横向 sprite_sheet.png + sequence.json。
 output_dir     = "图片/sprites"
-rows           = 3
-cols           = 3
+# rows/cols 为历史兼容字段；新流程不再生成九宫格。
+rows           = 1
+cols           = 9
+frame_count    = 9
+max_frame_count = 12
+fps            = 8
 pixel_size     = [64, 64]
 colors         = 16
 dither         = "none"
 image_quality  = "high"
-# GIF 每帧持续时间（毫秒）；loop=0 表示无限循环
-duration_ms    = 120
+# 兼容旧 GIF 间隔字段；新流程以 fps 为主，默认不生成 GIF。
+duration_ms    = 125
 loop           = 0
+gif_export     = false
+frame_size_step = 16
+oversize_regenerate_threshold = 1.5
+max_frame_retries = 2
+anchor         = "bottom_center"
+reference_policy = "first_frame_and_previous_frame"
 # auto 会按 prompt 动态选择不易撞色的纯色背景，也可固定为 HEX。
 green_screen_color = "auto"
 green_screen_tolerance = 48
-# 抠色模式：hard=纯阈值硬抠；soft=估算半透明 alpha，并可去掉 key color 对边缘的污染
+# 抠色模式字段保留兼容；新序列帧后处理复用 asset 的 Color-to-Alpha 配置。
 key_mode       = "hard"  # hard | soft
 key_softness   = 150
 key_alpha_floor = 12
 key_despill    = true
 bg_tolerance   = 26
-# 动画后处理顺序：整张 3x3 图先 perfectPixel -> Color-to-Alpha，再等分切 9 帧；crop_* 为历史兼容字段。
 crop_padding   = 0.12
 crop_square    = true
-# 对 9 帧应用共享调色板，减少 GIF 闪色
+# 对全部帧应用共享调色板，减少序列播放闪色。
 shared_palette = true
-prompt_template = "Create a TRUE pixel-art animation contact sheet for a game, not a painted digital illustration: exactly {rows}x{cols} grid, {count} sequential animation keyframes. Animation subject/action: {description}. Single-frame size is a hard contract from the user export target: every frame must be exactly {width}x{height} logical pixels, where each pixel is one square grid cell. The complete logical sprite sheet must be exactly {sheet_width}x{sheet_height} pixels: {cols} columns × {width}px and {rows} rows × {height}px. Frame cell coordinate bounds in the logical sheet are: {frame_bounds} Do not make larger or smaller frames, do not merge cells, and do not add gutters between cells. Use large, chunky readable pixels, limited colors, and a clear silhouette in every frame. Use no more than {max_colors} visible subject/effect colors per frame; background color does not count. Read order is left-to-right, top-to-bottom. {frame_layout} Keep the same character, camera angle, scale, anchor point, lighting, and ground/contact position in every cell. Each cell is one clean keyframe of the continuous motion, centered with clear empty pixel rows around all edges for safe sprite padding and stable extraction. Use pure solid key-color {green} for all empty/background pixels across the whole image for chroma-key removal; keep every visible subject/effect color outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. The output should be pixel-perfect; each sprite pixel cell contains only one flat color. No text, no watermark, no labels, no numbers, no UI frame, no grid lines, no camera zoom changes."
+prompt_template = "Create frame 1 of a {frame_count}-frame TRUE pixel-art animation sequence. Subject/action: {description}. Action phase: {action_phase}. Canvas contract: one single frame only, target frame size {width}x{height} logical pixels, where each pixel is one square grid cell. The character/effect should fit inside this frame whenever possible. Use no more than {max_colors} visible subject/effect colors; background color does not count. Use pure solid key-color {green} for all empty/background pixels for chroma-key removal; keep visible colors outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. Anchor: keep the subject aligned to {anchor}. Style: crisp pixel art, hard edges, limited palette, no painterly blending, no anti-aliased soft brush. Do not draw a sprite sheet, do not draw multiple frames, do not add text, watermark, UI, border, grid, labels, or shadows outside the sprite."
+next_frame_prompt_template = "Generate frame {frame_index} of {frame_count} in the same TRUE pixel-art animation sequence. Use the provided previous frame as the motion-continuity reference, while preserving the original subject identity from the sequence description. Subject/action identity to preserve: {description}. Keep the same character identity, costume, palette, outline thickness, camera, scale, facing direction, and anchor. Previous phase: {previous_action_phase}. Current action phase: {action_phase}. Canvas contract: one single frame only, target frame size {width}x{height} logical pixels, where each pixel is one square grid cell. The subject should remain inside the frame and aligned consistently. Use pure solid key-color {green} for all empty/background pixels for chroma-key removal; keep visible colors outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. Use no more than {max_colors} visible subject/effect colors; background color does not count. Do not create a grid, collage, sprite sheet, duplicate character, text, watermark, background scene, labels, numbers, or extra frames. {retry_hint}"
 
 [cache]
 enabled        = true

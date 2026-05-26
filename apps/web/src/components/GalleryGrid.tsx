@@ -11,12 +11,12 @@ import { Badge } from './ui/badge'
 import { Checkbox } from './ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { PixPanel } from './pix/PixPanel'
-import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixStatusBadge } from './pix/PixStatusBadge'
 import { JobErrorSummary } from './JobErrorSummary'
+import { SpriteSequencePreview } from './SpriteSequencePreview'
 
 type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; draggableSucceeded?: boolean }
-type DownloadKind = 'source' | 'pixelized' | 'sprite_gif' | 'sprite_sheet' | 'contact_sheet'
+type DownloadKind = 'source' | 'pixelized' | 'sprite_gif' | 'sprite_sheet' | 'sequence_json' | 'contact_sheet'
 type DownloadOption = { id: DownloadKind; label: string; description: string; path: string; url: string; filename: string }
 
 export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, onSelect, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, draggableSucceeded = false }: GalleryGridProps) {
@@ -45,7 +45,9 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
   const downloadOptions = output ? buildDownloadOptions(job, output, t) : []
   const isActive = isActiveJob(job)
-  const previewUrl = isActive ? null : output ? signedFileUrl(output.sprite_gif_url || output.pixelized_url || output.preview_url || output.source_url || undefined) : signedFileUrl(job.input_image_url)
+  const previewUrl = isActive ? null : output ? signedFileUrl(output.pixelized_url || output.preview_url || output.source_url || undefined) : signedFileUrl(job.input_image_url)
+  const spriteSheetUrl = isActive ? null : signedFileUrl(output?.sprite_sheet_url || undefined)
+  const spriteFps = spriteFpsFromJob(job)
   const typeLabel = jobTypeLabel(job.job_type, language)
   const sizeTag = jobPixelSizeTag(job, output)
   const displayName = jobDisplayName(job, t)
@@ -73,7 +75,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
       }}
       className={`cursor-pointer overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/55 hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[hsl(var(--pix-dark-card))] ${isActive ? 'pix-work-card-loading' : ''} ${selected ? 'border-primary shadow-[0_4px_12px_rgba(15,15,15,0.08)] ring-2 ring-primary/15' : job.status === 'failed' ? 'border-destructive/40' : 'border-border dark:border-[hsl(var(--pix-dark-hairline))]'}`}
     >
-      <PixPreviewFrame url={previewUrl} loading={isActive} label={isActive ? jobStatusLabel(job, t) : job.status === 'succeeded' ? 'PIX' : t('gallery.waitingOutput')} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" imageClassName="absolute inset-0 h-full max-h-none w-full p-0 object-contain" ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div></PixPreviewFrame>
+      <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={output?.sprite_frames ?? []} fps={spriteFps} fallbackUrl={previewUrl} loading={isActive} label={isActive ? jobStatusLabel(job, t) : job.status === 'succeeded' ? 'PIX' : t('gallery.waitingOutput')} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" imageClassName="absolute inset-0 h-full max-h-none w-full p-0 bg-contain" ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div></SpriteSequencePreview>
       <div className="grid gap-2.5 p-3">
         <div className="grid gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -162,6 +164,7 @@ function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: st
     { id: 'pixelized', label: t('downloads.pixelized'), description: t('downloads.pixelizedDescription'), path: output.pixelized_path, url: output.pixelized_url, fallback: '03_pixelized.png' },
     { id: 'sprite_gif', label: t('downloads.spriteGif'), description: t('downloads.spriteGifDescription'), path: output.sprite_gif_path, url: output.sprite_gif_url, fallback: 'sprite.gif' },
     { id: 'sprite_sheet', label: t('downloads.spriteSheet'), description: t('downloads.spriteSheetDescription'), path: output.sprite_sheet_path, url: output.sprite_sheet_url, fallback: 'sprite-sheet.png' },
+    { id: 'sequence_json', label: t('downloads.sequenceJson'), description: t('downloads.sequenceJsonDescription'), path: output.sequence_json_path, url: output.sequence_json_url, fallback: 'sequence.json' },
     { id: 'contact_sheet', label: t('downloads.contactSheet'), description: t('downloads.contactSheetDescription'), path: output.contact_sheet_path, url: output.contact_sheet_url, fallback: 'contact-sheet.png' },
   ]
   return specs.flatMap((spec) => {
@@ -246,6 +249,12 @@ function pixelSizeBadgeClass(size: [number, number]) {
   if (side <= 32) return 'border-[hsl(var(--pix-brand-yellow)/.42)] bg-[hsl(var(--pix-yellow)/.9)] text-[hsl(var(--pix-brand-brown))] dark:border-[hsl(var(--pix-brand-yellow)/.5)] dark:bg-[hsl(var(--pix-brand-yellow)/.18)] dark:text-[hsl(var(--pix-yellow))]'
   if (side <= 64) return 'border-[hsl(var(--pix-brand-purple)/.26)] bg-[hsl(var(--pix-lavender)/.9)] text-[hsl(var(--pix-brand-purple-800))] dark:border-[hsl(var(--pix-brand-purple-300)/.36)] dark:bg-[hsl(var(--pix-brand-purple-800)/.46)] dark:text-[hsl(var(--pix-brand-purple-300))]'
   return 'border-[hsl(var(--pix-brand-orange)/.28)] bg-[hsl(var(--pix-peach)/.92)] text-[hsl(var(--pix-brand-orange-deep))] dark:border-[hsl(var(--pix-brand-orange)/.45)] dark:bg-[hsl(var(--pix-brand-orange)/.18)] dark:text-[hsl(var(--pix-peach))]'
+}
+
+function spriteFpsFromJob(job: GenerationJob) {
+  const sprite = asRecord(job.params_json?.sprite)
+  const fps = Number(sprite?.fps)
+  return Number.isFinite(fps) && fps > 0 ? fps : 8
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
