@@ -554,7 +554,7 @@ export const homepageExampleItemIconDimensions: Record<string, readonly [number,
   '68_sea_item_04.png': [48, 48],
   '68_sea_item_05.png': [128, 128],
   '68_sea_item_06.png': [48, 48],
-  '68_sea_item_07.png': [96, 96],
+  '68_sea_item_07.png': [48, 48],
   '68_sea_item_08.png': [48, 48],
   '69_dystopia_item_01.png': [32, 32],
   '69_dystopia_item_02.png': [48, 48],
@@ -621,6 +621,7 @@ export const homepageExampleItemIconDimensions: Record<string, readonly [number,
   '76_otome_item_07.png': [128, 128],
   '76_otome_item_08.png': [32, 32],
 }
+
 const homepageItemSlotCount = 8
 
 export const homepageExampleItemIcons: HomepageExampleItemIcon[] = homepageExamples.flatMap((example) =>
