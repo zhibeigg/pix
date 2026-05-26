@@ -898,7 +898,7 @@ function DeleteConfirmDialog({ state, loading, onCancel, onConfirm }: { state: D
 
   return (
     <Dialog open={Boolean(state)} onOpenChange={(open) => { if (!open && !loading) onCancel() }}>
-      <DialogContent className="overflow-hidden border-[hsl(var(--pix-paper-border))] bg-card p-0 shadow-[0_24px_80px_-24px_rgba(15,15,15,0.42)] sm:max-w-[500px] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
+      <DialogContent className="delete-confirm-dialog-content overflow-hidden border-[hsl(var(--pix-paper-border))] bg-card p-0 shadow-[0_24px_80px_-24px_rgba(15,15,15,0.42)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
         {state && (
           <div className="relative grid gap-5 p-6">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_18%_0%,hsl(var(--destructive)/.18),transparent_36%),linear-gradient(180deg,hsl(var(--pix-cream)/.86),transparent)] dark:bg-[radial-gradient(circle_at_18%_0%,hsl(var(--destructive)/.34),transparent_34%),linear-gradient(180deg,hsl(var(--pix-navy)/.82),transparent)]" />

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.126] - 2026-05-26
+
+### Changed
+
+- 调整邀请链接生成与根路径 `aff` 跳转，优先指向前端登录面板。
+- 修复删除确认弹窗在视口中的居中和宽度约束，并加入 GIMP Color-to-Alpha 参考实现目录。
+
 ## [1.40.125] - 2026-05-26
 
 ### Changed
