@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.118] - 2026-05-25
+
+### Fixed
+
+- 修复 Pixel Grid 第 7 步边缘连通背景兜底误删主体的问题：当 Color-to-Alpha 已经产生足够透明背景时，跳过二次边缘背景推断，避免主体贴边像素被当成背景删除。
+
 ## [1.40.117] - 2026-05-25
 
 ### Changed

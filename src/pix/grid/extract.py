@@ -225,7 +225,8 @@ def extract_pixel_grid(
         alpha_threshold=params.alpha_threshold,
         sample_ratio=params.sample_ratio,
     )
-    if params.remove_bg:
+    sampled_transparent_ratio = sum(1 for item in transparent_mask if item) / max(1, len(transparent_mask))
+    if params.remove_bg and sampled_transparent_ratio < 0.02:
         transparent_mask = _mark_border_background_transparent(
             colors,
             transparent_mask,
@@ -261,6 +262,8 @@ def extract_pixel_grid(
         "remove_bg": params.remove_bg,
         "bg_tolerance": params.bg_tolerance,
         "sample_ratio": params.sample_ratio,
+        "sampled_transparent_ratio": sampled_transparent_ratio,
+        "border_background_transparent_applied": bool(params.remove_bg and sampled_transparent_ratio < 0.02),
     }
     if metadata:
         meta.update(metadata)
