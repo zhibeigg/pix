@@ -332,6 +332,18 @@ class JobBatchCreateRequest(BaseModel):
     mode: str = Field(default="mixed", max_length=32)
 
 
+class SequenceFrameAlignmentSchema(BaseModel):
+    index: int = Field(ge=1, le=128)
+    offset_x: int = Field(default=0, ge=-4096, le=4096)
+    offset_y: int = Field(default=0, ge=-4096, le=4096)
+
+
+class SequenceAlignmentRequest(BaseModel):
+    frames: list[SequenceFrameAlignmentSchema] = Field(min_length=1, max_length=128)
+    fps: int | None = Field(default=None, ge=1, le=60)
+    gif_export: bool = True
+
+
 class UploadResponse(BaseModel):
     path: str
     filename: str

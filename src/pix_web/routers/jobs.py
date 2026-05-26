@@ -11,7 +11,8 @@ from pix_web.jobs import create_job, create_jobs_batch, retry_failed_job
 from pix_web.models import GenerationJob, User
 from pix_web.queue import enqueue_jobs
 from pix_web.retention import delete_user_job, prune_user_photos
-from pix_web.schemas import JobBatchCreateRequest, JobBatchCreateResponse, JobCreateRequest, JobResponse
+from pix_web.schemas import JobBatchCreateRequest, JobBatchCreateResponse, JobCreateRequest, JobResponse, SequenceAlignmentRequest
+from pix_web.sequence_alignment import apply_sequence_alignment
 from pix_web.security import get_current_user, get_db, get_settings
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -58,6 +59,32 @@ def list_jobs(
         .limit(max(1, min(200, limit)))
     )
     return list(db.scalars(stmt))
+
+
+@router.post("/{job_id}/sequence-alignment", response_model=JobResponse)
+def save_sequence_alignment(
+    job_id: int,
+    req: SequenceAlignmentRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> GenerationJob:
+    job = db.scalar(
+        select(GenerationJob)
+        .options(selectinload(GenerationJob.outputs))
+        .where(GenerationJob.id == job_id, GenerationJob.user_id == user.id)
+    )
+    if job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+    output = job.outputs[0] if job.outputs else None
+    if output is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="任务没有可调整的输出")
+    apply_sequence_alignment(job, output, req)
+    db.commit()
+    return db.scalar(
+        select(GenerationJob)
+        .options(selectinload(GenerationJob.outputs))
+        .where(GenerationJob.id == job_id, GenerationJob.user_id == user.id)
+    ) or job
 
 
 @router.post("/{job_id}/retry", response_model=JobResponse)

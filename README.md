@@ -108,7 +108,7 @@ npm run build
 5. Pixel Grid extract：
    - `perfect_pixel` 网格对齐，并保存 `02_perfect_pixel_preprocess.png`；
    - `remove_background` 去背景；默认固定使用四角纯色作为 key 的 GIMP Color-to-Alpha 风格算法，不再回退 flood-fill；
-   - 序列帧任务按逐帧流程处理：首帧使用序列帧专属 asset prompt 文生图，后续帧使用上一帧图生图推进；每帧先做 `perfectPixel` 参考预处理，最终复用 asset 的 Color-to-Alpha 后处理，按有效单帧尺寸透明补齐，再合成横向 `sprite_sheet.png` 与 `sequence.json`；
+   - 序列帧任务按逐帧流程处理：首帧使用序列帧专属 asset prompt 文生图，后续帧使用上一帧图生图推进；每帧先做 `perfectPixel` 参考预处理，最终复用 asset 的 Color-to-Alpha 后处理，按有效单帧尺寸透明补齐，再合成横向 `sprite_sheet.png` 与 `sequence.json`；作品库可打开“调整锚点”编辑器，逐帧拖动主体位置、查看上一帧半透明影子并实时预览，保存时仅本地重合成，不重新生图也不额外扣点；
    - `auto_crop` / tight bbox 贴主体裁剪；
    - `transparent_canvas_pad` 补到预设尺寸档；
    - sample cells / cluster palette；
@@ -144,7 +144,7 @@ npm run build
 Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} designed for {asset_usage_label}, not a painted digital illustration. Subject: {name}. Subject kind: {subject_kind_label}. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, and a simple silhouette. Use no more than {max_colors} visible subject colors; background color does not count. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and {placement_context}. Use a pure solid single-color background for chroma-key removal; choose a background color that is not close to any visible subject color, with color-distance greater than the removal tolerance ({key_tolerance} RGB Euclidean distance). No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. The output image should be pixel-perfect, each grid cell only contains one color. {forbidden_elements}
 ```
 
-默认 sprite 模板已改为序列帧模板，同样使用 TRUE pixel-art 约束，并把用户选择的单帧导出尺寸写成目标合同。`frame_count` 可由用户自定义，范围为 1-12；后端会为每帧生成动作阶段描述，第一帧文生图，后续帧以上一帧作为图生图参考并在 prompt 中锁定第一帧身份特征。最终导出使用 `effective_frame_size` 统一补齐，扩大时按 16 像素步长取整，并生成横向 `sprite_sheet.png`、独立帧图和 `sequence.json`。作品库优先读取 `sprite_sheet.png + sequence.json` 播放，GIF 仅作为可选兼容导出。`sprite_sheet` 价格规则现在表示“单帧基础价”，实际扣点为 `frame_count × 单帧基础价`。
+默认 sprite 模板已改为序列帧模板，同样使用 TRUE pixel-art 约束，并把用户选择的单帧导出尺寸写成目标合同。`frame_count` 可由用户自定义，范围为 1-12；后端会为每帧生成动作阶段描述，第一帧文生图，后续帧以上一帧作为图生图参考并在 prompt 中锁定第一帧身份特征。最终导出使用 `effective_frame_size` 统一补齐，扩大时按 16 像素步长取整，并生成横向 `sprite_sheet.png`、独立帧图和 `sequence.json`。作品库优先读取 `sprite_sheet.png + sequence.json` 播放，GIF 仅作为可选兼容导出。序列帧作品还支持“调整锚点”：前端用 Canvas 叠加上一帧/闭环帧半透明影子，用户可拖动每帧主体并实时预览，保存后调用本地重合成接口生成 alignment 版本，不重新调用 AI，不额外扣点。`sprite_sheet` 价格规则现在表示“单帧基础价”，实际扣点为 `frame_count × 单帧基础价`。
 
 ## 主页示例 icon 维护规则
 
@@ -157,7 +157,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.40.119`。
+当前版本：`1.42.130`。
 
 版本号格式为 `A.B.C`：
 
