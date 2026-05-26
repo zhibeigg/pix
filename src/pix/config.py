@@ -121,7 +121,7 @@ class PixelizeConfig:
     resample: str = "smart"
     # 是否在 smart 模式下尝试探测输入像素格并吸附到整数倍
     snap_to_grid: bool = True
-    # 自动抠背景（flood-fill 从四角连通色）
+    # 自动抠背景（以四角纯色作为 key，使用 Color-to-Alpha）
     remove_bg: bool = False
     bg_tolerance: int = 12
     bg_feather: int = 0
@@ -154,7 +154,7 @@ class AssetConfig:
     bg_tolerance: int = 26
     bg_feather: int = 0
     edge_style: str = "hard"
-    bg_removal_algorithm: str = "auto"  # auto | flood_fill | color_to_alpha | hybrid
+    bg_removal_algorithm: str = "color_to_alpha"  # 固定使用 color_to_alpha；保留字段兼容旧配置
     color_to_alpha_shape: str = "sphere"  # sphere | cube
     color_to_alpha_transparency: int = 48
     color_to_alpha_opacity: int = 255

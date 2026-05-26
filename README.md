@@ -107,7 +107,7 @@ npm run build
 4. 默认 `skip_vl = true`，不走普通 VL 分析。
 5. Pixel Grid extract：
    - `perfect_pixel` 网格对齐，并保存 `02_perfect_pixel_preprocess.png`；
-   - `remove_background` 去背景；默认 `bg_removal_algorithm=auto`，AI 纯色 key 背景会优先用 GIMP Color-to-Alpha 风格算法，普通背景回退 flood-fill；
+   - `remove_background` 去背景；默认固定使用四角纯色作为 key 的 GIMP Color-to-Alpha 风格算法，不再回退 flood-fill；
    - `auto_crop` / tight bbox 贴主体裁剪；
    - `transparent_canvas_pad` 补到预设尺寸档；
    - sample cells / cluster palette；
