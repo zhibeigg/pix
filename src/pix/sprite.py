@@ -123,6 +123,48 @@ def _size_tuple(value: tuple[int, int] | list[int] | None, fallback: tuple[int, 
         return fallback
 
 
+def _sprite_frame_bounds(rows: int, cols: int, width: int, height: int) -> str:
+    parts: list[str] = []
+    for row in range(rows):
+        for col in range(cols):
+            index = row * cols + col + 1
+            x0 = col * width
+            y0 = row * height
+            x1 = (col + 1) * width - 1
+            y1 = (row + 1) * height - 1
+            parts.append(f"Frame {index}: row {row + 1}, col {col + 1}, x={x0}-{x1}, y={y0}-{y1}")
+    return "; ".join(parts) + "."
+
+
+def _sprite_frame_layout(rows: int, cols: int) -> str:
+    if rows == 3 and cols == 3:
+        return (
+            "Frame placement contract: generate one single 3x3 sheet, not separate images and not a horizontal strip. "
+            "Place the 9 frames exactly in row-major order: "
+            "Frame 1 top-left = idle/anticipation pose before the action; "
+            "Frame 2 top-center = wind-up, weapon/limbs pulling back; "
+            "Frame 3 top-right = final anticipation, body compressed and ready to move; "
+            "Frame 4 middle-left = action starts, first forward step/lunge; "
+            "Frame 5 center = main action peak, weapon/energy fully extended forward; "
+            "Frame 6 middle-right = hit/contact frame with the strongest flash or impact effect; "
+            "Frame 7 bottom-left = follow-through, trailing energy/smear continues forward; "
+            "Frame 8 bottom-center = recovery, body and weapon start returning; "
+            "Frame 9 bottom-right = settle/back-to-ready pose. "
+            "For thrust, stab, lunge, slash, projectile, or attack effects, make the motion read clearly in 2D game-sprite space: "
+            "keep the body anchor near center-left and extend the weapon/effect toward screen-right unless the user explicitly asks for another direction. "
+            "Frame 5 must have the farthest weapon reach, and Frame 6 must show the hit flash at the weapon tip. "
+            "Every cell must contain exactly one full-body frame centered inside that cell; keep the same anchor point and scale. "
+            "The character/effect silhouette should fill about 70-85% of the cell height or width, leaving only a few clear key-color pixels of padding. "
+            "Do not draw cell borders, grid lines, arrows, frame numbers, labels, or timeline marks."
+        )
+    return (
+        "Frame placement contract: generate one single grid sheet, not separate images. "
+        f"Use {rows} rows and {cols} columns in strict row-major order, left-to-right then top-to-bottom. "
+        "Each cell must contain exactly one centered animation keyframe with consistent scale and anchor point. "
+        "Do not draw cell borders, grid lines, arrows, frame numbers, labels, or timeline marks."
+    )
+
+
 def build_sprite_sheet_prompt(
     cfg: AppConfig,
     description: str,
@@ -130,6 +172,8 @@ def build_sprite_sheet_prompt(
     target_size: tuple[int, int] | None = None,
     rows: int | None = None,
     cols: int | None = None,
+    max_colors: int | None = None,
+    key_tolerance: int | None = None,
 ) -> str:
     """构造专用于 3×3 动画关键帧九宫格的受控 prompt。"""
 
@@ -138,6 +182,8 @@ def build_sprite_sheet_prompt(
     safe_cols = max(1, int(cols or sprite_cfg.cols))
     width, height = target_size or sprite_cfg.pixel_size
     key_hex, _key_rgb = resolve_key_color(sprite_cfg.green_screen_color, description)
+    frame_width = int(width)
+    frame_height = int(height)
     values = {
         "description": description.strip(),
         "rows": safe_rows,
@@ -145,10 +191,14 @@ def build_sprite_sheet_prompt(
         "count": safe_rows * safe_cols,
         "green": key_hex,
         "key_color": key_hex,
-        "key_tolerance": int(sprite_cfg.green_screen_tolerance),
-        "max_colors": int(sprite_cfg.colors),
-        "width": int(width),
-        "height": int(height),
+        "key_tolerance": int(sprite_cfg.green_screen_tolerance if key_tolerance is None else key_tolerance),
+        "max_colors": int(sprite_cfg.colors if max_colors is None else max_colors),
+        "width": frame_width,
+        "height": frame_height,
+        "sheet_width": safe_cols * frame_width,
+        "sheet_height": safe_rows * frame_height,
+        "frame_bounds": _sprite_frame_bounds(safe_rows, safe_cols, frame_width, frame_height),
+        "frame_layout": _sprite_frame_layout(safe_rows, safe_cols),
     }
     template = (sprite_cfg.prompt_template or "").strip()
     if template:
@@ -164,11 +214,16 @@ def _fallback_sprite_prompt(**values: Any) -> str:
         "Create a TRUE pixel-art animation contact sheet for a game, not a painted digital illustration: "
         f"exactly {values['rows']}x{values['cols']} grid, {values['count']} sequential animation keyframes. "
         f"Animation subject/action: {values['description']}. "
-        f"Each grid cell must be one {values['width']}x{values['height']} sprite frame, "
-        "where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, "
-        "and a clear silhouette in every frame. "
+        "Single-frame size is a hard contract from the user export target: "
+        f"every frame must be exactly {values['width']}x{values['height']} logical pixels, where each pixel is one square grid cell. "
+        f"The complete logical sprite sheet must be exactly {values['sheet_width']}x{values['sheet_height']} pixels: "
+        f"{values['cols']} columns × {values['width']}px and {values['rows']} rows × {values['height']}px. "
+        f"Frame cell coordinate bounds in the logical sheet are: {values['frame_bounds']} "
+        "Do not make larger or smaller frames, do not merge cells, and do not add gutters between cells. "
+        "Use large, chunky readable pixels, limited colors, and a clear silhouette in every frame. "
         f"Use no more than {values['max_colors']} visible subject/effect colors per frame; background color does not count. "
-        "Read order is left-to-right, top-to-bottom. Keep the same character, camera angle, scale, anchor point, "
+        f"Read order is left-to-right, top-to-bottom. {values['frame_layout']} "
+        "Keep the same character, camera angle, scale, anchor point, "
         "lighting, and ground/contact position in every cell. Each cell is one clean keyframe of the continuous motion, "
         "centered with clear empty pixel rows around all edges for safe sprite padding and stable extraction. "
         f"Use pure solid key-color {values['green']} for all empty/background pixels across the whole image for chroma-key removal; "
@@ -585,6 +640,41 @@ def compose_gif(frame_paths: list[Path], out_path: str | Path, *, duration_ms: i
     return target
 
 
+def _write_sprite_input_debug(
+    path: Path,
+    *,
+    raw_prompt: str,
+    normalized_description: str,
+    effective_prompt: str,
+    rows: int,
+    cols: int,
+    pixel_size: tuple[int, int],
+    colors: int,
+    key_color: str,
+    key_tolerance: int,
+) -> None:
+    sheet_size = (cols * pixel_size[0], rows * pixel_size[1])
+    frame_bounds = _sprite_frame_bounds(rows, cols, pixel_size[0], pixel_size[1])
+    path.write_text(
+        "[raw_prompt]\n"
+        f"{raw_prompt}\n\n"
+        "[normalized_description]\n"
+        f"{normalized_description}\n\n"
+        "[sprite_settings]\n"
+        f"rows={rows}\n"
+        f"cols={cols}\n"
+        f"frame_size={pixel_size[0]}x{pixel_size[1]}\n"
+        f"logical_sheet_size={sheet_size[0]}x{sheet_size[1]}\n"
+        f"frame_bounds={frame_bounds}\n"
+        f"max_colors={colors}\n"
+        f"key_color={key_color}\n"
+        f"key_tolerance={key_tolerance}\n\n"
+        "[effective_prompt]\n"
+        f"{effective_prompt}\n",
+        encoding="utf-8",
+    )
+
+
 def run_sprite_pipeline(
     cfg: AppConfig,
     inputs: SpritePipelineInput,
@@ -606,7 +696,6 @@ def run_sprite_pipeline(
     out_root = Path(inputs.out_root or cfg.output.root)
     run_dir = new_run_dir(out_root, seed=f"sprite\n{inputs.prompt}")
     notify("sprite_run_start", {"run_dir": str(run_dir)})
-    (run_dir / "00_input.txt").write_text(f"prompt={inputs.prompt}\n", encoding="utf-8")
 
     try:
         guard = validate_user_prompt(cfg, inputs.prompt)
@@ -618,19 +707,34 @@ def run_sprite_pipeline(
     notify("prompt_guard_ready", prompt_guard_meta)
 
     pixel_size = _size_tuple(inputs.pixelize_params.output_size, tuple(cfg.sprite.pixel_size))
-    effective_prompt = build_sprite_sheet_prompt(
-        cfg,
-        description,
-        target_size=pixel_size,
-        rows=rows,
-        cols=cols,
-    )
     key_hex, _key_rgb = resolve_key_color(cfg.sprite.green_screen_color, description)
     key_mode = _normalized_key_mode(inputs.key_mode or cfg.sprite.key_mode)
     key_tolerance = int(cfg.sprite.green_screen_tolerance if inputs.key_tolerance is None else inputs.key_tolerance)
     key_softness = int(cfg.sprite.key_softness if inputs.key_softness is None else inputs.key_softness)
     key_alpha_floor = int(cfg.sprite.key_alpha_floor if inputs.key_alpha_floor is None else inputs.key_alpha_floor)
     key_despill = bool(cfg.sprite.key_despill if inputs.key_despill is None else inputs.key_despill)
+    max_colors = int(inputs.pixelize_params.colors or cfg.sprite.colors)
+    effective_prompt = build_sprite_sheet_prompt(
+        cfg,
+        description,
+        target_size=pixel_size,
+        rows=rows,
+        cols=cols,
+        max_colors=max_colors,
+        key_tolerance=key_tolerance,
+    )
+    _write_sprite_input_debug(
+        run_dir / "00_input.txt",
+        raw_prompt=inputs.prompt,
+        normalized_description=description,
+        effective_prompt=effective_prompt,
+        rows=rows,
+        cols=cols,
+        pixel_size=pixel_size,
+        colors=max_colors,
+        key_color=key_hex,
+        key_tolerance=key_tolerance,
+    )
     source_path = run_dir / "01_sprite_grid.png"
     raw_dir = run_dir / "02_frames_raw"
     frames_dir = run_dir / "03_frames"
@@ -686,7 +790,7 @@ def run_sprite_pipeline(
 
         params = PixelizeParams(
             output_size=pixel_size,
-            colors=int(inputs.pixelize_params.colors or cfg.sprite.colors),
+            colors=max_colors,
             dither=inputs.pixelize_params.dither,
             preset=inputs.pixelize_params.preset,
             preview_scale=0,
