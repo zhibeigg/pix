@@ -162,6 +162,18 @@ export type AssetParams = {
   no_preview?: boolean
 }
 
+export type SequenceFrameAlignment = {
+  index: number
+  offset_x: number
+  offset_y: number
+}
+
+export type SequenceAlignmentRequest = {
+  frames: SequenceFrameAlignment[]
+  fps?: number | null
+  gif_export?: boolean
+}
+
 export type SpriteFrameOutput = {
   index: number
   row: number

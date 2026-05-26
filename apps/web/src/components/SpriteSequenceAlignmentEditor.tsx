@@ -1,0 +1,322 @@
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { Copy, Crosshair, Pause, Play, RotateCcw, Save, SkipBack, SkipForward } from 'lucide-react'
+import { signedFileUrl } from '../fileUrls'
+import { useI18n } from '../i18n'
+import type { GenerationJob, JobOutput, SequenceAlignmentRequest, SpriteFrameOutput } from '../types'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
+import { Input } from './ui/input'
+import { Slider } from './ui/slider'
+import { Alert } from './ui/alert'
+
+const CANVAS_SCALE = 4
+
+type Offset = { x: number; y: number }
+type ImageMap = Map<number, HTMLImageElement>
+type DragState = { startX: number; startY: number; startOffset: Offset }
+
+type Props = {
+  job: GenerationJob
+  output: JobOutput
+  saving?: boolean
+  onSave: (payload: SequenceAlignmentRequest) => Promise<void>
+}
+
+export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onSave }: Props) {
+  const { text } = useI18n()
+  const frames = useMemo(() => [...(output.sprite_frames ?? [])].filter((frame) => frame.url && frame.sheet_rect).sort((a, b) => Number(a.index) - Number(b.index)), [output.sprite_frames])
+  const frameSize = useMemo(() => {
+    const rect = frames[0]?.sheet_rect
+    return rect ? { width: Math.max(1, rect.w), height: Math.max(1, rect.h) } : { width: 64, height: 64 }
+  }, [frames])
+  const frameIndexes = useMemo(() => frames.map((frame) => Number(frame.index)), [frames])
+  const [selectedIndex, setSelectedIndex] = useState(() => frameIndexes[0] ?? 1)
+  const [offsets, setOffsets] = useState<Record<number, Offset>>({})
+  const [images, setImages] = useState<ImageMap>(() => new Map())
+  const [loadError, setLoadError] = useState('')
+  const [onionOpacity, setOnionOpacity] = useState(35)
+  const [playing, setPlaying] = useState(true)
+  const [loopCheck, setLoopCheck] = useState(false)
+  const [fps, setFps] = useState(spriteFpsFromJob(job))
+  const [previewIndex, setPreviewIndex] = useState(0)
+  const editorCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const dragRef = useRef<DragState | null>(null)
+
+  const selectedFrame = frames.find((frame) => Number(frame.index) === selectedIndex) ?? frames[0]
+  const selectedOffset = offsetFor(offsets, selectedIndex)
+  const ghostIndex = useMemo(() => ghostFrameIndex(frameIndexes, selectedIndex), [frameIndexes, selectedIndex])
+  const playableIndexes = useMemo(() => loopCheck && frameIndexes.length > 1 ? [frameIndexes[frameIndexes.length - 1], frameIndexes[0]] : frameIndexes, [frameIndexes, loopCheck])
+
+  useEffect(() => {
+    if (frameIndexes.length > 0 && !frameIndexes.includes(selectedIndex)) setSelectedIndex(frameIndexes[0])
+  }, [frameIndexes, selectedIndex])
+
+  useEffect(() => {
+    let cancelled = false
+    setLoadError('')
+    setImages(new Map())
+    const pending = frames.map((frame) => new Promise<[number, HTMLImageElement] | null>((resolve) => {
+      const url = signedFileUrl(frame.url)
+      if (!url) {
+        resolve(null)
+        return
+      }
+      const image = new Image()
+      image.onload = () => resolve([Number(frame.index), image])
+      image.onerror = () => resolve(null)
+      image.src = url
+    }))
+    void Promise.all(pending).then((entries) => {
+      if (cancelled) return
+      const next = new Map<number, HTMLImageElement>()
+      for (const entry of entries) {
+        if (entry) next.set(entry[0], entry[1])
+      }
+      setImages(next)
+      if (next.size !== frames.length) setLoadError(text('部分帧图片加载失败，无法完整预览。', 'Some frames failed to load; preview may be incomplete.'))
+    })
+    return () => { cancelled = true }
+  }, [frames, text])
+
+  const drawEditor = useCallback(() => {
+    const canvas = editorCanvasRef.current
+    if (!canvas) return
+    prepareCanvas(canvas, frameSize)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.imageSmoothingEnabled = false
+    ctx.clearRect(0, 0, frameSize.width, frameSize.height)
+    const ghostImage = images.get(ghostIndex)
+    if (ghostImage) {
+      ctx.globalAlpha = onionOpacity / 100
+      drawFrameImage(ctx, ghostImage, offsetFor(offsets, ghostIndex))
+      ctx.globalAlpha = 1
+    }
+    const current = images.get(selectedIndex)
+    if (current) drawFrameImage(ctx, current, selectedOffset)
+    drawCanvasGuides(ctx, frameSize)
+  }, [frameSize, ghostIndex, images, offsets, onionOpacity, selectedIndex, selectedOffset])
+
+  const drawPreview = useCallback(() => {
+    const canvas = previewCanvasRef.current
+    if (!canvas || playableIndexes.length === 0) return
+    prepareCanvas(canvas, frameSize)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.imageSmoothingEnabled = false
+    ctx.clearRect(0, 0, frameSize.width, frameSize.height)
+    const index = playableIndexes[previewIndex % playableIndexes.length]
+    const image = images.get(index)
+    if (image) drawFrameImage(ctx, image, offsetFor(offsets, index))
+  }, [frameSize, images, offsets, playableIndexes, previewIndex])
+
+  useEffect(() => { drawEditor() }, [drawEditor])
+  useEffect(() => { drawPreview() }, [drawPreview])
+
+  useEffect(() => {
+    if (!playing || playableIndexes.length <= 1) return
+    const timer = window.setInterval(() => setPreviewIndex((current) => (current + 1) % playableIndexes.length), Math.max(20, Math.round(1000 / Math.max(1, fps))))
+    return () => window.clearInterval(timer)
+  }, [fps, playableIndexes.length, playing])
+
+  useEffect(() => { setPreviewIndex(0) }, [loopCheck, playableIndexes.length])
+
+  function updateOffset(index: number, next: Offset) {
+    setOffsets((current) => ({ ...current, [index]: { x: Math.round(next.x), y: Math.round(next.y) } }))
+  }
+
+  function currentPoint(event: PointerEvent<HTMLCanvasElement>) {
+    const canvas = event.currentTarget
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * frameSize.width,
+      y: ((event.clientY - rect.top) / rect.height) * frameSize.height,
+    }
+  }
+
+  function pointerDown(event: PointerEvent<HTMLCanvasElement>) {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const point = currentPoint(event)
+    dragRef.current = { startX: point.x, startY: point.y, startOffset: selectedOffset }
+  }
+
+  function pointerMove(event: PointerEvent<HTMLCanvasElement>) {
+    if (!dragRef.current) return
+    const point = currentPoint(event)
+    const dx = Math.round(point.x - dragRef.current.startX)
+    const dy = Math.round(point.y - dragRef.current.startY)
+    updateOffset(selectedIndex, { x: dragRef.current.startOffset.x + dx, y: dragRef.current.startOffset.y + dy })
+  }
+
+  function pointerUp(event: PointerEvent<HTMLCanvasElement>) {
+    dragRef.current = null
+    try { event.currentTarget.releasePointerCapture(event.pointerId) } catch { undefined }
+  }
+
+  function moveSelected(dx: number, dy: number) {
+    updateOffset(selectedIndex, { x: selectedOffset.x + dx, y: selectedOffset.y + dy })
+  }
+
+  function selectRelative(delta: number) {
+    const current = Math.max(0, frameIndexes.indexOf(selectedIndex))
+    const next = frameIndexes[(current + delta + frameIndexes.length) % frameIndexes.length]
+    if (next) setSelectedIndex(next)
+  }
+
+  function resetCurrent() {
+    updateOffset(selectedIndex, { x: 0, y: 0 })
+  }
+
+  function resetAll() {
+    setOffsets({})
+  }
+
+  function copyGhostOffset() {
+    updateOffset(selectedIndex, offsetFor(offsets, ghostIndex))
+  }
+
+  function alignTo(targetIndex: number) {
+    if (!selectedFrame) return
+    const target = frames.find((frame) => Number(frame.index) === targetIndex)
+    if (!target) return
+    const targetAnchor = bottomCenter(target, offsetFor(offsets, targetIndex), frameSize)
+    const currentAnchor = bottomCenter(selectedFrame, selectedOffset, frameSize)
+    updateOffset(selectedIndex, { x: selectedOffset.x + Math.round(targetAnchor.x - currentAnchor.x), y: selectedOffset.y + Math.round(targetAnchor.y - currentAnchor.y) })
+  }
+
+  async function save() {
+    await onSave({
+      fps,
+      gif_export: true,
+      frames: frameIndexes.map((index) => {
+        const offset = offsetFor(offsets, index)
+        return { index, offset_x: offset.x, offset_y: offset.y }
+      }),
+    })
+  }
+
+  if (frames.length === 0) {
+    return <Alert variant="destructive">{text('这个作品没有可调整的序列帧数据。', 'This work has no editable sequence-frame data.')}</Alert>
+  }
+
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,.7fr)]">
+        <section className="grid gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="info">{text(`第 ${selectedIndex} / ${frameIndexes.length} 帧`, `Frame ${selectedIndex} / ${frameIndexes.length}`)}</Badge>
+            <Badge variant="outline">{frameSize.width}×{frameSize.height}</Badge>
+            <Badge variant="outline">{text(`影子：第 ${ghostIndex} 帧`, `Ghost: frame ${ghostIndex}`)}</Badge>
+          </div>
+          <div className="pix-checkerboard grid place-items-center overflow-auto rounded-xl border border-border bg-muted/40 p-4 dark:border-[hsl(var(--pix-dark-hairline))]">
+            <canvas
+              ref={editorCanvasRef}
+              tabIndex={0}
+              aria-label={text('拖动当前帧调整锚点', 'Drag current frame to adjust anchor')}
+              onPointerDown={pointerDown}
+              onPointerMove={pointerMove}
+              onPointerUp={pointerUp}
+              onPointerCancel={pointerUp}
+              onKeyDown={(event) => {
+                const step = event.shiftKey ? 8 : 1
+                if (event.key === 'ArrowLeft') { event.preventDefault(); moveSelected(-step, 0) }
+                if (event.key === 'ArrowRight') { event.preventDefault(); moveSelected(step, 0) }
+                if (event.key === 'ArrowUp') { event.preventDefault(); moveSelected(0, -step) }
+                if (event.key === 'ArrowDown') { event.preventDefault(); moveSelected(0, step) }
+              }}
+              className="touch-none rounded-lg outline-none ring-1 ring-border [image-rendering:pixelated] focus-visible:ring-2 focus-visible:ring-ring dark:ring-[hsl(var(--pix-dark-hairline))]"
+              style={{ width: frameSize.width * CANVAS_SCALE, height: frameSize.height * CANVAS_SCALE, maxWidth: '100%' }}
+            />
+          </div>
+          {loadError && <Alert variant="warning">{loadError}</Alert>}
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
+            {frames.map((frame) => {
+              const index = Number(frame.index)
+              const active = index === selectedIndex
+              const offset = offsetFor(offsets, index)
+              return <button key={index} type="button" className={`rounded-lg border p-2 text-xs transition ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-muted/35 hover:bg-muted dark:border-[hsl(var(--pix-dark-hairline))]'}`} onClick={() => setSelectedIndex(index)}>{index}<span className="mt-1 block opacity-75">{offset.x},{offset.y}</span></button>
+            })}
+          </div>
+        </section>
+
+        <aside className="grid gap-3 content-start">
+          <div className="pix-checkerboard grid place-items-center rounded-xl border border-border bg-muted/40 p-4 dark:border-[hsl(var(--pix-dark-hairline))]">
+            <canvas ref={previewCanvasRef} className="rounded-lg ring-1 ring-border [image-rendering:pixelated] dark:ring-[hsl(var(--pix-dark-hairline))]" style={{ width: frameSize.width * 3, height: frameSize.height * 3, maxWidth: '100%' }} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={() => setPlaying((value) => !value)}>{playing ? <Pause /> : <Play />}{playing ? text('暂停', 'Pause') : text('播放', 'Play')}</Button>
+            <Button type="button" variant={loopCheck ? 'default' : 'outline'} onClick={() => setLoopCheck((value) => !value)}><Crosshair />{text('首尾检查', 'Loop check')}</Button>
+          </div>
+          <label className="grid gap-2 text-sm font-medium">FPS<Input type="number" min={1} max={60} value={fps} onChange={(event) => setFps(Math.max(1, Math.min(60, Math.round(Number(event.target.value) || 8))))} /></label>
+          <label className="grid gap-2 text-sm font-medium">{text('影子透明度', 'Ghost opacity')}<Slider value={onionOpacity} min={0} max={80} step={5} onValueChange={setOnionOpacity} /></label>
+        </aside>
+      </div>
+
+      <div className="grid gap-3 rounded-xl border border-border bg-muted/35 p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="grid gap-1 text-sm font-medium">X<Input type="number" value={selectedOffset.x} onChange={(event) => updateOffset(selectedIndex, { x: Number(event.target.value) || 0, y: selectedOffset.y })} /></label>
+          <label className="grid gap-1 text-sm font-medium">Y<Input type="number" value={selectedOffset.y} onChange={(event) => updateOffset(selectedIndex, { x: selectedOffset.x, y: Number(event.target.value) || 0 })} /></label>
+          <Button type="button" variant="outline" onClick={() => selectRelative(-1)}><SkipBack />{text('上一帧', 'Previous')}</Button>
+          <Button type="button" variant="outline" onClick={() => selectRelative(1)}><SkipForward />{text('下一帧', 'Next')}</Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={copyGhostOffset}><Copy />{text('复制影子偏移', 'Copy ghost offset')}</Button>
+          <Button type="button" variant="outline" onClick={() => alignTo(ghostIndex)}><Crosshair />{text('底部对齐影子', 'Align to ghost')}</Button>
+          <Button type="button" variant="outline" onClick={() => alignTo(frameIndexes[0])}><Crosshair />{text('对齐第 1 帧', 'Align to frame 1')}</Button>
+          <Button type="button" variant="ghost" onClick={resetCurrent}><RotateCcw />{text('重置当前', 'Reset current')}</Button>
+          <Button type="button" variant="ghost" onClick={resetAll}><RotateCcw />{text('重置全部', 'Reset all')}</Button>
+          <Button type="button" className="ml-auto" disabled={saving || images.size === 0} onClick={() => void save()}><Save />{saving ? text('保存中…', 'Saving…') : text('保存调整', 'Save alignment')}</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function prepareCanvas(canvas: HTMLCanvasElement, size: { width: number; height: number }) {
+  if (canvas.width !== size.width) canvas.width = size.width
+  if (canvas.height !== size.height) canvas.height = size.height
+}
+
+function drawFrameImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement, offset: Offset) {
+  ctx.drawImage(image, Math.round(offset.x), Math.round(offset.y))
+}
+
+function drawCanvasGuides(ctx: CanvasRenderingContext2D, size: { width: number; height: number }) {
+  ctx.save()
+  ctx.strokeStyle = 'rgba(99,102,241,.75)'
+  ctx.lineWidth = 1
+  ctx.setLineDash([2, 3])
+  ctx.strokeRect(0.5, 0.5, size.width - 1, size.height - 1)
+  ctx.beginPath()
+  ctx.moveTo(size.width / 2, 0)
+  ctx.lineTo(size.width / 2, size.height)
+  ctx.moveTo(0, size.height - 1)
+  ctx.lineTo(size.width, size.height - 1)
+  ctx.stroke()
+  ctx.restore()
+}
+
+function offsetFor(offsets: Record<number, Offset>, index: number): Offset {
+  return offsets[index] ?? { x: 0, y: 0 }
+}
+
+function ghostFrameIndex(indexes: number[], selectedIndex: number) {
+  if (indexes.length <= 1) return selectedIndex
+  const position = Math.max(0, indexes.indexOf(selectedIndex))
+  if (position === 0) return indexes[indexes.length - 1]
+  if (position === indexes.length - 1) return indexes[0]
+  return indexes[position - 1]
+}
+
+function bottomCenter(frame: SpriteFrameOutput, offset: Offset, frameSize: { width: number; height: number }) {
+  const bbox = Array.isArray(frame.bbox) ? frame.bbox : null
+  if (!bbox) return { x: frameSize.width / 2 + offset.x, y: frameSize.height + offset.y }
+  return { x: (bbox[0] + bbox[2]) / 2 + offset.x, y: bbox[3] + offset.y }
+}
+
+function spriteFpsFromJob(job: GenerationJob) {
+  const sprite = typeof job.params_json?.sprite === 'object' && job.params_json?.sprite !== null ? job.params_json.sprite as Record<string, unknown> : null
+  const fps = Number(sprite?.fps)
+  return Number.isFinite(fps) && fps > 0 ? fps : 8
+}

@@ -437,11 +437,16 @@ export const en = {
     retry: 'Retry',
     retrying: 'Retrying…',
     delete: 'Delete',
+    alignFrames: 'Adjust anchors',
     waitingOutput: 'Waiting for output',
     noInputSummary: 'No input summary',
     expandHint: 'Click the card to expand generated results.',
     candidate: 'Candidate {{index}}',
     uploadedImage: 'Uploaded image',
+  },
+  alignment: {
+    title: 'Adjust sequence anchors',
+    description: 'Drag the current frame against the translucent onion-skin reference. The animation preview updates live. Saving does not regenerate AI images or spend credits.',
   },
   downloads: {
     image: 'Download images',

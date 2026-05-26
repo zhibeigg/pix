@@ -12,6 +12,7 @@ from fastapi import HTTPException, UploadFile, status
 from pix_web.config import WebSettings
 
 ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+ALLOWED_DOWNLOAD_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS | {".json", ".txt", ".gif"}
 ALLOWED_IMAGE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp"}
 ALLOWED_FILE_ROOTS = ("outputs",)
 
@@ -75,6 +76,6 @@ def resolve_web_file(raw_path: str, settings: WebSettings) -> Path:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="文件不允许访问")
     if not resolved.is_file():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文件不存在")
-    if resolved.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="仅允许预览图片文件")
+    if resolved.suffix.lower() not in ALLOWED_DOWNLOAD_EXTENSIONS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="仅允许访问图片、JSON 或文本产物")
     return resolved

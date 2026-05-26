@@ -5,6 +5,7 @@ import type {
   CreditBalance,
   GenerationBatch,
   CreditTransaction,
+  SequenceAlignmentRequest,
   GenerationJob,
   JobBatchCreateResponse,
   JobCreateRequest,
@@ -82,6 +83,17 @@ function parseResponseBody(text: string): unknown {
 function responseErrorMessage(body: unknown, status: number): string {
   const detail = typeof body === 'object' && body && 'detail' in body ? (body as { detail?: unknown }).detail : null
   if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    const messages = detail.flatMap((item) => {
+      if (typeof item === 'string') return [item]
+      if (!item || typeof item !== 'object') return []
+      const record = item as { loc?: unknown; msg?: unknown; message?: unknown }
+      const loc = Array.isArray(record.loc) ? record.loc.filter((part) => part !== 'body').join('.') : ''
+      const msg = typeof record.msg === 'string' ? record.msg : typeof record.message === 'string' ? record.message : ''
+      return msg ? [`${loc ? `${loc}: ` : ''}${msg}`] : []
+    })
+    if (messages.length > 0) return messages.slice(0, 3).join('；')
+  }
   if (typeof body === 'string' && body.trim()) return body
   return `请求失败 (${status})`
 }
@@ -212,6 +224,9 @@ export const api = {
   },
   retryJob(token: string, jobId: number) {
     return request<GenerationJob>(`/jobs/${jobId}/retry`, { method: 'POST' }, token)
+  },
+  saveSequenceAlignment(token: string, jobId: number, payload: SequenceAlignmentRequest) {
+    return request<GenerationJob>(`/jobs/${jobId}/sequence-alignment`, { method: 'POST', body: JSON.stringify(payload) }, token)
   },
   deleteJob(token: string, jobId: number) {
     return request<{ deleted: boolean }>(`/jobs/${jobId}`, { method: 'DELETE' }, token)

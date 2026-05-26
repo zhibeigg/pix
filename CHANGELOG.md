@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.42.130] - 2026-05-26
+
+### Added
+
+- 新增序列帧锚点调整编辑器：可逐帧拖动主体位置，叠加半透明 onion-skin 影子，并实时预览调整后的动画。
+- 新增 `/jobs/{job_id}/sequence-alignment` 本地重合成接口，保存每帧偏移并生成新的 `sprite_sheet.png`、`sequence.json` 与可选 GIF，不重新生图也不额外扣点。
+
+### Changed
+
+- 作品库的序列帧作品增加“调整锚点”入口；保存后作品库自动切换到调整版本。
+- 前端 422 错误提示现在会展示字段级校验原因，不再只显示“请求失败 (422)”。
+- `/files` 下载允许访问生成的 `.json`、`.txt` 与 `.gif` 产物，便于下载 `sequence.json` 和动画预览。
+
 ## [1.41.130] - 2026-05-26
 
 ### Changed

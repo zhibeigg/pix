@@ -20,7 +20,7 @@ import { RewardsPage } from './pages/RewardsPage'
 import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
 import { buildGridDesign, defaultPixelize } from './pixelize'
 import { useI18n } from './i18n'
-import type { AdminDashboard, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SetupStatus, SystemSetting, User } from './types'
+import type { AdminDashboard, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SequenceAlignmentRequest, SetupStatus, SystemSetting, User } from './types'
 
 type ToastVariant = 'success' | 'info' | 'error'
 type AppToastState = { id: number; message: string; variant: ToastVariant }
@@ -657,6 +657,20 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
+  async function saveSequenceAlignment(job: GenerationJob, payload: SequenceAlignmentRequest) {
+    if (!token) return
+    setMessage('')
+    try {
+      const updated = await api.saveSequenceAlignment(token, job.id, payload)
+      setSelectedJobId(updated.id)
+      await refreshCore(token)
+      setMessage(text('序列帧锚点已保存，作品库已切换到调整版本。', 'Frame anchors saved; gallery now uses the aligned version.'))
+    } catch (error) {
+      showError(error)
+      throw error
+    }
+  }
+
 
   async function pixelizeCandidate(job: GenerationJob, candidate: ContactSheetCandidate) {
     const pixelize = (job.params_json?.pixelize as JobCreateRequest['pixelize'] | undefined) ?? defaultPixelize
@@ -840,7 +854,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
         >
           {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
           {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={() => refreshCore()} />}
-          {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} />}
+          {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onSaveSequenceAlignment={saveSequenceAlignment} />}
           {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
           {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
           {page === 'rewards' && <RewardsPage token={token} onRefresh={() => refreshCore()} />}
