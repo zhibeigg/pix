@@ -106,7 +106,7 @@ npm run build
 3. 使用 `gpt-image-2` 生成单张源图。
 4. 默认 `skip_vl = true`，不走普通 VL 分析。
 5. Pixel Grid extract：
-   - `perfect_pixel` 网格对齐；
+   - `perfect_pixel` 网格对齐，并保存 `02_perfect_pixel_preprocess.png`；
    - `remove_background` 去背景；默认 `bg_removal_algorithm=auto`，AI 纯色 key 背景会优先用 GIMP Color-to-Alpha 风格算法，普通背景回退 flood-fill；
    - `auto_crop` / tight bbox 贴主体裁剪；
    - `transparent_canvas_pad` 补到预设尺寸档；
@@ -154,7 +154,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.40.116`。
+当前版本：`1.40.117`。
 
 版本号格式为 `A.B.C`：
 

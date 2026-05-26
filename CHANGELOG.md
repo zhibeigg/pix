@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.117] - 2026-05-25
+
+### Changed
+
+- AI 生成图每次执行 perfect pixel 预处理时，都会在 run 目录保存 `02_perfect_pixel_preprocess.png`，并在 `meta.outputs.perfect_pixel_preprocess` 中记录。
+
 ## [1.40.116] - 2026-05-25
 
 ### Changed
