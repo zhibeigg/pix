@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.41.130] - 2026-05-26
+
+### Changed
+
+- 将 `sprite_sheet` 任务彻底替换为逐帧序列帧流程：首帧文生图，后续逐帧图生图，最终输出 `sprite_sheet.png` 与 `sequence.json`。
+- 作品库、队列和微调工位改为优先使用横向精灵表加帧坐标播放序列帧，不再默认依赖 GIF。
+- 序列帧计费改为“帧数 × 单帧基础价”，用户可选 1-12 帧，前后端均校验上限。
+- 更新 `[sprite]` 配置、后台设置、前端创建表单与下载项，补充帧数、FPS、有效尺寸和清单导出字段。
+
 ## [1.40.130] - 2026-05-26
 
 ### Changed

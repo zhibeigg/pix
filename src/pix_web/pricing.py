@@ -12,7 +12,8 @@ DEFAULT_PRICES: dict[str, int] = {
     "asset": 20,
     "text_to_image": 20,
     "image_to_image": 20,
-    "sprite_sheet": 30,
+    # sprite_sheet 表示“序列帧单帧基础价”，总价 = frame_count × 该基础价。
+    "sprite_sheet": 5,
     "local_pixelize": 0,
     "repixelize": 0,
 }

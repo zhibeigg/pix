@@ -52,9 +52,9 @@ def validate_job_request(req: JobCreateRequest) -> None:
     if req.job_type == "image_to_image" and not prompt:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="图生图任务需要 prompt")
     if req.job_type == "sprite_sheet" and not prompt:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="动画精灵表任务需要 prompt")
-    if req.job_type == "sprite_sheet" and (req.sprite.rows, req.sprite.cols) != (3, 3):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="动画精灵表当前固定为 3x3 / 9 帧")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="序列帧任务需要 prompt")
+    if req.job_type == "sprite_sheet" and (req.sprite.frame_count < 1 or req.sprite.frame_count > 12):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="序列帧最多支持 12 帧")
     if req.job_type in IMAGE_JOB_TYPES:
         if not req.input_image_path:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="该任务需要输入图片")
@@ -62,8 +62,8 @@ def validate_job_request(req: JobCreateRequest) -> None:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="输入图片不存在")
 
 
-def params_json_from_request(req: JobCreateRequest) -> dict:
-    return {
+def params_json_from_request(req: JobCreateRequest, *, billing: dict | None = None) -> dict:
+    data = {
         "image_size": req.image_size,
         "image_quality": req.image_quality,
         "image_model": req.image_model,
@@ -77,6 +77,9 @@ def params_json_from_request(req: JobCreateRequest) -> dict:
         "sprite": req.sprite.model_dump(mode="json"),
         "asset": req.asset.model_dump(mode="json"),
     }
+    if billing is not None:
+        data["billing"] = billing
+    return data
 
 
 def _existing_job(db: Session, user: User, client_request_id: str) -> GenerationJob | None:
@@ -92,11 +95,40 @@ def _existing_job(db: Session, user: User, client_request_id: str) -> Generation
     )
 
 
-def _price_for_request(db: Session, req: JobCreateRequest) -> int:
+def _frame_count_for_price(req: JobCreateRequest) -> int:
+    if req.job_type != "sprite_sheet":
+        return 1
+    return max(1, min(12, int(req.sprite.frame_count)))
+
+
+def _base_price_for_request(db: Session, req: JobCreateRequest) -> int:
     try:
         return get_price(db, req.job_type)
     except PricingDisabledError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+def _price_for_request(db: Session, req: JobCreateRequest) -> int:
+    base_price = _base_price_for_request(db, req)
+    if req.job_type == "sprite_sheet":
+        return base_price * _frame_count_for_price(req)
+    return base_price
+
+
+def _billing_snapshot_for_request(db: Session, req: JobCreateRequest, *, total_price: int | None = None) -> dict | None:
+    if req.job_type != "sprite_sheet":
+        return None
+    base_price = _base_price_for_request(db, req)
+    frame_count = _frame_count_for_price(req)
+    total = base_price * frame_count if total_price is None else int(total_price)
+    return {
+        "frame_base_price": base_price,
+        "frame_count": frame_count,
+        "max_frame_count": 12,
+        "total_points": total,
+        "formula": "frame_count * frame_base_price",
+        "billing_note": "retries/postprocess/sprite_sheet_packaging do not add extra user-facing cost",
+    }
 
 
 def create_job_in_transaction(
@@ -114,6 +146,7 @@ def create_job_in_transaction(
         return existing
 
     price = _price_for_request(db, req)
+    billing = _billing_snapshot_for_request(db, req, total_price=price)
     job = GenerationJob(
         user_id=user.id,
         batch_id=batch.id if batch is not None else None,
@@ -122,7 +155,7 @@ def create_job_in_transaction(
         status="pending",
         prompt=_job_prompt_for_record(req),
         input_image_path=req.input_image_path,
-        params_json=params_json_from_request(req),
+        params_json=params_json_from_request(req, billing=billing),
         price_credits=price,
     )
     db.add(job)
@@ -135,7 +168,7 @@ def create_job_in_transaction(
 def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
     request_id = req.client_request_id.strip()
     if _existing_job(db, user, request_id) is None:
-        enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only)
+        enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only or req.job_type == "sprite_sheet")
         enforce_generation_limits(db, user, new_jobs=1)
     try:
         job = create_job_in_transaction(db, user, req)
@@ -181,7 +214,7 @@ def create_jobs_batch(
             existing_by_index[index] = existing
             prices.append(0)
             continue
-        enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only)
+        enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only or req.job_type == "sprite_sheet")
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price
@@ -306,7 +339,7 @@ def retry_failed_jobs_in_batch(db: Session, user: User, batch_id: int) -> tuple[
     prices: list[int] = []
     for req in reqs:
         validate_job_request(req)
-        enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only)
+        enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only or req.job_type == "sprite_sheet")
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price
