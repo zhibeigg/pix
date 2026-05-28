@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.136] - 2026-05-28
+
+### Fixed
+
+- 将作品库“参数”和“调整锚点”弹窗改为直接使用 Radix `DialogPrimitive.Content`，完全避开通用 `DialogContent` 动画类，保证与系统公告一样按视口居中。
+
 ## [1.45.135] - 2026-05-28
 
 ### Fixed
