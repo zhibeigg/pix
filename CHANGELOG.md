@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.46.5] - 2026-05-29
+
+### Changed
+
+- 序列帧作品库按钮「调整锚点」更名为「调整」，编辑器标题改为「调整序列帧」；说明文案同步告知保存会一并写入帧率与每帧偏移/缩放。
+- 编辑器底部主按钮文案：「保存调整」→「保存」。
+
+### Added
+
+- 后端 `apply_sequence_alignment` 现在把用户在编辑器里调整后的 `fps` / `gif_export` / `duration_ms` / 每帧 `alignment_frames` 一并写回 `job.params_json.sprite`，下次打开编辑器、作品库快览、重试任务都会读到调整后的值。
+
 ## [1.46.4] - 2026-05-29
 
 ### Fixed

@@ -307,7 +307,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
             <canvas
               ref={editorCanvasRef}
               tabIndex={0}
-              aria-label={text('拖动当前帧调整锚点', 'Drag current frame to adjust anchor')}
+              aria-label={text('拖动当前帧、滚轮缩放当前帧主体', 'Drag current frame, mouse wheel scales the current frame')}
               onPointerDown={pointerDown}
               onPointerMove={pointerMove}
               onPointerUp={pointerUp}
@@ -371,7 +371,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
           <Button type="button" variant="outline" disabled={!selectedVisibleBounds} onClick={() => snapVisiblePixels('bottom')}>{text('吸附底边', 'Snap bottom')}</Button>
           <Button type="button" variant="ghost" onClick={resetCurrent}><RotateCcw />{text('重置当前', 'Reset current')}</Button>
           <Button type="button" variant="ghost" onClick={resetAll}><RotateCcw />{text('重置全部', 'Reset all')}</Button>
-          <Button type="button" className="ml-auto" disabled={saving || images.size === 0} onClick={() => void save()}><Save />{saving ? text('保存中…', 'Saving…') : text('保存调整', 'Save alignment')}</Button>
+          <Button type="button" className="ml-auto" disabled={saving || images.size === 0} onClick={() => void save()}><Save />{saving ? text('保存中…', 'Saving…') : text('保存', 'Save')}</Button>
         </div>
       </div>
     </div>
