@@ -46,6 +46,9 @@ scripts/_smoke_*.py
 scripts/verify_sprite_mosaic.py
 scripts/smoke_sprite_mosaic.py
 scripts/real_test_sprite_mosaic.py
+scripts/inject_mosaic_to_local_test.py
+scripts/test_split_projection.py
+scripts/recut_existing_mosaic.py
 testlist.md
 pix-*-redesign-check.png
 homepage-examples-preview.png
