@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.43.132] - 2026-05-26
+
+### Fixed
+
+- 修复锚点调整编辑器选中最后一帧时半透明影子显示为第 1 帧的问题；现在任意帧都显示它的上一帧，第 1 帧则显示最后一帧。
+
 ## [1.43.131] - 2026-05-26
 
 ### Added
