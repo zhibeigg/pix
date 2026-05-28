@@ -304,9 +304,7 @@ function offsetFor(offsets: Record<number, Offset>, index: number): Offset {
 function ghostFrameIndex(indexes: number[], selectedIndex: number) {
   if (indexes.length <= 1) return selectedIndex
   const position = Math.max(0, indexes.indexOf(selectedIndex))
-  if (position === 0) return indexes[indexes.length - 1]
-  if (position === indexes.length - 1) return indexes[0]
-  return indexes[position - 1]
+  return indexes[(position - 1 + indexes.length) % indexes.length]
 }
 
 function bottomCenter(frame: SpriteFrameOutput, offset: Offset, frameSize: { width: number; height: number }) {
