@@ -17,6 +17,9 @@ from pix_web.models import GenerationJob, SystemSetting, UploadEvent, User
 
 SettingType = Literal["string", "number", "boolean", "textarea", "select", "secret", "status"]
 SettingSource = Literal["database", "environment_only"]
+PROMPT_GUARD_MAX_CHARS_SETTING = "pix.image_gen.prompt_guard_max_chars"
+PROMPT_GUARD_MAX_CHARS_DEFAULT = "3000"
+PROMPT_GUARD_MAX_CHARS_LEGACY_DEFAULTS = {"500", ""}
 
 
 @dataclass(frozen=True)
@@ -122,7 +125,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.image_gen.prompt_guard_remote", "启用模型描述审核", "模型与 API", "boolean", ""),
     SettingDefinition("pix.image_gen.prompt_guard_model", "描述审核模型", "模型与 API", "string", ""),
     SettingDefinition("pix.image_gen.prompt_guard_failure_policy", "审核失败策略", "模型与 API", "select", "", options=("local", "reject")),
-    SettingDefinition("pix.image_gen.prompt_guard_max_chars", "描述最大字符数", "模型与 API", "number", ""),
+    SettingDefinition(PROMPT_GUARD_MAX_CHARS_SETTING, "描述最大字符数", "模型与 API", "number", PROMPT_GUARD_MAX_CHARS_DEFAULT, "Web 表单与 Worker 执行阶段统一为 3000 字；保存旧值 500 的本地库会自动同步。"),
     SettingDefinition("pix.image_gen.candidate_vl_ranking_enabled", "候选 VL 评分排序", "模型与 API", "boolean", ""),
     SettingDefinition("pix.image_gen.candidate_vl_ranking_model", "候选评分模型", "模型与 API", "string", "", "留空使用 VL 模型。"),
     SettingDefinition("pix.image_gen.candidate_vl_ranking_failure_policy", "候选评分失败策略", "模型与 API", "select", "", options=("first", "reject")),
@@ -223,6 +226,12 @@ def ensure_default_system_settings(db: Session) -> None:
         if exists is None:
             db.add(SystemSetting(key=key, value=value))
             changed = True
+    prompt_guard_limit = db.scalar(
+        select(SystemSetting).where(SystemSetting.key == PROMPT_GUARD_MAX_CHARS_SETTING)
+    )
+    if prompt_guard_limit is not None and prompt_guard_limit.value.strip() in PROMPT_GUARD_MAX_CHARS_LEGACY_DEFAULTS:
+        prompt_guard_limit.value = PROMPT_GUARD_MAX_CHARS_DEFAULT
+        changed = True
     if changed:
         db.commit()
 
@@ -276,7 +285,10 @@ def _pix_default_value(cfg: AppConfig, key: str) -> str:
         return "true" if value else "false"
     if isinstance(value, tuple):
         return "x".join(str(part) for part in value)
-    return "" if value is None else str(value)
+    text = "" if value is None else str(value)
+    if key == PROMPT_GUARD_MAX_CHARS_SETTING and text.strip() in PROMPT_GUARD_MAX_CHARS_LEGACY_DEFAULTS:
+        return PROMPT_GUARD_MAX_CHARS_DEFAULT
+    return text
 
 
 def _web_default_value(settings: WebSettings, key: str) -> str:
