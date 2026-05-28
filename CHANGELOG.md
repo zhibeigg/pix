@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.137] - 2026-05-28
+
+### Changed
+
+- 作品库“参数”弹窗改为用户视角，只显示创建作品时用户可填写或选择的参数，并隐藏内部处理字段、输出路径、计费快照和完整任务 JSON。
+
 ## [1.45.136] - 2026-05-28
 
 ### Fixed
