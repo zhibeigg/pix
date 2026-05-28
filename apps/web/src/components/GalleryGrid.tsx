@@ -112,7 +112,20 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
           {!output && <JobParameterSnapshotDialog job={job} />}
           {job.status === 'succeeded' && output && output.sprite_frames.length > 0 && onSaveSequenceAlignment && <Dialog open={alignmentOpen} onOpenChange={setAlignmentOpen}>
             <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); setAlignmentOpen(true) }}><Crosshair />{t('gallery.alignFrames')}</Button>
-            <DialogContent onClick={(event) => event.stopPropagation()} className="left-1/2 top-1/2 flex h-[min(92vh,900px)] w-[min(96vw,1180px)] max-w-none -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden p-0 sm:max-w-none">
+            <DialogContent
+              onClick={(event) => event.stopPropagation()}
+              className="flex max-w-none flex-col overflow-hidden p-0 sm:max-w-none"
+              style={{
+                height: 'min(900px, calc(100dvh - 32px))',
+                left: '50%',
+                maxHeight: 'calc(100dvh - 32px)',
+                maxWidth: 'none',
+                position: 'fixed',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: 'min(1180px, calc(100vw - 32px))',
+              }}
+            >
               <div className="shrink-0 border-b border-border px-6 py-5 pr-12 dark:border-[hsl(var(--pix-dark-hairline))]">
                 <DialogHeader>
                   <DialogTitle>{t('alignment.title')}</DialogTitle>

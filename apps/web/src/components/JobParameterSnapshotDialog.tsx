@@ -78,7 +78,19 @@ export function JobParameterSnapshotDialog({ job, output }: { job: GenerationJob
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); setOpen(true) }}><Settings2 />{text('参数', 'Params')}</Button>
-      <DialogContent onClick={(event) => event.stopPropagation()} className="w-[min(96vw,920px)] max-h-[90vh] overflow-y-auto sm:max-w-none">
+      <DialogContent
+        onClick={(event) => event.stopPropagation()}
+        className="max-w-none overflow-y-auto sm:max-w-none"
+        style={{
+          left: '50%',
+          maxHeight: 'calc(100dvh - 32px)',
+          maxWidth: 'none',
+          position: 'fixed',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 'min(920px, calc(100vw - 32px))',
+        }}
+      >
         <DialogHeader>
           <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
             <div>

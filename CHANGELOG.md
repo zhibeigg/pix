@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.135] - 2026-05-28
+
+### Fixed
+
+- 参考系统公告弹窗写法，修复作品库“参数”和“调整锚点”弹窗在部分页面/缩放环境下没有居中的问题。
+
 ## [1.45.134] - 2026-05-26
 
 ### Changed
