@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.47.0] - 2026-05-29
+
+### Removed
+
+- 移除序列帧的 iterative（逐帧 N 次生图）模式，统一只使用 mosaic 单图模式：
+  - 删除 `src/pix/sprite.py` 中的 `run_sprite_pipeline` / `SpritePipelineInput` / `_FrameDraft` / `_SequenceSettings` / `build_action_timeline` / `build_sequence_first_frame_prompt` / `build_sequence_next_frame_prompt` / 各 `_fallback_*_prompt` / `_resolve_settings` / `_prepare_reference` / `_extract_frame_content` / `_generate_or_load_first_frame` / `_generate_or_load_next_frame` / `_generate_frame_with_retries` / `_finalize_frames` / `_write_sequence_json` / `_write_sprite_input_debug` 等所有 iterative 专用代码（约 700 行）。`sprite.py` 现在只保留 `SpriteFrame` / `SpritePipelineResult` 数据类与 `compose_gif` / `compose_horizontal_sprite_sheet` / `_apply_shared_palette` / `_paste_content_to_canvas` 等被 `sprite_mosaic.py` 与 `sequence_alignment.py` 复用的工具。
+  - `SpriteConfig` 删除 `default_generation_mode` / `prompt_template` / `next_frame_prompt_template` / `oversize_regenerate_threshold` / `max_frame_retries` / `reference_policy` / `key_mode` / `key_softness` / `key_alpha_floor` / `key_despill` 等 iterative 专用字段；只保留 mosaic 模板与共享参数。
+  - `SpriteParamsSchema` 删除 `generation_mode` / `key_mode` / `key_tolerance` / `key_softness` / `key_alpha_floor` / `key_despill` 字段；新增 `_normalize_legacy` validator 把老任务的这些字段安全丢弃，并把 `cols/rows > 8` clamp 到 8，保持向前兼容。
+  - `pipeline_adapter.run_job_pipeline` 直接路由到 `run_sprite_mosaic_pipeline`，不再有 iterative 分支；`sprite_input_from_job` 函数移除。
+  - 前端：`SpriteGenerationMode` / `JobOutput.sprite_generation_mode` 类型删除；`SingleGeneratePanel` 删除「生成方式」开关与逐帧 UI 分支，序列帧默认就是 mosaic。
+  - 计费简化：序列帧总价 = `ceil(rows·cols / 9) × 单帧基础价`（mosaic 公式），不再按生成方式分支。
+
+### Changed
+
+- `config.example.toml` `[sprite]` 段重写：删除 iterative 字段，新增 `max_grid_rows / max_grid_cols`，模板改为只有 `mosaic_prompt_template` / `mosaic_reference_prompt_template`。
+- 管理后台「序列帧」分类的 prompt 模板入口改为 `mosaic_prompt_template` / `mosaic_reference_prompt_template`，并明确网格上限。
+- README 更新序列帧章节，删除两套模式的对比说明，统一为单图模式。
+
+### Migrate
+
+- 老 sprite_sheet 任务（params_json 含 `generation_mode: "iterative"` 或 `cols ≥ 9`）：作品库读取时 schema 自动 clamp / 丢弃过时字段，结果文件（`sprite_sheet.png` / `sequence.json` 等）原样保留，预览与「调整」编辑器照常使用。无法对老任务直接「重试」（点击重试会按 mosaic 重新生成），如需复刻老逐帧效果请保留旧版本的 outputs。
+- 自定义 `config.toml` / 数据库 system settings：`pix.sprite.prompt_template` / `next_frame_prompt_template` / `oversize_regenerate_threshold` / `max_frame_retries` / `reference_policy` / `key_*` 等键停止读取（不会报错，仅静默忽略）。
+
 ## [1.46.5] - 2026-05-29
 
 ### Changed

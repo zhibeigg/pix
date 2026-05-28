@@ -285,65 +285,55 @@ class GridDesignSchema(BaseModel):
 
 
 class SpriteParamsSchema(BaseModel):
-    """序列帧任务参数。
+    """序列帧任务参数（mosaic 单图模式）。
 
-    `generation_mode`：
-    - mosaic（默认）：1 次 API → rows×cols 单图 sheet → 后端切图。rows/cols 各最大 8。
-    - iterative：首帧文生图 + 后续帧逐帧图生图（旧逻辑）。rows 必须 = 1，cols == frame_count。
+    1 次 API 调用产出 rows×cols 网格 sprite sheet。`row_prompts` 长度等于 rows，
+    每条对应一行的动作循环描述。`reference_image_path` 提供时切到 image-edit 模式。
     """
 
-    generation_mode: Literal["mosaic", "iterative"] = "mosaic"
-    # rows/cols 在两种模式下上限不同：mosaic ≤ 8（model_validator 校验），iterative cols ≤ 64。
-    rows: int = Field(default=1, ge=1, le=64)
-    cols: int = Field(default=8, ge=1, le=64)
+    rows: int = Field(default=1, ge=1, le=8)
+    cols: int = Field(default=8, ge=1, le=8)
     row_prompts: list[str] = Field(default_factory=list, max_length=8)
     reference_image_path: str | None = None
     frame_count: int = Field(default=8, ge=1, le=64)
     fps: int = Field(default=8, ge=1, le=60)
     gif_export: bool = False
-    # 历史兼容字段
     duration_ms: int = Field(default=125, ge=20, le=2000)
     loop: int = Field(default=0, ge=0, le=999)
-    key_mode: Literal["hard", "soft"] | None = None
-    key_tolerance: int | None = Field(default=None, ge=0, le=441)
-    key_softness: int | None = Field(default=None, ge=1, le=441)
-    key_alpha_floor: int | None = Field(default=None, ge=0, le=255)
-    key_despill: bool | None = None
 
     @model_validator(mode="before")
     @classmethod
-    def _infer_legacy_mode(cls, data: Any) -> Any:
-        """老任务 params_json 没有 generation_mode 字段时，按 rows/cols 推断。
+    def _normalize_legacy(cls, data: Any) -> Any:
+        """兼容 1.46.x 之前的 iterative 老任务：把超出 mosaic 上限的字段 clamp 进合法范围。
 
-        - 显式 generation_mode 一律尊重
-        - 未指定时：rows=1 且 cols ≥ 9（旧逐帧任务上限 12，新前端 mosaic 列数上限 8）→ iterative
-        - 其他情况维持默认 mosaic
+        老任务通常是 rows=1, cols∈[9, 12]（逐帧任务的 frame_count 写到 cols 上）。
+        这些任务已经跑完、结果文件都在 outputs，schema 只用于展示与重试。我们把
+        cols clamp 到 8 让它能加载，并丢弃 generation_mode / 各种老抠色字段。
         """
         if not isinstance(data, dict):
             return data
-        if "generation_mode" in data and data["generation_mode"]:
-            return data
+        cleaned = {key: value for key, value in data.items() if key not in {
+            "generation_mode",
+            "key_mode",
+            "key_tolerance",
+            "key_softness",
+            "key_alpha_floor",
+            "key_despill",
+        }}
         try:
-            rows_val = int(data.get("rows", 1) or 1)
-            cols_val = int(data.get("cols", 1) or 1)
+            cols_val = int(cleaned.get("cols", 1) or 1)
+            if cols_val > 8:
+                cleaned["cols"] = 8
+            rows_val = int(cleaned.get("rows", 1) or 1)
+            if rows_val > 8:
+                cleaned["rows"] = 8
         except (TypeError, ValueError):
-            return data
-        if rows_val == 1 and cols_val >= 9:
-            data = dict(data)
-            data["generation_mode"] = "iterative"
-        return data
+            pass
+        return cleaned
 
     @model_validator(mode="after")
     def _normalize(self) -> "SpriteParamsSchema":
-        if self.generation_mode == "mosaic":
-            if self.rows > 8 or self.cols > 8:
-                raise ValueError("mosaic 模式下 rows/cols 各最大 8")
-            object.__setattr__(self, "frame_count", max(1, self.rows * self.cols))
-        elif self.generation_mode == "iterative":
-            count = max(1, min(64, int(self.frame_count)))
-            object.__setattr__(self, "rows", 1)
-            object.__setattr__(self, "cols", count)
-            object.__setattr__(self, "frame_count", count)
+        object.__setattr__(self, "frame_count", max(1, self.rows * self.cols))
         if len(self.row_prompts) > self.rows:
             object.__setattr__(self, "row_prompts", self.row_prompts[: self.rows])
         return self
@@ -527,15 +517,6 @@ class JobOutputResponse(BaseModel):
         if rows_int and cols_int:
             return {"rows": rows_int, "cols": cols_int}
         return None
-
-    @computed_field
-    @property
-    def sprite_generation_mode(self) -> str | None:
-        sprite = _sprite_meta(self.meta_json_path)
-        if not sprite:
-            return None
-        mode = sprite.get("generation_mode") or sprite.get("mode")
-        return str(mode) if mode else None
 
     @computed_field
     @property

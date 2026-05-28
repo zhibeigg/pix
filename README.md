@@ -18,7 +18,7 @@ config.example.toml               # Pix 核心可选配置示例
 Dockerfile / docker-compose.yml    # 后端镜像与整站编排
 ```
 
-> 注意：Web 后端不仅依赖 `src/pix_web`，还依赖 `src/pix` 中的 `asset.py`、`pipeline.py`、`pixelize/*`、`grid/*`、`api/*`、`sprite.py`（逐帧序列帧）、`sprite_mosaic.py`（单图序列帧） 等核心代码。
+> 注意：Web 后端不仅依赖 `src/pix_web`，还依赖 `src/pix` 中的 `asset.py`、`pipeline.py`、`pixelize/*`、`grid/*`、`api/*`、`sprite_mosaic.py`（序列帧 pipeline）、`sprite.py`（序列帧通用工具与数据类）等核心代码。
 
 ## 本地开发
 
@@ -108,10 +108,7 @@ npm run build
 5. Pixel Grid extract：
    - `perfect_pixel` 网格对齐，并保存 `02_perfect_pixel_preprocess.png`；
    - `remove_background` 去背景；默认固定使用四角纯色作为 key 的 GIMP Color-to-Alpha 风格算法，不再回退 flood-fill；
-   - 序列帧任务支持两种生成方式（前端面板可切换）：
-     - **mosaic（默认，单图）**：1 次 API 调用直接产出 rows×cols 网格 sprite sheet（rows/cols 各最大 8）。后端按格切图、复用 `perfectPixel` + Color-to-Alpha + 共享调色板等成熟后处理流程，最终输出横向 `sprite_sheet.png`（兼容旧预览）+ 原版 `sprite_mosaic.png`（保留 rows×cols 排版可下载）+ `sequence.json`。提供「角色参考图」时切换到 `edit_image`，让每个 cell 复用同一角色设计。
-     - **iterative（逐帧）**：首帧文生图，后续帧以上一帧为参考做图生图推进；最终帧再以第一帧作为参考做闭环。每帧先做 `perfectPixel` 参考预处理，再透明补齐为有效单帧尺寸；适合需要高保真闭环的长动画。
-     两种方式共用「调整锚点」编辑器：作品库可逐帧拖动主体位置、查看上一帧半透明影子并实时预览，保存时仅本地重合成，不重新生图也不额外扣点；
+   - 序列帧任务（mosaic 单图模式）：1 次 API 调用直接产出 rows×cols 网格 sprite sheet（rows/cols 各最大 8）。后端按格切图（基于前景投影找最佳切分线，避免主体溢出邻列）+ 复用 `perfectPixel` + Color-to-Alpha + 共享调色板等成熟后处理流程，最终输出横向 `sprite_sheet.png`（兼容预览）+ 原版 `sprite_mosaic.png`（保留 rows×cols 排版可下载）+ `sequence.json`。提供「角色参考图」时切换到 `edit_image`，让每个 cell 复用同一角色设计。作品库可打开「调整」编辑器：逐帧拖动主体、滚轮缩放、查看上一帧半透明影子并实时预览，保存时仅本地重合成（含 fps 与每帧 offset/scale），不重新生图也不额外扣点；
    - `auto_crop` / tight bbox 贴主体裁剪；
    - `transparent_canvas_pad` 补到预设尺寸档；
    - sample cells / cluster palette；
@@ -149,17 +146,11 @@ npm run build
 Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} designed for {asset_usage_label}, not a painted digital illustration. Subject: {name}. Subject kind: {subject_kind_label}. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, and a simple silhouette. Use no more than {max_colors} visible subject colors; background color does not count. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and {placement_context}. Use a pure solid single-color background for chroma-key removal; choose a background color that is not close to any visible subject color, with color-distance greater than the removal tolerance ({key_tolerance} RGB Euclidean distance). No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. The output image should be pixel-perfect, each grid cell only contains one color. {forbidden_elements}
 ```
 
-默认 sprite 模板已分为两套，分别对应 `iterative`（逐帧）和 `mosaic`（单图）模式：
+默认 sprite 模板使用 `mosaic_prompt_template` / `mosaic_reference_prompt_template`：1 次 API 调用产出 rows×cols 整张 sheet（`rows × cols ≤ 64`），prompt 中包含 `Layout by Row` 段落 + 行级动作描述 + 整图尺寸契约。提供参考图时自动套用 `mosaic_reference_prompt_template`，让每个 cell 复用同一角色设计。后端切图后保留原版 `sprite_mosaic.png` + 横向 `sprite_sheet.png`，作品库预览组件读 `sprite_sheet.png + sequence.json` 逐帧播放。
 
-- **iterative**（旧逻辑保留）：使用 `prompt_template` / `next_frame_prompt_template`。首帧文生图，后续帧以上一帧作为图生图参考并在 prompt 中锁定第一帧身份特征。`frame_count` 范围 1-12。最终导出使用 `effective_frame_size` 统一补齐，扩大时按 16 像素步长取整，并生成横向 `sprite_sheet.png`、独立帧图和 `sequence.json`。
-- **mosaic**（默认）：使用 `mosaic_prompt_template` / `mosaic_reference_prompt_template`。1 次 API 调用产出 rows×cols 整张 sheet（`rows × cols ≤ 64`），prompt 中包含 `Layout by Row` 段落 + 行级动作描述 + 整图尺寸契约。提供参考图时自动套用 `mosaic_reference_prompt_template`，让每个 cell 复用同一角色设计。后端切图后保留原版 `sprite_mosaic.png` + 横向 `sprite_sheet.png`，旧版预览组件无需改动即可继续逐帧播放。
+作品库支持「调整」编辑器：前端用 Canvas 叠加上一帧/闭环帧半透明影子，用户可拖动每帧主体、用滚轮缩放当前帧主体（绕帧中心），保存时本地重合成 alignment 版本（含 fps、每帧 offset 与 scale），不重新调用 AI，不额外扣点。
 
-作品库优先读取 `sprite_sheet.png + sequence.json` 播放，GIF 仅作为可选兼容导出。序列帧作品支持「调整锚点」：前端用 Canvas 叠加上一帧/闭环帧半透明影子，用户可拖动每帧主体并实时预览，保存后调用本地重合成接口生成 alignment 版本，不重新调用 AI，不额外扣点。
-
-`sprite_sheet` 价格规则表示「单帧基础价」：
-
-- mosaic 模式总价 = `ceil(rows·cols / 9) × 单帧基础价`（如 8×8 = 40 点，1×8 = 5 点）。
-- iterative 模式总价 = `frame_count × 单帧基础价`。
+`sprite_sheet` 价格规则表示「单帧基础价」：总价 = `ceil(rows·cols / 9) × 单帧基础价`（如 8×8 = 40 点，1×8 = 5 点）。
 
 ## 主页示例 icon 维护规则
 
