@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.145] - 2026-05-28
+
+### Fixed
+
+- 真正修复 Worker 调用 Packy 时被 Windows/系统 HTTP 代理切断长 idle 连接导致 `Server disconnected without sending a response` 的问题：
+  - 默认不再信任进程级/系统代理（`pix.api.trust_env_proxies = false`），避免本地 Clash 等代理掐掉生图响应；
+  - 新增 `pix.api.proxy` 用于显式指定代理；
+  - PackyClient 与图片下载共用同一处代理/超时配置（`make_packy_client`）。
+- 管理后台“模型与 API”新增 `信任系统/环境代理` 与 `Packy 调用代理 URL` 两项可在线调整的设置。
+
 ## [1.45.144] - 2026-05-28
 
 ### Changed

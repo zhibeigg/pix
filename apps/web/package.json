@@ -1,7 +1,7 @@
 {
   "name": "pix-web",
   "private": true,
-  "version": "1.45.144",
+  "version": "1.45.145",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -112,6 +112,8 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.api.vl_api_key", "Packy VL API Key", "模型与 API", "secret", "", "可覆盖 PACKY_VL_API_KEY。生产建议使用环境变量。", secret=True, env_var="PACKY_VL_API_KEY"),
     SettingDefinition("pix.api.timeout", "Packy 调用超时（秒）", "模型与 API", "number", "", "覆盖默认 600 秒；远端响应慢时建议增大。"),
     SettingDefinition("pix.api.max_retries", "Packy 调用重试次数", "模型与 API", "number", "", "默认 3 次；只对 5xx/429/网络错误生效。"),
+    SettingDefinition("pix.api.trust_env_proxies", "信任系统/环境代理", "模型与 API", "boolean", "", "默认关闭，避免本地 Clash 等代理在长 idle 连接上提前断开生图请求；需要走代理时再开启。"),
+    SettingDefinition("pix.api.proxy", "Packy 调用代理 URL", "模型与 API", "string", "", "可选；填写形如 http://127.0.0.1:7890 的代理。优先级高于系统代理；留空表示直连。"),
     SettingDefinition("pix.image_gen.model", "生图模型", "模型与 API", "string", ""),
     SettingDefinition("pix.image_gen.size", "源图尺寸", "模型与 API", "select", "", options=("1024x1024", "1536x1024", "1024x1536")),
     SettingDefinition("pix.image_gen.quality", "生图质量", "模型与 API", "select", "", options=("low", "medium", "high", "auto")),

@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from pix.api.packy_client import PackyClient, PackyError
+from pix.api.packy_client import PackyError, make_packy_client
 from pix.config import AppConfig, require_image_api_key
 from pix.io_utils import b64_to_bytes, download, ensure_dir, write_bytes
 
@@ -65,14 +65,21 @@ def _collect_image_entries(resp: dict[str, Any]) -> list[tuple[str | None, str |
     return entries
 
 
-def _write_entry(entry: tuple[str | None, str | None], dest: Path, *, timeout: float) -> Path:
+def _write_entry(
+    entry: tuple[str | None, str | None],
+    dest: Path,
+    *,
+    timeout: float,
+    trust_env: bool = False,
+    proxy: str | None = None,
+) -> Path:
     url, b64 = entry
     ensure_dir(dest.parent)
     if b64:
         write_bytes(dest, b64_to_bytes(b64))
         return dest
     if url:
-        return download(url, dest, timeout=timeout)
+        return download(url, dest, timeout=timeout, trust_env=trust_env, proxy=proxy)
     raise PackyError("图片响应条目缺少 url 和 b64_json")
 
 
@@ -95,12 +102,7 @@ def generate_image(
         实际保存的路径。
     """
     api_key = require_image_api_key(cfg)
-    client = PackyClient(
-        base_url=cfg.api.base_url,
-        api_key=api_key,
-        timeout=cfg.api.timeout,
-        max_retries=cfg.api.max_retries,
-    )
+    client = make_packy_client(cfg, api_key)
     _size = size or cfg.image_gen.size
     validate_size(_size)
 
@@ -121,7 +123,13 @@ def generate_image(
         write_bytes(dest_path, b64_to_bytes(b64))
         return dest_path
     if url:
-        return download(url, dest_path, timeout=cfg.api.timeout)
+        return download(
+            url,
+            dest_path,
+            timeout=cfg.api.timeout,
+            trust_env=cfg.api.trust_env_proxies,
+            proxy=cfg.api.proxy,
+        )
     raise PackyError(f"图片生成响应缺少 url 和 b64_json：{str(resp)[:500]}")
 
 
@@ -140,12 +148,7 @@ def edit_image(
 ) -> Path:
     """调 Packy /v1/images/edits 图生图并落盘。"""
     api_key = require_image_api_key(cfg)
-    client = PackyClient(
-        base_url=cfg.api.base_url,
-        api_key=api_key,
-        timeout=cfg.api.timeout,
-        max_retries=cfg.api.max_retries,
-    )
+    client = make_packy_client(cfg, api_key)
     _size = size or cfg.image_gen.size
     validate_size(_size)
     image_path = Path(image_path)
@@ -169,7 +172,13 @@ def edit_image(
         write_bytes(dest_path, b64_to_bytes(b64))
         return dest_path
     if url:
-        return download(url, dest_path, timeout=cfg.api.timeout)
+        return download(
+            url,
+            dest_path,
+            timeout=cfg.api.timeout,
+            trust_env=cfg.api.trust_env_proxies,
+            proxy=cfg.api.proxy,
+        )
     raise PackyError(f"图片编辑响应缺少 url 和 b64_json：{str(resp)[:500]}")
 
 
@@ -195,12 +204,7 @@ def generate_images_batch(
     assert n >= 1
     ensure_dir(dest_dir)
     api_key = require_image_api_key(cfg)
-    client = PackyClient(
-        base_url=cfg.api.base_url,
-        api_key=api_key,
-        timeout=cfg.api.timeout,
-        max_retries=cfg.api.max_retries,
-    )
+    client = make_packy_client(cfg, api_key)
     _size = size or cfg.image_gen.size
     validate_size(_size)
 
@@ -239,7 +243,15 @@ def generate_images_batch(
     paths: list[Path] = []
     for index, entry in enumerate(collected, start=1):
         name = filename_template.format(index=index)
-        paths.append(_write_entry(entry, dest_dir / name, timeout=cfg.api.timeout))
+        paths.append(
+            _write_entry(
+                entry,
+                dest_dir / name,
+                timeout=cfg.api.timeout,
+                trust_env=cfg.api.trust_env_proxies,
+                proxy=cfg.api.proxy,
+            )
+        )
     return paths
 
 
@@ -262,12 +274,7 @@ def edit_images_batch(
     assert n >= 1
     ensure_dir(dest_dir)
     api_key = require_image_api_key(cfg)
-    client = PackyClient(
-        base_url=cfg.api.base_url,
-        api_key=api_key,
-        timeout=cfg.api.timeout,
-        max_retries=cfg.api.max_retries,
-    )
+    client = make_packy_client(cfg, api_key)
     _size = size or cfg.image_gen.size
     validate_size(_size)
     image_path = Path(image_path)
@@ -309,5 +316,13 @@ def edit_images_batch(
     paths: list[Path] = []
     for index, entry in enumerate(collected, start=1):
         name = filename_template.format(index=index)
-        paths.append(_write_entry(entry, dest_dir / name, timeout=cfg.api.timeout))
+        paths.append(
+            _write_entry(
+                entry,
+                dest_dir / name,
+                timeout=cfg.api.timeout,
+                trust_env=cfg.api.trust_env_proxies,
+                proxy=cfg.api.proxy,
+            )
+        )
     return paths

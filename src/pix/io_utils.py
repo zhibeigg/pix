@@ -143,11 +143,15 @@ def download(
     *,
     chunk_size: int = 64 * 1024,
     connect_timeout: float | None = None,
+    trust_env: bool = False,
+    proxy: str | None = None,
 ) -> Path:
     """下载远程图片到本地。
 
     使用流式读取：连接建立后只对每个 read chunk 应用 ``timeout``，避免大响应一次性等候时被 read timeout 中断。
     ``connect_timeout`` 只控制连接握手阶段，默认沿用 ``timeout``。
+    ``trust_env`` 默认关闭，避免 Windows 系统代理在生图等长 idle 连接上提前断开；
+    需要走代理时显式传入 ``trust_env=True`` 或 ``proxy``。
     """
     dest_path = Path(dest)
     ensure_dir(dest_path.parent)
@@ -158,8 +162,15 @@ def download(
         pool=timeout,
     )
     tmp_path = dest_path.with_suffix(dest_path.suffix + ".part")
+    client_kwargs: dict[str, object] = {
+        "timeout": httpx_timeout,
+        "follow_redirects": True,
+        "trust_env": trust_env,
+    }
+    if proxy:
+        client_kwargs["proxy"] = proxy
     try:
-        with httpx.Client(timeout=httpx_timeout, follow_redirects=True) as client:
+        with httpx.Client(**client_kwargs) as client:
             with client.stream("GET", url) as resp:
                 resp.raise_for_status()
                 with open(tmp_path, "wb") as fp:

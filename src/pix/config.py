@@ -37,6 +37,11 @@ class ApiConfig:
     image_api_key: str | None = None
     # default 分组 key，用于 VL（Claude / Gemini / gpt-4o）
     vl_api_key: str | None = None
+    # 是否信任进程级代理 / 系统代理。本地常见的 Clash 等本地代理会在长时间空闲时主动断开
+    # 生图连接，造成 RemoteProtocolError；默认禁用，需要走代理时再显式开启。
+    trust_env_proxies: bool = False
+    # 显式 HTTPS 代理。优先级高于系统代理；为空字符串表示不使用代理。
+    proxy: str | None = None
 
 
 @dataclass
