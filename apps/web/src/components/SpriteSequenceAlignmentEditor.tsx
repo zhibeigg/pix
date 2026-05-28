@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
-import { Copy, Crosshair, Pause, Play, RotateCcw, Save, SkipBack, SkipForward } from 'lucide-react'
+import { Copy, Crosshair, Pause, Play, RotateCcw, Save, SkipBack, SkipForward, ZoomIn, ZoomOut } from 'lucide-react'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { GenerationJob, JobOutput, SequenceAlignmentRequest, SpriteFrameOutput } from '../types'
@@ -9,7 +9,9 @@ import { Input } from './ui/input'
 import { Slider } from './ui/slider'
 import { Alert } from './ui/alert'
 
-const CANVAS_SCALE = 4
+const DEFAULT_EDITOR_ZOOM = 4
+const MIN_EDITOR_ZOOM = 1
+const MAX_EDITOR_ZOOM = 12
 
 type Offset = { x: number; y: number }
 type ImageMap = Map<number, HTMLImageElement>
@@ -39,6 +41,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
   const [loopCheck, setLoopCheck] = useState(false)
   const [fps, setFps] = useState(spriteFpsFromJob(job))
   const [previewIndex, setPreviewIndex] = useState(0)
+  const [editorZoom, setEditorZoom] = useState(DEFAULT_EDITOR_ZOOM)
   const editorCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const dragRef = useRef<DragState | null>(null)
@@ -126,6 +129,10 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
     setOffsets((current) => ({ ...current, [index]: { x: Math.round(next.x), y: Math.round(next.y) } }))
   }
 
+  function updateEditorZoom(next: number) {
+    setEditorZoom(Math.max(MIN_EDITOR_ZOOM, Math.min(MAX_EDITOR_ZOOM, Math.round(next))))
+  }
+
   function currentPoint(event: PointerEvent<HTMLCanvasElement>) {
     const canvas = event.currentTarget
     const rect = canvas.getBoundingClientRect()
@@ -208,8 +215,14 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
             <Badge variant="info">{text(`第 ${selectedIndex} / ${frameIndexes.length} 帧`, `Frame ${selectedIndex} / ${frameIndexes.length}`)}</Badge>
             <Badge variant="outline">{frameSize.width}×{frameSize.height}</Badge>
             <Badge variant="outline">{text(`影子：第 ${ghostIndex} 帧`, `Ghost: frame ${ghostIndex}`)}</Badge>
+            <div className="ml-auto flex min-w-[260px] flex-wrap items-center gap-2 rounded-lg border border-border bg-card/80 px-2 py-1.5 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
+              <Button type="button" size="sm" variant="ghost" disabled={editorZoom <= MIN_EDITOR_ZOOM} onClick={() => updateEditorZoom(editorZoom - 1)}><ZoomOut />{text('缩小', 'Zoom out')}</Button>
+              <Slider className="min-w-24 flex-1" value={editorZoom} min={MIN_EDITOR_ZOOM} max={MAX_EDITOR_ZOOM} step={1} onValueChange={updateEditorZoom} aria-label={text('编辑画布缩放', 'Editor canvas zoom')} />
+              <Button type="button" size="sm" variant="ghost" disabled={editorZoom >= MAX_EDITOR_ZOOM} onClick={() => updateEditorZoom(editorZoom + 1)}><ZoomIn />{text('放大', 'Zoom in')}</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => updateEditorZoom(DEFAULT_EDITOR_ZOOM)}>{editorZoom}×</Button>
+            </div>
           </div>
-          <div className="pix-checkerboard grid place-items-center overflow-auto rounded-xl border border-border bg-muted/40 p-4 dark:border-[hsl(var(--pix-dark-hairline))]">
+          <div className="pix-checkerboard grid max-h-[68vh] place-items-center overflow-auto rounded-xl border border-border bg-muted/40 p-4 dark:border-[hsl(var(--pix-dark-hairline))]">
             <canvas
               ref={editorCanvasRef}
               tabIndex={0}
@@ -226,7 +239,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
                 if (event.key === 'ArrowDown') { event.preventDefault(); moveSelected(0, step) }
               }}
               className="touch-none rounded-lg outline-none ring-1 ring-border [image-rendering:pixelated] focus-visible:ring-2 focus-visible:ring-ring dark:ring-[hsl(var(--pix-dark-hairline))]"
-              style={{ width: frameSize.width * CANVAS_SCALE, height: frameSize.height * CANVAS_SCALE, maxWidth: '100%' }}
+              style={{ width: frameSize.width * editorZoom, height: frameSize.height * editorZoom, maxWidth: 'none' }}
             />
           </div>
           {loadError && <Alert variant="warning">{loadError}</Alert>}

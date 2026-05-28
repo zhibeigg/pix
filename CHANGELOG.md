@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.44.132] - 2026-05-26
+
+### Added
+
+- 锚点调整编辑器新增编辑画布缩放控件，支持 1× 到 12× 整数缩放、滑杆调整、放大/缩小和一键恢复默认 4×；缩放只影响编辑显示，不改变实际导出偏移。
+
 ## [1.43.132] - 2026-05-26
 
 ### Fixed
