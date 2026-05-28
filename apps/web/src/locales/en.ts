@@ -437,7 +437,7 @@ export const en = {
     retry: 'Retry',
     retrying: 'Retrying…',
     delete: 'Delete',
-    alignFrames: 'Adjust anchors',
+    alignFrames: 'Adjust',
     waitingOutput: 'Waiting for output',
     noInputSummary: 'No input summary',
     expandHint: 'Click the card to expand generated results.',
@@ -445,8 +445,8 @@ export const en = {
     uploadedImage: 'Uploaded image',
   },
   alignment: {
-    title: 'Adjust sequence anchors',
-    description: 'Drag the current frame against the translucent onion-skin reference. The animation preview updates live. Saving does not regenerate AI images or spend credits.',
+    title: 'Adjust sequence',
+    description: 'Drag the current frame against the translucent onion-skin reference; mouse wheel scales the current frame; the preview plays live. Saving also persists fps and per-frame scale, but does not regenerate AI images or spend credits.',
   },
   downloads: {
     image: 'Download images',

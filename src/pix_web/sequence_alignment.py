@@ -289,6 +289,21 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
     meta["outputs"] = outputs
     _write_json(meta_path, meta)
 
+    # 同步把用户调整后的 fps / gif_export / 每帧 offset/scale 也写回 job.params_json，
+    # 让下次打开编辑器、作品库快览、重试任务都能拿到调整后的值。
+    params = dict(job.params_json or {})
+    sprite_params = dict(params.get("sprite") or {})
+    sprite_params["fps"] = fps
+    sprite_params["duration_ms"] = duration_ms
+    sprite_params["gif_export"] = bool(payload.gif_export)
+    sprite_params["alignment_version"] = version
+    sprite_params["alignment_frames"] = [
+        {"index": index, "offset_x": offset[0], "offset_y": offset[1], "scale": scales.get(index, 1.0)}
+        for index, offset in sorted(offsets.items())
+    ]
+    params["sprite"] = sprite_params
+    job.params_json = params
+
     output.pixelized_path = str(sheet_path)
     output.preview_path = str(gif_path) if gif_rel else None
     return job

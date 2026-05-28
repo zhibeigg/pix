@@ -437,7 +437,7 @@ export const zhCN = {
     retry: '重试',
     retrying: '重试中…',
     delete: '删除',
-    alignFrames: '调整锚点',
+    alignFrames: '调整',
     waitingOutput: '等待输出',
     noInputSummary: '无输入摘要',
     expandHint: '点击卡片展开查看生成结果。',
@@ -445,8 +445,8 @@ export const zhCN = {
     uploadedImage: '上传图片',
   },
   alignment: {
-    title: '调整序列帧锚点',
-    description: '拖动当前帧，让主体和半透明影子对齐；右侧会实时播放调整后的动画。保存不会重新生图，也不会额外扣点。',
+    title: '调整序列帧',
+    description: '拖动当前帧让主体和半透明影子对齐；滚轮可缩放当前帧主体；右侧会实时播放调整后的动画。保存会一并写入帧率与缩放，但不会重新生图、不额外扣点。',
   },
   downloads: {
     image: '下载图片',

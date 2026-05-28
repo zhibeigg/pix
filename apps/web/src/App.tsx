@@ -665,7 +665,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       const updated = await api.saveSequenceAlignment(token, job.id, payload)
       setSelectedJobId(updated.id)
       await refreshCore(token)
-      setMessage(text('序列帧锚点已保存，作品库已切换到调整版本。', 'Frame anchors saved; gallery now uses the aligned version.'))
+      setMessage(text('序列帧已保存（含帧率与每帧偏移/缩放），作品库已切换到调整版本。', 'Sequence saved (fps, per-frame offset and scale); gallery now uses the aligned version.'))
     } catch (error) {
       showError(error)
       throw error
