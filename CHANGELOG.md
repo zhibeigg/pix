@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.46.0] - 2026-05-29
+
+### Added
+
+- 序列帧新增「单图模式（mosaic）」并设为默认：1 次 API 直接产出 rows×cols 的 sprite sheet，再由后端切图、抠色、共享调色板。相比逐帧模式：成本更低、速度更快，能直接表达"每行一个动作循环"的语义。
+  - 前端面板新增「生成方式」开关（单图 / 逐帧）、布局预设（1×8 横排 / 4×8 四方向 / 8×8 角色全动作集 / 自定义）、行级动作描述（rows ≥ 2 时每行一个文本框）、可选「角色参考图」上传。
+  - 提供参考图时自动走图生图（edit_image），让每个 cell 复用同一角色设计；不提供时走 generate_image。
+  - 新增独立产物 `sprite_mosaic.png`（保留原版 rows×cols 排版，可下载）；横向 `sprite_sheet.png` 与 `sequence.json` 仍按旧格式输出，保证旧版预览组件继续可播。
+  - 新增配置：`SpriteConfig.default_generation_mode`、`max_grid_rows`、`max_grid_cols`、`mosaic_prompt_template`、`mosaic_reference_prompt_template`，均可在 `config.toml` 覆盖。
+  - 计费规则：mosaic 按 `ceil(rows·cols / 9) × 单帧基础价` 计算（8×8 = 40 点，远低于旧逐帧 64 帧 320 点）；逐帧模式保持 `frame_count × 单帧基础价`。
+  - 老任务（params_json 没有 `generation_mode` 且 cols ≥ 9）自动识别为 iterative，原 retry / 重放路径不受影响。
+
+### Changed
+
+- `SpriteParamsSchema` 新增 `generation_mode`、`row_prompts`、`reference_image_path` 字段；max_frame_count 从 12 提升到 64（mosaic 8×8 上限）。
+- `JobOutput` 新增 `sprite_mosaic_path` / `sprite_mosaic_url` / `sprite_grid` / `sprite_generation_mode`；前端画廊下载列表里加上「原版网格精灵表」。
+- 前端 `SingleGeneratePanel` 序列帧分支重写，rows=1 时退化为传统单条动作描述，不增加门槛。
+
+### Notes
+
+- 单图模式的 prompt 灵感来自示例 8×8 角色全动作集 prompt：通过 `Layout by Row` 段落 + 行级动作描述 + 整图尺寸契约，让模型按网格语义直接出 sheet。
+
 ## [1.45.146] - 2026-05-29
 
 ### Changed

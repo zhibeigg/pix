@@ -463,6 +463,8 @@ export const zhCN = {
     spriteGifDescription: '可播放的序列帧 GIF。',
     spriteSheet: '横向精灵表',
     spriteSheetDescription: '横向排列的序列帧精灵图。',
+    spriteMosaic: '原版网格精灵表',
+    spriteMosaicDescription: '保留原始 rows×cols 排版的单图序列帧。',
     sequenceJson: '序列帧清单',
     sequenceJsonDescription: '记录帧率、帧坐标和播放顺序的 sequence.json。',
     contactSheet: '候选总览图',

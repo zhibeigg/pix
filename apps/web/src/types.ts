@@ -138,14 +138,19 @@ export type GridDesignParams = {
   mode: 'off' | 'extract'
 }
 
+export type SpriteGenerationMode = 'mosaic' | 'iterative'
+
 export type SpriteParams = {
+  generation_mode?: SpriteGenerationMode
+  rows: number
+  cols: number
+  row_prompts?: string[]
+  reference_image_path?: string | null
   frame_count: number
   fps: number
   gif_export?: boolean
   duration_ms: number
   loop: number
-  rows: number
-  cols: number
   key_mode?: 'hard' | 'soft' | null
   key_tolerance?: number | null
   key_softness?: number | null
@@ -263,6 +268,10 @@ export type JobOutput = {
   candidates: ContactSheetCandidate[]
   sprite_sheet_path: string | null
   sprite_sheet_url: string | null
+  sprite_mosaic_path?: string | null
+  sprite_mosaic_url?: string | null
+  sprite_grid?: { rows: number; cols: number } | null
+  sprite_generation_mode?: SpriteGenerationMode | string | null
   sprite_gif_path: string | null
   sprite_gif_url: string | null
   sequence_json_path: string | null

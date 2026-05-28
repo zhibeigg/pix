@@ -463,6 +463,8 @@ export const en = {
     spriteGifDescription: 'Playable sprite-frame GIF.',
     spriteSheet: 'Sprite sheet',
     spriteSheetDescription: 'Horizontal sprite sheet with all frames.',
+    spriteMosaic: 'Mosaic sprite sheet',
+    spriteMosaicDescription: 'Original rows×cols grid layout for the single-sheet mode.',
     sequenceJson: 'Sequence JSON',
     sequenceJsonDescription: 'sequence.json with FPS, frame rects, and playback order.',
     contactSheet: 'Contact sheet',
