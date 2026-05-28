@@ -342,10 +342,21 @@ class SpriteParamsSchema(BaseModel):
 class AssetParamsSchema(BaseModel):
     name: str = Field(default="", max_length=160)
     extra_prompt: str = Field(default="", max_length=3000)
-    asset_kind: Literal["item_icon", "ui_component"] = "item_icon"
-    subject_kind: Literal["single_prop", "single_ui"] = "single_prop"
+    asset_kind: Literal["item_icon", "ui_component", "tile_texture"] = "item_icon"
+    subject_kind: Literal["single_prop", "single_ui", "tileable_pattern"] = "single_prop"
     use_vl: bool | None = None
     no_preview: bool = False
+
+    @model_validator(mode="after")
+    def _normalize_subject_kind(self) -> "AssetParamsSchema":
+        # 让 subject_kind 与 asset_kind 强一致：tile_texture → tileable_pattern；ui_component → single_ui；其它 → single_prop
+        if self.asset_kind == "tile_texture" and self.subject_kind != "tileable_pattern":
+            object.__setattr__(self, "subject_kind", "tileable_pattern")
+        elif self.asset_kind == "ui_component" and self.subject_kind != "single_ui":
+            object.__setattr__(self, "subject_kind", "single_ui")
+        elif self.asset_kind == "item_icon" and self.subject_kind not in {"single_prop"}:
+            object.__setattr__(self, "subject_kind", "single_prop")
+        return self
 
 
 class JobCreateRequest(BaseModel):

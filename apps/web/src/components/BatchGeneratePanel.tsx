@@ -16,7 +16,7 @@ import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
 
 type BatchMode = 'asset' | 'text_to_image' | 'image_to_image' | 'local_pixelize'
-type AssetKindChoice = 'item_icon' | 'ui_component'
+type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture'
 type BatchUpload = { id: string; status: 'uploading' | 'uploaded' | 'failed'; error?: string; upload?: UploadResponse }
 type Props = { pricing: PricingRule[]; balance: CreditBalance | null; loading: boolean; token: string; onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void> }
 
@@ -47,7 +47,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
   const isAsset = batchMode === 'asset'
-  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : 'single_prop'
+  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : 'single_prop'
 
   useEffect(() => {
     if (batchMode === 'asset') { setPixelSize('16x16'); setColors(12); setRemoveBg(true); setEdgeStyle('outline') }
@@ -91,7 +91,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
         <PixField label={t('batchForm.typeLabel')}><Select value={batchMode} onValueChange={(value) => setBatchMode(value as BatchMode)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="asset">{t('batchForm.types.asset')}</SelectItem><SelectItem value="text_to_image">{t('batchForm.types.text_to_image')}</SelectItem><SelectItem value="image_to_image">{t('batchForm.types.image_to_image')}</SelectItem><SelectItem value="local_pixelize">{t('batchForm.types.local_pixelize')}</SelectItem></SelectContent></Select></PixField>
         {batchMode === 'asset' || batchMode === 'text_to_image' ? <div className="grid gap-4">
           {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
-            <PixField label={t('batchForm.assetKindLabel')}><Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="item_icon">{t('batchForm.assetKinds.item_icon')}</SelectItem><SelectItem value="ui_component">{t('batchForm.assetKinds.ui_component')}</SelectItem></SelectContent></Select></PixField>
+            <PixField label={t('batchForm.assetKindLabel')}><Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="item_icon">{t('batchForm.assetKinds.item_icon')}</SelectItem><SelectItem value="ui_component">{t('batchForm.assetKinds.ui_component')}</SelectItem><SelectItem value="tile_texture">{t('batchForm.assetKinds.tile_texture')}</SelectItem></SelectContent></Select></PixField>
             <PixField label={t('batchForm.extraStyle')}><Textarea value={assetExtraPrompt} rows={3} maxLength={PROMPT_MAX_LENGTH} placeholder={t('batchForm.extraStylePlaceholder')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
           </div>}
           <PixField label={isAsset ? t('batchForm.assetSubjects') : t('batchForm.assetDescriptions')}><Textarea value={prompts} rows={8} placeholder={isAsset ? t('batchForm.assetSubjectPlaceholder') : undefined} onChange={(e) => setPrompts(e.target.value)} /></PixField>

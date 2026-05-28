@@ -18,7 +18,7 @@ import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
 
 type Props = { pricing: PricingRule[]; loading: boolean; token: string; onSubmit: (payload: JobCreateRequest) => Promise<void> }
-type AssetKindChoice = 'item_icon' | 'ui_component'
+type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture'
 
 const PROMPT_MAX_LENGTH = 3000
 const ROW_PROMPT_MAX_LENGTH = 600
@@ -114,6 +114,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
 
   const isAsset = jobType === 'asset'
   const isSprite = jobType === 'sprite_sheet'
+  const isTileAsset = isAsset && assetKind === 'tile_texture'
   const basePrice = useMemo(() => pricing.find((item) => item.key === jobType)?.price_credits ?? 0, [pricing, jobType])
   const safeRows = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(rows || 1)))
   const safeCols = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(cols || 1)))
@@ -122,7 +123,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
   const price = isSprite ? basePrice * billingUnits : basePrice
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
-  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : 'single_prop'
+  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : 'single_prop'
   const needsPrompt = jobType === 'text_to_image' || jobType === 'image_to_image' || isSprite
   const needsImage = jobType !== 'asset' && jobType !== 'text_to_image' && !isSprite
   const invalidGrid = isSprite && (safeRows < 1 || safeCols < 1 || safeRows > MAX_GRID_AXIS || safeCols > MAX_GRID_AXIS)
@@ -140,6 +141,18 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
     else if (jobType === 'sprite_sheet') { setPixelSize('64x64'); setColors(16); setRemoveBg(false); setFps(8); setSpritePreset('horizontal'); setRows(1); setCols(8); setRowPrompts(['']) }
     else { setPixelSize('128x128'); setColors(16); setRemoveBg(true) }
   }, [jobType])
+
+  // asset_kind 切换时重置常用默认（平铺纹理：32×32 / 12 色 / 不抠透明 / hard 边缘）
+  useEffect(() => {
+    if (jobType !== 'asset') return
+    if (assetKind === 'tile_texture') {
+      setPixelSize('32x32'); setColors(12); setRemoveBg(false); setEdgeStyle('hard')
+    } else if (assetKind === 'item_icon') {
+      setPixelSize('16x16'); setColors(12); setRemoveBg(true); setEdgeStyle('outline')
+    } else if (assetKind === 'ui_component') {
+      setPixelSize('32x32'); setColors(12); setRemoveBg(true); setEdgeStyle('outline')
+    }
+  }, [assetKind, jobType])
 
   // 应用预设
   function applyPreset(preset: SpritePreset) {
@@ -260,11 +273,13 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
               <SelectContent>
                 <SelectItem value="item_icon">{text('物品图标', 'Item icon')}</SelectItem>
                 <SelectItem value="ui_component">{text('UI 组件', 'UI component')}</SelectItem>
+                <SelectItem value="tile_texture">{text('平铺纹理', 'Tileable texture')}</SelectItem>
               </SelectContent>
             </Select>
           </PixField>
-          <PixField label={text('主体', 'Subject')}><Input value={assetName} placeholder={text('例如：冰霜之心', 'e.g. Frost Heart')} onChange={(e) => setAssetName(e.target.value)} /></PixField>
-          <PixField label={text('额外风格描述（可选）', 'Extra style notes (optional)')}><Textarea value={assetExtraPrompt} rows={3} maxLength={PROMPT_MAX_LENGTH} placeholder={text('可留空；如需补充材质、颜色或题材风格再填写。', 'Optional; add material, color, or theme notes if needed.')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
+          <PixField label={isTileAsset ? text('纹理主题 / 题材', 'Texture theme') : text('主体', 'Subject')}><Input value={assetName} placeholder={isTileAsset ? text('例如：苔藓砖石路面、木板地、像素草地', 'e.g. mossy cobblestone, wood planks, grass field') : text('例如：冰霜之心', 'e.g. Frost Heart')} onChange={(e) => setAssetName(e.target.value)} /></PixField>
+          <PixField label={text('额外风格描述（可选）', 'Extra style notes (optional)')}><Textarea value={assetExtraPrompt} rows={3} maxLength={PROMPT_MAX_LENGTH} placeholder={isTileAsset ? text('可补充配色、细节密度、年代感等。无需提"无缝平铺"，模板已内置。', 'Optional: palette, detail density, era. "Seamless / tileable" is already enforced by template.') : text('可留空；如需补充材质、颜色或题材风格再填写。', 'Optional; add material, color, or theme notes if needed.')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
+          {isTileAsset && <Alert variant="info">{text('平铺纹理：模型直接铺满画布，后端只做完美像素对齐，不做抠透明、不做主体裁剪、不做 VL 评分。', 'Tile texture: the model fills the entire canvas; the backend only runs perfect-pixel alignment — no transparency cutout, no subject crop, no VL ranking.')}</Alert>}
         </div>}
 
         {needsPrompt && <PixField label={isSprite ? text('主体 / 角色描述', 'Subject / character brief') : text('素材描述', 'Asset description')} hint={isSprite ? text('描述角色身份、服装、配色与风格；逐行动作下面单独写。', 'Describe identity, costume, palette and style. Per-row actions go below.') : text('写清主体、材质和用途。', 'Describe the subject, material, and use case clearly.')}><Textarea value={prompt} rows={isSprite ? 4 : 5} maxLength={PROMPT_MAX_LENGTH} onChange={(e) => setPrompt(e.target.value)} /></PixField>}
@@ -350,14 +365,14 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
 
         {needsImage && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} loading={uploading} label={uploading ? text('上传中…', 'Uploading…') : text('等待上传预览', 'Waiting for upload preview')} /></div>}
 
-        <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isSprite || !removeBg} />
+        <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isSprite || isTileAsset || !removeBg} />
 
-        <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={removeBg} disabled={isSprite} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{text('透明背景', 'Transparent background')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={isSprite || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? text('素材直出默认视觉理解策略', 'Default vision policy for asset output') : text('跳过参考图理解', 'Skip reference understanding')}</label></div>
+        <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={isTileAsset ? false : removeBg} disabled={isSprite || isTileAsset} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{text('透明背景', 'Transparent background')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={isSprite || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? text('素材直出默认视觉理解策略', 'Default vision policy for asset output') : text('跳过参考图理解', 'Skip reference understanding')}</label></div>
 
         {invalidSubAssetSize && <Alert variant="destructive">{text('素材最低支持 16×16。', 'Minimum asset size is 16×16.')}</Alert>}
         {invalidGrid && <Alert variant="destructive">{text('序列帧每行/每列最多 8。', 'Sprite sequence rows and cols are capped at 8.')}</Alert>}
         {missingRowPrompts && <Alert variant="destructive">{text('多行序列帧需要为每一行填写动作描述。', 'Multi-row sequences require an action description for each row.')}</Alert>}
-        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? text('生成游戏素材', 'Generate game asset') : text('生成单张素材', 'Generate single asset')}</Button>
+        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : text('生成游戏素材', 'Generate game asset')) : text('生成单张素材', 'Generate single asset')}</Button>
       </form>
     </PixPanel>
   )

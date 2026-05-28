@@ -102,14 +102,17 @@ def safe_asset_filename(name: str, fallback: str = "asset") -> str:
 ASSET_KIND_LABELS: dict[str, str] = {
     "item_icon": "item icon",
     "ui_component": "UI component",
+    "tile_texture": "tileable pixel texture",
 }
 SUBJECT_KIND_LABELS: dict[str, str] = {
     "single_prop": "single prop",
     "single_ui": "single UI element",
+    "tileable_pattern": "seamlessly tileable pattern",
 }
 COMPATIBLE_SUBJECT_KINDS: dict[str, set[str]] = {
     "item_icon": {"single_prop"},
     "ui_component": {"single_ui"},
+    "tile_texture": {"tileable_pattern"},
 }
 
 
@@ -133,6 +136,13 @@ ASSET_PROMPT_PROFILES: dict[str, AssetPromptProfile] = {
         usage_label="game interface use",
         placement_context="easy placement in HUD or menu layouts",
         forbidden_elements="No text, no watermark, no unrelated outer frame, no labels.",
+    ),
+    "tile_texture": AssetPromptProfile(
+        default_subject_kind="tileable_pattern",
+        usage_label="seamless tile-map / wallpaper use",
+        # 关键：要求图案铺满画布、四边可拼接，禁止主体居中留白
+        placement_context="filling the entire canvas with a seamlessly tileable pattern; the left edge must connect to the right edge and the top edge must connect to the bottom edge without seams",
+        forbidden_elements="No text, no watermark, no centered subject, no transparent background, no border, no frame, no vignette, no padding around the edges.",
     ),
 }
 
@@ -163,6 +173,31 @@ def _canonical_asset_prompt(
         f"tolerance ({key_tolerance} RGB Euclidean distance). "
         "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
         "The output image should be pixel-perfect, each grid cell only contains one color. "
+        f"{profile.forbidden_elements}"
+    )
+
+
+def _canonical_tile_prompt(
+    name: str,
+    width: int,
+    height: int,
+    max_colors: int,
+    asset_kind_label: str,
+    subject_kind_label: str,
+    profile: AssetPromptProfile,
+) -> str:
+    """平铺纹理专用 prompt：铺满画布、四边无缝拼接、不留透明背景。"""
+    return (
+        f"Create a TRUE pixel-art {asset_kind_label} (a {subject_kind_label}). "
+        f"Subject / theme: {name}. "
+        f"Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. "
+        f"The pattern must completely fill the entire canvas — every pixel of the {width}x{height} canvas is part of the texture, "
+        "with NO transparent areas, NO solid background border, NO vignette, NO empty padding rows around the edges. "
+        f"The texture must be seamlessly tileable: the left edge must continue smoothly into the right edge, "
+        "and the top edge must continue smoothly into the bottom edge, so that placing the same image side-by-side reveals no visible seam. "
+        f"Use no more than {max_colors} visible colors total. "
+        "Use large, chunky readable pixels, limited palette, no painterly blending, no anti-aliasing, no soft brush, no smoothing. "
+        "Every pixel must be a perfect square aligned to the grid; each grid cell contains exactly one color. "
         f"{profile.forbidden_elements}"
     )
 
@@ -233,7 +268,19 @@ def build_asset_prompt(
         "max_colors": int(max_colors),
     }
     template_text = _legacy_template_to_type_aware((template or "").strip())
-    if template_text:
+    is_tile = asset_kind_key == "tile_texture"
+    if is_tile:
+        # 平铺纹理不复用普通 prompt 模板，用专用模板（强调"铺满+无缝"，不需要 chroma-key 占位符）
+        prompt = _canonical_tile_prompt(
+            name,
+            width,
+            height,
+            int(max_colors),
+            asset_kind_label,
+            subject_kind_label,
+            profile,
+        )
+    elif template_text:
         try:
             prompt = template_text.format(**values)
         except Exception:
