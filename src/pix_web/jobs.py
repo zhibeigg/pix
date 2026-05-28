@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from pix.api.prompt_guard import RAW_IMAGE_PROMPT_MAX_CHARS
 from pix.asset import AssetSizePolicyError, resolve_asset_generation_policy
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, reserve_credits
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
@@ -19,7 +20,7 @@ from pix_web.system_settings import enforce_generation_limits, enforce_prompt_po
 
 AI_JOB_TYPES = {"asset", "text_to_image", "image_to_image", "sprite_sheet"}
 IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "repixelize"}
-RAW_IMAGE_PROMPT_MAX_LENGTH = 3000
+RAW_IMAGE_PROMPT_MAX_LENGTH = RAW_IMAGE_PROMPT_MAX_CHARS
 
 
 def _asset_name(req: JobCreateRequest) -> str:
@@ -38,6 +39,21 @@ def _prompt_policy_text(req: JobCreateRequest) -> str | None:
         text = "\n".join(part.strip() for part in parts if part and part.strip())
         return text or None
     return req.prompt
+
+
+def _prompt_policy_max_chars(req: JobCreateRequest) -> int | None:
+    if req.job_type == "text_to_image" and req.source_only:
+        return RAW_IMAGE_PROMPT_MAX_LENGTH
+    return None
+
+
+def _enforce_request_prompt_policy(db: Session, req: JobCreateRequest) -> None:
+    enforce_prompt_policy(
+        db,
+        _prompt_policy_text(req),
+        allow_template_break=req.source_only or req.job_type == "sprite_sheet",
+        max_chars=_prompt_policy_max_chars(req),
+    )
 
 
 def validate_job_request(req: JobCreateRequest) -> None:
@@ -171,7 +187,7 @@ def create_job_in_transaction(
 def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
     request_id = req.client_request_id.strip()
     if _existing_job(db, user, request_id) is None:
-        enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only or req.job_type == "sprite_sheet")
+        _enforce_request_prompt_policy(db, req)
         enforce_generation_limits(db, user, new_jobs=1)
     try:
         job = create_job_in_transaction(db, user, req)
@@ -217,7 +233,7 @@ def create_jobs_batch(
             existing_by_index[index] = existing
             prices.append(0)
             continue
-        enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only or req.job_type == "sprite_sheet")
+        _enforce_request_prompt_policy(db, req)
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price
@@ -300,7 +316,7 @@ def retry_failed_job(db: Session, user: User, job_id: int) -> GenerationJob:
 
     req = _request_from_failed_job(failed_job)
     validate_job_request(req)
-    enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only)
+    _enforce_request_prompt_policy(db, req)
     enforce_generation_limits(db, user, new_jobs=1)
     price = _price_for_request(db, req)
 
@@ -342,7 +358,7 @@ def retry_failed_jobs_in_batch(db: Session, user: User, batch_id: int) -> tuple[
     prices: list[int] = []
     for req in reqs:
         validate_job_request(req)
-        enforce_prompt_policy(db, _prompt_policy_text(req), allow_template_break=req.source_only or req.job_type == "sprite_sheet")
+        _enforce_request_prompt_policy(db, req)
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price

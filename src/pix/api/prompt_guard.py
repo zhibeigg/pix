@@ -12,6 +12,8 @@ from pix.config import AppConfig, require_vl_api_key
 
 
 PromptGuardMode = Literal["disabled", "local", "model", "model_unavailable_local", "model_failed_local"]
+DEFAULT_PROMPT_GUARD_MAX_CHARS = 500
+RAW_IMAGE_PROMPT_MAX_CHARS = 3000
 
 
 @dataclass(frozen=True)
@@ -61,7 +63,7 @@ _TEMPLATE_BREAK_RE = re.compile(
 def local_prompt_guard(
     prompt: str | None,
     *,
-    max_chars: int = 500,
+    max_chars: int = DEFAULT_PROMPT_GUARD_MAX_CHARS,
     allow_template_break: bool = False,
 ) -> PromptGuardResult:
     text = (prompt or "").strip()
@@ -82,20 +84,23 @@ def validate_user_prompt(
     prompt: str | None,
     *,
     allow_template_break: bool = False,
+    max_chars: int | None = None,
 ) -> PromptGuardResult:
     """审核用户原始素材描述。
 
     默认先跑本地规则；没有 VL key 或模型异常时退回本地规则，避免 Web 在未配置
     VL key 时无法使用生图。若 `prompt_guard_failure_policy=reject`，模型异常会拒绝。
     `allow_template_break` 仅用于原始单图模式，允许用户要求单张、无候选和无抠色。
+    `max_chars` 用于少数入口覆盖默认描述长度，例如原始生图 3000 字限制。
     """
     if not cfg.image_gen.prompt_guard_enabled:
         text = (prompt or "").strip()
         return PromptGuardResult(True, "", text, "disabled")
 
+    effective_max_chars = cfg.image_gen.prompt_guard_max_chars if max_chars is None else max_chars
     local = local_prompt_guard(
         prompt,
-        max_chars=cfg.image_gen.prompt_guard_max_chars,
+        max_chars=effective_max_chars,
         allow_template_break=allow_template_break,
     )
     if not local.allowed:
