@@ -5,8 +5,8 @@
 
 [api]
 base_url       = "https://www.packyapi.com"
-# 连接与读取超时（秒）；生图可能较慢，给足余量
-timeout        = 180.0
+# 连接与读取超时（秒）；生图/序列帧高 quality 时单次响应可能持续数分钟，给足余量
+timeout        = 600.0
 max_retries    = 3
 
 [image_gen]
