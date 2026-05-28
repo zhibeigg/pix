@@ -32,7 +32,8 @@ class ApiConfig:
     base_url: str = "https://www.packyapi.com"
     # 连接与读取超时（秒）；生图/序列帧高 quality 时单次响应可能持续数分钟。
     timeout: float = 600.0
-    max_retries: int = 3
+    # 远端网关在长 idle 阶段偶尔会 close 连接；多重试几次能显著提升成功率。
+    max_retries: int = 5
     # sora 分组 key，用于 gpt-image-2
     image_api_key: str | None = None
     # default 分组 key，用于 VL（Claude / Gemini / gpt-4o）
@@ -48,7 +49,9 @@ class ApiConfig:
 class ImageGenConfig:
     model: str = "gpt-image-2"
     size: str = "1024x1024"
-    quality: str = "high"
+    # auto 让 packyapi 自适配 quality；high 单次响应可能 7~10 分钟，超过远端网关 idle 上限
+    # 会被 RemoteProtocolError 截断；如需高画质请显式在管理后台改回 high。
+    quality: str = "auto"
     output_format: str = "png"
     # 图生图编辑时尽量保留原图主体和细节：low | high（Packy/OpenAI 兼容参数）
     edit_input_fidelity: str = "high"
