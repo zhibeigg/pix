@@ -57,8 +57,12 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
   const selectedFrame = frames.find((frame) => Number(frame.index) === selectedIndex) ?? frames[0]
   const selectedOffset = offsetFor(offsets, selectedIndex)
   const selectedScale = scaleFor(scales, selectedIndex)
-  const selectedVisibleBounds = useMemo(() => selectedFrame ? visibleBoundsForFrame(selectedFrame, images.get(selectedIndex)) : null, [images, selectedFrame, selectedIndex])
-  const shiftedVisibleBounds = selectedVisibleBounds ? shiftBounds(selectedVisibleBounds, selectedOffset) : null
+  const selectedImage = images.get(selectedIndex)
+  const selectedSourceSize = imageSourceSize(selectedImage, frameSize)
+  const selectedVisibleBounds = useMemo(() => selectedFrame ? visibleBoundsForFrame(selectedFrame, selectedImage) : null, [selectedFrame, selectedImage])
+  const projectedVisibleBounds = selectedVisibleBounds
+    ? projectBoundsToCanvas(selectedVisibleBounds, selectedSourceSize, selectedScale, selectedOffset)
+    : null
   const ghostIndex = useMemo(() => ghostFrameIndex(frameIndexes, selectedIndex), [frameIndexes, selectedIndex])
   const playableIndexes = useMemo(() => loopCheck && frameIndexes.length > 1 ? [frameIndexes[frameIndexes.length - 1], frameIndexes[0]] : frameIndexes, [frameIndexes, loopCheck])
 
@@ -230,18 +234,35 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
     if (!selectedFrame) return
     const target = frames.find((frame) => Number(frame.index) === targetIndex)
     if (!target) return
-    const targetAnchor = bottomCenter(target, offsetFor(offsets, targetIndex), frameSize)
-    const currentAnchor = bottomCenter(selectedFrame, selectedOffset, frameSize)
+    const targetImage = images.get(targetIndex)
+    const targetSourceSize = imageSourceSize(targetImage, frameSize)
+    const targetAnchor = bottomCenter(target, offsetFor(offsets, targetIndex), frameSize, targetSourceSize, scaleFor(scales, targetIndex), targetImage)
+    const currentAnchor = bottomCenter(selectedFrame, selectedOffset, frameSize, selectedSourceSize, selectedScale, selectedImage)
     updateOffset(selectedIndex, { x: selectedOffset.x + Math.round(targetAnchor.x - currentAnchor.x), y: selectedOffset.y + Math.round(targetAnchor.y - currentAnchor.y) })
   }
 
   function snapVisiblePixels(edge: SnapEdge) {
     if (!selectedVisibleBounds) return
+    // 目标：让缩放后投影到画布的可见像素紧贴指定边。
+    // 画布坐标公式（见 drawFrameImage / projectBoundsToCanvas）：
+    //   canvasX = baseX + offsetX + bound * scale，  baseX = round(srcW/2 - newW/2)
+    //   canvasY = baseY + offsetY + bound * scale，  baseY = round(srcH/2 - newH/2)
+    // 推理：目标 canvasX/Y = 画布边界 → offsetX = 边界 - baseX - bound * scale
+    const scale = Math.max(1e-3, selectedScale)
+    const newW = Math.max(1, Math.round(selectedSourceSize.width * scale))
+    const newH = Math.max(1, Math.round(selectedSourceSize.height * scale))
+    const baseX = Math.round(selectedSourceSize.width / 2 - newW / 2)
+    const baseY = Math.round(selectedSourceSize.height / 2 - newH / 2)
     const next = { ...selectedOffset }
-    if (edge === 'left') next.x = -selectedVisibleBounds.left
-    else if (edge === 'right') next.x = frameSize.width - selectedVisibleBounds.right
-    else if (edge === 'top') next.y = -selectedVisibleBounds.top
-    else next.y = frameSize.height - selectedVisibleBounds.bottom
+    if (edge === 'left') {
+      next.x = Math.round(0 - baseX - selectedVisibleBounds.left * scale)
+    } else if (edge === 'right') {
+      next.x = Math.round(frameSize.width - baseX - selectedVisibleBounds.right * scale)
+    } else if (edge === 'top') {
+      next.y = Math.round(0 - baseY - selectedVisibleBounds.top * scale)
+    } else {
+      next.y = Math.round(frameSize.height - baseY - selectedVisibleBounds.bottom * scale)
+    }
     updateOffset(selectedIndex, next)
   }
 
@@ -270,7 +291,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
             <Badge variant="outline">{frameSize.width}×{frameSize.height}</Badge>
             <Badge variant={Math.abs(selectedScale - 1) < 1e-3 ? 'muted' : 'info'}>{`${selectedScale.toFixed(2)}×`}</Badge>
             <Badge variant="outline">{text(`影子：第 ${ghostIndex} 帧`, `Ghost: frame ${ghostIndex}`)}</Badge>
-            {shiftedVisibleBounds ? <Badge variant="muted">{text(`可见像素：${shiftedVisibleBounds.left},${shiftedVisibleBounds.top} → ${shiftedVisibleBounds.right},${shiftedVisibleBounds.bottom}`, `Visible pixels: ${shiftedVisibleBounds.left},${shiftedVisibleBounds.top} → ${shiftedVisibleBounds.right},${shiftedVisibleBounds.bottom}`)}</Badge> : <Badge variant="warning">{text('未识别到可见像素', 'No visible pixels detected')}</Badge>}
+            {projectedVisibleBounds ? <Badge variant="muted">{text(`可见像素：${projectedVisibleBounds.left},${projectedVisibleBounds.top} → ${projectedVisibleBounds.right},${projectedVisibleBounds.bottom}`, `Visible pixels: ${projectedVisibleBounds.left},${projectedVisibleBounds.top} → ${projectedVisibleBounds.right},${projectedVisibleBounds.bottom}`)}</Badge> : <Badge variant="warning">{text('未识别到可见像素', 'No visible pixels detected')}</Badge>}
             <div className="ml-auto flex min-w-[260px] flex-wrap items-center gap-2 rounded-lg border border-border bg-card/80 px-2 py-1.5 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
               <Button type="button" size="sm" variant="ghost" disabled={editorZoom <= MIN_EDITOR_ZOOM} onClick={() => updateEditorZoom(editorZoom - 1)}><ZoomOut />{text('画布缩小', 'Canvas −')}</Button>
               <Slider className="min-w-24 flex-1" value={editorZoom} min={MIN_EDITOR_ZOOM} max={MAX_EDITOR_ZOOM} step={1} onValueChange={updateEditorZoom} aria-label={text('编辑画布显示倍数', 'Editor canvas display scale')} />
@@ -414,24 +435,25 @@ function ghostFrameIndex(indexes: number[], selectedIndex: number) {
   return indexes[(position - 1 + indexes.length) % indexes.length]
 }
 
-function bottomCenter(frame: SpriteFrameOutput, offset: Offset, frameSize: { width: number; height: number }) {
-  const bounds = boundsFromFrame(frame)
+function bottomCenter(frame: SpriteFrameOutput, offset: Offset, frameSize: { width: number; height: number }, sourceSize?: { width: number; height: number }, scale: number = 1, image?: HTMLImageElement) {
+  const bounds = visibleBoundsForFrame(frame, image)
   if (!bounds) return { x: frameSize.width / 2 + offset.x, y: frameSize.height + offset.y }
-  return { x: (bounds.left + bounds.right) / 2 + offset.x, y: bounds.bottom + offset.y }
+  const safeSource = sourceSize ?? { width: bounds.right, height: bounds.bottom }
+  const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1
+  const newW = Math.max(1, Math.round(safeSource.width * safeScale))
+  const newH = Math.max(1, Math.round(safeSource.height * safeScale))
+  const baseX = Math.round(safeSource.width / 2 - newW / 2)
+  const baseY = Math.round(safeSource.height / 2 - newH / 2)
+  return {
+    x: baseX + offset.x + ((bounds.left + bounds.right) / 2) * safeScale,
+    y: baseY + offset.y + bounds.bottom * safeScale,
+  }
 }
 
-function visibleBoundsForFrame(frame: SpriteFrameOutput, image?: HTMLImageElement): VisibleBounds | null {
-  return boundsFromFrame(frame) ?? (image ? scanAlphaBounds(image) : null)
-}
-
-function boundsFromFrame(frame: SpriteFrameOutput): VisibleBounds | null {
-  const bbox = Array.isArray(frame.bbox) ? frame.bbox.map((value) => Number(value)) : null
-  if (!bbox || bbox.length < 4 || bbox.some((value) => !Number.isFinite(value))) return null
-  const left = Math.round(Math.min(bbox[0], bbox[2]))
-  const top = Math.round(Math.min(bbox[1], bbox[3]))
-  const right = Math.round(Math.max(bbox[0], bbox[2]))
-  const bottom = Math.round(Math.max(bbox[1], bbox[3]))
-  return right > left && bottom > top ? { left, top, right, bottom } : null
+function visibleBoundsForFrame(_frame: SpriteFrameOutput, image?: HTMLImageElement): VisibleBounds | null {
+  // 始终扫描最终单帧 PNG 的 alpha：保证坐标系与画布绘制完全一致，
+  // 避免使用后端 bbox（不同坐标系）引起吸附/对齐误差。
+  return image ? scanAlphaBounds(image) : null
 }
 
 function scanAlphaBounds(image: HTMLImageElement): VisibleBounds | null {
@@ -467,12 +489,24 @@ function scanAlphaBounds(image: HTMLImageElement): VisibleBounds | null {
   }
 }
 
-function shiftBounds(bounds: VisibleBounds, offset: Offset): VisibleBounds {
+function imageSourceSize(image: HTMLImageElement | undefined, frameSize: { width: number; height: number }): { width: number; height: number } {
+  if (image && (image.naturalWidth || image.width) && (image.naturalHeight || image.height)) {
+    return { width: image.naturalWidth || image.width, height: image.naturalHeight || image.height }
+  }
+  return { width: Math.max(1, frameSize.width), height: Math.max(1, frameSize.height) }
+}
+
+function projectBoundsToCanvas(bounds: VisibleBounds, sourceSize: { width: number; height: number }, scale: number, offset: Offset): VisibleBounds {
+  const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1
+  const newW = Math.max(1, Math.round(sourceSize.width * safeScale))
+  const newH = Math.max(1, Math.round(sourceSize.height * safeScale))
+  const baseX = Math.round(sourceSize.width / 2 - newW / 2)
+  const baseY = Math.round(sourceSize.height / 2 - newH / 2)
   return {
-    left: bounds.left + offset.x,
-    top: bounds.top + offset.y,
-    right: bounds.right + offset.x,
-    bottom: bounds.bottom + offset.y,
+    left: Math.round(baseX + offset.x + bounds.left * safeScale),
+    top: Math.round(baseY + offset.y + bounds.top * safeScale),
+    right: Math.round(baseX + offset.x + bounds.right * safeScale),
+    bottom: Math.round(baseY + offset.y + bounds.bottom * safeScale),
   }
 }
 
