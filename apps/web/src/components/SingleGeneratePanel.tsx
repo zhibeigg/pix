@@ -3,7 +3,7 @@ import { Upload } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
-import type { JobCreateRequest, JobType, PricingRule, SpriteGenerationMode } from '../types'
+import type { JobCreateRequest, JobType, PricingRule } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -101,13 +101,11 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
   const [removeBg, setRemoveBg] = useState(true)
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyleChoice>('outline')
   const [skipVl, setSkipVl] = useState(false)
-  // 序列帧专用状态
-  const [spriteMode, setSpriteMode] = useState<SpriteGenerationMode>('mosaic')
+  // 序列帧专用状态（仅 mosaic 单图模式）
   const [spritePreset, setSpritePreset] = useState<SpritePreset>('horizontal')
   const [rows, setRows] = useState(1)
   const [cols, setCols] = useState(8)
   const [rowPrompts, setRowPrompts] = useState<string[]>([''])
-  const [frameCount, setFrameCount] = useState(8)
   const [fps, setFps] = useState(8)
   const [refImagePath, setRefImagePath] = useState('')
   const [refImageUrl, setRefImageUrl] = useState('')
@@ -116,26 +114,20 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
 
   const isAsset = jobType === 'asset'
   const isSprite = jobType === 'sprite_sheet'
-  const isMosaic = isSprite && spriteMode === 'mosaic'
-  const isIterative = isSprite && spriteMode === 'iterative'
   const basePrice = useMemo(() => pricing.find((item) => item.key === jobType)?.price_credits ?? 0, [pricing, jobType])
   const safeRows = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(rows || 1)))
   const safeCols = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(cols || 1)))
-  const mosaicFrameCount = safeRows * safeCols
-  const safeIterativeFrameCount = Math.max(1, Math.min(12, Math.round(frameCount || 1)))
-  const billingUnits = isMosaic ? Math.max(1, Math.ceil(mosaicFrameCount / 9)) : safeIterativeFrameCount
-  const totalFrames = isMosaic ? mosaicFrameCount : safeIterativeFrameCount
+  const totalFrames = safeRows * safeCols
+  const billingUnits = Math.max(1, Math.ceil(totalFrames / 9))
   const price = isSprite ? basePrice * billingUnits : basePrice
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
   const subjectKind = assetKind === 'ui_component' ? 'single_ui' : 'single_prop'
   const needsPrompt = jobType === 'text_to_image' || jobType === 'image_to_image' || isSprite
   const needsImage = jobType !== 'asset' && jobType !== 'text_to_image' && !isSprite
-  const invalidIterativeFrameCount = isIterative && (frameCount < 1 || frameCount > 12)
-  const invalidGrid = isMosaic && (safeRows < 1 || safeCols < 1 || safeRows > MAX_GRID_AXIS || safeCols > MAX_GRID_AXIS)
-  const missingRowPrompts = isMosaic && safeRows >= 2 && rowPrompts.slice(0, safeRows).some((value) => !value.trim())
+  const invalidGrid = isSprite && (safeRows < 1 || safeCols < 1 || safeRows > MAX_GRID_AXIS || safeCols > MAX_GRID_AXIS)
+  const missingRowPrompts = isSprite && safeRows >= 2 && rowPrompts.slice(0, safeRows).some((value) => !value.trim())
   const submitBlocked = invalidSubAssetSize
-    || invalidIterativeFrameCount
     || invalidGrid
     || missingRowPrompts
     || (isAsset && !assetName.trim())
@@ -145,19 +137,9 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
   // 模式切换时重置默认参数
   useEffect(() => {
     if (jobType === 'asset') { setPixelSize('16x16'); setColors(12); setRemoveBg(true); setEdgeStyle('outline') }
-    else if (jobType === 'sprite_sheet') { setPixelSize('64x64'); setColors(16); setRemoveBg(false); setFrameCount(8); setFps(8); setSpriteMode('mosaic'); setSpritePreset('horizontal'); setRows(1); setCols(8); setRowPrompts(['']) }
+    else if (jobType === 'sprite_sheet') { setPixelSize('64x64'); setColors(16); setRemoveBg(false); setFps(8); setSpritePreset('horizontal'); setRows(1); setCols(8); setRowPrompts(['']) }
     else { setPixelSize('128x128'); setColors(16); setRemoveBg(true) }
   }, [jobType])
-
-  // 切换 mosaic / iterative 时重置网格
-  useEffect(() => {
-    if (!isSprite) return
-    if (spriteMode === 'iterative') {
-      setRows(1)
-      setCols(safeIterativeFrameCount)
-      setSpritePreset('custom')
-    }
-  }, [spriteMode, isSprite, safeIterativeFrameCount])
 
   // 应用预设
   function applyPreset(preset: SpritePreset) {
@@ -228,7 +210,6 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
       return
     }
     if (isSprite) {
-      const frameForRequest = isMosaic ? mosaicFrameCount : safeIterativeFrameCount
       const safeFps = Math.max(1, Math.min(60, Math.round(fps || 8)))
       const cleanRowPrompts = ensureRowPromptsLength(rowPrompts, safeRows).map((value) => value.trim())
       await onSubmit({
@@ -240,12 +221,11 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
         pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: false, ...edge }),
         grid: buildGridDesign(),
         sprite: {
-          generation_mode: spriteMode,
-          rows: isMosaic ? safeRows : 1,
-          cols: isMosaic ? safeCols : safeIterativeFrameCount,
-          row_prompts: isMosaic ? cleanRowPrompts : [],
-          reference_image_path: isMosaic && refImagePath ? refImagePath : null,
-          frame_count: frameForRequest,
+          rows: safeRows,
+          cols: safeCols,
+          row_prompts: cleanRowPrompts,
+          reference_image_path: refImagePath || null,
+          frame_count: totalFrames,
           fps: safeFps,
           gif_export: false,
           duration_ms: Math.max(20, Math.round(1000 / safeFps)),
@@ -291,107 +271,80 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
 
         {isSprite && (
           <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
-            <PixField label={text('生成方式', 'Generation mode')} hint={text('单图：1 次 API 出整张 sheet（便宜快）。逐帧：N 次图生图（保真闭环）。', 'Single sheet: 1 API call for the whole grid (cheap and fast). Iterative: N image-to-image calls (best loop fidelity).')}>
-              <Select value={spriteMode} onValueChange={(value) => setSpriteMode(value as SpriteGenerationMode)}>
+            <PixField label={text('参考角色立绘（可选）', 'Reference character art (optional)')} hint={text('提供后将使用图生图，让每个单元格保留同一角色设计。', 'Image-to-image keeps the same character design across all cells.')}>
+              <div className="grid gap-3">
+                <Button type="button" variant="outline" asChild>
+                  <label className="cursor-pointer">
+                    <Upload />{refUploading ? text('上传参考图…', 'Uploading reference…') : refImagePath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadReferenceFile(event.currentTarget.files?.[0])} />
+                  </label>
+                </Button>
+                {refUploadMessage && <Alert variant={refUploadMessage.includes('失败') || refUploadMessage.toLowerCase().includes('failed') ? 'destructive' : 'info'}>{refUploadMessage}</Alert>}
+                {refImagePath && (
+                  <div className="grid gap-2">
+                    <PixPreviewFrame url={refImageUrl} loading={refUploading} label={text('参考角色预览', 'Reference preview')} />
+                    <Button type="button" variant="ghost" size="sm" onClick={clearReference}>{text('移除参考图', 'Remove reference')}</Button>
+                  </div>
+                )}
+              </div>
+            </PixField>
+
+            <PixField label={text('布局预设', 'Layout preset')}>
+              <Select value={spritePreset} onValueChange={(value) => applyPreset(value as SpritePreset)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mosaic">{text('单图（推荐）', 'Single sheet (recommended)')}</SelectItem>
-                  <SelectItem value="iterative">{text('逐帧（高保真闭环）', 'Iterative (high-fidelity loop)')}</SelectItem>
+                  <SelectItem value="horizontal">{text('1 行 × 8 帧（横排动作）', '1×8 horizontal action')}</SelectItem>
+                  <SelectItem value="four_directions">{text('4 行 × 8 帧（四方向行走）', '4×8 four-direction walk')}</SelectItem>
+                  <SelectItem value="character_full">{text('8 行 × 8 帧（角色全动作集）', '8×8 full character action set')}</SelectItem>
+                  <SelectItem value="custom">{text('自定义网格', 'Custom grid')}</SelectItem>
                 </SelectContent>
               </Select>
             </PixField>
 
-            {isMosaic && (
-              <>
-                <PixField label={text('参考角色立绘（可选）', 'Reference character art (optional)')} hint={text('提供后将使用图生图，让每个单元格保留同一角色设计。', 'Image-to-image keeps the same character design across all cells.')}>
-                  <div className="grid gap-3">
-                    <Button type="button" variant="outline" asChild>
-                      <label className="cursor-pointer">
-                        <Upload />{refUploading ? text('上传参考图…', 'Uploading reference…') : refImagePath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
-                        <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadReferenceFile(event.currentTarget.files?.[0])} />
-                      </label>
-                    </Button>
-                    {refUploadMessage && <Alert variant={refUploadMessage.includes('失败') || refUploadMessage.toLowerCase().includes('failed') ? 'destructive' : 'info'}>{refUploadMessage}</Alert>}
-                    {refImagePath && (
-                      <div className="grid gap-2">
-                        <PixPreviewFrame url={refImageUrl} loading={refUploading} label={text('参考角色预览', 'Reference preview')} />
-                        <Button type="button" variant="ghost" size="sm" onClick={clearReference}>{text('移除参考图', 'Remove reference')}</Button>
-                      </div>
-                    )}
-                  </div>
-                </PixField>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <PixField label={text('行 rows（1~8）', 'Rows (1–8)')}>
+                <Input type="number" min={1} max={MAX_GRID_AXIS} value={safeRows} onChange={(e) => updateRows(Number(e.target.value))} />
+              </PixField>
+              <PixField label={text('列 cols（1~8）', 'Cols (1–8)')}>
+                <Input type="number" min={1} max={MAX_GRID_AXIS} value={safeCols} onChange={(e) => updateCols(Number(e.target.value))} />
+              </PixField>
+              <PixField label={text('总帧数', 'Total frames')}>
+                <Input value={`${totalFrames}`} readOnly />
+              </PixField>
+            </div>
 
-                <PixField label={text('布局预设', 'Layout preset')}>
-                  <Select value={spritePreset} onValueChange={(value) => applyPreset(value as SpritePreset)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="horizontal">{text('1 行 × 8 帧（横排动作）', '1×8 horizontal action')}</SelectItem>
-                      <SelectItem value="four_directions">{text('4 行 × 8 帧（四方向行走）', '4×8 four-direction walk')}</SelectItem>
-                      <SelectItem value="character_full">{text('8 行 × 8 帧（角色全动作集）', '8×8 full character action set')}</SelectItem>
-                      <SelectItem value="custom">{text('自定义网格', 'Custom grid')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </PixField>
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <PixField label={text('行 rows（1~8）', 'Rows (1–8)')}>
-                    <Input type="number" min={1} max={MAX_GRID_AXIS} value={safeRows} onChange={(e) => updateRows(Number(e.target.value))} />
-                  </PixField>
-                  <PixField label={text('列 cols（1~8）', 'Cols (1–8)')}>
-                    <Input type="number" min={1} max={MAX_GRID_AXIS} value={safeCols} onChange={(e) => updateCols(Number(e.target.value))} />
-                  </PixField>
-                  <PixField label={text('总帧数', 'Total frames')}>
-                    <Input value={`${mosaicFrameCount}`} readOnly />
-                  </PixField>
-                </div>
-
-                {safeRows >= 2 && (
-                  <div className="grid gap-3 rounded-lg border border-border bg-background/40 p-3">
-                    <div className="text-xs text-muted-foreground">{text(`为每一行写一段动作描述（共 ${safeRows} 行，每行 ${safeCols} 帧）`, `Describe the action for each row (${safeRows} rows × ${safeCols} frames)`)}</div>
-                    {Array.from({ length: safeRows }, (_, index) => (
-                      <PixField key={`row-${index}`} label={text(`第 ${index + 1} 行动作`, `Row ${index + 1} action`)}>
-                        <Textarea
-                          value={rowPrompts[index] ?? ''}
-                          rows={2}
-                          maxLength={ROW_PROMPT_MAX_LENGTH}
-                          placeholder={text('例如：朝东行走的 8 帧循环', 'e.g. 8-frame walk cycle facing east')}
-                          onChange={(e) => updateRowPrompt(index, e.target.value)}
-                        />
-                      </PixField>
-                    ))}
-                  </div>
-                )}
-
-                {safeRows === 1 && (
-                  <PixField label={text('动作描述（可选，留空使用主体描述）', 'Action description (optional)')}>
+            {safeRows >= 2 && (
+              <div className="grid gap-3 rounded-lg border border-border bg-background/40 p-3">
+                <div className="text-xs text-muted-foreground">{text(`为每一行写一段动作描述（共 ${safeRows} 行，每行 ${safeCols} 帧）`, `Describe the action for each row (${safeRows} rows × ${safeCols} frames)`)}</div>
+                {Array.from({ length: safeRows }, (_, index) => (
+                  <PixField key={`row-${index}`} label={text(`第 ${index + 1} 行动作`, `Row ${index + 1} action`)}>
                     <Textarea
-                      value={rowPrompts[0] ?? ''}
+                      value={rowPrompts[index] ?? ''}
                       rows={2}
                       maxLength={ROW_PROMPT_MAX_LENGTH}
-                      placeholder={text('例如：火焰法师挥杖释放火球的 8 帧动作', 'e.g. 8-frame fire mage casting a fireball')}
-                      onChange={(e) => updateRowPrompt(0, e.target.value)}
+                      placeholder={text('例如：朝东行走的 8 帧循环', 'e.g. 8-frame walk cycle facing east')}
+                      onChange={(e) => updateRowPrompt(index, e.target.value)}
                     />
                   </PixField>
-                )}
-              </>
-            )}
-
-            {isIterative && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <PixField label={text('帧数（1~12）', 'Frames (1–12)')} hint={text('点数 = 帧数 × 单帧基础价。', 'Credits = frames × base price per frame.')}>
-                  <Input type="number" min={1} max={12} value={frameCount} onChange={(e) => setFrameCount(Number(e.target.value))} />
-                </PixField>
-                <PixField label={text('播放 FPS', 'Playback FPS')}>
-                  <Input type="number" min={1} max={60} value={fps} onChange={(e) => setFps(Number(e.target.value))} />
-                </PixField>
+                ))}
               </div>
             )}
 
-            {isMosaic && (
-              <PixField label={text('播放 FPS', 'Playback FPS')}>
-                <Input type="number" min={1} max={60} value={fps} onChange={(e) => setFps(Number(e.target.value))} />
+            {safeRows === 1 && (
+              <PixField label={text('动作描述（可选，留空使用主体描述）', 'Action description (optional)')}>
+                <Textarea
+                  value={rowPrompts[0] ?? ''}
+                  rows={2}
+                  maxLength={ROW_PROMPT_MAX_LENGTH}
+                  placeholder={text('例如：火焰法师挥杖释放火球的 8 帧动作', 'e.g. 8-frame fire mage casting a fireball')}
+                  onChange={(e) => updateRowPrompt(0, e.target.value)}
+                />
               </PixField>
             )}
+
+            <PixField label={text('播放 FPS', 'Playback FPS')}>
+              <Input type="number" min={1} max={60} value={fps} onChange={(e) => setFps(Number(e.target.value))} />
+            </PixField>
           </div>
         )}
 
@@ -402,8 +355,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
         <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={removeBg} disabled={isSprite} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{text('透明背景', 'Transparent background')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={isSprite || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? text('素材直出默认视觉理解策略', 'Default vision policy for asset output') : text('跳过参考图理解', 'Skip reference understanding')}</label></div>
 
         {invalidSubAssetSize && <Alert variant="destructive">{text('素材最低支持 16×16。', 'Minimum asset size is 16×16.')}</Alert>}
-        {invalidIterativeFrameCount && <Alert variant="destructive">{text('逐帧序列帧最多支持 12 帧。', 'Iterative sprite sequences support up to 12 frames.')}</Alert>}
-        {invalidGrid && <Alert variant="destructive">{text('单图序列帧每行/每列最多 8。', 'Single sheet rows and cols are capped at 8.')}</Alert>}
+        {invalidGrid && <Alert variant="destructive">{text('序列帧每行/每列最多 8。', 'Sprite sequence rows and cols are capped at 8.')}</Alert>}
         {missingRowPrompts && <Alert variant="destructive">{text('多行序列帧需要为每一行填写动作描述。', 'Multi-row sequences require an action description for each row.')}</Alert>}
         <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? text('生成游戏素材', 'Generate game asset') : text('生成单张素材', 'Generate single asset')}</Button>
       </form>
