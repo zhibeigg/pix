@@ -136,7 +136,7 @@ def write_bytes(path: str | Path, data: bytes) -> Path:
     return p
 
 
-def download(url: str, dest: str | Path, timeout: float = 60.0) -> Path:
+def download(url: str, dest: str | Path, timeout: float = 600.0) -> Path:
     """下载远程图片到本地。"""
     dest_path = Path(dest)
     ensure_dir(dest_path.parent)

@@ -30,7 +30,8 @@ except ImportError:  # pragma: no cover
 @dataclass
 class ApiConfig:
     base_url: str = "https://www.packyapi.com"
-    timeout: float = 180.0
+    # 连接与读取超时（秒）；生图/序列帧高 quality 时单次响应可能持续数分钟。
+    timeout: float = 600.0
     max_retries: int = 3
     # sora 分组 key，用于 gpt-image-2
     image_api_key: str | None = None

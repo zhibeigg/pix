@@ -22,7 +22,7 @@ class PackyClient:
         self,
         base_url: str,
         api_key: str,
-        timeout: float = 180.0,
+        timeout: float = 600.0,
         max_retries: int = 3,
     ):
         self.base_url = base_url.rstrip("/")

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.143] - 2026-05-28
+
+### Changed
+
+- 将 Packy API 调用与图片下载默认超时从 180/60 秒提升到 600 秒，避免高 quality 生图响应较慢时被 read timeout 中断。
+- 管理后台“模型与 API”增加 `pix.api.timeout` 与 `pix.api.max_retries` 设置项，可在线调整远端调用超时与重试次数。
+
 ## [1.45.142] - 2026-05-28
 
 ### Fixed
