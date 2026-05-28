@@ -20,6 +20,8 @@ type AssetKindChoice = 'item_icon' | 'ui_component'
 type BatchUpload = { id: string; status: 'uploading' | 'uploaded' | 'failed'; error?: string; upload?: UploadResponse }
 type Props = { pricing: PricingRule[]; balance: CreditBalance | null; loading: boolean; token: string; onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void> }
 
+const PROMPT_MAX_LENGTH = 3000
+
 export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitMany }: Props) {
   const { t } = useTranslation()
   const [batchMode, setBatchMode] = useState<BatchMode>('asset')
@@ -90,10 +92,10 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
         {batchMode === 'asset' || batchMode === 'text_to_image' ? <div className="grid gap-4">
           {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
             <PixField label={t('batchForm.assetKindLabel')}><Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="item_icon">{t('batchForm.assetKinds.item_icon')}</SelectItem><SelectItem value="ui_component">{t('batchForm.assetKinds.ui_component')}</SelectItem></SelectContent></Select></PixField>
-            <PixField label={t('batchForm.extraStyle')}><Textarea value={assetExtraPrompt} rows={3} placeholder={t('batchForm.extraStylePlaceholder')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
+            <PixField label={t('batchForm.extraStyle')}><Textarea value={assetExtraPrompt} rows={3} maxLength={PROMPT_MAX_LENGTH} placeholder={t('batchForm.extraStylePlaceholder')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
           </div>}
           <PixField label={isAsset ? t('batchForm.assetSubjects') : t('batchForm.assetDescriptions')}><Textarea value={prompts} rows={8} placeholder={isAsset ? t('batchForm.assetSubjectPlaceholder') : undefined} onChange={(e) => setPrompts(e.target.value)} /></PixField>
-        </div> : <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">{batchMode === 'image_to_image' && <PixField label={t('batchForm.sharedPrompt')}><Textarea value={sharedPrompt} rows={4} onChange={(e) => setSharedPrompt(e.target.value)} /></PixField>}<Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? t('batchForm.uploading') : t('batchForm.uploadImages')}<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void uploadFiles(e.currentTarget.files)} /></label></Button><UploadList uploads={uploads} /></div>}
+        </div> : <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">{batchMode === 'image_to_image' && <PixField label={t('batchForm.sharedPrompt')}><Textarea value={sharedPrompt} rows={4} maxLength={PROMPT_MAX_LENGTH} onChange={(e) => setSharedPrompt(e.target.value)} /></PixField>}<Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? t('batchForm.uploading') : t('batchForm.uploadImages')}<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void uploadFiles(e.currentTarget.files)} /></label></Button><UploadList uploads={uploads} /></div>}
         <PixelControls pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={!removeBg} />
         <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={removeBg} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{t('batchForm.transparentBackground')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize' || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? t('batchForm.defaultVisionPolicy') : t('batchForm.skipReference')}</label></div>
         {invalidSubAssetSize && <Alert variant="destructive">{t('batchForm.minSize')}</Alert>}
