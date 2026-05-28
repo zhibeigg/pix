@@ -42,7 +42,7 @@ def _prompt_policy_text(req: JobCreateRequest) -> str | None:
 
 
 def _prompt_policy_max_chars(req: JobCreateRequest) -> int | None:
-    if req.job_type == "text_to_image" and req.source_only:
+    if req.job_type in AI_JOB_TYPES:
         return RAW_IMAGE_PROMPT_MAX_LENGTH
     return None
 

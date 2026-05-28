@@ -111,7 +111,7 @@ def _prepare_prompt(cfg: AppConfig, inputs: PipelineInput, notify: ProgressCb) -
             cfg,
             guard_text,
             allow_template_break=inputs.source_only,
-            max_chars=RAW_IMAGE_PROMPT_MAX_CHARS if inputs.source_only else None,
+            max_chars=RAW_IMAGE_PROMPT_MAX_CHARS,
         )
     except PromptPolicyError as exc:
         notify("prompt_guard_rejected", exc.result.to_metadata())
