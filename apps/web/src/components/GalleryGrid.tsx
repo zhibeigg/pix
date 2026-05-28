@@ -1,4 +1,5 @@
 import { useMemo, useState, type DragEvent } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Crosshair, Download, FileDown, PackagePlus, RotateCcw, Trash2, X } from 'lucide-react'
 import { fileName, signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
@@ -9,7 +10,7 @@ import { formatDateTime } from '../lib/utils'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Checkbox } from './ui/checkbox'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogPortal, DialogTitle } from './ui/dialog'
 import { PixPanel } from './pix/PixPanel'
 import { PixStatusBadge } from './pix/PixStatusBadge'
 import { JobErrorSummary } from './JobErrorSummary'
@@ -112,30 +113,38 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
           {!output && <JobParameterSnapshotDialog job={job} />}
           {job.status === 'succeeded' && output && output.sprite_frames.length > 0 && onSaveSequenceAlignment && <Dialog open={alignmentOpen} onOpenChange={setAlignmentOpen}>
             <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); setAlignmentOpen(true) }}><Crosshair />{t('gallery.alignFrames')}</Button>
-            <DialogContent
-              onClick={(event) => event.stopPropagation()}
-              className="flex max-w-none flex-col overflow-hidden p-0 sm:max-w-none"
-              style={{
-                height: 'min(900px, calc(100dvh - 32px))',
-                left: '50%',
-                maxHeight: 'calc(100dvh - 32px)',
-                maxWidth: 'none',
-                position: 'fixed',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: 'min(1180px, calc(100vw - 32px))',
-              }}
-            >
-              <div className="shrink-0 border-b border-border px-6 py-5 pr-12 dark:border-[hsl(var(--pix-dark-hairline))]">
-                <DialogHeader>
-                  <DialogTitle>{t('alignment.title')}</DialogTitle>
-                  <DialogDescription>{t('alignment.description')}</DialogDescription>
-                </DialogHeader>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-                <SpriteSequenceAlignmentEditor job={job} output={output} saving={savingAlignment} onSave={saveAlignment} />
-              </div>
-            </DialogContent>
+            <DialogPortal>
+              <DialogOverlay />
+              <DialogPrimitive.Content
+                onClick={(event) => event.stopPropagation()}
+                onCloseAutoFocus={(event) => event.preventDefault()}
+                className="fixed z-50 flex flex-col overflow-hidden rounded-lg border border-border bg-card p-0 shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)] focus:outline-none dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]"
+                style={{
+                  height: 'min(900px, calc(100dvh - 32px))',
+                  left: '50%',
+                  maxHeight: 'calc(100dvh - 32px)',
+                  maxWidth: 'none',
+                  position: 'fixed',
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: 'min(1180px, calc(100vw - 32px))',
+                }}
+              >
+                <div className="shrink-0 border-b border-border px-6 py-5 pr-12 dark:border-[hsl(var(--pix-dark-hairline))]">
+                  <DialogHeader>
+                    <DialogTitle>{t('alignment.title')}</DialogTitle>
+                    <DialogDescription>{t('alignment.description')}</DialogDescription>
+                  </DialogHeader>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                  <SpriteSequenceAlignmentEditor job={job} output={output} saving={savingAlignment} onSave={saveAlignment} />
+                </div>
+                <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">关闭</span>
+                </DialogPrimitive.Close>
+              </DialogPrimitive.Content>
+            </DialogPortal>
           </Dialog>}
           {job.status === 'succeeded' && onSaveToPack && <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); void onSaveToPack(job) }}><PackagePlus />{t('packs.saveWork')}</Button>}
           {onRemoveFromPack && <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); void onRemoveFromPack(job) }}><X />{t('packs.removeWork')}</Button>}

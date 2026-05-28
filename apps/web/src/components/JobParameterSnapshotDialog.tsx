@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Clipboard, FileJson, Settings2 } from 'lucide-react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { Clipboard, FileJson, Settings2, X } from 'lucide-react'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import { formatDateTime } from '../lib/utils'
@@ -7,7 +8,7 @@ import { jobTypeLabel } from '../labels'
 import type { GenerationJob, JobOutput } from '../types'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
+import { Dialog, DialogDescription, DialogHeader, DialogOverlay, DialogPortal, DialogTitle } from './ui/dialog'
 
 export function JobParameterSnapshotDialog({ job, output }: { job: GenerationJob; output?: JobOutput }) {
   const { language, text, t } = useI18n()
@@ -78,30 +79,33 @@ export function JobParameterSnapshotDialog({ job, output }: { job: GenerationJob
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); setOpen(true) }}><Settings2 />{text('参数', 'Params')}</Button>
-      <DialogContent
-        onClick={(event) => event.stopPropagation()}
-        className="max-w-none overflow-y-auto sm:max-w-none"
-        style={{
-          left: '50%',
-          maxHeight: 'calc(100dvh - 32px)',
-          maxWidth: 'none',
-          position: 'fixed',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 'min(920px, calc(100vw - 32px))',
-        }}
-      >
-        <DialogHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
-            <div>
-              <DialogTitle>{text('生成参数快照', 'Generation parameter snapshot')}</DialogTitle>
-              <DialogDescription>{text('查看这个作品提交时使用的 prompt、模型、像素化、序列帧和计费参数。', 'Review the prompt, model, pixel, sprite, and billing parameters used for this work.')}</DialogDescription>
+      <DialogPortal>
+        <DialogOverlay />
+        <DialogPrimitive.Content
+          onClick={(event) => event.stopPropagation()}
+          onCloseAutoFocus={(event) => event.preventDefault()}
+          className="fixed z-50 grid gap-4 overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)] focus:outline-none dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]"
+          style={{
+            left: '50%',
+            maxHeight: 'calc(100dvh - 32px)',
+            maxWidth: 'none',
+            position: 'fixed',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 'min(920px, calc(100vw - 32px))',
+          }}
+        >
+          <DialogHeader>
+            <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
+              <div>
+                <DialogTitle>{text('生成参数快照', 'Generation parameter snapshot')}</DialogTitle>
+                <DialogDescription>{text('查看这个作品提交时使用的 prompt、模型、像素化、序列帧和计费参数。', 'Review the prompt, model, pixel, sprite, and billing parameters used for this work.')}</DialogDescription>
+              </div>
+              <Button type="button" variant="outline" onClick={() => void copySnapshot()}><Clipboard />{copied ? text('已复制', 'Copied') : text('复制 JSON', 'Copy JSON')}</Button>
             </div>
-            <Button type="button" variant="outline" onClick={() => void copySnapshot()}><Clipboard />{copied ? text('已复制', 'Copied') : text('复制 JSON', 'Copy JSON')}</Button>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
 
-        <div className="grid gap-4">
+          <div className="grid gap-4">
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline">#{job.id}</Badge>
             <Badge variant="secondary">{jobTypeLabel(job.job_type, language)}</Badge>
@@ -140,8 +144,13 @@ export function JobParameterSnapshotDialog({ job, output }: { job: GenerationJob
           <SnapshotSection title={text('完整 JSON', 'Full JSON')} icon={<FileJson className="h-4 w-4" />}>
             <pre className="max-h-72 overflow-auto rounded-lg bg-muted/55 p-3 text-xs leading-5 text-muted-foreground dark:bg-[hsl(var(--pix-dark-band-soft))]">{JSON.stringify(snapshot, null, 2)}</pre>
           </SnapshotSection>
-        </div>
-      </DialogContent>
+          </div>
+          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
+            <X className="h-4 w-4" />
+            <span className="sr-only">关闭</span>
+          </DialogPrimitive.Close>
+        </DialogPrimitive.Content>
+      </DialogPortal>
     </Dialog>
   )
 }
