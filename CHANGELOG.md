@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.46.4] - 2026-05-29
+
+### Fixed
+
+- 锚点编辑器吸附功能：「吸附左/右/上/下边」现在按"画布上"实际可见像素的位置贴合画布边界，正确考虑当前帧的缩放（scale）。之前在 scale ≠ 1 时会因公式只算未缩放 bounds 出现明显偏移。
+- 「底部对齐影子 / 对齐第 1 帧」同步用画布坐标计算锚点，缩放后对齐结果与视觉一致。
+- 顶部 badge 显示的「可见像素 left,top → right,bottom」现在反映**画布坐标**，而非源图坐标 + offset 的混合值。
+- 可见像素探测改为始终扫描最终单帧 PNG 的 alpha 通道，不再用后端 `frame.bbox`，避免源图/帧内不同坐标系混用导致偏差。
+
 ## [1.46.3] - 2026-05-29
 
 ### Fixed
