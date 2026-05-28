@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.133] - 2026-05-26
+
+### Fixed
+
+- 修复作品库序列帧预览被拉伸的问题；当前帧现在按原始长宽比等比 contain 显示，再从精灵表中裁切，不会为了填满卡片改变比例。
+
 ## [1.45.132] - 2026-05-26
 
 ### Added
