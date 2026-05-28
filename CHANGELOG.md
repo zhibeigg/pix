@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.46.1] - 2026-05-29
+
+### Fixed
+
+- 序列帧锚点编辑器：鼠标滚轮缩放现在仅作用于当前编辑画布的单帧（`editorZoom`），不再触发浏览器页面级缩放或外层容器滚动。`Ctrl/Cmd + 滚轮` 仍保留为浏览器原生页面缩放。
+
 ## [1.46.0] - 2026-05-29
 
 ### Added

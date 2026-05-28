@@ -45,6 +45,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
   const [previewIndex, setPreviewIndex] = useState(0)
   const [editorZoom, setEditorZoom] = useState(DEFAULT_EDITOR_ZOOM)
   const editorCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const editorViewportRef = useRef<HTMLDivElement | null>(null)
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const dragRef = useRef<DragState | null>(null)
 
@@ -136,6 +137,22 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
   function updateEditorZoom(next: number) {
     setEditorZoom(Math.max(MIN_EDITOR_ZOOM, Math.min(MAX_EDITOR_ZOOM, Math.round(next))))
   }
+
+  // 滚轮缩放：仅作用于当前编辑画布的单帧（editorZoom），不影响页面或其它图片。
+  // React 合成事件的 onWheel 是 passive 的，无法 preventDefault；必须用原生监听器。
+  useEffect(() => {
+    const node = editorViewportRef.current
+    if (!node) return
+    const handleWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.metaKey) return // 让浏览器原生页面缩放保留行为
+      event.preventDefault()
+      const direction = event.deltaY === 0 ? 0 : event.deltaY < 0 ? 1 : -1
+      if (direction === 0) return
+      setEditorZoom((current) => Math.max(MIN_EDITOR_ZOOM, Math.min(MAX_EDITOR_ZOOM, current + direction)))
+    }
+    node.addEventListener('wheel', handleWheel, { passive: false })
+    return () => node.removeEventListener('wheel', handleWheel)
+  }, [])
 
   function currentPoint(event: PointerEvent<HTMLCanvasElement>) {
     const canvas = event.currentTarget
@@ -237,7 +254,11 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
               <Button type="button" size="sm" variant="outline" onClick={() => updateEditorZoom(DEFAULT_EDITOR_ZOOM)}>{editorZoom}×</Button>
             </div>
           </div>
-          <div className="pix-checkerboard grid max-h-[68vh] place-items-center overflow-auto rounded-xl border border-border bg-muted/40 p-4 dark:border-[hsl(var(--pix-dark-hairline))]">
+          <div
+            ref={editorViewportRef}
+            className="pix-checkerboard grid max-h-[68vh] place-items-center overflow-auto rounded-xl border border-border bg-muted/40 p-4 dark:border-[hsl(var(--pix-dark-hairline))]"
+            title={text('鼠标滚轮可缩放当前帧（Ctrl/Cmd + 滚轮保持浏览器缩放）', 'Use mouse wheel to zoom this frame (Ctrl/Cmd + wheel keeps browser zoom)')}
+          >
             <canvas
               ref={editorCanvasRef}
               tabIndex={0}
