@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.142] - 2026-05-28
+
+### Fixed
+
+- 同步后台系统设置中的 Prompt Guard 字数上限默认值为 3000，并自动迁移旧库中保存的 500/空值，避免设置项继续覆盖 Web 和 Worker 的 3000 字限制。
+
 ## [1.45.141] - 2026-05-28
 
 ### Fixed
