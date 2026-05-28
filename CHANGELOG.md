@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.132] - 2026-05-26
+
+### Added
+
+- 锚点调整编辑器新增透明像素边缘吸附：识别当前帧最近的有色像素包围盒，可一键吸附到左、右、上、下画布边缘，并显示当前可见像素范围。
+
 ## [1.44.132] - 2026-05-26
 
 ### Added
