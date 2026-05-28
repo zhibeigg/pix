@@ -112,12 +112,16 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
           {!output && <JobParameterSnapshotDialog job={job} />}
           {job.status === 'succeeded' && output && output.sprite_frames.length > 0 && onSaveSequenceAlignment && <Dialog open={alignmentOpen} onOpenChange={setAlignmentOpen}>
             <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); setAlignmentOpen(true) }}><Crosshair />{t('gallery.alignFrames')}</Button>
-            <DialogContent onClick={(event) => event.stopPropagation()} className="w-[min(96vw,1180px)] max-h-[92vh] overflow-y-auto sm:max-w-none">
-              <DialogHeader>
-                <DialogTitle>{t('alignment.title')}</DialogTitle>
-                <DialogDescription>{t('alignment.description')}</DialogDescription>
-              </DialogHeader>
-              <SpriteSequenceAlignmentEditor job={job} output={output} saving={savingAlignment} onSave={saveAlignment} />
+            <DialogContent onClick={(event) => event.stopPropagation()} className="left-1/2 top-1/2 flex h-[min(92vh,900px)] w-[min(96vw,1180px)] max-w-none -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden p-0 sm:max-w-none">
+              <div className="shrink-0 border-b border-border px-6 py-5 pr-12 dark:border-[hsl(var(--pix-dark-hairline))]">
+                <DialogHeader>
+                  <DialogTitle>{t('alignment.title')}</DialogTitle>
+                  <DialogDescription>{t('alignment.description')}</DialogDescription>
+                </DialogHeader>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                <SpriteSequenceAlignmentEditor job={job} output={output} saving={savingAlignment} onSave={saveAlignment} />
+              </div>
             </DialogContent>
           </Dialog>}
           {job.status === 'succeeded' && onSaveToPack && <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); void onSaveToPack(job) }}><PackagePlus />{t('packs.saveWork')}</Button>}
