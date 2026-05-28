@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.48.0] - 2026-05-29
+
+### Added
+
+- 像素资产新增「平铺纹理」（`tile_texture`）类型：
+  - 专用 prompt 强调"图案铺满整张画布、四边无缝拼接、不留透明背景"，与现有的物品图标 / UI 组件 prompt 完全分离，避免 chroma-key + 居中留白等约束误用到平铺场景。
+  - 后端走专用最小 pipeline `run_tile_asset_job_pipeline`：1 次生图 → perfect_pixel 网格对齐 → 直接落盘到 `03_pixelized.png`；**跳过候选生成、VL 评分、grid extract、chroma-key 抠透明、auto_crop、共享调色板**等所有针对"主体 + 透明背景"的后处理。
+  - 输出文件：`01_source.png`（生图原图）、`03_pixelized.png`（按目标尺寸完美像素化）、可选 `04_preview.png`（放大预览）、`meta.json`。
+  - 前端「单图试做」与「批量生产」两个面板的素材类型选择器都加上「平铺纹理」选项。选中后自动切到 32×32 / 12 色 / 不抠透明 / hard 边缘的合理默认；透明背景与边缘风格控件被锁定。
+  - `AssetParamsSchema._normalize_subject_kind` 自动同步：`asset_kind=tile_texture` 时强制 `subject_kind=tileable_pattern`，避免前端漏传。
+  - 价格规则等同其它 asset 任务（一次 API 一张图）。
+
+### Fixed
+
+- `AssetParamsSchema` 在 asset_kind 与 subject_kind 不匹配时（例如老前端漏传或乱传）自动归一到合法组合，避免 422 校验阻断老任务。
+
+### Notes
+
+- 适合场景：地砖、木板、草地、墙面、地毯等需要在游戏地图里反复平铺的纹理素材。
+- 平铺纹理后处理路径不再使用 `pix.sprite` / `contact_sheet` 任何"主体 + 透明背景"的工具，效果更接近"AI 出什么样、缩到目标像素就是什么样"。
+
 ## [1.47.0] - 2026-05-29
 
 ### Removed

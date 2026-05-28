@@ -4,15 +4,22 @@ from __future__ import annotations
 
 from copy import deepcopy
 import json
+import time
 from pathlib import Path
 from typing import Any
 
+from PIL import Image
+
+from pix import __version__
+from pix.api.image_gen import generate_image
+from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
 from pix.asset import build_asset_prompt
 from pix.config import AppConfig, load_config
 from pix.contact_sheet import resolve_key_color
-from pix.io_utils import file_lock
+from pix.io_utils import file_lock, new_run_dir
 from pix.pipeline import GridDesignInput, PipelineInput, PipelineResult, run_pipeline
 from pix.pixelize.core import PixelizeParams
+from pix.pixelize.perfect_pixel import preprocess_generated_image
 from pix.sprite import SpritePipelineResult
 from pix.sprite_mosaic import SpriteMosaicInput, run_sprite_mosaic_pipeline
 from pix_web.config import WebSettings
@@ -277,9 +284,165 @@ def run_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: AppCo
     return result
 
 
+def run_tile_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: AppConfig) -> PipelineResult:
+    """平铺纹理专用最小 pipeline：1 次生图 → perfect_pixel → 落盘。
+
+    跳过候选生成、VL 评分、grid extract、chroma-key 抠色、auto_crop 与共享调色板等
+    所有针对"主体居中 + 透明背景"的素材后处理；输出物即"完美像素化后的源图"。
+    """
+    start = time.time()
+    asset_cfg = deepcopy(cfg)
+    asset_cfg.image_gen.contact_sheet_enabled = False
+    asset_cfg.image_gen.prompt_guard_remote = False
+
+    data = job.params_json or {}
+    asset = _asset_data(job)
+    name = _asset_name(job)
+    params = asset_pixelize_params_from_json(data, asset_cfg)
+    width, height = int(params.output_size[0]), int(params.output_size[1])
+    extra_prompt = str(asset.get("extra_prompt") or "").strip()
+    prompt = build_asset_prompt(
+        asset_cfg.asset.prompt_template,
+        name,
+        size=(width, height),
+        extra_prompt=extra_prompt,
+        asset_kind="tile_texture",
+        subject_kind="tileable_pattern",
+        max_colors=params.colors,
+    )
+
+    # 1. Prompt guard（只走本地规则；与 asset 一致）
+    user_prompt = "\n".join(part for part in [name, extra_prompt] if part) or name
+    try:
+        guard = validate_user_prompt(
+            asset_cfg,
+            user_prompt,
+            allow_template_break=False,
+            max_chars=RAW_IMAGE_PROMPT_MAX_CHARS,
+        )
+    except PromptPolicyError as exc:
+        raise ValueError(str(exc)) from exc
+
+    out_root = settings.storage_root / "runs" / f"job-{job.id}"
+    run_dir = new_run_dir(out_root, seed=f"tile_texture\n{name}\n{extra_prompt}")
+    image_size = data.get("image_size") or asset_cfg.image_gen.size
+    image_quality = (
+        data.get("image_quality")
+        if _request_includes(data, "image_quality")
+        else asset_cfg.asset.image_quality
+    )
+    image_model = data.get("image_model") or asset_cfg.image_gen.model
+
+    raw_path = run_dir / "01_source.png"
+    with _local_stage_context(settings)():
+        generate_image(
+            asset_cfg,
+            prompt,
+            raw_path,
+            size=image_size,
+            quality=image_quality,
+            model=image_model,
+        )
+
+        # 2. 完美像素：网格对齐 + 缩到目标尺寸；不做去背景、不做裁剪
+        with Image.open(raw_path) as opened:
+            source_image = opened.convert("RGBA")
+        preprocessed = preprocess_generated_image(
+            source_image,
+            method=params.generated_preprocess_method or "perfect_pixel",
+            target_size=(width, height),
+        )
+        # 强制缩到目标尺寸（perfect_pixel 内部默认会做，但有时 noCV2 后端落到原尺寸）
+        final_image = preprocessed.image.convert("RGB")
+        if final_image.size != (width, height):
+            final_image = final_image.resize((width, height), Image.NEAREST)
+
+        pixel_path = run_dir / "03_pixelized.png"
+        final_image.save(pixel_path)
+
+        # 可选放大预览
+        preview_path: Path | None = None
+        preview_scale = max(0, int(params.preview_scale or 0))
+        if preview_scale > 0:
+            preview_path = run_dir / "04_preview.png"
+            preview = final_image.resize(
+                (final_image.width * preview_scale, final_image.height * preview_scale),
+                Image.NEAREST,
+            )
+            preview.save(preview_path)
+
+    duration = round(time.time() - start, 3)
+    meta: dict[str, Any] = {
+        "version": __version__,
+        "duration_seconds": duration,
+        "input": {
+            "prompt": prompt,
+            "effective_prompt": prompt,
+            "image_path": None,
+        },
+        "prompt_guard": guard.to_metadata(),
+        "image_gen": {
+            "model": image_model,
+            "size": image_size,
+            "quality": image_quality,
+            "output_format": asset_cfg.image_gen.output_format,
+            "input_fidelity": asset_cfg.image_gen.edit_input_fidelity,
+            "used": True,
+            "mode": "tile_texture",
+            "source_only": True,
+            "contact_sheet": None,
+        },
+        "asset": {
+            "name": name,
+            "extra_prompt": extra_prompt,
+            "asset_kind": "tile_texture",
+            "subject_kind": "tileable_pattern",
+            "prompt": prompt,
+            "grid_mode": "off",
+            "pixel_size": [width, height],
+            "colors": int(params.colors),
+            "palette_mode": "auto",
+            "generated_preprocess_method": params.generated_preprocess_method,
+            "preview_scale": preview_scale,
+            "skip_vl": True,
+            "no_preview": preview_scale == 0,
+            "request_fields": data.get("request_fields") or [],
+            "pixelize_fields": data.get("pixelize_fields") or [],
+            "tile_pipeline": True,
+        },
+        "pixelize": {
+            "perfect_pixel_only": True,
+            "preprocess": preprocessed.meta,
+            "output_size": [width, height],
+        },
+        "outputs": {
+            "source": "01_source.png",
+            "pixelized": "03_pixelized.png",
+            "preview": preview_path.name if preview_path else None,
+        },
+    }
+    meta_path = run_dir / "meta.json"
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    return PipelineResult(
+        run_dir=run_dir,
+        source_path=raw_path,
+        analysis_path=None,
+        analysis=None,
+        pixel_path=pixel_path,
+        preview_path=preview_path,
+        meta_path=meta_path,
+        meta=meta,
+        grid_path=None,
+    )
+
+
 def run_job_pipeline(job: GenerationJob, settings: WebSettings, *, cfg: AppConfig | None = None) -> PipelineResult | SpritePipelineResult:
     resolved_cfg = cfg or load_config(config_file=settings.pix_config_file)
     if job.job_type == "asset":
+        asset = _asset_data(job)
+        if str(asset.get("asset_kind") or "item_icon") == "tile_texture":
+            return run_tile_asset_job_pipeline(job, settings, resolved_cfg)
         return run_asset_job_pipeline(job, settings, resolved_cfg)
     if job.job_type == "sprite_sheet":
         return run_sprite_mosaic_pipeline(resolved_cfg, sprite_mosaic_input_from_job(job, settings))

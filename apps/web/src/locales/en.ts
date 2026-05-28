@@ -252,7 +252,7 @@ export const en = {
       sharedPrompt: 'Keep the subject and convert it into a clear pixel-game icon style',
     },
     assetKindLabel: 'Asset type',
-    assetKinds: { item_icon: 'Item icon', ui_component: 'UI component' },
+    assetKinds: { item_icon: 'Item icon', ui_component: 'UI component', tile_texture: 'Tileable texture' },
     extraStyle: 'Shared extra style notes (optional)',
     extraStylePlaceholder: 'Optional; add shared material, color, or theme notes if needed.',
     assetNames: 'Subjects (one per line)',

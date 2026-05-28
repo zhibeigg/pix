@@ -252,7 +252,7 @@ export const zhCN = {
       sharedPrompt: '保留主体，统一改造成清晰的像素游戏图标风格',
     },
     assetKindLabel: '素材类型',
-    assetKinds: { item_icon: '物品图标', ui_component: 'UI 组件' },
+    assetKinds: { item_icon: '物品图标', ui_component: 'UI 组件', tile_texture: '平铺纹理' },
     extraStyle: '统一额外风格描述（可选）',
     extraStylePlaceholder: '可留空；如需批量补充材质、颜色或题材风格再填写。',
     assetNames: '主体（每行一个）',
