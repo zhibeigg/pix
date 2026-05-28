@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, ContextManager
 
+import numpy as np
 from PIL import Image
 
 from pix import __version__
@@ -23,7 +24,7 @@ from pix.api.image_gen import edit_image, generate_image
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
 from pix.cache import Cache
 from pix.config import AppConfig
-from pix.contact_sheet import resolve_key_color
+from pix.contact_sheet import parse_hex_color, resolve_key_color
 from pix.io_utils import new_run_dir, sha256_of_file
 from pix.pixelize.bg_removal import remove_background, remove_translucent_edge_halo
 from pix.pixelize.core import PixelizeParams
@@ -349,23 +350,108 @@ def _split_sheet_to_cells(
     *,
     rows: int,
     cols: int,
-) -> list[Image.Image]:
-    """把生图结果按 rows×cols 等分。"""
+    key_rgb: tuple[int, int, int],
+    key_tolerance: int,
+) -> tuple[list[Image.Image], dict[str, Any]]:
+    """按 rows×cols 切图。
+
+    优先使用"前景像素列/行投影"在每条等分线附近找最稀疏（最像间隙）的位置作为切线，
+    避免主体溢出隔壁单元被错误归并。当主体填满全图、无明显空白时退化回等分切。
+
+    返回 (cells, meta)，cells 长度 == rows*cols；meta 含两条切分线列表，便于排查。
+    """
     safe_rows = max(1, int(rows))
     safe_cols = max(1, int(cols))
     with Image.open(sheet_path) as opened:
         image = opened.convert("RGBA")
-        cell_w = image.width / safe_cols
-        cell_h = image.height / safe_rows
-        cells: list[Image.Image] = []
-        for row in range(safe_rows):
-            for col in range(safe_cols):
-                left = int(round(col * cell_w))
-                top = int(round(row * cell_h))
-                right = int(round((col + 1) * cell_w))
-                bottom = int(round((row + 1) * cell_h))
-                cells.append(image.crop((left, top, right, bottom)).convert("RGBA"))
-    return cells
+    rgba = np.asarray(image)
+    if rgba.shape[-1] == 4:
+        alpha = rgba[..., 3]
+        # 仅当 alpha 通道已经被预先抠透明（存在显著透明像素）时，才把它作为前景判据；
+        # 否则（生图原图 alpha=255 全不透明）一律改用与 key_color 的距离判断，
+        # 否则会把整张含背景的图当成前景，投影找不到任何空白柱。
+        has_meaningful_alpha = bool(((alpha > 8) & (alpha < 248)).any() or (alpha < 8).any())
+        if has_meaningful_alpha:
+            fg_mask = alpha > 8
+        else:
+            fg_mask = _key_color_foreground_mask(rgba[..., :3], key_rgb, key_tolerance)
+    else:
+        fg_mask = _key_color_foreground_mask(rgba[..., :3], key_rgb, key_tolerance)
+
+    height, width = fg_mask.shape
+    row_splits = _projection_splits(fg_mask.sum(axis=1), height, safe_rows)
+    cells: list[Image.Image] = []
+    per_row_col_splits: list[list[int]] = []
+    for row_index in range(safe_rows):
+        top = row_splits[row_index]
+        bottom = row_splits[row_index + 1]
+        if bottom <= top:
+            top, bottom = row_splits[row_index], min(height, row_splits[row_index] + 1)
+        # 行带内的列投影：仅对该行的前景做投影，避免别行干扰
+        col_proj = fg_mask[top:bottom, :].sum(axis=0).astype(np.int64) if bottom > top else np.zeros(width, dtype=np.int64)
+        col_splits = _projection_splits(col_proj, width, safe_cols)
+        per_row_col_splits.append(col_splits.tolist())
+        for col_index in range(safe_cols):
+            left = col_splits[col_index]
+            right = col_splits[col_index + 1]
+            if right <= left:
+                left, right = col_splits[col_index], min(width, col_splits[col_index] + 1)
+            cells.append(image.crop((int(left), int(top), int(right), int(bottom))).convert("RGBA"))
+    meta = {
+        "image_size": [int(width), int(height)],
+        "row_splits": row_splits.tolist(),
+        "col_splits_per_row": per_row_col_splits,
+        "method": "foreground_projection_minimum",
+    }
+    return cells, meta
+
+
+def _key_color_foreground_mask(rgb: np.ndarray, key_rgb: tuple[int, int, int], tolerance: int) -> np.ndarray:
+    """返回与 key_color 的欧氏距离大于 tolerance 的像素 mask（即前景）。"""
+    if rgb.size == 0:
+        return np.zeros(rgb.shape[:2], dtype=bool)
+    diff = rgb.astype(np.int32) - np.array(key_rgb, dtype=np.int32).reshape(1, 1, 3)
+    dist_sq = (diff * diff).sum(axis=2)
+    threshold_sq = max(0, int(tolerance)) ** 2
+    return dist_sq > threshold_sq
+
+
+def _projection_splits(projection: np.ndarray, total: int, segments: int) -> np.ndarray:
+    """根据 1D 投影找 `segments+1` 条切分线（含 0 与 total）。
+
+    在每条理论等分线附近的搜索窗口内挑前景像素最少的位置；如果窗口内有多个并列最小值，
+    取最靠近等分线的那个，保证切分线单调递增。
+    """
+    safe_segments = max(1, int(segments))
+    if safe_segments == 1 or total <= safe_segments:
+        return np.array([int(round(i * total / safe_segments)) for i in range(safe_segments + 1)], dtype=np.int64)
+
+    proj = np.asarray(projection, dtype=np.int64)
+    if proj.size != total:
+        # 维度不匹配时退化
+        return np.array([int(round(i * total / safe_segments)) for i in range(safe_segments + 1)], dtype=np.int64)
+
+    cell_size = total / safe_segments
+    # 搜索半径：cell 的 40%，至少 2 像素，让模型轻微出格也能被纠正
+    search_radius = max(2, int(round(cell_size * 0.4)))
+
+    splits: list[int] = [0]
+    for i in range(1, safe_segments):
+        ideal = i * cell_size
+        lo = max(splits[-1] + 1, int(round(ideal - search_radius)))
+        hi = min(total - (safe_segments - i), int(round(ideal + search_radius)))
+        if hi <= lo:
+            splits.append(int(round(ideal)))
+            continue
+        window = proj[lo:hi]
+        min_val = int(window.min())
+        # 取窗口内所有最小值索引中，距离 ideal 最近的那个
+        candidate_indices = np.flatnonzero(window == min_val) + lo
+        # 转 float 以避免有符号差
+        best = int(candidate_indices[np.abs(candidate_indices - ideal).argmin()])
+        splits.append(max(splits[-1] + 1, best))
+    splits.append(int(total))
+    return np.asarray(splits, dtype=np.int64)
 
 
 def _extract_cell_content(
@@ -520,12 +606,16 @@ def run_sprite_mosaic_pipeline(
         )
         notify("sprite_mosaic_generation_ready", {"mode": mode, "sheet": str(sheet_raw_path)})
 
-        # 5. 切图 + 单元后处理
-        cells = _split_sheet_to_cells(
+        # 5. 切图（基于前景像素投影找最佳切分线，避免主体溢出隔壁单元被错误归并）
+        key_rgb = parse_hex_color(settings.key_color)
+        cells, split_meta = _split_sheet_to_cells(
             sheet_raw_path,
             rows=settings.rows,
             cols=settings.cols,
+            key_rgb=key_rgb,
+            key_tolerance=settings.key_tolerance,
         )
+        notify("sprite_mosaic_split", split_meta)
         raw_dir.mkdir(parents=True, exist_ok=True)
         contents: list[Image.Image] = []
         bboxes: list[tuple[int, int, int, int] | None] = []
@@ -681,6 +771,7 @@ def run_sprite_mosaic_pipeline(
             "green_screen_tolerance": settings.key_tolerance,
             "shared_palette": bool(cfg.sprite.shared_palette),
             "shared_palette_colors": shared_palette_hex,
+            "split": split_meta,
             "row_prompts": safe_row_prompts,
             "raw_frames_dir": _rel(raw_dir, run_dir),
             "frames_dir": _rel(final_dir, run_dir),

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.46.3] - 2026-05-29
+
+### Fixed
+
+- 单图序列帧 mosaic 切图改用「前景像素列/行投影」找最佳切分线，不再机械等分。每条理论等分线附近 ±40% cell 宽度的搜索窗内挑前景像素最少（最像间隙）的位置作为切线。修复了模型把主体溢出到隔壁单元时，邻帧把上一帧的剑刃/拖尾收进来的问题。
+- 当输入图整张 alpha=255（生图原图未抠透明）时，前景判据自动降级为「与 key_color 的 RGB 距离」，避免把整张图当成前景导致投影找不到任何空白柱。
+- 主体填满整图（无明显空白）时退化回等分切分，保留旧行为。
+- meta.json 新增 `sprite.split` 字段记录 row/col splits 与切分方法，便于排查。
+
 ## [1.46.2] - 2026-05-29
 
 ### Changed
