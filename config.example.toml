@@ -30,7 +30,7 @@ prompt_guard_enabled = true
 prompt_guard_remote = true
 prompt_guard_model = ""              # 留空使用 [vision].model
 prompt_guard_failure_policy = "local" # local | reject
-prompt_guard_max_chars = 500 # 常规素材描述上限；原始生图 source_only 固定允许 3000 字
+prompt_guard_max_chars = 3000 # 用户原始描述上限；Web 表单和后端校验统一为 3000 字
 # 候选排序：九宫格切出的候选会一次性送入 VL 按效果评分，最高分作为默认 01_source.png。
 candidate_vl_ranking_enabled = true
 candidate_vl_ranking_model = ""              # 留空使用 [vision].model

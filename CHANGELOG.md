@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.140] - 2026-05-28
+
+### Fixed
+
+- 将素材直出额外风格描述、常规 Prompt Guard 默认上限和 Web 表单 Prompt 输入统一调整为 3000 字，避免 `asset.extra_prompt` 仍按 1000 字拒绝提交。
+
 ## [1.45.139] - 2026-05-28
 
 ### Fixed

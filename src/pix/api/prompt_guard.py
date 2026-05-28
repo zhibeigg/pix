@@ -12,7 +12,7 @@ from pix.config import AppConfig, require_vl_api_key
 
 
 PromptGuardMode = Literal["disabled", "local", "model", "model_unavailable_local", "model_failed_local"]
-DEFAULT_PROMPT_GUARD_MAX_CHARS = 500
+DEFAULT_PROMPT_GUARD_MAX_CHARS = 3000
 RAW_IMAGE_PROMPT_MAX_CHARS = 3000
 
 
