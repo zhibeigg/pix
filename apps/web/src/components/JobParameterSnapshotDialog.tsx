@@ -1,77 +1,59 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { Clipboard, FileJson, Settings2, X } from 'lucide-react'
-import { signedFileUrl } from '../fileUrls'
+import { Clipboard, Settings2, X } from 'lucide-react'
 import { useI18n } from '../i18n'
-import { formatDateTime } from '../lib/utils'
 import { jobTypeLabel } from '../labels'
 import type { GenerationJob, JobOutput } from '../types'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Dialog, DialogDescription, DialogHeader, DialogOverlay, DialogPortal, DialogTitle } from './ui/dialog'
 
-export function JobParameterSnapshotDialog({ job, output }: { job: GenerationJob; output?: JobOutput }) {
-  const { language, text, t } = useI18n()
+export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output?: JobOutput }) {
+  const { language, text } = useI18n()
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const snapshot = useMemo(() => buildSnapshot(job, output), [job, output])
   const params = asRecord(job.params_json)
   const pixelize = asRecord(params?.pixelize)
   const sprite = asRecord(params?.sprite)
   const asset = asRecord(params?.asset)
-  const billing = asRecord(params?.billing)
-  const modelRows = compactRows([
-    ['image_model', stringOrDash(params?.image_model)],
-    ['image_size', stringOrDash(params?.image_size)],
-    ['image_quality', stringOrDash(params?.image_quality)],
-    ['vl_model', stringOrDash(params?.vl_model)],
-    ['skip_vl', yesNo(params?.skip_vl, text)],
-    ['source_only', yesNo(params?.source_only, text)],
-  ])
-  const pixelRows = compactRows([
-    ['output_size', pairLabel(pixelize?.output_size)],
-    ['colors', stringOrDash(pixelize?.colors)],
-    ['dither', stringOrDash(pixelize?.dither)],
-    ['remove_bg', yesNo(pixelize?.remove_bg, text)],
-    ['preset', stringOrDash(pixelize?.preset)],
-    ['edge_style', stringOrDash(pixelize?.edge_style)],
-    ['edge_enhance', stringOrDash(pixelize?.edge_enhance)],
-    ['bg_tolerance', stringOrDash(pixelize?.bg_tolerance)],
-  ])
-  const spriteRows = compactRows([
-    ['frame_count', stringOrDash(sprite?.frame_count)],
-    ['fps', stringOrDash(sprite?.fps)],
-    ['gif_export', yesNo(sprite?.gif_export, text)],
-    ['duration_ms', stringOrDash(sprite?.duration_ms)],
-    ['loop', stringOrDash(sprite?.loop)],
-    ['rows × cols', sprite ? `${stringOrDash(sprite.rows)} × ${stringOrDash(sprite.cols)}` : '—'],
-  ])
-  const assetRows = compactRows([
-    ['name', stringOrDash(asset?.name)],
-    ['asset_kind', stringOrDash(asset?.asset_kind)],
-    ['subject_kind', stringOrDash(asset?.subject_kind)],
-    ['no_preview', yesNo(asset?.no_preview, text)],
-  ])
-  const billingRows = compactRows([
-    ['price_credits', String(job.price_credits)],
-    ['reserved_credits', String(job.reserved_credits)],
-    ['frame_base_price', stringOrDash(billing?.frame_base_price)],
-    ['frame_count', stringOrDash(billing?.frame_count)],
-    ['total_points', stringOrDash(billing?.total_points)],
-    ['formula', stringOrDash(billing?.formula)],
-  ])
-  const outputRows = compactRows([
-    ['source', stringOrDash(output?.source_path)],
-    ['pixelized', stringOrDash(output?.pixelized_path)],
-    ['preview', stringOrDash(output?.preview_path)],
-    ['sprite_sheet', stringOrDash(output?.sprite_sheet_path)],
-    ['sequence_json', stringOrDash(output?.sequence_json_path)],
-    ['sprite_gif', stringOrDash(output?.sprite_gif_path)],
-    ['meta_json', stringOrDash(output?.meta_json_path)],
+  const isRawImage = job.job_type === 'text_to_image' && params?.source_only === true
+  const userInputSnapshot = useMemo(() => buildUserInputSnapshot(job), [job])
+
+  const promptRows = compactRows([
+    [text('模式', 'Mode'), jobTypeLabel(job.job_type, language)],
+    [text('提示词', 'Prompt'), job.prompt?.trim() || '—'],
+    [text('输入图片', 'Input image'), job.input_image_path ? text('已上传图片', 'Uploaded image') : '—'],
+    [text('素材主体', 'Asset subject'), stringOrDash(asset?.name)],
+    [text('额外风格描述', 'Extra style notes'), stringOrDash(asset?.extra_prompt)],
   ])
 
+  const rawRows = isRawImage ? compactRows([
+    [text('模型', 'Model'), stringOrDash(params?.image_model)],
+    [text('图片尺寸', 'Image size'), stringOrDash(params?.image_size)],
+    [text('质量', 'Quality'), stringOrDash(params?.image_quality)],
+  ]) : []
+
+  const pixelRows = !isRawImage ? compactRows([
+    [job.job_type === 'sprite_sheet' ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size'), pairLabel(pixelize?.output_size)],
+    [text('颜色数', 'Color count'), stringOrDash(pixelize?.colors)],
+    ...(job.job_type === 'sprite_sheet' ? [] : [
+      [text('透明背景', 'Transparent background'), yesNo(pixelize?.remove_bg, text)],
+      [text('边缘处理', 'Edge treatment'), edgeStyleLabel(pixelize?.edge_style, text)],
+    ] as Array<[string, string]>),
+  ]) : []
+
+  const assetRows = job.job_type === 'asset' ? compactRows([
+    [text('素材类型', 'Asset type'), assetKindLabel(asset?.asset_kind, text)],
+    [text('主体类型', 'Subject type'), subjectKindLabel(asset?.subject_kind, text)],
+  ]) : []
+
+  const spriteRows = job.job_type === 'sprite_sheet' ? compactRows([
+    [text('帧数', 'Frame count'), stringOrDash(sprite?.frame_count)],
+    ['FPS', stringOrDash(sprite?.fps)],
+  ]) : []
+
   async function copySnapshot() {
-    await navigator.clipboard.writeText(JSON.stringify(snapshot, null, 2))
+    await navigator.clipboard.writeText(JSON.stringify(userInputSnapshot, null, 2))
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1600)
   }
@@ -92,59 +74,35 @@ export function JobParameterSnapshotDialog({ job, output }: { job: GenerationJob
             position: 'fixed',
             top: '50%',
             transform: 'translate(-50%, -50%)',
-            width: 'min(920px, calc(100vw - 32px))',
+            width: 'min(760px, calc(100vw - 32px))',
           }}
         >
           <DialogHeader>
             <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
               <div>
-                <DialogTitle>{text('生成参数快照', 'Generation parameter snapshot')}</DialogTitle>
-                <DialogDescription>{text('查看这个作品提交时使用的 prompt、模型、像素化、序列帧和计费参数。', 'Review the prompt, model, pixel, sprite, and billing parameters used for this work.')}</DialogDescription>
+                <DialogTitle>{text('生成参数', 'Generation parameters')}</DialogTitle>
+                <DialogDescription>{text('这里只显示你在创建作品时能填写或选择的参数，隐藏系统内部处理字段。', 'Only user-entered or user-selectable creation parameters are shown here; internal processing fields are hidden.')}</DialogDescription>
               </div>
-              <Button type="button" variant="outline" onClick={() => void copySnapshot()}><Clipboard />{copied ? text('已复制', 'Copied') : text('复制 JSON', 'Copy JSON')}</Button>
+              <Button type="button" variant="outline" onClick={() => void copySnapshot()}><Clipboard />{copied ? text('已复制', 'Copied') : text('复制参数', 'Copy params')}</Button>
             </div>
           </DialogHeader>
 
           <div className="grid gap-4">
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">#{job.id}</Badge>
-            <Badge variant="secondary">{jobTypeLabel(job.job_type, language)}</Badge>
-            <Badge variant="outline">{job.status}</Badge>
-            <Badge variant="info">{t('common.points', { count: job.price_credits })}</Badge>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline">#{job.id}</Badge>
+              <Badge variant="secondary">{jobTypeLabel(job.job_type, language)}</Badge>
+            </div>
+
+            <SnapshotSection title={text('用户输入', 'User input')}>
+              <KeyValueGrid rows={promptRows} multilineKeys={new Set([text('提示词', 'Prompt'), text('额外风格描述', 'Extra style notes')])} />
+            </SnapshotSection>
+
+            {rawRows.length > 0 && <SnapshotSection title={text('原生生图设置', 'Raw image settings')}><KeyValueGrid rows={rawRows} /></SnapshotSection>}
+            {pixelRows.length > 0 && <SnapshotSection title={text('像素设置', 'Pixel settings')}><KeyValueGrid rows={pixelRows} /></SnapshotSection>}
+            {assetRows.length > 0 && <SnapshotSection title={text('素材设置', 'Asset settings')}><KeyValueGrid rows={assetRows} /></SnapshotSection>}
+            {spriteRows.length > 0 && <SnapshotSection title={text('序列帧设置', 'Sequence settings')}><KeyValueGrid rows={spriteRows} /></SnapshotSection>}
           </div>
 
-          <SnapshotSection title={text('Prompt', 'Prompt')}>
-            <PromptBlock label={text('用户 prompt', 'User prompt')} value={job.prompt || text('无 prompt', 'No prompt')} />
-            {asset?.name ? <PromptBlock label={text('素材主体', 'Asset subject')} value={String(asset.name)} /> : null}
-            {asset?.extra_prompt ? <PromptBlock label={text('额外描述', 'Extra prompt')} value={String(asset.extra_prompt)} /> : null}
-            {job.input_image_path ? <KeyValueGrid rows={compactRows([
-              [text('输入图片路径', 'Input image path'), job.input_image_path],
-              [text('输入图片 URL', 'Input image URL'), signedFileUrl(job.input_image_url)],
-            ])} /> : null}
-          </SnapshotSection>
-
-          <SnapshotSection title={text('基础信息', 'Basics')}>
-            <KeyValueGrid rows={compactRows([
-              [text('创建时间', 'Created at'), formatDateTime(job.created_at)],
-              [text('开始时间', 'Started at'), job.started_at ? formatDateTime(job.started_at) : '—'],
-              [text('完成时间', 'Finished at'), job.finished_at ? formatDateTime(job.finished_at) : '—'],
-              [text('批次', 'Batch'), job.batch_name || '—'],
-            ])} />
-          </SnapshotSection>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <SnapshotSection title={text('模型参数', 'Model')}><KeyValueGrid rows={modelRows} /></SnapshotSection>
-            <SnapshotSection title={text('像素参数', 'Pixel')}><KeyValueGrid rows={pixelRows} /></SnapshotSection>
-            {asset && <SnapshotSection title={text('素材直出参数', 'Asset params')}><KeyValueGrid rows={assetRows} /></SnapshotSection>}
-            {sprite && <SnapshotSection title={text('序列帧参数', 'Sprite params')}><KeyValueGrid rows={spriteRows} /></SnapshotSection>}
-            <SnapshotSection title={text('计费快照', 'Billing')}><KeyValueGrid rows={billingRows} /></SnapshotSection>
-            <SnapshotSection title={text('输出文件', 'Outputs')}><KeyValueGrid rows={outputRows} /></SnapshotSection>
-          </div>
-
-          <SnapshotSection title={text('完整 JSON', 'Full JSON')} icon={<FileJson className="h-4 w-4" />}>
-            <pre className="max-h-72 overflow-auto rounded-lg bg-muted/55 p-3 text-xs leading-5 text-muted-foreground dark:bg-[hsl(var(--pix-dark-band-soft))]">{JSON.stringify(snapshot, null, 2)}</pre>
-          </SnapshotSection>
-          </div>
           <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
             <X className="h-4 w-4" />
             <span className="sr-only">关闭</span>
@@ -155,34 +113,46 @@ export function JobParameterSnapshotDialog({ job, output }: { job: GenerationJob
   )
 }
 
-function SnapshotSection({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
-  return <section className="grid gap-3 rounded-xl border border-border bg-card p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]"><h3 className="flex items-center gap-2 text-sm font-bold">{icon}{title}</h3>{children}</section>
+function SnapshotSection({ title, children }: { title: string; children: ReactNode }) {
+  return <section className="grid gap-3 rounded-xl border border-border bg-card p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]"><h3 className="text-sm font-bold">{title}</h3>{children}</section>
 }
 
-function PromptBlock({ label, value }: { label: string; value: string }) {
-  return <div className="grid gap-1"><div className="text-xs font-semibold text-muted-foreground">{label}</div><div className="whitespace-pre-wrap break-words rounded-lg bg-muted/45 p-3 text-sm leading-6 dark:bg-[hsl(var(--pix-dark-band-soft))]">{value}</div></div>
+function KeyValueGrid({ rows, multilineKeys }: { rows: Array<[string, string]>; multilineKeys?: Set<string> }) {
+  return <dl className="grid gap-2 text-sm">{rows.map(([key, value]) => <div key={key} className="grid gap-1 rounded-lg bg-muted/32 p-2.5 sm:grid-cols-[150px_minmax(0,1fr)] dark:bg-[hsl(var(--pix-dark-band-soft))]"><dt className="text-xs font-semibold text-muted-foreground">{key}</dt><dd className={`min-w-0 break-words font-medium ${multilineKeys?.has(key) ? 'whitespace-pre-wrap leading-6' : ''}`}>{value}</dd></div>)}</dl>
 }
 
-function KeyValueGrid({ rows }: { rows: Array<[string, string]> }) {
-  return <dl className="grid gap-2 text-sm">{rows.map(([key, value]) => <div key={key} className="grid gap-1 rounded-lg bg-muted/32 p-2.5 sm:grid-cols-[150px_minmax(0,1fr)] dark:bg-[hsl(var(--pix-dark-band-soft))]"><dt className="text-xs font-semibold text-muted-foreground">{key}</dt><dd className="min-w-0 break-words font-medium">{value}</dd></div>)}</dl>
-}
-
-function buildSnapshot(job: GenerationJob, output?: JobOutput) {
-  return {
-    id: job.id,
-    job_type: job.job_type,
-    status: job.status,
-    prompt: job.prompt,
-    input_image_path: job.input_image_path,
-    input_image_url: job.input_image_url,
-    price_credits: job.price_credits,
-    reserved_credits: job.reserved_credits,
-    created_at: job.created_at,
-    started_at: job.started_at,
-    finished_at: job.finished_at,
-    params_json: job.params_json,
-    output,
-  }
+function buildUserInputSnapshot(job: GenerationJob) {
+  const params = asRecord(job.params_json)
+  const pixelize = asRecord(params?.pixelize)
+  const sprite = asRecord(params?.sprite)
+  const asset = asRecord(params?.asset)
+  const isRawImage = job.job_type === 'text_to_image' && params?.source_only === true
+  return stripEmpty({
+    mode: job.job_type,
+    prompt: job.prompt?.trim() || undefined,
+    input_image: job.input_image_path ? 'uploaded' : undefined,
+    raw_image: isRawImage ? stripEmpty({
+      model: params?.image_model,
+      image_size: params?.image_size,
+      quality: params?.image_quality,
+    }) : undefined,
+    pixel: !isRawImage ? stripEmpty({
+      output_size: pixelize?.output_size,
+      colors: pixelize?.colors,
+      remove_bg: job.job_type === 'sprite_sheet' ? undefined : pixelize?.remove_bg,
+      edge_style: job.job_type === 'sprite_sheet' ? undefined : pixelize?.edge_style,
+    }) : undefined,
+    asset: job.job_type === 'asset' ? stripEmpty({
+      name: asset?.name,
+      extra_prompt: asset?.extra_prompt,
+      asset_kind: asset?.asset_kind,
+      subject_kind: asset?.subject_kind,
+    }) : undefined,
+    sequence: job.job_type === 'sprite_sheet' ? stripEmpty({
+      frame_count: sprite?.frame_count,
+      fps: sprite?.fps,
+    }) : undefined,
+  })
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -205,6 +175,30 @@ function yesNo(value: unknown, text: (zh: string, en: string) => string): string
   return Boolean(value) ? text('是', 'Yes') : text('否', 'No')
 }
 
+function edgeStyleLabel(value: unknown, text: (zh: string, en: string) => string): string {
+  if (value === 'outline') return text('描边', 'Outline')
+  if (value === 'feather') return text('羽化边缘', 'Feather edge')
+  if (value === 'hard') return text('不需要', 'None')
+  return stringOrDash(value)
+}
+
+function assetKindLabel(value: unknown, text: (zh: string, en: string) => string): string {
+  if (value === 'item_icon') return text('物品图标', 'Item icon')
+  if (value === 'ui_component') return text('UI 组件', 'UI component')
+  return stringOrDash(value)
+}
+
+function subjectKindLabel(value: unknown, text: (zh: string, en: string) => string): string {
+  if (value === 'single_prop') return text('单个物件', 'Single prop')
+  if (value === 'single_ui') return text('单个 UI', 'Single UI')
+  return stringOrDash(value)
+}
+
 function compactRows(rows: Array<[string, string]>): Array<[string, string]> {
   return rows.filter(([, value]) => value !== '—')
+}
+
+function stripEmpty<T extends Record<string, unknown>>(value: T): Partial<T> | undefined {
+  const entries = Object.entries(value).filter(([, item]) => item !== undefined && item !== null && item !== '')
+  return entries.length > 0 ? Object.fromEntries(entries) as Partial<T> : undefined
 }
