@@ -19,6 +19,7 @@ from pix_web.system_settings import enforce_generation_limits, enforce_prompt_po
 
 AI_JOB_TYPES = {"asset", "text_to_image", "image_to_image", "sprite_sheet"}
 IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "repixelize"}
+RAW_IMAGE_PROMPT_MAX_LENGTH = 3000
 
 
 def _asset_name(req: JobCreateRequest) -> str:
@@ -49,6 +50,8 @@ def validate_job_request(req: JobCreateRequest) -> None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="素材直出任务需要主体内容")
     if req.job_type == "text_to_image" and not prompt:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="文生图任务需要 prompt")
+    if req.job_type == "text_to_image" and req.source_only and len(prompt) > RAW_IMAGE_PROMPT_MAX_LENGTH:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"原生生图 prompt 最多支持 {RAW_IMAGE_PROMPT_MAX_LENGTH} 字")
     if req.job_type == "image_to_image" and not prompt:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="图生图任务需要 prompt")
     if req.job_type == "sprite_sheet" and not prompt:

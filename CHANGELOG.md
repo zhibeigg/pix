@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.134] - 2026-05-26
+
+### Changed
+
+- 原生生图 prompt 限制调整为 3000 字；前端显示字数计数，后端对 `source_only` 文生图请求同步校验。
+
 ## [1.45.133] - 2026-05-26
 
 ### Fixed
