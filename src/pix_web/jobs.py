@@ -72,8 +72,20 @@ def validate_job_request(req: JobCreateRequest) -> None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="图生图任务需要 prompt")
     if req.job_type == "sprite_sheet" and not prompt:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="序列帧任务需要 prompt")
-    if req.job_type == "sprite_sheet" and (req.sprite.frame_count < 1 or req.sprite.frame_count > 12):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="序列帧最多支持 12 帧")
+    if req.job_type == "sprite_sheet":
+        sprite = req.sprite
+        if sprite.generation_mode == "mosaic":
+            if sprite.rows < 1 or sprite.rows > 8 or sprite.cols < 1 or sprite.cols > 8:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="单图序列帧每行/每列最多支持 8")
+            if sprite.rows * sprite.cols < 1:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="序列帧网格至少需要 1 个单元")
+            if sprite.rows >= 2 and len(sprite.row_prompts) < sprite.rows:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="多行序列帧需要为每一行填写动作描述")
+            if sprite.reference_image_path and not Path(sprite.reference_image_path).exists():
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="参考图不存在")
+        else:
+            if sprite.frame_count < 1 or sprite.frame_count > 12:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="逐帧序列帧最多支持 12 帧")
     if req.job_type in IMAGE_JOB_TYPES:
         if not req.input_image_path:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="该任务需要输入图片")
@@ -117,7 +129,21 @@ def _existing_job(db: Session, user: User, client_request_id: str) -> Generation
 def _frame_count_for_price(req: JobCreateRequest) -> int:
     if req.job_type != "sprite_sheet":
         return 1
-    return max(1, min(12, int(req.sprite.frame_count)))
+    sprite = req.sprite
+    if sprite.generation_mode == "mosaic":
+        return max(1, sprite.rows * sprite.cols)
+    return max(1, min(64, int(sprite.frame_count)))
+
+
+def _sprite_billing_units(req: JobCreateRequest) -> int:
+    """序列帧的 billing 单位：mosaic 按 ceil(总帧数/9) 算（最少 1），iterative 按帧数。"""
+    if req.job_type != "sprite_sheet":
+        return 1
+    sprite = req.sprite
+    if sprite.generation_mode == "mosaic":
+        total = max(1, sprite.rows * sprite.cols)
+        return max(1, (total + 8) // 9)
+    return _frame_count_for_price(req)
 
 
 def _base_price_for_request(db: Session, req: JobCreateRequest) -> int:
@@ -130,7 +156,7 @@ def _base_price_for_request(db: Session, req: JobCreateRequest) -> int:
 def _price_for_request(db: Session, req: JobCreateRequest) -> int:
     base_price = _base_price_for_request(db, req)
     if req.job_type == "sprite_sheet":
-        return base_price * _frame_count_for_price(req)
+        return base_price * _sprite_billing_units(req)
     return base_price
 
 
@@ -139,14 +165,25 @@ def _billing_snapshot_for_request(db: Session, req: JobCreateRequest, *, total_p
         return None
     base_price = _base_price_for_request(db, req)
     frame_count = _frame_count_for_price(req)
-    total = base_price * frame_count if total_price is None else int(total_price)
+    units = _sprite_billing_units(req)
+    total = base_price * units if total_price is None else int(total_price)
+    if req.sprite.generation_mode == "mosaic":
+        formula = "ceil(rows*cols/9) * frame_base_price"
+        billing_note = "mosaic mode bills per 9-frame unit; one API call per job; postprocess included"
+    else:
+        formula = "frame_count * frame_base_price"
+        billing_note = "iterative mode bills per frame; retries/postprocess do not add extra user-facing cost"
     return {
+        "generation_mode": req.sprite.generation_mode,
+        "rows": req.sprite.rows,
+        "cols": req.sprite.cols,
         "frame_base_price": base_price,
         "frame_count": frame_count,
-        "max_frame_count": 12,
+        "billing_units": units,
+        "max_frame_count": 64,
         "total_points": total,
-        "formula": "frame_count * frame_base_price",
-        "billing_note": "retries/postprocess/sprite_sheet_packaging do not add extra user-facing cost",
+        "formula": formula,
+        "billing_note": billing_note,
     }
 
 

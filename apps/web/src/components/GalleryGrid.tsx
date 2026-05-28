@@ -19,7 +19,7 @@ import { SpriteSequenceAlignmentEditor } from './SpriteSequenceAlignmentEditor'
 import { JobParameterSnapshotDialog } from './JobParameterSnapshotDialog'
 
 type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; draggableSucceeded?: boolean }
-type DownloadKind = 'source' | 'pixelized' | 'sprite_gif' | 'sprite_sheet' | 'sequence_json' | 'contact_sheet'
+type DownloadKind = 'source' | 'pixelized' | 'sprite_gif' | 'sprite_sheet' | 'sprite_mosaic' | 'sequence_json' | 'contact_sheet'
 type DownloadOption = { id: DownloadKind; label: string; description: string; path: string; url: string; filename: string }
 
 export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, onSelect, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, draggableSucceeded = false }: GalleryGridProps) {
@@ -246,6 +246,7 @@ function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: st
     { id: 'pixelized', label: t('downloads.pixelized'), description: t('downloads.pixelizedDescription'), path: output.pixelized_path, url: output.pixelized_url, fallback: '03_pixelized.png' },
     { id: 'sprite_gif', label: t('downloads.spriteGif'), description: t('downloads.spriteGifDescription'), path: output.sprite_gif_path, url: output.sprite_gif_url, fallback: 'sprite.gif' },
     { id: 'sprite_sheet', label: t('downloads.spriteSheet'), description: t('downloads.spriteSheetDescription'), path: output.sprite_sheet_path, url: output.sprite_sheet_url, fallback: 'sprite-sheet.png' },
+    { id: 'sprite_mosaic', label: t('downloads.spriteMosaic'), description: t('downloads.spriteMosaicDescription'), path: output.sprite_mosaic_path, url: output.sprite_mosaic_url, fallback: 'sprite-mosaic.png' },
     { id: 'sequence_json', label: t('downloads.sequenceJson'), description: t('downloads.sequenceJsonDescription'), path: output.sequence_json_path, url: output.sequence_json_url, fallback: 'sequence.json' },
     { id: 'contact_sheet', label: t('downloads.contactSheet'), description: t('downloads.contactSheetDescription'), path: output.contact_sheet_path, url: output.contact_sheet_url, fallback: 'contact-sheet.png' },
   ]

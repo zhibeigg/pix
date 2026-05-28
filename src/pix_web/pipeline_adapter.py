@@ -14,6 +14,7 @@ from pix.io_utils import file_lock
 from pix.pipeline import GridDesignInput, PipelineInput, PipelineResult, run_pipeline
 from pix.pixelize.core import PixelizeParams
 from pix.sprite import SpritePipelineInput, SpritePipelineResult, run_sprite_pipeline
+from pix.sprite_mosaic import SpriteMosaicInput, run_sprite_mosaic_pipeline
 from pix_web.config import WebSettings
 from pix_web.models import GenerationJob
 
@@ -240,6 +241,39 @@ def sprite_input_from_job(job: GenerationJob, settings: WebSettings) -> SpritePi
     )
 
 
+def sprite_mosaic_input_from_job(job: GenerationJob, settings: WebSettings) -> SpriteMosaicInput:
+    data = job.params_json or {}
+    sprite = data.get("sprite") or {}
+    out_root = settings.storage_root / "runs" / f"job-{job.id}"
+    raw_row_prompts = sprite.get("row_prompts") or []
+    if not isinstance(raw_row_prompts, list):
+        raw_row_prompts = []
+    row_prompts = [str(item) for item in raw_row_prompts]
+    reference_path_value = sprite.get("reference_image_path")
+    reference_path = Path(reference_path_value) if reference_path_value else None
+    return SpriteMosaicInput(
+        prompt=job.prompt or "",
+        rows=int(sprite.get("rows", 1)),
+        cols=int(sprite.get("cols", 1)),
+        row_prompts=row_prompts,
+        reference_image_path=reference_path,
+        image_size=data.get("image_size"),
+        image_quality=data.get("image_quality"),
+        image_model=data.get("image_model"),
+        pixelize_params=pixelize_params_from_json(data),
+        out_root=out_root,
+        use_cache=True,
+        refresh_cache=False,
+        fps=int(sprite.get("fps", 8)),
+        duration_ms=int(sprite.get("duration_ms", 0)) or None,
+        loop=int(sprite.get("loop", 0)),
+        gif_export=bool(sprite.get("gif_export", False)),
+        key_tolerance=sprite.get("key_tolerance"),
+        billing=data.get("billing") if isinstance(data.get("billing"), dict) else None,
+        local_stage_context=_local_stage_context(settings),
+    )
+
+
 def _write_asset_meta(result: PipelineResult, job: GenerationJob, inputs: PipelineInput) -> None:
     data = job.params_json or {}
     asset = _asset_data(job)
@@ -278,6 +312,10 @@ def run_job_pipeline(job: GenerationJob, settings: WebSettings, *, cfg: AppConfi
     if job.job_type == "asset":
         return run_asset_job_pipeline(job, settings, resolved_cfg)
     if job.job_type == "sprite_sheet":
-        return run_sprite_pipeline(resolved_cfg, sprite_input_from_job(job, settings))
+        sprite = (job.params_json or {}).get("sprite") or {}
+        mode = str(sprite.get("generation_mode") or "mosaic").strip().lower()
+        if mode == "iterative":
+            return run_sprite_pipeline(resolved_cfg, sprite_input_from_job(job, settings))
+        return run_sprite_mosaic_pipeline(resolved_cfg, sprite_mosaic_input_from_job(job, settings))
     inputs = pipeline_input_from_job(job, settings)
     return run_pipeline(resolved_cfg, inputs)

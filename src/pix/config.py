@@ -203,14 +203,28 @@ class AssetConfig:
 
 @dataclass
 class SpriteConfig:
-    """逐帧序列帧默认参数。"""
+    """序列帧默认参数。
+
+    支持两种生成模式：
+    - mosaic（默认，单图）：一次 API 调用直接产出 rows×cols 网格 sprite sheet，
+      后端按格切图。便宜、快、能表达"行级动作集"语义。
+    - iterative（逐帧）：首帧文生图 + 后续帧基于上一帧图生图。慢、贵，但
+      闭环和一致性最高。
+    """
 
     output_dir: str = "图片/sprites"
-    # rows/cols 为历史兼容字段；新序列帧流程不再生成九宫格。
+    # 默认生成方式；前端可显式覆盖。
+    default_generation_mode: str = "mosaic"  # mosaic | iterative
+    # rows/cols 同时承担两种用途：
+    # iterative 模式：rows 必须 = 1，cols == frame_count。
+    # mosaic 模式：用户显式指定的网格尺寸。
     rows: int = 1
     cols: int = 9
     frame_count: int = 9
-    max_frame_count: int = 12
+    max_frame_count: int = 64
+    # mosaic 模式的网格上限（行/列各自的最大值）。
+    max_grid_rows: int = 8
+    max_grid_cols: int = 8
     fps: int = 8
     pixel_size: tuple[int, int] = (64, 64)
     colors: int = 16
@@ -256,6 +270,30 @@ class SpriteConfig:
         "Use pure solid key-color {green} for all empty/background pixels for chroma-key removal; keep visible colors outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
         "Use no more than {max_colors} visible subject/effect colors; background color does not count. {loop_closure} "
         "Do not create a grid, collage, sprite sheet, duplicate character, text, watermark, background scene, labels, numbers, or extra frames. {retry_hint}"
+    )
+    # 单图模式（mosaic）的 prompt 模板（无参考图，纯文生图）。
+    # 占位符：{description} 主体描述；{rows}/{cols} 网格；{frame_width}/{frame_height} 单帧像素；
+    # {sheet_width}/{sheet_height} 整图像素；{row_block} 自动展开的逐行动作；{green}/{key_tolerance}/{max_colors} 抠色与调色。
+    mosaic_prompt_template: str = (
+        "Create a TRUE pixel-art sprite sheet for the following subject. "
+        "Subject: {description}. "
+        "Layout: an exact {rows}x{cols} grid of sprites, read left-to-right then top-to-bottom. "
+        "Total canvas: {sheet_width}x{sheet_height} pixels. Each cell is exactly {frame_width}x{frame_height} pixels and aligned to the grid. "
+        "Each row is one independent animation loop with {cols} frames, listed below:\n{row_block}\n"
+        "Character/subject consistency: keep the same identity, palette, outline thickness, scale, and proportions across every cell. "
+        "Background: use pure solid key-color {green} for ALL empty/background pixels for chroma-key removal; keep visible colors outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
+        "Use no more than {max_colors} visible subject colors; background color does not count. "
+        "Style: crisp pixel art, hard edges, limited palette, no painterly blending, no anti-aliased soft brush. Every pixel must be a perfect square aligned to the grid. "
+        "Do not add text, watermark, UI, border, grid lines, labels, numbers, or shadows outside the subject. Do not draw extra frames outside the {rows}x{cols} grid."
+    )
+    # 单图模式 + 参考图（图生图）的 prompt 模板。
+    # 额外占位符：{base_template} 会被替换为已渲染的 mosaic_prompt_template。
+    mosaic_reference_prompt_template: str = (
+        "Re-create the sprite sheet described below based on the provided reference image as the character source. "
+        "The reference image defines the core character design (silhouette, palette, costume, proportions). "
+        "Reuse the reference character identity in EVERY cell; only the action/pose changes per cell.\n\n"
+        "{base_template}\n\n"
+        "Strictly preserve the reference character's identity, color palette, and proportions across every cell."
     )
 
 
