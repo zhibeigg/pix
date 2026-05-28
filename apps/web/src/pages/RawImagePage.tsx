@@ -29,6 +29,7 @@ type Props = {
 
 const imageSizes = ['1024x1024', '1536x1024', '1024x1536', '2048x1024', '1024x2048', 'auto']
 const qualityOptions = ['auto', 'low', 'medium', 'high']
+const RAW_IMAGE_PROMPT_MAX_LENGTH = 3000
 
 export function RawImagePage({ pricing, balance, jobs, loading, selectedJobId, onSelectJob, onCreateJob, onRefresh }: Props) {
   const { text } = useI18n()
@@ -39,6 +40,7 @@ export function RawImagePage({ pricing, balance, jobs, loading, selectedJobId, o
   const rawJobs = useMemo(() => jobs.filter(isRawImageJob).sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at))), [jobs])
   const selectedJob = rawJobs.find((job) => job.id === selectedJobId) ?? rawJobs[0] ?? null
   const price = pricing.find((item) => item.key === 'text_to_image')?.price_credits ?? 0
+  const promptTooLong = prompt.length > RAW_IMAGE_PROMPT_MAX_LENGTH
   const insufficientCredits = typeof balance?.available_credits === 'number' && balance.available_credits < price
   const isSelectedActive = selectedJob?.status === 'pending' || selectedJob?.status === 'running'
   const mainImageUrl = isSelectedActive ? null : rawSourceUrl(selectedJob)
@@ -84,7 +86,7 @@ export function RawImagePage({ pricing, balance, jobs, loading, selectedJobId, o
         </div>
       </PixPanel>
 
-      <PixPanel><div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_190px]"><Textarea value={prompt} rows={3} required onChange={(event) => setPrompt(event.target.value)} placeholder={text('描述你要生成的图片：主体、风格、构图、颜色、用途。', 'Describe the image: subject, style, composition, colors, and intended use.')} /><div className="grid content-between gap-3"><Badge variant="outline">{imageSize} · {quality} · {text('1 张', '1 image')}</Badge><Button type="submit" size="lg" disabled={loading || !prompt.trim() || insufficientCredits}>{loading ? text('提交中…', 'Submitting…') : text('生成单图', 'Generate image')}</Button></div></div></PixPanel>
+      <PixPanel><div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_190px]"><div className="grid gap-2"><Textarea value={prompt} rows={5} required maxLength={RAW_IMAGE_PROMPT_MAX_LENGTH} onChange={(event) => setPrompt(event.target.value)} placeholder={text('描述你要生成的图片：主体、风格、构图、颜色、用途。', 'Describe the image: subject, style, composition, colors, and intended use.')} /><div className="flex justify-end text-xs text-muted-foreground">{prompt.length}/{RAW_IMAGE_PROMPT_MAX_LENGTH}</div></div><div className="grid content-between gap-3"><Badge variant="outline">{imageSize} · {quality} · {text('1 张', '1 image')}</Badge>{promptTooLong && <Badge variant="danger">{text('提示词最多 3000 字', 'Prompt max 3000 characters')}</Badge>}<Button type="submit" size="lg" disabled={loading || !prompt.trim() || promptTooLong || insufficientCredits}>{loading ? text('提交中…', 'Submitting…') : text('生成单图', 'Generate image')}</Button></div></div></PixPanel>
     </form>
   )
 }
