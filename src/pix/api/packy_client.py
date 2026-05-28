@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json as _json
 import time
 from typing import Any
 
@@ -62,35 +63,50 @@ class PackyClient:
     ) -> dict[str, Any]:
         url = f"{self.base_url}{path if path.startswith('/') else '/' + path}"
         last_exc: Exception | None = None
+        # 拆分超时：连接握手与写入用统一值，read/pool 给生图等长任务留足时间。
+        # 同时设置 ``read=None`` 让 httpx 直接交给底层 socket 流式读取，避免 read 超时一刀切。
+        timeout_config = httpx.Timeout(
+            connect=min(60.0, self.timeout),
+            read=None,
+            write=min(120.0, self.timeout),
+            pool=self.timeout,
+        )
         for attempt in range(1, self.max_retries + 1):
             try:
-                with httpx.Client(timeout=self.timeout) as client:
-                    resp = client.post(
+                with httpx.Client(timeout=timeout_config) as client:
+                    with client.stream(
+                        "POST",
                         url,
                         headers=self._headers(content_type=content_type),
                         json=json,
                         data=data,
                         files=files,
-                    )
-                if resp.status_code >= 500 or resp.status_code == 429:
+                    ) as resp:
+                        body_bytes = bytearray()
+                        for chunk in resp.iter_bytes(64 * 1024):
+                            if chunk:
+                                body_bytes.extend(chunk)
+                        body_text = body_bytes.decode("utf-8", errors="replace")
+                        status_code = resp.status_code
+                if status_code >= 500 or status_code == 429:
                     raise PackyError(
-                        f"HTTP {resp.status_code} 服务器端错误",
-                        status_code=resp.status_code,
-                        body=resp.text[:2000],
+                        f"HTTP {status_code} 服务器端错误",
+                        status_code=status_code,
+                        body=body_text[:2000],
                     )
-                if resp.status_code >= 400:
+                if status_code >= 400:
                     raise PackyError(
-                        f"HTTP {resp.status_code} 客户端错误：{resp.text[:500]}",
-                        status_code=resp.status_code,
-                        body=resp.text[:2000],
+                        f"HTTP {status_code} 客户端错误：{body_text[:500]}",
+                        status_code=status_code,
+                        body=body_text[:2000],
                     )
                 try:
-                    return resp.json()
+                    return _json.loads(body_text)
                 except ValueError as exc:
                     raise PackyError(
-                        f"响应不是合法 JSON：{resp.text[:500]}",
-                        status_code=resp.status_code,
-                        body=resp.text[:2000],
+                        f"响应不是合法 JSON：{body_text[:500]}",
+                        status_code=status_code,
+                        body=body_text[:2000],
                     ) from exc
             except (httpx.HTTPError, PackyError) as exc:
                 last_exc = exc

@@ -136,14 +136,43 @@ def write_bytes(path: str | Path, data: bytes) -> Path:
     return p
 
 
-def download(url: str, dest: str | Path, timeout: float = 600.0) -> Path:
-    """下载远程图片到本地。"""
+def download(
+    url: str,
+    dest: str | Path,
+    timeout: float = 600.0,
+    *,
+    chunk_size: int = 64 * 1024,
+    connect_timeout: float | None = None,
+) -> Path:
+    """下载远程图片到本地。
+
+    使用流式读取：连接建立后只对每个 read chunk 应用 ``timeout``，避免大响应一次性等候时被 read timeout 中断。
+    ``connect_timeout`` 只控制连接握手阶段，默认沿用 ``timeout``。
+    """
     dest_path = Path(dest)
     ensure_dir(dest_path.parent)
-    with httpx.Client(timeout=timeout, follow_redirects=True) as client:
-        resp = client.get(url)
-        resp.raise_for_status()
-        dest_path.write_bytes(resp.content)
+    httpx_timeout = httpx.Timeout(
+        connect=connect_timeout if connect_timeout is not None else timeout,
+        read=timeout,
+        write=timeout,
+        pool=timeout,
+    )
+    tmp_path = dest_path.with_suffix(dest_path.suffix + ".part")
+    try:
+        with httpx.Client(timeout=httpx_timeout, follow_redirects=True) as client:
+            with client.stream("GET", url) as resp:
+                resp.raise_for_status()
+                with open(tmp_path, "wb") as fp:
+                    for chunk in resp.iter_bytes(chunk_size):
+                        if chunk:
+                            fp.write(chunk)
+        tmp_path.replace(dest_path)
+    finally:
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
     return dest_path
 
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.144] - 2026-05-28
+
+### Changed
+
+- 远端 Packy POST 调用与图片下载改为流式读取：握手沿用配置超时，但读取阶段不再被一刀切的 read timeout 中断，避免高 quality 生图响应被 `The read operation timed out` 截断。
+
 ## [1.45.143] - 2026-05-28
 
 ### Changed
