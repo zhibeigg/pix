@@ -14,6 +14,8 @@ const MIN_EDITOR_ZOOM = 1
 const MAX_EDITOR_ZOOM = 12
 
 type Offset = { x: number; y: number }
+type VisibleBounds = { left: number; top: number; right: number; bottom: number }
+type SnapEdge = 'left' | 'right' | 'top' | 'bottom'
 type ImageMap = Map<number, HTMLImageElement>
 type DragState = { startX: number; startY: number; startOffset: Offset }
 
@@ -48,6 +50,8 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
 
   const selectedFrame = frames.find((frame) => Number(frame.index) === selectedIndex) ?? frames[0]
   const selectedOffset = offsetFor(offsets, selectedIndex)
+  const selectedVisibleBounds = useMemo(() => selectedFrame ? visibleBoundsForFrame(selectedFrame, images.get(selectedIndex)) : null, [images, selectedFrame, selectedIndex])
+  const shiftedVisibleBounds = selectedVisibleBounds ? shiftBounds(selectedVisibleBounds, selectedOffset) : null
   const ghostIndex = useMemo(() => ghostFrameIndex(frameIndexes, selectedIndex), [frameIndexes, selectedIndex])
   const playableIndexes = useMemo(() => loopCheck && frameIndexes.length > 1 ? [frameIndexes[frameIndexes.length - 1], frameIndexes[0]] : frameIndexes, [frameIndexes, loopCheck])
 
@@ -192,6 +196,16 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
     updateOffset(selectedIndex, { x: selectedOffset.x + Math.round(targetAnchor.x - currentAnchor.x), y: selectedOffset.y + Math.round(targetAnchor.y - currentAnchor.y) })
   }
 
+  function snapVisiblePixels(edge: SnapEdge) {
+    if (!selectedVisibleBounds) return
+    const next = { ...selectedOffset }
+    if (edge === 'left') next.x = -selectedVisibleBounds.left
+    else if (edge === 'right') next.x = frameSize.width - selectedVisibleBounds.right
+    else if (edge === 'top') next.y = -selectedVisibleBounds.top
+    else next.y = frameSize.height - selectedVisibleBounds.bottom
+    updateOffset(selectedIndex, next)
+  }
+
   async function save() {
     await onSave({
       fps,
@@ -215,6 +229,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
             <Badge variant="info">{text(`第 ${selectedIndex} / ${frameIndexes.length} 帧`, `Frame ${selectedIndex} / ${frameIndexes.length}`)}</Badge>
             <Badge variant="outline">{frameSize.width}×{frameSize.height}</Badge>
             <Badge variant="outline">{text(`影子：第 ${ghostIndex} 帧`, `Ghost: frame ${ghostIndex}`)}</Badge>
+            {shiftedVisibleBounds ? <Badge variant="muted">{text(`可见像素：${shiftedVisibleBounds.left},${shiftedVisibleBounds.top} → ${shiftedVisibleBounds.right},${shiftedVisibleBounds.bottom}`, `Visible pixels: ${shiftedVisibleBounds.left},${shiftedVisibleBounds.top} → ${shiftedVisibleBounds.right},${shiftedVisibleBounds.bottom}`)}</Badge> : <Badge variant="warning">{text('未识别到可见像素', 'No visible pixels detected')}</Badge>}
             <div className="ml-auto flex min-w-[260px] flex-wrap items-center gap-2 rounded-lg border border-border bg-card/80 px-2 py-1.5 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
               <Button type="button" size="sm" variant="ghost" disabled={editorZoom <= MIN_EDITOR_ZOOM} onClick={() => updateEditorZoom(editorZoom - 1)}><ZoomOut />{text('缩小', 'Zoom out')}</Button>
               <Slider className="min-w-24 flex-1" value={editorZoom} min={MIN_EDITOR_ZOOM} max={MAX_EDITOR_ZOOM} step={1} onValueChange={updateEditorZoom} aria-label={text('编辑画布缩放', 'Editor canvas zoom')} />
@@ -277,6 +292,10 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
           <Button type="button" variant="outline" onClick={copyGhostOffset}><Copy />{text('复制影子偏移', 'Copy ghost offset')}</Button>
           <Button type="button" variant="outline" onClick={() => alignTo(ghostIndex)}><Crosshair />{text('底部对齐影子', 'Align to ghost')}</Button>
           <Button type="button" variant="outline" onClick={() => alignTo(frameIndexes[0])}><Crosshair />{text('对齐第 1 帧', 'Align to frame 1')}</Button>
+          <Button type="button" variant="outline" disabled={!selectedVisibleBounds} onClick={() => snapVisiblePixels('left')}>{text('吸附左边', 'Snap left')}</Button>
+          <Button type="button" variant="outline" disabled={!selectedVisibleBounds} onClick={() => snapVisiblePixels('right')}>{text('吸附右边', 'Snap right')}</Button>
+          <Button type="button" variant="outline" disabled={!selectedVisibleBounds} onClick={() => snapVisiblePixels('top')}>{text('吸附上边', 'Snap top')}</Button>
+          <Button type="button" variant="outline" disabled={!selectedVisibleBounds} onClick={() => snapVisiblePixels('bottom')}>{text('吸附底边', 'Snap bottom')}</Button>
           <Button type="button" variant="ghost" onClick={resetCurrent}><RotateCcw />{text('重置当前', 'Reset current')}</Button>
           <Button type="button" variant="ghost" onClick={resetAll}><RotateCcw />{text('重置全部', 'Reset all')}</Button>
           <Button type="button" className="ml-auto" disabled={saving || images.size === 0} onClick={() => void save()}><Save />{saving ? text('保存中…', 'Saving…') : text('保存调整', 'Save alignment')}</Button>
@@ -321,9 +340,65 @@ function ghostFrameIndex(indexes: number[], selectedIndex: number) {
 }
 
 function bottomCenter(frame: SpriteFrameOutput, offset: Offset, frameSize: { width: number; height: number }) {
-  const bbox = Array.isArray(frame.bbox) ? frame.bbox : null
-  if (!bbox) return { x: frameSize.width / 2 + offset.x, y: frameSize.height + offset.y }
-  return { x: (bbox[0] + bbox[2]) / 2 + offset.x, y: bbox[3] + offset.y }
+  const bounds = boundsFromFrame(frame)
+  if (!bounds) return { x: frameSize.width / 2 + offset.x, y: frameSize.height + offset.y }
+  return { x: (bounds.left + bounds.right) / 2 + offset.x, y: bounds.bottom + offset.y }
+}
+
+function visibleBoundsForFrame(frame: SpriteFrameOutput, image?: HTMLImageElement): VisibleBounds | null {
+  return boundsFromFrame(frame) ?? (image ? scanAlphaBounds(image) : null)
+}
+
+function boundsFromFrame(frame: SpriteFrameOutput): VisibleBounds | null {
+  const bbox = Array.isArray(frame.bbox) ? frame.bbox.map((value) => Number(value)) : null
+  if (!bbox || bbox.length < 4 || bbox.some((value) => !Number.isFinite(value))) return null
+  const left = Math.round(Math.min(bbox[0], bbox[2]))
+  const top = Math.round(Math.min(bbox[1], bbox[3]))
+  const right = Math.round(Math.max(bbox[0], bbox[2]))
+  const bottom = Math.round(Math.max(bbox[1], bbox[3]))
+  return right > left && bottom > top ? { left, top, right, bottom } : null
+}
+
+function scanAlphaBounds(image: HTMLImageElement): VisibleBounds | null {
+  const width = image.naturalWidth || image.width
+  const height = image.naturalHeight || image.height
+  if (width <= 0 || height <= 0) return null
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null
+  ctx.imageSmoothingEnabled = false
+  ctx.drawImage(image, 0, 0)
+  try {
+    const data = ctx.getImageData(0, 0, width, height).data
+    let left = width
+    let top = height
+    let right = -1
+    let bottom = -1
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const alpha = data[(y * width + x) * 4 + 3]
+        if (alpha <= 8) continue
+        if (x < left) left = x
+        if (x > right) right = x
+        if (y < top) top = y
+        if (y > bottom) bottom = y
+      }
+    }
+    return right >= left && bottom >= top ? { left, top, right: right + 1, bottom: bottom + 1 } : null
+  } catch {
+    return null
+  }
+}
+
+function shiftBounds(bounds: VisibleBounds, offset: Offset): VisibleBounds {
+  return {
+    left: bounds.left + offset.x,
+    top: bounds.top + offset.y,
+    right: bounds.right + offset.x,
+    bottom: bounds.bottom + offset.y,
+  }
 }
 
 function spriteFpsFromJob(job: GenerationJob) {
