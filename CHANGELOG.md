@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.141] - 2026-05-28
+
+### Fixed
+
+- 修复 Worker 执行阶段仍可能从运行时配置读取旧 500 字 Prompt Guard 上限的问题；Web 素材、文生图和序列帧任务现在执行时显式使用 3000 字审核上限。
+
 ## [1.45.140] - 2026-05-28
 
 ### Fixed

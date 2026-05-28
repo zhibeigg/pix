@@ -14,7 +14,7 @@ from PIL import Image
 
 from pix import __version__
 from pix.api.image_gen import edit_image, generate_image
-from pix.api.prompt_guard import PromptPolicyError, validate_user_prompt
+from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
 from pix.cache import Cache
 from pix.config import AppConfig
 from pix.contact_sheet import resolve_key_color
@@ -1045,7 +1045,12 @@ def run_sprite_pipeline(
     notify("sprite_run_start", {"run_dir": str(run_dir)})
 
     try:
-        guard = validate_user_prompt(cfg, inputs.prompt, allow_template_break=True)
+        guard = validate_user_prompt(
+            cfg,
+            inputs.prompt,
+            allow_template_break=True,
+            max_chars=RAW_IMAGE_PROMPT_MAX_CHARS,
+        )
     except PromptPolicyError as exc:
         notify("prompt_guard_rejected", exc.result.to_metadata())
         raise ValueError(str(exc)) from exc
