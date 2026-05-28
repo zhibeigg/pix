@@ -385,6 +385,8 @@ class SequenceFrameAlignmentSchema(BaseModel):
     index: int = Field(ge=1, le=128)
     offset_x: int = Field(default=0, ge=-4096, le=4096)
     offset_y: int = Field(default=0, ge=-4096, le=4096)
+    # 单帧主体缩放系数（绕帧中心缩放）。1.0 = 原图；0.25~4.0 之间。
+    scale: float = Field(default=1.0, ge=0.25, le=4.0)
 
 
 class SequenceAlignmentRequest(BaseModel):

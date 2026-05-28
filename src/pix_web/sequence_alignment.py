@@ -71,6 +71,35 @@ def _paste_offset(source: Image.Image, size: tuple[int, int], offset: tuple[int,
     return canvas
 
 
+def _paste_aligned(
+    source: Image.Image,
+    size: tuple[int, int],
+    *,
+    offset: tuple[int, int],
+    scale: float,
+) -> Image.Image:
+    """按帧中心缩放源图，再叠加用户偏移贴到画布。
+
+    - scale==1.0 时退化为 _paste_offset（不重采样，避免无谓的精度损失）
+    - 其它情况按 NEAREST 缩放，保留像素感
+    - 缩放锚点固定为帧中心：缩放后会自动补偿位移，让中心对齐画布中心，再叠加用户 offset
+    """
+    safe_scale = max(0.05, float(scale or 1.0))
+    if abs(safe_scale - 1.0) < 1e-3:
+        return _paste_offset(source, size, offset)
+    src = source.convert("RGBA")
+    new_w = max(1, int(round(src.width * safe_scale)))
+    new_h = max(1, int(round(src.height * safe_scale)))
+    scaled = src.resize((new_w, new_h), Image.NEAREST)
+    # 帧中心锚点：缩放前 (cx, cy)，缩放后中心要回到原 (cx, cy)
+    center_x = src.width / 2.0
+    center_y = src.height / 2.0
+    base_x = int(round(center_x - new_w / 2.0))
+    base_y = int(round(center_y - new_h / 2.0))
+    final_offset = (base_x + int(offset[0]), base_y + int(offset[1]))
+    return _paste_offset(scaled, size, final_offset)
+
+
 def _size_from_sprite(sprite_meta: dict[str, Any]) -> tuple[int, int]:
     effective = sprite_meta.get("effective_frame_size")
     if isinstance(effective, (list, tuple)) and len(effective) == 2:
@@ -100,6 +129,16 @@ def _frame_offsets(payload: SequenceAlignmentRequest) -> dict[int, tuple[int, in
     return offsets
 
 
+def _frame_scales(payload: SequenceAlignmentRequest) -> dict[int, float]:
+    scales: dict[int, float] = {}
+    for item in payload.frames:
+        try:
+            scales[int(item.index)] = max(0.05, float(getattr(item, "scale", 1.0) or 1.0))
+        except (TypeError, ValueError):
+            scales[int(item.index)] = 1.0
+    return scales
+
+
 def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, payload: SequenceAlignmentRequest) -> GenerationJob:
     """应用每帧偏移并更新当前输出的活跃序列帧版本。"""
 
@@ -122,6 +161,7 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
 
     frame_size = _size_from_sprite(sprite_meta)
     offsets = _frame_offsets(payload)
+    scales = _frame_scales(payload)
     version = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     align_root = run_dir / "alignments" / version
     aligned_frames_dir = align_root / "frames"
@@ -137,8 +177,9 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
         if source_path is None or not source_path.is_file():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"第 {frame_index} 帧文件不存在")
         offset = offsets.get(frame_index, (0, 0))
+        scale = scales.get(frame_index, 1.0)
         with Image.open(source_path) as opened:
-            aligned = _paste_offset(opened.convert("RGBA"), frame_size, offset)
+            aligned = _paste_aligned(opened.convert("RGBA"), frame_size, offset=offset, scale=scale)
         frame_path = aligned_frames_dir / f"frame_{frame_index:03d}.png"
         aligned.save(frame_path)
         aligned_frame_paths.append(frame_path)
@@ -155,6 +196,7 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
             "action_phase": item.get("action_phase"),
             "bbox": list(bbox) if bbox else None,
             "alignment_offset": {"x": offset[0], "y": offset[1]},
+            "alignment_scale": scale,
         })
 
     if not aligned_frame_paths:
@@ -183,7 +225,7 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
         "gif_export": bool(payload.gif_export),
         "frame_size": {"width": frame_size[0], "height": frame_size[1]},
         "frames": [
-            {"index": index, "offset_x": offset[0], "offset_y": offset[1]}
+            {"index": index, "offset_x": offset[0], "offset_y": offset[1], "scale": scales.get(index, 1.0)}
             for index, offset in sorted(offsets.items())
         ],
         "source_outputs": original_outputs,
@@ -212,6 +254,7 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
                 "action_phase": item.get("action_phase"),
                 "bbox": item.get("bbox"),
                 "alignment_offset": item.get("alignment_offset"),
+                "alignment_scale": item.get("alignment_scale"),
             }
             for item in aligned_meta
         ],
