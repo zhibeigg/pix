@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-from pix.api.packy_client import PackyClient, PackyError
+from pix.api.packy_client import PackyError, make_packy_client
 from pix.config import AppConfig, require_vl_api_key
 from pix.io_utils import image_to_base64_data_url
 
@@ -176,12 +176,7 @@ def rank_candidates(
         return CandidateRanking(selected_index=0, candidates=[], model=model_name)
 
     api_key = require_vl_api_key(cfg)
-    client = PackyClient(
-        base_url=cfg.api.base_url,
-        api_key=api_key,
-        timeout=cfg.api.timeout,
-        max_retries=cfg.api.max_retries,
-    )
+    client = make_packy_client(cfg, api_key)
     width, height = target_size
     criteria = (
         "你是游戏像素素材美术总监。请对候选图按最终像素化质量从高到低排序。\n"

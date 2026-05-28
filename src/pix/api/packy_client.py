@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import json as _json
 import time
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import httpx
+
+if TYPE_CHECKING:
+    from pix.config import AppConfig
 
 
 class PackyError(RuntimeError):
@@ -25,11 +28,16 @@ class PackyClient:
         api_key: str,
         timeout: float = 600.0,
         max_retries: int = 3,
+        *,
+        trust_env: bool = False,
+        proxy: str | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.timeout = timeout
         self.max_retries = max_retries
+        self.trust_env = trust_env
+        self.proxy = (proxy or "").strip() or None
 
     def _headers(self, *, content_type: str | None = "application/json") -> dict[str, str]:
         headers = {
@@ -73,7 +81,13 @@ class PackyClient:
         )
         for attempt in range(1, self.max_retries + 1):
             try:
-                with httpx.Client(timeout=timeout_config) as client:
+                client_kwargs: dict[str, Any] = {
+                    "timeout": timeout_config,
+                    "trust_env": self.trust_env,
+                }
+                if self.proxy:
+                    client_kwargs["proxy"] = self.proxy
+                with httpx.Client(**client_kwargs) as client:
                     with client.stream(
                         "POST",
                         url,
@@ -119,3 +133,16 @@ class PackyClient:
                 time.sleep(backoff)
         assert last_exc is not None
         raise last_exc
+
+
+def make_packy_client(cfg: "AppConfig", api_key: str) -> PackyClient:
+    """统一构造 PackyClient，并把代理/超时配置一次性注入。"""
+    api = cfg.api
+    return PackyClient(
+        base_url=api.base_url,
+        api_key=api_key,
+        timeout=api.timeout,
+        max_retries=api.max_retries,
+        trust_env=api.trust_env_proxies,
+        proxy=api.proxy,
+    )

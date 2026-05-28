@@ -8,6 +8,10 @@ base_url       = "https://www.packyapi.com"
 # 连接与读取超时（秒）；生图/序列帧高 quality 时单次响应可能持续数分钟，给足余量
 timeout        = 600.0
 max_retries    = 3
+# 默认不信任系统代理，避免本地 Clash 等代理在长 idle 连接上提前断开生图响应。
+# 需要走代理时把 trust_env_proxies = true 或填 proxy = "http://127.0.0.1:7890"。
+trust_env_proxies = false
+proxy = ""
 
 [image_gen]
 model          = "gpt-image-2"

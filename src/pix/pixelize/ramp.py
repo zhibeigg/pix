@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from pix.api.packy_client import PackyClient
+from pix.api.packy_client import make_packy_client
 from pix.api.vision import _extract_content, _extract_json
 from pix.config import AppConfig, require_vl_api_key
 from pix.io_utils import image_to_base64_data_url
@@ -379,12 +379,7 @@ def ramp_from_vl(
     失败时抛 `RampValidationError` 或 `PackyError`，由调用方决定兜底。
     """
     api_key = require_vl_api_key(cfg)
-    client = PackyClient(
-        base_url=cfg.api.base_url,
-        api_key=api_key,
-        timeout=cfg.api.timeout,
-        max_retries=cfg.api.max_retries,
-    )
+    client = make_packy_client(cfg, api_key)
     data_url = image_to_base64_data_url(image_path)
 
     user_prompt = build_ramp_user_prompt(

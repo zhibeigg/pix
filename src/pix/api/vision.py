@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from pix.analysis.prompts import SYSTEM_PROMPT, USER_PROMPT, repair_prompt
 from pix.analysis.schema import PixAnalysis
-from pix.api.packy_client import PackyClient, PackyError
+from pix.api.packy_client import PackyError, make_packy_client
 from pix.config import AppConfig, require_vl_api_key
 from pix.io_utils import image_to_base64_data_url
 
@@ -80,12 +80,7 @@ def analyze_image(
 ) -> PixAnalysis:
     """对单张图片做 VL 分析，返回经 schema 校验的 PixAnalysis。"""
     api_key = require_vl_api_key(cfg)
-    client = PackyClient(
-        base_url=cfg.api.base_url,
-        api_key=api_key,
-        timeout=cfg.api.timeout,
-        max_retries=cfg.api.max_retries,
-    )
+    client = make_packy_client(cfg, api_key)
 
     data_url = image_to_base64_data_url(image_path)
     messages = _build_messages(data_url, USER_PROMPT)

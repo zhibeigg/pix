@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from pix.api.packy_client import PackyClient
+from pix.api.packy_client import make_packy_client
 from pix.config import AppConfig, require_vl_api_key
 
 
@@ -156,12 +156,7 @@ def _remote_prompt_guard(
     api_key: str,
     allow_template_break: bool = False,
 ) -> PromptGuardResult:
-    client = PackyClient(
-        base_url=cfg.api.base_url,
-        api_key=api_key,
-        timeout=cfg.api.timeout,
-        max_retries=cfg.api.max_retries,
-    )
+    client = make_packy_client(cfg, api_key)
     model = cfg.image_gen.prompt_guard_model.strip() or cfg.vision.model
     payload: dict[str, Any] = {
         "model": model,
