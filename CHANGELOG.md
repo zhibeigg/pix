@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.139] - 2026-05-28
+
+### Fixed
+
+- 修复作品库删除确认弹窗仍沿用通用 `DialogContent` 导致在画廊页未按视口居中的问题。
+
 ## [1.45.138] - 2026-05-28
 
 ### Fixed
