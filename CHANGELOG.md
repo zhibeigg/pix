@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.138] - 2026-05-28
+
+### Fixed
+
+- 修复原始生图提交和 Worker 执行时仍被 Prompt Guard 的 500 字默认上限拦截的问题；`source_only` 文生图现在完整使用 3000 字上限。
+
 ## [1.45.137] - 2026-05-28
 
 ### Changed

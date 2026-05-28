@@ -525,10 +525,16 @@ def enforce_prompt_policy(
     prompt: str | None,
     *,
     allow_template_break: bool = False,
+    max_chars: int | None = None,
 ) -> None:
     if not prompt:
         return
-    local = local_prompt_guard(prompt, allow_template_break=allow_template_break)
+    prompt_guard_kwargs = {"max_chars": max_chars} if max_chars is not None else {}
+    local = local_prompt_guard(
+        prompt,
+        allow_template_break=allow_template_break,
+        **prompt_guard_kwargs,
+    )
     if not local.allowed:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=local.reason or "prompt 包含不允许的内容")
     settings = load_operational_settings(db)
