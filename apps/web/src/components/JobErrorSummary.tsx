@@ -51,6 +51,20 @@ export function summarizeJobError(error: string | null | undefined, text: TextFn
     }
   }
 
+  if (
+    message.includes('remoteprotocolerror') ||
+    message.includes('server disconnected') ||
+    message.includes('remote disconnected') ||
+    message.includes('connection closed') ||
+    message.includes('peer closed connection')
+  ) {
+    return {
+      title: text('远端服务中途断开', 'Remote service closed the connection'),
+      description: text('AI 服务在生成期间主动关闭了连接，常见于单次响应过长（例如超长 prompt 或 quality=high）。', 'The image service closed the connection mid-response. This usually happens when a single response is too long (e.g., very long prompt or quality=high).'),
+      action: text('请精简素材描述（建议 800 字以内），或在管理后台把 pix.image_gen.quality 改为 low/auto；序列帧素材请使用「序列帧」模式而不是「素材直出」。', 'Shorten the prompt (≤ 800 chars recommended), or set pix.image_gen.quality to low/auto in admin. For sprite sheets, use the sequence mode instead of single-asset mode.'),
+    }
+  }
+
   if (message.includes('connecttimeout') || message.includes('connection') || message.includes('network') || message.includes('temporary failure')) {
     return {
       title: text('网络连接不稳定', 'Network connection issue'),

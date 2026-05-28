@@ -130,6 +130,9 @@ class PackyClient:
                 if isinstance(exc, PackyError) and exc.status_code and exc.status_code < 500 and exc.status_code != 429:
                     break
                 backoff = min(2 ** (attempt - 1), 8)
+                # RemoteProtocolError 多半是远端网关把长 idle 连接 close，等久一点再试
+                if isinstance(exc, httpx.RemoteProtocolError):
+                    backoff = max(backoff, 15)
                 time.sleep(backoff)
         assert last_exc is not None
         raise last_exc

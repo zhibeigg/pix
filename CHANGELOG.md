@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.146] - 2026-05-29
+
+### Changed
+
+- 默认 quality 改为 auto，提高重试次数到 5，远端断连重试 backoff 延长到 15 秒，缓解 Packy 网关在长响应中途主动 close 连接导致的 RemoteProtocolError。
+- 失败错误展示新增"远端服务中途断开"分类，明确建议精简 prompt、降低 quality，或对序列帧场景改用「序列帧」模式。
+
+### Notes
+
+- 实测 2149 字超长 prompt 的 asset 任务单次响应需要 ~10 分钟，处于远端网关 idle 上限附近。如果连续失败，请在管理后台把 prompt/extra_prompt 缩短到 800 字以内，或对 sprite sheet 这类内容改用专门的「序列帧」模式而不是「素材直出」。
+
 ## [1.45.145] - 2026-05-28
 
 ### Fixed
