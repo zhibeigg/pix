@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.46.2] - 2026-05-29
+
+### Changed
+
+- 序列帧锚点编辑器：滚轮改为「缩放当前选中帧的主体内容」（绕帧中心），画布尺寸、影子帧、其它帧都保持不变。0.05× 步长，范围 0.25× ~ 4×。`Ctrl/Cmd + 滚轮` 仍保留为浏览器原生页面缩放。
+- 编辑器底部新增「当前帧主体缩放」滑块 + 数字输入 + 重置缩放按钮；当前帧 badge 实时显示缩放系数；帧选择网格按钮在 scale ≠ 1 时显示倍率。
+- 头部画布显示倍数滑块语义改为「画布缩小 / 放大」，与"主体缩放"明确区分。
+- "复制影子偏移"现在同时复制影子帧的缩放系数，行为更符合直觉。
+
+### Backend
+
+- `SequenceFrameAlignmentSchema` 新增 `scale: float = 1.0`（0.25 ~ 4.0），向前兼容老 alignment 数据（缺省按 1.0 处理）。
+- `sequence_alignment._paste_aligned` 在 scale ≠ 1 时按 NEAREST 等比缩放源图、绕帧中心补偿位移再贴到画布；scale = 1 时退化为原 `_paste_offset`，避免无谓重采样。
+- `alignment.json` / `sequence.json` 中每帧元数据新增 `alignment_scale` 字段。
+
 ## [1.46.1] - 2026-05-29
 
 ### Fixed

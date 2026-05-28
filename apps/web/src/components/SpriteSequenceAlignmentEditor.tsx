@@ -12,6 +12,10 @@ import { Alert } from './ui/alert'
 const DEFAULT_EDITOR_ZOOM = 4
 const MIN_EDITOR_ZOOM = 1
 const MAX_EDITOR_ZOOM = 12
+const FRAME_SCALE_DEFAULT = 1
+const FRAME_SCALE_MIN = 0.25
+const FRAME_SCALE_MAX = 4
+const FRAME_SCALE_STEP = 0.05
 
 type Offset = { x: number; y: number }
 type VisibleBounds = { left: number; top: number; right: number; bottom: number }
@@ -36,6 +40,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
   const frameIndexes = useMemo(() => frames.map((frame) => Number(frame.index)), [frames])
   const [selectedIndex, setSelectedIndex] = useState(() => frameIndexes[0] ?? 1)
   const [offsets, setOffsets] = useState<Record<number, Offset>>({})
+  const [scales, setScales] = useState<Record<number, number>>({})
   const [images, setImages] = useState<ImageMap>(() => new Map())
   const [loadError, setLoadError] = useState('')
   const [onionOpacity, setOnionOpacity] = useState(35)
@@ -51,6 +56,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
 
   const selectedFrame = frames.find((frame) => Number(frame.index) === selectedIndex) ?? frames[0]
   const selectedOffset = offsetFor(offsets, selectedIndex)
+  const selectedScale = scaleFor(scales, selectedIndex)
   const selectedVisibleBounds = useMemo(() => selectedFrame ? visibleBoundsForFrame(selectedFrame, images.get(selectedIndex)) : null, [images, selectedFrame, selectedIndex])
   const shiftedVisibleBounds = selectedVisibleBounds ? shiftBounds(selectedVisibleBounds, selectedOffset) : null
   const ghostIndex = useMemo(() => ghostFrameIndex(frameIndexes, selectedIndex), [frameIndexes, selectedIndex])
@@ -98,13 +104,13 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
     const ghostImage = images.get(ghostIndex)
     if (ghostImage) {
       ctx.globalAlpha = onionOpacity / 100
-      drawFrameImage(ctx, ghostImage, offsetFor(offsets, ghostIndex))
+      drawFrameImage(ctx, ghostImage, offsetFor(offsets, ghostIndex), scaleFor(scales, ghostIndex))
       ctx.globalAlpha = 1
     }
     const current = images.get(selectedIndex)
-    if (current) drawFrameImage(ctx, current, selectedOffset)
+    if (current) drawFrameImage(ctx, current, selectedOffset, selectedScale)
     drawCanvasGuides(ctx, frameSize)
-  }, [frameSize, ghostIndex, images, offsets, onionOpacity, selectedIndex, selectedOffset])
+  }, [frameSize, ghostIndex, images, offsets, onionOpacity, scales, selectedIndex, selectedOffset, selectedScale])
 
   const drawPreview = useCallback(() => {
     const canvas = previewCanvasRef.current
@@ -116,8 +122,8 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
     ctx.clearRect(0, 0, frameSize.width, frameSize.height)
     const index = playableIndexes[previewIndex % playableIndexes.length]
     const image = images.get(index)
-    if (image) drawFrameImage(ctx, image, offsetFor(offsets, index))
-  }, [frameSize, images, offsets, playableIndexes, previewIndex])
+    if (image) drawFrameImage(ctx, image, offsetFor(offsets, index), scaleFor(scales, index))
+  }, [frameSize, images, offsets, playableIndexes, previewIndex, scales])
 
   useEffect(() => { drawEditor() }, [drawEditor])
   useEffect(() => { drawPreview() }, [drawPreview])
@@ -138,7 +144,18 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
     setEditorZoom(Math.max(MIN_EDITOR_ZOOM, Math.min(MAX_EDITOR_ZOOM, Math.round(next))))
   }
 
-  // 滚轮缩放：仅作用于当前编辑画布的单帧（editorZoom），不影响页面或其它图片。
+  function updateScale(index: number, next: number) {
+    setScales((current) => ({ ...current, [index]: clampFrameScale(next) }))
+  }
+
+  function adjustSelectedScale(delta: number) {
+    setScales((current) => {
+      const base = scaleFor(current, selectedIndex)
+      return { ...current, [selectedIndex]: clampFrameScale(base + delta) }
+    })
+  }
+
+  // 滚轮缩放：仅作用于「当前选中帧的主体」（绕帧中心缩放），画布尺寸 / 影子 / 其它帧都不受影响。
   // React 合成事件的 onWheel 是 passive 的，无法 preventDefault；必须用原生监听器。
   useEffect(() => {
     const node = editorViewportRef.current
@@ -146,13 +163,15 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
     const handleWheel = (event: WheelEvent) => {
       if (event.ctrlKey || event.metaKey) return // 让浏览器原生页面缩放保留行为
       event.preventDefault()
-      const direction = event.deltaY === 0 ? 0 : event.deltaY < 0 ? 1 : -1
-      if (direction === 0) return
-      setEditorZoom((current) => Math.max(MIN_EDITOR_ZOOM, Math.min(MAX_EDITOR_ZOOM, current + direction)))
+      if (event.deltaY === 0) return
+      const direction = event.deltaY < 0 ? 1 : -1
+      adjustSelectedScale(direction * FRAME_SCALE_STEP)
     }
     node.addEventListener('wheel', handleWheel, { passive: false })
     return () => node.removeEventListener('wheel', handleWheel)
-  }, [])
+    // adjustSelectedScale 依赖 selectedIndex，但我们用闭包捕获最新值的方式重新绑定监听器
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIndex])
 
   function currentPoint(event: PointerEvent<HTMLCanvasElement>) {
     const canvas = event.currentTarget
@@ -194,14 +213,17 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
 
   function resetCurrent() {
     updateOffset(selectedIndex, { x: 0, y: 0 })
+    updateScale(selectedIndex, FRAME_SCALE_DEFAULT)
   }
 
   function resetAll() {
     setOffsets({})
+    setScales({})
   }
 
   function copyGhostOffset() {
     updateOffset(selectedIndex, offsetFor(offsets, ghostIndex))
+    updateScale(selectedIndex, scaleFor(scales, ghostIndex))
   }
 
   function alignTo(targetIndex: number) {
@@ -229,7 +251,8 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
       gif_export: true,
       frames: frameIndexes.map((index) => {
         const offset = offsetFor(offsets, index)
-        return { index, offset_x: offset.x, offset_y: offset.y }
+        const scale = scaleFor(scales, index)
+        return { index, offset_x: offset.x, offset_y: offset.y, scale }
       }),
     })
   }
@@ -245,19 +268,20 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="info">{text(`第 ${selectedIndex} / ${frameIndexes.length} 帧`, `Frame ${selectedIndex} / ${frameIndexes.length}`)}</Badge>
             <Badge variant="outline">{frameSize.width}×{frameSize.height}</Badge>
+            <Badge variant={Math.abs(selectedScale - 1) < 1e-3 ? 'muted' : 'info'}>{`${selectedScale.toFixed(2)}×`}</Badge>
             <Badge variant="outline">{text(`影子：第 ${ghostIndex} 帧`, `Ghost: frame ${ghostIndex}`)}</Badge>
             {shiftedVisibleBounds ? <Badge variant="muted">{text(`可见像素：${shiftedVisibleBounds.left},${shiftedVisibleBounds.top} → ${shiftedVisibleBounds.right},${shiftedVisibleBounds.bottom}`, `Visible pixels: ${shiftedVisibleBounds.left},${shiftedVisibleBounds.top} → ${shiftedVisibleBounds.right},${shiftedVisibleBounds.bottom}`)}</Badge> : <Badge variant="warning">{text('未识别到可见像素', 'No visible pixels detected')}</Badge>}
             <div className="ml-auto flex min-w-[260px] flex-wrap items-center gap-2 rounded-lg border border-border bg-card/80 px-2 py-1.5 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
-              <Button type="button" size="sm" variant="ghost" disabled={editorZoom <= MIN_EDITOR_ZOOM} onClick={() => updateEditorZoom(editorZoom - 1)}><ZoomOut />{text('缩小', 'Zoom out')}</Button>
-              <Slider className="min-w-24 flex-1" value={editorZoom} min={MIN_EDITOR_ZOOM} max={MAX_EDITOR_ZOOM} step={1} onValueChange={updateEditorZoom} aria-label={text('编辑画布缩放', 'Editor canvas zoom')} />
-              <Button type="button" size="sm" variant="ghost" disabled={editorZoom >= MAX_EDITOR_ZOOM} onClick={() => updateEditorZoom(editorZoom + 1)}><ZoomIn />{text('放大', 'Zoom in')}</Button>
+              <Button type="button" size="sm" variant="ghost" disabled={editorZoom <= MIN_EDITOR_ZOOM} onClick={() => updateEditorZoom(editorZoom - 1)}><ZoomOut />{text('画布缩小', 'Canvas −')}</Button>
+              <Slider className="min-w-24 flex-1" value={editorZoom} min={MIN_EDITOR_ZOOM} max={MAX_EDITOR_ZOOM} step={1} onValueChange={updateEditorZoom} aria-label={text('编辑画布显示倍数', 'Editor canvas display scale')} />
+              <Button type="button" size="sm" variant="ghost" disabled={editorZoom >= MAX_EDITOR_ZOOM} onClick={() => updateEditorZoom(editorZoom + 1)}><ZoomIn />{text('画布放大', 'Canvas +')}</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => updateEditorZoom(DEFAULT_EDITOR_ZOOM)}>{editorZoom}×</Button>
             </div>
           </div>
           <div
             ref={editorViewportRef}
             className="pix-checkerboard grid max-h-[68vh] place-items-center overflow-auto rounded-xl border border-border bg-muted/40 p-4 dark:border-[hsl(var(--pix-dark-hairline))]"
-            title={text('鼠标滚轮可缩放当前帧（Ctrl/Cmd + 滚轮保持浏览器缩放）', 'Use mouse wheel to zoom this frame (Ctrl/Cmd + wheel keeps browser zoom)')}
+            title={text('鼠标滚轮缩放当前帧主体（绕帧中心；Ctrl/Cmd + 滚轮 = 浏览器缩放）', 'Mouse wheel scales the current frame around its center (Ctrl/Cmd + wheel keeps browser zoom)')}
           >
             <canvas
               ref={editorCanvasRef}
@@ -284,7 +308,9 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
               const index = Number(frame.index)
               const active = index === selectedIndex
               const offset = offsetFor(offsets, index)
-              return <button key={index} type="button" className={`rounded-lg border p-2 text-xs transition ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-muted/35 hover:bg-muted dark:border-[hsl(var(--pix-dark-hairline))]'}`} onClick={() => setSelectedIndex(index)}>{index}<span className="mt-1 block opacity-75">{offset.x},{offset.y}</span></button>
+              const scale = scaleFor(scales, index)
+              const showScale = Math.abs(scale - 1) >= 1e-3
+              return <button key={index} type="button" className={`rounded-lg border p-2 text-xs transition ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-muted/35 hover:bg-muted dark:border-[hsl(var(--pix-dark-hairline))]'}`} onClick={() => setSelectedIndex(index)}>{index}<span className="mt-1 block opacity-75">{offset.x},{offset.y}</span>{showScale && <span className="block opacity-75">{scale.toFixed(2)}×</span>}</button>
             })}
           </div>
         </section>
@@ -309,6 +335,11 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
           <Button type="button" variant="outline" onClick={() => selectRelative(-1)}><SkipBack />{text('上一帧', 'Previous')}</Button>
           <Button type="button" variant="outline" onClick={() => selectRelative(1)}><SkipForward />{text('下一帧', 'Next')}</Button>
         </div>
+        <div className="grid gap-2 rounded-lg border border-border/70 bg-card/60 p-3 sm:grid-cols-[minmax(0,1fr)_120px_auto] sm:items-center dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
+          <label className="grid gap-2 text-sm font-medium">{text('当前帧主体缩放（绕中心；滚轮可调）', 'Current frame scale (around center; mouse wheel)')}<Slider value={Math.round(selectedScale * 100)} min={Math.round(FRAME_SCALE_MIN * 100)} max={Math.round(FRAME_SCALE_MAX * 100)} step={Math.round(FRAME_SCALE_STEP * 100)} onValueChange={(value) => updateScale(selectedIndex, value / 100)} /></label>
+          <Input type="number" min={FRAME_SCALE_MIN} max={FRAME_SCALE_MAX} step={FRAME_SCALE_STEP} value={selectedScale.toFixed(2)} onChange={(event) => updateScale(selectedIndex, Number(event.target.value))} />
+          <Button type="button" variant="ghost" size="sm" disabled={Math.abs(selectedScale - FRAME_SCALE_DEFAULT) < 1e-3} onClick={() => updateScale(selectedIndex, FRAME_SCALE_DEFAULT)}>{text('重置缩放', 'Reset scale')}</Button>
+        </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={copyGhostOffset}><Copy />{text('复制影子偏移', 'Copy ghost offset')}</Button>
           <Button type="button" variant="outline" onClick={() => alignTo(ghostIndex)}><Crosshair />{text('底部对齐影子', 'Align to ghost')}</Button>
@@ -331,8 +362,21 @@ function prepareCanvas(canvas: HTMLCanvasElement, size: { width: number; height:
   if (canvas.height !== size.height) canvas.height = size.height
 }
 
-function drawFrameImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement, offset: Offset) {
-  ctx.drawImage(image, Math.round(offset.x), Math.round(offset.y))
+function drawFrameImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement, offset: Offset, scale: number = 1) {
+  const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1
+  if (Math.abs(safeScale - 1) < 1e-3) {
+    ctx.drawImage(image, Math.round(offset.x), Math.round(offset.y))
+    return
+  }
+  const sourceWidth = image.naturalWidth || image.width
+  const sourceHeight = image.naturalHeight || image.height
+  if (!sourceWidth || !sourceHeight) return
+  const newWidth = Math.max(1, Math.round(sourceWidth * safeScale))
+  const newHeight = Math.max(1, Math.round(sourceHeight * safeScale))
+  // 帧中心锚点：缩放后中心仍位于 (sourceWidth / 2, sourceHeight / 2)
+  const baseX = Math.round(sourceWidth / 2 - newWidth / 2)
+  const baseY = Math.round(sourceHeight / 2 - newHeight / 2)
+  ctx.drawImage(image, baseX + Math.round(offset.x), baseY + Math.round(offset.y), newWidth, newHeight)
 }
 
 function drawCanvasGuides(ctx: CanvasRenderingContext2D, size: { width: number; height: number }) {
@@ -352,6 +396,16 @@ function drawCanvasGuides(ctx: CanvasRenderingContext2D, size: { width: number; 
 
 function offsetFor(offsets: Record<number, Offset>, index: number): Offset {
   return offsets[index] ?? { x: 0, y: 0 }
+}
+
+function scaleFor(scales: Record<number, number>, index: number): number {
+  const value = scales[index]
+  return Number.isFinite(value) && value > 0 ? value : FRAME_SCALE_DEFAULT
+}
+
+function clampFrameScale(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return FRAME_SCALE_DEFAULT
+  return Math.max(FRAME_SCALE_MIN, Math.min(FRAME_SCALE_MAX, Math.round(value * 100) / 100))
 }
 
 function ghostFrameIndex(indexes: number[], selectedIndex: number) {

@@ -171,6 +171,7 @@ export type SequenceFrameAlignment = {
   index: number
   offset_x: number
   offset_y: number
+  scale?: number
 }
 
 export type SequenceAlignmentRequest = {
