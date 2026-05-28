@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { CheckCircle2, CircleAlert, Coins, Info, PackagePlus, Trash2, X } from 'lucide-react'
 import type { PixLanguage, PixThemeMode, PixThemePreference } from './theme'
 import { api, ApiError, TOKEN_KEY } from './api'
@@ -7,7 +8,7 @@ import { AccountMenu } from './components/AccountMenu'
 import { AppHero } from './components/AppHero'
 import { AuthPanel } from './components/AuthPanel'
 import { Button } from './components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogPortal, DialogTitle } from './components/ui/dialog'
 import { HeaderUtilityBar } from './components/HeaderUtilityBar'
 import { LandingSections } from './components/LandingSections'
 import { SetupWizard } from './components/SetupWizard'
@@ -912,35 +913,52 @@ function DeleteConfirmDialog({ state, loading, onCancel, onConfirm }: { state: D
 
   return (
     <Dialog open={Boolean(state)} onOpenChange={(open) => { if (!open && !loading) onCancel() }}>
-      <DialogContent className="delete-confirm-dialog-content overflow-hidden border-[hsl(var(--pix-paper-border))] bg-card p-0 shadow-[0_24px_80px_-24px_rgba(15,15,15,0.42)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
-        {state && (
-          <div className="relative grid gap-5 p-6">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_18%_0%,hsl(var(--destructive)/.18),transparent_36%),linear-gradient(180deg,hsl(var(--pix-cream)/.86),transparent)] dark:bg-[radial-gradient(circle_at_18%_0%,hsl(var(--destructive)/.34),transparent_34%),linear-gradient(180deg,hsl(var(--pix-navy)/.82),transparent)]" />
-            <DialogHeader className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-3 pr-8">
-              <div className="grid h-12 w-12 place-items-center rounded-lg border border-destructive/24 bg-destructive/10 text-destructive shadow-[0_14px_34px_-22px_hsl(var(--destructive)/.72)] dark:border-red-300/24 dark:bg-red-500/12 dark:text-red-200">
-                <Trash2 className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-destructive/75 dark:text-red-200/78">{t('confirmDelete.eyebrow')}</p>
-                <DialogTitle className="mt-1 text-xl leading-tight">{title}</DialogTitle>
-                <DialogDescription className="mt-2 leading-6">{description}</DialogDescription>
-              </div>
-            </DialogHeader>
-            <div className="relative grid gap-2 rounded-lg border border-destructive/18 bg-destructive/7 p-3 text-sm dark:border-red-300/18 dark:bg-red-500/10">
-              {impactItems.map((item) => (
-                <div key={item} className="flex items-center gap-2 rounded-md bg-card/72 px-3 py-2 text-muted-foreground dark:bg-black/12 dark:text-white/68">
-                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-sm bg-destructive/10 text-[10px] font-bold text-destructive dark:bg-red-300/12 dark:text-red-200">×</span>
-                  <span>{item}</span>
+      <DialogPortal>
+        <DialogOverlay />
+        <DialogPrimitive.Content
+          className="fixed z-50 overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-card p-0 shadow-[0_24px_80px_-24px_rgba(15,15,15,0.42)] focus:outline-none dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]"
+          style={{
+            left: '50%',
+            maxHeight: 'calc(100dvh - 32px)',
+            maxWidth: 'none',
+            top: '50%',
+            transform: 'translate3d(-50%, -50%, 0)',
+            width: 'min(500px, calc(100vw - 32px))',
+          }}
+        >
+          {state && (
+            <div className="relative grid gap-5 p-6">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_18%_0%,hsl(var(--destructive)/.18),transparent_36%),linear-gradient(180deg,hsl(var(--pix-cream)/.86),transparent)] dark:bg-[radial-gradient(circle_at_18%_0%,hsl(var(--destructive)/.34),transparent_34%),linear-gradient(180deg,hsl(var(--pix-navy)/.82),transparent)]" />
+              <DialogHeader className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-3 pr-8">
+                <div className="grid h-12 w-12 place-items-center rounded-lg border border-destructive/24 bg-destructive/10 text-destructive shadow-[0_14px_34px_-22px_hsl(var(--destructive)/.72)] dark:border-red-300/24 dark:bg-red-500/12 dark:text-red-200">
+                  <Trash2 className="h-5 w-5" />
                 </div>
-              ))}
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-destructive/75 dark:text-red-200/78">{t('confirmDelete.eyebrow')}</p>
+                  <DialogTitle className="mt-1 text-xl leading-tight">{title}</DialogTitle>
+                  <DialogDescription className="mt-2 leading-6">{description}</DialogDescription>
+                </div>
+              </DialogHeader>
+              <div className="relative grid gap-2 rounded-lg border border-destructive/18 bg-destructive/7 p-3 text-sm dark:border-red-300/18 dark:bg-red-500/10">
+                {impactItems.map((item) => (
+                  <div key={item} className="flex items-center gap-2 rounded-md bg-card/72 px-3 py-2 text-muted-foreground dark:bg-black/12 dark:text-white/68">
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-sm bg-destructive/10 text-[10px] font-bold text-destructive dark:bg-red-300/12 dark:text-red-200">×</span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter className="relative">
+                <Button type="button" variant="outline" disabled={loading} onClick={onCancel}>{t('confirmDelete.cancel')}</Button>
+                <Button type="button" variant="destructive" disabled={loading} onClick={onConfirm}>{loading ? t('confirmDelete.deleting') : t('confirmDelete.confirm')}</Button>
+              </DialogFooter>
             </div>
-            <DialogFooter className="relative">
-              <Button type="button" variant="outline" disabled={loading} onClick={onCancel}>{t('confirmDelete.cancel')}</Button>
-              <Button type="button" variant="destructive" disabled={loading} onClick={onConfirm}>{loading ? t('confirmDelete.deleting') : t('confirmDelete.confirm')}</Button>
-            </DialogFooter>
-          </div>
-        )}
-      </DialogContent>
+          )}
+          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring" disabled={loading}>
+            <X className="h-4 w-4" />
+            <span className="sr-only">关闭</span>
+          </DialogPrimitive.Close>
+        </DialogPrimitive.Content>
+      </DialogPortal>
     </Dialog>
   )
 }
