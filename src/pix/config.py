@@ -238,16 +238,21 @@ class SpriteConfig:
     shared_palette: bool = True
     # mosaic 模式 prompt 模板（无参考图，纯文生图）。
     # 占位符：{description}/{rows}/{cols}/{frame_width}/{frame_height}/{sheet_width}/{sheet_height}/{row_block}/{green}/{key_tolerance}/{max_colors}
+    # 新增渲染尺寸占位符：{render_width}/{render_height}/{cell_render_width}/{cell_render_height}/{upscale}
+    # - sheet_width/sheet_height/frame_width/frame_height 表示最终 pixel-art 粒度；
+    # - render_width/render_height/cell_render_width/cell_render_height 表示 API 实际渲染画布；
+    # - upscale 表示每个 pixel-art 像素应被画成多少 render pixels 的实心方块。
     mosaic_prompt_template: str = (
         "Create a TRUE pixel-art sprite sheet for the following subject. "
         "Subject: {description}. "
         "Layout: an exact {rows}x{cols} grid of sprites, read left-to-right then top-to-bottom. "
-        "Total canvas: {sheet_width}x{sheet_height} pixels. Each cell is exactly {frame_width}x{frame_height} pixels and aligned to the grid. "
+        "Render the entire image at exactly {render_width}x{render_height} render pixels; every cell occupies {cell_render_width}x{cell_render_height} render pixels. "
+        "Each cell represents a {frame_width}x{frame_height} pixel-art sprite, so every pixel-art pixel must be drawn as a perfectly square block of {upscale}x{upscale} render pixels (no anti-aliasing inside the block). "
         "Each row is one independent animation loop with {cols} frames, listed below:\n{row_block}\n"
         "Character/subject consistency: keep the same identity, palette, outline thickness, scale, and proportions across every cell. "
         "Background: use pure solid key-color {green} for ALL empty/background pixels for chroma-key removal; keep visible colors outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
         "Use no more than {max_colors} visible subject colors; background color does not count. "
-        "Style: crisp pixel art, hard edges, limited palette, no painterly blending, no anti-aliased soft brush. Every pixel must be a perfect square aligned to the grid. "
+        "Style: crisp pixel art, hard edges, limited palette, no painterly blending, no anti-aliased soft brush. "
         "Do not add text, watermark, UI, border, grid lines, labels, numbers, or shadows outside the subject. Do not draw extra frames outside the {rows}x{cols} grid."
     )
     # mosaic 模式 + 参考图（图生图）prompt 模板。

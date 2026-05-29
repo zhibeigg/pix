@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.55.0] - 2026-05-30
+
+### Changed
+
+- 序列帧 mosaic 不再被锁死在 1024×1024 渲染分辨率：`_resolve_settings` 不再把 `cfg.image_gen.size`（通常配成 1024×1024 给 icon 直出用）当 sprite 默认 size，新增独立的 `_compute_render_target` 算法，按「每像素艺术像素至少占 8 渲染像素（必要时退到 6×/4×）」自动算出整图渲染目标，再交给重写后的 `_pick_api_size` 钳制到合法 API 尺寸。
+- `_pick_api_size` 重写：常量化 API 尺寸约束（最大边 ≤3840、16 倍数、长短边比 ≤3:1、总像素 ∈ [655_360, 8_294_400]），新增 `_scale_to_api_constraints` / `_api_size_valid` / `_parse_size_string` 工具函数。当 sheet_pixel_size 已合法时**直接使用**而非硬挑主流档（避免窄长条 mosaic 被压成奇怪比例）；显式 size 字符串解析后会同步更新 `api_size_pixel`，杜绝字符串和像素维度对不上的旧 bug。`_SUPPORTED_API_SIZES` 同步加入 2K / 4K 档位。
+- `build_mosaic_prompt` 新增 `api_size_pixel` 参数与 `render_width / render_height / cell_render_width / cell_render_height / upscale` 五个新占位符；fallback prompt 改为同时声明像素艺术尺寸和渲染像素尺寸，并要求每个像素艺术像素绘制为 `{upscale}×{upscale}` 渲染像素的实心方块，引导模型在大画布上画出干净的色块。旧模板（只用 `sheet_width / frame_width`）仍向下兼容。
+
+### Fixed
+
+- 4×8 mosaic 原本会拿到 cell 渲染分辨率仅 128×128 的 1024×1024 原图，导致 perfect_pixel 网格检测不稳定 / 第 4 行被画空白 / 角色细节糊成一团。新算法下 4×8 64×64 mosaic 会渲染到 3072×1536（每 cell 384×384，每像素艺术像素占 6×6 渲染像素），4×8 48×64 渲染到 3072×2048（cell 384×512，每像素 8×8）。实测「人界邪修修士」4 行行走表 32 帧全部正确产出，4 个独立动作循环 GIF 都能播放。
+- `_projection_splits` 新增首尾空白 trim：当模型在画布顶部/底部留了大段空白带（典型 case：3 行人物 + 底部 1 行空白条），切线先按内容区均分，避免最后一行 cell 切到全空白区。
+
+
 ## [1.54.1] - 2026-05-30
 
 ### Added

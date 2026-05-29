@@ -131,28 +131,211 @@ _SUPPORTED_API_SIZES: tuple[tuple[int, int], ...] = (
     (1024, 1536),
     (1536, 1024),
     (1536, 1536),
-    (2048, 2048),
+    (2048, 1152),
+    (1152, 2048),
     (2048, 1536),
     (1536, 2048),
+    (2048, 2048),
+    (3840, 2160),
+    (2160, 3840),
 )
 
 
-def _pick_api_size(sheet_pixel_size: tuple[int, int], explicit: str | None) -> tuple[str, tuple[int, int]]:
-    """根据整图像素挑选最近且不小于其总像素的 API 尺寸档。
+# 模型生图尺寸约束（与 OpenAI gpt-image-2 / 通用图像 API 对齐）：
+#   - 长短边都是 16 的倍数
+#   - 最大边 ≤ 3840
+#   - 长短边比 ≤ 3:1
+#   - 总像素 ≥ 655_360 且 ≤ 8_294_400
+_API_SIZE_MULTIPLE = 16
+_API_SIZE_MAX_SIDE = 3840
+_API_SIZE_MAX_RATIO = 3.0
+_API_SIZE_MIN_PIXELS = 655_360
+_API_SIZE_MAX_PIXELS = 8_294_400
+# 每个像素艺术像素至少占多少渲染像素：上采样系数。8 是模型能稳定画出大块色块、
+# 又不至于让小尺寸 sprite mosaic 撑爆 3840 上限的折中值。
+_RENDER_UPSCALE_PRIMARY = 8
+_RENDER_UPSCALE_FALLBACK = 6
+_RENDER_UPSCALE_FLOOR = 4
+# 即便每像素上采样系数已经退到 4，也要保证整体 sheet 至少有这么多渲染像素，
+# 防止 8×1 之类极端窄长 mosaic 被压成 1024×128 之类的退化档。
+_API_MIN_LONG_SIDE = 1024
 
-    - 如果用户/配置显式给了 size 字符串（且不是 auto），原样使用。
-    - 否则在内置档位中挑面积最接近且 ≥ 实际整图面积的那一档。
-    - 都不满足时退回 1024x1024。
+
+def _round_to_multiple(value: float, multiple: int) -> int:
+    safe_multiple = max(1, int(multiple))
+    return int(round(value / safe_multiple)) * safe_multiple
+
+
+def _ceil_to_multiple_int(value: float, multiple: int) -> int:
+    safe_multiple = max(1, int(multiple))
+    return int(-(-int(round(value)) // safe_multiple)) * safe_multiple
+
+
+def _api_size_valid(width: int, height: int) -> bool:
+    if width <= 0 or height <= 0:
+        return False
+    if width % _API_SIZE_MULTIPLE != 0 or height % _API_SIZE_MULTIPLE != 0:
+        return False
+    if max(width, height) > _API_SIZE_MAX_SIDE:
+        return False
+    long_side = max(width, height)
+    short_side = min(width, height)
+    if short_side == 0 or long_side / short_side > _API_SIZE_MAX_RATIO:
+        return False
+    pixels = width * height
+    if pixels < _API_SIZE_MIN_PIXELS or pixels > _API_SIZE_MAX_PIXELS:
+        return False
+    return True
+
+
+def _scale_to_api_constraints(width: float, height: float) -> tuple[int, int] | None:
+    """把任意整图渲染目标尺寸钳制到合法 API 尺寸。
+
+    步骤：
+    1. 钳制最大边到 3840（按比例缩短长边）；同时把任一边裁到 ≤ 3*另一边。
+    2. 圆整到 16 的倍数。
+    3. 检查总像素：超过上限按比例缩、低于下限按比例放（再次圆整 + 钳制最大边）。
+    4. 返回不能满足全部约束时返回 None。
     """
+    if width <= 0 or height <= 0:
+        return None
+    w, h = float(width), float(height)
+    # 1) 长边 / 比例钳制
+    long_side = max(w, h)
+    if long_side > _API_SIZE_MAX_SIDE:
+        scale = _API_SIZE_MAX_SIDE / long_side
+        w, h = w * scale, h * scale
+    if w / h > _API_SIZE_MAX_RATIO:
+        w = h * _API_SIZE_MAX_RATIO
+    elif h / w > _API_SIZE_MAX_RATIO:
+        h = w * _API_SIZE_MAX_RATIO
+    # 2) 圆整到 16 的倍数（先 ceil，避免低于期望渲染分辨率太多）
+    iw = max(_API_SIZE_MULTIPLE, _ceil_to_multiple_int(w, _API_SIZE_MULTIPLE))
+    ih = max(_API_SIZE_MULTIPLE, _ceil_to_multiple_int(h, _API_SIZE_MULTIPLE))
+    # 3) 像素总量校正
+    pixels = iw * ih
+    if pixels > _API_SIZE_MAX_PIXELS:
+        scale = (_API_SIZE_MAX_PIXELS / pixels) ** 0.5
+        iw = max(_API_SIZE_MULTIPLE, _round_to_multiple(iw * scale, _API_SIZE_MULTIPLE))
+        ih = max(_API_SIZE_MULTIPLE, _round_to_multiple(ih * scale, _API_SIZE_MULTIPLE))
+    if iw * ih < _API_SIZE_MIN_PIXELS:
+        scale = (_API_SIZE_MIN_PIXELS / max(1, iw * ih)) ** 0.5
+        iw = _ceil_to_multiple_int(iw * scale, _API_SIZE_MULTIPLE)
+        ih = _ceil_to_multiple_int(ih * scale, _API_SIZE_MULTIPLE)
+    # 重新检查长边与比例（可能被像素下限抬升后超过）
+    if max(iw, ih) > _API_SIZE_MAX_SIDE:
+        long_scale = _API_SIZE_MAX_SIDE / max(iw, ih)
+        iw = _round_to_multiple(iw * long_scale, _API_SIZE_MULTIPLE)
+        ih = _round_to_multiple(ih * long_scale, _API_SIZE_MULTIPLE)
+    if iw == 0 or ih == 0:
+        return None
+    if iw / ih > _API_SIZE_MAX_RATIO or ih / iw > _API_SIZE_MAX_RATIO:
+        return None
+    return int(iw), int(ih)
+
+
+def _parse_size_string(text: str) -> tuple[int, int] | None:
+    """解析 "WxH" / "W*H" / "WxH " 等字符串到 (w, h)；解析失败返回 None。"""
+    if not text:
+        return None
+    norm = text.strip().lower().replace("*", "x").replace("×", "x")
+    parts = norm.split("x")
+    if len(parts) != 2:
+        return None
+    try:
+        w = int(parts[0].strip())
+        h = int(parts[1].strip())
+    except ValueError:
+        return None
+    if w <= 0 or h <= 0:
+        return None
+    return w, h
+
+
+def _pick_api_size(sheet_pixel_size: tuple[int, int], explicit: str | None) -> tuple[str, tuple[int, int]]:
+    """根据整图像素挑选合法 API 尺寸；显式 size 直接尊重。
+
+    - 如果用户/配置显式给了合法 size 字符串（且不是 auto），原样使用，并把字符串解析
+      到像素返回（确保 api_size_str 与 api_size_pixel 一致）；非法显式值回退自动计算。
+    - 否则：
+      1) 如果传入的 sheet_pixel_size 本身已经满足全部 API 约束，**直接使用它**
+         （比例与渲染像素都是为 mosaic 量身算出来的，硬挑主流档反而会让窄长条
+         mosaic 拿到 cell 比例严重失衡的画布）。
+      2) 否则按约束钳制到合法尺寸。
+      3) 极端失败时退回 1024×1024。
+    """
+    target_w = max(1, int(sheet_pixel_size[0]))
+    target_h = max(1, int(sheet_pixel_size[1]))
+
     if explicit and explicit.strip().lower() not in {"", "auto"}:
-        return explicit.strip(), sheet_pixel_size
-    target_pixels = max(1, sheet_pixel_size[0]) * max(1, sheet_pixel_size[1])
-    candidates = sorted(_SUPPORTED_API_SIZES, key=lambda wh: wh[0] * wh[1])
-    for w, h in candidates:
-        if w * h >= target_pixels:
-            return f"{w}x{h}", (w, h)
-    w, h = candidates[-1]
-    return f"{w}x{h}", (w, h)
+        text = explicit.strip()
+        parsed = _parse_size_string(text)
+        if parsed is not None and _api_size_valid(*parsed):
+            return f"{parsed[0]}x{parsed[1]}", parsed
+        # 解析失败或违反 API 尺寸约束时，不再把非法值直传给生图 API；
+        # 回退到自动尺寸，避免 400 / 422。
+
+    # 1) sheet_pixel_size 已合法 → 圆整到 16 倍数后直接用
+    iw = _round_to_multiple(target_w, _API_SIZE_MULTIPLE)
+    ih = _round_to_multiple(target_h, _API_SIZE_MULTIPLE)
+    if _api_size_valid(iw, ih):
+        return f"{iw}x{ih}", (iw, ih)
+
+    # 2) 按约束钳制
+    scaled = _scale_to_api_constraints(target_w, target_h)
+    if scaled is not None and _api_size_valid(*scaled):
+        return f"{scaled[0]}x{scaled[1]}", scaled
+
+    # 3) 兜底
+    return "1024x1024", (1024, 1024)
+
+
+def _compute_render_target(
+    target_size: tuple[int, int],
+    rows: int,
+    cols: int,
+) -> tuple[int, int]:
+    """按「每像素艺术像素 ≥ N 渲染像素」算出整图理想渲染尺寸。
+
+    依次尝试 8× / 6× / 4× 上采样，挑第一个满足 API 合法约束（≤3840、≤8.3M 像素、
+    ≤3:1）的方案。如果连 4× 都装不下，按 4× 计算并交给 _scale_to_api_constraints
+    去钳制（最终会落到比 4× 更小但仍合法的尺寸，至少不再是 2× 那种渲染不动的）。
+
+    特殊处理「极窄长条 mosaic」（1×N 或 8×1）：当原始比例 > 3:1 时，
+    通过加大短边把比例补到 3:1，而不是缩小长边——cell 上下/左右多出的空白远比
+    "cell 被压扁/拉长" 对模型更友好（模型仍能在每个 cell 内画出正常 sprite，
+    后续 _split_sheet_to_cells 会用前景投影自动剪掉多余空白带）。
+    """
+    safe_target_w = max(1, int(target_size[0]))
+    safe_target_h = max(1, int(target_size[1]))
+    safe_rows = max(1, int(rows))
+    safe_cols = max(1, int(cols))
+    for upscale in (_RENDER_UPSCALE_PRIMARY, _RENDER_UPSCALE_FALLBACK, _RENDER_UPSCALE_FLOOR):
+        sheet_w = safe_target_w * safe_cols * upscale
+        sheet_h = safe_target_h * safe_rows * upscale
+        # 极窄长条：补短边到 3:1
+        long_side = max(sheet_w, sheet_h)
+        short_side = min(sheet_w, sheet_h)
+        if short_side > 0 and long_side / short_side > _API_SIZE_MAX_RATIO:
+            min_short = int(round(long_side / _API_SIZE_MAX_RATIO))
+            if sheet_w >= sheet_h:
+                sheet_h = max(sheet_h, min_short)
+            else:
+                sheet_w = max(sheet_w, min_short)
+        if (
+            max(sheet_w, sheet_h) <= _API_SIZE_MAX_SIDE
+            and sheet_w * sheet_h <= _API_SIZE_MAX_PIXELS
+            and (max(sheet_w, sheet_h) / max(1, min(sheet_w, sheet_h))) <= _API_SIZE_MAX_RATIO + 1e-6
+        ):
+            # 还要 ≥ 最小像素 + 最小长边
+            if sheet_w * sheet_h >= _API_SIZE_MIN_PIXELS and max(sheet_w, sheet_h) >= _API_MIN_LONG_SIDE:
+                return sheet_w, sheet_h
+            # 像素太少：按 _API_MIN_LONG_SIDE 抬升后再返回
+            scale = max(_API_MIN_LONG_SIDE / max(sheet_w, sheet_h), (_API_SIZE_MIN_PIXELS / max(1, sheet_w * sheet_h)) ** 0.5)
+            return int(sheet_w * scale), int(sheet_h * scale)
+    # 4× 也装不下时返回 4× 期望，让 _pick_api_size + _scale_to_api_constraints 钳制
+    return safe_target_w * safe_cols * _RENDER_UPSCALE_FLOOR, safe_target_h * safe_rows * _RENDER_UPSCALE_FLOOR
+
 
 
 def _normalize_pixelize_size(value: Any, fallback: tuple[int, int]) -> tuple[int, int]:
@@ -175,8 +358,19 @@ def _resolve_settings(cfg: AppConfig, inputs: SpriteMosaicInput, description: st
         raise ValueError("rows × cols 必须 ≥ 1")
 
     target_size = _normalize_pixelize_size(inputs.pixelize_params.output_size, tuple(sprite.pixel_size))
+    # sheet_pixel_size 仍按「像素艺术粒度」表达（用于后续切图、贴 canvas、debug），
+    # 而 API 渲染分辨率单独按上采样系数算出来再选档：每个像素艺术像素至少
+    # 占 8 渲染像素（必要时退到 6×/4×），让模型能稳定画出大块色块、避免
+    # perfect_pixel 在低分辨率下检测不稳。
+    #
+    # 注意：sprite mosaic 不再继承 image_gen.size 当默认值——image_gen.size 通常被
+    # 配置为 1024×1024 给 icon 直出用，对 4×8 mosaic 显然不够。只有 inputs.image_size
+    # （来自前端 SpriteParamsSchema）显式给出且非 auto 时才尊重用户选择，否则按
+    # rows×cols 自动算出最优渲染档。
     sheet_pixel_size = (target_size[0] * cols, target_size[1] * rows)
-    api_size, api_size_pixel = _pick_api_size(sheet_pixel_size, inputs.image_size or cfg.image_gen.size)
+    render_target = _compute_render_target(target_size, rows, cols)
+    explicit_size = inputs.image_size  # 不再 fallback 到 cfg.image_gen.size
+    api_size, api_size_pixel = _pick_api_size(render_target, explicit_size)
 
     fps = max(1, int(inputs.fps or sprite.fps))
     duration_ms = max(20, int(inputs.duration_ms if inputs.duration_ms is not None else round(1000 / fps)))
@@ -225,6 +419,7 @@ def build_mosaic_prompt(
     row_prompts: list[str],
     sheet_pixel_size: tuple[int, int],
     frame_pixel_size: tuple[int, int],
+    api_size_pixel: tuple[int, int] | None = None,
     key_color: str,
     key_tolerance: int,
     max_colors: int,
@@ -235,6 +430,16 @@ def build_mosaic_prompt(
     base_template = (getattr(sprite_cfg, "mosaic_prompt_template", "") or "").strip()
     reference_template = (getattr(sprite_cfg, "mosaic_reference_prompt_template", "") or "").strip()
     safe_row_prompts = _ensure_row_prompts(row_prompts, rows, description)
+    # 渲染尺寸（API 实际生图画布）：每个像素艺术像素占多少渲染像素
+    render_w = int(api_size_pixel[0]) if api_size_pixel else int(sheet_pixel_size[0])
+    render_h = int(api_size_pixel[1]) if api_size_pixel else int(sheet_pixel_size[1])
+    safe_cols = max(1, int(cols))
+    safe_rows = max(1, int(rows))
+    cell_render_w = max(1, render_w // safe_cols)
+    cell_render_h = max(1, render_h // safe_rows)
+    upscale_w = max(1, cell_render_w // max(1, int(frame_pixel_size[0])))
+    upscale_h = max(1, cell_render_h // max(1, int(frame_pixel_size[1])))
+    upscale = max(1, min(upscale_w, upscale_h))
     values = {
         "description": description.strip(),
         "rows": int(rows),
@@ -244,6 +449,12 @@ def build_mosaic_prompt(
         "frame_height": int(frame_pixel_size[1]),
         "sheet_width": int(sheet_pixel_size[0]),
         "sheet_height": int(sheet_pixel_size[1]),
+        # 新增渲染分辨率占位符：模板可选用，旧模板向下兼容
+        "render_width": render_w,
+        "render_height": render_h,
+        "cell_render_width": cell_render_w,
+        "cell_render_height": cell_render_h,
+        "upscale": upscale,
         "row_block": _format_row_block(safe_row_prompts),
         "green": key_color,
         "key_color": key_color,
@@ -276,15 +487,18 @@ def _fallback_mosaic_prompt(**values: Any) -> str:
         "Create a TRUE pixel-art sprite sheet for the following subject. "
         f"Subject: {values['description']}. "
         f"Layout: an exact {values['rows']}x{values['cols']} grid of sprites, read left-to-right then top-to-bottom. "
-        f"Total canvas: {values['sheet_width']}x{values['sheet_height']} pixels. "
-        f"Each cell is exactly {values['frame_width']}x{values['frame_height']} pixels and aligned to the grid. "
+        f"Render the entire image at exactly {values['render_width']}x{values['render_height']} render pixels; "
+        f"every cell occupies {values['cell_render_width']}x{values['cell_render_height']} render pixels. "
+        f"Each cell represents a {values['frame_width']}x{values['frame_height']} pixel-art sprite, so every pixel-art pixel "
+        f"must be drawn as a perfectly square block of {values['upscale']}x{values['upscale']} render pixels (no anti-aliasing inside the block). "
         f"Each row is one independent animation loop with {values['cols']} frames, listed below:\n{values['row_block']}\n"
         "Character/subject consistency: keep the same identity, palette, outline thickness, scale, and proportions across every cell. "
         f"Background: use pure solid key-color {values['green']} for ALL empty/background pixels for chroma-key removal; "
         f"keep visible colors outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
         f"Use no more than {values['max_colors']} visible subject colors; background color does not count. "
-        "Style: crisp pixel art, hard edges, limited palette, no painterly blending, no anti-aliased soft brush. Every pixel must be a perfect square aligned to the grid. "
-        f"Do not add text, watermark, UI, border, grid lines, labels, numbers, or shadows outside the subject. Do not draw extra frames outside the {values['rows']}x{values['cols']} grid."
+        "Style: crisp pixel art, hard edges, limited palette, no painterly blending, no anti-aliased soft brush. "
+        f"Do not add text, watermark, UI, border, grid lines, labels, numbers, or shadows outside the subject. "
+        f"Do not draw extra frames outside the {values['rows']}x{values['cols']} grid."
     )
 
 
@@ -419,8 +633,13 @@ def _key_color_foreground_mask(rgb: np.ndarray, key_rgb: tuple[int, int, int], t
 def _projection_splits(projection: np.ndarray, total: int, segments: int) -> np.ndarray:
     """根据 1D 投影找 `segments+1` 条切分线（含 0 与 total）。
 
-    在每条理论等分线附近的搜索窗口内挑前景像素最少的位置；如果窗口内有多个并列最小值，
-    取最靠近等分线的那个，保证切分线单调递增。
+    分两步：
+    1. 用前景投影定位整体主体的 `[content_start, content_end]` 区间，trim 掉首尾的
+       大段空白边距（典型 case：模型在 1024×1024 画布上画 3 行人物 + 底部空白条，
+       直接全图等分会把第 4 条切线落在尾部空白里，让最后一行 cell 全空）。
+    2. 在 trim 后的内容区间内对 `segments-1` 条内部切线均分，再在每条理论切线
+       附近的搜索窗口里挑前景像素最少的位置。
+    最外侧的两条切线仍固定为 0 与 total，保证完整覆盖原图。
     """
     safe_segments = max(1, int(segments))
     if safe_segments == 1 or total <= safe_segments:
@@ -431,13 +650,26 @@ def _projection_splits(projection: np.ndarray, total: int, segments: int) -> np.
         # 维度不匹配时退化
         return np.array([int(round(i * total / safe_segments)) for i in range(safe_segments + 1)], dtype=np.int64)
 
-    cell_size = total / safe_segments
-    # 搜索半径：cell 的 40%，至少 2 像素，让模型轻微出格也能被纠正
+    # 1. trim 首尾空白：投影 ≤ 阈值视为空白
+    fg_threshold = max(1, int(proj.max() * 0.005)) if proj.max() > 0 else 1
+    fg_mask = proj > fg_threshold
+    if fg_mask.any():
+        content_start = int(np.argmax(fg_mask))
+        content_end = total - int(np.argmax(fg_mask[::-1]))  # 排他上界
+    else:
+        content_start, content_end = 0, total
+    # 仅当首尾空白合计超过画布 5%（约 1/(2·cells) 个 cell）时才启用 trim
+    margin_total = content_start + (total - content_end)
+    if margin_total < int(total * 0.05):
+        content_start, content_end = 0, total
+    content_len = max(safe_segments, content_end - content_start)
+    cell_size = content_len / safe_segments
+    # 搜索半径：cell 的 40%，至少 2 像素
     search_radius = max(2, int(round(cell_size * 0.4)))
 
     splits: list[int] = [0]
     for i in range(1, safe_segments):
-        ideal = i * cell_size
+        ideal = content_start + i * cell_size
         lo = max(splits[-1] + 1, int(round(ideal - search_radius)))
         hi = min(total - (safe_segments - i), int(round(ideal + search_radius)))
         if hi <= lo:
@@ -553,6 +785,7 @@ def run_sprite_mosaic_pipeline(
         row_prompts=safe_row_prompts,
         sheet_pixel_size=settings.sheet_pixel_size,
         frame_pixel_size=settings.target_size,
+        api_size_pixel=settings.api_size_pixel,
         key_color=settings.key_color,
         key_tolerance=settings.key_tolerance,
         max_colors=settings.max_colors,
