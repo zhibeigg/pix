@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.51.0] - 2026-05-29
+
+### Added
+
+- 「原始生图」页加入可选「参考图」上传入口：
+  - 上传后提交切到 `job_type=image_to_image` + `source_only=true`，后端调 `/v1/images/edits` 单次出图，仍跳过候选生成、VL 评分与像素化后处理（行为与原 raw 文生图对齐）。
+  - 留空时仍走原 `text_to_image + source_only=true` 路径。
+  - 顶部 badge / 状态 Alert / 提交按钮文案在带参考图时切换为「图生图微调」并按 `image_to_image` 价位计费。
+- `RawImagePage` 的 `isRawImageJob` 同时识别 `image_to_image + source_only=true` 任务，让带参考图的原始生图任务也能在「最近」列表与历史展示中正确归位。
+
 ## [1.50.1] - 2026-05-29
 
 ### Removed
