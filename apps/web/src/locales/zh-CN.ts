@@ -384,6 +384,7 @@ export const zhCN = {
       description: '充值、退款、Bug 反馈与功能建议都可以来群里聊；同样欢迎晒图。',
       qqLabel: 'QQ 群',
       qqNumber: '293279981',
+      join: '一键加群',
       copy: '复制群号',
       copied: '已复制',
     },
