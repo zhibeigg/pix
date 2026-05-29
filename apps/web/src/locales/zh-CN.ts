@@ -379,6 +379,14 @@ export const zhCN = {
     checkout: {
       opened: '支付宝支付页已打开。支付完成后请回到 Pix 刷新订单状态。',
     },
+    community: {
+      title: '用户交流群',
+      description: '充值、退款、Bug 反馈与功能建议都可以来群里聊；同样欢迎晒图。',
+      qqLabel: 'QQ 群',
+      qqNumber: '293279981',
+      copy: '复制群号',
+      copied: '已复制',
+    },
     orders: {
       title: '充值订单',
       empty: '暂无充值订单。',

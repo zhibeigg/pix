@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Download, RotateCcw, Search } from 'lucide-react'
+import { Copy, Download, RotateCcw, Search, Users } from 'lucide-react'
 import { useI18n } from '../i18n'
 import type { CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, PaymentCheckout, PaymentOrder } from '../types'
 import { formatDateTime } from '../lib/utils'
@@ -54,6 +54,8 @@ export function CreditPanel({ balance, transactions, packages, customRechargeOpt
       <div className="grid gap-6">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><PixMetric label={t('billing.account.available')} value={balance?.available_credits ?? '—'} /><PixMetric label={t('billing.account.reserved')} value={balance?.reserved_credits ?? '—'} /><PixMetric label={t('billing.account.totalRecharged')} value={balance?.total_recharged ?? '—'} tone="success" /><PixMetric label={t('billing.account.totalSpent')} value={balance?.total_consumed ?? '—'} tone="warning" /></div>
 
+        <CommunityCard />
+
         <section className="grid gap-3">
           <div className="flex flex-wrap items-end justify-between gap-3"><div><h3 className="text-lg font-semibold">{t('billing.packages.title')}</h3><p className="text-sm text-muted-foreground">{t('billing.packages.description')}</p></div><Badge variant="outline">{t('billing.packages.priority')}</Badge></div>
           <div className="grid gap-3 md:grid-cols-3">{packages.map((item) => { const recommended = item.key === 'pro'; return <article key={item.key} className={`rounded-lg border p-4 ${recommended ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}><div className="grid gap-4"><div><div className="flex items-center gap-2"><h4 className="font-semibold">{item.name}</h4>{recommended && <Badge>{t('common.recommended')}</Badge>}</div><p className="mt-2 text-3xl font-semibold">{item.credits}<span className="ml-1 text-sm text-muted-foreground">{t('common.creditUnit')}</span></p><p className="text-sm text-muted-foreground">{money(item.amount_cents, item.currency)}</p></div><div className="flex flex-wrap gap-2"><Button onClick={() => onCheckout(item.key, 'alipay')}>{t('billing.packages.payAlipay')}</Button>{isAdmin && <Button variant="ghost" onClick={() => onCreateOrder(item.key)}>{t('billing.packages.createMockOrder')}</Button>}</div></div></article> })}</div>
@@ -91,6 +93,45 @@ export function CreditPanel({ balance, transactions, packages, customRechargeOpt
 function TopUpOrders({ orders, isAdmin, onMockPayOrder }: { orders: PaymentOrder[]; isAdmin: boolean; onMockPayOrder: (orderId: number) => Promise<void> }) {
   const { t } = useI18n()
   return <section className="grid gap-3"><h3 className="text-lg font-semibold">{t('billing.orders.title')}</h3>{orders.length === 0 ? <p className="text-sm text-muted-foreground">{t('billing.orders.empty')}</p> : orders.map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4"><div><p className="font-bold">{t('billing.orders.order', { id: order.id })}</p><p className="text-sm text-muted-foreground">{t('common.points', { count: order.credits })} · {money(order.amount_cents, order.currency)} · {formatDateTime(order.created_at)}</p></div><div className="flex items-center gap-2"><Badge variant={order.status === 'paid' ? 'success' : 'warning'}>{order.status}</Badge>{isAdmin && order.status !== 'paid' && <Button size="sm" onClick={() => onMockPayOrder(order.id)}>{t('billing.orders.mockPay')}</Button>}</div></div>)}</section>
+}
+
+function CommunityCard() {
+  const { t } = useI18n()
+  const qq = t('billing.community.qqNumber')
+  const [copied, setCopied] = useState(false)
+  const handleCopy = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(qq)
+      } else {
+        const el = document.createElement('textarea')
+        el.value = qq
+        el.setAttribute('readonly', '')
+        el.style.position = 'fixed'
+        el.style.opacity = '0'
+        document.body.appendChild(el)
+        el.select()
+        document.execCommand('copy')
+        document.body.removeChild(el)
+      }
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // 复制失败时静默；用户仍可手动选中数字
+    }
+  }
+  return (
+    <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Users className="h-4 w-4" /></span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-2"><h3 className="text-base font-semibold leading-tight">{t('billing.community.title')}</h3><span className="text-xs text-muted-foreground">{t('billing.community.qqLabel')}</span><span className="font-mono text-lg font-semibold tracking-wide text-foreground">{qq}</span></div>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{t('billing.community.description')}</p>
+        </div>
+        <Button type="button" size="sm" variant={copied ? 'secondary' : 'outline'} onClick={handleCopy} aria-live="polite"><Copy className="h-3.5 w-3.5" />{copied ? t('billing.community.copied') : t('billing.community.copy')}</Button>
+      </div>
+    </section>
+  )
 }
 
 function CreditLedgerTable({ balance, transactions, onRefresh }: { balance: CreditBalance | null; transactions: CreditTransaction[]; onRefresh: () => void }) {
