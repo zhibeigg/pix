@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.56.0] - 2026-05-30
+
+### Added
+
+- 作品库序列帧卡片支持多动作切换：当后端返回 `sprite_rows_outputs[]`（多行 mosaic，每行一个动作循环）时，卡片顶部自动展示「N 个动作」徽标，并在标题区下方展示动作标签。点击「正面行走 / 右侧行走 / 背面行走 / 左侧拔剑」等标签会切换卡片预览到对应行的独立 GIF / row sheet，不再只能播放整条总序列。
+- 动作标签会从 `action_phase` 自动提取方向与动作关键词（中英文均支持：front/right/back/left、walk/idle/attack/slash/draw、正面/右侧/背面/左侧、行走/待机/攻击/拔剑），提取失败时回退为「动作 N」。
+
 ## [1.55.1] - 2026-05-30
 
 ### Changed

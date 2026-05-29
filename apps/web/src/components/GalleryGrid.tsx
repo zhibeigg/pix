@@ -47,11 +47,16 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
   const { language, t } = useI18n()
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
   const downloadOptions = output ? buildDownloadOptions(job, output, t) : []
+  const rowActions = output ? spriteRowActions(output, t, language) : []
+  const [selectedActionIndex, setSelectedActionIndex] = useState(0)
+  const selectedAction = rowActions[selectedActionIndex] ?? rowActions[0]
   const [alignmentOpen, setAlignmentOpen] = useState(false)
   const [savingAlignment, setSavingAlignment] = useState(false)
   const isActive = isActiveJob(job)
-  const previewUrl = isActive ? null : output ? signedFileUrl(output.pixelized_url || output.preview_url || output.source_url || undefined) : signedFileUrl(job.input_image_url)
-  const spriteSheetUrl = isActive ? null : signedFileUrl(output?.sprite_sheet_url || undefined)
+  const actionPreviewUrl = selectedAction ? signedFileUrl(selectedAction.gifUrl || selectedAction.sheetUrl || undefined) : null
+  const previewUrl = isActive ? null : actionPreviewUrl ?? (output ? signedFileUrl(output.pixelized_url || output.preview_url || output.source_url || undefined) : signedFileUrl(job.input_image_url))
+  const spriteSheetUrl = isActive || selectedAction ? null : signedFileUrl(output?.sprite_sheet_url || undefined)
+  const spriteFrames = selectedAction ? [] : (output?.sprite_frames ?? [])
   const spriteFps = spriteFpsFromJob(job)
   const typeLabel = jobTypeLabel(job.job_type, language)
   const sizeTag = jobPixelSizeTag(job, output)
@@ -91,14 +96,18 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
       }}
       className={`cursor-pointer overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/55 hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[hsl(var(--pix-dark-card))] ${isActive ? 'pix-work-card-loading' : ''} ${selected ? 'border-primary shadow-[0_4px_12px_rgba(15,15,15,0.08)] ring-2 ring-primary/15' : job.status === 'failed' ? 'border-destructive/40' : 'border-border dark:border-[hsl(var(--pix-dark-hairline))]'}`}
     >
-      <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={output?.sprite_frames ?? []} fps={spriteFps} fallbackUrl={previewUrl} loading={isActive} label={isActive ? jobStatusLabel(job, t) : job.status === 'succeeded' ? 'PIX' : t('gallery.waitingOutput')} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" imageClassName="absolute inset-0 h-full max-h-none w-full p-0 bg-contain" ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div></SpriteSequencePreview>
+      <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={spriteFrames} fps={spriteFps} fallbackUrl={previewUrl} loading={isActive} label={isActive ? jobStatusLabel(job, t) : selectedAction ? selectedAction.label : job.status === 'succeeded' ? 'PIX' : t('gallery.waitingOutput')} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" imageClassName="absolute inset-0 h-full max-h-none w-full p-0 bg-contain" ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div></SpriteSequencePreview>
       <div className="grid gap-2.5 p-3">
         <div className="grid gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant="outline">#{job.id}</Badge>
             <Badge variant="secondary" className="dark:border-[hsl(var(--pix-brand-purple-300)/.24)] dark:bg-[hsl(var(--pix-brand-purple-800)/.42)] dark:text-[hsl(var(--pix-brand-purple-300))]">{typeLabel}</Badge>
+            {rowActions.length > 1 && <Badge variant="outline">{t('gallery.actionCount', { count: rowActions.length })}</Badge>}
             {sizeTag && <Badge variant="outline" className={pixelSizeBadgeClass(sizeTag.size)} title={sizeTag.title}>{sizeTag.label}</Badge>}
           </div>
+          {rowActions.length > 1 && <div className="flex flex-wrap gap-1.5" aria-label={t('gallery.actionTags')}>
+            {rowActions.map((action, index) => <button key={`${job.id}-action-${action.rowIndex}`} type="button" title={action.title} className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${index === selectedActionIndex ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-muted/45 text-muted-foreground hover:border-primary/45 hover:text-foreground dark:border-[hsl(var(--pix-dark-hairline))]'}`} onClick={(event) => { event.stopPropagation(); setSelectedActionIndex(index) }}>{action.label}</button>)}
+          </div>}
           <div>
             <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{displayName}</h3>
             <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{summary}</p>
@@ -238,6 +247,45 @@ function CandidateMiniGrid({ job, output, onCandidatePixelize }: { job: Generati
   const { t } = useI18n()
   if (!output.candidates?.length) return null
   return <div className="grid grid-cols-3 gap-2">{output.candidates.slice(0, 9).map((candidate) => <button type="button" key={candidate.path} className="rounded-lg border border-border bg-muted/35 p-1.5 text-xs dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]" onClick={(event) => { event.stopPropagation(); void onCandidatePixelize?.(job, candidate) }} title={candidate.reason ?? undefined}><img src={signedFileUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={t('gallery.candidate', { index: candidate.index })} className="mx-auto aspect-square w-full object-contain [image-rendering:pixelated]" /><span>{candidate.rank ? `#${candidate.rank}` : t('gallery.candidate', { index: candidate.index })}</span></button>)}</div>
+}
+
+type SpriteRowAction = { rowIndex: number; label: string; title: string; gifUrl: string | null; sheetUrl: string | null }
+
+function spriteRowActions(output: JobOutput, t: (key: string, options?: Record<string, unknown>) => string, language: string): SpriteRowAction[] {
+  const rows = Array.isArray(output.sprite_rows_outputs) ? output.sprite_rows_outputs : []
+  return rows.flatMap((row, index) => {
+    const hasPreview = Boolean(row.gif_url || row.sheet_url)
+    if (!hasPreview) return []
+    const rowIndex = Number.isFinite(Number(row.row_index)) ? Number(row.row_index) : index
+    const phase = typeof row.action_phase === 'string' ? row.action_phase.trim() : ''
+    return [{
+      rowIndex,
+      label: actionLabelFromPhase(phase, rowIndex, t, language),
+      title: phase || t('gallery.actionFallback', { index: rowIndex + 1 }),
+      gifUrl: row.gif_url ?? null,
+      sheetUrl: row.sheet_url ?? null,
+    }]
+  })
+}
+
+function actionLabelFromPhase(phase: string, rowIndex: number, t: (key: string, options?: Record<string, unknown>) => string, language: string) {
+  const text = phase.toLowerCase()
+  const zh = language.toLowerCase().startsWith('zh')
+  const direction = /正面|front|forward|facing camera/.test(text) ? (zh ? '正面' : 'Front')
+    : /背面|背部|back|away/.test(text) ? (zh ? '背面' : 'Back')
+      : /右侧|向右|right/.test(text) ? (zh ? '右侧' : 'Right')
+        : /左侧|向左|left/.test(text) ? (zh ? '左侧' : 'Left')
+          : ''
+  const action = /拔剑|draw/.test(text) ? (zh ? '拔剑' : 'Draw')
+    : /攻击|挥砍|slash|attack|sword/.test(text) ? (zh ? '攻击' : 'Attack')
+      : /待机|idle|stand/.test(text) ? (zh ? '待机' : 'Idle')
+        : /行走|走|walk/.test(text) ? (zh ? '行走' : 'Walk')
+          : ''
+  const label = [direction, action].filter(Boolean).join(zh ? '' : ' ')
+  if (label) return label
+  const cleaned = phase.replace(/^row\s*\d+\s*[:：-]?\s*/i, '').replace(/\s+/g, ' ').trim()
+  if (cleaned) return clampText(cleaned, 12)
+  return t('gallery.actionFallback', { index: rowIndex + 1 })
 }
 
 function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: string, options?: Record<string, unknown>) => string): DownloadOption[] {
