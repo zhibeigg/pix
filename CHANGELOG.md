@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.54.1] - 2026-05-30
+
+### Added
+
+- 充值页（点数中心）顶部新增「用户交流群」卡片：展示 QQ 群号 `293279981`，带「复制群号」按钮（复制后短暂显示「已复制」），覆盖 zh-CN 与 en 两套文案。卡片放在账户指标行下方、固定套餐之上，让用户进入充值页第一眼就能看到反馈/退款渠道。
+
 ## [1.54.0] - 2026-05-30
 
 ### Added
