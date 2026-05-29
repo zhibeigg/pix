@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.56.1] - 2026-05-29
+
+### Fixed
+
+- 作品库多行动作卡片点击「调整」时，现在会按当前选中的动作标签只打开该行帧（例如 4×8 中只编辑当前 8 帧），编辑器标题会显示当前动作与帧数，不再误把整套 32 帧传入调整流程。
+- 序列帧对齐保存后会保留 mosaic 的 `row/col` 网格信息，并重新生成对齐版本的 `row_sheets/row_NN.png` 与 `previews/row_NN.gif`，确保保存后动作标签预览立即指向调整后的当前行产物。
+
 ## [1.56.0] - 2026-05-30
 
 ### Added

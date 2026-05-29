@@ -447,6 +447,7 @@ export const zhCN = {
     retrying: '重试中…',
     delete: '删除',
     alignFrames: '调整',
+    alignActionTitle: '调整当前动作：{{action}}',
     actionCount: '{{count}} 个动作',
     actionTags: '动作标签',
     actionFallback: '动作 {{index}}',
@@ -458,7 +459,9 @@ export const zhCN = {
   },
   alignment: {
     title: '调整序列帧',
+    titleWithAction: '调整动作：{{action}}',
     description: '拖动当前帧让主体和半透明影子对齐；滚轮可缩放当前帧主体；右侧会实时播放调整后的动画。保存会一并写入帧率与缩放，但不会重新生图、不额外扣点。',
+    descriptionWithAction: '当前只调整「{{action}}」这 {{count}} 帧；拖动当前帧让主体和半透明影子对齐，滚轮可缩放当前帧主体。保存后会重建对应动作的行预览。',
   },
   downloads: {
     image: '下载图片',
