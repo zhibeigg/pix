@@ -447,6 +447,7 @@ export const en = {
     retrying: 'Retrying…',
     delete: 'Delete',
     alignFrames: 'Adjust',
+    alignActionTitle: 'Adjust current action: {{action}}',
     actionCount: '{{count}} actions',
     actionTags: 'Action tags',
     actionFallback: 'Action {{index}}',
@@ -458,7 +459,9 @@ export const en = {
   },
   alignment: {
     title: 'Adjust sequence',
+    titleWithAction: 'Adjust action: {{action}}',
     description: 'Drag the current frame against the translucent onion-skin reference; mouse wheel scales the current frame; the preview plays live. Saving also persists fps and per-frame scale, but does not regenerate AI images or spend credits.',
+    descriptionWithAction: 'Only the {{count}} frames for “{{action}}” are being adjusted. Saving rebuilds the row preview for that action.',
   },
   downloads: {
     image: 'Download images',

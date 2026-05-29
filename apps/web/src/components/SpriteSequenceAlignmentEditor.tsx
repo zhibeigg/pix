@@ -55,7 +55,9 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
   const dragRef = useRef<DragState | null>(null)
 
   const selectedFrame = frames.find((frame) => Number(frame.index) === selectedIndex) ?? frames[0]
+  const selectedPosition = Math.max(1, frameIndexes.indexOf(selectedIndex) + 1)
   const selectedOffset = offsetFor(offsets, selectedIndex)
+
   const selectedScale = scaleFor(scales, selectedIndex)
   const selectedImage = images.get(selectedIndex)
   const selectedSourceSize = imageSourceSize(selectedImage, frameSize)
@@ -287,7 +289,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,.7fr)]">
         <section className="grid gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="info">{text(`第 ${selectedIndex} / ${frameIndexes.length} 帧`, `Frame ${selectedIndex} / ${frameIndexes.length}`)}</Badge>
+            <Badge variant="info">{selectedIndex === selectedPosition ? text(`第 ${selectedPosition} / ${frameIndexes.length} 帧`, `Frame ${selectedPosition} / ${frameIndexes.length}`) : text(`第 ${selectedPosition} / ${frameIndexes.length} 帧（全局 #${selectedIndex}）`, `Frame ${selectedPosition} / ${frameIndexes.length} (global #${selectedIndex})`)}</Badge>
             <Badge variant="outline">{frameSize.width}×{frameSize.height}</Badge>
             <Badge variant={Math.abs(selectedScale - 1) < 1e-3 ? 'muted' : 'info'}>{`${selectedScale.toFixed(2)}×`}</Badge>
             <Badge variant="outline">{text(`影子：第 ${ghostIndex} 帧`, `Ghost: frame ${ghostIndex}`)}</Badge>
@@ -364,7 +366,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={copyGhostOffset}><Copy />{text('复制影子偏移', 'Copy ghost offset')}</Button>
           <Button type="button" variant="outline" onClick={() => alignTo(ghostIndex)}><Crosshair />{text('底部对齐影子', 'Align to ghost')}</Button>
-          <Button type="button" variant="outline" onClick={() => alignTo(frameIndexes[0])}><Crosshair />{text('对齐第 1 帧', 'Align to frame 1')}</Button>
+          <Button type="button" variant="outline" onClick={() => alignTo(frameIndexes[0])}><Crosshair />{text('对齐本组首帧', 'Align to group first frame')}</Button>
           <Button type="button" variant="outline" disabled={!selectedVisibleBounds} onClick={() => snapVisiblePixels('left')}>{text('吸附左边', 'Snap left')}</Button>
           <Button type="button" variant="outline" disabled={!selectedVisibleBounds} onClick={() => snapVisiblePixels('right')}>{text('吸附右边', 'Snap right')}</Button>
           <Button type="button" variant="outline" disabled={!selectedVisibleBounds} onClick={() => snapVisiblePixels('top')}>{text('吸附上边', 'Snap top')}</Button>

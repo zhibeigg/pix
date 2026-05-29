@@ -49,7 +49,9 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
   const downloadOptions = output ? buildDownloadOptions(job, output, t) : []
   const rowActions = output ? spriteRowActions(output, t, language) : []
   const [selectedActionIndex, setSelectedActionIndex] = useState(0)
-  const selectedAction = rowActions[selectedActionIndex] ?? rowActions[0]
+  const safeSelectedActionIndex = rowActions.length > 0 ? Math.min(selectedActionIndex, rowActions.length - 1) : 0
+  const selectedAction = rowActions[safeSelectedActionIndex]
+  const alignmentOutput = useMemo(() => output ? actionScopedOutput(output, selectedAction) : undefined, [output, selectedAction])
   const [alignmentOpen, setAlignmentOpen] = useState(false)
   const [savingAlignment, setSavingAlignment] = useState(false)
   const isActive = isActiveJob(job)
@@ -106,7 +108,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
             {sizeTag && <Badge variant="outline" className={pixelSizeBadgeClass(sizeTag.size)} title={sizeTag.title}>{sizeTag.label}</Badge>}
           </div>
           {rowActions.length > 1 && <div className="flex flex-wrap gap-1.5" aria-label={t('gallery.actionTags')}>
-            {rowActions.map((action, index) => <button key={`${job.id}-action-${action.rowIndex}`} type="button" title={action.title} className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${index === selectedActionIndex ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-muted/45 text-muted-foreground hover:border-primary/45 hover:text-foreground dark:border-[hsl(var(--pix-dark-hairline))]'}`} onClick={(event) => { event.stopPropagation(); setSelectedActionIndex(index) }}>{action.label}</button>)}
+            {rowActions.map((action, index) => <button key={`${job.id}-action-${action.rowIndex}`} type="button" title={action.title} className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${index === safeSelectedActionIndex ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-muted/45 text-muted-foreground hover:border-primary/45 hover:text-foreground dark:border-[hsl(var(--pix-dark-hairline))]'}`} onClick={(event) => { event.stopPropagation(); setSelectedActionIndex(index) }}>{action.label}</button>)}
           </div>}
           <div>
             <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{displayName}</h3>
@@ -120,8 +122,8 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
           <Button size="sm" variant={selected ? 'default' : 'outline'} onClick={(event) => { event.stopPropagation(); onSelect(job) }}>{selected ? t('gallery.expanded') : t('gallery.details')}</Button>
           {output && <JobParameterSnapshotDialog job={job} output={output} />}
           {!output && <JobParameterSnapshotDialog job={job} />}
-          {job.status === 'succeeded' && output && output.sprite_frames.length > 0 && onSaveSequenceAlignment && <Dialog open={alignmentOpen} onOpenChange={setAlignmentOpen}>
-            <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); setAlignmentOpen(true) }}><Crosshair />{t('gallery.alignFrames')}</Button>
+          {job.status === 'succeeded' && output && alignmentOutput && alignmentOutput.sprite_frames.length > 0 && onSaveSequenceAlignment && <Dialog open={alignmentOpen} onOpenChange={setAlignmentOpen}>
+            <Button size="sm" variant="outline" title={selectedAction ? t('gallery.alignActionTitle', { action: selectedAction.label }) : t('gallery.alignFrames')} onClick={(event) => { event.stopPropagation(); setAlignmentOpen(true) }}><Crosshair />{t('gallery.alignFrames')}</Button>
             <DialogPortal>
               <DialogOverlay />
               <DialogPrimitive.Content
@@ -141,12 +143,12 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
               >
                 <div className="shrink-0 border-b border-border px-6 py-5 pr-12 dark:border-[hsl(var(--pix-dark-hairline))]">
                   <DialogHeader>
-                    <DialogTitle>{t('alignment.title')}</DialogTitle>
-                    <DialogDescription>{t('alignment.description')}</DialogDescription>
+                    <DialogTitle>{selectedAction ? t('alignment.titleWithAction', { action: selectedAction.label }) : t('alignment.title')}</DialogTitle>
+                    <DialogDescription>{selectedAction ? t('alignment.descriptionWithAction', { action: selectedAction.label, count: alignmentOutput.sprite_frames.length }) : t('alignment.description')}</DialogDescription>
                   </DialogHeader>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-                  <SpriteSequenceAlignmentEditor job={job} output={output} saving={savingAlignment} onSave={saveAlignment} />
+                  <SpriteSequenceAlignmentEditor job={job} output={alignmentOutput} saving={savingAlignment} onSave={saveAlignment} />
                 </div>
                 <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
                   <X className="h-4 w-4" />
@@ -249,7 +251,20 @@ function CandidateMiniGrid({ job, output, onCandidatePixelize }: { job: Generati
   return <div className="grid grid-cols-3 gap-2">{output.candidates.slice(0, 9).map((candidate) => <button type="button" key={candidate.path} className="rounded-lg border border-border bg-muted/35 p-1.5 text-xs dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]" onClick={(event) => { event.stopPropagation(); void onCandidatePixelize?.(job, candidate) }} title={candidate.reason ?? undefined}><img src={signedFileUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={t('gallery.candidate', { index: candidate.index })} className="mx-auto aspect-square w-full object-contain [image-rendering:pixelated]" /><span>{candidate.rank ? `#${candidate.rank}` : t('gallery.candidate', { index: candidate.index })}</span></button>)}</div>
 }
 
-type SpriteRowAction = { rowIndex: number; label: string; title: string; gifUrl: string | null; sheetUrl: string | null }
+type SpriteRowAction = { rowIndex: number; frameIndices: number[]; label: string; title: string; gifUrl: string | null; sheetUrl: string | null }
+
+function actionScopedOutput(output: JobOutput, action?: SpriteRowAction): JobOutput {
+  if (!action) return output
+  const indexSet = new Set(action.frameIndices)
+  let frames = indexSet.size > 0
+    ? output.sprite_frames.filter((frame) => indexSet.has(Number(frame.index)))
+    : []
+  if (frames.length === 0) {
+    frames = output.sprite_frames.filter((frame) => Number(frame.row) === action.rowIndex)
+  }
+  if (frames.length === 0) return output
+  return { ...output, sprite_frames: frames.sort((a, b) => Number(a.index) - Number(b.index)) }
+}
 
 function spriteRowActions(output: JobOutput, t: (key: string, options?: Record<string, unknown>) => string, language: string): SpriteRowAction[] {
   const rows = Array.isArray(output.sprite_rows_outputs) ? output.sprite_rows_outputs : []
@@ -260,6 +275,7 @@ function spriteRowActions(output: JobOutput, t: (key: string, options?: Record<s
     const phase = typeof row.action_phase === 'string' ? row.action_phase.trim() : ''
     return [{
       rowIndex,
+      frameIndices: Array.isArray(row.frame_indices) ? row.frame_indices.map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0) : [],
       label: actionLabelFromPhase(phase, rowIndex, t, language),
       title: phase || t('gallery.actionFallback', { index: rowIndex + 1 }),
       gifUrl: row.gif_url ?? null,
