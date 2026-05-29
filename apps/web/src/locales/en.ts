@@ -384,6 +384,7 @@ export const en = {
       description: 'Top-ups, refunds, bug reports and feature requests — all welcome. Share your sprites too.',
       qqLabel: 'QQ group',
       qqNumber: '293279981',
+      join: 'Join group',
       copy: 'Copy group ID',
       copied: 'Copied',
     },

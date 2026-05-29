@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Copy, Download, RotateCcw, Search, Users } from 'lucide-react'
+import { Copy, Download, ExternalLink, RotateCcw, Search, Users } from 'lucide-react'
 import { useI18n } from '../i18n'
 import type { CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, PaymentCheckout, PaymentOrder } from '../types'
 import { formatDateTime } from '../lib/utils'
@@ -98,7 +98,11 @@ function TopUpOrders({ orders, isAdmin, onMockPayOrder }: { orders: PaymentOrder
 function CommunityCard() {
   const { t } = useI18n()
   const qq = t('billing.community.qqNumber')
+  const joinUrl = `mqqapi://card/show_pslcard?src_type=internal&version=1&uin=${encodeURIComponent(qq)}&card_type=group&source=external`
   const [copied, setCopied] = useState(false)
+  const handleJoin = () => {
+    window.location.href = joinUrl
+  }
   const handleCopy = async () => {
     try {
       if (navigator.clipboard?.writeText) {
@@ -125,10 +129,10 @@ function CommunityCard() {
       <div className="flex flex-wrap items-center gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Users className="h-4 w-4" /></span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-2"><h3 className="text-base font-semibold leading-tight">{t('billing.community.title')}</h3><span className="text-xs text-muted-foreground">{t('billing.community.qqLabel')}</span><span className="font-mono text-lg font-semibold tracking-wide text-foreground">{qq}</span></div>
+          <div className="flex flex-wrap items-baseline gap-2"><h3 className="text-base font-semibold leading-tight">{t('billing.community.title')}</h3><span className="text-xs text-muted-foreground">{t('billing.community.qqLabel')}</span><button type="button" className="font-mono text-lg font-semibold tracking-wide text-primary underline-offset-4 hover:underline" onClick={handleJoin}>{qq}</button></div>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">{t('billing.community.description')}</p>
         </div>
-        <Button type="button" size="sm" variant={copied ? 'secondary' : 'outline'} onClick={handleCopy} aria-live="polite"><Copy className="h-3.5 w-3.5" />{copied ? t('billing.community.copied') : t('billing.community.copy')}</Button>
+        <div className="flex flex-wrap gap-2"><Button type="button" size="sm" onClick={handleJoin}><ExternalLink className="h-3.5 w-3.5" />{t('billing.community.join')}</Button><Button type="button" size="sm" variant={copied ? 'secondary' : 'outline'} onClick={handleCopy} aria-live="polite"><Copy className="h-3.5 w-3.5" />{copied ? t('billing.community.copied') : t('billing.community.copy')}</Button></div>
       </div>
     </section>
   )

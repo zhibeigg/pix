@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.55.1] - 2026-05-30
+
+### Changed
+
+- 充值页「用户交流群」卡片增强：QQ 群号 `293279981` 现在可点击，新增「一键加群」按钮，使用 `mqqapi://card/show_pslcard?...&uin=293279981&card_type=group` 尝试唤起本机/手机 QQ 加群；保留「复制群号」作为浏览器拦截协议或未安装 QQ 时的兜底。
+
 ## [1.55.0] - 2026-05-30
 
 ### Changed
