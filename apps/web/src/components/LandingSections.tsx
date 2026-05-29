@@ -1,9 +1,10 @@
-import { memo, useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
-import { Check, Copy, Download } from 'lucide-react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { Check, Copy, Download, Pause, Play } from 'lucide-react'
 import { useI18n } from '../i18n'
 import { homepageExampleIconSizes, homepageExampleItemIcons, getHomepageIconsForExample, type HomepageExampleItemIcon } from '../homepageIconExamples'
 import { homepageExampleCategories, homepageExamples, getHomepageExampleItemSubject, getHomepageExampleItemSubjectPrompt, getHomepageExampleLabel, type HomepageExample } from '../homepageExamples'
 import { homepageTextureExamples, homepageTextureCategoriesInUse, getHomepageTextureLabel, type HomepageTextureExample, type HomepageTextureCategory } from '../homepageTextureExamples'
+import { homepageSpriteExamples, homepageSpriteCategoriesInUse, getHomepageSpriteLabel, type HomepageSpriteExample, type HomepageSpriteCategory } from '../homepageSpriteExamples'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 
@@ -13,7 +14,7 @@ type LandingSectionsProps = { authSlot: ReactNode }
 type IconSizeFilter = 'all' | string
 type CategoryFilter = 'all' | string
 type ThemeFilter = 'all' | string
-type AssetTypeTab = 'item_icon' | 'tile_texture'
+type AssetTypeTab = 'item_icon' | 'tile_texture' | 'sprite_sheet'
 type ItemContextMenuHandler = (icon: HomepageExampleItemIcon, event: MouseEvent<HTMLElement>) => void
 type ExampleItemActionTarget = {
   icon: HomepageExampleItemIcon
@@ -25,7 +26,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
   const { text } = useI18n()
   return (
     <>
-      <SectionFrame id="examples" eyebrow={text('范例图鉴', 'Sample atlas')} title={text('按资产类型分类浏览：物品图标 + 平铺纹理', 'Browse by asset type: item icons + tileable textures')} description={text('物品图标按尺寸 / 大类 / 风格筛选 608 张全流程重生成 PNG；平铺纹理为新近上线的 tile_texture 类型，模型一次出图、铺满画布、四边无缝拼接，真实在游戏地图里反复平铺。', 'Item icons cover 608 fully regenerated PNGs filtered by size / category / theme. Tileable textures are the newly added tile_texture asset kind: a single API call fills the whole canvas with seamlessly tileable artwork.')}>
+      <SectionFrame id="examples" eyebrow={text('范例图鉴', 'Sample atlas')} title={text('按资产类型分类浏览：物品图标 + 平铺纹理 + 序列帧', 'Browse by asset type: item icons + tileable textures + sprite sheets')} description={text('物品图标按尺寸 / 大类 / 风格筛选 608 张全流程重生成 PNG；平铺纹理一次出图、铺满画布、四边无缝拼接；序列帧用单图 mosaic 模式一次性产出 N 帧动画 sprite sheet，前端用 CSS 切帧实时播放。', 'Item icons cover 608 fully regenerated PNGs filtered by size / category / theme. Tileable textures fill the whole canvas with seamless tiling in one API call. Sprite sheets use the single-image mosaic mode to produce all frames in one shot, then play live in the browser via CSS frame stepping.')}>
         <ExampleAtlas />
       </SectionFrame>
 
@@ -43,9 +44,10 @@ function ExampleAtlas() {
         <span className="px-2 text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{text('资产类型', 'Asset type')}</span>
         <AssetTypeChip active={assetType === 'item_icon'} onClick={() => setAssetType('item_icon')}>{text('物品图标', 'Item icons')}<span className="ml-2 opacity-60">{homepageExampleItemIcons.length}</span></AssetTypeChip>
         <AssetTypeChip active={assetType === 'tile_texture'} onClick={() => setAssetType('tile_texture')}>{text('平铺纹理', 'Tile textures')}<span className="ml-2 opacity-60">{homepageTextureExamples.length}</span></AssetTypeChip>
+        <AssetTypeChip active={assetType === 'sprite_sheet'} onClick={() => setAssetType('sprite_sheet')}>{text('序列帧', 'Sprite sheets')}<span className="ml-2 opacity-60">{homepageSpriteExamples.length}</span></AssetTypeChip>
       </div>
 
-      {assetType === 'item_icon' ? <IconAtlas /> : <TextureAtlas />}
+      {assetType === 'item_icon' ? <IconAtlas /> : assetType === 'tile_texture' ? <TextureAtlas /> : <SpriteAtlas />}
     </div>
   )
 }
@@ -302,6 +304,165 @@ const TextureCard = memo(function TextureCard({ example }: { example: HomepageTe
         <div className="mt-3 flex flex-wrap gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => downloadStaticFile(example.src, `${example.id}.png`)}><Download />{text('下载', 'Download')}</Button>
           <Button type="button" size="sm" variant="outline" onClick={() => void handleCopy()}>{copied ? <Check /> : <Copy />}{copied ? text('已复制', 'Copied') : text('复制 Prompt', 'Copy prompt')}</Button>
+        </div>
+      </div>
+    </article>
+  )
+})
+
+type SpriteCategoryFilter = 'all' | HomepageSpriteCategory
+
+function SpriteAtlas() {
+  const { language, text } = useI18n()
+  const [categoryFilter, setCategoryFilter] = useState<SpriteCategoryFilter>('all')
+  const filtered = useMemo(
+    () => homepageSpriteExamples.filter((ex) => categoryFilter === 'all' || ex.category === categoryFilter),
+    [categoryFilter],
+  )
+  return (
+    <div className="grid gap-6">
+      <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] md:p-8">
+        <div className="grid items-start gap-6 lg:grid-cols-[.86fr_1.14fr]">
+          <div>
+            <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('序列帧', 'Sprite sheet')}</Badge>
+            <h3 className="mt-5 text-3xl font-semibold md:text-5xl">{text('一次 API 出图，rows×cols 全帧 mosaic 直出', 'One API call: every frame in a single rows×cols mosaic')}</h3>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('序列帧走 mosaic 单图模式：1 次生图就能拿到 rows×cols 网格上的所有动画帧，后处理切片、对齐、抠色、像素化一气呵成，落盘的是一条横向 sprite sheet。卡片左侧是产物原图，右侧是浏览器内 CSS background-position 切帧实时播放，不依赖 GIF。', 'Sprite sheets use the mosaic single-image mode: a single API call produces every frame of a rows×cols grid; post-processing slices, aligns, keys out the background, and pixelizes them into one horizontal sprite sheet. The left side of each card shows the raw sheet; the right side plays it live in the browser with CSS background-position frame stepping — no GIF needed.')}</p>
+          </div>
+          <div className="grid gap-3 rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/60 p-4 dark:border-white/10 dark:bg-white/7">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <AtlasStat label={text('当前命中', 'Showing')} value={filtered.length} />
+              <AtlasStat label={text('全部序列帧', 'Total sprites')} value={homepageSpriteExamples.length} />
+              <AtlasStat label={text('题材分类', 'Categories')} value={homepageSpriteCategoriesInUse.length} />
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 grid gap-4">
+          <FilterGroup label={text('题材分类', 'Category')}>
+            <FilterChip active={categoryFilter === 'all'} onClick={() => setCategoryFilter('all')}>{text('全部分类', 'All categories')}</FilterChip>
+            {homepageSpriteCategoriesInUse.map((cat) => {
+              const count = homepageSpriteExamples.filter((ex) => ex.category === cat).length
+              const sample = homepageSpriteExamples.find((ex) => ex.category === cat)
+              const label = sample ? getHomepageSpriteLabel(sample, language).category : cat
+              return <FilterChip key={cat} active={categoryFilter === cat} onClick={() => setCategoryFilter(cat)}>{label}<span className="ml-1 opacity-60">{count}</span></FilterChip>
+            })}
+          </FilterGroup>
+        </div>
+      </div>
+
+      {filtered.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((example) => <SpriteCard key={example.id} example={example} />)}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
+          <p className="text-base font-semibold text-foreground">{text('没有匹配的序列帧', 'No matching sprite sheets')}</p>
+          <Button type="button" variant="outline" onClick={() => setCategoryFilter('all')} className="mt-4">{text('查看全部', 'Show all')}</Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpriteExample }) {
+  const { language, text } = useI18n()
+  const [copied, setCopied] = useState(false)
+  const [playing, setPlaying] = useState(true)
+  const [frameIndex, setFrameIndex] = useState(0)
+  const previewRef = useRef<HTMLDivElement | null>(null)
+  const [previewWidth, setPreviewWidth] = useState(0)
+  const label = getHomepageSpriteLabel(example, language)
+  const sheetSize = `${example.sheetWidth}×${example.sheetHeight}`
+  const frameSize = `${example.frameWidth}×${example.frameHeight}`
+
+  useEffect(() => {
+    const node = previewRef.current
+    if (!node) return
+    const update = () => setPreviewWidth(node.clientWidth)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!playing || example.frameCount <= 1) return
+    const interval = window.setInterval(() => {
+      setFrameIndex((current) => (current + 1) % example.frameCount)
+    }, Math.max(40, Math.round(1000 / Math.max(1, example.fps))))
+    return () => window.clearInterval(interval)
+  }, [playing, example.frameCount, example.fps])
+
+  // 单帧整数倍放大：以预览容器宽度为准，按整数倍缩放避免亚像素糊。
+  const previewScale = previewWidth > 0 ? Math.max(1, Math.floor(previewWidth / example.frameWidth)) : 1
+  const renderedFrame = example.frameWidth * previewScale
+  const renderedSheetForPreview = example.sheetWidth * previewScale
+  const offsetX = -frameIndex * renderedFrame
+
+  async function handleCopy() {
+    const ok = await copyTextToClipboard(label.prompt)
+    setCopied(ok)
+    if (ok) window.setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <article className="rounded-lg border border-border bg-card p-3 transition hover:-translate-y-0.5 hover:border-primary/55 hover:shadow-[0_10px_24px_-18px_rgba(15,15,15,0.45)] dark:bg-[hsl(var(--pix-dark-card))]">
+      <a href={example.src} target="_blank" rel="noreferrer" className="block" title={text(`打开 ${label.theme} sprite sheet 原图`, `Open source sprite sheet for ${label.theme}`)}>
+        <div className="pix-checkerboard grid h-24 place-items-center overflow-hidden rounded-md border border-border bg-card p-2 dark:bg-[hsl(var(--pix-dark-band))]">
+          <img
+            src={example.src}
+            alt={text(`${label.theme} sprite sheet 原图，${example.frameCount} 帧`, `${label.theme} raw sprite sheet, ${example.frameCount} frames`)}
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            className="block max-h-full max-w-full [image-rendering:pixelated]"
+          />
+        </div>
+      </a>
+      <div className="mt-1.5 flex items-center justify-between text-[10px] font-mono text-muted-foreground">
+        <span>{text(`原图 ${sheetSize}`, `Sheet ${sheetSize}`)}</span>
+        <span>{text(`${example.frameCount} 帧 · 单帧 ${frameSize}`, `${example.frameCount} frames · ${frameSize} each`)}</span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-[140px_1fr] items-stretch gap-3">
+        <div className="grid gap-1">
+          <div className="pix-checkerboard relative aspect-square overflow-hidden rounded-md border border-border bg-muted/40 dark:bg-[hsl(var(--pix-dark-band))]">
+            <div
+              ref={previewRef}
+              role="img"
+              aria-label={text(`${label.theme} 序列帧预览，${example.frameCount} 帧 ${example.fps} fps`, `${label.theme} sprite preview, ${example.frameCount} frames at ${example.fps} fps`)}
+              className="absolute inset-0 grid place-items-center"
+            >
+              <div
+                className="bg-no-repeat [image-rendering:pixelated]"
+                style={{
+                  width: renderedFrame,
+                  height: example.frameHeight * previewScale,
+                  backgroundImage: `url(${example.src})`,
+                  backgroundSize: `${renderedSheetForPreview}px ${example.sheetHeight * previewScale}px`,
+                  backgroundPosition: `${offsetX}px 0px`,
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setPlaying((value) => !value)}
+              className="absolute bottom-1.5 right-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card/90 text-foreground shadow-sm transition hover:bg-card dark:bg-[hsl(var(--pix-dark-card))]/90"
+              aria-label={playing ? text('暂停', 'Pause') : text('播放', 'Play')}
+              title={playing ? text('暂停播放', 'Pause playback') : text('开始播放', 'Start playback')}
+            >
+              {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+          <p className="text-center font-mono text-[10px] text-muted-foreground">{text(`${example.fps} fps 实时预览`, `${example.fps} fps preview`)}</p>
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{label.subject}</p>
+          <p className="mt-1 truncate text-xs text-muted-foreground">{label.category} · {example.number}</p>
+          <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">{label.prompt}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={() => downloadStaticFile(example.src, `${example.id}.png`)}><Download />{text('下载', 'Download')}</Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => void handleCopy()}>{copied ? <Check /> : <Copy />}{copied ? text('已复制', 'Copied') : text('复制 Prompt', 'Copy prompt')}</Button>
+          </div>
         </div>
       </div>
     </article>
