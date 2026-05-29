@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.51.1] - 2026-05-29
+
+### Fixed
+
+- 平铺纹理 pipeline 修复 perfect_pixel 输出在「之上又被 NEAREST 强缩」的二次采样问题：之前会强制把 perfectPixel 自动检测的网格（如木板的 126×126）压回用户面板上选的 32×32，导致大量像素被合并、效果远不如 theamusing/perfectPixel webdemo。现在以 perfectPixel 自动检测结果为主，仅当 perfectPixel 完全没生效或输出仍接近原始 1024+ 时才退化到目标尺寸。
+- meta.json 同时记录 `pixel_size`（实际输出）与 `requested_pixel_size`（用户面板选的目标），便于排查与对账。
+- 预览图 (`04_preview.png`) 改为按"用户预期目标像素总宽度"反推预览倍数，避免 126×12 = 1512 这种过大的预览输出。
+
+### Changed
+
+- 首页平铺纹理卡片布局重排为左右等大方形格（aspect-square），左原图 contain、右 4×4 拼接预览（CSS `background-size: 25% 25%`），三张卡片不再因尺寸差异（64 vs 126）出现高度对齐错乱。
+- 首页「平铺纹理」介绍卡描述从写死的"32×32"改为"perfectPixel 自动检测（多为 32×32 ~ 128×128）"。
+- `homepageTextureExamples.ts` 中 3 张示例的 `width / height` 字段从写死的 32×32 更正为各自的真实 PNG 尺寸（64/126/64）。
+
 ## [1.51.0] - 2026-05-29
 
 ### Added
