@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.53.1] - 2026-05-29
+
+### Fixed
+
+- 注册面板不再"凭空识别"邀请码：之前邀请码会被持久化到 `localStorage.pix_referral_code`，导致用户即使从普通 URL 进站也一直被回填邀请码、看到「已识别邀请码 XXX」绿色提示。现在改为只信任当前 URL 的 `?aff=xxx`，启动时清理历史残留 key，不再写入 localStorage。后端 `bind_referral_invite` 本身已经禁止自引荐与重复绑定，无需变更。
+
+### Changed
+
+- AuthPanel 注册表单微调：Cloudflare Turnstile 控件移到密码字段下方、提交按钮上方；Turnstile 自身已带"成功 ✓ / 隐私 · 帮助"视觉提示，去掉外层冗余的「人机校验」label。点击「发送验证码」时若未完成校验，错误文案改为「请先在下方完成校验后再发送验证码」，引导用户向下滚动。
+
 ## [1.53.0] - 2026-05-29
 
 ### Added

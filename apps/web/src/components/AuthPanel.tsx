@@ -46,7 +46,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
   async function submit(event: FormEvent) { event.preventDefault(); if (isRegister) await onRegister(email, password, displayName, verificationCode, referralCode); else await onLogin(email, password) }
   async function requestCode() {
     if (!email.trim()) { setCodeError(text('请先填写邮箱', 'Enter your email first')); return }
-    if (turnstileActive && !turnstile.ready) { setCodeError(text('请先完成人机校验', 'Complete the human verification first')); return }
+    if (turnstileActive && !turnstile.ready) { setCodeError(text('请先在下方完成校验后再发送验证码', 'Scroll down and complete the verification before sending the code')); return }
     setSendingCode(true); setCodeMessage(''); setCodeError('')
     try {
       const r = await onRequestRegisterCode(email.trim(), turnstileActive ? turnstile.token : '')
@@ -81,12 +81,6 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
         <PixField label={text('邮箱', 'Email')}><Input type="email" value={email} autoComplete="email" onChange={(e) => setEmail(e.target.value)} required /></PixField>
         {isRegister && (
           <>
-            {turnstileActive && (
-              <PixField label={text('人机校验', 'Human verification')}>
-                <div ref={turnstile.containerRef} className="cf-turnstile min-h-[65px]" />
-                {turnstile.error && <Alert variant="destructive" className="mt-2">{turnstile.error}</Alert>}
-              </PixField>
-            )}
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
               <PixField label={text('邮箱验证码', 'Email verification code')}>
                 <Input value={verificationCode} autoComplete="one-time-code" inputMode="numeric" maxLength={6} onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required />
@@ -106,6 +100,12 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
         {codeMessage && <Alert variant="info">{codeMessage}</Alert>}{codeError && <Alert variant="destructive">{codeError}</Alert>}
         <PixField label={text('密码', 'Password')}><Input type="password" value={password} autoComplete={isRegister ? 'new-password' : 'current-password'} onChange={(e) => setPassword(e.target.value)} required /></PixField>
         {localTestLoginAvailable && <Alert variant="info" className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"><span>{text(`仅本地访问可用：用 ${localTestAccountEmail} 快速测试工作台。`, `Local access only: use ${localTestAccountEmail} to quickly test the workspace.`)}</span><Button type="button" variant="outline" onClick={onLocalTestLogin} disabled={loading}>{text('使用本地测试账号', 'Use local test account')}</Button></Alert>}
+        {isRegister && turnstileActive && (
+          <div className="grid gap-2">
+            <div ref={turnstile.containerRef} className="cf-turnstile min-h-[65px]" />
+            {turnstile.error && <Alert variant="destructive">{turnstile.error}</Alert>}
+          </div>
+        )}
         <Button type="submit" size="lg" disabled={loading}>{loading ? text('处理中…', 'Processing…') : isRegister ? text('验证并注册', 'Verify and register') : text('进入工作台', 'Enter workspace')}</Button>
 
       </form>
