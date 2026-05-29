@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.50.1] - 2026-05-29
+
+### Removed
+
+- 「原始生图」页描述文案去掉「像 Cherry Studio 生图一样」前缀，避免引用具体第三方品牌；保留功能说明本身。
+- 「素材直出 + 平铺纹理」面板下方的"模型直接铺满画布……"info Alert 删除，平铺纹理的语义已经通过素材类型选择 + 占位符提示自然表达，不需要额外赘述。
+
 ## [1.50.0] - 2026-05-29
 
 ### Removed
