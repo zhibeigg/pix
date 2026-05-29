@@ -24,9 +24,9 @@ from pix.api.image_gen import edit_image, generate_image
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
 from pix.cache import Cache
 from pix.config import AppConfig
-from pix.contact_sheet import parse_hex_color, resolve_key_color
+from pix.contact_sheet import parse_hex_color, remove_green_screen, resolve_key_color
 from pix.io_utils import new_run_dir, sha256_of_file
-from pix.pixelize.bg_removal import remove_background, remove_translucent_edge_halo
+from pix.pixelize.bg_removal import remove_translucent_edge_halo
 from pix.pixelize.core import PixelizeParams
 from pix.pixelize.perfect_pixel import preprocess_generated_image
 from pix.sprite import (
@@ -36,9 +36,9 @@ from pix.sprite import (
     _ceil_to_multiple,
     _paste_content_to_canvas,
     _rel,
-    _sprite_bg_removal_options,
     _visible_bbox,
     compose_gif,
+    compose_grid_sprite_sheet,
     compose_horizontal_sprite_sheet,
 )
 
@@ -459,38 +459,50 @@ def _extract_cell_content(
     cell: Image.Image,
     *,
     target_size: tuple[int, int],
+    key_rgb: tuple[int, int, int],
     key_tolerance: int,
     generated_preprocess_method: str | None,
 ) -> tuple[Image.Image, tuple[int, int, int, int] | None, dict[str, Any]]:
-    """对单个 cell 做 perfect-pixel + chroma-key + bbox 抠出。"""
+    """对单个 cell 做 perfect-pixel + chroma-key + bbox 抠出。
+
+    与 icon 直出一致：用显式传入的 ``key_rgb``（来自 prompt 解析）做 Color-to-Alpha
+    抠背景，而不是从 cell 四角采样。多行 mosaic 里主体经常溢出 cell 边界（长发、
+    裙摆、武器），cell 四角采样到的就不是 chroma-key 而是主体色，会导致背景没抠
+    干净或主体边缘被啃掉。
+    """
+    _ = cfg  # 保留参数以兼容历史调用方；当前实现固定用 contact_sheet 路径
     preprocessed = preprocess_generated_image(
         cell,
         method=generated_preprocess_method,
         target_size=target_size,
     )
     image = preprocessed.image.convert("RGBA")
-    alpha = remove_background(
+    # 复用 icon 直出的去背景算法：显式 key_rgb + 距离阈值硬抠 + Color-to-Alpha
+    # despill + 透明 RGB 置黑；序列帧紧贴 bbox，不需要外扩留白也不需要方形画布。
+    content, bbox = remove_green_screen(
         image,
+        green_rgb=key_rgb,
         tolerance=max(0, int(key_tolerance)),
-        feather=0,
-        edge_style="hard",
-        keep_border_bleed=True,
-        **_sprite_bg_removal_options(cfg, tolerance=key_tolerance),
+        crop_padding=0.0,
+        crop_square=False,
     )
-    alpha = remove_translucent_edge_halo(alpha)
-    bbox = _visible_bbox(alpha)
+    # 二次清理：剥掉透明边缘上残留的半透明 key 色光晕（缩放/量化产物）
+    content = remove_translucent_edge_halo(content, key_rgb=key_rgb)
     if bbox is None:
         return Image.new("RGBA", (1, 1), (0, 0, 0, 0)), None, {
             "preprocess": preprocessed.meta,
             "bbox": None,
-            "alpha_size": list(alpha.size),
+            "alpha_size": list(content.size),
+            "key_rgb": list(key_rgb),
+            "key_tolerance": int(key_tolerance),
         }
-    content = alpha.crop(bbox).convert("RGBA")
     return content, bbox, {
         "preprocess": preprocessed.meta,
-        "alpha_size": list(alpha.size),
+        "alpha_size": list(content.size),
         "bbox": list(bbox),
         "content_size": list(content.size),
+        "key_rgb": list(key_rgb),
+        "key_tolerance": int(key_tolerance),
     }
 
 
@@ -565,6 +577,9 @@ def run_sprite_mosaic_pipeline(
     final_dir = run_dir / "frames" / "final"
     sheet_raw_path = run_dir / "sprite_mosaic.png"
     sheet_path = run_dir / "sprite_sheet.png"
+    sheet_grid_path = run_dir / "sprite_sheet_grid.png"
+    row_sheets_dir = run_dir / "row_sheets"
+    row_previews_dir = run_dir / "previews"
     sequence_path = run_dir / "sequence.json"
     gif_path = run_dir / "sprite.gif"
     cache = Cache(cfg.cache.dir, enabled=cfg.cache.enabled and inputs.use_cache)
@@ -627,6 +642,7 @@ def run_sprite_mosaic_pipeline(
                 cfg,
                 cell,
                 target_size=settings.target_size,
+                key_rgb=key_rgb,
                 key_tolerance=settings.key_tolerance,
                 generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
             )
@@ -694,16 +710,66 @@ def run_sprite_mosaic_pipeline(
 
         compose_horizontal_sprite_sheet(frame_paths, sheet_path)
 
+        # 7.1 网格预览：rows × cols 二维 sheet，便于和原始 mosaic 对照
+        compose_grid_sprite_sheet(
+            frame_paths,
+            sheet_grid_path,
+            rows=settings.rows,
+            cols=settings.cols,
+            frame_size=effective_size,
+        )
+
+        # 7.2 按行产物：每行一张横向 sheet + 一个独立动画 GIF。
+        # rows>1 时强制生成行 GIF（多行 mosaic 的核心价值就是「每行一个动画循环」）；
+        # rows==1 时复用原 sprite.gif 即可，不再额外生成 row_01.gif，避免重复。
+        rows_outputs: list[dict[str, Any]] = []
+        force_row_previews = settings.rows > 1
+        if force_row_previews:
+            row_sheets_dir.mkdir(parents=True, exist_ok=True)
+            row_previews_dir.mkdir(parents=True, exist_ok=True)
+        for row_index in range(settings.rows):
+            start = row_index * settings.cols
+            end = start + settings.cols
+            row_frame_paths = frame_paths[start:end]
+            row_indices = list(range(start + 1, end + 1))
+            row_phase = safe_row_prompts[row_index] if row_index < len(safe_row_prompts) else ""
+            row_entry: dict[str, Any] = {
+                "row_index": row_index,
+                "frame_indices": row_indices,
+                "action_phase": row_phase,
+                "sheet": None,
+                "gif": None,
+            }
+            if force_row_previews and row_frame_paths:
+                row_sheet_path = row_sheets_dir / f"row_{row_index + 1:02d}.png"
+                compose_horizontal_sprite_sheet(row_frame_paths, row_sheet_path)
+                row_gif_path = row_previews_dir / f"row_{row_index + 1:02d}.gif"
+                compose_gif(
+                    row_frame_paths,
+                    row_gif_path,
+                    duration_ms=settings.duration_ms,
+                    loop=settings.loop,
+                )
+                row_entry["sheet"] = _rel(row_sheet_path, run_dir)
+                row_entry["gif"] = _rel(row_gif_path, run_dir)
+            rows_outputs.append(row_entry)
+
         preview_path: Path | None = None
         if settings.gif_export:
             compose_gif(frame_paths, gif_path, duration_ms=settings.duration_ms, loop=settings.loop)
             preview_path = gif_path
+        # 多行 mosaic 默认让首行 GIF 作为顶级预览（更直观），不强行覆盖 gif_export=true 的总动画。
+        if preview_path is None and force_row_previews and rows_outputs and rows_outputs[0]["gif"]:
+            preview_path = run_dir / rows_outputs[0]["gif"]
 
         notify("sprite_mosaic_outputs_ready", {
             "sheet": str(sheet_path),
+            "sheet_grid": str(sheet_grid_path),
             "mosaic_sheet": str(sheet_raw_path),
             "sequence": str(sequence_path),
             "gif": str(preview_path) if preview_path else None,
+            "row_count": len(rows_outputs),
+            "row_previews": [entry["gif"] for entry in rows_outputs if entry.get("gif")],
         })
 
     # 8. sequence.json + meta.json
@@ -715,7 +781,9 @@ def run_sprite_mosaic_pipeline(
         effective_size=effective_size,
         sheet_path=sheet_path,
         mosaic_sheet_path=sheet_raw_path,
+        sheet_grid_path=sheet_grid_path,
         row_prompts=safe_row_prompts,
+        rows_outputs=rows_outputs,
         billing=inputs.billing,
     )
 
@@ -729,6 +797,7 @@ def run_sprite_mosaic_pipeline(
         billing=inputs.billing,
         reference_image=inputs.reference_image_path,
         effective_frame_size=effective_size,
+        rows_outputs=rows_outputs,
     )
 
     meta = {
@@ -776,10 +845,14 @@ def run_sprite_mosaic_pipeline(
             "raw_frames_dir": _rel(raw_dir, run_dir),
             "frames_dir": _rel(final_dir, run_dir),
             "horizontal_sheet": sheet_path.name,
+            "grid_sheet": sheet_grid_path.name,
             "mosaic_sheet": sheet_raw_path.name,
             "sequence_json": sequence_path.name,
             "gif": gif_path.name if settings.gif_export else None,
             "frames": [_frame_metadata(frame, run_dir, cols=settings.cols, cell_meta=cell_meta) for frame in frames],
+            "rows_outputs": rows_outputs,
+            "row_sheets_dir": _rel(row_sheets_dir, run_dir) if row_sheets_dir.exists() else None,
+            "row_previews_dir": _rel(row_previews_dir, run_dir) if row_previews_dir.exists() else None,
             "sequence": sequence,
             "billing": inputs.billing or None,
             "use_reference": settings.use_reference,
@@ -789,11 +862,19 @@ def run_sprite_mosaic_pipeline(
             "source": _rel(sheet_raw_path, run_dir),
             "sprite_frames": _rel(final_dir, run_dir),
             "sprite_sheet": sheet_path.name,
+            "sprite_sheet_grid": sheet_grid_path.name,
             "sprite_mosaic": sheet_raw_path.name,
             "sequence_json": sequence_path.name,
             "sprite_gif": gif_path.name if settings.gif_export else None,
+            "row_sheets_dir": _rel(row_sheets_dir, run_dir) if row_sheets_dir.exists() else None,
+            "row_previews_dir": _rel(row_previews_dir, run_dir) if row_previews_dir.exists() else None,
+            "row_previews": [entry["gif"] for entry in rows_outputs if entry.get("gif")],
+            "row_sheets": [entry["sheet"] for entry in rows_outputs if entry.get("sheet")],
             "pixelized": sheet_path.name,
-            "preview": gif_path.name if settings.gif_export else None,
+            "preview": (
+                _rel(preview_path, run_dir) if preview_path is not None
+                else (gif_path.name if settings.gif_export else None)
+            ),
         },
     }
     meta_path = run_dir / "meta.json"
@@ -839,7 +920,9 @@ def _build_sequence_json(
     effective_size: tuple[int, int],
     sheet_path: Path,
     mosaic_sheet_path: Path,
+    sheet_grid_path: Path,
     row_prompts: list[str],
+    rows_outputs: list[dict[str, Any]],
     billing: dict[str, Any] | None,
 ) -> dict[str, Any]:
     sheet_size = (effective_size[0] * len(frames), effective_size[1])
@@ -860,6 +943,8 @@ def _build_sequence_json(
         "row_prompts": list(row_prompts),
         "playback_source": _rel(sheet_path, run_dir),
         "mosaic_source": _rel(mosaic_sheet_path, run_dir),
+        "grid_source": _rel(sheet_grid_path, run_dir),
+        "rows_outputs": rows_outputs,
         "billing": billing or None,
         "frames": [
             {
@@ -891,6 +976,7 @@ def _write_mosaic_debug(
     billing: dict[str, Any] | None,
     reference_image: Path | None,
     effective_frame_size: tuple[int, int] | None = None,
+    rows_outputs: list[dict[str, Any]] | None = None,
 ) -> None:
     effective = effective_frame_size or settings.target_size
     parts = [
@@ -930,6 +1016,14 @@ def _write_mosaic_debug(
         "[row_prompts]",
     ]
     parts.extend(f"row_{index + 1} = {phase}" for index, phase in enumerate(row_prompts))
+    if rows_outputs:
+        parts.extend(["", "[row_outputs]"])
+        for entry in rows_outputs:
+            row_index = int(entry.get("row_index", 0)) + 1
+            sheet = entry.get("sheet") or "(none)"
+            gif = entry.get("gif") or "(none)"
+            parts.append(f"row_{row_index} sheet = {sheet}")
+            parts.append(f"row_{row_index} gif = {gif}")
     parts.extend(["", "[billing]"])
     if billing:
         parts.extend(f"{key} = {value}" for key, value in billing.items())
