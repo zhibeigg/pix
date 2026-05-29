@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Upload } from 'lucide-react'
+import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import { defaultPixelize, summarizePrompt } from '../pixelize'
@@ -21,6 +22,7 @@ type Props = {
   balance: CreditBalance | null
   jobs: GenerationJob[]
   loading: boolean
+  token: string
   selectedJobId: number | null
   onSelectJob: (jobId: number) => void
   onCreateJob: (payload: JobCreateRequest) => Promise<void>
@@ -31,15 +33,21 @@ const imageSizes = ['1024x1024', '1536x1024', '1024x1536', '2048x1024', '1024x20
 const qualityOptions = ['auto', 'low', 'medium', 'high']
 const RAW_IMAGE_PROMPT_MAX_LENGTH = 3000
 
-export function RawImagePage({ pricing, balance, jobs, loading, selectedJobId, onSelectJob, onCreateJob, onRefresh }: Props) {
+export function RawImagePage({ pricing, balance, jobs, loading, token, selectedJobId, onSelectJob, onCreateJob, onRefresh }: Props) {
   const { text } = useI18n()
   const [model, setModel] = useState('gpt-image-2')
   const [imageSize, setImageSize] = useState('1024x1024')
   const [quality, setQuality] = useState('auto')
   const [prompt, setPrompt] = useState(() => text('生成一张 1024×1024 方形应用图标风格的奇幻 RPG 治疗药水，深翡翠背景，轮廓清晰，电影感光照。', 'Create one polished 1024x1024 square app icon artwork for a fantasy RPG healing potion, deep emerald background, crisp silhouette, cinematic lighting.'))
+  const [refImagePath, setRefImagePath] = useState('')
+  const [refImageUrl, setRefImageUrl] = useState('')
+  const [refUploading, setRefUploading] = useState(false)
+  const [refMessage, setRefMessage] = useState('')
   const rawJobs = useMemo(() => jobs.filter(isRawImageJob).sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at))), [jobs])
   const selectedJob = rawJobs.find((job) => job.id === selectedJobId) ?? rawJobs[0] ?? null
-  const price = pricing.find((item) => item.key === 'text_to_image')?.price_credits ?? 0
+  const hasReference = !!refImagePath
+  const billingKey = hasReference ? 'image_to_image' : 'text_to_image'
+  const price = pricing.find((item) => item.key === billingKey)?.price_credits ?? 0
   const promptTooLong = prompt.length > RAW_IMAGE_PROMPT_MAX_LENGTH
   const insufficientCredits = typeof balance?.available_credits === 'number' && balance.available_credits < price
   const isSelectedActive = selectedJob?.status === 'pending' || selectedJob?.status === 'running'
@@ -48,11 +56,26 @@ export function RawImagePage({ pricing, balance, jobs, loading, selectedJobId, o
   const mainImageLabel = failedError?.title ?? text('原始单图', 'Raw single image')
   const thumbs = useMemo(() => buildThumbs(rawJobs, selectedJob?.id ?? null), [rawJobs, selectedJob?.id])
 
+  async function uploadReferenceFile(file: File | undefined) {
+    if (!file) return
+    setRefUploading(true); setRefMessage(text('上传参考图…', 'Uploading reference…'))
+    try {
+      const uploaded = await api.uploadImage(token, file)
+      setRefImagePath(uploaded.path); setRefImageUrl(signedFileUrl(uploaded.url)); setRefMessage(text('参考图已就绪，提交后将以图生图模式生成。', 'Reference ready. Job will run as image-to-image on submit.'))
+    } catch (error) {
+      setRefMessage(error instanceof Error ? error.message : text('参考图上传失败', 'Reference upload failed'))
+    } finally { setRefUploading(false) }
+  }
+
+  function clearReference() {
+    setRefImagePath(''); setRefImageUrl(''); setRefMessage('')
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault()
     const basePrompt = prompt.trim()
     if (!basePrompt || insufficientCredits) return
-    await onCreateJob(buildRawPayload({ prompt: basePrompt, imageSize, quality, model }))
+    await onCreateJob(buildRawPayload({ prompt: basePrompt, imageSize, quality, model, referenceImagePath: refImagePath || null }))
   }
 
   return (
@@ -69,7 +92,24 @@ export function RawImagePage({ pricing, balance, jobs, loading, selectedJobId, o
             <PixField label={text('模型', 'Model')}><Select value={model} onValueChange={setModel}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="gpt-image-2">gpt-image-2</SelectItem></SelectContent></Select></PixField>
             <PixField label={text('图片尺寸', 'Image size')}><Select value={imageSize} onValueChange={setImageSize}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{imageSizes.map((size) => <SelectItem value={size} key={size}>{size}</SelectItem>)}</SelectContent></Select></PixField>
             <PixField label={text('质量', 'Quality')}><Select value={quality} onValueChange={setQuality}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{qualityOptions.map((item) => <SelectItem value={item} key={item}>{item}</SelectItem>)}</SelectContent></Select></PixField>
-            <Alert variant="info">{text('固定生成 1 张原图；后端会跳过候选图、VL 分析和像素化输出。', 'Always generates 1 source image; the backend skips candidates, vision analysis, and pixelized outputs.')}</Alert>
+            <PixField label={text('参考图（可选）', 'Reference image (optional)')} hint={text('上传后将以图生图模式生成；留空走文生图。', 'When provided, the job runs as image-to-image; leave empty for text-to-image.')}>
+              <div className="grid gap-2">
+                <Button type="button" variant="outline" asChild>
+                  <label className="cursor-pointer">
+                    <Upload />{refUploading ? text('上传中…', 'Uploading…') : refImagePath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadReferenceFile(event.currentTarget.files?.[0])} />
+                  </label>
+                </Button>
+                {refMessage && <Alert variant={refMessage.includes('失败') || refMessage.toLowerCase().includes('failed') ? 'destructive' : 'info'}>{refMessage}</Alert>}
+                {refImagePath && (
+                  <div className="grid gap-1">
+                    <PixPreviewFrame url={refImageUrl} loading={refUploading} label={text('参考图预览', 'Reference preview')} className="min-h-24" />
+                    <Button type="button" variant="ghost" size="sm" onClick={clearReference}>{text('移除参考图', 'Remove reference')}</Button>
+                  </div>
+                )}
+              </div>
+            </PixField>
+            <Alert variant="info">{hasReference ? text('已附带参考图：将走图生图（image-to-image）单次出图，仍跳过候选、VL 与像素化。', 'Reference attached: runs as image-to-image (single output) and still skips candidates, vision analysis, and pixelization.') : text('固定生成 1 张原图；后端会跳过候选图、VL 分析和像素化输出。', 'Always generates 1 source image; the backend skips candidates, vision analysis, and pixelized outputs.')}</Alert>
           </div>
 
           <div className="grid gap-4 rounded-lg border border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-paper-soft))] p-4 text-[hsl(var(--pix-ink))] shadow-[inset_0_1px_0_rgba(255,255,255,0.68)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_22px_70px_-46px_rgba(0,0,0,0.95)]">
@@ -86,12 +126,29 @@ export function RawImagePage({ pricing, balance, jobs, loading, selectedJobId, o
         </div>
       </PixPanel>
 
-      <PixPanel><div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_190px]"><div className="grid gap-2"><Textarea value={prompt} rows={5} required maxLength={RAW_IMAGE_PROMPT_MAX_LENGTH} onChange={(event) => setPrompt(event.target.value)} placeholder={text('描述你要生成的图片：主体、风格、构图、颜色、用途。', 'Describe the image: subject, style, composition, colors, and intended use.')} /><div className="flex justify-end text-xs text-muted-foreground">{prompt.length}/{RAW_IMAGE_PROMPT_MAX_LENGTH}</div></div><div className="grid content-between gap-3"><Badge variant="outline">{imageSize} · {quality} · {text('1 张', '1 image')}</Badge>{promptTooLong && <Badge variant="danger">{text('提示词最多 3000 字', 'Prompt max 3000 characters')}</Badge>}<Button type="submit" size="lg" disabled={loading || !prompt.trim() || promptTooLong || insufficientCredits}>{loading ? text('提交中…', 'Submitting…') : text('生成单图', 'Generate image')}</Button></div></div></PixPanel>
+      <PixPanel><div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_190px]"><div className="grid gap-2"><Textarea value={prompt} rows={5} required maxLength={RAW_IMAGE_PROMPT_MAX_LENGTH} onChange={(event) => setPrompt(event.target.value)} placeholder={text('描述你要生成的图片：主体、风格、构图、颜色、用途。', 'Describe the image: subject, style, composition, colors, and intended use.')} /><div className="flex justify-end text-xs text-muted-foreground">{prompt.length}/{RAW_IMAGE_PROMPT_MAX_LENGTH}</div></div><div className="grid content-between gap-3"><Badge variant="outline">{imageSize} · {quality} · {hasReference ? text('图生图', 'image-to-image') : text('1 张', '1 image')}</Badge>{promptTooLong && <Badge variant="danger">{text('提示词最多 3000 字', 'Prompt max 3000 characters')}</Badge>}<Button type="submit" size="lg" disabled={loading || !prompt.trim() || promptTooLong || insufficientCredits}>{loading ? text('提交中…', 'Submitting…') : hasReference ? text('图生图微调', 'Generate (image-to-image)') : text('生成单图', 'Generate image')}</Button></div></div></PixPanel>
     </form>
   )
 }
 
-function buildRawPayload({ prompt, imageSize, quality, model }: { prompt: string; imageSize: string; quality: string; model: string }): JobCreateRequest {
+function buildRawPayload({ prompt, imageSize, quality, model, referenceImagePath }: { prompt: string; imageSize: string; quality: string; model: string; referenceImagePath: string | null }): JobCreateRequest {
+  if (referenceImagePath) {
+    // 参考图存在时走 image_to_image。后端会调 /v1/images/edits 单次出图，
+    // source_only=true 让 pipeline 跳过候选 / VL / 像素化后处理，仅落原图。
+    return {
+      job_type: 'image_to_image',
+      prompt,
+      input_image_path: referenceImagePath,
+      client_request_id: `raw-i2i-${crypto.randomUUID()}`,
+      image_size: imageSize,
+      image_quality: quality,
+      image_model: model,
+      skip_vl: true,
+      source_only: true,
+      pixelize: { ...defaultPixelize, preview_scale: 0, remove_bg: false, auto_crop: false },
+      grid: { mode: 'off' },
+    }
+  }
   return {
     job_type: 'text_to_image',
     prompt,
@@ -110,7 +167,11 @@ function buildRawPayload({ prompt, imageSize, quality, model }: { prompt: string
 function isRawImageJob(job: GenerationJob) {
   const grid = job.params_json?.grid
   const gridMode = typeof grid === 'object' && grid !== null && 'mode' in grid ? (grid as { mode?: unknown }).mode : null
-  return job.job_type === 'text_to_image' && (job.params_json?.source_only === true || (job.params_json?.skip_vl === true && gridMode === 'off'))
+  // 文生图原始图：source_only=true 或 (skip_vl + grid=off)
+  if (job.job_type === 'text_to_image' && (job.params_json?.source_only === true || (job.params_json?.skip_vl === true && gridMode === 'off'))) return true
+  // 图生图原始图：source_only=true（与「调音 / AI 微调」走 image_to_image 但不带 source_only 的任务区分）
+  if (job.job_type === 'image_to_image' && job.params_json?.source_only === true) return true
+  return false
 }
 
 function firstOutput(job: GenerationJob | null | undefined) { return Array.isArray(job?.outputs) ? job.outputs[0] : undefined }
