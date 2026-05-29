@@ -38,7 +38,9 @@ type AppProps = {
 }
 
 const PHOTO_RETENTION_LIMIT = 10
-const REFERRAL_CODE_KEY = 'pix_referral_code'
+// 历史版本曾把邀请码持久化到 localStorage，会导致用户即使从普通 URL 进来也一直被"识别"为邀请。
+// 现在改为只信任当前 URL 的 ?aff=xxx，并在启动时清理历史残留。
+const LEGACY_REFERRAL_CODE_KEY = 'pix_referral_code'
 
 function referralCodeFromLocation() {
   const candidates: string[] = []
@@ -109,7 +111,13 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [setupLoading, setSetupLoading] = useState(true)
   const [page, setPage] = useState<AppPage>(() => pageFromHash(null))
   const [mode, setMode] = useState<WorkMode>('single')
-  const [referralCode, setReferralCode] = useState(() => referralCodeFromLocation() || localStorage.getItem(REFERRAL_CODE_KEY) || '')
+  const [referralCode, setReferralCode] = useState(() => {
+    // 启动时清掉历史持久化的邀请码，避免老用户每次进站都被误判为带邀请。
+    if (typeof window !== 'undefined') {
+      try { localStorage.removeItem(LEGACY_REFERRAL_CODE_KEY) } catch { /* ignore */ }
+    }
+    return referralCodeFromLocation()
+  })
   const [selectedPackId, setSelectedPackId] = useState<number | null>(null)
   const [selectedPackJobs, setSelectedPackJobs] = useState<GenerationJob[]>([])
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
@@ -227,7 +235,6 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   useEffect(() => {
     const fromUrl = referralCodeFromLocation()
     if (!fromUrl) return
-    localStorage.setItem(REFERRAL_CODE_KEY, fromUrl)
     setReferralCode(fromUrl)
   }, [])
 
@@ -342,7 +349,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setMessage('')
     try {
       await api.register(email, password, displayName, verificationCode, nextReferralCode)
-      localStorage.removeItem(REFERRAL_CODE_KEY)
+      try { localStorage.removeItem(LEGACY_REFERRAL_CODE_KEY) } catch { /* ignore */ }
       setReferralCode('')
       await login(email, password)
       await refreshSetupStatus()
