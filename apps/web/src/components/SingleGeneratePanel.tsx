@@ -96,6 +96,11 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
   const [uploadUrl, setUploadUrl] = useState('')
+  // 素材直出可选参考图
+  const [assetRefPath, setAssetRefPath] = useState('')
+  const [assetRefUrl, setAssetRefUrl] = useState('')
+  const [assetRefUploading, setAssetRefUploading] = useState(false)
+  const [assetRefMessage, setAssetRefMessage] = useState('')
   const [pixelSize, setPixelSize] = useState('16x16')
   const [colors, setColors] = useState(12)
   const [removeBg, setRemoveBg] = useState(true)
@@ -114,8 +119,16 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
 
   const isAsset = jobType === 'asset'
   const isSprite = jobType === 'sprite_sheet'
+  const isLocalPixelize = jobType === 'local_pixelize'
   const isTileAsset = isAsset && assetKind === 'tile_texture'
-  const basePrice = useMemo(() => pricing.find((item) => item.key === jobType)?.price_credits ?? 0, [pricing, jobType])
+  // 平铺纹理因为本质就是"铺满画布"，参考图意义不大；图标 / UI 才提供参考图入口
+  const assetSupportsReference = isAsset && !isTileAsset
+  const hasAssetReference = assetSupportsReference && !!assetRefPath
+  const basePrice = useMemo(() => {
+    // 素材直出 + 参考图 时，按图生图价位计费（实际后端就走 image_to_image pipeline）
+    const billingKey = hasAssetReference ? 'image_to_image' : jobType
+    return pricing.find((item) => item.key === billingKey)?.price_credits ?? 0
+  }, [pricing, jobType, hasAssetReference])
   const safeRows = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(rows || 1)))
   const safeCols = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(cols || 1)))
   const totalFrames = safeRows * safeCols
@@ -124,16 +137,14 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
   const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : 'single_prop'
-  const needsPrompt = jobType === 'text_to_image' || jobType === 'image_to_image' || isSprite
-  const needsImage = jobType !== 'asset' && jobType !== 'text_to_image' && !isSprite
   const invalidGrid = isSprite && (safeRows < 1 || safeCols < 1 || safeRows > MAX_GRID_AXIS || safeCols > MAX_GRID_AXIS)
   const missingRowPrompts = isSprite && safeRows >= 2 && rowPrompts.slice(0, safeRows).some((value) => !value.trim())
   const submitBlocked = invalidSubAssetSize
     || invalidGrid
     || missingRowPrompts
     || (isAsset && !assetName.trim())
-    || (needsPrompt && !prompt.trim())
-    || (needsImage && !inputImagePath.trim())
+    || (isSprite && !prompt.trim())
+    || (isLocalPixelize && !inputImagePath.trim())
 
   // 模式切换时重置默认参数
   useEffect(() => {
@@ -147,6 +158,8 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
     if (jobType !== 'asset') return
     if (assetKind === 'tile_texture') {
       setPixelSize('32x32'); setColors(12); setRemoveBg(false); setEdgeStyle('hard')
+      // 切到平铺纹理时清掉之前的参考图（不支持）
+      setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('')
     } else if (assetKind === 'item_icon') {
       setPixelSize('16x16'); setColors(12); setRemoveBg(true); setEdgeStyle('outline')
     } else if (assetKind === 'ui_component') {
@@ -215,11 +228,51 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
     setRefImagePath(''); setRefImageUrl(''); setRefUploadMessage('')
   }
 
+  async function uploadAssetReferenceFile(file: File | undefined) {
+    if (!file) return
+    setAssetRefUploading(true); setAssetRefMessage(text('上传参考图…', 'Uploading reference…'))
+    try {
+      const uploaded = await api.uploadImage(token, file)
+      setAssetRefPath(uploaded.path); setAssetRefUrl(signedFileUrl(uploaded.url)); setAssetRefMessage(text('参考图已就绪，提交后将以图生图模式微调。', 'Reference ready. Job will run as image-to-image on submit.'))
+    } catch (error) {
+      setAssetRefMessage(error instanceof Error ? error.message : text('参考图上传失败', 'Reference upload failed'))
+    } finally { setAssetRefUploading(false) }
+  }
+
+  function clearAssetReference() {
+    setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('')
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault()
     const edge = edgeStylePixelize(edgeStyle)
     if (isAsset) {
-      await onSubmit({ job_type: 'asset', prompt: assetName.trim(), input_image_path: null, client_request_id: crypto.randomUUID(), pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }), grid: buildGridDesign(), asset: { name: assetName.trim(), extra_prompt: assetExtraPrompt.trim(), asset_kind: assetKind, subject_kind: subjectKind, no_preview: false } })
+      const assetExtra = assetExtraPrompt.trim()
+      const subject = assetName.trim()
+      // 素材直出 + 参考图：走 image_to_image pipeline，prompt 用主体 + 额外描述拼接，
+      // 后端会按图生图模式微调；不走 image_to_image 时仍是常规 asset 直出。
+      if (hasAssetReference) {
+        const i2iPrompt = assetExtra ? `${subject}：${assetExtra}` : subject
+        await onSubmit({
+          job_type: 'image_to_image',
+          prompt: i2iPrompt,
+          input_image_path: assetRefPath,
+          client_request_id: crypto.randomUUID(),
+          skip_vl: skipVl,
+          pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
+          grid: buildGridDesign(),
+        })
+        return
+      }
+      await onSubmit({
+        job_type: 'asset',
+        prompt: subject,
+        input_image_path: null,
+        client_request_id: crypto.randomUUID(),
+        pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
+        grid: buildGridDesign(),
+        asset: { name: subject, extra_prompt: assetExtra, asset_kind: assetKind, subject_kind: subjectKind, no_preview: false },
+      })
       return
     }
     if (isSprite) {
@@ -247,7 +300,16 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
       })
       return
     }
-    await onSubmit({ job_type: jobType, prompt: needsPrompt ? prompt : null, input_image_path: needsImage ? inputImagePath : null, client_request_id: crypto.randomUUID(), skip_vl: skipVl, pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }), grid: buildGridDesign() })
+    // 本地像素化：上传图 + 像素化参数
+    await onSubmit({
+      job_type: jobType,
+      prompt: null,
+      input_image_path: inputImagePath,
+      client_request_id: crypto.randomUUID(),
+      skip_vl: skipVl,
+      pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
+      grid: buildGridDesign(),
+    })
   }
 
   return (
@@ -258,8 +320,6 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="asset">{text('游戏素材直出', 'Game asset output')}</SelectItem>
-              <SelectItem value="text_to_image">{text('文生图', 'Text to image')}</SelectItem>
-              <SelectItem value="image_to_image">{text('图生图 / AI 微调', 'Image to image / AI tune')}</SelectItem>
               <SelectItem value="sprite_sheet">{text('序列帧', 'Sprite sequence')}</SelectItem>
               <SelectItem value="local_pixelize">{text('本地像素化', 'Local pixelize')}</SelectItem>
             </SelectContent>
@@ -279,10 +339,30 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
           </PixField>
           <PixField label={isTileAsset ? text('纹理主题 / 题材', 'Texture theme') : text('主体', 'Subject')}><Input value={assetName} placeholder={isTileAsset ? text('例如：苔藓砖石路面、木板地、像素草地', 'e.g. mossy cobblestone, wood planks, grass field') : text('例如：冰霜之心', 'e.g. Frost Heart')} onChange={(e) => setAssetName(e.target.value)} /></PixField>
           <PixField label={text('额外风格描述（可选）', 'Extra style notes (optional)')}><Textarea value={assetExtraPrompt} rows={3} maxLength={PROMPT_MAX_LENGTH} placeholder={isTileAsset ? text('可补充配色、细节密度、年代感等。无需提"无缝平铺"，模板已内置。', 'Optional: palette, detail density, era. "Seamless / tileable" is already enforced by template.') : text('可留空；如需补充材质、颜色或题材风格再填写。', 'Optional; add material, color, or theme notes if needed.')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
+          {assetSupportsReference && (
+            <PixField label={text('参考图（可选）', 'Reference image (optional)')} hint={text('提供后将以图生图模式微调：在保留参考图主体的基础上按描述变换风格 / 配色 / 细节。留空走默认文生图素材直出。', 'When provided, the job runs as image-to-image: it preserves the reference subject while adapting style/colors/details to your description. Leave empty to use the default text-to-image asset path.')}>
+              <div className="grid gap-3">
+                <Button type="button" variant="outline" asChild>
+                  <label className="cursor-pointer">
+                    <Upload />{assetRefUploading ? text('上传参考图…', 'Uploading reference…') : assetRefPath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadAssetReferenceFile(event.currentTarget.files?.[0])} />
+                  </label>
+                </Button>
+                {assetRefMessage && <Alert variant={assetRefMessage.includes('失败') || assetRefMessage.toLowerCase().includes('failed') ? 'destructive' : 'info'}>{assetRefMessage}</Alert>}
+                {assetRefPath && (
+                  <div className="grid gap-2">
+                    <PixPreviewFrame url={assetRefUrl} loading={assetRefUploading} label={text('参考图预览', 'Reference preview')} />
+                    <Button type="button" variant="ghost" size="sm" onClick={clearAssetReference}>{text('移除参考图', 'Remove reference')}</Button>
+                  </div>
+                )}
+              </div>
+            </PixField>
+          )}
           {isTileAsset && <Alert variant="info">{text('平铺纹理：模型直接铺满画布，后端只做完美像素对齐，不做抠透明、不做主体裁剪、不做 VL 评分。', 'Tile texture: the model fills the entire canvas; the backend only runs perfect-pixel alignment — no transparency cutout, no subject crop, no VL ranking.')}</Alert>}
+          {hasAssetReference && <Alert variant="info">{text('已附带参考图：将走图生图（image-to-image）路径，按描述对参考图主体进行像素化微调。', 'With a reference image attached, the job uses image-to-image: the model pixelizes the reference subject according to your description.')}</Alert>}
         </div>}
 
-        {needsPrompt && <PixField label={isSprite ? text('主体 / 角色描述', 'Subject / character brief') : text('素材描述', 'Asset description')} hint={isSprite ? text('描述角色身份、服装、配色与风格；逐行动作下面单独写。', 'Describe identity, costume, palette and style. Per-row actions go below.') : text('写清主体、材质和用途。', 'Describe the subject, material, and use case clearly.')}><Textarea value={prompt} rows={isSprite ? 4 : 5} maxLength={PROMPT_MAX_LENGTH} onChange={(e) => setPrompt(e.target.value)} /></PixField>}
+        {isSprite && <PixField label={text('主体 / 角色描述', 'Subject / character brief')} hint={text('描述角色身份、服装、配色与风格；逐行动作下面单独写。', 'Describe identity, costume, palette and style. Per-row actions go below.')}><Textarea value={prompt} rows={4} maxLength={PROMPT_MAX_LENGTH} onChange={(e) => setPrompt(e.target.value)} /></PixField>}
 
         {isSprite && (
           <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
@@ -363,7 +443,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
           </div>
         )}
 
-        {needsImage && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} loading={uploading} label={uploading ? text('上传中…', 'Uploading…') : text('等待上传预览', 'Waiting for upload preview')} /></div>}
+        {isLocalPixelize && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} loading={uploading} label={uploading ? text('上传中…', 'Uploading…') : text('等待上传预览', 'Waiting for upload preview')} /></div>}
 
         <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isSprite || isTileAsset || !removeBg} />
 
@@ -372,7 +452,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
         {invalidSubAssetSize && <Alert variant="destructive">{text('素材最低支持 16×16。', 'Minimum asset size is 16×16.')}</Alert>}
         {invalidGrid && <Alert variant="destructive">{text('序列帧每行/每列最多 8。', 'Sprite sequence rows and cols are capped at 8.')}</Alert>}
         {missingRowPrompts && <Alert variant="destructive">{text('多行序列帧需要为每一行填写动作描述。', 'Multi-row sequences require an action description for each row.')}</Alert>}
-        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : text('生成游戏素材', 'Generate game asset')) : text('生成单张素材', 'Generate single asset')}</Button>
+        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : hasAssetReference ? text('图生图微调', 'Generate (image-to-image)') : text('生成游戏素材', 'Generate game asset')) : text('生成单张素材', 'Generate single asset')}</Button>
       </form>
     </PixPanel>
   )

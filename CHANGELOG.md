@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.50.0] - 2026-05-29
+
+### Removed
+
+- 工作台「单图试做」与「批量生产」面板模式下拉删除「文生图」「图生图 / AI 微调」两个选项。后端 `text_to_image` / `image_to_image` job_type 仍保留：作品库历史任务可正常显示，「调音 / AI 微调」按钮仍走 `image_to_image`，独立的「原始生图」页（侧边栏）继续可用。
+
+### Added
+
+- 「素材直出」加入可选「参考图」入口（仅 `item_icon` / `ui_component` 两种素材类型可见，平铺纹理不需要）：
+  - 用户上传参考图后提交，前端把请求自动切到 `job_type=image_to_image`，prompt 用「主体 + 额外描述」拼接发送，后端走现有图生图 pipeline，不需任何后端改动。
+  - 卡片内提供预览缩略图与"移除参考图"按钮；切到平铺纹理时自动清空已上传的参考图。
+  - 顶部计费 badge 与提交按钮在带参考图时切换文案为「图生图微调」并按 `image_to_image` 价位计算。
+
+### Changed
+
+- `BatchGeneratePanel` 的 BatchMode Literal 同步收窄为 `'asset' | 'local_pixelize'`；删除 sharedPrompt 输入与图生图 / 文生图分支。
+
 ## [1.49.0] - 2026-05-29
 
 ### Added
