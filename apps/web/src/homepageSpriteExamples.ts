@@ -1,11 +1,15 @@
 /**
  * 首页序列帧示例数据。
  *
- * 与 homepageTextureExamples 同样基于 sprite sheet（横向单行 N 帧），前端用 CSS
- * background-position 在固定 fps 下切帧，避免 GIF 体积大、缩放糊、播放速率不可控的问题。
+ * 与 homepageTextureExamples 同样基于 sprite sheet：
+ * 后端 sprite_mosaic pipeline 一次 API 调用产出整个 rows×cols mosaic（单图 mosaic 模式），
+ * 后处理时再把 mosaic 拉平成 1 行 N 列的横向 sprite_sheet.png（每帧的 sheet_rect.y 始终为 0），
+ * 前端直接按 frameCount 顺序切帧即可，无需自己处理多行偏移。
  *
- * 当前 3 个示例都来自 1.51.x 实跑过的 sprite_sheet 任务产物，已复制到
- * `apps/web/public/homepage-examples/sprites/` 下，体积仅 ~10KB。
+ * 同时记录 `mosaicRows × mosaicCols` 以便展示「原始 mosaic 网格」结构信息（如 2×3 仍标记 2×3）。
+ *
+ * 4 张示例都来自实跑过的 sprite_sheet 任务产物，已复制到
+ * `apps/web/public/homepage-examples/sprites/` 下。
  */
 
 export type HomepageSpriteCategory = 'character' | 'effect' | 'creature'
@@ -21,19 +25,26 @@ export type HomepageSpriteExample = {
   /** 用户面板里输入的"主体"字段（中英文） */
   subject: string
   subjectEn: string
-  /** 完整 prompt（用户实际写的） */
+  /** 主体描述（用户实际写在 prompt 字段里的） */
   prompt: string
   promptEn: string
-  /** 横向 sprite sheet 静态资源路径 */
+  /** 每行的动作描述（mosaicRows 个；前端只展示，不参与播放） */
+  rowPrompts: string[]
+  rowPromptsEn: string[]
+  /** 横向 sprite sheet 静态资源路径（已被后端拉平成 1 行 N 列） */
   src: string
   /** sprite sheet 真实宽 / 高（像素） */
   sheetWidth: number
   sheetHeight: number
-  /** 单帧逻辑像素尺寸 */
+  /** 单帧逻辑像素尺寸（effective_frame_size，后端 padding 后的实际帧大小） */
   frameWidth: number
   frameHeight: number
-  /** 帧数（cols） */
+  /** 总帧数（= mosaicRows × mosaicCols；也等于 sheet 横向带上的列数） */
   frameCount: number
+  /** 用户提交的原始 mosaic 行数（仅展示用） */
+  mosaicRows: number
+  /** 用户提交的原始 mosaic 列数（仅展示用） */
+  mosaicCols: number
   /** 推荐播放速率 */
   fps: number
 }
@@ -46,60 +57,95 @@ export const homepageSpriteExampleCategoryLabels: Record<HomepageSpriteCategory,
 
 export const homepageSpriteExamples: HomepageSpriteExample[] = [
   {
-    id: '01_blue_slime_hop',
+    id: '01_knight_idle_1x3',
     number: '01',
-    category: 'creature',
-    theme: '蓝史莱姆跳跃循环',
-    themeEn: 'Blue slime hop loop',
-    subject: '蓝色史莱姆',
-    subjectEn: 'Tiny blue slime',
-    prompt:
-      '一只小蓝史莱姆原地完成一次平滑的跳跃循环：压扁、拉伸、起跳、落地、回到 idle，简洁的侧视游戏精灵风格。',
-    promptEn:
-      'Tiny blue slime completes a smooth hop loop in place — squash, stretch, jump up, land, return to idle. Simple side-view game sprite.',
-    src: '/homepage-examples/sprites/01_blue_slime_hop.png',
-    sheetWidth: 512,
-    sheetHeight: 64,
-    frameWidth: 64,
-    frameHeight: 64,
-    frameCount: 8,
-    fps: 8,
-  },
-  {
-    id: '02_knight_walk',
-    number: '02',
-    category: 'character',
-    theme: '骑士行走循环',
-    themeEn: 'Knight walk cycle',
-    subject: '一名骑士',
-    subjectEn: 'A knight',
-    prompt: '一名骑士的 8 帧无缝行走循环，侧视像素游戏角色。',
-    promptEn: 'An 8-frame seamless walk cycle of a knight, side-view pixel game character.',
-    src: '/homepage-examples/sprites/02_knight_walk.png',
-    sheetWidth: 512,
-    sheetHeight: 64,
-    frameWidth: 64,
-    frameHeight: 64,
-    frameCount: 8,
-    fps: 8,
-  },
-  {
-    id: '03_knight_idle',
-    number: '03',
     category: 'character',
     theme: '骑士 idle 呼吸',
     themeEn: 'Knight idle breathing',
-    subject: '一名骑士',
-    subjectEn: 'A knight',
-    prompt: '骑士站立 idle 的 3 帧呼吸循环，身体轻微起伏。',
-    promptEn: '3 frames of an idle stance, the character breathing slightly.',
-    src: '/homepage-examples/sprites/03_knight_idle.png',
+    subject: '蓝甲骑士',
+    subjectEn: 'Blue-armored knight',
+    prompt: 'A pixel-art knight in blue armor with a sword, centered on a pure magenta background.',
+    promptEn: 'A pixel-art knight in blue armor with a sword, centered on a pure magenta background.',
+    rowPrompts: ['3 帧 idle 呼吸：身体随呼吸节奏轻微起伏'],
+    rowPromptsEn: ["3 frames showing the knight's idle stance (slight breathing motion)"],
+    src: '/homepage-examples/sprites/01_knight_idle_1x3.png',
     sheetWidth: 192,
+    sheetHeight: 80,
+    frameWidth: 64,
+    frameHeight: 80,
+    frameCount: 3,
+    mosaicRows: 1,
+    mosaicCols: 3,
+    fps: 3,
+  },
+  {
+    id: '02_knight_walk_slash_2x3',
+    number: '02',
+    category: 'character',
+    theme: '骑士行走 + 斩击 2×3 mosaic',
+    themeEn: 'Knight walk + slash 2×3 mosaic',
+    subject: '蓝甲骑士',
+    subjectEn: 'Blue-armored knight',
+    prompt: 'A pixel-art knight in blue armor, centered, pure magenta background.',
+    promptEn: 'A pixel-art knight in blue armor, centered, pure magenta background.',
+    rowPrompts: ['第 1 行：骑士向右行走的 3 帧', '第 2 行：骑士面向右下劈斩的 3 帧'],
+    rowPromptsEn: [
+      'Row 1: 3 frames of the knight walking to the right',
+      'Row 2: 3 frames of the knight performing a downward sword slash facing right',
+    ],
+    src: '/homepage-examples/sprites/02_knight_walk_slash_2x3.png',
+    sheetWidth: 384,
     sheetHeight: 64,
     frameWidth: 64,
     frameHeight: 64,
+    frameCount: 6,
+    mosaicRows: 2,
+    mosaicCols: 3,
+    fps: 8,
+  },
+  {
+    id: '03_adventurer_torch_1x3',
+    number: '03',
+    category: 'character',
+    theme: '冒险者高举火把',
+    themeEn: 'Adventurer with torch',
+    subject: '绿兜帽冒险者',
+    subjectEn: 'Green-hooded adventurer',
+    prompt: 'A pixel-art adventurer with green hood and brown leather armor, holding a torch.',
+    promptEn: 'A pixel-art adventurer with green hood and brown leather armor, holding a torch.',
+    rowPrompts: ['3 帧火把高举循环'],
+    rowPromptsEn: ['3-frame torch-raised loop'],
+    src: '/homepage-examples/sprites/03_adventurer_torch_1x3.png',
+    sheetWidth: 192,
+    sheetHeight: 80,
+    frameWidth: 64,
+    frameHeight: 80,
     frameCount: 3,
-    fps: 6,
+    mosaicRows: 1,
+    mosaicCols: 3,
+    fps: 5,
+  },
+  {
+    id: '04_knight_1x9',
+    number: '04',
+    category: 'character',
+    theme: '骑士 9 帧动作集',
+    themeEn: 'Knight 9-frame action set',
+    subject: '骑士',
+    subjectEn: 'Knight',
+    prompt: 'knight',
+    promptEn: 'knight',
+    rowPrompts: ['9 帧综合动作集（待机、行走等）'],
+    rowPromptsEn: ['9-frame combined action set (idle, walking, etc.)'],
+    src: '/homepage-examples/sprites/04_knight_1x9.png',
+    sheetWidth: 720,
+    sheetHeight: 64,
+    frameWidth: 80,
+    frameHeight: 64,
+    frameCount: 9,
+    mosaicRows: 1,
+    mosaicCols: 9,
+    fps: 8,
   },
 ]
 
@@ -110,9 +156,21 @@ export const homepageSpriteCategoriesInUse: HomepageSpriteCategory[] = Array.fro
 export function getHomepageSpriteLabel(
   example: HomepageSpriteExample,
   language: 'zh-CN' | 'en',
-): { theme: string; subject: string; category: string; prompt: string } {
+): { theme: string; subject: string; category: string; prompt: string; rowPrompts: string[] } {
   const cat = homepageSpriteExampleCategoryLabels[example.category]
   return language === 'en'
-    ? { theme: example.themeEn, subject: example.subjectEn, category: cat.en, prompt: example.promptEn }
-    : { theme: example.theme, subject: example.subject, category: cat.zh, prompt: example.prompt }
+    ? {
+        theme: example.themeEn,
+        subject: example.subjectEn,
+        category: cat.en,
+        prompt: example.promptEn,
+        rowPrompts: example.rowPromptsEn,
+      }
+    : {
+        theme: example.theme,
+        subject: example.subject,
+        category: cat.zh,
+        prompt: example.prompt,
+        rowPrompts: example.rowPrompts,
+      }
 }
