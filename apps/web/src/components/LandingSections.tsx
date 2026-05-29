@@ -350,7 +350,7 @@ function SpriteAtlas() {
       </div>
 
       {filtered.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {filtered.map((example) => <SpriteCard key={example.id} example={example} />)}
         </div>
       ) : (
@@ -373,6 +373,7 @@ const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpri
   const label = getHomepageSpriteLabel(example, language)
   const sheetSize = `${example.sheetWidth}×${example.sheetHeight}`
   const frameSize = `${example.frameWidth}×${example.frameHeight}`
+  const mosaicLabel = `${example.mosaicRows}×${example.mosaicCols}`
 
   useEffect(() => {
     const node = previewRef.current
@@ -394,9 +395,12 @@ const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpri
 
   // 单帧整数倍放大：以预览容器宽度为准，按整数倍缩放避免亚像素糊。
   const previewScale = previewWidth > 0 ? Math.max(1, Math.floor(previewWidth / example.frameWidth)) : 1
-  const renderedFrame = example.frameWidth * previewScale
-  const renderedSheetForPreview = example.sheetWidth * previewScale
-  const offsetX = -frameIndex * renderedFrame
+  const renderedFrameW = example.frameWidth * previewScale
+  const renderedFrameH = example.frameHeight * previewScale
+  const renderedSheetW = example.sheetWidth * previewScale
+  const renderedSheetH = example.sheetHeight * previewScale
+  // sprite_sheet.png 是 1 行 frameCount 列的横向带，按 frameIndex 横向偏移即可。
+  const offsetX = -frameIndex * renderedFrameW
 
   async function handleCopy() {
     const ok = await copyTextToClipboard(label.prompt)
@@ -407,10 +411,10 @@ const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpri
   return (
     <article className="rounded-lg border border-border bg-card p-3 transition hover:-translate-y-0.5 hover:border-primary/55 hover:shadow-[0_10px_24px_-18px_rgba(15,15,15,0.45)] dark:bg-[hsl(var(--pix-dark-card))]">
       <a href={example.src} target="_blank" rel="noreferrer" className="block" title={text(`打开 ${label.theme} sprite sheet 原图`, `Open source sprite sheet for ${label.theme}`)}>
-        <div className="pix-checkerboard grid h-24 place-items-center overflow-hidden rounded-md border border-border bg-card p-2 dark:bg-[hsl(var(--pix-dark-band))]">
+        <div className="pix-checkerboard grid h-28 place-items-center overflow-hidden rounded-md border border-border bg-card p-2 dark:bg-[hsl(var(--pix-dark-band))]">
           <img
             src={example.src}
-            alt={text(`${label.theme} sprite sheet 原图，${example.frameCount} 帧`, `${label.theme} raw sprite sheet, ${example.frameCount} frames`)}
+            alt={text(`${label.theme} sprite sheet 原图，${mosaicLabel} mosaic 共 ${example.frameCount} 帧`, `${label.theme} raw sprite sheet, ${mosaicLabel} mosaic with ${example.frameCount} frames`)}
             loading="lazy"
             decoding="async"
             draggable={false}
@@ -418,12 +422,12 @@ const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpri
           />
         </div>
       </a>
-      <div className="mt-1.5 flex items-center justify-between text-[10px] font-mono text-muted-foreground">
-        <span>{text(`原图 ${sheetSize}`, `Sheet ${sheetSize}`)}</span>
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] font-mono text-muted-foreground">
+        <span>{text(`原图 ${sheetSize} · ${mosaicLabel} mosaic`, `Sheet ${sheetSize} · ${mosaicLabel} mosaic`)}</span>
         <span>{text(`${example.frameCount} 帧 · 单帧 ${frameSize}`, `${example.frameCount} frames · ${frameSize} each`)}</span>
       </div>
 
-      <div className="mt-3 grid grid-cols-[140px_1fr] items-stretch gap-3">
+      <div className="mt-3 grid grid-cols-[168px_1fr] items-stretch gap-3">
         <div className="grid gap-1">
           <div className="pix-checkerboard relative aspect-square overflow-hidden rounded-md border border-border bg-muted/40 dark:bg-[hsl(var(--pix-dark-band))]">
             <div
@@ -435,10 +439,10 @@ const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpri
               <div
                 className="bg-no-repeat [image-rendering:pixelated]"
                 style={{
-                  width: renderedFrame,
-                  height: example.frameHeight * previewScale,
+                  width: renderedFrameW,
+                  height: renderedFrameH,
                   backgroundImage: `url(${example.src})`,
-                  backgroundSize: `${renderedSheetForPreview}px ${example.sheetHeight * previewScale}px`,
+                  backgroundSize: `${renderedSheetW}px ${renderedSheetH}px`,
                   backgroundPosition: `${offsetX}px 0px`,
                 }}
               />
@@ -456,9 +460,19 @@ const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpri
           <p className="text-center font-mono text-[10px] text-muted-foreground">{text(`${example.fps} fps 实时预览`, `${example.fps} fps preview`)}</p>
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{label.subject}</p>
-          <p className="mt-1 truncate text-xs text-muted-foreground">{label.category} · {example.number}</p>
-          <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">{label.prompt}</p>
+          <p className="truncate text-sm font-semibold">{label.theme}</p>
+          <p className="mt-1 truncate text-xs text-muted-foreground">{label.category} · {example.number} · {label.subject}</p>
+          <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{label.prompt}</p>
+          {label.rowPrompts.length > 0 && (
+            <ul className="mt-1.5 grid gap-0.5">
+              {label.rowPrompts.map((line, idx) => (
+                <li key={idx} className="line-clamp-1 text-[11px] leading-5 text-muted-foreground/80">
+                  {example.mosaicRows > 1 && <span className="mr-1 font-mono text-[10px] text-primary/80">R{idx + 1}</span>}
+                  {line}
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <Button type="button" size="sm" variant="outline" onClick={() => downloadStaticFile(example.src, `${example.id}.png`)}><Download />{text('下载', 'Download')}</Button>
             <Button type="button" size="sm" variant="outline" onClick={() => void handleCopy()}>{copied ? <Check /> : <Copy />}{copied ? text('已复制', 'Copied') : text('复制 Prompt', 'Copy prompt')}</Button>

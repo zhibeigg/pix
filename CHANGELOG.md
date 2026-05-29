@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.52.1] - 2026-05-29
+
+### Changed
+
+- 主页序列帧 tab 示例素材换成用户指定的 4 个真实任务产物：knight idle 1×3、knight walk + slash 2×3 mosaic、green-hood adventurer with torch 1×3、knight 1×9 动作集；体现 mosaic 多行能力（2×3）+ 帧尺寸非方形（64×80、80×64）+ 不同 frame_count（3 / 6 / 9）的多样性。
+- `homepageSpriteExamples.ts` 数据结构补充 `mosaicRows / mosaicCols / frameCount / rowPrompts` 字段，元数据栏额外展示「N×M mosaic」标识，行级 prompt 在多行情况下自动加 `R1 / R2` 前缀。
+- SpriteAtlas 卡片网格改成 `md:grid-cols-2`（4 张正好 2×2 排列），不再因 `xl:grid-cols-3` 让最后一张孤零零占半行。
+- SpriteCard 左侧预览栏宽度由 140px 提到 168px，让 80×64 帧也能整数 2× 缩放。
+
+### Fixed
+
+- 修正 horizontal sprite_sheet 切帧逻辑：之前误把"用户原始 mosaic 网格 (rows × cols)"当作 sheet 网格用 row-major 偏移，导致 2×3 mosaic 任务的预览框纵向滑出 sheet、画面空白。后端实际把 mosaic 拉平成 1 行 frameCount 列，前端只需要按横向 frameIndex 偏移，已按此修正。
+
 ## [1.52.0] - 2026-05-29
 
 ### Added
