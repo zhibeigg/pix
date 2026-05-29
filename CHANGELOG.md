@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.52.0] - 2026-05-29
+
+### Added
+
+- 首页范例图鉴新增第三个资产类型 tab「序列帧 / Sprite sheets」：在 `ExampleAtlas` 顶部切换器后挂上 `SpriteAtlas` + `SpriteCard`，展示当前版本 `sprite_sheet` 任务的真实产物，与 IconAtlas / TextureAtlas 等高对齐。
+- 卡片布局：上半部固定 96px 高的 sprite sheet 原图带（按比例 contain，3 张卡顶部条带高度统一），下半部左侧 140px 方形预览（CSS `background-position` 切帧实时播放、可暂停，按整数倍缩放避免亚像素糊），右侧标题 / 分类 / prompt / 下载 + 复制 prompt 按钮。
+- 静态资源：从 `web_outputs/runs/job-29` 与 `out/real-sequence-test/` 抽出 3 个真实示例（蓝史莱姆 hop loop、骑士 walk、骑士 idle），复制到 `apps/web/public/homepage-examples/sprites/`，体积 ~10 KB，无 GIF 依赖。
+- 新建 `apps/web/src/homepageSpriteExamples.ts`：记录每个示例的真实 `sheetWidth / sheetHeight / frameWidth / frameHeight / frameCount / fps` 等元数据，便于 SpriteCard 精确切帧。
+
+### Changed
+
+- 首页 SectionFrame 标题与描述同步更新，从「物品图标 + 平铺纹理」扩展为「物品图标 + 平铺纹理 + 序列帧」，并在介绍里说明 mosaic 单图模式 + 浏览器内 CSS 切帧的播放方式。
+
 ## [1.51.1] - 2026-05-29
 
 ### Fixed
