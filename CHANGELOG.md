@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.54.0] - 2026-05-30
+
+### Added
+
+- 多行 mosaic 序列帧（rows>1）现在自动按行输出独立产物，让 4×8 行走表这种「每行一个动作循环」的素材直接拿到 N 个可独立播放的动画。新增 `{run_dir}/sprite_sheet_grid.png`（rows×cols 二维网格预览，与原 `sprite_mosaic.png` 一一对照），`row_sheets/row_NN.png`（每行一张横向 sheet）以及 `previews/row_NN.gif`（每行一个独立 GIF，按 fps/duration_ms/loop 渲染）。`meta.sprite.rows_outputs[]` 与 `sequence.json.rows_outputs[]` 同步暴露每行的 `sheet / gif / frame_indices / action_phase`。
+- 后端 `OutputResponse` 新增 `sprite_sheet_grid_path / sprite_sheet_grid_url / sprite_rows_outputs` 三个 computed_field；前端 `JobOutput` 类型同步加上 `sprite_sheet_grid_path/url` 与 `sprite_rows_outputs?: SpriteRowOutput[]`，方便后续在作品库展开多行预览。
+- `compose_grid_sprite_sheet(frame_paths, out_path, *, rows, cols, frame_size)`：把帧按二维网格底部居中铺到固定单元格内的工具函数，`sprite.py` 公开导出。
+
+### Changed
+
+- 序列帧 mosaic 切图后单帧的「完美像素 + 去背景 + bbox 定位」改为复用游戏素材直出 icon 的算法路径（`contact_sheet.remove_green_screen` + 显式 `key_rgb` + Color-to-Alpha + `remove_translucent_edge_halo(key_rgb=...)`），不再走「四角自动采样」的 `bg_removal.remove_background`。多行 mosaic 中主体经常越界 cell 边界（长发/裙摆/武器），原来四角采样到的就不是 chroma-key 而是主体色，会把背景留白或啃掉主体边缘，新算法直接消除该退化路径。
+- `scripts/recut_existing_mosaic.py` 同步走新算法 + 新产物（`sprite_sheet_grid.png` / `row_sheets/` / `previews/`），便于本地对已有 mosaic 一次性补齐行预览。
+
 ## [1.53.1] - 2026-05-29
 
 ### Fixed

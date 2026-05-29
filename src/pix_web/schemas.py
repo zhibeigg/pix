@@ -517,6 +517,45 @@ class JobOutputResponse(BaseModel):
 
     @computed_field
     @property
+    def sprite_sheet_grid_path(self) -> str | None:
+        outputs = _outputs_meta(self.meta_json_path)
+        grid = outputs.get("sprite_sheet_grid") or _sprite_meta(self.meta_json_path).get("grid_sheet")
+        return _resolve_meta_relative_path(self.meta_json_path, str(grid)) if grid else None
+
+    @computed_field
+    @property
+    def sprite_sheet_grid_url(self) -> str | None:
+        return file_url(self.sprite_sheet_grid_path)
+
+    @computed_field
+    @property
+    def sprite_rows_outputs(self) -> list[dict[str, Any]]:
+        """每行独立动画的产物：sheet + gif，前端可直接消费。"""
+        sprite = _sprite_meta(self.meta_json_path)
+        rows_outputs = sprite.get("rows_outputs")
+        if not isinstance(rows_outputs, list):
+            return []
+        items: list[dict[str, Any]] = []
+        for entry in rows_outputs:
+            if not isinstance(entry, dict):
+                continue
+            sheet_value = entry.get("sheet")
+            gif_value = entry.get("gif")
+            sheet_path = _resolve_meta_relative_path(self.meta_json_path, str(sheet_value)) if sheet_value else None
+            gif_path = _resolve_meta_relative_path(self.meta_json_path, str(gif_value)) if gif_value else None
+            items.append({
+                "row_index": entry.get("row_index"),
+                "frame_indices": entry.get("frame_indices") or [],
+                "action_phase": entry.get("action_phase") or "",
+                "sheet_path": sheet_path,
+                "sheet_url": file_url(sheet_path),
+                "gif_path": gif_path,
+                "gif_url": file_url(gif_path),
+            })
+        return items
+
+    @computed_field
+    @property
     def sprite_grid(self) -> dict[str, int] | None:
         sprite = _sprite_meta(self.meta_json_path)
         if not sprite:

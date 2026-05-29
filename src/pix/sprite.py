@@ -178,6 +178,41 @@ def compose_horizontal_sprite_sheet(frame_paths: list[Path], out_path: str | Pat
     return target
 
 
+def compose_grid_sprite_sheet(
+    frame_paths: list[Path],
+    out_path: str | Path,
+    *,
+    rows: int,
+    cols: int,
+    frame_size: tuple[int, int],
+) -> Path:
+    """把 rows×cols 帧排成网格 sheet，每帧统一占 frame_size。
+
+    用于多行 mosaic 的整张预览：行间纵向堆叠，列间横向铺开。每帧按底部居中
+    贴齐到固定单元格内，便于直接和原 sprite_mosaic.png 对照。
+    """
+    safe_rows = max(1, int(rows))
+    safe_cols = max(1, int(cols))
+    cell_w, cell_h = max(1, int(frame_size[0])), max(1, int(frame_size[1]))
+    expected = safe_rows * safe_cols
+    if len(frame_paths) != expected:
+        raise ValueError(f"帧数量 {len(frame_paths)} 与 rows×cols={expected} 不匹配")
+    sheet = Image.new("RGBA", (cell_w * safe_cols, cell_h * safe_rows), (0, 0, 0, 0))
+    for index, path in enumerate(frame_paths):
+        row_index = index // safe_cols
+        col_index = index % safe_cols
+        with Image.open(path) as opened:
+            frame = opened.convert("RGBA")
+        # 底部居中贴齐到单元格
+        offset_x = col_index * cell_w + max(0, (cell_w - frame.width) // 2)
+        offset_y = row_index * cell_h + max(0, cell_h - frame.height)
+        sheet.alpha_composite(frame, (offset_x, offset_y))
+    target = Path(out_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(target)
+    return target
+
+
 def compose_gif(frame_paths: list[Path], out_path: str | Path, *, duration_ms: int, loop: int = 0) -> Path:
     frames: list[Image.Image] = []
     for path in frame_paths:

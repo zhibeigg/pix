@@ -254,6 +254,16 @@ export type ContactSheetCandidate = {
   preview_url?: string | null
 }
 
+export type SpriteRowOutput = {
+  row_index: number
+  frame_indices: number[]
+  action_phase: string
+  sheet_path: string | null
+  sheet_url: string | null
+  gif_path: string | null
+  gif_url: string | null
+}
+
 export type JobOutput = {
   run_dir: string
   source_path: string
@@ -265,9 +275,12 @@ export type JobOutput = {
   sprite_sheet_url: string | null
   sprite_mosaic_path?: string | null
   sprite_mosaic_url?: string | null
+  sprite_sheet_grid_path?: string | null
+  sprite_sheet_grid_url?: string | null
   sprite_grid?: { rows: number; cols: number } | null
   sprite_gif_path: string | null
   sprite_gif_url: string | null
+  sprite_rows_outputs?: SpriteRowOutput[]
   sequence_json_path: string | null
   sequence_json_url: string | null
   sprite_frames: SpriteFrameOutput[]

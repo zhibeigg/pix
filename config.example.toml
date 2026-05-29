@@ -185,6 +185,11 @@ crop_padding   = 0.12
 crop_square    = true
 # 对全部帧应用共享调色板，减少序列播放闪色
 shared_palette = true
+# 多行 mosaic（rows>1）会自动按行输出独立产物，便于直接拿到「每行一个动画循环」的成品：
+#   {run_dir}/sprite_sheet_grid.png   —— rows×cols 二维网格预览（与原 sprite_mosaic.png 一一对照）
+#   {run_dir}/row_sheets/row_NN.png   —— 每行一张 1×cols 横向 sheet
+#   {run_dir}/previews/row_NN.gif     —— 每行一个独立 GIF 动画（按 fps/duration_ms/loop 渲染）
+# 单行（rows=1）时只生成原 sprite_sheet.png + 可选的 sprite.gif（gif_export=true 时）。
 # Mosaic prompt 模板（无参考图）。
 # 占位符：{description}/{rows}/{cols}/{frame_width}/{frame_height}/{sheet_width}/{sheet_height}/{row_block}/{green}/{key_tolerance}/{max_colors}
 # {row_block} 会被自动展开为 "Row 1: ...\nRow 2: ..." 的多行动作描述列表。
