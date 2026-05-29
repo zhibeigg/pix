@@ -261,7 +261,6 @@ def _compose_row_outputs(
     return rows_outputs
 
 
-
 def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, payload: SequenceAlignmentRequest) -> GenerationJob:
     """应用每帧偏移并更新当前输出的活跃序列帧版本。"""
 
