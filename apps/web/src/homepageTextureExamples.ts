@@ -44,10 +44,10 @@ export const homepageTextureExamples: HomepageTextureExample[] = [
     subject: '苔藓砖石路面',
     subjectEn: 'Mossy cobblestone road',
     prompt:
-      '苔藓砖石路面 — 古老欧洲风格，绿色苔藓填补石缝；32×32 无缝平铺地砖，灰石主调点缀苔藓绿，每块石头边界清晰。',
+      '苔藓砖石路面 — 古老欧洲风格，绿色苔藓填补石缝；perfect_pixel 自动检测的网格分辨率（64×64）无缝平铺地砖，灰石主调点缀苔藓绿。',
     src: '/homepage-examples/textures/01_cobblestone_moss.png',
-    width: 32,
-    height: 32,
+    width: 64,
+    height: 64,
   },
   {
     id: '02_wood_planks',
@@ -58,10 +58,10 @@ export const homepageTextureExamples: HomepageTextureExample[] = [
     subject: '木板地面',
     subjectEn: 'Wood plank floor',
     prompt:
-      '木板地面 — 温暖橡木色调，自然木纹纹理，木板之间有细缝，轻微做旧；32×32 无缝平铺，整张铺满。',
+      '木板地面 — 温暖橡木色调，自然木纹纹理，木板之间有细缝，轻微做旧；perfect_pixel 自动检测的网格分辨率（126×126）无缝平铺，整张铺满。',
     src: '/homepage-examples/textures/02_wood_planks.png',
-    width: 32,
-    height: 32,
+    width: 126,
+    height: 126,
   },
   {
     id: '03_grass_field',
@@ -72,10 +72,10 @@ export const homepageTextureExamples: HomepageTextureExample[] = [
     subject: '像素草地',
     subjectEn: 'Pixel grass field',
     prompt:
-      '像素草地 — 鲜活的草绿色调，混入少量浅黄花朵和深绿丛簇，自然不规则；32×32 无缝平铺地图素材。',
+      '像素草地 — 鲜活的草绿色调，混入少量浅黄花朵和深绿丛簇，自然不规则；perfect_pixel 自动检测的网格分辨率（64×64）无缝平铺地图素材。',
     src: '/homepage-examples/textures/03_grass_field.png',
-    width: 32,
-    height: 32,
+    width: 64,
+    height: 64,
   },
 ]
 

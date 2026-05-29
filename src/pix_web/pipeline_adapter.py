@@ -344,7 +344,9 @@ def run_tile_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: 
             model=image_model,
         )
 
-        # 2. 完美像素：网格对齐 + 缩到目标尺寸；不做去背景、不做裁剪
+        # 2. 完美像素：让 perfectPixel 自动检测网格作为主导，target_size 仅作为提示。
+        # 用户面板上选择的"目标尺寸"被理解为"输出 ≤ 目标尺寸的最小整数倍"，避免在
+        # perfect_pixel 已经精确网格对齐的结果上再做一次破坏性的 NEAREST 缩放。
         with Image.open(raw_path) as opened:
             source_image = opened.convert("RGBA")
         preprocessed = preprocess_generated_image(
@@ -352,21 +354,33 @@ def run_tile_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: 
             method=params.generated_preprocess_method or "perfect_pixel",
             target_size=(width, height),
         )
-        # 强制缩到目标尺寸（perfect_pixel 内部默认会做，但有时 noCV2 后端落到原尺寸）
-        final_image = preprocessed.image.convert("RGB")
-        if final_image.size != (width, height):
-            final_image = final_image.resize((width, height), Image.NEAREST)
+        refined = preprocessed.image.convert("RGB")
+        # 仅当 perfect_pixel 完全没生效（fallback 到原图 1024+）时才需要做兜底缩放。
+        # 正常情况下 perfectPixel 输出会落在 32~256 的网格尺寸，直接采用即可——
+        # 这与 theamusing/perfectPixel webdemo 的体验一致。
+        applied = bool(preprocessed.meta.get("applied"))
+        max_safe_side = max(512, max(width, height) * 8)
+        if not applied or max(refined.size) > max_safe_side:
+            # perfect_pixel 没生效（或输出仍接近原图），退化到目标尺寸
+            final_image = refined.resize((width, height), Image.NEAREST) if refined.size != (width, height) else refined
+        else:
+            final_image = refined
 
         pixel_path = run_dir / "03_pixelized.png"
         final_image.save(pixel_path)
 
-        # 可选放大预览
+        # 可选放大预览：preview_scale 是相对"用户预期目标尺寸"的倍数，
+        # 当 perfect_pixel 自动检测到更高分辨率时，按用户预期目标尺寸预览像素总宽度反推预览倍数，
+        # 避免 126×126 × 12 = 1512 这种过大预览。
         preview_path: Path | None = None
         preview_scale = max(0, int(params.preview_scale or 0))
         if preview_scale > 0:
+            target_preview_side = max(width, height) * preview_scale
+            actual_max = max(final_image.width, final_image.height)
+            effective_scale = max(1, round(target_preview_side / actual_max))
             preview_path = run_dir / "04_preview.png"
             preview = final_image.resize(
-                (final_image.width * preview_scale, final_image.height * preview_scale),
+                (final_image.width * effective_scale, final_image.height * effective_scale),
                 Image.NEAREST,
             )
             preview.save(preview_path)
@@ -399,7 +413,8 @@ def run_tile_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: 
             "subject_kind": "tileable_pattern",
             "prompt": prompt,
             "grid_mode": "off",
-            "pixel_size": [width, height],
+            "pixel_size": [final_image.width, final_image.height],
+            "requested_pixel_size": [width, height],
             "colors": int(params.colors),
             "palette_mode": "auto",
             "generated_preprocess_method": params.generated_preprocess_method,
@@ -413,7 +428,8 @@ def run_tile_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: 
         "pixelize": {
             "perfect_pixel_only": True,
             "preprocess": preprocessed.meta,
-            "output_size": [width, height],
+            "output_size": [final_image.width, final_image.height],
+            "requested_output_size": [width, height],
         },
         "outputs": {
             "source": "01_source.png",

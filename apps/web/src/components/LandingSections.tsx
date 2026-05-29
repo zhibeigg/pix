@@ -222,7 +222,7 @@ function TextureAtlas() {
           <div>
             <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('平铺纹理', 'Tileable texture')}</Badge>
             <h3 className="mt-5 text-3xl font-semibold md:text-5xl">{text('一次 API 出图，铺满画布、四边无缝拼接', 'One API call: fills the canvas, seams disappear')}</h3>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('平铺纹理走专用最小后处理：1 次生图 + perfect_pixel 网格对齐 + 直接落盘。不抠透明、不裁剪主体、不做 VL 评分。卡片左侧是原图（32×32），右侧是 4×4 拼接预览。', 'Tile textures use a minimal pipeline: one API call + perfect_pixel grid alignment + save. No alpha cutout, no subject crop, no VL ranking. The left side of each card shows the raw 32×32 PNG; the right side shows a 4×4 tiled preview.')}</p>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('平铺纹理走专用最小后处理：1 次生图 + perfect_pixel 网格自动检测 + 直接落盘，输出尺寸由 perfectPixel 自动判定（多为 32×32 ~ 128×128）。不抠透明、不裁剪主体、不做 VL 评分。卡片左侧是原图，右侧是 4×4 拼接预览。', 'Tile textures use a minimal pipeline: one API call + perfectPixel grid detection + save. The output resolution is decided by perfectPixel itself (typically 32×32 ~ 128×128). No alpha cutout, no subject crop, no VL ranking. The left side of each card shows the raw PNG; the right side shows a 4×4 tiled preview.')}</p>
           </div>
           <div className="grid gap-3 rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/60 p-4 dark:border-white/10 dark:bg-white/7">
             <div className="grid grid-cols-3 gap-2 text-center">
@@ -264,7 +264,6 @@ const TextureCard = memo(function TextureCard({ example }: { example: HomepageTe
   const [copied, setCopied] = useState(false)
   const label = getHomepageTextureLabel(example, language)
   const sizeText = `${example.width}×${example.height}`
-  const tilePreviewSize = Math.max(64, example.width * 4)
 
   async function handleCopy() {
     const ok = await copyTextToClipboard(example.prompt)
@@ -274,26 +273,26 @@ const TextureCard = memo(function TextureCard({ example }: { example: HomepageTe
 
   return (
     <article className="rounded-lg border border-border bg-card p-3 transition hover:-translate-y-0.5 hover:border-primary/55 hover:shadow-[0_10px_24px_-18px_rgba(15,15,15,0.45)] dark:bg-[hsl(var(--pix-dark-card))]">
-      <div className="grid grid-cols-[auto_1fr] gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <a href={example.src} target="_blank" rel="noreferrer" className="block" title={text(`打开 ${label.theme} 原图`, `Open source image for ${label.theme}`)}>
-          <div className="pix-checkerboard grid place-items-center overflow-hidden rounded-md border border-border bg-card p-1 dark:bg-[hsl(var(--pix-dark-band))]">
-            <img src={example.src} alt={text(`${label.theme} 原图`, `${label.theme} raw`)} loading="lazy" decoding="async" draggable={false} className="[image-rendering:pixelated]" style={{ width: example.width * 2, height: example.height * 2 }} />
+          <div className="pix-checkerboard grid aspect-square place-items-center overflow-hidden rounded-md border border-border bg-card p-2 dark:bg-[hsl(var(--pix-dark-band))]">
+            <img src={example.src} alt={text(`${label.theme} 原图`, `${label.theme} raw`)} loading="lazy" decoding="async" draggable={false} className="h-full w-full object-contain [image-rendering:pixelated]" />
           </div>
-          <p className="mt-1 text-center font-mono text-[10px] text-muted-foreground">{sizeText}</p>
+          <p className="mt-1 text-center font-mono text-[10px] text-muted-foreground">{text(`原图 ${sizeText}`, `Raw ${sizeText}`)}</p>
         </a>
-        <div className="grid place-items-center overflow-hidden rounded-md border border-border bg-muted/40 dark:bg-[hsl(var(--pix-dark-band))]" title={text('4×4 拼接预览', '4×4 tiled preview')}>
+        <div className="grid">
           <div
             role="img"
             aria-label={text(`${label.theme} 4×4 平铺预览`, `${label.theme} 4×4 tiled preview`)}
-            className="[image-rendering:pixelated]"
+            className="aspect-square overflow-hidden rounded-md border border-border bg-muted/40 [image-rendering:pixelated] dark:bg-[hsl(var(--pix-dark-band))]"
+            title={text('4×4 拼接预览', '4×4 tiled preview')}
             style={{
-              width: tilePreviewSize,
-              height: tilePreviewSize,
               backgroundImage: `url(${example.src})`,
               backgroundRepeat: 'repeat',
-              backgroundSize: `${example.width * 2}px ${example.height * 2}px`,
+              backgroundSize: '25% 25%',
             }}
           />
+          <p className="mt-1 text-center font-mono text-[10px] text-muted-foreground">{text('4×4 平铺', '4×4 tiled')}</p>
         </div>
       </div>
       <div className="mt-3 min-w-0">

@@ -52,6 +52,9 @@ scripts/recut_existing_mosaic.py
 scripts/test_sprite_mosaic_api.py
 scripts/test_tile_texture_api.py
 scripts/generate_more_tiles.py
+scripts/compare_perfect_pixel.py
+scripts/retile_existing_textures.py
+_tmp_pp_comparison/
 testlist.md
 pix-*-redesign-check.png
 homepage-examples-preview.png
