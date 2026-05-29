@@ -60,7 +60,7 @@ export function RawImagePage({ pricing, balance, jobs, loading, selectedJobId, o
       <PixPanel
         eyebrow={text('原图炉', 'Raw forge')}
         title={text('原始生图', 'Raw image generation')}
-        description={text('像 Cherry Studio 生图一样：一次只出一张原图，不做候选、评分、抠图或像素化后处理。', 'Like Cherry Studio image generation: create exactly one source image with no candidates, ranking, matting, or pixel post-processing.')}
+        description={text('一次只出一张原图，不做候选、评分、抠图或像素化后处理。', 'Generate exactly one source image with no candidates, ranking, matting, or pixel post-processing.')}
         action={<div className="flex flex-wrap gap-2"><Badge variant="outline">{text(`余额 ${balance?.available_credits ?? '—'} 点`, `Balance ${balance?.available_credits ?? '—'} credits`)}</Badge><Badge variant={insufficientCredits ? 'danger' : 'info'}>{text(`预计 ${price} 点`, `Estimated ${price} credits`)}</Badge><Button type="button" variant="outline" onClick={() => void onRefresh()}><RefreshCw />{text('刷新', 'Refresh')}</Button></div>}
       >
         <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)_148px]">

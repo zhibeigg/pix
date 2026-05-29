@@ -358,7 +358,6 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
               </div>
             </PixField>
           )}
-          {isTileAsset && <Alert variant="info">{text('平铺纹理：模型直接铺满画布，后端只做完美像素对齐，不做抠透明、不做主体裁剪、不做 VL 评分。', 'Tile texture: the model fills the entire canvas; the backend only runs perfect-pixel alignment — no transparency cutout, no subject crop, no VL ranking.')}</Alert>}
           {hasAssetReference && <Alert variant="info">{text('已附带参考图：将走图生图（image-to-image）路径，按描述对参考图主体进行像素化微调。', 'With a reference image attached, the job uses image-to-image: the model pixelizes the reference subject according to your description.')}</Alert>}
         </div>}
 
