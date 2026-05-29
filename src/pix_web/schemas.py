@@ -107,6 +107,7 @@ JobStatus = Literal["pending", "running", "succeeded", "failed", "cancelled"]
 
 class EmailCodeRequest(BaseModel):
     email: EmailStr
+    turnstile_token: str = Field(default="", max_length=2048)
 
 
 class EmailCodeResponse(BaseModel):
@@ -149,6 +150,8 @@ class SetupStatusResponse(BaseModel):
     registration_bonus_credits: int = 0
     local_test_login_available: bool = False
     local_test_account_email: str | None = None
+    turnstile_enabled: bool = False
+    turnstile_site_key: str = ""
 
 
 class UserResponse(BaseModel):

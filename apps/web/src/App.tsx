@@ -374,8 +374,8 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
-  function requestRegisterCode(email: string): Promise<EmailCodeResponse> {
-    return api.requestRegisterCode(email)
+  function requestRegisterCode(email: string, turnstileToken: string): Promise<EmailCodeResponse> {
+    return api.requestRegisterCode(email, turnstileToken)
   }
 
   function navigate(nextPage: AppPage) {
@@ -864,7 +864,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       ) : (
         <div>
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={packs.length} />
-          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} referralCode={referralCode} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} />} />
+          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} referralCode={referralCode} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} turnstileEnabled={setupStatus?.turnstile_enabled ?? false} turnstileSiteKey={setupStatus?.turnstile_site_key ?? ''} />} />
           <SiteFooter />
         </div>
       )}

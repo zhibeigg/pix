@@ -151,10 +151,10 @@ export const api = {
       body: JSON.stringify({ email, password, display_name: displayName }),
     })
   },
-  requestRegisterCode(email: string) {
+  requestRegisterCode(email: string, turnstileToken = '') {
     return request<EmailCodeResponse>('/auth/register-code', {
       method: 'POST',
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, turnstile_token: turnstileToken }),
     })
   },
   register(email: string, password: string, displayName: string, verificationCode: string, referralCode = '') {
