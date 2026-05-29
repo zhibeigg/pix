@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.53.0] - 2026-05-29
+
+### Added
+
+- 注册流程接入 Cloudflare Turnstile 人机校验：在「发送邮箱验证码」步骤拦截脚本注册与刷码。校验通过 5 分钟有效，token 一次性消费，发送后自动 reset widget 让下次重发重新校验。
+- 后端 `WebSettings` 新增 `turnstile_enabled / turnstile_site_key / turnstile_secret_key / turnstile_verify_url` 4 项，全部纳入 `system_settings` 管理面板「邮件验证码」分类，可热更新无须重启。环境变量分别为 `PIX_WEB_TURNSTILE_ENABLED / SITE_KEY / SECRET_KEY / VERIFY_URL`，默认关闭。
+- 新增 `pix_web/captcha.py`：封装 Turnstile 远端校验，开关关闭或 secret 未配置时直接放行；空 token / 拒绝抛 400，Cloudflare 网络问题抛 503。
+- `EmailCodeRequest` 增加 `turnstile_token: str`；`SetupStatusResponse` 增加 `turnstile_enabled / turnstile_site_key`，前端按需懒加载 `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit` 并显式渲染 widget。
+- 前端 `useTurnstile` hook：脚本只加载一次、widget 跟随注册 tab 显示/卸载、token 拿到才允许点「发送验证码」按钮。
+
 ## [1.52.1] - 2026-05-29
 
 ### Changed

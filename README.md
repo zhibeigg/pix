@@ -92,6 +92,9 @@ npm run build
 | `PIX_WEB_REDIS_URL` | RQ/Redis 连接。 |
 | `PIX_WEB_PIX_CONFIG` | 可选：让 Web worker 加载指定 `config.toml`。 |
 | `PIX_WEB_CORS_ORIGINS` | 前后端不同源部署时填写允许的 Origin，多个用逗号分隔。 |
+| `PIX_WEB_TURNSTILE_ENABLED` | 是否在注册发送验证码前要求 Cloudflare Turnstile 校验，默认关闭。 |
+| `PIX_WEB_TURNSTILE_SITE_KEY` | Turnstile Site Key，前端可见。 |
+| `PIX_WEB_TURNSTILE_SECRET_KEY` | Turnstile Secret Key，仅后端校验使用，建议放密钥管理。 |
 
 更多配置见 `.env.example`、`.env.production.example` 和 `config.example.toml`。
 

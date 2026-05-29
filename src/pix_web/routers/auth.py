@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from pix_web.config import WebSettings
+from pix_web.captcha import is_turnstile_active, verify_turnstile_token
 from pix_web.credits import ensure_credit_account, recharge_credits
 from pix_web.email_sender import EmailDeliveryError, send_verification_email
 from pix_web.email_verification import (
@@ -116,6 +117,8 @@ def setup_status(
         registration_bonus_credits=ops.registration_bonus_credits,
         local_test_login_available=local_test_available,
         local_test_account_email=LOCAL_TEST_ACCOUNT_EMAIL if local_test_available else None,
+        turnstile_enabled=is_turnstile_active(effective),
+        turnstile_site_key=effective.turnstile_site_key if is_turnstile_active(effective) else "",
     )
 
 
@@ -167,10 +170,13 @@ def local_test_login(
 @router.post("/register-code", response_model=EmailCodeResponse)
 def request_register_code(
     req: EmailCodeRequest,
+    request: Request,
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> EmailCodeResponse:
     effective = load_effective_web_settings(db, settings)
+    remote_ip = request.client.host if request.client else None
+    verify_turnstile_token(effective, req.turnstile_token, remote_ip=remote_ip)
     email = normalize_email(str(req.email))
     if find_user_by_email(db, email) is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="邮箱已注册")

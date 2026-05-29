@@ -21,6 +21,8 @@ export type SetupStatus = {
   registration_bonus_credits: number
   local_test_login_available: boolean
   local_test_account_email?: string | null
+  turnstile_enabled: boolean
+  turnstile_site_key: string
 }
 
 export type BootstrapAdminResponse = TokenResponse & {

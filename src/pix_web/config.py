@@ -53,6 +53,10 @@ class WebSettings:
     email_code_resend_seconds: int = 60
     email_code_max_attempts: int = 5
     email_debug_codes: bool = False
+    turnstile_enabled: bool = False
+    turnstile_site_key: str = ""
+    turnstile_secret_key: str = ""
+    turnstile_verify_url: str = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
 
 _DEFAULTS = {
@@ -80,6 +84,8 @@ _DEFAULTS = {
     "PIX_WEB_EMAIL_CODE_RESEND_SECONDS": str(WebSettings.email_code_resend_seconds),
     "PIX_WEB_EMAIL_CODE_MAX_ATTEMPTS": str(WebSettings.email_code_max_attempts),
     "PIX_WEB_EMAIL_DEBUG_CODES": "false",
+    "PIX_WEB_TURNSTILE_ENABLED": "false",
+    "PIX_WEB_TURNSTILE_VERIFY_URL": WebSettings.turnstile_verify_url,
 }
 
 
@@ -187,4 +193,11 @@ def load_web_settings() -> WebSettings:
             "PIX_WEB_EMAIL_CODE_MAX_ATTEMPTS", WebSettings.email_code_max_attempts, 1
         ),
         email_debug_codes=_env_flag("PIX_WEB_EMAIL_DEBUG_CODES", WebSettings.email_debug_codes),
+        turnstile_enabled=_env_flag("PIX_WEB_TURNSTILE_ENABLED", WebSettings.turnstile_enabled),
+        turnstile_site_key=os.getenv("PIX_WEB_TURNSTILE_SITE_KEY", ""),
+        turnstile_secret_key=os.getenv("PIX_WEB_TURNSTILE_SECRET_KEY", ""),
+        turnstile_verify_url=os.getenv(
+            "PIX_WEB_TURNSTILE_VERIFY_URL", _DEFAULTS["PIX_WEB_TURNSTILE_VERIFY_URL"]
+        ).strip()
+        or WebSettings.turnstile_verify_url,
     )
