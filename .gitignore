@@ -51,6 +51,7 @@ scripts/test_split_projection.py
 scripts/recut_existing_mosaic.py
 scripts/test_sprite_mosaic_api.py
 scripts/test_tile_texture_api.py
+scripts/generate_more_tiles.py
 testlist.md
 pix-*-redesign-check.png
 homepage-examples-preview.png

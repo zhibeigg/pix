@@ -3,6 +3,7 @@ import { Check, Copy, Download } from 'lucide-react'
 import { useI18n } from '../i18n'
 import { homepageExampleIconSizes, homepageExampleItemIcons, getHomepageIconsForExample, type HomepageExampleItemIcon } from '../homepageIconExamples'
 import { homepageExampleCategories, homepageExamples, getHomepageExampleItemSubject, getHomepageExampleItemSubjectPrompt, getHomepageExampleLabel, type HomepageExample } from '../homepageExamples'
+import { homepageTextureExamples, homepageTextureCategoriesInUse, getHomepageTextureLabel, type HomepageTextureExample, type HomepageTextureCategory } from '../homepageTextureExamples'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 
@@ -12,6 +13,7 @@ type LandingSectionsProps = { authSlot: ReactNode }
 type IconSizeFilter = 'all' | string
 type CategoryFilter = 'all' | string
 type ThemeFilter = 'all' | string
+type AssetTypeTab = 'item_icon' | 'tile_texture'
 type ItemContextMenuHandler = (icon: HomepageExampleItemIcon, event: MouseEvent<HTMLElement>) => void
 type ExampleItemActionTarget = {
   icon: HomepageExampleItemIcon
@@ -23,7 +25,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
   const { text } = useI18n()
   return (
     <>
-      <SectionFrame id="examples" eyebrow={text('新版图标墙', 'Regenerated icon wall')} title={text('608 张全流程重生成图标，按真实尺寸和风格筛选', '608 fully regenerated icons filtered by real size and style')} description={text('主页只保留按清单逐图全流程重生成的物品 PNG；每张卡片标出实际尺寸、题材风格和物品主体，方便按尺寸档位或世界观题材筛选观看。', 'The homepage keeps only the item PNGs fully regenerated from the manifest; every card exposes the real size, theme style, and subject so you can filter by size tier or setting.')}>
+      <SectionFrame id="examples" eyebrow={text('范例图鉴', 'Sample atlas')} title={text('按资产类型分类浏览：物品图标 + 平铺纹理', 'Browse by asset type: item icons + tileable textures')} description={text('物品图标按尺寸 / 大类 / 风格筛选 608 张全流程重生成 PNG；平铺纹理为新近上线的 tile_texture 类型，模型一次出图、铺满画布、四边无缝拼接，真实在游戏地图里反复平铺。', 'Item icons cover 608 fully regenerated PNGs filtered by size / category / theme. Tileable textures are the newly added tile_texture asset kind: a single API call fills the whole canvas with seamlessly tileable artwork.')}>
         <ExampleAtlas />
       </SectionFrame>
 
@@ -33,6 +35,26 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
 }
 
 function ExampleAtlas() {
+  const { text } = useI18n()
+  const [assetType, setAssetType] = useState<AssetTypeTab>('item_icon')
+  return (
+    <div className="grid gap-6">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2 dark:bg-[hsl(var(--pix-dark-card))]">
+        <span className="px-2 text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{text('资产类型', 'Asset type')}</span>
+        <AssetTypeChip active={assetType === 'item_icon'} onClick={() => setAssetType('item_icon')}>{text('物品图标', 'Item icons')}<span className="ml-2 opacity-60">{homepageExampleItemIcons.length}</span></AssetTypeChip>
+        <AssetTypeChip active={assetType === 'tile_texture'} onClick={() => setAssetType('tile_texture')}>{text('平铺纹理', 'Tile textures')}<span className="ml-2 opacity-60">{homepageTextureExamples.length}</span></AssetTypeChip>
+      </div>
+
+      {assetType === 'item_icon' ? <IconAtlas /> : <TextureAtlas />}
+    </div>
+  )
+}
+
+function AssetTypeChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return <button type="button" onClick={onClick} aria-pressed={active} className={`inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-primary/20 ${active ? 'border-primary bg-primary text-primary-foreground shadow-[0_4px_10px_-6px_rgba(0,0,0,0.4)]' : 'border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground dark:bg-white/7'}`}>{children}</button>
+}
+
+function IconAtlas() {
   const { language, text } = useI18n()
   const [sizeFilter, setSizeFilter] = useState<IconSizeFilter>('all')
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
@@ -178,6 +200,109 @@ const ExampleIconCard = memo(function ExampleIconCard({ icon, example, onItemCon
         <div className="mt-2 flex flex-wrap gap-1.5">
           <IconSizeBadge sizeKey={sizeKey} />
           <span className="rounded-full border border-border bg-[hsl(var(--secondary))] px-2 py-0.5 text-[11px] font-semibold text-[hsl(var(--pix-slate))] dark:bg-white/7 dark:text-white/68">{label.theme}</span>
+        </div>
+      </div>
+    </article>
+  )
+})
+
+type TextureCategoryFilter = 'all' | HomepageTextureCategory
+
+function TextureAtlas() {
+  const { language, text } = useI18n()
+  const [categoryFilter, setCategoryFilter] = useState<TextureCategoryFilter>('all')
+  const filtered = useMemo(
+    () => homepageTextureExamples.filter((ex) => categoryFilter === 'all' || ex.category === categoryFilter),
+    [categoryFilter],
+  )
+  return (
+    <div className="grid gap-6">
+      <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] md:p-8">
+        <div className="grid items-start gap-6 lg:grid-cols-[.86fr_1.14fr]">
+          <div>
+            <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('平铺纹理', 'Tileable texture')}</Badge>
+            <h3 className="mt-5 text-3xl font-semibold md:text-5xl">{text('一次 API 出图，铺满画布、四边无缝拼接', 'One API call: fills the canvas, seams disappear')}</h3>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('平铺纹理走专用最小后处理：1 次生图 + perfect_pixel 网格对齐 + 直接落盘。不抠透明、不裁剪主体、不做 VL 评分。卡片左侧是原图（32×32），右侧是 4×4 拼接预览。', 'Tile textures use a minimal pipeline: one API call + perfect_pixel grid alignment + save. No alpha cutout, no subject crop, no VL ranking. The left side of each card shows the raw 32×32 PNG; the right side shows a 4×4 tiled preview.')}</p>
+          </div>
+          <div className="grid gap-3 rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/60 p-4 dark:border-white/10 dark:bg-white/7">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <AtlasStat label={text('当前命中', 'Showing')} value={filtered.length} />
+              <AtlasStat label={text('全部纹理', 'Total textures')} value={homepageTextureExamples.length} />
+              <AtlasStat label={text('题材分类', 'Categories')} value={homepageTextureCategoriesInUse.length} />
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 grid gap-4">
+          <FilterGroup label={text('题材分类', 'Category')}>
+            <FilterChip active={categoryFilter === 'all'} onClick={() => setCategoryFilter('all')}>{text('全部分类', 'All categories')}</FilterChip>
+            {homepageTextureCategoriesInUse.map((cat) => {
+              const count = homepageTextureExamples.filter((ex) => ex.category === cat).length
+              const sample = homepageTextureExamples.find((ex) => ex.category === cat)
+              const label = sample ? getHomepageTextureLabel(sample, language).category : cat
+              return <FilterChip key={cat} active={categoryFilter === cat} onClick={() => setCategoryFilter(cat)}>{label}<span className="ml-1 opacity-60">{count}</span></FilterChip>
+            })}
+          </FilterGroup>
+        </div>
+      </div>
+
+      {filtered.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((example) => <TextureCard key={example.id} example={example} />)}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
+          <p className="text-base font-semibold text-foreground">{text('没有匹配的纹理', 'No matching textures')}</p>
+          <Button type="button" variant="outline" onClick={() => setCategoryFilter('all')} className="mt-4">{text('查看全部', 'Show all')}</Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const TextureCard = memo(function TextureCard({ example }: { example: HomepageTextureExample }) {
+  const { language, text } = useI18n()
+  const [copied, setCopied] = useState(false)
+  const label = getHomepageTextureLabel(example, language)
+  const sizeText = `${example.width}×${example.height}`
+  const tilePreviewSize = Math.max(64, example.width * 4)
+
+  async function handleCopy() {
+    const ok = await copyTextToClipboard(example.prompt)
+    setCopied(ok)
+    if (ok) window.setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <article className="rounded-lg border border-border bg-card p-3 transition hover:-translate-y-0.5 hover:border-primary/55 hover:shadow-[0_10px_24px_-18px_rgba(15,15,15,0.45)] dark:bg-[hsl(var(--pix-dark-card))]">
+      <div className="grid grid-cols-[auto_1fr] gap-3">
+        <a href={example.src} target="_blank" rel="noreferrer" className="block" title={text(`打开 ${label.theme} 原图`, `Open source image for ${label.theme}`)}>
+          <div className="pix-checkerboard grid place-items-center overflow-hidden rounded-md border border-border bg-card p-1 dark:bg-[hsl(var(--pix-dark-band))]">
+            <img src={example.src} alt={text(`${label.theme} 原图`, `${label.theme} raw`)} loading="lazy" decoding="async" draggable={false} className="[image-rendering:pixelated]" style={{ width: example.width * 2, height: example.height * 2 }} />
+          </div>
+          <p className="mt-1 text-center font-mono text-[10px] text-muted-foreground">{sizeText}</p>
+        </a>
+        <div className="grid place-items-center overflow-hidden rounded-md border border-border bg-muted/40 dark:bg-[hsl(var(--pix-dark-band))]" title={text('4×4 拼接预览', '4×4 tiled preview')}>
+          <div
+            role="img"
+            aria-label={text(`${label.theme} 4×4 平铺预览`, `${label.theme} 4×4 tiled preview`)}
+            className="[image-rendering:pixelated]"
+            style={{
+              width: tilePreviewSize,
+              height: tilePreviewSize,
+              backgroundImage: `url(${example.src})`,
+              backgroundRepeat: 'repeat',
+              backgroundSize: `${example.width * 2}px ${example.height * 2}px`,
+            }}
+          />
+        </div>
+      </div>
+      <div className="mt-3 min-w-0">
+        <p className="truncate text-sm font-semibold">{label.subject}</p>
+        <p className="mt-1 truncate text-xs text-muted-foreground">{label.category} · {example.number}</p>
+        <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">{example.prompt}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => downloadStaticFile(example.src, `${example.id}.png`)}><Download />{text('下载', 'Download')}</Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => void handleCopy()}>{copied ? <Check /> : <Copy />}{copied ? text('已复制', 'Copied') : text('复制 Prompt', 'Copy prompt')}</Button>
         </div>
       </div>
     </article>

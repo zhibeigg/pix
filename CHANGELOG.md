@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.49.0] - 2026-05-29
+
+### Added
+
+- 首页范例区改为「资产类型」分类展示，新增「平铺纹理」标签页：
+  - 顶部新增 `物品图标 / 平铺纹理` 切换器；切到平铺纹理时展示 3 张实拍 32×32 纹理（苔藓砖石路面、木板地面、像素草地），每张纹理卡片左侧显示原图，右侧用 CSS `background-repeat` 展示 4×4 拼接预览，直接体现"四边无缝平铺"的实际效果。
+  - 新增 `homepageTextureExamples.ts` 数据文件（题材分类 + 中英 prompt + 真实尺寸）；首页区按「自然 / 人造 / 幻想 / 现代」题材分类筛选。
+  - 卡片支持「下载原图 PNG / 复制完整 prompt」两个操作。
+- 静态资源：`apps/web/public/homepage-examples/textures/{01_cobblestone_moss,02_wood_planks,03_grass_field}.png`，与首页数据文件一一对应。
+
+### Changed
+
+- `LandingSections.tsx` 把原 `ExampleAtlas` 拆为 `IconAtlas` + `TextureAtlas`，由顶层 `ExampleAtlas` 维护资产类型 state；首页大标题与描述同步改为强调"按资产类型分类浏览"。
+
 ## [1.48.0] - 2026-05-29
 
 ### Added
