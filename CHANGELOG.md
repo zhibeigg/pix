@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.58.3] - 2026-05-30
+
+### Added
+
+- 前端新增 `apps/web/public/404.html` 独立静态 404 兜底页；静态托管平台命中真实路径 404 时也能展示 Pix Forge 品牌错误页，并提供返回首页与打开工作台入口。
+
+## [1.58.2] - 2026-05-30
+
+### Fixed
+
+- 重新优化 `og-image.png` 社交分享图构图与配色，使右侧 32×32 主页样本展示区更居中、层级更清晰，并与 Pix Forge 深蓝品牌视觉保持一致。
+
+## [1.58.1] - 2026-05-30
+
+### Fixed
+
+- 使用主页 32×32 物品案例补齐 `og-image.png` 原先缺失的素材展示区域。
+
 ## [1.58.0] - 2026-05-30
 
 ### Added

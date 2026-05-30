@@ -186,12 +186,13 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 静态 SEO 资源说明：
 
 - `apps/web/public/og-image.png`：1200×630 社交分享图，供 Open Graph / Twitter Card 使用。
+- `apps/web/public/404.html`：独立静态 404 兜底页，供静态托管平台在真实路径不存在时直接返回，视觉与 React 内置 404 保持一致。
 - `apps/web/public/site.webmanifest`、`icon-192.png`、`icon-512.png`、`apple-touch-icon.png`：PWA 与移动端图标。
 - `apps/web/src/lib/seo.ts`：前端路由与语言切换时同步更新 `document.title`、`description` 和分享 meta。由于当前使用 hash 路由，登录后的工作台/作品库等内页不写入 sitemap；若后续希望内页收录，需要预渲染或 SSR。
 
 ## 版本与发布
 
-当前版本：`1.58.0`。
+当前版本：`1.58.3`。
 
 版本号格式为 `A.B.C`：
 
