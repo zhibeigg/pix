@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b1630" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="noindex,follow" />
+    <meta name="author" content="Pix Forge" />
+    <meta name="application-name" content="Pix Forge" />
+    <meta
+      name="description"
+      content="Pix Forge 页面未找到。返回 AI 像素素材工坊首页，继续生成游戏图标、平铺纹理和序列帧素材。"
+    />
+    <link rel="canonical" href="https://www.mcwar.cn/404.html" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/pix-logo-64.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <title>页面未找到 - Pix Forge</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --canvas: oklch(95.5% 0.026 91);
+        --paper: oklch(98% 0.018 83);
+        --paper-raised: oklch(99% 0.014 88);
+        --ink: oklch(20% 0.018 88);
+        --muted: oklch(45% 0.018 88);
+        --line: oklch(82% 0.018 78);
+        --navy: oklch(18% 0.071 265);
+        --navy-2: oklch(28% 0.076 263);
+        --mint: oklch(88% 0.082 154);
+        --sky: oklch(90% 0.052 238);
+        --amber: oklch(89% 0.118 88);
+        --rose: oklch(91% 0.056 354);
+        --lavender: oklch(90% 0.048 296);
+        --shadow: 0 28px 80px -44px oklch(18% 0.071 265 / 0.55);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --canvas: oklch(16% 0.061 265);
+          --paper: oklch(21% 0.058 265);
+          --paper-raised: oklch(25% 0.054 265);
+          --ink: oklch(94% 0.016 86);
+          --muted: oklch(73% 0.019 86);
+          --line: oklch(38% 0.045 263);
+          --navy: oklch(13% 0.056 265);
+          --navy-2: oklch(31% 0.075 263);
+          --mint: oklch(82% 0.092 154);
+          --sky: oklch(82% 0.066 238);
+          --amber: oklch(85% 0.116 88);
+          --rose: oklch(84% 0.064 354);
+          --lavender: oklch(83% 0.059 296);
+          --shadow: 0 34px 95px -42px oklch(8% 0.045 265 / 0.82);
+        }
+      }
+
+      * { box-sizing: border-box; }
+
+      html { min-height: 100%; }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 16% 18%, color-mix(in oklch, var(--amber) 46%, transparent), transparent 25rem),
+          radial-gradient(circle at 86% 8%, color-mix(in oklch, var(--sky) 48%, transparent), transparent 26rem),
+          linear-gradient(180deg, var(--canvas), color-mix(in oklch, var(--canvas) 82%, var(--paper)) 62%, var(--canvas));
+      }
+
+      a { color: inherit; }
+
+      .page {
+        position: relative;
+        isolation: isolate;
+        min-height: 100vh;
+        overflow: hidden;
+        padding: clamp(24px, 4vw, 48px);
+      }
+
+      .page::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -2;
+        opacity: 0.5;
+        background-image:
+          linear-gradient(color-mix(in oklch, var(--line) 42%, transparent) 1px, transparent 1px),
+          linear-gradient(90deg, color-mix(in oklch, var(--line) 42%, transparent) 1px, transparent 1px);
+        background-size: 32px 32px;
+        mask-image: radial-gradient(circle at 48% 42%, black, transparent 72%);
+      }
+
+      .pixel-orbit {
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+      }
+
+      .pixel {
+        position: absolute;
+        width: var(--s);
+        height: var(--s);
+        border: 1px solid color-mix(in oklch, var(--ink) 12%, transparent);
+        border-radius: max(5px, calc(var(--s) * 0.22));
+        background: var(--c);
+        box-shadow: 0 16px 36px -24px oklch(18% 0.071 265 / 0.55);
+        opacity: 0.88;
+      }
+
+      .pixel:nth-child(1) { --s: 24px; --c: var(--mint); left: 7%; top: 18%; }
+      .pixel:nth-child(2) { --s: 18px; --c: var(--rose); left: 19%; bottom: 13%; }
+      .pixel:nth-child(3) { --s: 30px; --c: var(--lavender); right: 12%; top: 16%; }
+      .pixel:nth-child(4) { --s: 20px; --c: var(--amber); right: 8%; bottom: 20%; }
+      .pixel:nth-child(5) { --s: 14px; --c: var(--sky); left: 49%; top: 10%; }
+
+      .shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 430px);
+        gap: clamp(32px, 6vw, 72px);
+        align-items: center;
+        width: min(1120px, 100%);
+        min-height: calc(100vh - clamp(48px, 8vw, 96px));
+        margin: 0 auto;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: clamp(40px, 8vw, 72px);
+        text-decoration: none;
+      }
+
+      .brand img {
+        width: 46px;
+        height: 46px;
+        image-rendering: pixelated;
+        border-radius: 12px;
+        box-shadow: 0 16px 34px -24px oklch(18% 0.071 265 / 0.72);
+      }
+
+      .brand small {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        line-height: 1.2;
+        text-transform: uppercase;
+      }
+
+      .brand strong {
+        display: block;
+        margin-top: 2px;
+        font-size: 22px;
+        letter-spacing: -0.03em;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 24px;
+        padding: 7px 12px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--paper-raised) 78%, transparent);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 3px;
+        background: var(--amber);
+      }
+
+      h1 {
+        max-width: 780px;
+        margin: 0;
+        color: var(--ink);
+        font-size: clamp(66px, 15vw, 154px);
+        font-weight: 850;
+        letter-spacing: -0.095em;
+        line-height: 0.84;
+      }
+
+      .headline {
+        max-width: 760px;
+        margin: 28px 0 0;
+        font-size: clamp(30px, 5vw, 54px);
+        font-weight: 820;
+        letter-spacing: -0.055em;
+        line-height: 1.02;
+      }
+
+      .copy {
+        max-width: 660px;
+        margin: 20px 0 0;
+        color: var(--muted);
+        font-size: clamp(16px, 2vw, 18px);
+        line-height: 1.78;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 32px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 18px;
+        border: 1px solid color-mix(in oklch, var(--navy-2) 52%, var(--line));
+        border-radius: 14px;
+        font-weight: 800;
+        text-decoration: none;
+        transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease;
+      }
+
+      .button:hover { transform: translateY(-1px); }
+      .button:focus-visible { outline: 3px solid color-mix(in oklch, var(--sky) 70%, transparent); outline-offset: 3px; }
+
+      .button.primary {
+        background: var(--navy);
+        color: oklch(96% 0.014 88);
+      }
+
+      .button.secondary {
+        background: color-mix(in oklch, var(--paper-raised) 70%, transparent);
+        color: var(--ink);
+      }
+
+      .artifact {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 26px;
+        background: color-mix(in oklch, var(--paper) 91%, transparent);
+        box-shadow: var(--shadow);
+      }
+
+      .artifact-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .traffic { display: flex; gap: 7px; }
+      .traffic span { width: 12px; height: 12px; border-radius: 999px; }
+      .traffic span:nth-child(1) { background: oklch(72% 0.19 23); }
+      .traffic span:nth-child(2) { background: oklch(84% 0.15 86); }
+      .traffic span:nth-child(3) { background: oklch(73% 0.16 152); }
+
+      .artifact-body { padding: clamp(18px, 4vw, 26px); }
+
+      .checker {
+        display: grid;
+        place-items: center;
+        min-height: 272px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background-color: color-mix(in oklch, var(--paper-raised) 72%, var(--sky));
+        background-image:
+          linear-gradient(45deg, color-mix(in oklch, var(--line) 52%, transparent) 25%, transparent 25%),
+          linear-gradient(-45deg, color-mix(in oklch, var(--line) 52%, transparent) 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, color-mix(in oklch, var(--line) 52%, transparent) 75%),
+          linear-gradient(-45deg, transparent 75%, color-mix(in oklch, var(--line) 52%, transparent) 75%);
+        background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+        background-size: 24px 24px;
+      }
+
+      .sprite {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 6px;
+        width: min(260px, 100%);
+        padding: 14px;
+        border: 1px solid color-mix(in oklch, var(--navy-2) 42%, var(--line));
+        border-radius: 18px;
+        background: color-mix(in oklch, var(--paper) 88%, transparent);
+      }
+
+      .sprite span {
+        aspect-ratio: 1;
+        border: 1px solid color-mix(in oklch, var(--ink) 10%, transparent);
+        border-radius: 8px;
+        background: color-mix(in oklch, var(--paper-raised) 88%, transparent);
+      }
+
+      .sprite span:nth-child(4), .sprite span:nth-child(10), .sprite span:nth-child(11), .sprite span:nth-child(12), .sprite span:nth-child(18), .sprite span:nth-child(25), .sprite span:nth-child(32), .sprite span:nth-child(38), .sprite span:nth-child(39), .sprite span:nth-child(40), .sprite span:nth-child(46) { background: var(--mint); }
+      .sprite span:nth-child(17), .sprite span:nth-child(19), .sprite span:nth-child(31), .sprite span:nth-child(33) { opacity: 0.35; }
+      .sprite span:nth-child(4n) { background-color: var(--sky); }
+      .sprite span:nth-child(5n) { background-color: var(--rose); }
+      .sprite span:nth-child(7n) { background-color: var(--amber); }
+
+      .hint {
+        display: grid;
+        gap: 10px;
+        margin-top: 16px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: color-mix(in oklch, var(--paper-raised) 72%, transparent);
+      }
+
+      .hint strong { font-size: 15px; }
+      .hint p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.72; }
+
+      @media (max-width: 860px) {
+        .shell { grid-template-columns: 1fr; align-items: start; }
+        .brand { margin-bottom: 44px; }
+        .artifact { max-width: 520px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <div class="pixel-orbit" aria-hidden="true">
+        <span class="pixel"></span>
+        <span class="pixel"></span>
+        <span class="pixel"></span>
+        <span class="pixel"></span>
+        <span class="pixel"></span>
+      </div>
+
+      <div class="shell">
+        <section aria-labelledby="not-found-title">
+          <a class="brand" href="/" aria-label="回到 Pix Forge 首页">
+            <img src="/pix-logo-64.png" alt="" />
+            <span>
+              <small>Pix Forge</small>
+              <strong>像素素材工坊</strong>
+            </span>
+          </a>
+
+          <p class="eyebrow">素材坐标丢失</p>
+          <h1 id="not-found-title">404</h1>
+          <p class="headline">这张像素素材还没有被铸造出来。</p>
+          <p class="copy">
+            你访问的链接不存在，或者这个页面入口已经移动。返回首页重新选择素材类型，或直接打开工作台继续生成游戏图标、平铺纹理和序列帧动画。
+          </p>
+          <div class="actions" aria-label="下一步操作">
+            <a class="button primary" href="/">回到首页</a>
+            <a class="button secondary" href="/#/workspace">打开工作台</a>
+          </div>
+        </section>
+
+        <aside class="artifact" aria-label="丢失素材预览">
+          <div class="artifact-top">
+            <div class="traffic" aria-hidden="true"><span></span><span></span><span></span></div>
+            <span>missing://sprite</span>
+          </div>
+          <div class="artifact-body">
+            <div class="checker" aria-hidden="true">
+              <div class="sprite">
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              </div>
+            </div>
+            <div class="hint">
+              <strong>可能的下一步</strong>
+              <p>检查分享链接是否完整；如果来自旧路径，请从首页范例图鉴或工作台重新进入。</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </body>
+</html>
