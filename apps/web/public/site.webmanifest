@@ -1,0 +1,27 @@
+{
+  "name": "Pix Forge · 像素素材工坊",
+  "short_name": "Pix Forge",
+  "description": "面向游戏开发者的 AI 像素素材工坊，批量生成透明 PNG、物品图标、平铺纹理和序列帧动画。",
+  "lang": "zh-CN",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b1630",
+  "theme_color": "#0b1630",
+  "orientation": "any",
+  "categories": ["design", "graphics", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
