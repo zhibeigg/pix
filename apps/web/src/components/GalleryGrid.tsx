@@ -212,15 +212,15 @@ function DownloadDialog({ job, options }: { job: GenerationJob; options: Downloa
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); setOpen(true) }}><Download />{t('downloads.image')}</Button>
-      <DialogContent onClick={(event) => event.stopPropagation()} className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent onClick={(event) => event.stopPropagation()} className="w-[min(calc(100vw-32px),520px)] max-w-none gap-0 overflow-hidden p-0">
+        <DialogHeader className="px-6 pb-4 pt-6 pr-12">
           <DialogTitle>{t('downloads.dialogTitle')}</DialogTitle>
           <DialogDescription>{t('downloads.dialogDescription', { id: job.id })}</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-2">
+        <div className="grid max-h-[min(60dvh,480px)] gap-2 overflow-y-auto px-6 py-2">
           {options.map((option) => (
-            <label key={option.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 p-3 transition hover:bg-muted/55 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
-              <Checkbox checked={selectedSet.has(option.id)} onCheckedChange={(checked) => toggleOption(option.id, Boolean(checked))} className="mt-0.5" />
+            <label key={option.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/30 p-3 transition hover:bg-muted/55 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
+              <Checkbox checked={selectedSet.has(option.id)} onCheckedChange={(checked) => toggleOption(option.id, Boolean(checked))} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2 text-sm font-semibold"><FileDown className="h-4 w-4 text-primary" />{option.label}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">{option.description}</span>
@@ -228,7 +228,7 @@ function DownloadDialog({ job, options }: { job: GenerationJob; options: Downloa
             </label>
           ))}
         </div>
-        <DialogFooter>
+        <DialogFooter className="border-t border-border px-6 py-4 dark:border-[hsl(var(--pix-dark-hairline))]">
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
           <Button type="button" disabled={selectedOptions.length === 0} onClick={downloadSelected}>{t('downloads.selected', { count: selectedOptions.length })}</Button>
         </DialogFooter>
@@ -305,18 +305,24 @@ function actionLabelFromPhase(phase: string, rowIndex: number, t: (key: string, 
 }
 
 function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: string, options?: Record<string, unknown>) => string): DownloadOption[] {
-  const specs: Array<{ id: DownloadKind; label: string; description: string; path?: string | null; url?: string | null; fallback: string }> = [
+  const isSpriteOutput = job.job_type === 'sprite_sheet' || output.sprite_frames.length > 0 || Boolean(output.sprite_sheet_url || output.sprite_mosaic_url || output.sequence_json_url)
+  const specs: Array<{ id: DownloadKind; label: string; description: string; path?: string | null; url?: string | null; fallback: string }> = isSpriteOutput ? [
+    { id: 'sprite_gif', label: t('downloads.spriteGif'), description: t('downloads.spriteGifDescription'), path: output.sprite_gif_path, url: output.sprite_gif_url, fallback: 'sprite.gif' },
+    { id: 'sprite_sheet', label: t('downloads.spriteSheet'), description: t('downloads.spriteSheetDescription'), path: output.sprite_sheet_path || output.pixelized_path, url: output.sprite_sheet_url || output.pixelized_url, fallback: 'sprite-sheet.png' },
+    { id: 'sprite_mosaic', label: t('downloads.spriteMosaic'), description: t('downloads.spriteMosaicDescription'), path: output.sprite_mosaic_path || output.source_path, url: output.sprite_mosaic_url || output.source_url, fallback: 'sprite-mosaic.png' },
+    { id: 'sequence_json', label: t('downloads.sequenceJson'), description: t('downloads.sequenceJsonDescription'), path: output.sequence_json_path, url: output.sequence_json_url, fallback: 'sequence.json' },
+  ] : [
     { id: 'source', label: t('downloads.source'), description: t('downloads.sourceDescription'), path: output.source_path, url: output.source_url, fallback: '01_source.png' },
     { id: 'pixelized', label: t('downloads.pixelized'), description: t('downloads.pixelizedDescription'), path: output.pixelized_path, url: output.pixelized_url, fallback: '03_pixelized.png' },
-    { id: 'sprite_gif', label: t('downloads.spriteGif'), description: t('downloads.spriteGifDescription'), path: output.sprite_gif_path, url: output.sprite_gif_url, fallback: 'sprite.gif' },
-    { id: 'sprite_sheet', label: t('downloads.spriteSheet'), description: t('downloads.spriteSheetDescription'), path: output.sprite_sheet_path, url: output.sprite_sheet_url, fallback: 'sprite-sheet.png' },
-    { id: 'sprite_mosaic', label: t('downloads.spriteMosaic'), description: t('downloads.spriteMosaicDescription'), path: output.sprite_mosaic_path, url: output.sprite_mosaic_url, fallback: 'sprite-mosaic.png' },
-    { id: 'sequence_json', label: t('downloads.sequenceJson'), description: t('downloads.sequenceJsonDescription'), path: output.sequence_json_path, url: output.sequence_json_url, fallback: 'sequence.json' },
     { id: 'contact_sheet', label: t('downloads.contactSheet'), description: t('downloads.contactSheetDescription'), path: output.contact_sheet_path, url: output.contact_sheet_url, fallback: 'contact-sheet.png' },
   ]
+  const seen = new Set<string>()
   return specs.flatMap((spec) => {
     const url = signedFileUrl(spec.url)
     if (!url) return []
+    const dedupeKey = spec.path || spec.url || url
+    if (seen.has(dedupeKey)) return []
+    seen.add(dedupeKey)
     return [{ id: spec.id, label: spec.label, description: spec.description, path: spec.path || '', url, filename: downloadFileName(job, spec.path || spec.fallback) }]
   })
 }
