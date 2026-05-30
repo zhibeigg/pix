@@ -71,8 +71,8 @@ class PackyClient:
     ) -> dict[str, Any]:
         url = f"{self.base_url}{path if path.startswith('/') else '/' + path}"
         last_exc: Exception | None = None
-        # 拆分超时：连接握手与写入用统一值，read/pool 给生图等长任务留足时间。
-        # 同时设置 ``read=None`` 让 httpx 直接交给底层 socket 流式读取，避免 read 超时一刀切。
+        # 拆分超时：连接握手与写入用统一值；read=None 允许生图这类长任务等待完整 JSON 响应。
+        # Packy gpt-image-2 Images API 不支持 stream/partial_images，这里使用普通 POST，不启用流式响应。
         timeout_config = httpx.Timeout(
             connect=min(60.0, self.timeout),
             read=None,
@@ -84,24 +84,20 @@ class PackyClient:
                 client_kwargs: dict[str, Any] = {
                     "timeout": timeout_config,
                     "trust_env": self.trust_env,
+                    "follow_redirects": True,
                 }
                 if self.proxy:
                     client_kwargs["proxy"] = self.proxy
                 with httpx.Client(**client_kwargs) as client:
-                    with client.stream(
-                        "POST",
+                    resp = client.post(
                         url,
                         headers=self._headers(content_type=content_type),
                         json=json,
                         data=data,
                         files=files,
-                    ) as resp:
-                        body_bytes = bytearray()
-                        for chunk in resp.iter_bytes(64 * 1024):
-                            if chunk:
-                                body_bytes.extend(chunk)
-                        body_text = body_bytes.decode("utf-8", errors="replace")
-                        status_code = resp.status_code
+                    )
+                    body_text = resp.text
+                    status_code = resp.status_code
                 if status_code >= 500 or status_code == 429:
                     raise PackyError(
                         f"HTTP {status_code} 服务器端错误",

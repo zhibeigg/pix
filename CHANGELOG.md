@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.57.3] - 2026-05-30
+
+### Changed
+
+- 按 Packy GPT-Image 教程整理 `gpt-image-2` 调用：文生图与图片编辑都使用 Images API 普通 POST，移除 HTTP 客户端流式读取；请求不再尝试 `n>1`，批量候选图改为循环单图请求。
+- 图片 API 主路径改为 `response_format=b64_json` 并本地解码落盘，只有远端兼容返回 URL 时才走下载兜底，避免把不支持流式的出图接口当作流式响应处理。
+
 ## [1.57.2] - 2026-05-30
 
 ### Fixed
