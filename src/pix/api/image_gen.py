@@ -19,6 +19,9 @@ _MAX_EDGE = 3840
 _MIN_PIXELS = 655_360
 _MAX_PIXELS = 8_294_400
 _RATIO_LIMIT = 3.0
+# Packy gpt-image-2 Images API 文档约束：n 仅支持 1；stream / partial_images 不支持。
+_ONE_IMAGE_N = 1
+_IMAGE_RESPONSE_FORMAT = "b64_json"
 
 
 def validate_size(size: str) -> None:
@@ -54,15 +57,58 @@ def _pick_image_url(resp: dict[str, Any]) -> tuple[str | None, str | None]:
     return url, b64
 
 
-def _collect_image_entries(resp: dict[str, Any]) -> list[tuple[str | None, str | None]]:
-    """收集响应里所有图片条目，按顺序返回 (url, b64)。"""
-    data = resp.get("data") or []
-    entries: list[tuple[str | None, str | None]] = []
-    for item in data:
-        if not isinstance(item, dict):
-            continue
-        entries.append((item.get("url"), item.get("b64_json")))
-    return entries
+def _ensure_single_image_n(n: int, *, endpoint: str) -> None:
+    if int(n) != _ONE_IMAGE_N:
+        raise ValueError(f"Packy gpt-image-2 {endpoint} 仅支持 n=1；多图请在调用方循环请求")
+
+
+def _with_prompt_variation(prompt: str, variations: list[str], index: int) -> str:
+    if index <= 0 or not variations:
+        return prompt
+    suffix = variations[(index - 1) % len(variations)]
+    return (prompt + f" {suffix}").strip()
+
+
+def _generation_payload(
+    cfg: AppConfig,
+    prompt: str,
+    *,
+    size: str,
+    quality: str | None,
+    model: str | None,
+    output_format: str | None,
+) -> dict[str, Any]:
+    return {
+        "model": model or cfg.image_gen.model,
+        "prompt": prompt,
+        "size": size,
+        "quality": quality or cfg.image_gen.quality,
+        "output_format": output_format or cfg.image_gen.output_format,
+        "response_format": _IMAGE_RESPONSE_FORMAT,
+        "n": _ONE_IMAGE_N,
+    }
+
+
+def _edit_payload(
+    cfg: AppConfig,
+    prompt: str,
+    *,
+    size: str,
+    quality: str | None,
+    model: str | None,
+    output_format: str | None,
+    input_fidelity: str | None,
+) -> dict[str, Any]:
+    return {
+        "model": model or cfg.image_gen.model,
+        "prompt": prompt,
+        "size": size,
+        "quality": quality or cfg.image_gen.quality,
+        "output_format": output_format or cfg.image_gen.output_format,
+        "response_format": _IMAGE_RESPONSE_FORMAT,
+        "n": str(_ONE_IMAGE_N),
+        "input_fidelity": input_fidelity or cfg.image_gen.edit_input_fidelity,
+    }
 
 
 def _write_entry(
@@ -104,18 +150,18 @@ def generate_image(
     """
     api_key = require_image_api_key(cfg)
     client = make_packy_client(cfg, api_key)
+    _ensure_single_image_n(n, endpoint="文生图")
     _size = size or cfg.image_gen.size
     validate_size(_size)
 
-    payload: dict[str, Any] = {
-        "model": model or cfg.image_gen.model,
-        "prompt": prompt,
-        "size": _size,
-        "quality": quality or cfg.image_gen.quality,
-        "output_format": output_format or cfg.image_gen.output_format,
-        "response_format": "url",
-        "n": n,
-    }
+    payload = _generation_payload(
+        cfg,
+        prompt,
+        size=_size,
+        quality=quality,
+        model=model,
+        output_format=output_format,
+    )
     resp = client.post_json("/v1/images/generations", payload)
     url, b64 = _pick_image_url(resp)
 
@@ -151,20 +197,20 @@ def edit_image(
     """调 Packy /v1/images/edits 图生图并落盘。"""
     api_key = require_image_api_key(cfg)
     client = make_packy_client(cfg, api_key)
+    _ensure_single_image_n(n, endpoint="图片编辑")
     _size = size or cfg.image_gen.size
     validate_size(_size)
     image_path = Path(image_path)
     mime = mimetypes.guess_type(str(image_path))[0] or "application/octet-stream"
-    data: dict[str, Any] = {
-        "model": model or cfg.image_gen.model,
-        "prompt": prompt,
-        "size": _size,
-        "quality": quality or cfg.image_gen.quality,
-        "output_format": output_format or cfg.image_gen.output_format,
-        "response_format": "url",
-        "n": str(n),
-        "input_fidelity": input_fidelity or cfg.image_gen.edit_input_fidelity,
-    }
+    data = _edit_payload(
+        cfg,
+        prompt,
+        size=_size,
+        quality=quality,
+        model=model,
+        output_format=output_format,
+        input_fidelity=input_fidelity,
+    )
     files = {"image": (image_path.name, image_path.read_bytes(), mime)}
     resp = client.post_multipart("/v1/images/edits", data=data, files=files)
     url, b64 = _pick_image_url(resp)
@@ -198,10 +244,13 @@ def generate_images_batch(
     filename_template: str = "sample_{index:02d}.png",
     prompt_variations: list[str] | None = None,
 ) -> list[Path]:
-    """n-sample 文生图：优先用 provider 的 n=N 单次返回；若响应不足 N 张再循环补齐。
+    """n-sample 文生图。
+
+    Packy gpt-image-2 Images API 文档声明 ``n`` 仅支持 1，因此多候选图按 N 次单图请求循环实现。
+    默认使用 ``response_format=b64_json``，若远端偶发返回 URL，则作为兼容兜底下载。
 
     Args:
-        prompt: 基础 prompt；若 prompt_variations 非空，则每次 fallback 追加一句变体。
+        prompt: 基础 prompt；若 prompt_variations 非空，则从第 2 张开始追加一句变体。
         filename_template: 支持 {index} / {index:02d} 占位。
     """
     assert n >= 1
@@ -211,40 +260,22 @@ def generate_images_batch(
     _size = size or cfg.image_gen.size
     validate_size(_size)
 
-    collected: list[tuple[str | None, str | None]] = []
-
-    # 1. 先尝试单次 n=N
-    payload: dict[str, Any] = {
-        "model": model or cfg.image_gen.model,
-        "prompt": prompt,
-        "size": _size,
-        "quality": quality or cfg.image_gen.quality,
-        "output_format": output_format or cfg.image_gen.output_format,
-        "response_format": "url",
-        "n": n,
-    }
-    resp = client.post_json("/v1/images/generations", payload)
-    collected.extend(_collect_image_entries(resp))
-
-    # 2. 如果返回不足，用单次调用补齐；可选带 prompt 变体
     variations = [v for v in (prompt_variations or []) if v.strip()]
-    attempt = 0
-    while len(collected) < n and attempt < n * 2:  # 安全上限
-        attempt += 1
-        var_suffix = f" {variations[(attempt - 1) % len(variations)]}" if variations else ""
-        variant_prompt = (prompt + var_suffix).strip()
-        single_payload = dict(payload)
-        single_payload["prompt"] = variant_prompt
-        single_payload["n"] = 1
-        resp = client.post_json("/v1/images/generations", single_payload)
-        collected.extend(_collect_image_entries(resp))
-
-    if not collected:
-        raise PackyError("n-sample 文生图没有任何返回数据")
-
-    collected = collected[:n]
     paths: list[Path] = []
-    for index, entry in enumerate(collected, start=1):
+    for index in range(1, n + 1):
+        variant_prompt = _with_prompt_variation(prompt, variations, index - 1)
+        payload = _generation_payload(
+            cfg,
+            variant_prompt,
+            size=_size,
+            quality=quality,
+            model=model,
+            output_format=output_format,
+        )
+        resp = client.post_json("/v1/images/generations", payload)
+        entry = _pick_image_url(resp)
+        if not any(entry):
+            raise PackyError(f"n-sample 文生图第 {index} 张没有返回 url 或 b64_json：{str(resp)[:500]}")
         name = filename_template.format(index=index)
         paths.append(
             _write_entry(
@@ -274,7 +305,7 @@ def edit_images_batch(
     filename_template: str = "sample_{index:02d}.png",
     prompt_variations: list[str] | None = None,
 ) -> list[Path]:
-    """n-sample 图生图：保持与 `generate_images_batch` 相同的合同。"""
+    """n-sample 图生图：按 Packy n=1 限制循环请求多张编辑结果。"""
     assert n >= 1
     ensure_dir(dest_dir)
     api_key = require_image_api_key(cfg)
@@ -285,40 +316,24 @@ def edit_images_batch(
     mime = mimetypes.guess_type(str(image_path))[0] or "application/octet-stream"
     image_bytes = image_path.read_bytes()
 
-    collected: list[tuple[str | None, str | None]] = []
-
-    base_data: dict[str, Any] = {
-        "model": model or cfg.image_gen.model,
-        "prompt": prompt,
-        "size": _size,
-        "quality": quality or cfg.image_gen.quality,
-        "output_format": output_format or cfg.image_gen.output_format,
-        "response_format": "url",
-        "n": str(n),
-        "input_fidelity": input_fidelity or cfg.image_gen.edit_input_fidelity,
-    }
     files = {"image": (image_path.name, image_bytes, mime)}
-    resp = client.post_multipart("/v1/images/edits", data=base_data, files=files)
-    collected.extend(_collect_image_entries(resp))
-
     variations = [v for v in (prompt_variations or []) if v.strip()]
-    attempt = 0
-    while len(collected) < n and attempt < n * 2:
-        attempt += 1
-        var_suffix = f" {variations[(attempt - 1) % len(variations)]}" if variations else ""
-        variant_prompt = (prompt + var_suffix).strip()
-        data = dict(base_data)
-        data["prompt"] = variant_prompt
-        data["n"] = "1"
-        resp = client.post_multipart("/v1/images/edits", data=data, files=files)
-        collected.extend(_collect_image_entries(resp))
-
-    if not collected:
-        raise PackyError("n-sample 图生图没有任何返回数据")
-
-    collected = collected[:n]
     paths: list[Path] = []
-    for index, entry in enumerate(collected, start=1):
+    for index in range(1, n + 1):
+        variant_prompt = _with_prompt_variation(prompt, variations, index - 1)
+        data = _edit_payload(
+            cfg,
+            variant_prompt,
+            size=_size,
+            quality=quality,
+            model=model,
+            output_format=output_format,
+            input_fidelity=input_fidelity,
+        )
+        resp = client.post_multipart("/v1/images/edits", data=data, files=files)
+        entry = _pick_image_url(resp)
+        if not any(entry):
+            raise PackyError(f"n-sample 图生图第 {index} 张没有返回 url 或 b64_json：{str(resp)[:500]}")
         name = filename_template.format(index=index)
         paths.append(
             _write_entry(

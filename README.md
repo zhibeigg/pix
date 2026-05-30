@@ -117,6 +117,10 @@ npm run build
    - sample cells / cluster palette；
    - 渲染最终 PNG 与 `.grid.json`。
 
+## Packy gpt-image-2 调用规范
+
+当前代码严格按 Packy 的 GPT-Image 教程使用 Images API：文生图与图片编辑都走 `/v1/images/generations` / `/v1/images/edits`，`n` 固定为 `1`，不启用 `stream` / `partial_images`。默认优先要求返回 `b64_json` 并直接落盘；只有远端偶发返回 `url` 时，才作为兼容兜底去下载。多图需求则在调用方循环发起多次单图请求。
+
 调试可视化阶段以 `fullflow-perfect-first-v2/step-preview-bg-first` 的顺序为准：
 
 ```text
@@ -187,7 +191,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.57.2`。
+当前版本：`1.57.3`。
 
 版本号格式为 `A.B.C`：
 

@@ -149,14 +149,14 @@ def download(
 ) -> Path:
     """下载远程图片到本地。
 
-    使用流式读取：连接建立后只对每个 read chunk 应用 ``timeout``，避免大响应一次性等候时被 read timeout 中断。
+    仅作为 URL 响应格式的兼容兜底；Packy gpt-image-2 主路径使用 ``b64_json`` 直接写入文件。
     ``connect_timeout`` 只控制连接握手阶段，默认沿用 ``timeout``。
     ``trust_env`` 默认关闭，避免 Windows 系统代理在生图等长 idle 连接上提前断开；
     需要走代理时显式传入 ``trust_env=True`` 或 ``proxy``。
 
     远端图片通常由模型 API 返回的临时 URL / CDN URL 承载，偶发会出现响应体未传完就被网关关闭
     （httpx.RemoteProtocolError: received N bytes, expected M）。这里按完整文件从头重试，避免临时断流
-    直接导致整条生图任务失败。
+    直接导致整条生图任务失败。``chunk_size`` 保留为兼容旧调用，当前实现不再使用流式读取。
     """
     dest_path = Path(dest)
     ensure_dir(dest_path.parent)
@@ -185,21 +185,18 @@ def download(
                 pass
         try:
             with httpx.Client(**client_kwargs) as client:
-                with client.stream("GET", url) as resp:
-                    resp.raise_for_status()
-                    expected_length_header = resp.headers.get("content-length")
-                    expected_length = int(expected_length_header) if expected_length_header and expected_length_header.isdigit() else None
-                    bytes_written = 0
-                    with open(tmp_path, "wb") as fp:
-                        for chunk in resp.iter_bytes(chunk_size):
-                            if chunk:
-                                fp.write(chunk)
-                                bytes_written += len(chunk)
-                    if expected_length is not None and bytes_written != expected_length:
-                        raise httpx.RemoteProtocolError(
-                            f"peer closed connection without sending complete message body "
-                            f"(received {bytes_written} bytes, expected {expected_length})"
-                        )
+                resp = client.get(url)
+                resp.raise_for_status()
+                expected_length_header = resp.headers.get("content-length")
+                expected_length = int(expected_length_header) if expected_length_header and expected_length_header.isdigit() else None
+                data = resp.content
+                bytes_received = len(data)
+                if expected_length is not None and bytes_received != expected_length:
+                    raise httpx.RemoteProtocolError(
+                        f"peer closed connection without sending complete message body "
+                        f"(received {bytes_received} bytes, expected {expected_length})"
+                    )
+                write_bytes(tmp_path, data)
             tmp_path.replace(dest_path)
             return dest_path
         except httpx.HTTPStatusError as exc:
