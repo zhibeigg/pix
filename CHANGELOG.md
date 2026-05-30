@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.57.1] - 2026-05-30
+
+### Fixed
+
+- 原始生图与图片下载阶段现在会对临时 URL / CDN 断流进行重试；当远端响应体未完整传回时，不再直接把 `RemoteProtocolError` 传给任务失败，而是重新拉取图片并清理 `.part` 临时文件。
+- 批量文生图 / 图生图的落盘流程也同步使用同一套下载重试逻辑，减少偶发网络抖动导致的整批任务失败。
+
 ## [1.57.0] - 2026-05-30
 
 ### Added

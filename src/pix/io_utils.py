@@ -145,6 +145,7 @@ def download(
     connect_timeout: float | None = None,
     trust_env: bool = False,
     proxy: str | None = None,
+    max_retries: int = 3,
 ) -> Path:
     """下载远程图片到本地。
 
@@ -152,6 +153,10 @@ def download(
     ``connect_timeout`` 只控制连接握手阶段，默认沿用 ``timeout``。
     ``trust_env`` 默认关闭，避免 Windows 系统代理在生图等长 idle 连接上提前断开；
     需要走代理时显式传入 ``trust_env=True`` 或 ``proxy``。
+
+    远端图片通常由模型 API 返回的临时 URL / CDN URL 承载，偶发会出现响应体未传完就被网关关闭
+    （httpx.RemoteProtocolError: received N bytes, expected M）。这里按完整文件从头重试，避免临时断流
+    直接导致整条生图任务失败。
     """
     dest_path = Path(dest)
     ensure_dir(dest_path.parent)
@@ -169,22 +174,54 @@ def download(
     }
     if proxy:
         client_kwargs["proxy"] = proxy
-    try:
-        with httpx.Client(**client_kwargs) as client:
-            with client.stream("GET", url) as resp:
-                resp.raise_for_status()
-                with open(tmp_path, "wb") as fp:
-                    for chunk in resp.iter_bytes(chunk_size):
-                        if chunk:
-                            fp.write(chunk)
-        tmp_path.replace(dest_path)
-    finally:
+
+    attempts = max(1, int(max_retries))
+    last_exc: httpx.HTTPError | None = None
+    for attempt in range(1, attempts + 1):
         if tmp_path.exists():
             try:
                 tmp_path.unlink()
             except OSError:
                 pass
-    return dest_path
+        try:
+            with httpx.Client(**client_kwargs) as client:
+                with client.stream("GET", url) as resp:
+                    resp.raise_for_status()
+                    expected_length_header = resp.headers.get("content-length")
+                    expected_length = int(expected_length_header) if expected_length_header and expected_length_header.isdigit() else None
+                    bytes_written = 0
+                    with open(tmp_path, "wb") as fp:
+                        for chunk in resp.iter_bytes(chunk_size):
+                            if chunk:
+                                fp.write(chunk)
+                                bytes_written += len(chunk)
+                    if expected_length is not None and bytes_written != expected_length:
+                        raise httpx.RemoteProtocolError(
+                            f"peer closed connection without sending complete message body "
+                            f"(received {bytes_written} bytes, expected {expected_length})"
+                        )
+            tmp_path.replace(dest_path)
+            return dest_path
+        except httpx.HTTPStatusError as exc:
+            last_exc = exc
+            status_code = exc.response.status_code
+            if status_code < 500 and status_code != 429:
+                raise
+            if attempt >= attempts:
+                raise
+        except httpx.HTTPError as exc:
+            last_exc = exc
+            if attempt >= attempts:
+                raise
+        finally:
+            if tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except OSError:
+                    pass
+
+    assert last_exc is not None
+    raise last_exc
 
 
 def guess_mime(path: str | Path) -> str:

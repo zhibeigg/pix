@@ -72,6 +72,7 @@ def _write_entry(
     timeout: float,
     trust_env: bool = False,
     proxy: str | None = None,
+    max_retries: int = 3,
 ) -> Path:
     url, b64 = entry
     ensure_dir(dest.parent)
@@ -79,7 +80,7 @@ def _write_entry(
         write_bytes(dest, b64_to_bytes(b64))
         return dest
     if url:
-        return download(url, dest, timeout=timeout, trust_env=trust_env, proxy=proxy)
+        return download(url, dest, timeout=timeout, trust_env=trust_env, proxy=proxy, max_retries=max_retries)
     raise PackyError("图片响应条目缺少 url 和 b64_json")
 
 
@@ -129,6 +130,7 @@ def generate_image(
             timeout=cfg.api.timeout,
             trust_env=cfg.api.trust_env_proxies,
             proxy=cfg.api.proxy,
+            max_retries=cfg.api.max_retries,
         )
     raise PackyError(f"图片生成响应缺少 url 和 b64_json：{str(resp)[:500]}")
 
@@ -178,6 +180,7 @@ def edit_image(
             timeout=cfg.api.timeout,
             trust_env=cfg.api.trust_env_proxies,
             proxy=cfg.api.proxy,
+            max_retries=cfg.api.max_retries,
         )
     raise PackyError(f"图片编辑响应缺少 url 和 b64_json：{str(resp)[:500]}")
 
@@ -250,6 +253,7 @@ def generate_images_batch(
                 timeout=cfg.api.timeout,
                 trust_env=cfg.api.trust_env_proxies,
                 proxy=cfg.api.proxy,
+                max_retries=cfg.api.max_retries,
             )
         )
     return paths
@@ -323,6 +327,7 @@ def edit_images_batch(
                 timeout=cfg.api.timeout,
                 trust_env=cfg.api.trust_env_proxies,
                 proxy=cfg.api.proxy,
+                max_retries=cfg.api.max_retries,
             )
         )
     return paths
