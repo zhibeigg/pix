@@ -11,6 +11,7 @@ import { Button } from './components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogPortal, DialogTitle } from './components/ui/dialog'
 import { HeaderUtilityBar } from './components/HeaderUtilityBar'
 import { LandingSections } from './components/LandingSections'
+import { NotFoundPage } from './components/NotFoundPage'
 import { SetupWizard } from './components/SetupWizard'
 import { AdminPage } from './pages/AdminPage'
 import { BillingPage } from './pages/BillingPage'
@@ -42,6 +43,7 @@ const PHOTO_RETENTION_LIMIT = 10
 // 历史版本曾把邀请码持久化到 localStorage，会导致用户即使从普通 URL 进来也一直被"识别"为邀请。
 // 现在改为只信任当前 URL 的 ?aff=xxx，并在启动时清理历史残留。
 const LEGACY_REFERRAL_CODE_KEY = 'pix_referral_code'
+const HASH_PAGES: AppPage[] = ['home', 'workspace', 'raw-image', 'gallery', 'packs', 'billing', 'rewards', 'admin']
 
 function referralCodeFromLocation() {
   const candidates: string[] = []
@@ -54,9 +56,12 @@ function referralCodeFromLocation() {
 }
 
 function pageFromHash(user: User | null): AppPage {
+  const pathname = window.location.pathname.replace(/\/+$/, '') || '/'
+  const rootPath = pathname === '/' || pathname === '/index.html'
   const raw = window.location.hash.replace(/^#\/?/, '').split('?', 1)[0]
-  if (!raw || raw === 'home') return 'home'
-  const page = ['workspace', 'raw-image', 'gallery', 'packs', 'billing', 'rewards', 'admin'].includes(raw) ? raw as AppPage : 'home'
+  if (!raw) return rootPath ? 'home' : 'not-found'
+  if (!HASH_PAGES.includes(raw as AppPage)) return 'not-found'
+  const page = raw as AppPage
   if (page === 'admin' && user?.role !== 'admin') return 'workspace'
   return page
 }
@@ -854,6 +859,11 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
         <div className="grid min-h-[calc(100vh-76px)] place-items-center px-4 text-muted-foreground">{t('app.checkingSetup')}</div>
       ) : needsAdminSetup && setupStatus ? (
         <SetupWizard status={setupStatus} loading={busy} onBootstrapAdmin={bootstrapAdmin} onLocalTestLogin={localTestLogin} />
+      ) : page === 'not-found' ? (
+        <div>
+          <NotFoundPage user={user} />
+          <SiteFooter />
+        </div>
       ) : user && page !== 'home' ? (
         <WorkspaceShell
           page={page}
