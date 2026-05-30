@@ -21,6 +21,7 @@ import { RewardsPage } from './pages/RewardsPage'
 import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
 import { buildGridDesign, defaultPixelize } from './pixelize'
 import { useI18n } from './i18n'
+import { applyPageSeo } from './lib/seo'
 import type { AdminDashboard, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SequenceAlignmentRequest, SetupStatus, SystemSetting, User } from './types'
 
 type ToastVariant = 'success' | 'info' | 'error'
@@ -140,6 +141,10 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const setMessage = useCallback((message: string, variant: ToastVariant = 'success') => {
     setToast(message ? { id: Date.now(), message, variant } : null)
   }, [])
+
+  useEffect(() => {
+    applyPageSeo(page, language)
+  }, [language, page])
 
   useEffect(() => {
     if (!toast) return

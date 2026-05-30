@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.57.0] - 2026-05-30
+
+### Added
+
+- 网站前端新增完整 SEO 基础设施：静态 meta、canonical、Open Graph、Twitter Card、JSON-LD 结构化数据、`noscript` 首屏兜底、`robots.txt`、`sitemap.xml`、PWA manifest 与 1200×630 分享图。
+- 路由与语言切换时会同步更新页面标题、描述和分享 meta，覆盖首页、生产工作台、原始生图、作品库、素材包、点数中心、邀请奖励和后台管理页面。
+
+## [1.56.4] - 2026-05-29
+
+### Fixed
+
+- 修复作品库右侧序列帧信息面板中横向精灵表被固定高度拉伸的问题；精灵表现在按真实像素尺寸展示，并移除底部冗余说明。
+
+## [1.56.3] - 2026-05-29
+
+### Changed
+
+- 作品库选中序列帧作品时，右侧微调工位不再显示「重新像素化」和「AI 微调」入口，改为展示横向精灵表预览、单帧尺寸、帧数、mosaic 网格、FPS、动作数与相关导出入口；序列帧仅保留作品卡片上的本地「调整」对齐与下载导出，避免把整张 sprite sheet 当普通单图再次处理。
+
+## [1.56.2] - 2026-05-29
+
+### Fixed
+
+- 序列帧 mosaic 的单帧后处理严格改为「切分每一帧 → perfect pixel → Color-to-Alpha → alpha bbox 裁剪」：去掉 `contact_sheet.remove_green_screen` 中额外的距离阈值硬抠/halo 清理复用路径，避免序列帧去背景混入非 CTA 步骤。
+
 ## [1.56.1] - 2026-05-29
 
 ### Fixed
