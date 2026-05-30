@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
-import type { GenerationJob, JobCreateRequest, PricingRule } from '../types'
+import type { GenerationJob, JobCreateRequest, JobOutput, PricingRule } from '../types'
 import { buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, normalizeEdgeStyle, parsePixelSize, summarizePrompt, type EdgeStyleChoice } from '../pixelize'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -43,10 +43,53 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
 
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
   const isActive = job.status === 'pending' || job.status === 'running'
-  const sourcePath = output?.source_path || output?.pixelized_path || job.input_image_path || ''
   const previewUrl = isActive ? null : signedFileUrl(output?.pixelized_url || output?.preview_url || output?.source_url || job.input_image_url || '')
   const spriteSheetUrl = isActive ? null : signedFileUrl(output?.sprite_sheet_url || undefined)
   const spriteFps = spriteFpsFromJob(job)
+
+  if (job.job_type === 'sprite_sheet') {
+    const sheetInfo = buildSpriteSheetInfo(job, output)
+    const mosaicUrl = isActive ? null : signedFileUrl(output?.sprite_mosaic_url || undefined)
+    const gridUrl = isActive ? null : signedFileUrl(output?.sprite_sheet_grid_url || undefined)
+    const gifUrl = isActive ? null : signedFileUrl(output?.sprite_gif_url || undefined)
+    const sequenceUrl = isActive ? null : signedFileUrl(output?.sequence_json_url || undefined)
+    return (
+      <div className="sticky top-24 grid gap-4">
+        <PixPanel eyebrow={text('精灵表信息', 'Sprite sheet info')} title={`#${job.id}`} description={summarizePrompt(job.prompt || text('序列帧作品', 'Sprite sequence work'))} action={<PixStatusBadge status={job.status} />}>
+          <div className="grid gap-5">
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold">{text('横向精灵表', 'Horizontal sprite sheet')}</p>
+                {sheetInfo.sheetSize && <Badge variant="outline">{sheetInfo.sheetSize}</Badge>}
+              </div>
+              <div className="pix-checkerboard overflow-x-auto rounded-lg border border-border bg-muted/40 p-3 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
+                {spriteSheetUrl
+                  ? <img src={spriteSheetUrl} alt={text('横向精灵表', 'Horizontal sprite sheet')} className="block max-w-none [image-rendering:pixelated]" style={sheetInfo.sheetPixelSize ? { width: sheetInfo.sheetPixelSize.width, height: sheetInfo.sheetPixelSize.height } : { width: 'auto', height: 'auto' }} />
+                  : <div className="grid min-h-28 place-items-center text-sm text-muted-foreground">{isActive ? text('作品生成中…', 'Work is generating…') : text('暂无精灵表文件', 'No sprite sheet file')}</div>}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <SpriteInfoCell label={text('单帧', 'Frame')} value={sheetInfo.frameSize} />
+              <SpriteInfoCell label={text('帧数', 'Frames')} value={sheetInfo.frameCount} />
+              <SpriteInfoCell label={text('网格', 'Grid')} value={sheetInfo.grid} />
+              <SpriteInfoCell label="FPS" value={sheetInfo.fps} />
+              <SpriteInfoCell label={text('动作', 'Actions')} value={sheetInfo.actions} />
+              <SpriteInfoCell label={text('颜色', 'Colors')} value={sheetInfo.colors} />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {spriteSheetUrl && <SpriteResourceLink href={spriteSheetUrl} label={text('打开 Sheet', 'Open sheet')} />}
+              {mosaicUrl && <SpriteResourceLink href={mosaicUrl} label={text('原始 Mosaic', 'Source mosaic')} />}
+              {gridUrl && <SpriteResourceLink href={gridUrl} label={text('二维网格', 'Grid sheet')} />}
+              {gifUrl && <SpriteResourceLink href={gifUrl} label="GIF" />}
+              {sequenceUrl && <SpriteResourceLink href={sequenceUrl} label="sequence.json" />}
+            </div>
+          </div>
+        </PixPanel>
+      </div>
+    )
+  }
+
+  const sourcePath = output?.source_path || output?.pixelized_path || job.input_image_path || ''
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
 
@@ -88,6 +131,61 @@ function spriteFpsFromJob(job: GenerationJob) {
   const sprite = asRecord(job.params_json?.sprite)
   const fps = Number(sprite?.fps)
   return Number.isFinite(fps) && fps > 0 ? fps : 8
+}
+
+function buildSpriteSheetInfo(job: GenerationJob, output?: JobOutput) {
+  const sprite = asRecord(job.params_json?.sprite)
+  const pixelize = asRecord(job.params_json?.pixelize)
+  const frames = Array.isArray(output?.sprite_frames) ? output.sprite_frames : []
+  const firstRect = frames.find((frame) => frame.sheet_rect)?.sheet_rect
+  const frameSize = firstRect
+    ? `${Math.round(firstRect.w)}×${Math.round(firstRect.h)}`
+    : pairLabel(asNumberPair(pixelize?.output_size))
+  const sheetPixelSize = sheetSizeFromFrames(frames)
+  const sheetSize = sheetPixelSize ? `${sheetPixelSize.width}×${sheetPixelSize.height}` : null
+  const rows = Number(output?.sprite_grid?.rows ?? sprite?.rows)
+  const cols = Number(output?.sprite_grid?.cols ?? sprite?.cols)
+  const frameCount = Number(sprite?.frame_count) || frames.length
+  const fps = spriteFpsFromJob(job)
+  const rowOutputs = Array.isArray(output?.sprite_rows_outputs) ? output.sprite_rows_outputs : []
+  const colors = Number(pixelize?.colors)
+  return {
+    frameSize,
+    sheetSize,
+    sheetPixelSize,
+    frameCount: frameCount > 0 ? String(Math.round(frameCount)) : '—',
+    grid: Number.isFinite(rows) && rows > 0 && Number.isFinite(cols) && cols > 0 ? `${Math.round(rows)}×${Math.round(cols)}` : '—',
+    fps: `${Math.round(fps)}`,
+    actions: rowOutputs.length > 0 ? String(rowOutputs.length) : '—',
+    colors: Number.isFinite(colors) && colors > 0 ? String(Math.round(colors)) : '—',
+  }
+}
+
+function SpriteInfoCell({ label, value }: { label: string; value: string | null }) {
+  return <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]"><p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{label}</p><p className="mt-1 font-semibold text-foreground">{value || '—'}</p></div>
+}
+
+function SpriteResourceLink({ href, label }: { href: string; label: string }) {
+  return <a className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-primary/50 hover:text-primary dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]" href={href} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>{label}</a>
+}
+
+function sheetSizeFromFrames(frames: NonNullable<JobOutput['sprite_frames']>) {
+  const rects = frames.map((frame) => frame.sheet_rect).filter(Boolean)
+  if (rects.length === 0) return null
+  const width = Math.max(...rects.map((rect) => (rect?.x ?? 0) + (rect?.w ?? 0)))
+  const height = Math.max(...rects.map((rect) => (rect?.y ?? 0) + (rect?.h ?? 0)))
+  return width > 0 && height > 0 ? { width: Math.round(width), height: Math.round(height) } : null
+}
+
+function pairLabel(pair: [number, number] | null) {
+  return pair ? `${pair[0]}×${pair[1]}` : '—'
+}
+
+function asNumberPair(value: unknown): [number, number] | null {
+  if (!Array.isArray(value) || value.length < 2) return null
+  const width = Number(value[0])
+  const height = Number(value[1])
+  return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0 ? [Math.round(width), Math.round(height)] : null
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

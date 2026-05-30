@@ -24,9 +24,9 @@ from pix.api.image_gen import edit_image, generate_image
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
 from pix.cache import Cache
 from pix.config import AppConfig
-from pix.contact_sheet import parse_hex_color, remove_green_screen, resolve_key_color
+from pix.contact_sheet import parse_hex_color, resolve_key_color
 from pix.io_utils import new_run_dir, sha256_of_file
-from pix.pixelize.bg_removal import remove_translucent_edge_halo
+from pix.pixelize.bg_removal import apply_color_to_alpha
 from pix.pixelize.core import PixelizeParams
 from pix.pixelize.perfect_pixel import preprocess_generated_image
 from pix.sprite import (
@@ -159,6 +159,7 @@ _RENDER_UPSCALE_FLOOR = 4
 # 即便每像素上采样系数已经退到 4，也要保证整体 sheet 至少有这么多渲染像素，
 # 防止 8×1 之类极端窄长 mosaic 被压成 1024×128 之类的退化档。
 _API_MIN_LONG_SIDE = 1024
+_FRAME_BACKGROUND_FLOW = "split_frame_to_perfect_pixel_to_color_to_alpha_to_alpha_bbox"
 
 
 def _round_to_multiple(value: float, multiple: int) -> int:
@@ -695,42 +696,48 @@ def _extract_cell_content(
     key_tolerance: int,
     generated_preprocess_method: str | None,
 ) -> tuple[Image.Image, tuple[int, int, int, int] | None, dict[str, Any]]:
-    """对单个 cell 做 perfect-pixel + chroma-key + bbox 抠出。
+    """对单个 cell 严格执行：切分帧 → perfect pixel → Color-to-Alpha → alpha bbox 裁剪。
 
-    与 icon 直出一致：用显式传入的 ``key_rgb``（来自 prompt 解析）做 Color-to-Alpha
-    抠背景，而不是从 cell 四角采样。多行 mosaic 里主体经常溢出 cell 边界（长发、
-    裙摆、武器），cell 四角采样到的就不是 chroma-key 而是主体色，会导致背景没抠
-    干净或主体边缘被啃掉。
+    这里必须使用 prompt 中显式传入的 ``key_rgb``，不能从 cell 四角重新采样。
+    多行 mosaic 里主体经常溢出 cell 边界（长发、裙摆、武器），四角采样可能采到
+    主体色，导致背景没抠干净或主体边缘被啃掉。
     """
-    _ = cfg  # 保留参数以兼容历史调用方；当前实现固定用 contact_sheet 路径
+    _ = cfg  # 保留参数以兼容历史调用方；序列帧去背景不再读取 cfg 中的旧算法开关
     preprocessed = preprocess_generated_image(
         cell,
         method=generated_preprocess_method,
         target_size=target_size,
     )
     image = preprocessed.image.convert("RGBA")
-    # 复用 icon 直出的去背景算法：显式 key_rgb + 距离阈值硬抠 + Color-to-Alpha
-    # despill + 透明 RGB 置黑；序列帧紧贴 bbox，不需要外扩留白也不需要方形画布。
-    content, bbox = remove_green_screen(
+
+    # 序列帧要求的后处理链路是：perfect pixel 后直接 Color-to-Alpha，
+    # 再按最终 alpha bbox 裁剪；不额外插入距离阈值硬抠或四角 flood-fill。
+    alpha_image = apply_color_to_alpha(
         image,
-        green_rgb=key_rgb,
-        tolerance=max(0, int(key_tolerance)),
-        crop_padding=0.0,
-        crop_square=False,
+        key_rgb=key_rgb,
+        transparency_threshold=max(0, int(key_tolerance)),
+        opacity_threshold=255,
+        shape="sphere",
+        interpolation="linear",
+        protect_non_key_tinted=True,
     )
-    # 二次清理：剥掉透明边缘上残留的半透明 key 色光晕（缩放/量化产物）
-    content = remove_translucent_edge_halo(content, key_rgb=key_rgb)
+    bbox = _visible_bbox(alpha_image, threshold=8)
     if bbox is None:
         return Image.new("RGBA", (1, 1), (0, 0, 0, 0)), None, {
             "preprocess": preprocessed.meta,
+            "background_flow": _FRAME_BACKGROUND_FLOW,
+            "background_algorithm": "color_to_alpha",
             "bbox": None,
-            "alpha_size": list(content.size),
+            "alpha_size": list(alpha_image.size),
             "key_rgb": list(key_rgb),
             "key_tolerance": int(key_tolerance),
         }
+    content = alpha_image.crop(bbox)
     return content, bbox, {
         "preprocess": preprocessed.meta,
-        "alpha_size": list(content.size),
+        "background_flow": _FRAME_BACKGROUND_FLOW,
+        "background_algorithm": "color_to_alpha",
+        "alpha_size": list(alpha_image.size),
         "bbox": list(bbox),
         "content_size": list(content.size),
         "key_rgb": list(key_rgb),
@@ -919,7 +926,6 @@ def run_sprite_mosaic_pipeline(
             image.save(path)
             frame_paths.append(path)
             row_index = (cell_index - 1) // settings.cols
-            col_index = (cell_index - 1) % settings.cols
             sheet_rect = {
                 "x": (cell_index - 1) * effective_size[0],
                 "y": 0,
@@ -1071,6 +1077,7 @@ def run_sprite_mosaic_pipeline(
             "anchor": settings.anchor,
             "green_screen_color": settings.key_color,
             "green_screen_tolerance": settings.key_tolerance,
+            "frame_background_flow": _FRAME_BACKGROUND_FLOW,
             "shared_palette": bool(cfg.sprite.shared_palette),
             "shared_palette_colors": shared_palette_hex,
             "split": split_meta,
@@ -1173,6 +1180,7 @@ def _build_sequence_json(
         "sheet_size": {"width": sheet_size[0], "height": sheet_size[1]},
         "mosaic_sheet_size": {"width": settings.sheet_pixel_size[0], "height": settings.sheet_pixel_size[1]},
         "anchor": settings.anchor,
+        "frame_background_flow": _FRAME_BACKGROUND_FLOW,
         "row_prompts": list(row_prompts),
         "playback_source": _rel(sheet_path, run_dir),
         "mosaic_source": _rel(mosaic_sheet_path, run_dir),
@@ -1236,6 +1244,7 @@ def _write_mosaic_debug(
         f"anchor = {settings.anchor}",
         f"green_screen_color = {settings.key_color}",
         f"green_screen_tolerance = {settings.key_tolerance}",
+        f"frame_background_flow = {_FRAME_BACKGROUND_FLOW}",
         f"max_colors = {settings.max_colors}",
         f"fps = {settings.fps}",
         f"duration_ms = {settings.duration_ms}",
