@@ -2,7 +2,7 @@ import { cn } from '../lib/utils'
 import { useI18n } from '../i18n'
 import type { User } from '../types'
 
-export type AppPage = 'home' | 'workspace' | 'raw-image' | 'gallery' | 'packs' | 'billing' | 'rewards' | 'admin'
+export type AppPage = 'home' | 'workspace' | 'raw-image' | 'gallery' | 'packs' | 'billing' | 'rewards' | 'admin' | 'not-found'
 
 type AppTab = { page: AppPage; labelKey: string; descriptionKey: string; adminOnly?: boolean }
 

@@ -85,6 +85,16 @@ const pageSeo: Record<AppPage, Record<PixLanguage, { title: string; description:
       description: 'Pix Forge admin console for users, orders, pricing rules, and system settings.',
     },
   },
+  'not-found': {
+    'zh-CN': {
+      title: '页面未找到｜Pix Forge 像素素材工坊',
+      description: '你访问的 Pix Forge 页面不存在或已经移动。回到首页重新选择素材类型，或进入工作台继续生成游戏像素素材。',
+    },
+    en: {
+      title: 'Page Not Found - Pix Forge',
+      description: 'The Pix Forge page you requested does not exist or has moved. Return home or open the workspace to keep generating pixel game assets.',
+    },
+  },
 }
 
 function upsertMeta(selector: string, create: () => HTMLMetaElement, content: string) {

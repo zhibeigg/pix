@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.58.0] - 2026-05-30
+
+### Added
+
+- 前端新增符合 Pix Forge 像素工坊风格的 404 页面；未知 hash 路由或未知真实路径会展示像素素材丢失提示、返回首页和进入工作台入口，而不是静默回到首页。
+- 404 页面同步接入动态 SEO 标题与描述，支持中文和英文主题/语言切换。
+
 ## [1.57.3] - 2026-05-30
 
 ### Changed
