@@ -58,7 +58,11 @@ function referralCodeFromLocation() {
 function pageFromHash(user: User | null): AppPage {
   const pathname = window.location.pathname.replace(/\/+$/, '') || '/'
   const rootPath = pathname === '/' || pathname === '/index.html'
-  const raw = window.location.hash.replace(/^#\/?/, '').split('?', 1)[0]
+  const hash = window.location.hash || ''
+  if (!hash) return rootPath ? 'home' : 'not-found'
+  // `#/workspace` 是应用路由；`#auth-panel` / `#examples` 是首页锚点，不应被识别为 404。
+  if (!hash.startsWith('#/')) return rootPath ? 'home' : 'not-found'
+  const raw = hash.slice(2).split('?', 1)[0]
   if (!raw) return rootPath ? 'home' : 'not-found'
   if (!HASH_PAGES.includes(raw as AppPage)) return 'not-found'
   const page = raw as AppPage

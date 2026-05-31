@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.58.4] - 2026-05-30
+
+### Fixed
+
+- 修复直接访问 `/#auth-panel`、`/#examples` 等首页锚点会被误判为未知 hash 路由并显示 404 的问题；现在只有 `#/xxx` 形式会按应用路由解析。
+
 ## [1.58.3] - 2026-05-30
 
 ### Added
