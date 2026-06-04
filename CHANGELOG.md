@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.60.6] - 2026-06-04
+
+### Fixed
+
+- Web 后端配置现在会自动加载项目根目录 `.env`，让 API、worker、Alembic 与配置检查命令都能读取本地 `PACKY_API_KEY`、`PIX_WEB_JWT_SECRET` 和队列/数据库配置。
+
 ## [1.60.5] - 2026-06-04
 
 ### Added
