@@ -64,6 +64,8 @@ def validate_job_request(req: JobCreateRequest) -> None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     if req.job_type == "asset" and not _asset_name(req):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="素材直出任务需要主体内容")
+    if req.job_type == "asset" and req.input_image_path and not Path(req.input_image_path).exists():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="参考图不存在")
     if req.job_type == "text_to_image" and not prompt:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="文生图任务需要 prompt")
     if req.job_type == "text_to_image" and req.source_only and len(prompt) > RAW_IMAGE_PROMPT_MAX_LENGTH:
@@ -137,8 +139,9 @@ def _sprite_billing_units(req: JobCreateRequest) -> int:
 
 
 def _base_price_for_request(db: Session, req: JobCreateRequest) -> int:
+    price_key = "image_to_image" if req.job_type == "asset" and req.input_image_path else req.job_type
     try:
-        return get_price(db, req.job_type)
+        return get_price(db, price_key)
     except PricingDisabledError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
