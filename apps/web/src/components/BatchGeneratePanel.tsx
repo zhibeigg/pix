@@ -54,7 +54,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
   const assetSubjectPlaceholder = isLogoAsset ? t('batchForm.logoSubjectPlaceholder') : isTileAsset ? t('batchForm.textureSubjectPlaceholder') : t('batchForm.assetSubjectPlaceholder')
 
   useEffect(() => {
-    if (batchMode === 'asset') { setPixelSize('16x16'); setColors(12); setRemoveBg(true); setEdgeStyle('outline') }
+    if (batchMode === 'asset') { setPixelSize('16x16'); setColors(8); setRemoveBg(true); setEdgeStyle('hard') }
     else { setPixelSize('64x64'); setColors(16); setRemoveBg(true) }
   }, [batchMode])
 
@@ -65,7 +65,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
     } else if (assetKind === 'game_logo') {
       setPixelSize('128x64'); setColors(24); setRemoveBg(true); setEdgeStyle('hard')
     } else if (assetKind === 'item_icon') {
-      setPixelSize('16x16'); setColors(12); setRemoveBg(true); setEdgeStyle('outline')
+      setPixelSize('16x16'); setColors(8); setRemoveBg(true); setEdgeStyle('hard')
     } else if (assetKind === 'ui_component') {
       setPixelSize('32x32'); setColors(12); setRemoveBg(true); setEdgeStyle('outline')
     }

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.59.5] - 2026-06-04
+
+### Changed
+
+- 物品图标默认参数改为 8 色，并默认使用硬边透明背景（`edge_style=hard`、`bg_feather=0`），不再自动添加额外 outline 描边。
+
 ## [1.59.4] - 2026-06-04
 
 ### Added

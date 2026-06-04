@@ -108,7 +108,7 @@ generated_preprocess_method = "perfect_pixel"
 output_dir     = "图片"
 # 仅支持 ≥16x16，所有尺寸统一走 extract Pixel Grid
 pixel_size     = [16, 16]
-colors         = 12
+colors         = 8
 dither         = "none"
 preview_scale  = 12
 # 同步复制原始生图源文件到最终目录旁边，便于对比：xxx_source.png
