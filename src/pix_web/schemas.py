@@ -669,6 +669,11 @@ class JobResponse(BaseModel):
     price_credits: int
     reserved_credits: int
     error_message: str
+    failure_type: str = ""
+    failure_source: str = ""
+    failure_code: str = ""
+    candidate_failure_count: int = 0
+    pipeline_warning_count: int = 0
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
@@ -893,8 +898,17 @@ class AdminDashboardResponse(BaseModel):
     jobs_today: int
     succeeded_today: int
     failed_today: int
+    policy_blocked_today: int = 0
+    upstream_errors_today: int = 0
+    timeout_jobs_today: int = 0
+    pipeline_errors_today: int = 0
     pending_jobs: int
     running_jobs: int
+    running_over_30m_jobs: int = 0
+    candidate_failures_today: int = 0
+    pipeline_warnings_today: int = 0
+    average_generation_seconds_today: float = 0.0
+    p95_generation_seconds_today: float = 0.0
     credits_consumed_today: int
     credits_recharged_today: int
     orders_paid_today: int

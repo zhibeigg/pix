@@ -285,6 +285,11 @@ class GenerationJob(Base):
     price_credits: Mapped[int] = mapped_column(Integer, default=0)
     reserved_credits: Mapped[int] = mapped_column(Integer, default=0)
     error_message: Mapped[str] = mapped_column(Text, default="")
+    failure_type: Mapped[str] = mapped_column(String(64), default="", index=True)
+    failure_source: Mapped[str] = mapped_column(String(64), default="", index=True)
+    failure_code: Mapped[str] = mapped_column(String(128), default="", index=True)
+    candidate_failure_count: Mapped[int] = mapped_column(Integer, default=0)
+    pipeline_warning_count: Mapped[int] = mapped_column(Integer, default=0)
     queue_priority: Mapped[int] = mapped_column(Integer, default=0, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -293,6 +298,19 @@ class GenerationJob(Base):
     batch: Mapped[GenerationBatch | None] = relationship(back_populates="jobs")
     pack_items: Mapped[list[AssetPackItem]] = relationship(back_populates="job")
     outputs: Mapped[list["GenerationOutput"]] = relationship(back_populates="job")
+
+
+class GenerationPolicyEvent(Base):
+    __tablename__ = "generation_policy_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("generation_jobs.id"), nullable=True, index=True)
+    job_type: Mapped[str] = mapped_column(String(32), default="", index=True)
+    source: Mapped[str] = mapped_column(String(64), default="pre_create", index=True)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    prompt_excerpt: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
 
 
 class GenerationOutput(Base):

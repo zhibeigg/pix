@@ -291,6 +291,18 @@ export const api = {
   adminUsers(token: string) {
     return request<User[]>('/admin/users?limit=100', {}, token)
   },
+  adminJobs(token: string) {
+    return request<GenerationJob[]>('/admin/jobs?limit=100', {}, token)
+  },
+  adminRetryJob(token: string, jobId: number) {
+    return request<GenerationJob>(`/admin/jobs/${jobId}/retry`, { method: 'POST' }, token)
+  },
+  adminCancelJob(token: string, jobId: number) {
+    return request<GenerationJob>(`/admin/jobs/${jobId}/cancel`, { method: 'POST' }, token)
+  },
+  adminFailRefundJob(token: string, jobId: number) {
+    return request<GenerationJob>(`/admin/jobs/${jobId}/fail-refund`, { method: 'POST' }, token)
+  },
   adjustCredits(token: string, userId: number, amount: number, note: string) {
     return request<CreditTransaction>(
       `/admin/users/${userId}/adjust-credits`,

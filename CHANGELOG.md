@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.61.6] - 2026-06-04
+
+### Added
+
+- Web 后端新增 running 任务超时自动清理与退款机制，避免长时间卡住的任务持续冻结用户点数。
+- 生成任务新增结构化失败字段与候选/流水线警告计数，管理后台可区分策略拦截、上游错误、超时和 pipeline 异常。
+- Prompt guard 前置拦截“直接复刻/抄袭参考图”类请求，并写入轻量策略审计事件；这类请求不创建任务、不入队、不冻结点数。
+- 管理后台新增任务操作首版：重试失败任务、取消排队/运行任务并退款、标记失败并退款，以及运行时长/失败来源等指标展示。
+
+### Fixed
+
+- 修复外部 perfectPixel backend 返回 `None` 时触发 `cannot unpack non-iterable NoneType object` 的问题，改为明确错误并回退内置 NumPy backend。
+
 ## [1.60.6] - 2026-06-04
 
 ### Fixed

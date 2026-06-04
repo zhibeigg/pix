@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 from pix.api.prompt_guard import RAW_IMAGE_PROMPT_MAX_CHARS
 from pix.asset import AssetSizePolicyError, resolve_asset_generation_policy
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, reserve_credits
+from pix_web.job_observability import record_policy_event
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
 from pix_web.pricing import PricingDisabledError, get_price
 from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema, SpriteParamsSchema
@@ -47,13 +48,30 @@ def _prompt_policy_max_chars(req: JobCreateRequest) -> int | None:
     return None
 
 
-def _enforce_request_prompt_policy(db: Session, req: JobCreateRequest) -> None:
-    enforce_prompt_policy(
-        db,
-        _prompt_policy_text(req),
-        allow_template_break=req.source_only or req.job_type == "sprite_sheet",
-        max_chars=_prompt_policy_max_chars(req),
-    )
+def _enforce_request_prompt_policy(db: Session, user: User, req: JobCreateRequest) -> None:
+    prompt_text = _prompt_policy_text(req)
+    try:
+        enforce_prompt_policy(
+            db,
+            prompt_text,
+            allow_template_break=req.source_only or req.job_type == "sprite_sheet",
+            max_chars=_prompt_policy_max_chars(req),
+        )
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
+            try:
+                record_policy_event(
+                    db,
+                    user_id=user.id,
+                    job_type=req.job_type,
+                    reason=str(exc.detail),
+                    prompt=prompt_text,
+                    source="pre_create",
+                )
+                db.commit()
+            except Exception:  # noqa: BLE001 - 审计失败不能吞掉原始策略错误
+                db.rollback()
+        raise
 
 
 def validate_job_request(req: JobCreateRequest) -> None:
@@ -210,7 +228,7 @@ def create_job_in_transaction(
 def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
     request_id = req.client_request_id.strip()
     if _existing_job(db, user, request_id) is None:
-        _enforce_request_prompt_policy(db, req)
+        _enforce_request_prompt_policy(db, user, req)
         enforce_generation_limits(db, user, new_jobs=1)
     try:
         job = create_job_in_transaction(db, user, req)
@@ -256,7 +274,7 @@ def create_jobs_batch(
             existing_by_index[index] = existing
             prices.append(0)
             continue
-        _enforce_request_prompt_policy(db, req)
+        _enforce_request_prompt_policy(db, user, req)
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price
@@ -339,7 +357,7 @@ def retry_failed_job(db: Session, user: User, job_id: int) -> GenerationJob:
 
     req = _request_from_failed_job(failed_job)
     validate_job_request(req)
-    _enforce_request_prompt_policy(db, req)
+    _enforce_request_prompt_policy(db, user, req)
     enforce_generation_limits(db, user, new_jobs=1)
     price = _price_for_request(db, req)
 
@@ -381,7 +399,7 @@ def retry_failed_jobs_in_batch(db: Session, user: User, batch_id: int) -> tuple[
     prices: list[int] = []
     for req in reqs:
         validate_job_request(req)
-        _enforce_request_prompt_policy(db, req)
+        _enforce_request_prompt_policy(db, user, req)
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price
