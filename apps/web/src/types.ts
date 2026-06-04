@@ -384,6 +384,18 @@ export type PublicAnnouncement = {
   updated_at: string | null
 }
 
+export type AnnouncementPublishPayload = {
+  title: string
+  body: string
+  enabled: boolean
+}
+
+export type AnnouncementPublishResponse = PublicAnnouncement & {
+  email_notification_queued: boolean
+  email_recipient_count: number
+  email_skipped_reason: 'unchanged' | 'disabled' | 'no_recipients' | string
+}
+
 export type SystemSetting = {
   key: string
   value: string

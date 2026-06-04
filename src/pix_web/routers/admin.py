@@ -2,22 +2,26 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from pix_web.announcement_service import active_user_emails, publish_site_announcement
 from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits
 from pix_web.dashboard import admin_dashboard
 from pix_web.job_observability import admin_fail_job_and_refund, cancel_job_and_refund, load_job_with_outputs
 from pix_web.jobs import retry_failed_job
-from pix_web.email_sender import EmailDeliveryError, send_verification_email
+from pix_web.email_sender import EmailDeliveryError, send_announcement_email_batch_task, send_verification_email
 from pix_web.email_verification import generate_code
 from pix_web.models import CreditPackage, GenerationJob, PricingRule, User
 from pix_web.queue import enqueue_jobs
+from pix_web.referrals import frontend_invite_base_url
 from pix_web.schemas import (
     AdminAdjustCreditsRequest,
     AdminDashboardResponse,
+    AnnouncementPublishRequest,
+    AnnouncementPublishResponse,
     CreditPackageCreateRequest,
     CreditPackageResponse,
     CreditPackageUpdateRequest,
@@ -215,6 +219,48 @@ def update_setting(
 ) -> AdminSettingView:
     update_system_setting(db, key, req.value or "", clear=req.clear)
     return next(item for item in list_admin_settings(db, web_settings) if item.key == key)
+
+
+@router.put("/announcement", response_model=AnnouncementPublishResponse)
+def publish_announcement(
+    req: AnnouncementPublishRequest,
+    background_tasks: BackgroundTasks,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    web_settings: WebSettings = Depends(get_settings),
+) -> AnnouncementPublishResponse:
+    effective = load_effective_web_settings(db, web_settings)
+    outcome = publish_site_announcement(db, title=req.title, body=req.body, enabled=req.enabled)
+    recipient_count = 0
+    notification_queued = False
+    skipped_reason = outcome.skipped_reason
+    if outcome.should_notify:
+        emails = active_user_emails(db)
+        recipient_count = len(emails)
+        if emails:
+            site_url = frontend_invite_base_url(effective.frontend_base_url, effective.public_base_url)
+            background_tasks.add_task(
+                send_announcement_email_batch_task,
+                effective,
+                emails,
+                title=outcome.announcement.title,
+                body=outcome.announcement.body,
+                site_url=site_url,
+                updated_at=outcome.announcement.updated_at,
+            )
+            notification_queued = True
+            skipped_reason = ""
+        else:
+            skipped_reason = "no_recipients"
+    return AnnouncementPublishResponse(
+        enabled=outcome.announcement.enabled,
+        title=outcome.announcement.title,
+        body=outcome.announcement.body,
+        updated_at=outcome.announcement.updated_at,
+        email_notification_queued=notification_queued,
+        email_recipient_count=recipient_count,
+        email_skipped_reason=skipped_reason,
+    )
 
 
 @router.post("/settings/test-email", response_model=EmailTestResponse)

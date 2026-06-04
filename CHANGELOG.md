@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.62.6] - 2026-06-04
+
+### Added
+
+- 系统公告发布新增邮件通知：管理员发布新公告时会向所有活跃用户邮箱发送带网站链接的 HTML 卡片邮件，并按公告内容签名避免重复群发。
+
 ## [1.61.6] - 2026-06-04
 
 ### Added

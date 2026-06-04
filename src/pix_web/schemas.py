@@ -792,6 +792,18 @@ class AnnouncementResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AnnouncementPublishRequest(BaseModel):
+    title: str = Field(default="", max_length=80)
+    body: str = Field(default="", max_length=1200)
+    enabled: bool = True
+
+
+class AnnouncementPublishResponse(AnnouncementResponse):
+    email_notification_queued: bool = False
+    email_recipient_count: int = 0
+    email_skipped_reason: str = ""
+
+
 class EmailTestRequest(BaseModel):
     email: EmailStr
 

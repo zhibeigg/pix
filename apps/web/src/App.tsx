@@ -23,7 +23,7 @@ import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
 import { buildGridDesign, defaultPixelize } from './pixelize'
 import { useI18n } from './i18n'
 import { applyPageSeo } from './lib/seo'
-import type { AdminDashboard, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SequenceAlignmentRequest, SetupStatus, SystemSetting, User } from './types'
+import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SequenceAlignmentRequest, SetupStatus, SystemSetting, User } from './types'
 
 type ToastVariant = 'success' | 'info' | 'error'
 type AppToastState = { id: number; message: string; variant: ToastVariant }
@@ -798,6 +798,20 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setMessage(text('配置已更新', 'Settings updated'))
   }
 
+  async function publishAnnouncement(payload: AnnouncementPublishPayload): Promise<AnnouncementPublishResponse> {
+    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
+    const result = await api.publishAnnouncement(token, payload)
+    await refreshCore(token)
+    if (result.email_notification_queued) {
+      setMessage(text(`公告已发布，邮件通知已开始发送（${result.email_recipient_count} 个邮箱）`, `Announcement published and email notifications are being sent (${result.email_recipient_count} inboxes)`), 'info')
+    } else if (result.email_skipped_reason === 'unchanged') {
+      setMessage(text('公告已保存，内容未变化不重复发送邮件', 'Announcement saved; unchanged content was not emailed again'), 'info')
+    } else {
+      setMessage(text('公告已保存', 'Announcement saved'), 'info')
+    }
+    return result
+  }
+
   async function createAdminPackage(payload: CreditPackage) {
     if (!token) return
     await api.createAdminPackage(token, payload)
@@ -910,7 +924,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
           {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
           {page === 'rewards' && <RewardsPage token={token} onRefresh={() => refreshCore()} />}
-          {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} />}
+          {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onPublishAnnouncement={publishAnnouncement} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} />}
         </WorkspaceShell>
       ) : (
         <div>

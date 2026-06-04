@@ -94,12 +94,22 @@ npm run build
 | `PIX_WEB_RUNNING_JOB_CLEANUP_INTERVAL_SECONDS` | Worker 扫描超时 running 任务的间隔，默认 60 秒。 |
 | `PIX_WEB_REDIS_URL` | RQ/Redis 连接。 |
 | `PIX_WEB_PIX_CONFIG` | 可选：让 Web worker 加载指定 `config.toml`。 |
+| `PIX_WEB_PUBLIC_BASE_URL` | 后端公开 URL，例如 `https://example.com/api`；支付回调和链接推导会使用。 |
+| `PIX_WEB_FRONTEND_BASE_URL` | 前端公开 URL；公告邮件按钮优先使用它，留空时从 `PIX_WEB_PUBLIC_BASE_URL` 推导。 |
 | `PIX_WEB_CORS_ORIGINS` | 前后端不同源部署时填写允许的 Origin，多个用逗号分隔。 |
+| `PIX_WEB_EMAIL_PROVIDER` | 邮件发送方式，开发可用 `console`，生产公告通知和验证码建议使用 `smtp`。 |
+| `PIX_WEB_SMTP_HOST` / `PIX_WEB_SMTP_PORT` / `PIX_WEB_SMTP_FROM` | SMTP 投递配置；系统公告邮件和注册验证码共用。 |
 | `PIX_WEB_TURNSTILE_ENABLED` | 是否在注册发送验证码前要求 Cloudflare Turnstile 校验，默认关闭。 |
 | `PIX_WEB_TURNSTILE_SITE_KEY` | Turnstile Site Key，前端可见。 |
 | `PIX_WEB_TURNSTILE_SECRET_KEY` | Turnstile Secret Key，仅后端校验使用，建议放密钥管理。 |
 
 更多配置见 `.env.example`、`.env.production.example` 和 `config.example.toml`。
+
+## 系统公告与邮件通知
+
+管理员在后台「系统公告」面板发布启用的新公告时，后端会为当前所有 `active` 用户邮箱排队发送一封 HTML 卡片邮件。邮件会展示公告标题、正文、发布时间和“打开 Pix 网站”按钮；按钮链接优先读取 `PIX_WEB_FRONTEND_BASE_URL`，未配置时会从 `PIX_WEB_PUBLIC_BASE_URL` 去掉 `/api` 后推导。相同标题和正文重复保存不会再次群发，下线公告或保存草稿也不会发送邮件。
+
+公告邮件复用注册验证码的邮件配置：开发环境 `PIX_WEB_EMAIL_PROVIDER=console` 时只写入日志；生产环境请配置 `smtp`、`PIX_WEB_SMTP_HOST`、`PIX_WEB_SMTP_FROM`、TLS/SSL 和认证信息。
 
 ## 网站素材生成流水线
 
