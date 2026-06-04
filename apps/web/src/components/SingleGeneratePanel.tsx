@@ -161,7 +161,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
 
   // 模式切换时重置默认参数
   useEffect(() => {
-    if (jobType === 'asset') { setPixelSize('16x16'); setColors(12); setRemoveBg(true); setEdgeStyle('outline') }
+    if (jobType === 'asset') { setPixelSize('16x16'); setColors(8); setRemoveBg(true); setEdgeStyle('hard') }
     else if (jobType === 'sprite_sheet') { setPixelSize('64x64'); setColors(16); setRemoveBg(false); setFps(8); setSpritePreset('horizontal'); setRows(1); setCols(8); setRowPrompts(['']) }
     else { setPixelSize('128x128'); setColors(16); setRemoveBg(true) }
   }, [jobType])
@@ -178,7 +178,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
       // Logo 暂不支持参考图模式，避免误走 image_to_image 丢失 Logo prompt 语义。
       setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('')
     } else if (assetKind === 'item_icon') {
-      setPixelSize('16x16'); setColors(12); setRemoveBg(true); setEdgeStyle('outline')
+      setPixelSize('16x16'); setColors(8); setRemoveBg(true); setEdgeStyle('hard')
     } else if (assetKind === 'ui_component') {
       setPixelSize('32x32'); setColors(12); setRemoveBg(true); setEdgeStyle('outline')
     }

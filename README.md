@@ -142,7 +142,7 @@ npm run build
 
 - `Canvas size must be exactly {width}x{height} pixels` 必须与用户实际选择的输出尺寸一致，例如 `16x16`、`32x32`、`64x64`。
 - `{asset_kind_label}` / `{subject_kind_label}` / `{asset_usage_label}` / `{placement_context}` / `{forbidden_elements}` 由素材类型、主体类型选择自动填入；物品图标只出现物品/背包语义，UI 组件只出现界面组件语义，平铺纹理只出现无缝铺满语义，游戏 Logo 只出现标题页/菜单品牌标识语义，不能混写。
-- `{max_colors}` / `{colors}` 使用用户实际选择的颜色数量上限，例如选择 12 色就写入 `no more than 12 visible subject colors`。
+- `{max_colors}` / `{colors}` 使用用户实际选择的颜色数量上限，例如选择 8 色就写入 `no more than 8 visible subject colors`。
 - `{key_tolerance}` 使用当前实际抠色最大色距容差，例如网站素材默认 48。
 - 背景要求是“用于 chroma-key 移除的纯色背景，并与主体所有可见颜色保持足够色距”，不要固定写死为 `#FF00FF` 或任何单一 HEX。
 - n-sample/contact-sheet 候选包装只引用完整 generation brief，不再额外写死 `inventory/UI use`；具体是物品还是 UI 只由 asset prompt 决定。
@@ -152,6 +152,14 @@ npm run build
 ```text
 Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} designed for {asset_usage_label}, not a painted digital illustration. Subject: {name}. Subject kind: {subject_kind_label}. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, and a simple silhouette. Use no more than {max_colors} visible subject colors; background color does not count. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and {placement_context}. Use a pure solid single-color background for chroma-key removal; choose a background color that is not close to any visible subject color, with color-distance greater than the removal tolerance ({key_tolerance} RGB Euclidean distance). No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. The output image should be pixel-perfect, each grid cell only contains one color. {forbidden_elements}
 ```
+
+### 物品图标（item_icon）
+
+素材类型选择「物品图标」时，默认走 16×16 小图标直出，面向背包、掉落物、技能/道具栏等使用场景：
+
+- 前端默认颜色数为 8 色，便于保持小尺寸图标的高识别度与统一色板。
+- 默认开启透明背景，但不做额外边缘处理：`edge_style=hard`、`bg_feather=0`，不再自动添加 outline 描边。
+- 如确实需要描边或羽化，可在「边缘处理」里手动切换。
 
 ### 游戏 Logo（game_logo）
 
@@ -201,7 +209,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.59.4`。
+当前版本：`1.59.5`。
 
 版本号格式为 `A.B.C`：
 

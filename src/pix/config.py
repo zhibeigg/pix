@@ -154,7 +154,7 @@ class AssetConfig:
 
     output_dir: str = "图片"
     pixel_size: tuple[int, int] = (16, 16)
-    colors: int = 12
+    colors: int = 8
     dither: str = "none"
     preview_scale: int = 12
     source_copy: bool = True
