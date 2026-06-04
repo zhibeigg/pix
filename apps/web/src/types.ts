@@ -155,8 +155,8 @@ export type SpriteParams = {
 export type AssetParams = {
   name: string
   extra_prompt?: string
-  asset_kind?: 'item_icon' | 'ui_component' | 'tile_texture'
-  subject_kind?: 'single_prop' | 'single_ui' | 'tileable_pattern'
+  asset_kind?: 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
+  subject_kind?: 'single_prop' | 'single_ui' | 'tileable_pattern' | 'logo_mark'
   use_vl?: boolean | null
   no_preview?: boolean
 }

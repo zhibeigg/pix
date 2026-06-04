@@ -103,16 +103,19 @@ ASSET_KIND_LABELS: dict[str, str] = {
     "item_icon": "item icon",
     "ui_component": "UI component",
     "tile_texture": "tileable pixel texture",
+    "game_logo": "game logo",
 }
 SUBJECT_KIND_LABELS: dict[str, str] = {
     "single_prop": "single prop",
     "single_ui": "single UI element",
     "tileable_pattern": "seamlessly tileable pattern",
+    "logo_mark": "logo title mark",
 }
 COMPATIBLE_SUBJECT_KINDS: dict[str, set[str]] = {
     "item_icon": {"single_prop"},
     "ui_component": {"single_ui"},
     "tile_texture": {"tileable_pattern"},
+    "game_logo": {"logo_mark"},
 }
 
 
@@ -136,6 +139,16 @@ ASSET_PROMPT_PROFILES: dict[str, AssetPromptProfile] = {
         usage_label="game interface use",
         placement_context="easy placement in HUD or menu layouts",
         forbidden_elements="No text, no watermark, no unrelated outer frame, no labels.",
+    ),
+    "game_logo": AssetPromptProfile(
+        default_subject_kind="logo_mark",
+        usage_label="game title screen, main menu, splash screen, or HUD branding use",
+        placement_context="easy placement on transparent title screens, menu headers, splash screens, or HUD brand areas",
+        forbidden_elements=(
+            "Only use the exact short title, acronym, or brand text provided in the subject if text is needed; "
+            "do not invent extra words. No watermark, no mockup scene, no paragraph text, no tiny unreadable text, "
+            "no labels outside the logo, no unrelated frame."
+        ),
     ),
     "tile_texture": AssetPromptProfile(
         default_subject_kind="tileable_pattern",

@@ -18,11 +18,12 @@ import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
 
 type Props = { pricing: PricingRule[]; loading: boolean; token: string; onSubmit: (payload: JobCreateRequest) => Promise<void> }
-type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture'
+type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
 
 const PROMPT_MAX_LENGTH = 3000
 const ROW_PROMPT_MAX_LENGTH = 600
 const MAX_GRID_AXIS = 8
+const LOGO_SIZE_OPTIONS = ['64x32', '96x48', '128x64', '192x96', '256x128']
 
 type SpritePreset = 'horizontal' | 'four_directions' | 'character_full' | 'custom'
 
@@ -121,8 +122,9 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
   const isSprite = jobType === 'sprite_sheet'
   const isLocalPixelize = jobType === 'local_pixelize'
   const isTileAsset = isAsset && assetKind === 'tile_texture'
-  // 平铺纹理因为本质就是"铺满画布"，参考图意义不大；图标 / UI 才提供参考图入口
-  const assetSupportsReference = isAsset && !isTileAsset
+  const isLogoAsset = isAsset && assetKind === 'game_logo'
+  // 平铺纹理和 Logo 暂不走参考图模式；参考图路径会转成 image_to_image，无法保留 asset_kind 专用语义。
+  const assetSupportsReference = isAsset && (assetKind === 'item_icon' || assetKind === 'ui_component')
   const hasAssetReference = assetSupportsReference && !!assetRefPath
   const basePrice = useMemo(() => {
     // 素材直出 + 参考图 时，按图生图价位计费（实际后端就走 image_to_image pipeline）
@@ -136,7 +138,18 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
   const price = isSprite ? basePrice * billingUnits : basePrice
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
-  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : 'single_prop'
+  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : 'single_prop'
+  const assetNameLabel = isLogoAsset ? text('Logo 标题 / 品牌名', 'Logo title / brand name') : isTileAsset ? text('纹理主题 / 题材', 'Texture theme') : text('主体', 'Subject')
+  const assetNamePlaceholder = isLogoAsset
+    ? text('例如：星尘纪元、PIX FORGE、龙焰', 'e.g. Starfall Age, PIX FORGE, Dragonflame')
+    : isTileAsset
+      ? text('例如：苔藓砖石路面、木板地、像素草地', 'e.g. mossy cobblestone, wood planks, grass field')
+      : text('例如：冰霜之心', 'e.g. Frost Heart')
+  const assetExtraPlaceholder = isLogoAsset
+    ? text('可补充字体气质、徽章形状、配色、题材氛围。文字只会使用上方标题。', 'Optional: lettering mood, emblem shape, palette, genre atmosphere. Text should only use the title above.')
+    : isTileAsset
+      ? text('可补充配色、细节密度、年代感等。无需提"无缝平铺"，模板已内置。', 'Optional: palette, detail density, era. "Seamless / tileable" is already enforced by template.')
+      : text('可留空；如需补充材质、颜色或题材风格再填写。', 'Optional; add material, color, or theme notes if needed.')
   const invalidGrid = isSprite && (safeRows < 1 || safeCols < 1 || safeRows > MAX_GRID_AXIS || safeCols > MAX_GRID_AXIS)
   const missingRowPrompts = isSprite && safeRows >= 2 && rowPrompts.slice(0, safeRows).some((value) => !value.trim())
   const submitBlocked = invalidSubAssetSize
@@ -153,12 +166,16 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
     else { setPixelSize('128x128'); setColors(16); setRemoveBg(true) }
   }, [jobType])
 
-  // asset_kind 切换时重置常用默认（平铺纹理：32×32 / 12 色 / 不抠透明 / hard 边缘）
+  // asset_kind 切换时重置常用默认：平铺纹理铺满画布；Logo 走宽幅透明 PNG，不额外描边。
   useEffect(() => {
     if (jobType !== 'asset') return
     if (assetKind === 'tile_texture') {
       setPixelSize('32x32'); setColors(12); setRemoveBg(false); setEdgeStyle('hard')
       // 切到平铺纹理时清掉之前的参考图（不支持）
+      setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('')
+    } else if (assetKind === 'game_logo') {
+      setPixelSize('128x64'); setColors(24); setRemoveBg(true); setEdgeStyle('hard')
+      // Logo 暂不支持参考图模式，避免误走 image_to_image 丢失 Logo prompt 语义。
       setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('')
     } else if (assetKind === 'item_icon') {
       setPixelSize('16x16'); setColors(12); setRemoveBg(true); setEdgeStyle('outline')
@@ -334,11 +351,12 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
                 <SelectItem value="item_icon">{text('物品图标', 'Item icon')}</SelectItem>
                 <SelectItem value="ui_component">{text('UI 组件', 'UI component')}</SelectItem>
                 <SelectItem value="tile_texture">{text('平铺纹理', 'Tileable texture')}</SelectItem>
+                <SelectItem value="game_logo">{text('游戏 Logo', 'Game logo')}</SelectItem>
               </SelectContent>
             </Select>
           </PixField>
-          <PixField label={isTileAsset ? text('纹理主题 / 题材', 'Texture theme') : text('主体', 'Subject')}><Input value={assetName} placeholder={isTileAsset ? text('例如：苔藓砖石路面、木板地、像素草地', 'e.g. mossy cobblestone, wood planks, grass field') : text('例如：冰霜之心', 'e.g. Frost Heart')} onChange={(e) => setAssetName(e.target.value)} /></PixField>
-          <PixField label={text('额外风格描述（可选）', 'Extra style notes (optional)')}><Textarea value={assetExtraPrompt} rows={3} maxLength={PROMPT_MAX_LENGTH} placeholder={isTileAsset ? text('可补充配色、细节密度、年代感等。无需提"无缝平铺"，模板已内置。', 'Optional: palette, detail density, era. "Seamless / tileable" is already enforced by template.') : text('可留空；如需补充材质、颜色或题材风格再填写。', 'Optional; add material, color, or theme notes if needed.')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
+          <PixField label={assetNameLabel}><Input value={assetName} placeholder={assetNamePlaceholder} onChange={(e) => setAssetName(e.target.value)} /></PixField>
+          <PixField label={text('额外风格描述（可选）', 'Extra style notes (optional)')}><Textarea value={assetExtraPrompt} rows={3} maxLength={PROMPT_MAX_LENGTH} placeholder={assetExtraPlaceholder} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
           {assetSupportsReference && (
             <PixField label={text('参考图（可选）', 'Reference image (optional)')} hint={text('提供后将以图生图模式微调：在保留参考图主体的基础上按描述变换风格 / 配色 / 细节。留空走默认文生图素材直出。', 'When provided, the job runs as image-to-image: it preserves the reference subject while adapting style/colors/details to your description. Leave empty to use the default text-to-image asset path.')}>
               <div className="grid gap-3">
@@ -444,14 +462,14 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
 
         {isLocalPixelize && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} loading={uploading} label={uploading ? text('上传中…', 'Uploading…') : text('等待上传预览', 'Waiting for upload preview')} /></div>}
 
-        <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isSprite || isTileAsset || !removeBg} />
+        <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isSprite || isTileAsset || !removeBg} />
 
         <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={isTileAsset ? false : removeBg} disabled={isSprite || isTileAsset} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{text('透明背景', 'Transparent background')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={isSprite || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? text('素材直出默认视觉理解策略', 'Default vision policy for asset output') : text('跳过参考图理解', 'Skip reference understanding')}</label></div>
 
         {invalidSubAssetSize && <Alert variant="destructive">{text('素材最低支持 16×16。', 'Minimum asset size is 16×16.')}</Alert>}
         {invalidGrid && <Alert variant="destructive">{text('序列帧每行/每列最多 8。', 'Sprite sequence rows and cols are capped at 8.')}</Alert>}
         {missingRowPrompts && <Alert variant="destructive">{text('多行序列帧需要为每一行填写动作描述。', 'Multi-row sequences require an action description for each row.')}</Alert>}
-        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : hasAssetReference ? text('图生图微调', 'Generate (image-to-image)') : text('生成游戏素材', 'Generate game asset')) : text('生成单张素材', 'Generate single asset')}</Button>
+        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : isLogoAsset ? text('生成游戏 Logo', 'Generate game logo') : hasAssetReference ? text('图生图微调', 'Generate (image-to-image)') : text('生成游戏素材', 'Generate game asset')) : text('生成单张素材', 'Generate single asset')}</Button>
       </form>
     </PixPanel>
   )

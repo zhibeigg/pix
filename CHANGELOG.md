@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.59.4] - 2026-06-04
+
+### Added
+
+- 「素材直出」新增 `game_logo` 游戏 Logo 类型：前端单张/批量入口可选择游戏 Logo，默认使用 128×64、24 色、透明背景且不额外描边；后端新增 Logo 专用 prompt profile 与 `logo_mark` 主体类型，允许用户给定短标题但禁止模型自造额外文字、水印或 mockup 场景。
+- Logo 类型暂不开放参考图入口，避免误走通用 `image_to_image` 路径而丢失 `asset_kind=game_logo` 的专用语义。
+
 ## [1.58.4] - 2026-05-30
 
 ### Fixed
