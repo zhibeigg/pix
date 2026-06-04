@@ -5,6 +5,13 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover
+    def load_dotenv(*_args: Any, **_kwargs: Any) -> bool:  # type: ignore[misc]
+        return False
 
 
 @dataclass(frozen=True)
@@ -110,7 +117,13 @@ def _env_csv(name: str) -> tuple[str, ...]:
 
 
 def load_web_settings() -> WebSettings:
-    """从环境变量加载 Web 配置。"""
+    """从 .env 与环境变量加载 Web 配置。"""
+    if not os.getenv("PIX_DISABLE_DOTENV"):
+        env_path = Path(".env")
+        if env_path.exists():
+            load_dotenv(env_path)
+        else:
+            load_dotenv()
     database_url = os.getenv("PIX_WEB_DATABASE_URL", _DEFAULTS["PIX_WEB_DATABASE_URL"])
     jwt_secret = os.getenv("PIX_WEB_JWT_SECRET", _DEFAULTS["PIX_WEB_JWT_SECRET"])
     storage_root = Path(os.getenv("PIX_WEB_STORAGE_ROOT", _DEFAULTS["PIX_WEB_STORAGE_ROOT"]))
