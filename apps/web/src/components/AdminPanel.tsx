@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import type { AdminDashboard, CreditPackage, PricingRule, SystemSetting, User } from '../types'
+import type { AdminDashboard, CreditPackage, GenerationJob, PricingRule, SystemSetting, User } from '../types'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -12,7 +12,7 @@ import { PixField } from './pix/PixField'
 import { PixMetric } from './pix/PixMetric'
 import { PixPanel } from './pix/PixPanel'
 
-type Props = { dashboard: AdminDashboard | null; users: User[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onTestEmail: (email: string) => Promise<void> }
+type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void> }
 const settingTabs = ['运营保护', '邮件验证码', '模型与 API', '素材默认值', '序列帧', '支付与站点', '存储 / 队列 / 安全']
 const announcementSettingKeys = {
   enabled: 'site.announcement.enabled',
@@ -20,7 +20,7 @@ const announcementSettingKeys = {
   body: 'site.announcement.body',
 } as const
 
-export function AdminPanel({ dashboard, users, pricing, packages, settings, onRefresh, onAdjustCredits, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onTestEmail }: Props) {
+export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings, onRefresh, onAdjustCredits, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onTestEmail, onAdminRetryJob, onAdminCancelJob, onAdminFailRefundJob }: Props) {
   const [tab, setTab] = useState('dashboard')
   const [selectedUser, setSelectedUser] = useState('0')
   const [amount, setAmount] = useState(100)
@@ -31,8 +31,9 @@ export function AdminPanel({ dashboard, users, pricing, packages, settings, onRe
   return (
     <PixPanel eyebrow="Control Room" title="管理后台" description="配置站点、模型、邮件、套餐和运营保护。高风险环境项只显示状态。" action={<Button variant="outline" onClick={onRefresh}>刷新</Button>}>
       <div className="grid gap-6">
-        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
+        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="jobs">任务操作</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
         {tab === 'dashboard' && dashboard && <DashboardGrid dashboard={dashboard} />}
+        {tab === 'jobs' && <AdminJobsList jobs={jobs} onRetry={onAdminRetryJob} onCancel={onAdminCancelJob} onFailRefund={onAdminFailRefundJob} />}
         {tab === 'users' && <form className="grid max-w-xl gap-4" onSubmit={submitAdjust}><PixField label="用户"><Select value={selectedUser} onValueChange={setSelectedUser}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">选择用户</SelectItem>{users.map((u) => <SelectItem value={String(u.id)} key={u.id}>{u.email} · {u.role}</SelectItem>)}</SelectContent></Select></PixField><PixField label="点数变化"><Input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></PixField><PixField label="备注"><Input value={note} onChange={(e) => setNote(e.target.value)} /></PixField><Button type="submit">调整点数</Button></form>}
         {tab === 'announcements' && <AnnouncementEditor settings={settings} onUpdate={onUpdateSetting} />}
         {tab === 'pricing' && <div className="grid gap-3"><h3 className="text-lg font-semibold">价格规则</h3>{pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}</div>}
@@ -44,7 +45,30 @@ export function AdminPanel({ dashboard, users, pricing, packages, settings, onRe
 }
 
 function groupSettings(settings: SystemSetting[]) { return settings.reduce<Record<string, SystemSetting[]>>((acc, setting) => { const category = setting.category || '其他'; acc[category] = acc[category] || []; acc[category].push(setting); return acc }, {}) }
-function DashboardGrid({ dashboard }: { dashboard: AdminDashboard }) { return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><PixMetric label="今日任务" value={dashboard.jobs_today} tone="info" /><PixMetric label="成功 / 失败" value={`${dashboard.succeeded_today} / ${dashboard.failed_today}`} tone={dashboard.failed_today > 0 ? 'danger' : 'success'} /><PixMetric label="排队 / 运行" value={`${dashboard.pending_jobs} / ${dashboard.running_jobs}`} tone="info" /><PixMetric label="今日充值" value={dashboard.credits_recharged_today} tone="success" /><PixMetric label="今日消费" value={dashboard.credits_consumed_today} tone="warning" /><PixMetric label="今日上传" value={dashboard.uploads_today} /><PixMetric label="总用户" value={dashboard.total_users} /><PixMetric label="失败率" value={`${Math.round(dashboard.failure_rate * 100)}%`} tone={dashboard.failure_rate > 0.1 ? 'danger' : 'success'} /></div> }
+function DashboardGrid({ dashboard }: { dashboard: AdminDashboard }) {
+  return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><PixMetric label="今日任务" value={dashboard.jobs_today} tone="info" /><PixMetric label="成功 / 失败" value={`${dashboard.succeeded_today} / ${dashboard.failed_today}`} tone={dashboard.failed_today > 0 ? 'danger' : 'success'} /><PixMetric label="策略拦截" value={dashboard.policy_blocked_today} tone={dashboard.policy_blocked_today > 0 ? 'warning' : 'success'} /><PixMetric label="上游 / 超时" value={`${dashboard.upstream_errors_today} / ${dashboard.timeout_jobs_today}`} tone={(dashboard.upstream_errors_today + dashboard.timeout_jobs_today) > 0 ? 'danger' : 'success'} /><PixMetric label="Pipeline 异常" value={dashboard.pipeline_errors_today} tone={dashboard.pipeline_errors_today > 0 ? 'danger' : 'success'} /><PixMetric label="排队 / 运行" value={`${dashboard.pending_jobs} / ${dashboard.running_jobs}`} tone="info" /><PixMetric label="运行超 30 分钟" value={dashboard.running_over_30m_jobs} tone={dashboard.running_over_30m_jobs > 0 ? 'warning' : 'success'} /><PixMetric label="候选失败 / 警告" value={`${dashboard.candidate_failures_today} / ${dashboard.pipeline_warnings_today}`} tone={(dashboard.candidate_failures_today + dashboard.pipeline_warnings_today) > 0 ? 'warning' : 'success'} /><PixMetric label="平均耗时" value={`${Math.round(dashboard.average_generation_seconds_today)}s`} /><PixMetric label="P95 耗时" value={`${Math.round(dashboard.p95_generation_seconds_today)}s`} /><PixMetric label="今日充值" value={dashboard.credits_recharged_today} tone="success" /><PixMetric label="今日消费" value={dashboard.credits_consumed_today} tone="warning" /><PixMetric label="今日上传" value={dashboard.uploads_today} /><PixMetric label="总用户" value={dashboard.total_users} /><PixMetric label="失败率" value={`${Math.round(dashboard.failure_rate * 100)}%`} tone={dashboard.failure_rate > 0.1 ? 'danger' : 'success'} /></div>
+}
+function AdminJobsList({ jobs, onRetry, onCancel, onFailRefund }: { jobs: GenerationJob[]; onRetry: (job: GenerationJob) => Promise<void>; onCancel: (job: GenerationJob) => Promise<void>; onFailRefund: (job: GenerationJob) => Promise<void> }) {
+  if (!jobs.length) return <Alert variant="info">暂无任务记录。</Alert>
+  return <div className="grid gap-3"><div><h3 className="text-lg font-semibold">任务操作</h3><p className="text-sm text-muted-foreground">显示最新 100 个任务；可重试失败任务，或取消/标记失败并退款排队中与运行中任务。</p></div>{jobs.map((job) => <div key={job.id} className="grid gap-3 rounded-lg border border-border bg-card p-4 xl:grid-cols-[minmax(0,1fr)_auto]"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">#{job.id} · {job.job_type}</p><Badge variant={job.status === 'succeeded' ? 'success' : job.status === 'failed' ? 'danger' : job.status === 'running' ? 'warning' : job.status === 'cancelled' ? 'muted' : 'info'}>{job.status}</Badge>{job.failure_type && <Badge variant="outline">{job.failure_type}</Badge>}{job.failure_source && <Badge variant="outline">{job.failure_source}</Badge>}{job.failure_code && <Badge variant="outline">{job.failure_code}</Badge>}</div><p className="mt-1 truncate text-sm text-muted-foreground">{job.prompt || '无 prompt'} · {formatDateTime(job.created_at)} · 运行 {formatRuntime(job)}</p><div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground"><span>点数 {job.price_credits}</span><span>冻结 {job.reserved_credits}</span><span>候选失败 {job.candidate_failure_count}</span><span>流水线警告 {job.pipeline_warning_count}</span></div>{job.error_message && <p className="mt-2 line-clamp-2 text-sm text-destructive">{job.error_message.slice(0, 220)}</p>}</div><div className="flex flex-wrap items-center gap-2 xl:justify-end">{job.status === 'failed' && <Button variant="outline" size="sm" onClick={() => { if (window.confirm(`重试任务 #${job.id}？`)) void onRetry(job) }}>重试</Button>}{['pending', 'running'].includes(job.status) && <Button variant="outline" size="sm" onClick={() => { if (window.confirm(`取消任务 #${job.id} 并退款？`)) void onCancel(job) }}>取消并退款</Button>}{['pending', 'running', 'failed'].includes(job.status) && <Button variant="soft" size="sm" onClick={() => { if (window.confirm(`标记任务 #${job.id} 失败并退款？`)) void onFailRefund(job) }}>标记失败退款</Button>}</div></div>)}</div>
+}
+
+function formatRuntime(job: GenerationJob) {
+  if (!job.started_at) return '—'
+  const start = new Date(job.started_at).getTime()
+  const end = job.finished_at ? new Date(job.finished_at).getTime() : Date.now()
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return '—'
+  const seconds = Math.round((end - start) / 1000)
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  const rest = seconds % 60
+  return `${minutes}m ${rest}s`
+}
+
+function formatDateTime(value: string) {
+  try { return new Date(value).toLocaleString() } catch { return value }
+}
+
 function EmailTestBox({ onTest }: { onTest: (email: string) => Promise<void> }) { const [email, setEmail] = useState('admin@example.com'); return <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void onTest(email) }}><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /><Button type="submit" variant="outline">发送测试</Button></form> }
 
 function settingValue(settings: SystemSetting[], key: string, fallback = '') {

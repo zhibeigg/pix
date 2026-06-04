@@ -349,6 +349,11 @@ export type GenerationJob = {
   price_credits: number
   reserved_credits: number
   error_message: string
+  failure_type: string
+  failure_source: string
+  failure_code: string
+  candidate_failure_count: number
+  pipeline_warning_count: number
   created_at: string
   started_at: string | null
   finished_at: string | null
@@ -453,8 +458,17 @@ export type AdminDashboard = {
   jobs_today: number
   succeeded_today: number
   failed_today: number
+  policy_blocked_today: number
+  upstream_errors_today: number
+  timeout_jobs_today: number
+  pipeline_errors_today: number
   pending_jobs: number
   running_jobs: number
+  running_over_30m_jobs: number
+  candidate_failures_today: number
+  pipeline_warnings_today: number
+  average_generation_seconds_today: number
+  p95_generation_seconds_today: number
   credits_consumed_today: number
   credits_recharged_today: number
   orders_paid_today: number

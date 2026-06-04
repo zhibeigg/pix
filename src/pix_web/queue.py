@@ -25,7 +25,11 @@ def enqueue_job(settings: WebSettings, job_id: int) -> bool:
     try:
         redis_conn = Redis.from_url(settings.redis_url)
         queue = Queue(settings.rq_queue_name, connection=redis_conn)
-        queue.enqueue("pix_web.rq_worker.process_job_id", job_id, job_timeout="30m")
+        queue.enqueue(
+            "pix_web.rq_worker.process_job_id",
+            job_id,
+            job_timeout=f"{max(1, int(settings.running_job_timeout_minutes))}m",
+        )
     except Exception as exc:  # noqa: BLE001 - API 需要把队列不可用转成明确错误
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"队列不可用: {exc}") from exc
     return True

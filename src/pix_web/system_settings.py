@@ -189,6 +189,8 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.sprite.mosaic_reference_prompt_template", "Mosaic 参考图 Prompt 模板", "序列帧", "textarea", "", "包含占位符 {base_template}（已渲染好的主模板）以及 {description}/{rows}/{cols}/... 同上。"),
     SettingDefinition("web.poll_interval_seconds", "Worker 轮询间隔", "存储 / 队列 / 安全", "number", "", "保存后需重启 worker 才能稳定生效。", restart_required=True, env_var="PIX_WEB_POLL_INTERVAL_SECONDS"),
     SettingDefinition("web.worker_concurrency", "Worker 并发上限", "存储 / 队列 / 安全", "number", "", "空闲槽位内任务会直接并发运行；超过该上限才保持排队。保存后需重启 worker。", restart_required=True, env_var="PIX_WEB_WORKER_CONCURRENCY"),
+    SettingDefinition("web.running_job_timeout_minutes", "运行任务超时（分钟）", "存储 / 队列 / 安全", "number", "", "running 任务超过该时间且未完成时会被自动标记失败并退款；保存后需重启 worker。", restart_required=True, env_var="PIX_WEB_RUNNING_JOB_TIMEOUT_MINUTES"),
+    SettingDefinition("web.running_job_cleanup_interval_seconds", "超时清理间隔（秒）", "存储 / 队列 / 安全", "number", "", "Worker 主循环扫描超时 running 任务的间隔；保存后需重启 worker。", restart_required=True, env_var="PIX_WEB_RUNNING_JOB_CLEANUP_INTERVAL_SECONDS"),
     SettingDefinition("web.access_token_minutes", "登录 token 有效分钟", "存储 / 队列 / 安全", "number", "", "新签发 token 生效；不影响已签发 token。", env_var="PIX_WEB_ACCESS_TOKEN_MINUTES"),
     SettingDefinition("env.database_url", "数据库连接", "存储 / 队列 / 安全", "status", "", "环境级配置，只显示状态，不在线修改。", editable=False, env_var="PIX_WEB_DATABASE_URL", source="environment_only"),
     SettingDefinition("env.jwt_secret", "JWT Secret", "存储 / 队列 / 安全", "status", "", "环境级配置；在线修改会导致现有 token 失效，第一阶段不提供。", secret=True, editable=False, env_var="PIX_WEB_JWT_SECRET", source="environment_only"),

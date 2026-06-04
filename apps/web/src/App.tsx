@@ -111,6 +111,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [deleting, setDeleting] = useState(false)
   const [pricing, setPricing] = useState<PricingRule[]>([])
   const [adminUsers, setAdminUsers] = useState<User[]>([])
+  const [adminJobs, setAdminJobs] = useState<GenerationJob[]>([])
   const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([])
   const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(null)
   const [busy, setBusy] = useState(false)
@@ -229,16 +230,18 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       setSelectedPackJobs(await api.packJobs(activeToken, selectedPackId))
     }
     if (me.role === 'admin') {
-      const [users, settings, dashboard, nextAdminPackages] = await Promise.all([
+      const [users, settings, dashboard, nextAdminPackages, nextAdminJobs] = await Promise.all([
         api.adminUsers(activeToken),
         api.adminSettings(activeToken),
         api.adminDashboard(activeToken),
         api.adminPackages(activeToken),
+        api.adminJobs(activeToken),
       ])
       setAdminUsers(users)
       setSystemSettings(settings)
       setAdminDashboard(dashboard)
       setAdminPackages(nextAdminPackages)
+      setAdminJobs(nextAdminJobs)
     }
   }, [notifyJobCompletions, selectedPackId, token])
 
@@ -419,6 +422,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setSelectedPackJobs([])
     setPricing([])
     setAdminUsers([])
+    setAdminJobs([])
     setAdminPackages([])
     setSystemSettings([])
     setAdminDashboard(null)
@@ -814,6 +818,27 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setMessage(result.debug_code ? `${result.message}：${result.debug_code}` : result.message, 'info')
   }
 
+  async function adminRetryJob(job: GenerationJob) {
+    if (!token || job.status !== 'failed') return
+    const created = await api.adminRetryJob(token, job.id)
+    setMessage(text(`管理员已重试任务 #${job.id}，新任务 #${created.id} 已提交。`, `Admin retried job #${job.id}; new job #${created.id} submitted.`))
+    await refreshCore(token)
+  }
+
+  async function adminCancelJob(job: GenerationJob) {
+    if (!token || !['pending', 'running'].includes(job.status)) return
+    await api.adminCancelJob(token, job.id)
+    setMessage(text(`任务 #${job.id} 已取消并退款。`, `Job #${job.id} cancelled and refunded.`))
+    await refreshCore(token)
+  }
+
+  async function adminFailRefundJob(job: GenerationJob) {
+    if (!token || !['pending', 'running', 'failed'].includes(job.status)) return
+    await api.adminFailRefundJob(token, job.id)
+    setMessage(text(`任务 #${job.id} 已标记失败并退款。`, `Job #${job.id} marked failed and refunded.`))
+    await refreshCore(token)
+  }
+
   const needsAdminSetup = setupStatus?.needs_admin && !user
 
   return (
@@ -885,7 +910,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
           {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
           {page === 'rewards' && <RewardsPage token={token} onRefresh={() => refreshCore()} />}
-          {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onTestEmail={testEmailSetting} />}
+          {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} />}
         </WorkspaceShell>
       ) : (
         <div>

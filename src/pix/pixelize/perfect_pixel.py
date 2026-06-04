@@ -165,7 +165,7 @@ def _get_external_perfect_pixel(
     sample_arr = np.asarray(sample_image, dtype=np.uint8)
     stdout = io.StringIO()
     with redirect_stdout(stdout):
-        refined_w, refined_h, refined = get_perfect_pixel(
+        result = get_perfect_pixel(
             sample_arr,
             sample_method=sample_method,
             grid_size=grid_size,
@@ -175,6 +175,11 @@ def _get_external_perfect_pixel(
             fix_square=True,
             debug=False,
         )
+    if result is None:
+        raise RuntimeError("external perfectPixel backend returned None")
+    if not isinstance(result, tuple) or len(result) != 3:
+        raise RuntimeError(f"external perfectPixel backend returned invalid result: {type(result).__name__}")
+    refined_w, refined_h, refined = result
     if refined is not None:
         refined = np.asarray(refined, dtype=np.uint8)
     return refined_w, refined_h, refined, {

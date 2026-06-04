@@ -59,6 +59,17 @@ _TEMPLATE_BREAK_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DIRECT_REFERENCE_COPY_RE = re.compile(
+    r"("
+    r"(直接|原样|完全|一比一|照着|照搬)[^\n]{0,24}(抄袭|复制|复刻|克隆|照抄|照搬|还原)[^\n]{0,24}(参考图|原图|这张图|图片)|"
+    r"(抄袭|复制|复刻|克隆|照抄|照搬|还原)[^\n]{0,24}(参考图|原图|这张图|图片)|"
+    r"(copy|clone|replicate|recreate)\s+(this|the)?\s*(reference|source)?\s*(image|picture|artwork)\s*(exactly|directly|1:1|one[-\s]?to[-\s]?one)?|"
+    r"(exact|direct|1:1|one[-\s]?to[-\s]?one)\s+(copy|clone|replica|recreation)"
+    r")",
+    re.IGNORECASE,
+)
+_DIRECT_REFERENCE_COPY_MESSAGE = "该请求涉及直接复刻参考图，请改为“参考风格/构图，重新设计原创素材”。"
+
 
 def local_prompt_guard(
     prompt: str | None,
@@ -74,6 +85,8 @@ def local_prompt_guard(
     lowered = text.lower()
     if _INJECTION_RE.search(lowered):
         return PromptGuardResult(False, "素材描述包含试图覆盖系统规则的内容", text, "local")
+    if _DIRECT_REFERENCE_COPY_RE.search(lowered):
+        return PromptGuardResult(False, _DIRECT_REFERENCE_COPY_MESSAGE, text, "local")
     if not allow_template_break and _TEMPLATE_BREAK_RE.search(lowered):
         return PromptGuardResult(False, "素材描述不能要求取消服务端抠色背景、候选图或序列帧约束", text, "local")
     return PromptGuardResult(True, "", text, "local")

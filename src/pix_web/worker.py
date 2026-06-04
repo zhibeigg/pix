@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+import json
 import time
 import traceback
 
@@ -13,6 +14,13 @@ from sqlalchemy.orm import Session, selectinload, sessionmaker
 from pix_web.config import WebSettings, load_web_settings
 from pix_web.credits import consume_reserved, refund_reserved
 from pix_web.db import init_db, make_engine, make_session_factory
+from pix_web.job_observability import (
+    apply_failure_info,
+    classify_failure,
+    cleanup_timed_out_running_jobs,
+    record_policy_event,
+    update_job_diagnostics,
+)
 from pix_web.models import GenerationJob, GenerationOutput, utcnow
 from pix_web.pipeline_adapter import run_job_pipeline
 from pix_web.retention import prune_user_photos
@@ -43,10 +51,35 @@ def claim_next_job(db: Session) -> GenerationJob | None:
                 return job
 
 
+def _persist_result_diagnostics(job: GenerationJob, result_meta: dict) -> None:
+    diagnostics = update_job_diagnostics(job, result_meta)
+    result_meta["diagnostics"] = {
+        "candidate_failure_count": diagnostics.candidate_failure_count,
+        "pipeline_warning_count": diagnostics.pipeline_warning_count,
+    }
+
+
+def _write_meta_with_diagnostics(meta_path: object, result_meta: dict) -> None:
+    try:
+        meta_path.write_text(json.dumps(result_meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        return
+
+
 def process_job(db: Session, job: GenerationJob, settings: WebSettings) -> GenerationJob:
     try:
         cfg = load_managed_pix_config(db, settings)
         result = run_job_pipeline(job, settings, cfg=cfg)
+        db.refresh(job)
+        if job.status != "running":
+            db.rollback()
+            return db.scalar(
+                select(GenerationJob)
+                .options(selectinload(GenerationJob.outputs))
+                .where(GenerationJob.id == job.id)
+            ) or job
+        _persist_result_diagnostics(job, result.meta)
+        _write_meta_with_diagnostics(result.meta_path, result.meta)
         output = GenerationOutput(
             job_id=job.id,
             run_dir=str(result.run_dir),
@@ -68,9 +101,24 @@ def process_job(db: Session, job: GenerationJob, settings: WebSettings) -> Gener
         job = db.get(GenerationJob, job.id)
         if job is None:
             raise
+        if job.status != "running":
+            db.rollback()
+            return job
+        failure = classify_failure(exc)
         job.status = "failed"
         job.error_message = f"{exc}\n\n{traceback.format_exc()}"[:8000]
         job.finished_at = utcnow()
+        apply_failure_info(job, failure)
+        if failure.failure_type == "policy_blocked":
+            record_policy_event(
+                db,
+                user_id=job.user_id,
+                job_id=job.id,
+                job_type=job.job_type,
+                reason=str(exc),
+                prompt=job.prompt,
+                source="worker",
+            )
         refund_reserved(db, job)
         db.commit()
     return db.scalar(
@@ -92,6 +140,7 @@ def process_claimed_job(
 
 def process_next_job(session_factory: sessionmaker[Session], settings: WebSettings) -> GenerationJob | None:
     with session_factory() as db:
+        cleanup_timed_out_running_jobs(db, timeout_minutes=settings.running_job_timeout_minutes)
         job = claim_next_job(db)
         if job is None:
             return None
@@ -130,9 +179,17 @@ def run_loop(session_factory: sessionmaker[Session], settings: WebSettings, *, o
         return
 
     concurrency = max(1, settings.worker_concurrency)
+    cleanup_interval = max(1, int(settings.running_job_cleanup_interval_seconds))
+    last_cleanup_at = 0.0
     in_flight: set[Future[GenerationJob | None]] = set()
     with ThreadPoolExecutor(max_workers=concurrency, thread_name_prefix="pix-web-job") as executor:
         while True:
+            now = time.monotonic()
+            if now - last_cleanup_at >= cleanup_interval:
+                with session_factory() as db:
+                    cleanup_timed_out_running_jobs(db, timeout_minutes=settings.running_job_timeout_minutes)
+                last_cleanup_at = now
+
             for job_id in claim_available_job_ids(session_factory, concurrency - len(in_flight)):
                 in_flight.add(executor.submit(process_claimed_job, session_factory, job_id, settings))
 

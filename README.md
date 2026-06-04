@@ -89,6 +89,9 @@ npm run build
 | `PIX_WEB_JWT_SECRET` | 登录 token 签名密钥，生产必须替换为长随机值。 |
 | `PIX_WEB_STORAGE_ROOT` | 用户上传、生成结果和任务文件根目录，默认 `web_outputs`。 |
 | `PIX_WEB_QUEUE_BACKEND` | `database` 或 `rq`。生产推荐 `rq`。 |
+| `PIX_WEB_WORKER_CONCURRENCY` | Worker 并发任务数。 |
+| `PIX_WEB_RUNNING_JOB_TIMEOUT_MINUTES` | running 任务自动清理阈值，默认 60 分钟；超时会标记失败并退款。 |
+| `PIX_WEB_RUNNING_JOB_CLEANUP_INTERVAL_SECONDS` | Worker 扫描超时 running 任务的间隔，默认 60 秒。 |
 | `PIX_WEB_REDIS_URL` | RQ/Redis 连接。 |
 | `PIX_WEB_PIX_CONFIG` | 可选：让 Web worker 加载指定 `config.toml`。 |
 | `PIX_WEB_CORS_ORIGINS` | 前后端不同源部署时填写允许的 Origin，多个用逗号分隔。 |
@@ -105,7 +108,7 @@ npm run build
 实际步骤：
 
 1. `build_asset_prompt` 根据用户主体、素材类型、尺寸、颜色数和抠色容差构建 prompt。
-2. 本地 prompt guard 只审核用户原始输入，不把服务端模板暴露给审核模型。
+2. 本地 prompt guard 只审核用户原始输入，不把服务端模板暴露给审核模型；“直接复刻/抄袭参考图”类请求会在创建任务前拒绝，不入队、不冻结点数，并写入策略审计事件供后台统计。
 3. 使用 `gpt-image-2` 生成单张源图。
 4. 默认 `skip_vl = true`，不走普通 VL 分析。
 5. Pixel Grid extract：

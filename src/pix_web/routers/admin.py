@@ -9,9 +9,12 @@ from sqlalchemy.orm import Session, selectinload
 from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits
 from pix_web.dashboard import admin_dashboard
+from pix_web.job_observability import admin_fail_job_and_refund, cancel_job_and_refund, load_job_with_outputs
+from pix_web.jobs import retry_failed_job
 from pix_web.email_sender import EmailDeliveryError, send_verification_email
 from pix_web.email_verification import generate_code
 from pix_web.models import CreditPackage, GenerationJob, PricingRule, User
+from pix_web.queue import enqueue_jobs
 from pix_web.schemas import (
     AdminAdjustCreditsRequest,
     AdminDashboardResponse,
@@ -65,11 +68,63 @@ def adjust_user_credits(
 def jobs(_admin: User = Depends(require_admin), db: Session = Depends(get_db), limit: int = 100) -> list[GenerationJob]:
     stmt = (
         select(GenerationJob)
-        .options(selectinload(GenerationJob.outputs))
+        .options(selectinload(GenerationJob.outputs), selectinload(GenerationJob.batch))
         .order_by(GenerationJob.created_at.desc())
         .limit(max(1, min(500, limit)))
     )
     return list(db.scalars(stmt))
+
+
+@router.post("/jobs/{job_id}/retry", response_model=JobResponse)
+def retry_admin_job(
+    job_id: int,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> GenerationJob:
+    failed_job = db.get(GenerationJob, job_id)
+    if failed_job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+    owner = db.get(User, failed_job.user_id)
+    if owner is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务用户不存在")
+    job = retry_failed_job(db, owner, job_id)
+    enqueue_jobs(settings, [job.id])
+    return job
+
+
+@router.post("/jobs/{job_id}/cancel", response_model=JobResponse)
+def cancel_admin_job(
+    job_id: int,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> GenerationJob:
+    job = load_job_with_outputs(db, job_id)
+    if job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+    try:
+        cancel_job_and_refund(db, job)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    db.commit()
+    return load_job_with_outputs(db, job_id) or job
+
+
+@router.post("/jobs/{job_id}/fail-refund", response_model=JobResponse)
+def fail_refund_admin_job(
+    job_id: int,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> GenerationJob:
+    job = load_job_with_outputs(db, job_id)
+    if job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+    try:
+        admin_fail_job_and_refund(db, job)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    db.commit()
+    return load_job_with_outputs(db, job_id) or job
 
 
 @router.get("/pricing", response_model=list[PricingRuleResponse])
