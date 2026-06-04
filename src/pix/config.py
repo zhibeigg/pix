@@ -182,7 +182,8 @@ class AssetConfig:
     fit_mode: str = "smart"
     fit_padding: int = 1
     fit_min_axis_coverage: float = 0.7
-    # Asset 直出默认使用 README 中的 TRUE pixel-art + 动态纯色背景标准模板
+    # Asset 直出默认使用 README 中的 TRUE pixel-art + 动态纯色背景标准模板；
+    # 具体语义由 asset_kind 分流（物品图标 / UI 组件 / 平铺纹理 / 游戏 Logo）。
     palette_mode: str = "auto"
     prompt_template: str = (
         "Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} "

@@ -16,11 +16,12 @@ import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
 
 type BatchMode = 'asset' | 'local_pixelize'
-type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture'
+type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
 type BatchUpload = { id: string; status: 'uploading' | 'uploaded' | 'failed'; error?: string; upload?: UploadResponse }
 type Props = { pricing: PricingRule[]; balance: CreditBalance | null; loading: boolean; token: string; onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void> }
 
 const PROMPT_MAX_LENGTH = 3000
+const LOGO_SIZE_OPTIONS = ['64x32', '96x48', '128x64', '192x96', '256x128']
 
 export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitMany }: Props) {
   const { t } = useTranslation()
@@ -46,12 +47,29 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
   const isAsset = batchMode === 'asset'
-  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : 'single_prop'
+  const isTileAsset = isAsset && assetKind === 'tile_texture'
+  const isLogoAsset = isAsset && assetKind === 'game_logo'
+  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : 'single_prop'
+  const assetSubjectsLabel = isLogoAsset ? t('batchForm.logoSubjects') : isTileAsset ? t('batchForm.textureSubjects') : t('batchForm.assetSubjects')
+  const assetSubjectPlaceholder = isLogoAsset ? t('batchForm.logoSubjectPlaceholder') : isTileAsset ? t('batchForm.textureSubjectPlaceholder') : t('batchForm.assetSubjectPlaceholder')
 
   useEffect(() => {
     if (batchMode === 'asset') { setPixelSize('16x16'); setColors(12); setRemoveBg(true); setEdgeStyle('outline') }
     else { setPixelSize('64x64'); setColors(16); setRemoveBg(true) }
   }, [batchMode])
+
+  useEffect(() => {
+    if (batchMode !== 'asset') return
+    if (assetKind === 'tile_texture') {
+      setPixelSize('32x32'); setColors(12); setRemoveBg(false); setEdgeStyle('hard')
+    } else if (assetKind === 'game_logo') {
+      setPixelSize('128x64'); setColors(24); setRemoveBg(true); setEdgeStyle('hard')
+    } else if (assetKind === 'item_icon') {
+      setPixelSize('16x16'); setColors(12); setRemoveBg(true); setEdgeStyle('outline')
+    } else if (assetKind === 'ui_component') {
+      setPixelSize('32x32'); setColors(12); setRemoveBg(true); setEdgeStyle('outline')
+    }
+  }, [assetKind, batchMode])
 
   async function uploadFiles(files: FileList | null) {
     if (!files?.length) return
@@ -88,13 +106,13 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
         <PixField label={t('batchForm.typeLabel')}><Select value={batchMode} onValueChange={(value) => setBatchMode(value as BatchMode)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="asset">{t('batchForm.types.asset')}</SelectItem><SelectItem value="local_pixelize">{t('batchForm.types.local_pixelize')}</SelectItem></SelectContent></Select></PixField>
         {batchMode === 'asset' ? <div className="grid gap-4">
           {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
-            <PixField label={t('batchForm.assetKindLabel')}><Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="item_icon">{t('batchForm.assetKinds.item_icon')}</SelectItem><SelectItem value="ui_component">{t('batchForm.assetKinds.ui_component')}</SelectItem><SelectItem value="tile_texture">{t('batchForm.assetKinds.tile_texture')}</SelectItem></SelectContent></Select></PixField>
+            <PixField label={t('batchForm.assetKindLabel')}><Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="item_icon">{t('batchForm.assetKinds.item_icon')}</SelectItem><SelectItem value="ui_component">{t('batchForm.assetKinds.ui_component')}</SelectItem><SelectItem value="tile_texture">{t('batchForm.assetKinds.tile_texture')}</SelectItem><SelectItem value="game_logo">{t('batchForm.assetKinds.game_logo')}</SelectItem></SelectContent></Select></PixField>
             <PixField label={t('batchForm.extraStyle')}><Textarea value={assetExtraPrompt} rows={3} maxLength={PROMPT_MAX_LENGTH} placeholder={t('batchForm.extraStylePlaceholder')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
           </div>}
-          <PixField label={t('batchForm.assetSubjects')}><Textarea value={prompts} rows={8} placeholder={t('batchForm.assetSubjectPlaceholder')} onChange={(e) => setPrompts(e.target.value)} /></PixField>
+          <PixField label={assetSubjectsLabel}><Textarea value={prompts} rows={8} placeholder={assetSubjectPlaceholder} onChange={(e) => setPrompts(e.target.value)} /></PixField>
         </div> : <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? t('batchForm.uploading') : t('batchForm.uploadImages')}<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void uploadFiles(e.currentTarget.files)} /></label></Button><UploadList uploads={uploads} /></div>}
-        <PixelControls pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={!removeBg} />
-        <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={removeBg} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{t('batchForm.transparentBackground')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize' || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? t('batchForm.defaultVisionPolicy') : t('batchForm.skipReference')}</label></div>
+        <PixelControls pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || !removeBg} />
+        <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={isTileAsset ? false : removeBg} disabled={isTileAsset} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{t('batchForm.transparentBackground')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize' || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? t('batchForm.defaultVisionPolicy') : t('batchForm.skipReference')}</label></div>
         {invalidSubAssetSize && <Alert variant="destructive">{t('batchForm.minSize')}</Alert>}
         {insufficientCredits && <Button type="button" variant="outline" onClick={() => { window.location.hash = '/billing' }}>{t('batchForm.insufficient')}</Button>}
         <Button type="submit" size="lg" disabled={loading || uploading || taskCount === 0 || insufficientCredits || invalidSubAssetSize}>{loading ? t('batchForm.submitting') : t('batchForm.submit', { count: taskCount })}</Button>

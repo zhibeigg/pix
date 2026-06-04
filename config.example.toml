@@ -147,8 +147,9 @@ fit_min_axis_coverage = 0.7
 # 可选：auto | ramp | kmeans。
 palette_mode    = "auto"
 # 默认模板只需要用户填写 Subject 后的主体内容；Web 可通过素材类型/主体类型选择入口参数。
+# asset_kind 支持 item_icon（物品图标）、ui_component（UI 组件）、tile_texture（平铺纹理）和 game_logo（游戏 Logo）。
 # {width}x{height} 随输出尺寸自动填充；{max_colors}/{colors} 使用用户实际选择的颜色上限；{key_tolerance} 仅约束背景与主体的最小色距。
-# {asset_kind_label}/{asset_usage_label}/{subject_kind_label}/{placement_context}/{forbidden_elements} 会按物品图标或 UI 组件自动分开填充，避免同一 prompt 同时出现物品和 UI 语义。
+# {asset_kind_label}/{asset_usage_label}/{subject_kind_label}/{placement_context}/{forbidden_elements} 会按素材类型自动分开填充，避免同一 prompt 混写物品、UI、纹理或 Logo 语义；自定义模板不要写死 No text，Logo 文字限制请交给 {forbidden_elements}。
 prompt_template = "Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} designed for {asset_usage_label}, not a painted digital illustration. Subject: {name}. Subject kind: {subject_kind_label}. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, and a simple silhouette. Use no more than {max_colors} visible subject colors; background color does not count. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and {placement_context}. Use a pure solid single-color background for chroma-key removal; choose a background color that is not close to any visible subject color, with color-distance greater than the removal tolerance ({key_tolerance} RGB Euclidean distance). No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. The output image should be pixel-perfect, each grid cell only contains one color. {forbidden_elements}"
 
 [sprite]

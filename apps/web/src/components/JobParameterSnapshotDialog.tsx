@@ -185,12 +185,16 @@ function edgeStyleLabel(value: unknown, text: (zh: string, en: string) => string
 function assetKindLabel(value: unknown, text: (zh: string, en: string) => string): string {
   if (value === 'item_icon') return text('物品图标', 'Item icon')
   if (value === 'ui_component') return text('UI 组件', 'UI component')
+  if (value === 'tile_texture') return text('平铺纹理', 'Tileable texture')
+  if (value === 'game_logo') return text('游戏 Logo', 'Game logo')
   return stringOrDash(value)
 }
 
 function subjectKindLabel(value: unknown, text: (zh: string, en: string) => string): string {
   if (value === 'single_prop') return text('单个物件', 'Single prop')
   if (value === 'single_ui') return text('单个 UI', 'Single UI')
+  if (value === 'tileable_pattern') return text('无缝平铺图案', 'Seamlessly tileable pattern')
+  if (value === 'logo_mark') return text('Logo 标题标识', 'Logo title mark')
   return stringOrDash(value)
 }
 
