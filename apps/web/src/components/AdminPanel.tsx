@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import type { AdminDashboard, CreditPackage, GenerationJob, PricingRule, SystemSetting, User } from '../types'
+import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, PricingRule, SystemSetting, User } from '../types'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -12,7 +12,7 @@ import { PixField } from './pix/PixField'
 import { PixMetric } from './pix/PixMetric'
 import { PixPanel } from './pix/PixPanel'
 
-type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void> }
+type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onPublishAnnouncement: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void> }
 const settingTabs = ['运营保护', '邮件验证码', '模型与 API', '素材默认值', '序列帧', '支付与站点', '存储 / 队列 / 安全']
 const announcementSettingKeys = {
   enabled: 'site.announcement.enabled',
@@ -20,7 +20,7 @@ const announcementSettingKeys = {
   body: 'site.announcement.body',
 } as const
 
-export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings, onRefresh, onAdjustCredits, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onTestEmail, onAdminRetryJob, onAdminCancelJob, onAdminFailRefundJob }: Props) {
+export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings, onRefresh, onAdjustCredits, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onPublishAnnouncement, onTestEmail, onAdminRetryJob, onAdminCancelJob, onAdminFailRefundJob }: Props) {
   const [tab, setTab] = useState('dashboard')
   const [selectedUser, setSelectedUser] = useState('0')
   const [amount, setAmount] = useState(100)
@@ -35,7 +35,7 @@ export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings
         {tab === 'dashboard' && dashboard && <DashboardGrid dashboard={dashboard} />}
         {tab === 'jobs' && <AdminJobsList jobs={jobs} onRetry={onAdminRetryJob} onCancel={onAdminCancelJob} onFailRefund={onAdminFailRefundJob} />}
         {tab === 'users' && <form className="grid max-w-xl gap-4" onSubmit={submitAdjust}><PixField label="用户"><Select value={selectedUser} onValueChange={setSelectedUser}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">选择用户</SelectItem>{users.map((u) => <SelectItem value={String(u.id)} key={u.id}>{u.email} · {u.role}</SelectItem>)}</SelectContent></Select></PixField><PixField label="点数变化"><Input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></PixField><PixField label="备注"><Input value={note} onChange={(e) => setNote(e.target.value)} /></PixField><Button type="submit">调整点数</Button></form>}
-        {tab === 'announcements' && <AnnouncementEditor settings={settings} onUpdate={onUpdateSetting} />}
+        {tab === 'announcements' && <AnnouncementEditor settings={settings} onPublish={onPublishAnnouncement} />}
         {tab === 'pricing' && <div className="grid gap-3"><h3 className="text-lg font-semibold">价格规则</h3>{pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}</div>}
         {tab === 'packages' && <PackageEditor packages={packages} onCreate={onCreatePackage} onUpdate={onUpdatePackage} />}
         {settingGroup && <div className="grid gap-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-semibold">{tab}</h3><p className="text-sm text-muted-foreground">保存后只影响新请求/新任务；带“需重启”的项目请重启服务或 worker。</p></div>{tab === '邮件验证码' && <EmailTestBox onTest={onTestEmail} />}</div>{settingGroup.map((setting) => <SettingRow setting={setting} onUpdate={onUpdateSetting} key={setting.key} />)}</div>}
@@ -75,11 +75,13 @@ function settingValue(settings: SystemSetting[], key: string, fallback = '') {
   return settings.find((setting) => setting.key === key)?.value ?? fallback
 }
 
-function AnnouncementEditor({ settings, onUpdate }: { settings: SystemSetting[]; onUpdate: (key: string, value: string, clear?: boolean) => Promise<void> }) {
+function AnnouncementEditor({ settings, onPublish }: { settings: SystemSetting[]; onPublish: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse> }) {
   const [title, setTitle] = useState(() => settingValue(settings, announcementSettingKeys.title, ''))
   const [body, setBody] = useState(() => settingValue(settings, announcementSettingKeys.body, ''))
   const [enabled, setEnabled] = useState(() => settingValue(settings, announcementSettingKeys.enabled, 'false') === 'true')
   const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [noticeVariant, setNoticeVariant] = useState<'info' | 'success' | 'warning'>('info')
 
   useEffect(() => {
     setTitle(settingValue(settings, announcementSettingKeys.title, ''))
@@ -90,10 +92,12 @@ function AnnouncementEditor({ settings, onUpdate }: { settings: SystemSetting[];
   async function save(nextEnabled = enabled) {
     setSaving(true)
     try {
-      await onUpdate(announcementSettingKeys.title, title)
-      await onUpdate(announcementSettingKeys.body, body)
-      await onUpdate(announcementSettingKeys.enabled, nextEnabled ? 'true' : 'false')
-      setEnabled(nextEnabled)
+      const result = await onPublish({ title, body, enabled: nextEnabled })
+      setTitle(result.title)
+      setBody(result.body)
+      setEnabled(result.enabled)
+      setNotice(announcementPublishNotice(result))
+      setNoticeVariant(result.email_notification_queued ? 'success' : result.email_skipped_reason === 'unchanged' ? 'info' : 'warning')
     } finally {
       setSaving(false)
     }
@@ -104,28 +108,42 @@ function AnnouncementEditor({ settings, onUpdate }: { settings: SystemSetting[];
       <form className="grid gap-4 rounded-lg border border-border bg-card p-4" onSubmit={(event) => { event.preventDefault(); void save(true) }}>
         <div>
           <h3 className="text-lg font-semibold">系统公告</h3>
-          <p className="mt-1 text-sm text-muted-foreground">发布后会显示在顶部铃铛的系统公告弹窗中，访客和登录用户都能看到。</p>
+          <p className="mt-1 text-sm text-muted-foreground">发布后会显示在顶部铃铛弹窗中；新内容上线时会向所有活跃用户邮箱发送带网站链接的公告卡片。</p>
         </div>
         <PixField label="公告标题"><Input value={title} maxLength={80} placeholder="例如：维护通知 / 新功能上线" onChange={(event) => setTitle(event.target.value)} /></PixField>
         <PixField label="公告正文"><Textarea value={body} rows={6} maxLength={1200} placeholder="写清楚影响范围、时间和用户需要做什么。" onChange={(event) => setBody(event.target.value)} /></PixField>
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={enabled} onCheckedChange={(value) => setEnabled(Boolean(value))} />启用公告</label>
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={saving || (!title.trim() && !body.trim())}>{saving ? '发布中…' : '发布公告'}</Button>
+          <Button type="submit" disabled={saving || (!title.trim() && !body.trim())}>{saving ? '发布中…' : '发布公告并通知'}</Button>
           <Button type="button" variant="outline" disabled={saving} onClick={() => void save(false)}>下线公告</Button>
-          <Button type="button" variant="soft" disabled={saving} onClick={() => void save(enabled)}>保存草稿</Button>
+          <Button type="button" variant="soft" disabled={saving} onClick={() => void save(false)}>保存草稿</Button>
         </div>
+        {notice && <Alert variant={noticeVariant}>{notice}</Alert>}
       </form>
       <aside className="rounded-lg border border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-paper-soft))] p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
-        <p className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground">Preview</p>
-        <div className="mt-3 rounded-lg border border-border bg-card p-4 shadow-[0_12px_32px_-26px_rgba(15,15,15,0.42)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
-          <p className="text-xs font-semibold text-primary">系统公告</p>
-          <h4 className="mt-2 text-base font-semibold">{title.trim() || '公告标题预览'}</h4>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{body.trim() || '公告正文会显示在这里。'}</p>
-          <Badge variant={enabled ? 'success' : 'muted'}>{enabled ? '当前启用' : '当前下线'}</Badge>
+        <p className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground">Email Preview</p>
+        <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_44px_-28px_rgba(15,15,15,0.42)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
+          <div className="bg-gradient-to-br from-slate-950 to-slate-700 p-4 text-white">
+            <p className="text-[10px] font-semibold uppercase tracking-[1px] text-white/60">Pix Announcement</p>
+            <h4 className="mt-2 text-base font-semibold">{title.trim() || '公告标题预览'}</h4>
+          </div>
+          <div className="p-4">
+            <div className="rounded-xl border-l-4 border-slate-900 bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">{body.trim() || '公告正文会显示在这里。'}</div>
+            <div className="mt-4 inline-flex rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white">打开 Pix 网站</div>
+            <div className="mt-4"><Badge variant={enabled ? 'success' : 'muted'}>{enabled ? '当前启用' : '当前下线'}</Badge></div>
+          </div>
         </div>
       </aside>
     </div>
   )
+}
+
+function announcementPublishNotice(result: AnnouncementPublishResponse) {
+  if (result.email_notification_queued) return `公告已发布，正在向 ${result.email_recipient_count} 个邮箱发送通知。`
+  if (result.email_skipped_reason === 'unchanged') return '公告已保存；内容未变化，不重复发送邮件。'
+  if (result.email_skipped_reason === 'no_recipients') return '公告已发布，但暂无可通知的活跃用户邮箱。'
+  if (result.email_skipped_reason === 'disabled') return '公告已保存为草稿或已下线，未发送邮件。'
+  return '公告已保存。'
 }
 
 function SettingRow({ setting, onUpdate }: { setting: SystemSetting; onUpdate: (key: string, value: string, clear?: boolean) => Promise<void> }) {

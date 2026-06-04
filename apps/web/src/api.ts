@@ -1,5 +1,7 @@
 import type {
   AdminDashboard,
+  AnnouncementPublishPayload,
+  AnnouncementPublishResponse,
   AssetPack,
   AssetPackQuota,
   CreditBalance,
@@ -337,6 +339,9 @@ export const api = {
   },
   updateSetting(token: string, key: string, value: string, clear = false) {
     return request<SystemSetting>(`/admin/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value, clear }) }, token)
+  },
+  publishAnnouncement(token: string, payload: AnnouncementPublishPayload) {
+    return request<AnnouncementPublishResponse>('/admin/announcement', { method: 'PUT', body: JSON.stringify(payload) }, token)
   },
   testEmailSetting(token: string, email: string) {
     return request<EmailTestResponse>('/admin/settings/test-email', { method: 'POST', body: JSON.stringify({ email }) }, token)
