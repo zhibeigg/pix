@@ -168,7 +168,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 - 前端默认尺寸为 `128x64`，并提供 `64x32`、`96x48`、`128x64`、`192x96`、`256x128` 等宽幅快捷尺寸。
 - 默认开启透明背景、使用 24 色、不额外描边，避免字形或徽标边缘被自动 outline 污染。
 - Prompt 允许使用用户输入的短标题、缩写或品牌名，但禁止模型自造额外文字、段落、小字、水印、mockup 场景或无关边框。
-- Logo 暂不支持参考图模式；参考图入口只对物品图标和 UI 组件开放，避免误走通用 `image_to_image` 而丢失 Logo 专用语义。
+- Logo 支持可选参考图：后端仍以 `asset_kind=game_logo` 走素材直出图生图链路，保留参考图的徽章轮廓、主色调和字形气质，但最终文字只使用用户输入的 Logo 标题 / 品牌名；带参考图时按图生图价格计费。
 
 ### 平铺纹理（tile_texture）
 
@@ -209,7 +209,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.59.5`。
+当前版本：`1.60.5`。
 
 版本号格式为 `A.B.C`：
 

@@ -157,6 +157,19 @@ def _asset_skip_vl(data: dict[str, Any], cfg: AppConfig) -> bool:
     return bool(cfg.asset.skip_vl)
 
 
+def _asset_reference_prompt_appendix(asset_kind: str, has_reference: bool) -> str:
+    if not has_reference:
+        return ""
+    if asset_kind == "game_logo":
+        return (
+            "Use the provided reference image as logo inspiration: preserve its emblem silhouette, "
+            "shape language, main color mood, stroke rhythm, and lettering attitude where useful, "
+            "but redesign it as a clean pixel-art game logo. The final readable text must only use "
+            "the exact title, acronym, or brand text from the Subject; do not copy or invent any extra words from the reference."
+        )
+    return ""
+
+
 def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> PipelineInput:
     data = job.params_json or {}
     image_path = Path(job.input_image_path) if job.input_image_path else None
@@ -186,24 +199,29 @@ def asset_pipeline_input_from_job(job: GenerationJob, settings: WebSettings, cfg
     name = _asset_name(job)
     params = asset_pixelize_params_from_json(data, cfg)
     key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, name)
+    asset_kind = str(asset.get("asset_kind") or "item_icon")
+    image_path = Path(job.input_image_path) if job.input_image_path else None
     prompt = build_asset_prompt(
         cfg.asset.prompt_template,
         name,
         size=params.output_size,
         extra_prompt=str(asset.get("extra_prompt") or ""),
-        asset_kind=str(asset.get("asset_kind") or "item_icon"),
+        asset_kind=asset_kind,
         subject_kind=str(asset.get("subject_kind") or "single_prop"),
         key_color=key_hex,
         key_tolerance=cfg.image_gen.green_screen_tolerance,
         max_colors=params.colors,
     )
+    reference_appendix = _asset_reference_prompt_appendix(asset_kind, image_path is not None)
+    if reference_appendix:
+        prompt = f"{prompt} {reference_appendix}"
     image_quality = data.get("image_quality") if _request_includes(data, "image_quality") else cfg.asset.image_quality
     user_prompt_parts = [name, str(asset.get("extra_prompt") or "").strip()]
     prompt_guard_text = "\n".join(part for part in user_prompt_parts if part)
     return PipelineInput(
         prompt=prompt,
         prompt_guard_text=prompt_guard_text,
-        image_path=None,
+        image_path=image_path,
         image_size=data.get("image_size") or cfg.image_gen.size,
         image_quality=image_quality,
         image_model=data.get("image_model"),
@@ -268,6 +286,8 @@ def _write_asset_meta(result: PipelineResult, job: GenerationJob, inputs: Pipeli
         "preview_scale": inputs.pixelize_params.preview_scale,
         "skip_vl": inputs.skip_vl,
         "no_preview": bool(asset.get("no_preview", False)),
+        "reference_image_path": str(inputs.image_path) if inputs.image_path else None,
+        "reference_mode": "image_edit" if inputs.image_path else None,
         "request_fields": data.get("request_fields") or [],
         "pixelize_fields": data.get("pixelize_fields") or [],
     }

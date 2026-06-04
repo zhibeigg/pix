@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.60.5] - 2026-06-04
+
+### Added
+
+- 游戏 Logo 生成新增参考图入口：前端可上传 Logo 参考图，提交时仍保留 `job_type=asset` 与 `asset_kind=game_logo`，后端使用 Logo 专用 prompt 走图片编辑并按图生图价格计费。
+
 ## [1.59.5] - 2026-06-04
 
 ### Changed
