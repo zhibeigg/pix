@@ -51,7 +51,11 @@ if [ "$SKIP_BACKEND" = false ]; then
   echo ""
   echo "▸ [2/3] 构建后端 wheel..."
   cd "$REPO_ROOT"
-  python3 -m build --wheel --outdir "$DIST_DIR"
+  if command -v uv &>/dev/null; then
+    uv build --wheel --out-dir "$DIST_DIR"
+  else
+    python3 -m build --wheel --outdir "$DIST_DIR"
+  fi
   echo "  ✔ wheel → dist/pix-${VERSION}-py3-none-any.whl"
 else
   echo ""
