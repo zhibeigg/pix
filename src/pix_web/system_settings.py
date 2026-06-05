@@ -437,6 +437,25 @@ def load_operational_settings(db: Session) -> OperationalSettings:
 
 
 def load_public_announcement(db: Session) -> PublicAnnouncement:
+    """优先从 announcements 表取最新一条 enabled 公告，fallback 到 system_settings。"""
+    from pix_web.models import Announcement
+
+    latest = db.scalar(
+        select(Announcement)
+        .where(Announcement.enabled.is_(True))
+        .order_by(Announcement.sort_order.desc(), Announcement.created_at.desc())
+        .limit(1)
+    )
+    if latest is not None:
+        effective_enabled = latest.enabled and bool(latest.title or latest.body)
+        return PublicAnnouncement(
+            enabled=effective_enabled,
+            title=latest.title,
+            body=latest.body,
+            updated_at=latest.updated_at,
+        )
+
+    # Fallback to system_settings
     rows = _rows_by_key(db)
     enabled_row = rows.get("site.announcement.enabled")
     title_row = rows.get("site.announcement.title")
