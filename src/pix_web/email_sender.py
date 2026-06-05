@@ -129,10 +129,11 @@ _PIX_LOGO_BASE64 = (
 def _pix_logo_html() -> str:
     """返回右上角 Pix logo 的 HTML 片段。"""
     return (
-        '<td width="80" align="right" style="vertical-align:top;">'
+        '<td width="68" align="right" class="pix-logo-col" '
+        'style="vertical-align:top;">'
         '<img src="data:image/png;base64,' + _PIX_LOGO_BASE64 + '" '
-        'alt="Pix" width="64" height="64" '
-        'style="display:block;border-radius:16px;'
+        'alt="Pix" width="56" height="56" '
+        'style="display:block;border-radius:14px;'
         'border:1px solid rgba(255,255,255,0.18);">'
         "</td>"
     )
@@ -163,6 +164,7 @@ def _verification_html_body(code: str, site_url: str) -> str:
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Pix 注册验证码</title>
+    <style>@media(max-width:480px){{.pix-logo-col{{display:none!important}}h1{{font-size:26px!important}}}}</style>
   </head>
   <body style="margin:0;background:#f5efe3;padding:32px 16px;font-family:'Notion Sans',-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC','Microsoft YaHei UI',sans-serif;color:#161616;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">你的 Pix 注册验证码是 {safe_code}，10 分钟内有效。</div>
@@ -227,6 +229,7 @@ def _reset_html_body(code: str, site_url: str) -> str:
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Pix 密码重置验证码</title>
+    <style>@media(max-width:480px){{.pix-logo-col{{display:none!important}}h1{{font-size:26px!important}}}}</style>
   </head>
   <body style="margin:0;background:#f5efe3;padding:32px 16px;font-family:'Notion Sans',-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC','Microsoft YaHei UI',sans-serif;color:#161616;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">你的 Pix 密码重置验证码是 {safe_code}，10 分钟内有效。</div>
