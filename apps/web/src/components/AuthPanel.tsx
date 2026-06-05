@@ -96,10 +96,10 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
 
   function validatePassword(pw: string) {
     if (!pw) { setPasswordHint(''); return }
-    const hasEn = /[a-zA-Z]/.test(pw)
-    const hasCn = /[\u4e00-\u9fff]/.test(pw)
+    const hasLetter = /[a-zA-Z]/.test(pw)
+    const hasDigit = /\d/.test(pw)
     if (pw.length <= 8) setPasswordHint(t('auth.passwordTooShort'))
-    else if (!hasEn || !hasCn) setPasswordHint(t('auth.passwordMixed'))
+    else if (!hasLetter || !hasDigit) setPasswordHint(t('auth.passwordMixed'))
     else setPasswordHint('')
   }
 

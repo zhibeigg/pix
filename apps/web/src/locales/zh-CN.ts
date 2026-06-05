@@ -134,9 +134,9 @@ export const zhCN = {
     codeExpires: '{{seconds}} 秒后过期',
     confirmReset: '确认重置',
     resetting: '重置中…',
-    passwordRule: '密码需超过 8 位，且同时包含中文和英文',
+    passwordRule: '密码需超过 8 位，且同时包含英文和数字',
     passwordTooShort: '密码长度需超过 8 位',
-    passwordMixed: '密码必须同时包含中文和英文字符',
+    passwordMixed: '密码必须同时包含英文和数字',
   },
   rewards: {
     eyebrow: '邀请奖励',
