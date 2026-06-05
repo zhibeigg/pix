@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from pix.api.packy_client import PackyError, make_packy_client
-from pix.config import AppConfig, require_image_api_key
+from pix.config import AppConfig, is_gemini_model, require_image_api_key_for_model
 from pix.io_utils import b64_to_bytes, download, ensure_dir, write_bytes
 
 
@@ -24,26 +24,36 @@ _ONE_IMAGE_N = 1
 _IMAGE_RESPONSE_FORMAT = "b64_json"
 
 
-def validate_size(size: str) -> None:
-    """按 Packy 文档校验尺寸。auto 跳过校验。"""
+def validate_size(size: str, *, model: str | None = None) -> None:
+    """按 API 文档校验尺寸。auto 跳过校验。Gemini 模型使用更宽松的约束。"""
     if size == "auto":
         return
     m = _SIZE_RE.match(size)
     if not m:
         raise ValueError(f"size 格式必须为 'WIDTHxHEIGHT' 或 'auto'，收到: {size}")
     w, h = int(m.group(1)), int(m.group(2))
-    if max(w, h) > _MAX_EDGE:
-        raise ValueError(f"最大边长不能超过 {_MAX_EDGE}，收到 {w}x{h}")
-    if w % 16 != 0 or h % 16 != 0:
-        raise ValueError(f"宽高必须是 16 的倍数，收到 {w}x{h}")
     pixels = w * h
-    if pixels < _MIN_PIXELS:
-        raise ValueError(f"总像素不能少于 {_MIN_PIXELS}，收到 {pixels}")
-    if pixels > _MAX_PIXELS:
-        raise ValueError(f"总像素不能超过 {_MAX_PIXELS}，收到 {pixels}")
     ratio = max(w, h) / min(w, h)
-    if ratio > _RATIO_LIMIT + 1e-9:
-        raise ValueError(f"长短边比例不能超过 3:1，收到 {ratio:.2f}")
+    if is_gemini_model(model or ""):
+        # Gemini 尺寸约束：不要求 16 倍数，最大 4096
+        if max(w, h) > 4096:
+            raise ValueError(f"Gemini 最大边长不能超过 4096，收到 {w}x{h}")
+        if pixels < 256 * 256:
+            raise ValueError(f"Gemini 总像素不能少于 65536，收到 {pixels}")
+        if ratio > 4.0 + 1e-9:
+            raise ValueError(f"Gemini 长短边比例不能超过 4:1，收到 {ratio:.2f}")
+    else:
+        # gpt-image-2 原有约束
+        if max(w, h) > _MAX_EDGE:
+            raise ValueError(f"最大边长不能超过 {_MAX_EDGE}，收到 {w}x{h}")
+        if w % 16 != 0 or h % 16 != 0:
+            raise ValueError(f"宽高必须是 16 的倍数，收到 {w}x{h}")
+        if pixels < _MIN_PIXELS:
+            raise ValueError(f"总像素不能少于 {_MIN_PIXELS}，收到 {pixels}")
+        if pixels > _MAX_PIXELS:
+            raise ValueError(f"总像素不能超过 {_MAX_PIXELS}，收到 {pixels}")
+        if ratio > _RATIO_LIMIT + 1e-9:
+            raise ValueError(f"长短边比例不能超过 3:1，收到 {ratio:.2f}")
 
 
 def _pick_image_url(resp: dict[str, Any]) -> tuple[str | None, str | None]:
@@ -78,15 +88,18 @@ def _generation_payload(
     model: str | None,
     output_format: str | None,
 ) -> dict[str, Any]:
-    return {
-        "model": model or cfg.image_gen.model,
+    effective_model = model or cfg.image_gen.model
+    payload: dict[str, Any] = {
+        "model": effective_model,
         "prompt": prompt,
         "size": size,
-        "quality": quality or cfg.image_gen.quality,
-        "output_format": output_format or cfg.image_gen.output_format,
         "response_format": _IMAGE_RESPONSE_FORMAT,
         "n": _ONE_IMAGE_N,
     }
+    if not is_gemini_model(effective_model):
+        payload["quality"] = quality or cfg.image_gen.quality
+        payload["output_format"] = output_format or cfg.image_gen.output_format
+    return payload
 
 
 def _edit_payload(
@@ -99,16 +112,19 @@ def _edit_payload(
     output_format: str | None,
     input_fidelity: str | None,
 ) -> dict[str, Any]:
-    return {
-        "model": model or cfg.image_gen.model,
+    effective_model = model or cfg.image_gen.model
+    payload: dict[str, Any] = {
+        "model": effective_model,
         "prompt": prompt,
         "size": size,
-        "quality": quality or cfg.image_gen.quality,
-        "output_format": output_format or cfg.image_gen.output_format,
         "response_format": _IMAGE_RESPONSE_FORMAT,
         "n": str(_ONE_IMAGE_N),
-        "input_fidelity": input_fidelity or cfg.image_gen.edit_input_fidelity,
     }
+    if not is_gemini_model(effective_model):
+        payload["quality"] = quality or cfg.image_gen.quality
+        payload["output_format"] = output_format or cfg.image_gen.output_format
+        payload["input_fidelity"] = input_fidelity or cfg.image_gen.edit_input_fidelity
+    return payload
 
 
 def _write_entry(
@@ -148,11 +164,12 @@ def generate_image(
     Returns:
         实际保存的路径。
     """
-    api_key = require_image_api_key(cfg)
+    _model = model or cfg.image_gen.model
+    api_key = require_image_api_key_for_model(cfg, _model)
     client = make_packy_client(cfg, api_key)
     _ensure_single_image_n(n, endpoint="文生图")
     _size = size or cfg.image_gen.size
-    validate_size(_size)
+    validate_size(_size, model=_model)
 
     payload = _generation_payload(
         cfg,
@@ -195,11 +212,12 @@ def edit_image(
     n: int = 1,
 ) -> Path:
     """调 Packy /v1/images/edits 图生图并落盘。"""
-    api_key = require_image_api_key(cfg)
+    _model = model or cfg.image_gen.model
+    api_key = require_image_api_key_for_model(cfg, _model)
     client = make_packy_client(cfg, api_key)
     _ensure_single_image_n(n, endpoint="图片编辑")
     _size = size or cfg.image_gen.size
-    validate_size(_size)
+    validate_size(_size, model=_model)
     image_path = Path(image_path)
     mime = mimetypes.guess_type(str(image_path))[0] or "application/octet-stream"
     data = _edit_payload(
@@ -255,10 +273,11 @@ def generate_images_batch(
     """
     assert n >= 1
     ensure_dir(dest_dir)
-    api_key = require_image_api_key(cfg)
+    _model = model or cfg.image_gen.model
+    api_key = require_image_api_key_for_model(cfg, _model)
     client = make_packy_client(cfg, api_key)
     _size = size or cfg.image_gen.size
-    validate_size(_size)
+    validate_size(_size, model=_model)
 
     variations = [v for v in (prompt_variations or []) if v.strip()]
     paths: list[Path] = []
@@ -308,10 +327,11 @@ def edit_images_batch(
     """n-sample 图生图：按 Packy n=1 限制循环请求多张编辑结果。"""
     assert n >= 1
     ensure_dir(dest_dir)
-    api_key = require_image_api_key(cfg)
+    _model = model or cfg.image_gen.model
+    api_key = require_image_api_key_for_model(cfg, _model)
     client = make_packy_client(cfg, api_key)
     _size = size or cfg.image_gen.size
-    validate_size(_size)
+    validate_size(_size, model=_model)
     image_path = Path(image_path)
     mime = mimetypes.guess_type(str(image_path))[0] or "application/octet-stream"
     image_bytes = image_path.read_bytes()

@@ -38,6 +38,8 @@ class ApiConfig:
     image_api_key: str | None = None
     # default 分组 key，用于 VL（Claude / Gemini / gpt-4o）
     vl_api_key: str | None = None
+    # Gemini 生图专用 key（用于 gemini-3.1-flash-image-preview 等）
+    gemini_api_key: str | None = None
     # 是否信任进程级代理 / 系统代理。本地常见的 Clash 等本地代理会在长时间空闲时主动断开
     # 生图连接，造成 RemoteProtocolError；默认禁用，需要走代理时再显式开启。
     trust_env_proxies: bool = False
@@ -365,12 +367,15 @@ def _apply_env(cfg: AppConfig) -> None:
     """从环境变量覆盖关键字段。"""
     api_key = os.getenv("PACKY_API_KEY")
     vl_key = os.getenv("PACKY_VL_API_KEY") or api_key
+    gemini_key = os.getenv("PACKY_GEMINI_API_KEY")
     base_url = os.getenv("PACKY_BASE_URL")
 
     if api_key:
         cfg.api.image_api_key = api_key
     if vl_key:
         cfg.api.vl_api_key = vl_key
+    if gemini_key:
+        cfg.api.gemini_api_key = gemini_key
     if base_url:
         cfg.api.base_url = base_url
 
@@ -435,3 +440,20 @@ def require_vl_api_key(cfg: AppConfig) -> str:
             "未找到 PACKY_VL_API_KEY / PACKY_API_KEY。请在 .env 中设置 VL 分组令牌。"
         )
     return key
+
+
+def is_gemini_model(model: str) -> bool:
+    """判断模型名是否为 Gemini 系列。"""
+    return "gemini" in model.lower()
+
+
+def require_image_api_key_for_model(cfg: AppConfig, model: str | None = None) -> str:
+    """根据模型名选择对应的 API key。
+
+    Gemini 模型优先使用 gemini_api_key，回退到 image_api_key；
+    其他模型直接使用 image_api_key。
+    """
+    effective_model = model or cfg.image_gen.model
+    if is_gemini_model(effective_model) and cfg.api.gemini_api_key:
+        return cfg.api.gemini_api_key
+    return require_image_api_key(cfg)
