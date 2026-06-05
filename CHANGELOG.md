@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.63.6] - 2026-06-04
+
+### Changed
+
+- 注册验证码邮件改为 HTML 名片卡片样式：深色顶部名片 + 白色内容卡 + 分格验证码数字 + 彩色像素方阵装饰 + 安全提示标签 + "回到 Pix" 按钮；纯文本版本同步增加站点链接。
+
 ## [1.62.6] - 2026-06-04
 
 ### Added

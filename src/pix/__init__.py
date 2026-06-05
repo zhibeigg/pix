@@ -1,3 +1,3 @@
 """pix — Web pixel-art asset generation pipeline."""
 
-__version__ = "1.62.6"
+__version__ = "1.63.6"
