@@ -11,6 +11,7 @@ import smtplib
 from typing import Sequence
 
 from pix_web.config import WebSettings
+from pix_web.referrals import frontend_invite_base_url
 
 logger = logging.getLogger(__name__)
 
@@ -23,16 +24,22 @@ def _verification_subject() -> str:
     return "Pix 注册验证码"
 
 
-def _verification_body(code: str) -> str:
+def _verification_body(code: str, site_url: str) -> str:
     return (
         "你的 Pix 注册验证码是：\n\n"
         f"{code}\n\n"
-        "验证码 10 分钟内有效。若不是你本人操作，请忽略这封邮件。"
+        "验证码 10 分钟内有效。请不要把验证码转发给他人。\n"
+        f"访问 Pix：{site_url}\n\n"
+        "若不是你本人操作，请忽略这封邮件。"
     )
 
 
 def _clean_header(value: str) -> str:
     return " ".join(value.strip().split())
+
+
+def _site_url_from_settings(settings: WebSettings) -> str:
+    return frontend_invite_base_url(settings.frontend_base_url, settings.public_base_url)
 
 
 def _require_smtp_config(settings: WebSettings) -> None:
@@ -68,9 +75,98 @@ def _base_message(settings: WebSettings, email: str, subject: str) -> EmailMessa
     return message
 
 
+def _verification_code_cells(code: str) -> str:
+    cells = []
+    for char in code.strip():
+        cells.append(
+            '<td style="padding:0 4px;">'
+            '<span style="display:inline-block;min-width:38px;border:1px solid #d9cdbb;border-radius:12px;'
+            'background:#fffdf7;padding:11px 0;text-align:center;font-size:26px;line-height:1;'
+            'font-weight:800;letter-spacing:0;color:#161616;box-shadow:0 6px 16px rgba(31,27,21,0.08);">'
+            f"{escape(char)}"
+            "</span>"
+            "</td>"
+        )
+    return "".join(cells)
+
+
+def _verification_html_body(code: str, site_url: str) -> str:
+    safe_code = escape(code.strip())
+    safe_url = escape(site_url)
+    code_cells = _verification_code_cells(code)
+    return f"""<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Pix 注册验证码</title>
+  </head>
+  <body style="margin:0;background:#f5efe3;padding:32px 16px;font-family:'Notion Sans',-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC','Microsoft YaHei UI',sans-serif;color:#161616;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">你的 Pix 注册验证码是 {safe_code}，10 分钟内有效。</div>
+    <div style="max-width:640px;margin:0 auto;">
+      <div style="border:1px solid #d8ccba;border-radius:30px;background:#fffaf1;box-shadow:0 28px 80px rgba(31,27,21,0.16);overflow:hidden;">
+        <div style="background:#121826;padding:28px 30px 24px;color:#fff;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+            <tr>
+              <td style="vertical-align:top;">
+                <p style="margin:0 0 12px;font-size:11px;line-height:1;letter-spacing:0.18em;text-transform:uppercase;color:#c8c0ff;font-weight:800;">Pix Forge</p>
+                <h1 style="margin:0;font-size:30px;line-height:1.15;font-weight:850;letter-spacing:-0.03em;color:#fff;">你的注册通行名片</h1>
+                <p style="margin:12px 0 0;font-size:14px;line-height:1.65;color:#dbe4ff;">这组验证码会帮你完成 Pix 账号注册。</p>
+              </td>
+              <td width="112" align="right" style="vertical-align:top;">
+                <div style="display:inline-block;border:1px solid rgba(255,255,255,0.18);border-radius:18px;background:rgba(255,255,255,0.08);padding:12px;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:4px;">
+                    <tr><td style="width:10px;height:10px;border-radius:3px;background:#a78bfa;"></td><td style="width:10px;height:10px;border-radius:3px;background:#facc15;"></td><td style="width:10px;height:10px;border-radius:3px;background:#67e8f9;"></td></tr>
+                    <tr><td style="width:10px;height:10px;border-radius:3px;background:#86efac;"></td><td style="width:10px;height:10px;border-radius:3px;background:#fb7185;"></td><td style="width:10px;height:10px;border-radius:3px;background:#f97316;"></td></tr>
+                    <tr><td style="width:10px;height:10px;border-radius:3px;background:#fde68a;"></td><td style="width:10px;height:10px;border-radius:3px;background:#c4b5fd;"></td><td style="width:10px;height:10px;border-radius:3px;background:#99f6e4;"></td></tr>
+                  </table>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div style="padding:30px;">
+          <div style="border:1px solid #e5dac8;border-radius:24px;background:#ffffff;padding:24px;box-shadow:0 18px 46px rgba(31,27,21,0.08);">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+              <tr>
+                <td style="vertical-align:top;">
+                  <p style="margin:0;color:#6f675b;font-size:12px;line-height:1.4;letter-spacing:0.1em;text-transform:uppercase;font-weight:800;">Verification Code</p>
+                  <h2 style="margin:8px 0 0;font-size:20px;line-height:1.35;color:#161616;font-weight:800;">输入这组验证码完成注册</h2>
+                </td>
+                <td align="right" style="vertical-align:top;">
+                  <span style="display:inline-block;border-radius:999px;background:#e8f8ed;color:#166534;padding:8px 12px;font-size:12px;line-height:1;font-weight:800;">10 分钟有效</span>
+                </td>
+              </tr>
+            </table>
+            <div style="margin-top:24px;border-radius:22px;background:#f7f0e4;padding:18px 12px;text-align:center;">
+              <table role="presentation" align="center" cellspacing="0" cellpadding="0" style="margin:0 auto;border-collapse:collapse;">
+                <tr>{code_cells}</tr>
+              </table>
+              <p style="margin:14px 0 0;color:#7a7165;font-size:12px;line-height:1.6;">验证码：<strong style="color:#161616;letter-spacing:0.16em;">{safe_code}</strong></p>
+            </div>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:22px;border-collapse:collapse;">
+              <tr>
+                <td style="padding:0 6px 8px 0;"><span style="display:block;border:1px solid #d9ecff;border-radius:14px;background:#eef7ff;color:#1f4f75;padding:10px 12px;font-size:12px;line-height:1.35;font-weight:700;">仅用于注册</span></td>
+                <td style="padding:0 6px 8px;"><span style="display:block;border:1px solid #eee0b4;border-radius:14px;background:#fff7d6;color:#6f4a00;padding:10px 12px;font-size:12px;line-height:1.35;font-weight:700;">不要转发</span></td>
+                <td style="padding:0 0 8px 6px;"><span style="display:block;border:1px solid #ead7f8;border-radius:14px;background:#f6edff;color:#5b2482;padding:10px 12px;font-size:12px;line-height:1.35;font-weight:700;">一次验证</span></td>
+              </tr>
+            </table>
+            <a href="{safe_url}" style="display:inline-block;margin-top:12px;border-radius:999px;background:#161616;color:#fff;text-decoration:none;padding:13px 20px;font-size:14px;line-height:1;font-weight:800;">回到 Pix</a>
+          </div>
+          <p style="margin:18px 2px 0;color:#756d61;font-size:13px;line-height:1.75;">如果不是你本人正在注册 Pix，请忽略这封邮件。我们不会通过邮件索要密码或付款信息。</p>
+          <p style="margin:10px 2px 0;color:#9b9183;font-size:12px;line-height:1.65;word-break:break-all;">按钮无法打开时，请复制链接访问：{safe_url}</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>"""
+
+
 def _verification_message(settings: WebSettings, email: str, code: str) -> EmailMessage:
+    site_url = _site_url_from_settings(settings)
     message = _base_message(settings, email, _verification_subject())
-    message.set_content(_verification_body(code))
+    message.set_content(_verification_body(code, site_url))
+    message.add_alternative(_verification_html_body(code, site_url), subtype="html")
     return message
 
 
