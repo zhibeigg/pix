@@ -259,7 +259,8 @@ def _announcement_html_body(title: str, body: str, site_url: str, updated_at: da
     safe_url = escape(site_url)
     published_at = _format_announcement_time(updated_at)
     published_html = (
-        f'<p style="margin:16px 0 0;color:#64748b;font-size:13px;line-height:1.6;">发布时间：{escape(published_at)}</p>'
+        f'<p style="margin:20px 0 0;color:#999;font-size:13px;line-height:1.6;">'
+        f'发布时间：{escape(published_at)}</p>'
         if published_at
         else ""
     )
@@ -270,23 +271,18 @@ def _announcement_html_body(title: str, body: str, site_url: str, updated_at: da
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>{safe_title}</title>
   </head>
-  <body style="margin:0;background:#f8fafc;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
-    <div style="max-width:640px;margin:0 auto;">
-      <div style="border:1px solid #e2e8f0;border-radius:24px;background:#ffffff;box-shadow:0 24px 70px rgba(15,23,42,0.12);overflow:hidden;">
-        <div style="background:linear-gradient(135deg,#111827,#334155);padding:28px 32px;color:#ffffff;">
-          <p style="margin:0 0 10px;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:#cbd5e1;">Pix Announcement</p>
-          <h1 style="margin:0;font-size:28px;line-height:1.25;font-weight:800;letter-spacing:-0.03em;">{safe_title}</h1>
+  <body style="margin:0;background:#f5f5f5;padding:40px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC','Microsoft YaHei UI',sans-serif;color:#1a1a1a;">
+    <div style="max-width:480px;margin:0 auto;">
+      <div style="background:#ffffff;border:1px solid #e5e5e5;border-radius:16px;padding:40px 32px;text-align:center;">
+        {_pix_logo_html()}
+        <h1 style="margin:0 0 12px;font-size:24px;font-weight:700;color:#1a1a1a;line-height:1.3;">{safe_title}</h1>
+        <div style="margin:24px 0;background:#f8f8f8;border-radius:16px;padding:20px;color:#333;font-size:15px;line-height:1.85;text-align:left;">
+          {safe_body}
         </div>
-        <div style="padding:30px 32px 34px;">
-          <div style="border-left:4px solid #0f172a;background:#f8fafc;border-radius:16px;padding:20px 22px;color:#334155;font-size:15px;line-height:1.85;">
-            {safe_body}
-          </div>
-          {published_html}
-          <a href="{safe_url}" style="display:inline-block;margin-top:24px;border-radius:999px;background:#0f172a;color:#ffffff;text-decoration:none;padding:13px 22px;font-size:14px;font-weight:700;">打开 Pix 网站</a>
-          <p style="margin:18px 0 0;color:#94a3b8;font-size:12px;line-height:1.6;">如果按钮无法打开，请复制链接访问：<br><span style="word-break:break-all;color:#64748b;">{safe_url}</span></p>
-        </div>
+        {published_html}
+        <a href="{safe_url}" style="display:inline-block;margin-top:8px;border-radius:999px;background:#1a1a1a;color:#fff;text-decoration:none;padding:12px 28px;font-size:14px;font-weight:600;">打开 Pix</a>
+        <p style="margin:20px 0 0;font-size:13px;color:#999;line-height:1.6;">你收到这封邮件，是因为你注册了 Pix 账号。</p>
       </div>
-      <p style="margin:18px 4px 0;color:#94a3b8;font-size:12px;line-height:1.6;text-align:center;">你收到这封邮件，是因为你注册了 Pix 账号。</p>
     </div>
   </body>
 </html>"""
