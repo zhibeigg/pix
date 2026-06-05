@@ -38,6 +38,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
   const [codeError, setCodeError] = useState('')
   const [sendingCode, setSendingCode] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const [passwordHint, setPasswordHint] = useState('')
   const isRegister = mode === 'register'
   const isForgot = mode === 'forgot'
   const turnstileActive = (isRegister || isForgot) && turnstileEnabled && Boolean(turnstileSiteKey)
@@ -93,8 +94,17 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
     }
   }
 
+  function validatePassword(pw: string) {
+    if (!pw) { setPasswordHint(''); return }
+    const hasEn = /[a-zA-Z]/.test(pw)
+    const hasCn = /[\u4e00-\u9fff]/.test(pw)
+    if (pw.length <= 8) setPasswordHint(t('auth.passwordTooShort'))
+    else if (!hasEn || !hasCn) setPasswordHint(t('auth.passwordMixed'))
+    else setPasswordHint('')
+  }
+
   function resetForm() {
-    setVerificationCode(''); setPassword(''); setDisplayName(''); setCodeMessage(''); setCodeError(''); setCountdown(0)
+    setVerificationCode(''); setPassword(''); setDisplayName(''); setCodeMessage(''); setCodeError(''); setCountdown(0); setPasswordHint('')
   }
 
   function switchMode(next: 'login' | 'register' | 'forgot') {
@@ -133,8 +143,8 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
           </div>
           {codeMessage && <Alert variant="info">{codeMessage}</Alert>}
           {codeError && <Alert variant="destructive">{codeError}</Alert>}
-          <PixField label={t('auth.newPassword')}>
-            <Input type="password" value={password} autoComplete="new-password" minLength={8} maxLength={128} placeholder={t('auth.newPasswordPlaceholder')} onChange={(e) => setPassword(e.target.value)} required />
+          <PixField label={t('auth.newPassword')} hint={passwordHint ? <span className="text-destructive">{passwordHint}</span> : t('auth.passwordRule')}>
+            <Input type="password" value={password} autoComplete="new-password" minLength={9} maxLength={128} placeholder={t('auth.newPasswordPlaceholder')} onChange={(e) => { setPassword(e.target.value); validatePassword(e.target.value) }} required />
           </PixField>
           {turnstileActive && (
             <div className="grid gap-2">
@@ -142,7 +152,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
               {turnstile.error && <Alert variant="destructive">{turnstile.error}</Alert>}
             </div>
           )}
-          <Button type="submit" size="lg" disabled={loading || !verificationCode || password.length < 8}>
+          <Button type="submit" size="lg" disabled={loading || !verificationCode || password.length <= 8 || !!passwordHint}>
             {loading ? t('auth.resetting') : t('auth.confirmReset')}
           </Button>
         </form>
@@ -184,7 +194,9 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
           </div>
         )}
         {codeMessage && <Alert variant="info">{codeMessage}</Alert>}{codeError && <Alert variant="destructive">{codeError}</Alert>}
-        <PixField label={text('密码', 'Password')}><Input type="password" value={password} autoComplete={isRegister ? 'new-password' : 'current-password'} onChange={(e) => setPassword(e.target.value)} required /></PixField>
+        <PixField label={text('密码', 'Password')} hint={isRegister && passwordHint ? <span className="text-destructive">{passwordHint}</span> : isRegister ? t('auth.passwordRule') : undefined}>
+          <Input type="password" value={password} autoComplete={isRegister ? 'new-password' : 'current-password'} onChange={(e) => { setPassword(e.target.value); if (isRegister) validatePassword(e.target.value) }} required />
+        </PixField>
         {!isRegister && (
           <button type="button" className="justify-self-start -mt-2 text-xs font-semibold text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm" onClick={() => switchMode('forgot')}>
             {t('auth.forgotPassword')}
@@ -197,7 +209,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
             {turnstile.error && <Alert variant="destructive">{turnstile.error}</Alert>}
           </div>
         )}
-        <Button type="submit" size="lg" disabled={loading}>{loading ? text('处理中…', 'Processing…') : isRegister ? text('验证并注册', 'Verify and register') : text('进入工作台', 'Enter workspace')}</Button>
+        <Button type="submit" size="lg" disabled={loading || (isRegister && !!passwordHint)}>{loading ? text('处理中…', 'Processing…') : isRegister ? text('验证并注册', 'Verify and register') : text('进入工作台', 'Enter workspace')}</Button>
 
       </form>
     </PixPanel>

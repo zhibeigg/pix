@@ -134,6 +134,9 @@ export const en = {
     codeExpires: 'Expires in {{seconds}}s',
     confirmReset: 'Confirm reset',
     resetting: 'Resetting…',
+    passwordRule: 'Password must exceed 8 characters and contain both Chinese and English',
+    passwordTooShort: 'Password must exceed 8 characters',
+    passwordMixed: 'Password must contain both Chinese and English characters',
   },
   rewards: {
     eyebrow: 'Referral rewards',

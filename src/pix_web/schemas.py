@@ -7,7 +7,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, EmailStr, Field, computed_field, model_validator
+import re
+
+from pydantic import BaseModel, EmailStr, Field, computed_field, field_validator, model_validator
 from PIL import Image
 
 from pix_web.storage import file_url
@@ -117,12 +119,23 @@ class EmailCodeResponse(BaseModel):
     debug_code: str | None = None
 
 
+_RE_PASSWORD_EN = re.compile(r"[a-zA-Z]")
+_RE_PASSWORD_CN = re.compile(r"[\u4e00-\u9fff]")
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=9, max_length=128)
     display_name: str = Field(default="", max_length=120)
     verification_code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
     referral_code: str = Field(default="", max_length=32)
+
+    @field_validator("password")
+    @classmethod
+    def _check_password_mixed(cls, v: str) -> str:
+        if not _RE_PASSWORD_EN.search(v) or not _RE_PASSWORD_CN.search(v):
+            raise ValueError("密码必须同时包含中文和英文字符")
+        return v
 
 
 class LoginRequest(BaseModel):
@@ -137,8 +150,15 @@ class ResetCodeRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     email: EmailStr
-    new_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=9, max_length=128)
     verification_code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+    @field_validator("new_password")
+    @classmethod
+    def _check_password_mixed(cls, v: str) -> str:
+        if not _RE_PASSWORD_EN.search(v) or not _RE_PASSWORD_CN.search(v):
+            raise ValueError("密码必须同时包含中文和英文字符")
+        return v
 
 
 class BootstrapAdminRequest(BaseModel):
