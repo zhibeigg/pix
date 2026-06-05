@@ -75,15 +75,22 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
     if (!files?.length) return
     setUploading(true)
     const selected = Array.from(files)
-    const initial = selected.map(() => ({ id: crypto.randomUUID(), status: 'uploading' as const }))
-    setUploads(initial)
-    const next: BatchUpload[] = []
-    for (const [index, file] of selected.entries()) {
-      const current = initial[index]
-      try { next.push({ ...current, status: 'uploaded', upload: await api.uploadImage(token, file) }) }
-      catch { next.push({ ...current, status: 'failed', error: t('batchForm.uploadFailed') }) }
-      setUploads([...next, ...initial.slice(index + 1)])
-    }
+    const items = selected.map(() => ({ id: crypto.randomUUID(), status: 'uploading' as const }))
+    setUploads(items)
+    const results = await Promise.allSettled(selected.map(async (file, index) => {
+      try {
+        const upload = await api.uploadImage(token, file)
+        return { index, upload } as const
+      } catch {
+        throw { index } as const
+      }
+    }))
+    const next: BatchUpload[] = items.map((item, index) => {
+      const result = results[index]
+      if (result.status === 'fulfilled') return { ...item, status: 'uploaded', upload: result.value.upload }
+      return { ...item, status: 'failed', error: t('batchForm.uploadFailed') }
+    })
+    setUploads(next)
     setUploading(false)
   }
 
@@ -110,7 +117,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
             <PixField label={t('batchForm.extraStyle')}><Textarea value={assetExtraPrompt} rows={3} maxLength={PROMPT_MAX_LENGTH} placeholder={t('batchForm.extraStylePlaceholder')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
           </div>}
           <PixField label={assetSubjectsLabel}><Textarea value={prompts} rows={8} placeholder={assetSubjectPlaceholder} onChange={(e) => setPrompts(e.target.value)} /></PixField>
-        </div> : <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? t('batchForm.uploading') : t('batchForm.uploadImages')}<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void uploadFiles(e.currentTarget.files)} /></label></Button><UploadList uploads={uploads} /></div>}
+        </div> : <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? t('batchForm.uploading') : t('batchForm.uploadImages')}<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={t('batchForm.uploadImages')} onChange={(e) => void uploadFiles(e.currentTarget.files)} /></label></Button><UploadList uploads={uploads} /></div>}
         <PixelControls pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || !removeBg} />
         <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={isTileAsset ? false : removeBg} disabled={isTileAsset} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{t('batchForm.transparentBackground')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize' || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? t('batchForm.defaultVisionPolicy') : t('batchForm.skipReference')}</label></div>
         {invalidSubAssetSize && <Alert variant="destructive">{t('batchForm.minSize')}</Alert>}

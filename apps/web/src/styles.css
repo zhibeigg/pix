@@ -61,7 +61,7 @@
   --secondary: 30 10% 96%;
   --secondary-foreground: 0 0% 10%;
   --muted: 60 9% 98%;
-  --muted-foreground: 47 5% 35%;
+  --muted-foreground: 47 5% 30%;
   --accent: 208 74% 92%;
   --accent-foreground: 0 0% 10%;
   --destructive: 0 74% 54%;
@@ -74,8 +74,8 @@
   --pix-parchment: 30 10% 96%;
   --pix-ink: 0 0% 10%;
   --pix-charcoal: 45 8% 20%;
-  --pix-slate: 47 5% 35%;
-  --pix-steel: 43 3% 46%;
+  --pix-slate: 47 5% 30%;
+  --pix-steel: 43 3% 38%;
   --pix-stone: 42 7% 62%;
   --pix-muted: 42 7% 71%;
   --pix-amber: 48 87% 80%;
@@ -109,8 +109,8 @@
   --pix-paper-border: 38 14% 80%;
   --pix-paper-ink: 0 0% 10%;
   --pix-paper-charcoal: 45 8% 20%;
-  --pix-paper-slate: 47 5% 35%;
-  --pix-paper-steel: 43 3% 46%;
+  --pix-paper-slate: 47 5% 30%;
+  --pix-paper-steel: 43 3% 38%;
 
   --ledger-surface: var(--card);
   --ledger-surface-header: var(--pix-paper-soft);
@@ -163,7 +163,7 @@
   --secondary: 223 52% 21%;
   --secondary-foreground: 0 0% 100%;
   --muted: 223 52% 21%;
-  --muted-foreground: 42 7% 62%;
+  --muted-foreground: 42 7% 63%;
   --accent: 223 52% 21%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 74% 54%;
@@ -188,7 +188,7 @@
   --pix-paper-ink: 42 36% 96%;
   --pix-paper-charcoal: 42 18% 86%;
   --pix-paper-slate: 42 9% 70%;
-  --pix-paper-steel: 42 7% 62%;
+  --pix-paper-steel: 42 7% 63%;
 
   --ledger-surface: var(--pix-navy-deep);
   --ledger-surface-header: var(--pix-navy-deep);
@@ -247,7 +247,7 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  background: linear-gradient(180deg, hsl(var(--background)) 0, hsl(var(--background)) 34rem, hsl(var(--secondary)) 100%);
+  background: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-sans);
   font-kerning: normal;
@@ -276,7 +276,7 @@ body.with-scroll-bars-hidden .width-before-scroll-bar {
 }
 
 [data-theme="dark"] body {
-  background: linear-gradient(180deg, hsl(var(--pix-navy-deep)), hsl(var(--background)) 34rem, hsl(222 32% 7%));
+  background: hsl(var(--background));
 }
 
 ::selection {
@@ -302,16 +302,11 @@ code {
 
 :where(button, [role="button"], a[href]) {
   transition-duration: var(--motion-fast);
-  transition-property: background-color, border-color, box-shadow, color, opacity, transform;
+  transition-property: background-color, border-color, box-shadow, color, opacity;
   transition-timing-function: var(--ease-out-quart);
 }
 
-:where(button, [role="button"], a[href]):where(:not(:disabled), :not([aria-disabled="true"])):hover {
-  transform: translateY(-1px);
-}
-
 :where(button, [role="button"], a[href]):where(:not(:disabled), :not([aria-disabled="true"])):active {
-  transform: translateY(0) scale(.985);
   transition-duration: var(--motion-instant);
 }
 
@@ -696,3 +691,18 @@ code {
 .motion-list-stagger > *:nth-child(4) { animation-delay: 170ms; }
 .motion-list-stagger > *:nth-child(5) { animation-delay: 220ms; }
 .motion-list-stagger > *:nth-child(n+6) { animation-delay: 260ms; }
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .motion-action:where(:not(:disabled), :not([aria-disabled="true"])):hover { transform: none !important; }
+  .motion-action:where(:not(:disabled), :not([aria-disabled="true"])):active { transform: none !important; }
+  .motion-list-stagger > * { animation-delay: 0ms !important; }
+}

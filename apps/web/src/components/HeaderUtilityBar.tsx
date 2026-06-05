@@ -301,5 +301,5 @@ function todayKey() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
 
-const utilityButtonClass = 'grid h-10 w-10 place-items-center rounded-full border border-border bg-[hsl(var(--secondary))] text-[hsl(var(--pix-charcoal))] shadow-[0_1px_2px_rgba(15,15,15,0.04)] transition hover:bg-card hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-foreground'
+const utilityButtonClass = 'grid h-11 w-11 place-items-center rounded-full border border-border bg-[hsl(var(--secondary))] text-[hsl(var(--pix-charcoal))] shadow-[0_1px_2px_rgba(15,15,15,0.04)] transition hover:bg-card hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-foreground'
 const utilityButtonActiveClass = 'border-[hsl(var(--pix-sky))] bg-card text-primary shadow-[0_4px_12px_rgba(15,15,15,0.08)]'

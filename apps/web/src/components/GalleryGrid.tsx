@@ -108,7 +108,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
             {sizeTag && <Badge variant="outline" className={pixelSizeBadgeClass(sizeTag.size)} title={sizeTag.title}>{sizeTag.label}</Badge>}
           </div>
           {rowActions.length > 1 && <div className="flex flex-wrap gap-1.5" aria-label={t('gallery.actionTags')}>
-            {rowActions.map((action, index) => <button key={`${job.id}-action-${action.rowIndex}`} type="button" title={action.title} className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${index === safeSelectedActionIndex ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-muted/45 text-muted-foreground hover:border-primary/45 hover:text-foreground dark:border-[hsl(var(--pix-dark-hairline))]'}`} onClick={(event) => { event.stopPropagation(); setSelectedActionIndex(index) }}>{action.label}</button>)}
+            {rowActions.map((action, index) => <button key={`${job.id}-action-${action.rowIndex}`} type="button" title={action.title} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${index === safeSelectedActionIndex ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-muted/45 text-muted-foreground hover:border-primary/45 hover:text-foreground dark:border-[hsl(var(--pix-dark-hairline))]'}`} onClick={(event) => { event.stopPropagation(); setSelectedActionIndex(index) }}>{action.label}</button>)}
           </div>}
           <div>
             <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{displayName}</h3>
@@ -152,7 +152,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
                 </div>
                 <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
                   <X className="h-4 w-4" />
-                  <span className="sr-only">关闭</span>
+                  <span className="sr-only">{t('common.close')}</span>
                 </DialogPrimitive.Close>
               </DialogPrimitive.Content>
             </DialogPortal>
@@ -248,7 +248,7 @@ function jobStatusLabel(job: GenerationJob, t: (key: string, options?: Record<st
 function CandidateMiniGrid({ job, output, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
   const { t } = useI18n()
   if (!output.candidates?.length) return null
-  return <div className="grid grid-cols-3 gap-2">{output.candidates.slice(0, 9).map((candidate) => <button type="button" key={candidate.path} className="rounded-lg border border-border bg-muted/35 p-1.5 text-xs dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]" onClick={(event) => { event.stopPropagation(); void onCandidatePixelize?.(job, candidate) }} title={candidate.reason ?? undefined}><img src={signedFileUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={t('gallery.candidate', { index: candidate.index })} className="mx-auto aspect-square w-full object-contain [image-rendering:pixelated]" /><span>{candidate.rank ? `#${candidate.rank}` : t('gallery.candidate', { index: candidate.index })}</span></button>)}</div>
+  return <div className="grid grid-cols-3 gap-2">{output.candidates.slice(0, 9).map((candidate) => <button type="button" key={candidate.path} className="min-h-[44px] rounded-lg border border-border bg-muted/35 p-2 text-xs dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]" onClick={(event) => { event.stopPropagation(); void onCandidatePixelize?.(job, candidate) }} title={candidate.reason ?? undefined}><img src={signedFileUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={t('gallery.candidate', { index: candidate.index })} className="mx-auto aspect-square w-full object-contain [image-rendering:pixelated]" /><span>{candidate.rank ? `#${candidate.rank}` : t('gallery.candidate', { index: candidate.index })}</span></button>)}</div>
 }
 
 type SpriteRowAction = { rowIndex: number; frameIndices: number[]; label: string; title: string; gifUrl: string | null; sheetUrl: string | null }

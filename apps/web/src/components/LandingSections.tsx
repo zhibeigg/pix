@@ -40,7 +40,7 @@ function ExampleAtlas() {
   const [assetType, setAssetType] = useState<AssetTypeTab>('item_icon')
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2 dark:bg-[hsl(var(--pix-dark-card))]">
+      <div role="tablist" aria-label={text('资产类型', 'Asset type')} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2 dark:bg-[hsl(var(--pix-dark-card))]">
         <span className="px-2 text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{text('资产类型', 'Asset type')}</span>
         <AssetTypeChip active={assetType === 'item_icon'} onClick={() => setAssetType('item_icon')}>{text('物品图标', 'Item icons')}<span className="ml-2 opacity-60">{homepageExampleItemIcons.length}</span></AssetTypeChip>
         <AssetTypeChip active={assetType === 'tile_texture'} onClick={() => setAssetType('tile_texture')}>{text('平铺纹理', 'Tile textures')}<span className="ml-2 opacity-60">{homepageTextureExamples.length}</span></AssetTypeChip>
@@ -53,7 +53,7 @@ function ExampleAtlas() {
 }
 
 function AssetTypeChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return <button type="button" onClick={onClick} aria-pressed={active} className={`inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-primary/20 ${active ? 'border-primary bg-primary text-primary-foreground shadow-[0_4px_10px_-6px_rgba(0,0,0,0.4)]' : 'border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground dark:bg-white/7'}`}>{children}</button>
+  return <button type="button" role="tab" aria-selected={active} onClick={onClick} className={`inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-primary/20 ${active ? 'border-primary bg-primary text-primary-foreground shadow-[0_4px_10px_-6px_rgba(0,0,0,0.4)]' : 'border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground dark:bg-white/7'}`}>{children}</button>
 }
 
 function IconAtlas() {
@@ -177,7 +177,7 @@ function AtlasStat({ label, value }: { label: string; value: number }) {
 }
 
 function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
-  return <div className="grid gap-2"><p className="text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{label}</p><div className="flex flex-wrap gap-2">{children}</div></div>
+  return <fieldset className="grid gap-2 border-0 p-0 m-0"><legend className="text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{label}</legend><div className="flex flex-wrap gap-2">{children}</div></fieldset>
 }
 
 function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
@@ -450,7 +450,7 @@ const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpri
             <button
               type="button"
               onClick={() => setPlaying((value) => !value)}
-              className="absolute bottom-1.5 right-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card/90 text-foreground shadow-sm transition hover:bg-card dark:bg-[hsl(var(--pix-dark-card))]/90"
+              className="absolute bottom-1.5 right-1.5 inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full border border-border bg-card/90 p-1.5 text-foreground shadow-sm transition hover:bg-card dark:bg-[hsl(var(--pix-dark-card))]/90"
               aria-label={playing ? text('暂停', 'Pause') : text('播放', 'Play')}
               title={playing ? text('暂停播放', 'Pause playback') : text('开始播放', 'Start playback')}
             >
@@ -489,7 +489,7 @@ function ExampleIconStrip({ example, compact = false, onItemContextMenu }: { exa
   const icons = getHomepageIconsForExample(example.id)
   return <div className="grid grid-cols-4 gap-1">{icons.map((icon) => {
     const subject = getHomepageExampleItemSubject(example, icon.slot, language)
-    return <a key={icon.id} href={icon.src} target="_blank" rel="noreferrer" title={text(`${subject} · ${formatIconSize(iconSizeKey(icon))}`, `${subject} · ${formatIconSize(iconSizeKey(icon))}`)} onContextMenu={(event) => onItemContextMenu?.(icon, event)} className={`pix-checkerboard grid aspect-square place-items-center overflow-hidden rounded-md border border-border bg-card transition hover:border-primary/60 ${compact ? 'p-0.5' : 'p-1'}`}><img src={icon.src} alt={text(`${label.theme} ${subject}`, `${label.theme} ${subject}`)} loading="lazy" decoding="async" draggable={false} className="h-full w-full object-contain [image-rendering:pixelated]" /></a>
+    return <a key={icon.id} href={icon.src} target="_blank" rel="noreferrer" title={text(`${subject} · ${formatIconSize(iconSizeKey(icon))}`, `${subject} · ${formatIconSize(iconSizeKey(icon))}`)} onContextMenu={(event) => onItemContextMenu?.(icon, event)} className={`pix-checkerboard grid aspect-square min-h-[44px] min-w-[44px] place-items-center overflow-hidden rounded-md border border-border bg-card transition hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${compact ? 'p-0.5' : 'p-1'}`}><img src={icon.src} alt={text(`${label.theme} ${subject}`, `${label.theme} ${subject}`)} loading="lazy" decoding="async" draggable={false} className="h-full w-full object-contain [image-rendering:pixelated]" /></a>
   })}</div>
 }
 
@@ -562,12 +562,12 @@ function filterChipClass(active: boolean) {
 }
 
 function sizeToneClass(sizeKey: string) {
-  if (sizeKey === '24x24') return 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-300/20 dark:bg-amber-300/12 dark:text-amber-100'
-  if (sizeKey === '32x32') return 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-300/20 dark:bg-emerald-300/12 dark:text-emerald-100'
-  if (sizeKey === '48x48') return 'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-300/20 dark:bg-sky-300/12 dark:text-sky-100'
-  if (sizeKey === '64x64') return 'border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-300/20 dark:bg-violet-300/12 dark:text-violet-100'
-  if (sizeKey === '96x96') return 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-300/20 dark:bg-rose-300/12 dark:text-rose-100'
-  return 'border-stone-300 bg-stone-100 text-stone-800 dark:border-white/15 dark:bg-white/10 dark:text-white/80'
+  if (sizeKey === '24x24') return 'border-[hsl(var(--pix-brand-orange)/.28)] bg-[hsl(var(--pix-brand-orange)/.10)] text-[hsl(var(--pix-brand-orange-deep))] dark:border-[hsl(var(--pix-brand-orange)/.20)] dark:bg-[hsl(var(--pix-brand-orange)/.12)] dark:text-[hsl(var(--pix-amber))]'
+  if (sizeKey === '32x32') return 'border-[hsl(var(--pix-brand-green)/.28)] bg-[hsl(var(--pix-brand-green)/.10)] text-[hsl(var(--pix-brand-green))] dark:border-[hsl(var(--pix-brand-green)/.20)] dark:bg-[hsl(var(--pix-brand-green)/.12)] dark:text-[hsl(var(--pix-mint))]'
+  if (sizeKey === '48x48') return 'border-[hsl(var(--pix-link-blue)/.28)] bg-[hsl(var(--pix-link-blue)/.10)] text-[hsl(var(--pix-link-blue))] dark:border-[hsl(var(--pix-link-blue)/.20)] dark:bg-[hsl(var(--pix-link-blue)/.12)] dark:text-[hsl(var(--pix-sky))]'
+  if (sizeKey === '64x64') return 'border-[hsl(var(--pix-brand-purple)/.28)] bg-[hsl(var(--pix-brand-purple)/.10)] text-[hsl(var(--pix-brand-purple-800))] dark:border-[hsl(var(--pix-brand-purple)/.20)] dark:bg-[hsl(var(--pix-brand-purple)/.12)] dark:text-[hsl(var(--pix-brand-purple-300))]'
+  if (sizeKey === '96x96') return 'border-[hsl(var(--pix-brand-pink)/.28)] bg-[hsl(var(--pix-brand-pink)/.10)] text-[hsl(var(--pix-brand-pink-deep))] dark:border-[hsl(var(--pix-brand-pink)/.20)] dark:bg-[hsl(var(--pix-brand-pink)/.12)] dark:text-[hsl(var(--pix-rose))]'
+  return 'border-[hsl(var(--border))] bg-[hsl(var(--secondary))] text-[hsl(var(--pix-charcoal))] dark:border-white/15 dark:bg-white/10 dark:text-white/80'
 }
 
 function AuthSection({ authSlot }: { authSlot: ReactNode }) {

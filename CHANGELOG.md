@@ -7,7 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.63.6] - 2026-06-04
+## [1.63.7] - 2026-06-04
+
+### Fixed
+
+- 修复 `--pix-steel`（对比度 ~3.1:1）和 `--muted-foreground`（~4.0:1）未达 WCAG AA 4.5:1 标准的问题；亮度调整为 38% 和 30%，对比度分别提升至 ~4.64:1 和 ~5.40:1。
+- 修复 SiteFooter 页脚链接使用 `<span>` 不可点击、不可聚焦的问题，改为 `<a>` 标签并添加焦点样式和 `href`。
+- 修复所有 Dialog 关闭按钮 `sr-only` 文本硬编码中文"关闭"的问题，统一使用 i18n `t('common.close')` 或 `text('关闭', 'Close')`。
+- 修复 4 处隐藏的 file input 缺少 `aria-label` 的无障碍问题。
+- 修复资产类型选择器缺少 `role="tablist"` / `role="tab"` / `aria-selected` 语义。
+- 修复 FilterGroup 缺少 `<fieldset>` / `<legend>` 语义。
+- 修复 GalleryGrid action tag 按钮和 ExampleIconStrip 链接缺少 `focus-visible` 焦点样式。
+- 修复 6 处触摸目标 < 44px（HeaderUtilityBar 40px→44px、播放按钮 24px→36px、Toast 关闭 24px→44px 等）。
+- 修复 `sizeToneClass()` 和 SidebarMetric 使用硬编码 Tailwind 色板的问题，迁移为 `--pix-*` CSS 变量。
+- 修复 DeleteConfirmDialog 中 10+ 处硬编码 `red-*` 色调，统一使用 `--destructive` 变量。
+
+### Changed
+
+- 添加 `prefers-reduced-motion: reduce` 媒体查询支持，尊重用户的动画偏好设置。
+- BatchGeneratePanel 文件上传从串行改为 `Promise.allSettled` 并行上传。
+- WorkspacePage `activeJobs` 添加 `useMemo`，GalleryPage 包裹 `React.memo`。
+- App.tsx 中 7 处 `onRefresh={() => refreshCore()}` 内联函数提取为稳定的 `useCallback`。
+- button.tsx `will-change-transform` 从始终应用改为仅 hover 时添加，减少 GPU 图层消耗。
+- 移除全局 `button:hover translateY(-1px)` 动画，仅保留在 `.motion-action` 类中。
+- body 渐变背景改为纯色背景，减少视觉噪音。
+- 资产类型选择器从 `aria-pressed` 升级为 `role="tab"` / `aria-selected` 语义。
 
 ### Changed
 

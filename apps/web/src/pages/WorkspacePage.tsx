@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useI18n } from '../i18n'
 import { BatchGeneratePanel } from '../components/BatchGeneratePanel'
 import { JobList } from '../components/JobList'
@@ -24,7 +25,7 @@ interface WorkspacePageProps {
 
 export function WorkspacePage({ mode, pricing, balance, jobs, loading, token, onModeChange, onCreateJob, onCreateJobs, onCandidatePixelize, onRefresh }: WorkspacePageProps) {
   const { t } = useI18n()
-  const activeJobs = jobs.filter((job) => ['pending', 'running'].includes(job.status))
+  const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)), [jobs])
   return (
     <div className="grid gap-6">
       <PageHeader eyebrow={t('pages.workspace.eyebrow')} title={t('pages.workspace.title')} description={t('pages.workspace.description')} action={(
