@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.63.8] - 2026-06-04
+
+### Fixed
+
+- PixField 组件 Label 与 Input 通过 `useId` + `htmlFor` 建立语义关联，点击标签可聚焦输入框。
+- AdminPage、BillingPage、RewardsPage、PacksPage、RawImagePage 改为 `React.lazy()` 懒加载，减少首屏 bundle 体积。
+
+### Changed
+
+- App.tsx 提取 DeleteConfirmDialog、PackExpandConfirmDialog、AppToast、SiteFooter、WorkspaceShell 等 6 个组件到 `components/AppOverlays.tsx`，App.tsx 从 1181 行减至 937 行。
+- 新增 `hooks/useUpload.ts` 通用上传 hook，供 SingleGeneratePanel 复用。
+
 ## [1.63.7] - 2026-06-04
 
 ### Fixed
