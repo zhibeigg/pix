@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.63.9] - 2026-06-04
+
+### Changed
+
+- 前端 Vite 构建产物统一输出到 `dist/web/`（原 `apps/web/dist/`），后端 wheel 输出到 `dist/`。
+- 后端 `pyproject.toml` 版本号同步至 `1.63.9`，与前端保持一致。
+- 新增 `scripts/build.sh` 一键构建打包脚本：自动编译前端、构建 wheel、打包为 `dist/pix-deploy-{version}.tar.gz` 部署归档。
+
 ## [1.63.8] - 2026-06-04
 
 ### Fixed
