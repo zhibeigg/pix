@@ -857,12 +857,19 @@ class AnnouncementCreateRequest(BaseModel):
     body: str = Field(default="", max_length=2000)
     enabled: bool = True
     publish_now: bool = False
+    notify: bool = True
 
 
 class AnnouncementUpdateRequest(BaseModel):
     title: str | None = Field(default=None, max_length=80)
     body: str | None = Field(default=None, max_length=2000)
     enabled: bool | None = None
+
+
+class AnnouncementTestEmailRequest(BaseModel):
+    email: EmailStr
+    title: str = Field(default="", max_length=80)
+    body: str = Field(default="", max_length=2000)
 
 
 class EmailTestRequest(BaseModel):

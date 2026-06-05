@@ -19,7 +19,7 @@ from pix_web.credits import adjust_credits
 from pix_web.dashboard import admin_dashboard
 from pix_web.job_observability import admin_fail_job_and_refund, cancel_job_and_refund, load_job_with_outputs
 from pix_web.jobs import retry_failed_job
-from pix_web.email_sender import EmailDeliveryError, send_announcement_email_batch_task, send_verification_email
+from pix_web.email_sender import EmailDeliveryError, send_announcement_email, send_announcement_email_batch_task, send_verification_email
 from pix_web.email_verification import generate_code
 from pix_web.models import CreditPackage, GenerationJob, PricingRule, User
 from pix_web.queue import enqueue_jobs
@@ -32,6 +32,7 @@ from pix_web.schemas import (
     AnnouncementListResponse,
     AnnouncementPublishRequest,
     AnnouncementPublishResponse,
+    AnnouncementTestEmailRequest,
     AnnouncementUpdateRequest,
     CreditPackageCreateRequest,
     CreditPackageResponse,
@@ -303,7 +304,7 @@ def admin_create_announcement(
     db: Session = Depends(get_db),
     web_settings: WebSettings = Depends(get_settings),
 ) -> AnnouncementItemResponse:
-    """管理员：创建公告。publish_now=True 时设置 published_at 并触发邮件。"""
+    """管理员：创建公告。publish_now=True 时设置 published_at，notify=True 时触发邮件。"""
     announcement = create_announcement(
         db,
         title=req.title,
@@ -311,7 +312,7 @@ def admin_create_announcement(
         enabled=req.enabled,
         publish_now=req.publish_now,
     )
-    if req.publish_now and req.enabled:
+    if req.publish_now and req.enabled and req.notify:
         effective = load_effective_web_settings(db, web_settings)
         emails = active_user_emails(db)
         if emails:
@@ -359,6 +360,31 @@ def admin_delete_announcement(
     """管理员：删除公告。"""
     delete_announcement(db, announcement_id)
     return {"deleted": True}
+
+
+@router.post("/announcements/test-email", response_model=EmailTestResponse)
+def admin_test_announcement_email(
+    req: AnnouncementTestEmailRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    web_settings: WebSettings = Depends(get_settings),
+) -> EmailTestResponse:
+    """管理员：发送公告测试邮件到指定邮箱。"""
+    effective = load_effective_web_settings(db, web_settings)
+    site_url = frontend_invite_base_url(effective.frontend_base_url, effective.public_base_url)
+    try:
+        send_announcement_email(
+            effective,
+            str(req.email),
+            title=req.title,
+            body=req.body,
+            site_url=site_url,
+        )
+    except EmailDeliveryError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    return EmailTestResponse(
+        message="公告测试邮件已发送" if effective.email_provider == "smtp" else "console 公告测试邮件已生成",
+    )
 
 
 @router.post("/settings/test-email", response_model=EmailTestResponse)
