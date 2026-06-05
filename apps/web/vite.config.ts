@@ -6,6 +6,10 @@ const apiProxyTarget = process.env.VITE_PIX_API_PROXY_TARGET || 'http://localhos
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    outDir: '../../dist/web',
+    emptyOutDir: true,
+  },
   server: {
     port: 5173,
     proxy: {
