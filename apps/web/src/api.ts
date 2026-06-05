@@ -171,6 +171,18 @@ export const api = {
       body: JSON.stringify({ email, password }),
     })
   },
+  requestResetCode(email: string, turnstileToken = '') {
+    return request<EmailCodeResponse>('/auth/reset-code', {
+      method: 'POST',
+      body: JSON.stringify({ email, turnstile_token: turnstileToken }),
+    })
+  },
+  resetPassword(email: string, newPassword: string, verificationCode: string) {
+    return request<TokenResponse>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, new_password: newPassword, verification_code: verificationCode }),
+    })
+  },
   localTestLogin() {
     return request<TokenResponse>('/auth/local-test-login', { method: 'POST' })
   },

@@ -130,6 +130,17 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ResetCodeRequest(BaseModel):
+    email: EmailStr
+    turnstile_token: str = Field(default="", max_length=2048)
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    new_password: str = Field(min_length=8, max_length=128)
+    verification_code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
 class BootstrapAdminRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)

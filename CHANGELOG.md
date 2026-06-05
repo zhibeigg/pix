@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.64.0] - 2026-06-05
+
+### Added
+
+- 忘记密码找回功能：登录面板新增「忘记密码？」入口，通过邮箱验证码重置密码。
+  - 后端新增 `POST /auth/reset-code`（发送重置验证码）和 `POST /auth/reset-password`（验证并重置）两个 API 端点。
+  - 复用现有邮箱验证码基础设施（HMAC-SHA256 哈希、频率限制、一次性消费），新增 `password_reset` purpose。
+  - 新增密码重置专用邮件模板（标题"密码重置验证码"、橙色警告标签"仅用于重置密码"）。
+  - 安全：不暴露用户是否存在、Turnstile 人机验证、Argon2 密码哈希、常量时间比较。
+  - 重置成功后自动登录，返回新 JWT token。
+
 ## [1.63.9] - 2026-06-04
 
 ### Changed

@@ -190,6 +190,120 @@ async def send_verification_email_task(settings: WebSettings, email: str, code: 
     await asyncio.to_thread(send_verification_email, settings, email, code)
 
 
+def _reset_subject() -> str:
+    return "Pix 密码重置验证码"
+
+
+def _reset_body(code: str, site_url: str) -> str:
+    return (
+        "你正在重置 Pix 账户密码，验证码是：\n\n"
+        f"{code}\n\n"
+        "验证码 10 分钟内有效。如果这不是你本人操作，请忽略这封邮件并确保账户安全。\n"
+        f"访问 Pix：{site_url}\n\n"
+        "若不是你本人操作，请立即修改密码。"
+    )
+
+
+def _reset_html_body(code: str, site_url: str) -> str:
+    safe_code = escape(code.strip())
+    safe_url = escape(site_url)
+    code_cells = _verification_code_cells(code)
+    return f"""<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Pix 密码重置验证码</title>
+  </head>
+  <body style="margin:0;background:#f5efe3;padding:32px 16px;font-family:'Notion Sans',-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC','Microsoft YaHei UI',sans-serif;color:#161616;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">你的 Pix 密码重置验证码是 {safe_code}，10 分钟内有效。</div>
+    <div style="max-width:640px;margin:0 auto;">
+      <div style="border:1px solid #d8ccba;border-radius:30px;background:#fffaf1;box-shadow:0 28px 80px rgba(31,27,21,0.16);overflow:hidden;">
+        <div style="background:#121826;padding:28px 30px 24px;color:#fff;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+            <tr>
+              <td style="vertical-align:top;">
+                <p style="margin:0 0 12px;font-size:11px;line-height:1;letter-spacing:0.18em;text-transform:uppercase;color:#c8c0ff;font-weight:800;">Pix Forge</p>
+                <h1 style="margin:0;font-size:30px;line-height:1.15;font-weight:850;letter-spacing:-0.03em;color:#fff;">重置你的密码</h1>
+                <p style="margin:12px 0 0;font-size:14px;line-height:1.65;color:#dbe4ff;">使用这组验证码重置你的 Pix 账户密码。</p>
+              </td>
+              <td width="112" align="right" style="vertical-align:top;">
+                <div style="display:inline-block;border:1px solid rgba(255,255,255,0.18);border-radius:18px;background:rgba(255,255,255,0.08);padding:12px;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:4px;">
+                    <tr><td style="width:10px;height:10px;border-radius:3px;background:#a78bfa;"></td><td style="width:10px;height:10px;border-radius:3px;background:#facc15;"></td><td style="width:10px;height:10px;border-radius:3px;background:#67e8f9;"></td></tr>
+                    <tr><td style="width:10px;height:10px;border-radius:3px;background:#86efac;"></td><td style="width:10px;height:10px;border-radius:3px;background:#fb7185;"></td><td style="width:10px;height:10px;border-radius:3px;background:#f97316;"></td></tr>
+                    <tr><td style="width:10px;height:10px;border-radius:3px;background:#fde68a;"></td><td style="width:10px;height:10px;border-radius:3px;background:#c4b5fd;"></td><td style="width:10px;height:10px;border-radius:3px;background:#99f6e4;"></td></tr>
+                  </table>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div style="padding:30px;">
+          <div style="border:1px solid #e5dac8;border-radius:24px;background:#ffffff;padding:24px;box-shadow:0 18px 46px rgba(31,27,21,0.08);">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+              <tr>
+                <td style="vertical-align:top;">
+                  <p style="margin:0;color:#6f675b;font-size:12px;line-height:1.4;letter-spacing:0.1em;text-transform:uppercase;font-weight:800;">Reset Code</p>
+                  <h2 style="margin:8px 0 0;font-size:20px;line-height:1.35;color:#161616;font-weight:800;">输入验证码设置新密码</h2>
+                </td>
+                <td align="right" style="vertical-align:top;">
+                  <span style="display:inline-block;border-radius:999px;background:#fef3c7;color:#92400e;padding:8px 12px;font-size:12px;line-height:1;font-weight:800;">10 分钟有效</span>
+                </td>
+              </tr>
+            </table>
+            <div style="margin-top:24px;border-radius:22px;background:#f7f0e4;padding:18px 12px;text-align:center;">
+              <table role="presentation" align="center" cellspacing="0" cellpadding="0" style="margin:0 auto;border-collapse:collapse;">
+                <tr>{code_cells}</tr>
+              </table>
+              <p style="margin:14px 0 0;color:#7a7165;font-size:12px;line-height:1.6;">验证码：<strong style="color:#161616;letter-spacing:0.16em;">{safe_code}</strong></p>
+            </div>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:22px;border-collapse:collapse;">
+              <tr>
+                <td style="padding:0 6px 8px 0;"><span style="display:block;border:1px solid #fee2e2;border-radius:14px;background:#fef2f2;color:#991b1b;padding:10px 12px;font-size:12px;line-height:1.35;font-weight:700;">仅用于重置密码</span></td>
+                <td style="padding:0 6px 8px;"><span style="display:block;border:1px solid #eee0b4;border-radius:14px;background:#fff7d6;color:#6f4a00;padding:10px 12px;font-size:12px;line-height:1.35;font-weight:700;">不要转发</span></td>
+                <td style="padding:0 0 8px 6px;"><span style="display:block;border:1px solid #ead7f8;border-radius:14px;background:#f6edff;color:#5b2482;padding:10px 12px;font-size:12px;line-height:1.35;font-weight:700;">一次验证</span></td>
+              </tr>
+            </table>
+            <a href="{safe_url}" style="display:inline-block;margin-top:12px;border-radius:999px;background:#161616;color:#fff;text-decoration:none;padding:13px 20px;font-size:14px;line-height:1;font-weight:800;">回到 Pix</a>
+          </div>
+          <p style="margin:18px 2px 0;color:#756d61;font-size:13px;line-height:1.75;">如果你没有请求重置密码，请忽略这封邮件。你的账户密码不会被修改。</p>
+          <p style="margin:10px 2px 0;color:#9b9183;font-size:12px;line-height:1.65;word-break:break-all;">按钮无法打开时，请复制链接访问：{safe_url}</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>"""
+
+
+def _reset_message(settings: WebSettings, email: str, code: str) -> EmailMessage:
+    site_url = _site_url_from_settings(settings)
+    message = _base_message(settings, email, _reset_subject())
+    message.set_content(_reset_body(code, site_url))
+    message.add_alternative(_reset_html_body(code, site_url), subtype="html")
+    return message
+
+
+def send_password_reset_email(settings: WebSettings, email: str, code: str) -> None:
+    """发送密码重置验证码；失败时抛出 EmailDeliveryError。"""
+    if settings.email_provider == "console":
+        logger.warning("Pix 密码重置验证码 email=%s code=%s", email, code)
+        return
+    if settings.email_provider != "smtp":
+        raise EmailDeliveryError(f"未知邮件发送方式: {settings.email_provider}")
+    try:
+        _send_smtp_message(settings, _reset_message(settings, email, code))
+    except EmailDeliveryError:
+        raise
+    except Exception as exc:
+        raise EmailDeliveryError(f"SMTP 密码重置邮件发送失败: {exc}") from exc
+
+
+async def send_password_reset_email_task(settings: WebSettings, email: str, code: str) -> None:
+    """发送密码重置验证码；SMTP 阻塞 I/O 在线程中执行。"""
+    await asyncio.to_thread(send_password_reset_email, settings, email, code)
+
+
 def _format_announcement_time(updated_at: datetime | None) -> str:
     if updated_at is None:
         return ""
