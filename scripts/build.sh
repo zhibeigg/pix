@@ -67,6 +67,11 @@ if [ "$SKIP_PACKAGE" = false ]; then
   echo ""
   echo "▸ [3/3] 打包部署归档..."
 
+  # 清理旧版本 wheel，只保留当前版本
+  for old_whl in "$DIST_DIR"/*.whl; do
+    [ -f "$old_whl" ] && [[ "$old_whl" != *"${VERSION}"* ]] && rm -f "$old_whl" && echo "  清理旧 wheel: $(basename "$old_whl")"
+  done
+
   STAGING="$DIST_DIR/.staging"
   rm -rf "$STAGING"
   mkdir -p "$STAGING/pix-deploy"
