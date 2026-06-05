@@ -35,10 +35,10 @@ export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings
         {tab === 'dashboard' && dashboard && <DashboardGrid dashboard={dashboard} />}
         {tab === 'jobs' && <AdminJobsList jobs={jobs} onRetry={onAdminRetryJob} onCancel={onAdminCancelJob} onFailRefund={onAdminFailRefundJob} />}
         {tab === 'users' && <form className="grid max-w-xl gap-4" onSubmit={submitAdjust}><PixField label="用户"><Select value={selectedUser} onValueChange={setSelectedUser}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">选择用户</SelectItem>{users.map((u) => <SelectItem value={String(u.id)} key={u.id}>{u.email} · {u.role}</SelectItem>)}</SelectContent></Select></PixField><PixField label="点数变化"><Input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></PixField><PixField label="备注"><Input value={note} onChange={(e) => setNote(e.target.value)} /></PixField><Button type="submit">调整点数</Button></form>}
-        {tab === 'announcements' && <AnnouncementEditor settings={settings} onPublish={onPublishAnnouncement} />}
+        {tab === 'announcements' && <AnnouncementEditor settings={settings} onPublish={onPublishAnnouncement} onTestEmail={onTestEmail} />}
         {tab === 'pricing' && <div className="grid gap-3"><h3 className="text-lg font-semibold">价格规则</h3>{pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}</div>}
         {tab === 'packages' && <PackageEditor packages={packages} onCreate={onCreatePackage} onUpdate={onUpdatePackage} />}
-        {settingGroup && <div className="grid gap-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-semibold">{tab}</h3><p className="text-sm text-muted-foreground">保存后只影响新请求/新任务；带“需重启”的项目请重启服务或 worker。</p></div>{tab === '邮件验证码' && <EmailTestBox onTest={onTestEmail} />}</div>{settingGroup.map((setting) => <SettingRow setting={setting} onUpdate={onUpdateSetting} key={setting.key} />)}</div>}
+        {settingGroup && <div className="grid gap-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-semibold">{tab}</h3><p className="text-sm text-muted-foreground">保存后只影响新请求/新任务；带"需重启"的项目请重启服务或 worker。</p></div>{tab === '邮件验证码' && <EmailTestBox onTest={onTestEmail} />}</div>{settingGroup.map((setting) => <SettingRow setting={setting} onUpdate={onUpdateSetting} key={setting.key} />)}</div>}
       </div>
     </PixPanel>
   )
@@ -75,13 +75,16 @@ function settingValue(settings: SystemSetting[], key: string, fallback = '') {
   return settings.find((setting) => setting.key === key)?.value ?? fallback
 }
 
-function AnnouncementEditor({ settings, onPublish }: { settings: SystemSetting[]; onPublish: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse> }) {
+function AnnouncementEditor({ settings, onPublish, onTestEmail }: { settings: SystemSetting[]; onPublish: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void> }) {
   const [title, setTitle] = useState(() => settingValue(settings, announcementSettingKeys.title, ''))
   const [body, setBody] = useState(() => settingValue(settings, announcementSettingKeys.body, ''))
   const [enabled, setEnabled] = useState(() => settingValue(settings, announcementSettingKeys.enabled, 'false') === 'true')
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState('')
   const [noticeVariant, setNoticeVariant] = useState<'info' | 'success' | 'warning'>('info')
+  const [previewTab, setPreviewTab] = useState<'announcement' | 'verification'>('announcement')
+  const [testEmail, setTestEmail] = useState('admin@example.com')
+  const [testSending, setTestSending] = useState(false)
 
   useEffect(() => {
     setTitle(settingValue(settings, announcementSettingKeys.title, ''))
@@ -103,8 +106,17 @@ function AnnouncementEditor({ settings, onPublish }: { settings: SystemSetting[]
     }
   }
 
+  async function sendTest() {
+    setTestSending(true)
+    try {
+      await onTestEmail(testEmail)
+    } finally {
+      setTestSending(false)
+    }
+  }
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
       <form className="grid gap-4 rounded-lg border border-border bg-card p-4" onSubmit={(event) => { event.preventDefault(); void save(true) }}>
         <div>
           <h3 className="text-lg font-semibold">系统公告</h3>
@@ -120,20 +132,71 @@ function AnnouncementEditor({ settings, onPublish }: { settings: SystemSetting[]
         </div>
         {notice && <Alert variant={noticeVariant}>{notice}</Alert>}
       </form>
-      <aside className="rounded-lg border border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-paper-soft))] p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
-        <p className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground">Email Preview</p>
-        <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_44px_-28px_rgba(15,15,15,0.42)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
-          <div className="bg-gradient-to-br from-slate-950 to-slate-700 p-4 text-white">
-            <p className="text-[10px] font-semibold uppercase tracking-[1px] text-white/60">Pix Announcement</p>
-            <h4 className="mt-2 text-base font-semibold">{title.trim() || '公告标题预览'}</h4>
+      <div className="grid gap-4">
+        <div className="rounded-lg border border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-paper-soft))] p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground">邮件预览</p>
+            <div className="flex rounded-full border border-border bg-card p-0.5 text-xs">
+              <button type="button" className={`rounded-full px-3 py-1 font-semibold transition ${previewTab === 'announcement' ? 'bg-slate-950 text-white' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setPreviewTab('announcement')}>公告卡片</button>
+              <button type="button" className={`rounded-full px-3 py-1 font-semibold transition ${previewTab === 'verification' ? 'bg-slate-950 text-white' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setPreviewTab('verification')}>验证码卡片</button>
+            </div>
           </div>
-          <div className="p-4">
-            <div className="rounded-xl border-l-4 border-slate-900 bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">{body.trim() || '公告正文会显示在这里。'}</div>
-            <div className="mt-4 inline-flex rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white">打开 Pix 网站</div>
-            <div className="mt-4"><Badge variant={enabled ? 'success' : 'muted'}>{enabled ? '当前启用' : '当前下线'}</Badge></div>
-          </div>
+          {previewTab === 'announcement' ? (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_44px_-28px_rgba(15,15,15,0.42)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
+              <div className="bg-gradient-to-br from-slate-950 to-slate-700 p-4 text-white">
+                <p className="text-[10px] font-semibold uppercase tracking-[1px] text-white/60">Pix Announcement</p>
+                <h4 className="mt-2 text-base font-semibold">{title.trim() || '公告标题预览'}</h4>
+              </div>
+              <div className="p-4">
+                <div className="rounded-xl bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">{body.trim() || '公告正文会显示在这里。'}</div>
+                <div className="mt-4 inline-flex rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white">打开 Pix 网站</div>
+                <div className="mt-4"><Badge variant={enabled ? 'success' : 'muted'}>{enabled ? '当前启用' : '当前下线'}</Badge></div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_44px_-28px_rgba(15,15,15,0.42)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
+              <div className="bg-[#121826] p-4 text-white">
+                <div className="mb-3 inline-block rounded-xl border border-white/20 bg-white/10 p-2">
+                  <div className="grid grid-cols-3 gap-1">
+                    {['#a78bfa','#facc15','#67e8f9','#86efac','#fb7185','#f97316','#fde68a','#c4b5fd','#99f6e4'].map((c) => (
+                      <div key={c} className="h-2.5 w-2.5 rounded" style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[10px] font-semibold uppercase tracking-[1px] text-indigo-200">Pix Forge</p>
+                <h4 className="mt-2 text-base font-semibold">你的注册通行名片</h4>
+                <p className="mt-1 text-xs text-indigo-200/80">这组验证码会帮你完成注册。</p>
+              </div>
+              <div className="p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[1px] text-muted-foreground">Verification Code</p>
+                <p className="mt-1 text-sm font-semibold">输入这组验证码完成注册</p>
+                <div className="mt-3 rounded-2xl bg-[#f7f0e4] p-3 text-center">
+                  <div className="flex justify-center gap-1.5">
+                    {'123456'.split('').map((d, i) => (
+                      <div key={i} className="flex h-10 w-9 items-center justify-center rounded-xl border border-[#d9cdbb] bg-[#fffdf7] text-lg font-extrabold shadow-sm">{d}</div>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[11px] text-[#7a7165]">验证码：<span className="font-semibold tracking-wider text-foreground">123456</span></p>
+                </div>
+                <div className="mt-3 flex gap-1.5">
+                  <span className="rounded-xl border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[11px] font-semibold text-blue-700">仅用于注册</span>
+                  <span className="rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">不要转发</span>
+                  <span className="rounded-xl border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-[11px] font-semibold text-purple-700">一次验证</span>
+                </div>
+                <div className="mt-3 inline-flex rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white">回到 Pix</div>
+              </div>
+            </div>
+          )}
         </div>
-      </aside>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-sm font-semibold">发送测试验证码邮件</p>
+          <p className="mt-1 text-xs text-muted-foreground">输入邮箱地址，发送一封测试验证码邮件，检查名片卡片在收件箱中的实际效果。</p>
+          <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); void sendTest() }}>
+            <Input type="email" placeholder="your@email.com" value={testEmail} onChange={(e) => setTestEmail(e.target.value)} />
+            <Button type="submit" variant="outline" disabled={testSending || !testEmail.trim()}>{testSending ? '发送中…' : '发送测试'}</Button>
+          </form>
+        </div>
+      </div>
     </div>
   )
 }
