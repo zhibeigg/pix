@@ -119,8 +119,8 @@ class EmailCodeResponse(BaseModel):
     debug_code: str | None = None
 
 
-_RE_PASSWORD_EN = re.compile(r"[a-zA-Z]")
-_RE_PASSWORD_CN = re.compile(r"[\u4e00-\u9fff]")
+_RE_PASSWORD_LETTER = re.compile(r"[a-zA-Z]")
+_RE_PASSWORD_DIGIT = re.compile(r"\d")
 
 
 class RegisterRequest(BaseModel):
@@ -133,8 +133,8 @@ class RegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def _check_password_mixed(cls, v: str) -> str:
-        if not _RE_PASSWORD_EN.search(v) or not _RE_PASSWORD_CN.search(v):
-            raise ValueError("密码必须同时包含中文和英文字符")
+        if not _RE_PASSWORD_LETTER.search(v) or not _RE_PASSWORD_DIGIT.search(v):
+            raise ValueError("密码必须同时包含英文和数字")
         return v
 
 
@@ -156,8 +156,8 @@ class ResetPasswordRequest(BaseModel):
     @field_validator("new_password")
     @classmethod
     def _check_password_mixed(cls, v: str) -> str:
-        if not _RE_PASSWORD_EN.search(v) or not _RE_PASSWORD_CN.search(v):
-            raise ValueError("密码必须同时包含中文和英文字符")
+        if not _RE_PASSWORD_LETTER.search(v) or not _RE_PASSWORD_DIGIT.search(v):
+            raise ValueError("密码必须同时包含英文和数字")
         return v
 
 
