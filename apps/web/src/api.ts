@@ -332,6 +332,9 @@ export const api = {
   pricing(token?: string | null) {
     return request<PricingRule[]>('/pricing', {}, token)
   },
+  imageModels() {
+    return request<{ default: string; models: string[] }>('/settings/image-models')
+  },
   adminPricing(token: string) {
     return request<PricingRule[]>('/admin/pricing', {}, token)
   },

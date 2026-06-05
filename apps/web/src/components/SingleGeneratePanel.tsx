@@ -17,7 +17,7 @@ import { PixPanel } from './pix/PixPanel'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
 
-type Props = { pricing: PricingRule[]; loading: boolean; token: string; onSubmit: (payload: JobCreateRequest) => Promise<void> }
+type Props = { pricing: PricingRule[]; loading: boolean; token: string; imageModels: { default: string; models: string[] }; onSubmit: (payload: JobCreateRequest) => Promise<void> }
 type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
 
 const PROMPT_MAX_LENGTH = 3000
@@ -86,9 +86,10 @@ function ensureRowPromptsLength(values: string[], rows: number): string[] {
   return next
 }
 
-export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props) {
+export function SingleGeneratePanel({ pricing, loading, token, imageModels, onSubmit }: Props) {
   const { text } = useI18n()
   const [jobType, setJobType] = useState<JobType>('asset')
+  const [imageModel, setImageModel] = useState(imageModels.default)
   const [assetName, setAssetName] = useState(() => text('冰霜之心', 'Frost Heart'))
   const [assetKind, setAssetKind] = useState<AssetKindChoice>('item_icon')
   const [assetExtraPrompt, setAssetExtraPrompt] = useState('')
@@ -270,6 +271,8 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
   async function submit(event: FormEvent) {
     event.preventDefault()
     const edge = edgeStylePixelize(edgeStyle)
+    // 仅在用户选了非默认模型时传 image_model，避免覆盖后端配置
+    const modelOverride = imageModel !== imageModels.default ? imageModel : undefined
     if (isAsset) {
       const assetExtra = assetExtraPrompt.trim()
       const subject = assetName.trim()
@@ -280,6 +283,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
           prompt: subject,
           input_image_path: assetRefPath,
           client_request_id: crypto.randomUUID(),
+          image_model: modelOverride,
           pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
           grid: buildGridDesign(),
           asset: { name: subject, extra_prompt: assetExtra, asset_kind: assetKind, subject_kind: subjectKind, no_preview: false },
@@ -293,6 +297,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
           prompt: i2iPrompt,
           input_image_path: assetRefPath,
           client_request_id: crypto.randomUUID(),
+          image_model: modelOverride,
           skip_vl: skipVl,
           pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
           grid: buildGridDesign(),
@@ -304,6 +309,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
         prompt: subject,
         input_image_path: null,
         client_request_id: crypto.randomUUID(),
+        image_model: modelOverride,
         pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
         grid: buildGridDesign(),
         asset: { name: subject, extra_prompt: assetExtra, asset_kind: assetKind, subject_kind: subjectKind, no_preview: false },
@@ -318,6 +324,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
         prompt: prompt.trim(),
         input_image_path: null,
         client_request_id: crypto.randomUUID(),
+        image_model: modelOverride,
         skip_vl: false,
         pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: false, ...edge }),
         grid: buildGridDesign(),
@@ -341,6 +348,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
       prompt: null,
       input_image_path: inputImagePath,
       client_request_id: crypto.randomUUID(),
+      image_model: modelOverride,
       skip_vl: skipVl,
       pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
       grid: buildGridDesign(),
@@ -350,16 +358,28 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
   return (
       <PixPanel eyebrow={text('单张试做', 'Single test')} title={text('任务配方', 'Job recipe')} action={<Badge variant="info">{isSprite ? text(`预计 ${billingUnits} × ${basePrice} = ${price} 点（共 ${totalFrames} 帧）`, `Estimated ${billingUnits} × ${basePrice} = ${price} credits (${totalFrames} frames)`) : text(`预计 ${price} 点`, `Estimated ${price} credits`)}</Badge>}>
       <form className="grid gap-5" onSubmit={submit}>
-        <PixField label={text('模式', 'Mode')}>
-          <Select value={jobType} onValueChange={(value) => setJobType(value as JobType)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="asset">{text('游戏素材直出', 'Game asset output')}</SelectItem>
-              <SelectItem value="sprite_sheet">{text('序列帧', 'Sprite sequence')}</SelectItem>
-              <SelectItem value="local_pixelize">{text('本地像素化', 'Local pixelize')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </PixField>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <PixField label={text('模式', 'Mode')}>
+            <Select value={jobType} onValueChange={(value) => setJobType(value as JobType)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="asset">{text('游戏素材直出', 'Game asset output')}</SelectItem>
+                <SelectItem value="sprite_sheet">{text('序列帧', 'Sprite sequence')}</SelectItem>
+                <SelectItem value="local_pixelize">{text('本地像素化', 'Local pixelize')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </PixField>
+          <PixField label={text('生图模型', 'Image model')}>
+            <Select value={imageModel} onValueChange={setImageModel}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {imageModels.models.map((m) => (
+                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </PixField>
+        </div>
 
         {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
           <PixField label={text('素材类型', 'Asset type')}>

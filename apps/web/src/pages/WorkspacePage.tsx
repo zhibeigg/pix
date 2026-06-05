@@ -16,6 +16,7 @@ interface WorkspacePageProps {
   jobs: GenerationJob[]
   loading: boolean
   token: string
+  imageModels: { default: string; models: string[] }
   onModeChange: (mode: WorkMode) => void
   onCreateJob: (payload: JobCreateRequest) => Promise<void>
   onCreateJobs: (payloads: JobCreateRequest[], batchName?: string, mode?: string) => Promise<void>
@@ -23,7 +24,7 @@ interface WorkspacePageProps {
   onRefresh: () => void
 }
 
-export function WorkspacePage({ mode, pricing, balance, jobs, loading, token, onModeChange, onCreateJob, onCreateJobs, onCandidatePixelize, onRefresh }: WorkspacePageProps) {
+export function WorkspacePage({ mode, pricing, balance, jobs, loading, token, imageModels, onModeChange, onCreateJob, onCreateJobs, onCandidatePixelize, onRefresh }: WorkspacePageProps) {
   const { t } = useI18n()
   const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)), [jobs])
   return (
@@ -33,7 +34,7 @@ export function WorkspacePage({ mode, pricing, balance, jobs, loading, token, on
           <TabsList><TabsTrigger value="single">{t('pages.workspace.single')}</TabsTrigger><TabsTrigger value="batch">{t('pages.workspace.batch')}</TabsTrigger></TabsList>
         </Tabs>
       )} />
-      {mode === 'single' ? <SingleGeneratePanel pricing={pricing} loading={loading} token={token} onSubmit={onCreateJob} /> : <BatchGeneratePanel pricing={pricing} balance={balance} loading={loading} token={token} onSubmitMany={onCreateJobs} />}
+      {mode === 'single' ? <SingleGeneratePanel pricing={pricing} loading={loading} token={token} imageModels={imageModels} onSubmit={onCreateJob} /> : <BatchGeneratePanel pricing={pricing} balance={balance} loading={loading} token={token} onSubmitMany={onCreateJobs} />}
       <JobList jobs={activeJobs} onRefresh={onRefresh} onCandidatePixelize={onCandidatePixelize} />
     </div>
   )
