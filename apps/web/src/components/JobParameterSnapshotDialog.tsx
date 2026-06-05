@@ -105,7 +105,7 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
 
           <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
             <X className="h-4 w-4" />
-            <span className="sr-only">关闭</span>
+            <span className="sr-only">{text('关闭', 'Close')}</span>
           </DialogPrimitive.Close>
         </DialogPrimitive.Content>
       </DialogPortal>

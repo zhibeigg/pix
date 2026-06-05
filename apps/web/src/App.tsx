@@ -245,6 +245,13 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }, [notifyJobCompletions, selectedPackId, token])
 
+  const refreshCurrent = useCallback(() => { void refreshCore() }, [refreshCore])
+  const selectJobById = useCallback((job: GenerationJob) => { setSelectedJobId(job.id) }, [])
+  const cancelPackExpand = useCallback(() => { setPackExpandConfirm(null) }, [])
+  const cancelDelete = useCallback(() => { setDeleteConfirm(null) }, [])
+  const confirmPackExpand = useCallback(() => { void confirmExpandPackLimit() }, [confirmExpandPackLimit])
+  const confirmDeleteAction = useCallback(() => { void confirmDelete() }, [confirmDelete])
+
   useEffect(() => {
     refreshSetupStatus().catch(showError)
   }, [refreshSetupStatus, showError])
@@ -865,7 +872,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
             {user ? (
               <>
                 {page === 'home' && <Button asChild><a href="#/workspace">{t('app.workbench')}</a></Button>}
-                <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={() => refreshCore()} onLogout={logout} />
+                <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={refreshCurrent} onLogout={logout} />
               </>
             ) : (
               <div className="flex gap-2">
@@ -881,14 +888,14 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       <PackExpandConfirmDialog
         state={packExpandConfirm}
         loading={expandingPackLimit}
-        onCancel={() => setPackExpandConfirm(null)}
-        onConfirm={() => void confirmExpandPackLimit()}
+        onCancel={cancelPackExpand}
+        onConfirm={confirmPackExpand}
       />
       <DeleteConfirmDialog
         state={deleteConfirm}
         loading={deleting}
-        onCancel={() => setDeleteConfirm(null)}
-        onConfirm={() => void confirmDelete()}
+        onCancel={cancelDelete}
+        onConfirm={confirmDeleteAction}
       />
 
       {setupLoading ? (
@@ -911,13 +918,13 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           isAdmin={isAdmin}
           onNavigate={navigate}
         >
-          {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
-          {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={() => refreshCore()} />}
-          {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onSaveSequenceAlignment={saveSequenceAlignment} />}
-          {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={(job) => setSelectedJobId(job.id)} onCandidatePixelize={pixelizeCandidate} onRefresh={() => refreshCore()} />}
-          {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={() => refreshCore()} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
-          {page === 'rewards' && <RewardsPage token={token} onRefresh={() => refreshCore()} />}
-          {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={() => refreshCore()} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onPublishAnnouncement={publishAnnouncement} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} />}
+          {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
+          {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
+          {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={selectJobById} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onSaveSequenceAlignment={saveSequenceAlignment} />}
+          {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
+          {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
+          {page === 'rewards' && <RewardsPage token={token} onRefresh={refreshCurrent} />}
+          {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={refreshCurrent} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onPublishAnnouncement={publishAnnouncement} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} />}
         </WorkspaceShell>
       ) : (
         <div>
@@ -988,19 +995,19 @@ function DeleteConfirmDialog({ state, loading, onCancel, onConfirm }: { state: D
             <div className="relative grid gap-5 p-6">
               <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_18%_0%,hsl(var(--destructive)/.18),transparent_36%),linear-gradient(180deg,hsl(var(--pix-cream)/.86),transparent)] dark:bg-[radial-gradient(circle_at_18%_0%,hsl(var(--destructive)/.34),transparent_34%),linear-gradient(180deg,hsl(var(--pix-navy)/.82),transparent)]" />
               <DialogHeader className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-3 pr-8">
-                <div className="grid h-12 w-12 place-items-center rounded-lg border border-destructive/24 bg-destructive/10 text-destructive shadow-[0_14px_34px_-22px_hsl(var(--destructive)/.72)] dark:border-red-300/24 dark:bg-red-500/12 dark:text-red-200">
+                <div className="grid h-12 w-12 place-items-center rounded-lg border border-destructive/24 bg-destructive/10 text-destructive shadow-[0_14px_34px_-22px_hsl(var(--destructive)/.72)] dark:border-[hsl(var(--destructive)/.24)] dark:bg-[hsl(var(--destructive)/.12)] dark:text-[hsl(0_74%_80%)]">
                   <Trash2 className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-destructive/75 dark:text-red-200/78">{t('confirmDelete.eyebrow')}</p>
+                  <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-destructive/75 dark:text-[hsl(0_74%_80%/.78)]">{t('confirmDelete.eyebrow')}</p>
                   <DialogTitle className="mt-1 text-xl leading-tight">{title}</DialogTitle>
                   <DialogDescription className="mt-2 leading-6">{description}</DialogDescription>
                 </div>
               </DialogHeader>
-              <div className="relative grid gap-2 rounded-lg border border-destructive/18 bg-destructive/7 p-3 text-sm dark:border-red-300/18 dark:bg-red-500/10">
+              <div className="relative grid gap-2 rounded-lg border border-destructive/18 bg-destructive/7 p-3 text-sm dark:border-[hsl(var(--destructive)/.18)] dark:bg-[hsl(var(--destructive)/.10)]">
                 {impactItems.map((item) => (
                   <div key={item} className="flex items-center gap-2 rounded-md bg-card/72 px-3 py-2 text-muted-foreground dark:bg-black/12 dark:text-white/68">
-                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-sm bg-destructive/10 text-[10px] font-bold text-destructive dark:bg-red-300/12 dark:text-red-200">×</span>
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-sm bg-destructive/10 text-[10px] font-bold text-destructive dark:bg-[hsl(var(--destructive)/.12)] dark:text-[hsl(0_74%_80%)]">×</span>
                     <span>{item}</span>
                   </div>
                 ))}
@@ -1013,7 +1020,7 @@ function DeleteConfirmDialog({ state, loading, onCancel, onConfirm }: { state: D
           )}
           <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring" disabled={loading}>
             <X className="h-4 w-4" />
-            <span className="sr-only">关闭</span>
+            <span className="sr-only">{t('common.close')}</span>
           </DialogPrimitive.Close>
         </DialogPrimitive.Content>
       </DialogPortal>
@@ -1089,7 +1096,7 @@ function AppToast({ toast, onDismiss }: { toast: AppToastState | null; onDismiss
       <div key={toast.id} role="status" aria-live="polite" className={`motion-success-pop pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-[0_16px_48px_-8px_rgba(15,15,15,0.26)] ring-1 ring-black/5 ${tone}`}>
         <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${iconTone}`} />
         <p className="min-w-0 flex-1 leading-6">{toast.message}</p>
-        <button type="button" onClick={onDismiss} aria-label={t('app.toastDismiss')} className="-mr-1 rounded-md p-1 opacity-72 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
+        <button type="button" onClick={onDismiss} aria-label={t('app.toastDismiss')} className="-mr-1 grid min-h-[44px] min-w-[44px] place-items-center rounded-md opacity-72 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -1135,7 +1142,7 @@ function WorkspaceShell({ page, user, balance, activeJobs, completedJobs, failed
 
 function SidebarMetric({ label, value, tone = 'default' }: { label: ReactNode; value: ReactNode; tone?: 'default' | 'danger' }) {
   return (
-    <div className={`rounded-md border px-3 py-2 shadow-[0_1px_2px_rgba(15,15,15,0.04)] ${tone === 'danger' ? 'border-red-200 bg-red-50 text-red-950 dark:border-red-300/30 dark:bg-red-500/10 dark:text-white' : 'border-border bg-card text-[hsl(var(--pix-ink))] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white'}`}>
+    <div className={`rounded-md border px-3 py-2 shadow-[0_1px_2px_rgba(15,15,15,0.04)] ${tone === 'danger' ? 'border-[hsl(var(--destructive)/.28)] bg-[hsl(var(--destructive)/.08)] text-[hsl(var(--destructive))] dark:border-[hsl(var(--destructive)/.30)] dark:bg-[hsl(var(--destructive)/.10)] dark:text-white' : 'border-border bg-card text-[hsl(var(--pix-ink))] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white'}`}>
       <p className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground dark:text-white/52">{label}</p>
       <p className="mt-1 text-lg font-semibold leading-tight">{value}</p>
     </div>
@@ -1145,10 +1152,25 @@ function SidebarMetric({ label, value, tone = 'default' }: { label: ReactNode; v
 function SiteFooter() {
   const { t } = useI18n()
   const groups = [
-    { title: t('footer.product'), links: [t('footer.productionWorkspace'), t('footer.gallery'), t('footer.packs')] },
-    { title: t('footer.resources'), links: [t('footer.pixelUi'), t('footer.spriteFrames'), t('footer.sampleAtlas')] },
-    { title: t('footer.workspace'), links: [t('footer.billingCenter'), t('footer.jobQueue'), t('footer.batchExport')] },
-    { title: t('footer.company'), links: [t('footer.pixForge'), t('footer.gameAssets')] },
+    { title: t('footer.product'), links: [
+      { label: t('footer.productionWorkspace'), href: '#/workspace' },
+      { label: t('footer.gallery'), href: '#/gallery' },
+      { label: t('footer.packs'), href: '#/packs' },
+    ]},
+    { title: t('footer.resources'), links: [
+      { label: t('footer.pixelUi'), href: '#/workspace' },
+      { label: t('footer.spriteFrames'), href: '#/workspace' },
+      { label: t('footer.sampleAtlas'), href: '#/home' },
+    ]},
+    { title: t('footer.workspace'), links: [
+      { label: t('footer.billingCenter'), href: '#/billing' },
+      { label: t('footer.jobQueue'), href: '#/workspace' },
+      { label: t('footer.batchExport'), href: '#/workspace' },
+    ]},
+    { title: t('footer.company'), links: [
+      { label: t('footer.pixForge'), href: '#/home' },
+      { label: t('footer.gameAssets'), href: '#/home' },
+    ]},
   ]
   return (
     <footer className="border-t border-border bg-card px-4 py-16 md:px-8 dark:border-white/10 dark:bg-[hsl(var(--pix-navy-deep))]">
@@ -1166,7 +1188,7 @@ function SiteFooter() {
             <div key={group.title}>
               <p className="text-sm font-semibold text-foreground">{group.title}</p>
               <div className="mt-3 grid gap-2">
-                {group.links.map((link) => <span key={link} className="text-sm text-muted-foreground">{link}</span>)}
+                {group.links.map((link) => <a key={link.label} href={link.href} className="text-sm text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded-sm">{link.label}</a>)}
               </div>
             </div>
           ))}

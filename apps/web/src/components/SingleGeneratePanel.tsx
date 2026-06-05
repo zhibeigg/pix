@@ -381,7 +381,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
                 <Button type="button" variant="outline" asChild>
                   <label className="cursor-pointer">
                     <Upload />{assetRefUploading ? text('上传参考图…', 'Uploading reference…') : assetRefPath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
-                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadAssetReferenceFile(event.currentTarget.files?.[0])} />
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传参考图', 'Upload reference')} onChange={(event) => void uploadAssetReferenceFile(event.currentTarget.files?.[0])} />
                   </label>
                 </Button>
                 {assetRefMessage && <Alert variant={assetRefMessage.includes('失败') || assetRefMessage.toLowerCase().includes('failed') ? 'destructive' : 'info'}>{assetRefMessage}</Alert>}
@@ -406,7 +406,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
                 <Button type="button" variant="outline" asChild>
                   <label className="cursor-pointer">
                     <Upload />{refUploading ? text('上传参考图…', 'Uploading reference…') : refImagePath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
-                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadReferenceFile(event.currentTarget.files?.[0])} />
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传参考图', 'Upload reference')} onChange={(event) => void uploadReferenceFile(event.currentTarget.files?.[0])} />
                   </label>
                 </Button>
                 {refUploadMessage && <Alert variant={refUploadMessage.includes('失败') || refUploadMessage.toLowerCase().includes('failed') ? 'destructive' : 'info'}>{refUploadMessage}</Alert>}
@@ -478,7 +478,7 @@ export function SingleGeneratePanel({ pricing, loading, token, onSubmit }: Props
           </div>
         )}
 
-        {isLocalPixelize && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} loading={uploading} label={uploading ? text('上传中…', 'Uploading…') : text('等待上传预览', 'Waiting for upload preview')} /></div>}
+        {isLocalPixelize && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传图片', 'Upload image')} onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} loading={uploading} label={uploading ? text('上传中…', 'Uploading…') : text('等待上传预览', 'Waiting for upload preview')} /></div>}
 
         <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isSprite || isTileAsset || !removeBg} />
 
