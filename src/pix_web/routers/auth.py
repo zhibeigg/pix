@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 from pix_web.config import WebSettings
 from pix_web.captcha import is_turnstile_active, verify_turnstile_token
 from pix_web.credits import ensure_credit_account, recharge_credits
-from pix_web.email_sender import EmailDeliveryError, send_verification_email
+from pix_web.email_sender import EmailDeliveryError, send_password_reset_email, send_verification_email
 from pix_web.email_verification import (
+    PASSWORD_RESET_PURPOSE,
     EmailCodeError,
     consume_email_code,
     create_email_code,
@@ -27,6 +28,8 @@ from pix_web.schemas import (
     EmailCodeResponse,
     LoginRequest,
     RegisterRequest,
+    ResetCodeRequest,
+    ResetPasswordRequest,
     SetupStatusResponse,
     TokenResponse,
     UserResponse,
@@ -245,6 +248,66 @@ def login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="邮箱或密码错误")
     if user.status != "active":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账号不可用")
+    return TokenResponse(access_token=create_access_token(user, effective))
+
+
+@router.post("/reset-code", response_model=EmailCodeResponse)
+def request_reset_code(
+    req: ResetCodeRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> EmailCodeResponse:
+    """发送密码重置验证码。不暴露用户是否存在。"""
+    effective = load_effective_web_settings(db, settings)
+    remote_ip = request.client.host if request.client else None
+    verify_turnstile_token(effective, req.turnstile_token, remote_ip=remote_ip)
+    email = normalize_email(str(req.email))
+    user = find_user_by_email(db, email)
+    if user is None:
+        # 不暴露用户是否存在：假装已发送，但不实际发送
+        return EmailCodeResponse(
+            retry_after_seconds=effective.email_code_resend_seconds,
+            expires_in_seconds=effective.email_code_ttl_seconds,
+        )
+    try:
+        result = create_email_code(db, effective, email, purpose=PASSWORD_RESET_PURPOSE)
+    except EmailCodeError as exc:
+        db.rollback()
+        _raise_email_code_error(exc)
+    try:
+        send_password_reset_email(effective, email, result.code)
+    except EmailDeliveryError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    db.commit()
+    return EmailCodeResponse(
+        retry_after_seconds=result.retry_after_seconds,
+        expires_in_seconds=effective.email_code_ttl_seconds,
+        debug_code=result.code if effective.email_debug_codes or effective.email_provider == "console" else None,
+    )
+
+
+@router.post("/reset-password", response_model=TokenResponse)
+def reset_password(
+    req: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> TokenResponse:
+    """验证邮箱验证码后重置密码，成功后返回新 token 自动登录。"""
+    effective = load_effective_web_settings(db, settings)
+    email = normalize_email(str(req.email))
+    user = find_user_by_email(db, email)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="验证码错误或已过期")
+    try:
+        consume_email_code(db, effective, email, req.verification_code, purpose=PASSWORD_RESET_PURPOSE)
+    except EmailCodeError as exc:
+        db.commit()
+        _raise_email_code_error(exc)
+    user.password_hash = hash_password(req.new_password)
+    db.commit()
+    db.refresh(user)
     return TokenResponse(access_token=create_access_token(user, effective))
 
 

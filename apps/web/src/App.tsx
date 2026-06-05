@@ -345,6 +345,28 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
+  async function requestResetCode(email: string, turnstileToken: string) {
+    return api.requestResetCode(email, turnstileToken)
+  }
+
+  async function resetAndLogin(email: string, newPassword: string, verificationCode: string) {
+    setBusy(true)
+    setMessage('')
+    try {
+      const result = await api.resetPassword(email, newPassword, verificationCode)
+      localStorage.setItem(TOKEN_KEY, result.access_token)
+      setToken(result.access_token)
+      await refreshCore(result.access_token)
+      await refreshSetupStatus()
+      setMessage(text('密码重置成功，已自动登录', 'Password reset successfully. Logged in automatically.'))
+    } catch (error) {
+      showError(error)
+      throw error
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function localTestLogin() {
     setBusy(true)
     setMessage('')
@@ -925,7 +947,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       ) : (
         <div>
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={packs.length} />
-          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} referralCode={referralCode} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} turnstileEnabled={setupStatus?.turnstile_enabled ?? false} turnstileSiteKey={setupStatus?.turnstile_site_key ?? ''} />} />
+          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onRequestResetCode={requestResetCode} onResetPassword={resetAndLogin} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} referralCode={referralCode} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} turnstileEnabled={setupStatus?.turnstile_enabled ?? false} turnstileSiteKey={setupStatus?.turnstile_site_key ?? ''} />} />
           <SiteFooter />
         </div>
       )}

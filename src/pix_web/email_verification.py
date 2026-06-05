@@ -15,6 +15,7 @@ from pix_web.config import WebSettings
 from pix_web.models import EmailVerificationCode
 
 REGISTER_PURPOSE = "register"
+PASSWORD_RESET_PURPOSE = "password_reset"
 
 
 @dataclass(frozen=True)
