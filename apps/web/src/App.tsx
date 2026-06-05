@@ -833,7 +833,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     return api.adminAnnouncements(token)
   }
 
-  async function createAnnouncement(payload: { title: string; body: string; enabled: boolean; publish_now: boolean }) {
+  async function createAnnouncement(payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) {
     if (!token) throw new Error(text('请先登录', 'Please sign in first'))
     const result = await api.createAnnouncement(token, payload)
     await refreshCore(token)
@@ -852,6 +852,11 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     const result = await api.deleteAnnouncement(token, id)
     await refreshCore(token)
     return result
+  }
+
+  async function testAnnouncementEmail(email: string, title: string, body: string) {
+    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
+    return api.testAnnouncementEmail(token, { email, title, body })
   }
 
   async function createAdminPackage(payload: CreditPackage) {
@@ -967,7 +972,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
             {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
             {page === 'rewards' && <RewardsPage token={token} onRefresh={refreshCurrent} />}
-            {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={refreshCurrent} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onPublishAnnouncement={publishAnnouncement} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} onAdminAnnouncements={adminAnnouncements} onCreateAnnouncement={createAnnouncement} onUpdateAnnouncement={updateAnnouncement} onDeleteAnnouncement={deleteAnnouncement} />}
+            {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={refreshCurrent} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onPublishAnnouncement={publishAnnouncement} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} onAdminAnnouncements={adminAnnouncements} onCreateAnnouncement={createAnnouncement} onUpdateAnnouncement={updateAnnouncement} onDeleteAnnouncement={deleteAnnouncement} onTestAnnouncementEmail={testAnnouncementEmail} />}
           </Suspense>
         </WorkspaceShell>
       ) : (

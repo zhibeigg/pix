@@ -363,7 +363,7 @@ export const api = {
   adminAnnouncements(token: string) {
     return request<AnnouncementListResponse>('/admin/announcements', {}, token)
   },
-  createAnnouncement(token: string, payload: { title: string; body: string; enabled: boolean; publish_now: boolean }) {
+  createAnnouncement(token: string, payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) {
     return request<AnnouncementItem>('/admin/announcements', { method: 'POST', body: JSON.stringify(payload) }, token)
   },
   updateAnnouncement(token: string, id: number, payload: { title?: string; body?: string; enabled?: boolean }) {
@@ -371,6 +371,9 @@ export const api = {
   },
   deleteAnnouncement(token: string, id: number) {
     return request<{ deleted: boolean }>(`/admin/announcements/${id}`, { method: 'DELETE' }, token)
+  },
+  testAnnouncementEmail(token: string, payload: { email: string; title: string; body: string }) {
+    return request<EmailTestResponse>('/admin/announcements/test-email', { method: 'POST', body: JSON.stringify(payload) }, token)
   },
   testEmailSetting(token: string, email: string) {
     return request<EmailTestResponse>('/admin/settings/test-email', { method: 'POST', body: JSON.stringify({ email }) }, token)

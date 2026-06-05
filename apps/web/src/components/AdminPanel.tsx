@@ -11,11 +11,12 @@ import { Tabs, TabsList, TabsTrigger } from './ui/tabs'
 import { PixField } from './pix/PixField'
 import { PixMetric } from './pix/PixMetric'
 import { PixPanel } from './pix/PixPanel'
+import { api } from '../api'
 
-type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onPublishAnnouncement: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void>; onAdminAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }> }
+type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onPublishAnnouncement: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void>; onAdminAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }> }
 const settingTabs = ['运营保护', '邮件验证码', '模型与 API', '素材默认值', '序列帧', '支付与站点', '存储 / 队列 / 安全']
 
-export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings, onRefresh, onAdjustCredits, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onPublishAnnouncement, onTestEmail, onAdminRetryJob, onAdminCancelJob, onAdminFailRefundJob, onAdminAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement }: Props) {
+export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings, onRefresh, onAdjustCredits, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onPublishAnnouncement, onTestEmail, onAdminRetryJob, onAdminCancelJob, onAdminFailRefundJob, onAdminAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement, onTestAnnouncementEmail }: Props) {
   const [tab, setTab] = useState('dashboard')
   const [selectedUser, setSelectedUser] = useState('0')
   const [amount, setAmount] = useState(100)
@@ -30,7 +31,7 @@ export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings
         {tab === 'dashboard' && dashboard && <DashboardGrid dashboard={dashboard} />}
         {tab === 'jobs' && <AdminJobsList jobs={jobs} onRetry={onAdminRetryJob} onCancel={onAdminCancelJob} onFailRefund={onAdminFailRefundJob} />}
         {tab === 'users' && <form className="grid max-w-xl gap-4" onSubmit={submitAdjust}><PixField label="用户"><Select value={selectedUser} onValueChange={setSelectedUser}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">选择用户</SelectItem>{users.map((u) => <SelectItem value={String(u.id)} key={u.id}>{u.email} · {u.role}</SelectItem>)}</SelectContent></Select></PixField><PixField label="点数变化"><Input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></PixField><PixField label="备注"><Input value={note} onChange={(e) => setNote(e.target.value)} /></PixField><Button type="submit">调整点数</Button></form>}
-        {tab === 'announcements' && <AnnouncementEditor onPublish={onPublishAnnouncement} onTestEmail={onTestEmail} onListAnnouncements={onAdminAnnouncements} onCreateAnnouncement={onCreateAnnouncement} onUpdateAnnouncement={onUpdateAnnouncement} onDeleteAnnouncement={onDeleteAnnouncement} />}
+        {tab === 'announcements' && <AnnouncementEditor onPublish={onPublishAnnouncement} onTestEmail={onTestEmail} onListAnnouncements={onAdminAnnouncements} onCreateAnnouncement={onCreateAnnouncement} onUpdateAnnouncement={onUpdateAnnouncement} onDeleteAnnouncement={onDeleteAnnouncement} onTestAnnouncementEmail={onTestAnnouncementEmail} />}
         {tab === 'pricing' && <div className="grid gap-3"><h3 className="text-lg font-semibold">价格规则</h3>{pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}</div>}
         {tab === 'packages' && <PackageEditor packages={packages} onCreate={onCreatePackage} onUpdate={onUpdatePackage} />}
         {settingGroup && <div className="grid gap-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-semibold">{tab}</h3><p className="text-sm text-muted-foreground">保存后只影响新请求/新任务；带"需重启"的项目请重启服务或 worker。</p></div>{tab === '邮件验证码' && <EmailTestBox onTest={onTestEmail} />}</div>{settingGroup.map((setting) => <SettingRow setting={setting} onUpdate={onUpdateSetting} key={setting.key} />)}</div>}
@@ -66,7 +67,7 @@ function formatDateTime(value: string) {
 
 function EmailTestBox({ onTest }: { onTest: (email: string) => Promise<void> }) { const [email, setEmail] = useState('admin@example.com'); return <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void onTest(email) }}><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /><Button type="submit" variant="outline">发送测试</Button></form> }
 
-function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement }: { onPublish: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onListAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }> }) {
+function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement, onTestAnnouncementEmail }: { onPublish: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onListAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }> }) {
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([])
   const [listLoading, setListLoading] = useState(false)
   const [editing, setEditing] = useState<AnnouncementItem | null>(null)
@@ -74,11 +75,16 @@ function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCre
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [enabled, setEnabled] = useState(true)
+  const [notify, setNotify] = useState(true)
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState('')
   const [noticeVariant, setNoticeVariant] = useState<'info' | 'success' | 'warning'>('info')
   const [testEmail, setTestEmail] = useState('admin@example.com')
   const [testSending, setTestSending] = useState(false)
+  const [announcementTestEmail, setAnnouncementTestEmail] = useState('')
+  const [announcementTestSending, setAnnouncementTestSending] = useState(false)
+  const [announcementTestNotice, setAnnouncementTestNotice] = useState('')
+  const [previewTab, setPreviewTab] = useState<'announcement' | 'verification'>('announcement')
 
   const loadList = useCallback(async () => {
     if (!onListAnnouncements) return
@@ -98,6 +104,7 @@ function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCre
     setTitle('')
     setBody('')
     setEnabled(true)
+    setNotify(true)
     setShowCreate(true)
     setNotice('')
   }
@@ -107,6 +114,7 @@ function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCre
     setTitle(item.title)
     setBody(item.body)
     setEnabled(item.enabled)
+    setNotify(true)
     setShowCreate(true)
     setNotice('')
   }
@@ -117,6 +125,7 @@ function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCre
     setTitle('')
     setBody('')
     setEnabled(true)
+    setNotify(true)
     setNotice('')
   }
 
@@ -129,9 +138,13 @@ function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCre
         setNotice(publishNow ? '公告已更新并发送通知。' : '公告已更新。')
         setNoticeVariant('success')
       } else if (onCreateAnnouncement) {
-        await onCreateAnnouncement({ title, body, enabled, publish_now: publishNow })
+        await onCreateAnnouncement({ title, body, enabled, publish_now: publishNow, notify })
         setNotice(publishNow ? '公告已发布并发送通知。' : '公告已保存为草稿。')
         setNoticeVariant(publishNow ? 'success' : 'info')
+      } else if (onPublish) {
+        const result = await onPublish({ title, body, enabled })
+        setNotice(announcementPublishNotice(result))
+        setNoticeVariant(result.email_notification_queued ? 'success' : result.email_skipped_reason === 'unchanged' ? 'info' : 'warning')
       }
       cancelForm()
       void loadList()
@@ -170,6 +183,21 @@ function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCre
     }
   }
 
+  async function sendAnnouncementTest() {
+    if (!onTestAnnouncementEmail || !announcementTestEmail.trim()) return
+    setAnnouncementTestSending(true)
+    setAnnouncementTestNotice('')
+    try {
+      const result = await onTestAnnouncementEmail(announcementTestEmail, title, body)
+      setAnnouncementTestNotice(result.message || '测试邮件已发送')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '发送失败'
+      setAnnouncementTestNotice(message)
+    } finally {
+      setAnnouncementTestSending(false)
+    }
+  }
+
   function statusBadge(item: AnnouncementItem) {
     if (!item.enabled) return <Badge variant="muted">已下线</Badge>
     if (item.published_at) return <Badge variant="success">已发布</Badge>
@@ -200,8 +228,9 @@ function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCre
             <PixField label="公告标题"><Input value={title} maxLength={80} placeholder="例如：维护通知 / 新功能上线" onChange={(event) => setTitle(event.target.value)} /></PixField>
             <PixField label="公告正文"><Textarea value={body} rows={6} maxLength={2000} placeholder="写清楚影响范围、时间和用户需要做什么。" onChange={(event) => setBody(event.target.value)} /></PixField>
             <label className="flex items-center gap-2 text-sm"><Checkbox checked={enabled} onCheckedChange={(value) => setEnabled(Boolean(value))} />启用公告</label>
+            <label className="flex items-center gap-2 text-sm"><Checkbox checked={notify} onCheckedChange={(value) => setNotify(Boolean(value))} />发送邮箱通知</label>
             <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={saving || (!title.trim() && !body.trim())}>{saving ? '保存中…' : editing ? '更新并通知' : '发布并通知'}</Button>
+              <Button type="submit" disabled={saving || (!title.trim() && !body.trim())}>{saving ? '保存中…' : editing ? (notify ? '更新并通知' : '更新') : (notify ? '发布并通知' : '发布')}</Button>
               {!editing && <Button type="button" variant="soft" disabled={saving} onClick={() => void save(false)}>保存草稿</Button>}
               <Button type="button" variant="outline" disabled={saving} onClick={cancelForm}>取消</Button>
             </div>
@@ -243,33 +272,81 @@ function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCre
 
       <div className="grid gap-4">
         <div className="rounded-lg border border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-paper-soft))] p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
-          <p className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground">邮件预览</p>
-          <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_44px_-28px_rgba(15,15,15,0.42)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
-            <div className="bg-[#f5f5f5] p-4 text-center dark:bg-[#1a1a1a]">
-              <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-xl bg-white text-sm font-bold text-primary shadow-sm">Pix</div>
-              <h4 className="text-base font-semibold">{title.trim() || '公告标题预览'}</h4>
-              <p className="mt-1 text-xs text-muted-foreground">使用以下验证码完成注册。</p>
-              <div className="mx-auto mt-3 max-w-[280px] rounded-xl bg-[#f0faf4] p-3 text-center dark:bg-[#0d2818]">
-                <p className="text-lg font-extrabold tracking-[0.25em] text-foreground">123456</p>
-              </div>
-            </div>
-            <div className="p-4">
-              <div className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{renderBodyPreview(body)}</div>
-              <div className="mt-3"><Badge variant={enabled ? 'success' : 'muted'}>{enabled ? '当前启用' : '当前下线'}</Badge></div>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground">邮件预览</p>
+            <div className="flex rounded-full border border-border bg-card p-0.5 text-xs">
+              <button type="button" className={`rounded-full px-3 py-1 font-semibold transition ${previewTab === 'announcement' ? 'bg-slate-950 text-white' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setPreviewTab('announcement')}>公告卡片</button>
+              <button type="button" className={`rounded-full px-3 py-1 font-semibold transition ${previewTab === 'verification' ? 'bg-slate-950 text-white' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setPreviewTab('verification')}>验证码卡片</button>
             </div>
           </div>
+          {previewTab === 'announcement' ? (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_44px_-28px_rgba(15,15,15,0.42)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
+              <div className="bg-gradient-to-br from-slate-950 to-slate-700 p-4 text-white">
+                <p className="text-[10px] font-semibold uppercase tracking-[1px] text-white/60">Pix Announcement</p>
+                <h4 className="mt-2 text-base font-semibold">{title.trim() || '公告标题预览'}</h4>
+              </div>
+              <div className="p-4">
+                <div className="whitespace-pre-wrap rounded-xl bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">{renderBodyPreview(body)}</div>
+                <div className="mt-4 inline-flex rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white">打开 Pix 网站</div>
+                <div className="mt-4"><Badge variant={enabled ? 'success' : 'muted'}>{enabled ? '当前启用' : '当前下线'}</Badge></div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_44px_-28px_rgba(15,15,15,0.42)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
+              <div className="bg-[#121826] p-4 text-white">
+                <div className="mb-3 inline-block rounded-xl border border-white/20 bg-white/10 p-2">
+                  <div className="grid grid-cols-3 gap-1">
+                    {['#a78bfa','#facc15','#67e8f9','#86efac','#fb7185','#f97316','#fde68a','#c4b5fd','#99f6e4'].map((c) => (
+                      <div key={c} className="h-2.5 w-2.5 rounded" style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[10px] font-semibold uppercase tracking-[1px] text-indigo-200">Pix Forge</p>
+                <h4 className="mt-2 text-base font-semibold">你的注册通行名片</h4>
+                <p className="mt-1 text-xs text-indigo-200/80">这组验证码会帮你完成注册。</p>
+              </div>
+              <div className="p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[1px] text-muted-foreground">Verification Code</p>
+                <p className="mt-1 text-sm font-semibold">输入这组验证码完成注册</p>
+                <div className="mt-3 rounded-2xl bg-[#f7f0e4] p-3 text-center">
+                  <div className="flex justify-center gap-1.5">
+                    {'123456'.split('').map((d, i) => (
+                      <div key={i} className="flex h-10 w-9 items-center justify-center rounded-xl border border-[#d9cdbb] bg-[#fffdf7] text-lg font-extrabold shadow-sm">{d}</div>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[11px] text-[#7a7165]">验证码：<span className="font-semibold tracking-wider text-foreground">123456</span></p>
+                </div>
+                <div className="mt-3 flex gap-1.5">
+                  <span className="rounded-xl border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[11px] font-semibold text-blue-700">仅用于注册</span>
+                  <span className="rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">不要转发</span>
+                  <span className="rounded-xl border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-[11px] font-semibold text-purple-700">一次验证</span>
+                </div>
+                <div className="mt-3 inline-flex rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white">回到 Pix</div>
+              </div>
+            </div>
+          )}
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-sm font-semibold">发送测试验证码邮件</p>
-          <p className="mt-1 text-xs text-muted-foreground">输入邮箱地址，发送一封测试验证码邮件，检查名片卡片在收件箱中的实际效果。</p>
-          <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); void sendTest() }}>
-            <Input type="email" placeholder="your@email.com" value={testEmail} onChange={(e) => setTestEmail(e.target.value)} />
-            <Button type="submit" variant="outline" disabled={testSending || !testEmail.trim()}>{testSending ? '发送中…' : '发送测试'}</Button>
+          <p className="text-sm font-semibold">发送公告测试邮件</p>
+          <p className="mt-1 text-xs text-muted-foreground">输入邮箱地址，发送当前编辑中的公告内容到指定邮箱，检查邮件卡片效果。</p>
+          <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); void sendAnnouncementTest() }}>
+            <Input type="email" placeholder="your@email.com" value={announcementTestEmail} onChange={(e) => setAnnouncementTestEmail(e.target.value)} />
+            <Button type="submit" variant="outline" disabled={announcementTestSending || !announcementTestEmail.trim()}>{announcementTestSending ? '发送中…' : '发送测试'}</Button>
           </form>
+          {announcementTestNotice && <p className="mt-2 text-xs text-muted-foreground">{announcementTestNotice}</p>}
         </div>
       </div>
     </div>
   )
+}
+
+function announcementPublishNotice(result: AnnouncementPublishResponse) {
+  if (result.email_notification_queued) return `公告已发布，正在向 ${result.email_recipient_count} 个邮箱发送通知。`
+  if (result.email_skipped_reason === 'unchanged') return '公告已保存；内容未变化，不重复发送邮件。'
+  if (result.email_skipped_reason === 'no_recipients') return '公告已发布，但暂无可通知的活跃用户邮箱。'
+  if (result.email_skipped_reason === 'smtp_not_configured') return '公告已发布，但 SMTP 未配置，邮件未发送。请先在「邮件验证码」标签中配置 SMTP。'
+  if (result.email_skipped_reason === 'disabled') return '公告已保存为草稿或已下线，未发送邮件。'
+  return '公告已保存。'
 }
 
 function SettingRow({ setting, onUpdate }: { setting: SystemSetting; onUpdate: (key: string, value: string, clear?: boolean) => Promise<void> }) {
