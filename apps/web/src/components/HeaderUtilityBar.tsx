@@ -3,14 +3,14 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Bell, Check, Languages, Megaphone, Monitor, Moon, Plus, Sun } from 'lucide-react'
 import { api } from '../api'
 import type { PixLanguage, PixThemeMode, PixThemePreference } from '../theme'
-import type { PublicAnnouncement } from '../types'
+import type { AnnouncementItem, PublicAnnouncement } from '../types'
 import { useI18n } from '../i18n'
 import { cn } from '../lib/utils'
 import { Button } from './ui/button'
 import { Dialog, DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogPortal, DialogTitle, DialogTrigger } from './ui/dialog'
 
 const ANNOUNCEMENT_MUTE_KEY = 'pix_announcement_muted_date'
-const ANNOUNCEMENT_SEEN_KEY = 'pix_announcement_seen_signature'
+const ANNOUNCEMENT_SEEN_KEY = 'pix_announcement_seen_ids'
 
 const languageOptions: Array<{ value: PixLanguage; labelKey: string; flag: string }> = [
   { value: 'zh-CN', labelKey: 'utility.language.chinese', flag: '🇨🇳' },
@@ -60,61 +60,66 @@ export function HeaderUtilityBar({ language, themePreference, resolvedMode, syst
 
 function AnnouncementButton({ open, autoOpen, onOpenChange }: { open: boolean; autoOpen: boolean; onOpenChange: (open: boolean) => void }) {
   const { t } = useI18n()
-  const [announcement, setAnnouncement] = useState<PublicAnnouncement | null>(null)
+  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([])
   const [loading, setLoading] = useState(false)
 
-  async function loadAnnouncement() {
+  async function loadAnnouncements() {
     setLoading(true)
     try {
-      setAnnouncement(await api.currentAnnouncement())
+      const res = await api.announcements()
+      setAnnouncements(res.items)
     } catch {
-      setAnnouncement(null)
+      setAnnouncements([])
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    void loadAnnouncement()
+    void loadAnnouncements()
   }, [])
 
   useEffect(() => {
-    if (open) void loadAnnouncement()
+    if (open) void loadAnnouncements()
   }, [open])
 
-  const hasAnnouncement = Boolean(announcement?.enabled && (announcement.title || announcement.body))
-  const signature = announcementSignature(announcement)
+  const hasAnnouncement = announcements.length > 0
+  const seenIds = getSeenIds()
 
-  function markAnnouncementSeen() {
-    if (signature) localStorage.setItem(ANNOUNCEMENT_SEEN_KEY, signature)
+  function markAllSeen() {
+    const ids = announcements.map((a) => a.id)
+    localStorage.setItem(ANNOUNCEMENT_SEEN_KEY, JSON.stringify(ids))
   }
 
   function changeOpen(nextOpen: boolean) {
-    if (!nextOpen) markAnnouncementSeen()
+    if (!nextOpen) markAllSeen()
     onOpenChange(nextOpen)
   }
 
+  const hasUnseen = announcements.some((a) => !seenIds.includes(a.id))
+
   useEffect(() => {
-    if (!autoOpen || open || !hasAnnouncement || !signature) return
-    if (localStorage.getItem(ANNOUNCEMENT_MUTE_KEY) === announcementMuteValue(signature)) return
-    if (localStorage.getItem(ANNOUNCEMENT_SEEN_KEY) === signature) return
-    localStorage.setItem(ANNOUNCEMENT_SEEN_KEY, signature)
+    if (!autoOpen || open || !hasAnnouncement || !hasUnseen) return
+    const muteValue = announcementMuteValue(JSON.stringify(announcements.map((a) => a.id)))
+    if (localStorage.getItem(ANNOUNCEMENT_MUTE_KEY) === muteValue) return
+    markAllSeen()
     onOpenChange(true)
-  }, [autoOpen, hasAnnouncement, onOpenChange, open, signature])
+  }, [autoOpen, hasAnnouncement, hasUnseen, onOpenChange, open, announcements])
 
   function muteToday() {
-    if (signature) localStorage.setItem(ANNOUNCEMENT_MUTE_KEY, announcementMuteValue(signature))
-    markAnnouncementSeen()
+    const ids = announcements.map((a) => a.id)
+    localStorage.setItem(ANNOUNCEMENT_MUTE_KEY, announcementMuteValue(JSON.stringify(ids)))
+    markAllSeen()
     onOpenChange(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={changeOpen} modal={false}>
       <DialogTrigger asChild>
-        <button type="button" className={cn(utilityButtonClass, hasAnnouncement && 'border-primary/30 bg-card text-primary shadow-[0_4px_12px_rgba(15,15,15,0.08)]')} aria-label={t('utility.announcements.open')}>
+        <button type="button" className={cn(utilityButtonClass, hasUnseen && 'border-primary/30 bg-card text-primary shadow-[0_4px_12px_rgba(15,15,15,0.08)]')} aria-label={t('utility.announcements.open')}>
           <span className="relative grid place-items-center">
             <Bell className="h-4 w-4" />
-            {hasAnnouncement && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-primary ring-2 ring-card" />}
+            {hasUnseen && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-primary ring-2 ring-card" />}
           </span>
         </button>
       </DialogTrigger>
@@ -148,20 +153,22 @@ function AnnouncementButton({ open, autoOpen, onOpenChange }: { open: boolean; a
           </div>
         </div>
 
-          <div className="grid min-h-[300px] place-items-center px-6 py-4">
+          <div className="min-h-[300px] px-6 py-4">
           {hasAnnouncement ? (
-            <article className="motion-panel-enter w-full max-w-2xl rounded-lg border border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-paper-soft))] p-5 text-left shadow-[0_16px_48px_-34px_rgba(15,15,15,0.36)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
-              <div className="flex items-start gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[hsl(var(--pix-sky))] text-primary dark:bg-white/8 dark:text-sky-200"><Megaphone className="h-5 w-5" /></span>
-                <div className="min-w-0">
-                  <h3 className="text-lg font-semibold tracking-[-0.01em]">{announcement?.title || t('utility.announcements.system')}</h3>
-                  {announcement?.body && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[hsl(var(--pix-slate))] dark:text-white/68">{announcement.body}</p>}
-                  {announcement?.updated_at && <p className="mt-4 text-xs text-muted-foreground">{t('utility.announcements.updatedAt', { time: new Date(announcement.updated_at).toLocaleString() })}</p>}
-                </div>
-              </div>
-            </article>
+            <div className="w-full space-y-0">
+              {announcements.map((announcement) => (
+                <article key={announcement.id} className="motion-panel-enter relative flex gap-4 border-l-2 border-[hsl(var(--pix-paper-border))] pl-5 dark:border-white/10">
+                  <span className="absolute left-[-5px] top-1 h-2 w-2 rounded-full bg-[hsl(var(--pix-link-blue))]" />
+                  <div className="min-w-0 pb-6">
+                    <h3 className="text-base font-semibold tracking-[-0.01em]">{announcement.title || t('utility.announcements.system')}</h3>
+                    {announcement.body && <p className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-[hsl(var(--pix-slate))] dark:text-white/68">{announcement.body}</p>}
+                    {announcement.published_at && <p className="mt-2 text-xs text-muted-foreground">{t('utility.announcements.publishedAt', { time: new Date(announcement.published_at).toLocaleString() })}</p>}
+                  </div>
+                </article>
+              ))}
+            </div>
           ) : (
-            <div className="grid justify-items-center gap-4 text-center">
+            <div className="grid min-h-[300px] justify-items-center gap-4 text-center">
               <EmptyAnnouncementArt />
               <p className="text-sm text-[hsl(var(--pix-slate))]">{loading ? t('utility.announcements.loading') : t('utility.announcements.empty')}</p>
             </div>
@@ -287,13 +294,20 @@ function EmptyAnnouncementArt() {
   )
 }
 
-function announcementSignature(announcement: PublicAnnouncement | null) {
-  if (!announcement?.enabled || (!announcement.title && !announcement.body)) return ''
-  return JSON.stringify({ title: announcement.title, body: announcement.body, updatedAt: announcement.updated_at ?? '' })
+function getSeenIds(): number[] {
+  try {
+    const raw = localStorage.getItem(ANNOUNCEMENT_SEEN_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) return parsed.filter((id): id is number => typeof id === 'number')
+    return []
+  } catch {
+    return []
+  }
 }
 
-function announcementMuteValue(signature: string) {
-  return `${todayKey()}:${signature}`
+function announcementMuteValue(idsJson: string) {
+  return `${todayKey()}:${idsJson}`
 }
 
 function todayKey() {

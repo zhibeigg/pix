@@ -218,8 +218,12 @@ export const zhCN = {
       empty: '暂无公告',
       loading: '正在同步公告…',
       updatedAt: '更新于 {{time}}',
+      publishedAt: '发布于 {{time}}',
       muteToday: '今日关闭',
       close: '关闭公告',
+      draft: '草稿',
+      active: '已发布',
+      disabled: '已下线',
     },
     theme: {
       switchLabel: '切换黑白主题',

@@ -835,6 +835,36 @@ class AnnouncementPublishResponse(AnnouncementResponse):
     email_skipped_reason: str = ""
 
 
+class AnnouncementItemResponse(BaseModel):
+    id: int
+    title: str
+    body: str
+    enabled: bool
+    published_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AnnouncementListResponse(BaseModel):
+    items: list[AnnouncementItemResponse]
+    active_count: int
+
+
+class AnnouncementCreateRequest(BaseModel):
+    title: str = Field(default="", max_length=80)
+    body: str = Field(default="", max_length=2000)
+    enabled: bool = True
+    publish_now: bool = False
+
+
+class AnnouncementUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, max_length=80)
+    body: str | None = Field(default=None, max_length=2000)
+    enabled: bool | None = None
+
+
 class EmailTestRequest(BaseModel):
     email: EmailStr
 

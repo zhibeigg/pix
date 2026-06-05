@@ -218,8 +218,12 @@ export const en = {
       empty: 'No announcements',
       loading: 'Syncing announcements…',
       updatedAt: 'Updated {{time}}',
+      publishedAt: 'Published {{time}}',
       muteToday: 'Dismiss today',
       close: 'Close',
+      draft: 'Draft',
+      active: 'Published',
+      disabled: 'Offline',
     },
     theme: {
       switchLabel: 'Switch color theme',

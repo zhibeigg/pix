@@ -6,7 +6,14 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from pix_web.announcement_service import active_user_emails, publish_site_announcement
+from pix_web.announcement_service import (
+    active_user_emails,
+    create_announcement,
+    delete_announcement,
+    load_announcement_list,
+    publish_site_announcement,
+    update_announcement,
+)
 from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits
 from pix_web.dashboard import admin_dashboard
@@ -20,8 +27,12 @@ from pix_web.referrals import frontend_invite_base_url
 from pix_web.schemas import (
     AdminAdjustCreditsRequest,
     AdminDashboardResponse,
+    AnnouncementCreateRequest,
+    AnnouncementItemResponse,
+    AnnouncementListResponse,
     AnnouncementPublishRequest,
     AnnouncementPublishResponse,
+    AnnouncementUpdateRequest,
     CreditPackageCreateRequest,
     CreditPackageResponse,
     CreditPackageUpdateRequest,
@@ -267,6 +278,87 @@ def publish_announcement(
         email_recipient_count=recipient_count,
         email_skipped_reason=skipped_reason,
     )
+
+
+@router.get("/announcements", response_model=AnnouncementListResponse)
+def admin_list_announcements(
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    limit: int = 50,
+) -> AnnouncementListResponse:
+    """管理员：列出全部公告（含 disabled）。"""
+    items = load_announcement_list(db, include_disabled=True, limit=limit)
+    active_count = len([a for a in items if a.enabled])
+    return AnnouncementListResponse(
+        items=[AnnouncementItemResponse.model_validate(a) for a in items],
+        active_count=active_count,
+    )
+
+
+@router.post("/announcements", response_model=AnnouncementItemResponse)
+def admin_create_announcement(
+    req: AnnouncementCreateRequest,
+    background_tasks: BackgroundTasks,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    web_settings: WebSettings = Depends(get_settings),
+) -> AnnouncementItemResponse:
+    """管理员：创建公告。publish_now=True 时设置 published_at 并触发邮件。"""
+    announcement = create_announcement(
+        db,
+        title=req.title,
+        body=req.body,
+        enabled=req.enabled,
+        publish_now=req.publish_now,
+    )
+    if req.publish_now and req.enabled:
+        effective = load_effective_web_settings(db, web_settings)
+        emails = active_user_emails(db)
+        if emails:
+            smtp_ready = effective.email_provider == "console" or (
+                effective.email_provider == "smtp" and effective.smtp_host and effective.smtp_from
+            )
+            if smtp_ready:
+                site_url = frontend_invite_base_url(effective.frontend_base_url, effective.public_base_url)
+                background_tasks.add_task(
+                    send_announcement_email_batch_task,
+                    effective,
+                    emails,
+                    title=announcement.title,
+                    body=announcement.body,
+                    site_url=site_url,
+                    updated_at=announcement.updated_at,
+                )
+    return AnnouncementItemResponse.model_validate(announcement)
+
+
+@router.put("/announcements/{announcement_id}", response_model=AnnouncementItemResponse)
+def admin_update_announcement(
+    announcement_id: int,
+    req: AnnouncementUpdateRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> AnnouncementItemResponse:
+    """管理员：编辑公告。"""
+    announcement = update_announcement(
+        db,
+        announcement_id,
+        title=req.title,
+        body=req.body,
+        enabled=req.enabled,
+    )
+    return AnnouncementItemResponse.model_validate(announcement)
+
+
+@router.delete("/announcements/{announcement_id}")
+def admin_delete_announcement(
+    announcement_id: int,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    """管理员：删除公告。"""
+    delete_announcement(db, announcement_id)
+    return {"deleted": True}
 
 
 @router.post("/settings/test-email", response_model=EmailTestResponse)

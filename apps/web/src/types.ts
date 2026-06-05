@@ -396,6 +396,21 @@ export type AnnouncementPublishResponse = PublicAnnouncement & {
   email_skipped_reason: 'unchanged' | 'disabled' | 'no_recipients' | string
 }
 
+export type AnnouncementItem = {
+  id: number
+  title: string
+  body: string
+  enabled: boolean
+  published_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type AnnouncementListResponse = {
+  items: AnnouncementItem[]
+  active_count: number
+}
+
 export type SystemSetting = {
   key: string
   value: string

@@ -1,5 +1,7 @@
 import type {
   AdminDashboard,
+  AnnouncementItem,
+  AnnouncementListResponse,
   AnnouncementPublishPayload,
   AnnouncementPublishResponse,
   AssetPack,
@@ -201,6 +203,9 @@ export const api = {
   currentAnnouncement() {
     return request<PublicAnnouncement>('/announcements/current')
   },
+  announcements() {
+    return request<AnnouncementListResponse>('/announcements/list')
+  },
   customRechargeOptions() {
     return request<CustomRechargeOptions>('/billing/custom-recharge-options')
   },
@@ -354,6 +359,18 @@ export const api = {
   },
   publishAnnouncement(token: string, payload: AnnouncementPublishPayload) {
     return request<AnnouncementPublishResponse>('/admin/announcement', { method: 'PUT', body: JSON.stringify(payload) }, token)
+  },
+  adminAnnouncements(token: string) {
+    return request<AnnouncementListResponse>('/admin/announcements', {}, token)
+  },
+  createAnnouncement(token: string, payload: { title: string; body: string; enabled: boolean; publish_now: boolean }) {
+    return request<AnnouncementItem>('/admin/announcements', { method: 'POST', body: JSON.stringify(payload) }, token)
+  },
+  updateAnnouncement(token: string, id: number, payload: { title?: string; body?: string; enabled?: boolean }) {
+    return request<AnnouncementItem>(`/admin/announcements/${id}`, { method: 'PUT', body: JSON.stringify(payload) }, token)
+  },
+  deleteAnnouncement(token: string, id: number) {
+    return request<{ deleted: boolean }>(`/admin/announcements/${id}`, { method: 'DELETE' }, token)
   },
   testEmailSetting(token: string, email: string) {
     return request<EmailTestResponse>('/admin/settings/test-email', { method: 'POST', body: JSON.stringify({ email }) }, token)
