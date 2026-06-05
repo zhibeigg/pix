@@ -802,13 +802,6 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     if (!token) throw new Error(text('请先登录', 'Please sign in first'))
     const result = await api.publishAnnouncement(token, payload)
     await refreshCore(token)
-    if (result.email_notification_queued) {
-      setMessage(text(`公告已发布，邮件通知已开始发送（${result.email_recipient_count} 个邮箱）`, `Announcement published and email notifications are being sent (${result.email_recipient_count} inboxes)`), 'info')
-    } else if (result.email_skipped_reason === 'unchanged') {
-      setMessage(text('公告已保存，内容未变化不重复发送邮件', 'Announcement saved; unchanged content was not emailed again'), 'info')
-    } else {
-      setMessage(text('公告已保存', 'Announcement saved'), 'info')
-    }
     return result
   }
 

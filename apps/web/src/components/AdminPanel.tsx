@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, PricingRule, SystemSetting, User } from '../types'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
@@ -85,8 +85,11 @@ function AnnouncementEditor({ settings, onPublish, onTestEmail }: { settings: Sy
   const [previewTab, setPreviewTab] = useState<'announcement' | 'verification'>('announcement')
   const [testEmail, setTestEmail] = useState('admin@example.com')
   const [testSending, setTestSending] = useState(false)
+  const initializedRef = useRef(false)
 
   useEffect(() => {
+    if (initializedRef.current) return
+    initializedRef.current = true
     setTitle(settingValue(settings, announcementSettingKeys.title, ''))
     setBody(settingValue(settings, announcementSettingKeys.body, ''))
     setEnabled(settingValue(settings, announcementSettingKeys.enabled, 'false') === 'true')
@@ -94,6 +97,7 @@ function AnnouncementEditor({ settings, onPublish, onTestEmail }: { settings: Sy
 
   async function save(nextEnabled = enabled) {
     setSaving(true)
+    setNotice('')
     try {
       const result = await onPublish({ title, body, enabled: nextEnabled })
       setTitle(result.title)
@@ -101,6 +105,10 @@ function AnnouncementEditor({ settings, onPublish, onTestEmail }: { settings: Sy
       setEnabled(result.enabled)
       setNotice(announcementPublishNotice(result))
       setNoticeVariant(result.email_notification_queued ? 'success' : result.email_skipped_reason === 'unchanged' ? 'info' : 'warning')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '保存失败，请重试'
+      setNotice(message)
+      setNoticeVariant('warning')
     } finally {
       setSaving(false)
     }
@@ -113,6 +121,12 @@ function AnnouncementEditor({ settings, onPublish, onTestEmail }: { settings: Sy
     } finally {
       setTestSending(false)
     }
+  }
+
+  function renderBodyPreview(text: string) {
+    const trimmed = text.trim()
+    if (!trimmed) return '公告正文会显示在这里。'
+    return trimmed.split('\n').map((line, i) => <span key={i}>{i > 0 && <br />}{line}</span>)
   }
 
   return (
@@ -128,7 +142,7 @@ function AnnouncementEditor({ settings, onPublish, onTestEmail }: { settings: Sy
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={saving || (!title.trim() && !body.trim())}>{saving ? '发布中…' : '发布公告并通知'}</Button>
           <Button type="button" variant="outline" disabled={saving} onClick={() => void save(false)}>下线公告</Button>
-          <Button type="button" variant="soft" disabled={saving} onClick={() => void save(false)}>保存草稿</Button>
+          <Button type="button" variant="soft" disabled={saving} onClick={() => void save(enabled)}>保存草稿</Button>
         </div>
         {notice && <Alert variant={noticeVariant}>{notice}</Alert>}
       </form>
@@ -148,7 +162,7 @@ function AnnouncementEditor({ settings, onPublish, onTestEmail }: { settings: Sy
                 <h4 className="mt-2 text-base font-semibold">{title.trim() || '公告标题预览'}</h4>
               </div>
               <div className="p-4">
-                <div className="rounded-xl bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">{body.trim() || '公告正文会显示在这里。'}</div>
+                <div className="whitespace-pre-wrap rounded-xl bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">{renderBodyPreview(body)}</div>
                 <div className="mt-4 inline-flex rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white">打开 Pix 网站</div>
                 <div className="mt-4"><Badge variant={enabled ? 'success' : 'muted'}>{enabled ? '当前启用' : '当前下线'}</Badge></div>
               </div>
@@ -205,6 +219,7 @@ function announcementPublishNotice(result: AnnouncementPublishResponse) {
   if (result.email_notification_queued) return `公告已发布，正在向 ${result.email_recipient_count} 个邮箱发送通知。`
   if (result.email_skipped_reason === 'unchanged') return '公告已保存；内容未变化，不重复发送邮件。'
   if (result.email_skipped_reason === 'no_recipients') return '公告已发布，但暂无可通知的活跃用户邮箱。'
+  if (result.email_skipped_reason === 'smtp_not_configured') return '公告已发布，但 SMTP 未配置，邮件未发送。请先在「邮件验证码」标签中配置 SMTP。'
   if (result.email_skipped_reason === 'disabled') return '公告已保存为草稿或已下线，未发送邮件。'
   return '公告已保存。'
 }

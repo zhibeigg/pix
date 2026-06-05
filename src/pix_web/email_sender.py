@@ -304,7 +304,7 @@ def send_announcement_email_batch(
     site_url: str,
     updated_at: datetime | None = None,
 ) -> None:
-    """批量发送系统公告邮件；单个收件人失败不会中断后续投递。"""
+    """批量发送系统公告邮件；单个收件人失败不会中断后续投递，断连后自动重连。"""
     recipients = tuple(email.strip() for email in emails if email.strip())
     if not recipients:
         logger.info("Pix 系统公告邮件没有可投递的收件人")
@@ -319,15 +319,36 @@ def send_announcement_email_batch(
     _require_smtp_config(settings)
     delivered = 0
     failed = 0
-    with _new_smtp_client(settings) as client:
-        _prepare_smtp_client(settings, client)
+    client: smtplib.SMTP | None = None
+    try:
         for email in recipients:
             try:
+                if client is None:
+                    client = _new_smtp_client(settings)
+                    _prepare_smtp_client(settings, client)
                 client.send_message(_announcement_message(settings, email, title, body, site_url, updated_at))
                 delivered += 1
+            except smtplib.SMTPServerDisconnected:
+                logger.warning("Pix 公告邮件 SMTP 断连，尝试重连 email=%s", email)
+                client = None
+                try:
+                    client = _new_smtp_client(settings)
+                    _prepare_smtp_client(settings, client)
+                    client.send_message(_announcement_message(settings, email, title, body, site_url, updated_at))
+                    delivered += 1
+                except Exception as retry_exc:
+                    failed += 1
+                    logger.warning("Pix 公告邮件重连发送失败 email=%s error=%s", email, retry_exc)
+                    client = None
             except Exception as exc:
                 failed += 1
                 logger.warning("Pix 公告邮件发送失败 email=%s error=%s", email, exc)
+    finally:
+        if client is not None:
+            try:
+                client.quit()
+            except Exception:
+                pass
     logger.info("Pix 公告邮件群发完成 recipients=%s delivered=%s failed=%s", len(recipients), delivered, failed)
 
 

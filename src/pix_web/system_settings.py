@@ -243,7 +243,7 @@ def ensure_default_system_settings(db: Session) -> None:
         prompt_guard_limit.value = PROMPT_GUARD_MAX_CHARS_DEFAULT
         changed = True
     if changed:
-        db.commit()
+        db.flush()
 
 
 def _now() -> datetime:

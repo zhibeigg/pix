@@ -238,18 +238,24 @@ def publish_announcement(
         emails = active_user_emails(db)
         recipient_count = len(emails)
         if emails:
-            site_url = frontend_invite_base_url(effective.frontend_base_url, effective.public_base_url)
-            background_tasks.add_task(
-                send_announcement_email_batch_task,
-                effective,
-                emails,
-                title=outcome.announcement.title,
-                body=outcome.announcement.body,
-                site_url=site_url,
-                updated_at=outcome.announcement.updated_at,
+            smtp_ready = effective.email_provider == "console" or (
+                effective.email_provider == "smtp" and effective.smtp_host and effective.smtp_from
             )
-            notification_queued = True
-            skipped_reason = ""
+            if smtp_ready:
+                site_url = frontend_invite_base_url(effective.frontend_base_url, effective.public_base_url)
+                background_tasks.add_task(
+                    send_announcement_email_batch_task,
+                    effective,
+                    emails,
+                    title=outcome.announcement.title,
+                    body=outcome.announcement.body,
+                    site_url=site_url,
+                    updated_at=outcome.announcement.updated_at,
+                )
+                notification_queued = True
+                skipped_reason = ""
+            else:
+                skipped_reason = "smtp_not_configured"
         else:
             skipped_reason = "no_recipients"
     return AnnouncementPublishResponse(

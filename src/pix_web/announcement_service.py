@@ -17,6 +17,7 @@ ANNOUNCEMENT_ENABLED_KEY = "site.announcement.enabled"
 ANNOUNCEMENT_TITLE_KEY = "site.announcement.title"
 ANNOUNCEMENT_BODY_KEY = "site.announcement.body"
 ANNOUNCEMENT_LAST_EMAIL_SIGNATURE_KEY = "site.announcement.last_email_signature"
+ANNOUNCEMENT_LAST_NOTIFIED_CONTENT_KEY = "site.announcement.last_notified_content"
 
 
 @dataclass(frozen=True)
@@ -36,7 +37,7 @@ def _get_or_create_setting(db: Session, key: str, default: str = "") -> SystemSe
     return setting
 
 
-def _announcement_signature(title: str, body: str) -> str:
+def _content_signature(title: str, body: str) -> str:
     payload = json.dumps(
         {"title": title, "body": body},
         ensure_ascii=False,
@@ -57,18 +58,24 @@ def publish_site_announcement(db: Session, *, title: str, body: str, enabled: bo
     title_row = _get_or_create_setting(db, ANNOUNCEMENT_TITLE_KEY)
     body_row = _get_or_create_setting(db, ANNOUNCEMENT_BODY_KEY)
     enabled_row = _get_or_create_setting(db, ANNOUNCEMENT_ENABLED_KEY, "false")
-    signature_row = _get_or_create_setting(db, ANNOUNCEMENT_LAST_EMAIL_SIGNATURE_KEY)
+    content_sig_row = _get_or_create_setting(db, ANNOUNCEMENT_LAST_NOTIFIED_CONTENT_KEY)
+
+    previous_enabled = enabled_row.value.strip().lower() == "true"
+    previous_content_sig = content_sig_row.value.strip()
 
     title_row.value = clean_title
     body_row.value = clean_body
     enabled_row.value = "true" if enabled else "false"
 
     effective_enabled = enabled and bool(clean_title or clean_body)
-    signature = _announcement_signature(clean_title, clean_body) if effective_enabled else ""
-    should_notify = bool(signature and signature_row.value != signature)
+    current_content_sig = _content_signature(clean_title, clean_body) if effective_enabled else ""
+    content_changed = bool(current_content_sig) and current_content_sig != previous_content_sig
+    re_activated = effective_enabled and not previous_enabled
+
+    should_notify = content_changed or re_activated
     skipped_reason = ""
     if should_notify:
-        signature_row.value = signature
+        content_sig_row.value = current_content_sig
     elif not effective_enabled:
         skipped_reason = "disabled"
     else:
