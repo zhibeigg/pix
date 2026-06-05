@@ -75,6 +75,69 @@ def _base_message(settings: WebSettings, email: str, subject: str) -> EmailMessa
     return message
 
 
+_PIX_LOGO_BASE64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAJnklEQVR4nO1af2xdVR3/"
+    "ntdn96P+GpVotJkLNnVaMRtho8naTggaqD/WH5M458RJtjjTAJswpmZ/mKmMbY5pGqcOUxGYhKwd"
+    "YAKLLphtXeg6woABqcvEAc3UbAxFYGvde8d8vud+7/ve++57fX3vvhaafpKT++695957Pp/v"
+    "93zP95zziKYwhSlMoYwwt1204/HMOxqmOxVJKJH4oEWZSAEMTQCEtJ2x2DXi/AE+ptP/NiMX"
+    "M2JVJismpH1lJ2+qlrjSnXKlagl7AiwPAaRUnErz/XK2x8T1ooYR19D+ymirha1OXb3u+tWG"
+    "0n+xRPf+gc+H9y8LPBflBeueStm7jxPZlaV7iKEyCxAmbj9cS2bjFnfv6kxViGA3reffIye2"
+    "UGXdekqc+i13CyojTDlf7pNfd5ao3n1KSPLHN27xRUhdczs1DDphBP1znQhAuYQw5XhpwOpr"
+    "evja8GZDM4acu4M0CGuEyQuOnjaUrm/j3/atR2JvbyLWl3nDGoj7fR3wrM91PIub2fP9a/p3"
+    "mDyEQrfhel6wpHcaEh5xaSCitxS67HtcEM3lmvnc/Vx0xMc54ogU/ax+nz9iVC2JRQgTB3kd"
+    "2WHh8zWW3T0qwIm1w9EemHatGwnsK8f4WPHE1qw6PGJ0tvvnpXaLRBzuzv3cG9YEEMGvq6J9"
+    "LvLA2m3R17OgviU5BRUJU8xDWWM6BFD9nOuo6C54+EQm0LWouo8RUdt9RGsvJ2qeR7Q5nRkF"
+    "wp7AHiBQnoBsspiRwlAR0IEoEOyUZcTl0fgFH7W0IeRrIKyxd0XwXESQQIj35CMP3Ly2k3b8"
+    "7Mdj4pSkEgDy8nEWwmsUorZYDeQj4WV+PlZEuz+eP/rEVhbB/Otk4J58e0JigJXMzhvy0BiU"
+    "pkU7Ag2FBcWiYtU2L9hd9adlXPQ1XU9Dv1O+BexYeJZLsUhSKfCSHNrZ4YvQt38+NV17jGj1"
+    "y3To8K3u/uu9fp9ujUh6RITWOtdt9P0js5xXQdgzfb+kv17Y5d8rhXg8AmghdnZQes5NnLpC"
+    "BABCQASQkGRGyB30fK9ZWRv3jjzghBKLz7V1dGnjd5k88Mnpq+jzte1UO3MBxYEkxQjX711/"
+    "BSAEOkCjJ4TuEs0RscHds0w+YPE+d//x32+mf+4l2n18IG87Vte8YX8z9H5TfgF2dmS6gYIE"
+    "wNQ15HsEdwsiOoS8fsFX6ejvvu4HSBFFcn6QFy+CxTX5KNw68KEA+bGIkKRSgGFPDUca6W/t"
+    "ZiF6apzLt1dWuxvNXdRUuYgO5yGOAuIgDVz/zQ1Z5E++fZS7wS3HOwJjOUiXxQN+0XDR3tyf"
+    "DLzUbj1CRsb+znZ/vNboGDLUU2Opd+Q1DnKJg53s0Y2rM90CxAFt9XwW//NJ980Ll9TTqln3"
+    "Ec0iuuf07IAIhfJKFko+nwgALqLv5hJBoAOlxAf85mF1xmIOeghyUeRX7t1AcSNRSCUhHSaf"
+    "hTU9tO6hLez+MqEJA+KYl87550L+ydZeLt1tzu2jyOt7TZdspDiQKLRiFHnz8l1Z9e5+0PKk"
+    "BrO+8KJH4FklQr6MTqy+5rN30sDfLB8vTav0m4h2vR7Ko8czETJIgj5+R5YIdOMyMrTMXwGK"
+    "giRPjZX3Z/Vx6edidZAP49C5TTRoTtDPL+8JjATjNxd4bICMJ0IA9Saz2ktEt5y1tP2GzFpg"
+    "PojFNfGFnzBcRIQziQN05twB9gZgzzP7xmcuYCLW6CFCwAPqDQ2vcOsBYnksYSM2AOgWuboG"
+    "yMO9xd2F/BX3EhcRQuqAeBT5U3tSVgJ3bAKY7pQtZB3+quWZ32ERJN1F0SLAohLkls67zicF"
+    "srmQy+ogjxHkK7cZf/QqugsYz+IgHkUeQVBbH95whBZS808N5/qyCqyBXB8iQYSB6dV0YeQ1"
+    "vv70jdn9XM4/8rDxz58fejurnYcqdvnJ0JylFaZ/eco+us2OPmrRKAKANHZhtnu7MduvDIoA"
+    "8mERmOQPLIuQ7kpnrRSJCOYmR37aB1wmOfyfXrqCDP2q0bIXADuf+757YJvr62HyIA4gGbrn"
+    "fCYRanig8B2j5GgVwqQFiN6W7vBF4Gt87PFFALDMxe+JCILTK6tp2PMAEULEYDTeySKg6HEf"
+    "xJEwcRZIRINnD1KxSBRSKdL6aiks4AGhEYGHRMoEQb0zBEzbYDOkkVZ39bIYEOc7fYaefWNz"
+    "1pgP8hAExEshX5AHIA5IABsNIoQ/LHozRRHBr7dpPVseJAHECgRMjB6MFc4DcB/dBCKIh8Dq"
+    "PP6XSLxgD7Arc3eBxGBL9DPiESFvwFzBtN/Fm5/+te0ugdH7CAKQhwggDw9pSq2KJN438g0+"
+    "jnVBtCABosZ+vfwMEfIJYXtdiXJ7GQHC+whaEKTM+VJlIV/s5mmimIfkg/qjuRrZXNvJx1wi"
+    "8Lu60j5h7QlRXqGJl0q+cAFesL4nyP93kHBEeUMYB4f+wSKIEPkQFgE5RKqln3+jK+x/83om"
+    "LQujYSOUJQjalRVGSOtsEImGQBrB22WDLcHNEk8Efl55AmKBBrwg0ensIcmTrDUADy79rx8U"
+    "cYzr/wKJ0Sr4/9h6wR3EE3SWhZQTRRol3SFquiyrvfi/QDgQcuLkQchD0P8dW8S/r5tTRa11"
+    "s2P9s0RitAp2W9I0PfdqkER3yiI3iKovbimbF1oEjN+YuupRQAKhFiFMvucn+6h19wj9ce88"
+    "d30i/iPQ/IW/WykgL8eounoSInv5n5p5O3sJiv5fAK7jKLvNuqSe/aJ96IYKvo/fOLZc9jH/"
+    "fhy8TCGVEPAwycBq6+CnncXmvlhN315cVVD+jckJJjLI7JDrS16PhEYCmniCJEfo84KOH7q5"
+    "wZfbnqE3T/+aZ486EFIJSBZSSS9QgngUck09ZUoL8oKoGZ1AgtzX9rwvIALIC3hJbDqxCPCE"
+    "sg+DDZ51sdysl5yjlqk0hHS43mdqZgbOMWog25M5gBCCCMB75h+mfafeotr37qF5ddVcIIJs"
+    "mpTSHUyxD8LiYskwobDFtdtDQPR7uQcr6m32QF6hiAlZLJlrYO2wlO5gqETIVpQWAURxLn1e"
+    "hApvWEAIND5fw0UEESBuEQzFBBECAPlcpIsFhCiHCCaOxskoIefhvTl0FwTDsazUFCKCCAHy"
+    "zz/5oh8vxl2A/uUpWyq5UkQQ8iIAUKgIht6F0CL86EtYsSTOFCXYyiZJuf9oPaGQbBCZIo6S"
+    "ZcIbcSw0W0zQuxThXEHvEyDehLvJpBMg7OJYJ4AI63sep7HA0CSBuLveaIUoo8UBQ5MEUf19"
+    "UgfBXIhzqjyFKdDkx/8B92vixgyd2rMAAAAASUVORK5CYII="
+)
+
+
+def _pix_logo_html() -> str:
+    """返回右上角 Pix logo 的 HTML 片段。"""
+    return (
+        '<td width="80" align="right" style="vertical-align:top;">'
+        '<img src="data:image/png;base64,' + _PIX_LOGO_BASE64 + '" '
+        'alt="Pix" width="64" height="64" '
+        'style="display:block;border-radius:16px;'
+        'border:1px solid rgba(255,255,255,0.18);">'
+        "</td>"
+    )
+
+
 def _verification_code_cells(code: str) -> str:
     cells = []
     for char in code.strip():
@@ -113,15 +176,7 @@ def _verification_html_body(code: str, site_url: str) -> str:
                 <h1 style="margin:0;font-size:30px;line-height:1.15;font-weight:850;letter-spacing:-0.03em;color:#fff;">你的注册通行名片</h1>
                 <p style="margin:12px 0 0;font-size:14px;line-height:1.65;color:#dbe4ff;">这组验证码会帮你完成 Pix 账号注册。</p>
               </td>
-              <td width="112" align="right" style="vertical-align:top;">
-                <div style="display:inline-block;border:1px solid rgba(255,255,255,0.18);border-radius:18px;background:rgba(255,255,255,0.08);padding:12px;">
-                  <table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:4px;">
-                    <tr><td style="width:10px;height:10px;border-radius:3px;background:#a78bfa;"></td><td style="width:10px;height:10px;border-radius:3px;background:#facc15;"></td><td style="width:10px;height:10px;border-radius:3px;background:#67e8f9;"></td></tr>
-                    <tr><td style="width:10px;height:10px;border-radius:3px;background:#86efac;"></td><td style="width:10px;height:10px;border-radius:3px;background:#fb7185;"></td><td style="width:10px;height:10px;border-radius:3px;background:#f97316;"></td></tr>
-                    <tr><td style="width:10px;height:10px;border-radius:3px;background:#fde68a;"></td><td style="width:10px;height:10px;border-radius:3px;background:#c4b5fd;"></td><td style="width:10px;height:10px;border-radius:3px;background:#99f6e4;"></td></tr>
-                  </table>
-                </div>
-              </td>
+              {_pix_logo_html()}
             </tr>
           </table>
         </div>
@@ -162,48 +217,6 @@ def _verification_html_body(code: str, site_url: str) -> str:
 </html>"""
 
 
-def _verification_message(settings: WebSettings, email: str, code: str) -> EmailMessage:
-    site_url = _site_url_from_settings(settings)
-    message = _base_message(settings, email, _verification_subject())
-    message.set_content(_verification_body(code, site_url))
-    message.add_alternative(_verification_html_body(code, site_url), subtype="html")
-    return message
-
-
-def send_verification_email(settings: WebSettings, email: str, code: str) -> None:
-    """发送注册验证码；失败时抛出 EmailDeliveryError。"""
-    if settings.email_provider == "console":
-        logger.warning("Pix 注册验证码 email=%s code=%s", email, code)
-        return
-    if settings.email_provider != "smtp":
-        raise EmailDeliveryError(f"未知邮件发送方式: {settings.email_provider}")
-    try:
-        _send_smtp_message(settings, _verification_message(settings, email, code))
-    except EmailDeliveryError:
-        raise
-    except Exception as exc:
-        raise EmailDeliveryError(f"SMTP 邮件发送失败: {exc}") from exc
-
-
-async def send_verification_email_task(settings: WebSettings, email: str, code: str) -> None:
-    """发送注册验证码；SMTP 阻塞 I/O 在线程中执行。"""
-    await asyncio.to_thread(send_verification_email, settings, email, code)
-
-
-def _reset_subject() -> str:
-    return "Pix 密码重置验证码"
-
-
-def _reset_body(code: str, site_url: str) -> str:
-    return (
-        "你正在重置 Pix 账户密码，验证码是：\n\n"
-        f"{code}\n\n"
-        "验证码 10 分钟内有效。如果这不是你本人操作，请忽略这封邮件并确保账户安全。\n"
-        f"访问 Pix：{site_url}\n\n"
-        "若不是你本人操作，请立即修改密码。"
-    )
-
-
 def _reset_html_body(code: str, site_url: str) -> str:
     safe_code = escape(code.strip())
     safe_url = escape(site_url)
@@ -227,15 +240,7 @@ def _reset_html_body(code: str, site_url: str) -> str:
                 <h1 style="margin:0;font-size:30px;line-height:1.15;font-weight:850;letter-spacing:-0.03em;color:#fff;">重置你的密码</h1>
                 <p style="margin:12px 0 0;font-size:14px;line-height:1.65;color:#dbe4ff;">使用这组验证码重置你的 Pix 账户密码。</p>
               </td>
-              <td width="112" align="right" style="vertical-align:top;">
-                <div style="display:inline-block;border:1px solid rgba(255,255,255,0.18);border-radius:18px;background:rgba(255,255,255,0.08);padding:12px;">
-                  <table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:4px;">
-                    <tr><td style="width:10px;height:10px;border-radius:3px;background:#a78bfa;"></td><td style="width:10px;height:10px;border-radius:3px;background:#facc15;"></td><td style="width:10px;height:10px;border-radius:3px;background:#67e8f9;"></td></tr>
-                    <tr><td style="width:10px;height:10px;border-radius:3px;background:#86efac;"></td><td style="width:10px;height:10px;border-radius:3px;background:#fb7185;"></td><td style="width:10px;height:10px;border-radius:3px;background:#f97316;"></td></tr>
-                    <tr><td style="width:10px;height:10px;border-radius:3px;background:#fde68a;"></td><td style="width:10px;height:10px;border-radius:3px;background:#c4b5fd;"></td><td style="width:10px;height:10px;border-radius:3px;background:#99f6e4;"></td></tr>
-                  </table>
-                </div>
-              </td>
+              {_pix_logo_html()}
             </tr>
           </table>
         </div>
