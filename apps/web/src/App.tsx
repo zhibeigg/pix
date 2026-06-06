@@ -22,7 +22,7 @@ const RewardsPage = lazy(() => import('./pages/RewardsPage').then((m) => ({ defa
 import { buildGridDesign, defaultPixelize } from './pixelize'
 import { useI18n } from './i18n'
 import { applyPageSeo } from './lib/seo'
-import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationJob, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SequenceAlignmentRequest, SetupStatus, SystemSetting, User } from './types'
+import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SequenceAlignmentRequest, SetupStatus, SystemSetting, User } from './types'
 
 type AppProps = {
   themeMode: PixThemeMode
@@ -104,7 +104,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [expandingPackLimit, setExpandingPackLimit] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [pricing, setPricing] = useState<PricingRule[]>([])
-  const [imageModels, setImageModels] = useState<{ default: string; models: string[] }>({ default: 'gpt-image-2', models: ['gpt-image-2'] })
+  const [imageModels, setImageModels] = useState<ImageModelsResponse>({ default: 'gpt-image-2', models: ['gpt-image-2'], items: [] })
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [adminJobs, setAdminJobs] = useState<GenerationJob[]>([])
   const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([])
@@ -209,7 +209,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       api.packs(activeToken),
       api.packQuota(activeToken),
       api.pricing(activeToken),
-      api.imageModels().catch(() => ({ default: 'gpt-image-2', models: ['gpt-image-2'] })),
+      api.imageModels().catch(() => ({ default: 'gpt-image-2', models: ['gpt-image-2'], items: [] })),
     ])
     setUser(me)
     setBalance(nextBalance)
@@ -970,7 +970,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
         >
           <Suspense fallback={<div className="grid min-h-[calc(100vh-160px)] place-items-center px-4 text-sm text-muted-foreground">{t('app.checkingSetup')}</div>}>
             {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
-            {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
+            {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
             {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={selectJobById} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onSaveSequenceAlignment={saveSequenceAlignment} />}
             {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}

@@ -11,6 +11,7 @@ from typing import Any
 from PIL import Image
 
 from pix import __version__
+from pix.api.image_dispatcher import clear_image_provider_history, image_provider_history
 from pix.api.image_gen import generate_image
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
 from pix.asset import build_asset_prompt
@@ -354,6 +355,7 @@ def run_tile_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: 
     image_model = data.get("image_model") or asset_cfg.image_gen.model
 
     raw_path = run_dir / "01_source.png"
+    clear_image_provider_history()
     with _local_stage_context(settings)():
         generate_image(
             asset_cfg,
@@ -424,6 +426,7 @@ def run_tile_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: 
             "used": True,
             "mode": "tile_texture",
             "source_only": True,
+            "provider_history": image_provider_history(),
             "contact_sheet": None,
         },
         "asset": {

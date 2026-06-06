@@ -1,10 +1,10 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Upload } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import { defaultPixelize, summarizePrompt } from '../pixelize'
-import type { CreditBalance, GenerationJob, JobCreateRequest, PricingRule } from '../types'
+import type { CreditBalance, GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingRule } from '../types'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Input } from '../components/ui/input'
@@ -23,6 +23,7 @@ type Props = {
   jobs: GenerationJob[]
   loading: boolean
   token: string
+  imageModels: ImageModelsResponse
   selectedJobId: number | null
   onSelectJob: (jobId: number) => void
   onCreateJob: (payload: JobCreateRequest) => Promise<void>
@@ -33,9 +34,38 @@ const imageSizes = ['1024x1024', '1536x1024', '1024x1536', '2048x1024', '1024x20
 const qualityOptions = ['auto', 'low', 'medium', 'high']
 const RAW_IMAGE_PROMPT_MAX_LENGTH = 3000
 
-export function RawImagePage({ pricing, balance, jobs, loading, token, selectedJobId, onSelectJob, onCreateJob, onRefresh }: Props) {
+function modelItems(imageModels: ImageModelsResponse): ImageModelInfo[] {
+  const byId = new Map((imageModels.items ?? []).map((item) => [item.id, item]))
+  return imageModels.models.map((id) => byId.get(id) ?? {
+    id,
+    label: id,
+    providers: [],
+    operations: ['text_to_image', 'image_to_image'],
+    sizes: imageSizes,
+    qualities: qualityOptions,
+    output_formats: ['png'],
+    protocols: [],
+    provider_count: 0,
+  })
+}
+
+function supportsOperation(model: ImageModelInfo | undefined, operation: string) {
+  return !model || model.operations.length === 0 || model.operations.includes(operation)
+}
+
+function modelOptionLabel(model: ImageModelInfo) {
+  const providers = model.provider_count || model.providers.length
+  return providers > 1 ? `${model.label || model.id} · ${providers} providers` : (model.label || model.id)
+}
+
+export function RawImagePage({ pricing, balance, jobs, loading, token, imageModels, selectedJobId, onSelectJob, onCreateJob, onRefresh }: Props) {
   const { text } = useI18n()
-  const [model, setModel] = useState('gpt-image-2')
+  const [model, setModel] = useState(imageModels.default || 'gpt-image-2')
+  const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
+  const selectedModelInfo = useMemo(() => availableImageModels.find((item) => item.id === model), [availableImageModels, model])
+  const modelSizes = selectedModelInfo?.sizes?.length ? selectedModelInfo.sizes : imageSizes
+  const modelQualities = selectedModelInfo?.qualities?.length ? selectedModelInfo.qualities : qualityOptions
+  const modelSupportsI2I = supportsOperation(selectedModelInfo, 'image_to_image')
   const [imageSize, setImageSize] = useState('1024x1024')
   const [quality, setQuality] = useState('auto')
   const [prompt, setPrompt] = useState(() => text('生成一张 1024×1024 方形应用图标风格的奇幻 RPG 治疗药水，深翡翠背景，轮廓清晰，电影感光照。', 'Create one polished 1024x1024 square app icon artwork for a fantasy RPG healing potion, deep emerald background, crisp silhouette, cinematic lighting.'))
@@ -56,6 +86,20 @@ export function RawImagePage({ pricing, balance, jobs, loading, token, selectedJ
   const mainImageLabel = failedError?.title ?? text('原始单图', 'Raw single image')
   const thumbs = useMemo(() => buildThumbs(rawJobs, selectedJob?.id ?? null), [rawJobs, selectedJob?.id])
 
+  useEffect(() => {
+    if (!availableImageModels.some((item) => item.id === model)) {
+      setModel(imageModels.default || availableImageModels[0]?.id || 'gpt-image-2')
+    }
+  }, [availableImageModels, imageModels.default, model])
+
+  useEffect(() => {
+    if (!modelSizes.includes(imageSize)) setImageSize(modelSizes[0] ?? '1024x1024')
+  }, [imageSize, modelSizes])
+
+  useEffect(() => {
+    if (!modelQualities.includes(quality)) setQuality(modelQualities[0] ?? 'auto')
+  }, [modelQualities, quality])
+
   async function uploadReferenceFile(file: File | undefined) {
     if (!file) return
     setRefUploading(true); setRefMessage(text('上传参考图…', 'Uploading reference…'))
@@ -74,7 +118,7 @@ export function RawImagePage({ pricing, balance, jobs, loading, token, selectedJ
   async function submit(event: FormEvent) {
     event.preventDefault()
     const basePrompt = prompt.trim()
-    if (!basePrompt || insufficientCredits) return
+    if (!basePrompt || insufficientCredits || (hasReference && !modelSupportsI2I)) return
     await onCreateJob(buildRawPayload({ prompt: basePrompt, imageSize, quality, model, referenceImagePath: refImagePath || null }))
   }
 
@@ -88,10 +132,10 @@ export function RawImagePage({ pricing, balance, jobs, loading, token, selectedJ
       >
         <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)_148px]">
           <div className="grid content-start gap-4">
-            <PixField label={text('提供商', 'Provider')}><Input value="packyapi-image" disabled /></PixField>
-            <PixField label={text('模型', 'Model')}><Select value={model} onValueChange={setModel}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="gpt-image-2">gpt-image-2</SelectItem></SelectContent></Select></PixField>
-            <PixField label={text('图片尺寸', 'Image size')}><Select value={imageSize} onValueChange={setImageSize}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{imageSizes.map((size) => <SelectItem value={size} key={size}>{size}</SelectItem>)}</SelectContent></Select></PixField>
-            <PixField label={text('质量', 'Quality')}><Select value={quality} onValueChange={setQuality}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{qualityOptions.map((item) => <SelectItem value={item} key={item}>{item}</SelectItem>)}</SelectContent></Select></PixField>
+            <PixField label={text('提供商', 'Provider')}><Input value={(selectedModelInfo?.providers ?? []).join(' / ') || text('按后端配置自动选择', 'Auto by backend config')} disabled /></PixField>
+            <PixField label={text('模型', 'Model')}><Select value={model} onValueChange={setModel}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{availableImageModels.map((item) => <SelectItem value={item.id} key={item.id}>{modelOptionLabel(item)}</SelectItem>)}</SelectContent></Select></PixField>
+            <PixField label={text('图片尺寸', 'Image size')}><Select value={imageSize} onValueChange={setImageSize}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{modelSizes.map((size) => <SelectItem value={size} key={size}>{size}</SelectItem>)}</SelectContent></Select></PixField>
+            <PixField label={text('质量', 'Quality')}><Select value={quality} onValueChange={setQuality}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{modelQualities.map((item) => <SelectItem value={item} key={item}>{item}</SelectItem>)}</SelectContent></Select></PixField>
             <PixField label={text('参考图（可选）', 'Reference image (optional)')} hint={text('上传后将以图生图模式生成；留空走文生图。', 'When provided, the job runs as image-to-image; leave empty for text-to-image.')}>
               <div className="grid gap-2">
                 <Button type="button" variant="outline" asChild>
@@ -109,7 +153,7 @@ export function RawImagePage({ pricing, balance, jobs, loading, token, selectedJ
                 )}
               </div>
             </PixField>
-            <Alert variant="info">{hasReference ? text('已附带参考图：将走图生图（image-to-image）单次出图，仍跳过候选、VL 与像素化。', 'Reference attached: runs as image-to-image (single output) and still skips candidates, vision analysis, and pixelization.') : text('固定生成 1 张原图；后端会跳过候选图、VL 分析和像素化输出。', 'Always generates 1 source image; the backend skips candidates, vision analysis, and pixelized outputs.')}</Alert>
+            {hasReference && !modelSupportsI2I ? <Alert variant="warning">{text('当前模型不支持参考图 / 图生图，请切换支持 image-to-image 的模型或移除参考图。', 'The selected model does not support reference images / image-to-image. Switch to a model with image-to-image support or remove the reference.')}</Alert> : <Alert variant="info">{hasReference ? text('已附带参考图：将走图生图（image-to-image）单次出图，仍跳过候选、VL 与像素化。', 'Reference attached: runs as image-to-image (single output) and still skips candidates, vision analysis, and pixelization.') : text('固定生成 1 张原图；后端会跳过候选图、VL 分析和像素化输出。', 'Always generates 1 source image; the backend skips candidates, vision analysis, and pixelized outputs.')}</Alert>}
           </div>
 
           <div className="grid gap-4 rounded-lg border border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-paper-soft))] p-4 text-[hsl(var(--pix-ink))] shadow-[inset_0_1px_0_rgba(255,255,255,0.68)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_22px_70px_-46px_rgba(0,0,0,0.95)]">
@@ -126,7 +170,7 @@ export function RawImagePage({ pricing, balance, jobs, loading, token, selectedJ
         </div>
       </PixPanel>
 
-      <PixPanel><div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_190px]"><div className="grid gap-2"><Textarea value={prompt} rows={5} required maxLength={RAW_IMAGE_PROMPT_MAX_LENGTH} onChange={(event) => setPrompt(event.target.value)} placeholder={text('描述你要生成的图片：主体、风格、构图、颜色、用途。', 'Describe the image: subject, style, composition, colors, and intended use.')} /><div className="flex justify-end text-xs text-muted-foreground">{prompt.length}/{RAW_IMAGE_PROMPT_MAX_LENGTH}</div></div><div className="grid content-between gap-3"><Badge variant="outline">{imageSize} · {quality} · {hasReference ? text('图生图', 'image-to-image') : text('1 张', '1 image')}</Badge>{promptTooLong && <Badge variant="danger">{text('提示词最多 3000 字', 'Prompt max 3000 characters')}</Badge>}<Button type="submit" size="lg" disabled={loading || !prompt.trim() || promptTooLong || insufficientCredits}>{loading ? text('提交中…', 'Submitting…') : hasReference ? text('图生图微调', 'Generate (image-to-image)') : text('生成单图', 'Generate image')}</Button></div></div></PixPanel>
+      <PixPanel><div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_190px]"><div className="grid gap-2"><Textarea value={prompt} rows={5} required maxLength={RAW_IMAGE_PROMPT_MAX_LENGTH} onChange={(event) => setPrompt(event.target.value)} placeholder={text('描述你要生成的图片：主体、风格、构图、颜色、用途。', 'Describe the image: subject, style, composition, colors, and intended use.')} /><div className="flex justify-end text-xs text-muted-foreground">{prompt.length}/{RAW_IMAGE_PROMPT_MAX_LENGTH}</div></div><div className="grid content-between gap-3"><Badge variant="outline">{imageSize} · {quality} · {hasReference ? text('图生图', 'image-to-image') : text('1 张', '1 image')}</Badge>{promptTooLong && <Badge variant="danger">{text('提示词最多 3000 字', 'Prompt max 3000 characters')}</Badge>}<Button type="submit" size="lg" disabled={loading || !prompt.trim() || promptTooLong || insufficientCredits || (hasReference && !modelSupportsI2I)}>{loading ? text('提交中…', 'Submitting…') : hasReference ? text('图生图微调', 'Generate (image-to-image)') : text('生成单图', 'Generate image')}</Button></div></div></PixPanel>
     </form>
   )
 }

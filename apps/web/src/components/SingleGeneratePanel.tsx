@@ -3,7 +3,7 @@ import { Upload } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
-import type { JobCreateRequest, JobType, PricingRule } from '../types'
+import type { ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingRule } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -17,7 +17,7 @@ import { PixPanel } from './pix/PixPanel'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
 
-type Props = { pricing: PricingRule[]; loading: boolean; token: string; imageModels: { default: string; models: string[] }; onSubmit: (payload: JobCreateRequest) => Promise<void> }
+type Props = { pricing: PricingRule[]; loading: boolean; token: string; imageModels: ImageModelsResponse; onSubmit: (payload: JobCreateRequest) => Promise<void> }
 type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
 
 const PROMPT_MAX_LENGTH = 3000
@@ -86,10 +86,37 @@ function ensureRowPromptsLength(values: string[], rows: number): string[] {
   return next
 }
 
+function modelItems(imageModels: ImageModelsResponse): ImageModelInfo[] {
+  const byId = new Map((imageModels.items ?? []).map((item) => [item.id, item]))
+  return imageModels.models.map((id) => byId.get(id) ?? {
+    id,
+    label: id,
+    providers: [],
+    operations: ['text_to_image', 'image_to_image'],
+    sizes: [],
+    qualities: [],
+    output_formats: [],
+    protocols: [],
+    provider_count: 0,
+  })
+}
+
+function supportsImageToImage(model: ImageModelInfo | undefined) {
+  return !model || model.operations.length === 0 || model.operations.includes('image_to_image')
+}
+
+function modelOptionLabel(model: ImageModelInfo) {
+  const providers = model.provider_count || model.providers.length
+  return providers > 1 ? `${model.label || model.id} · ${providers} providers` : (model.label || model.id)
+}
+
 export function SingleGeneratePanel({ pricing, loading, token, imageModels, onSubmit }: Props) {
   const { text } = useI18n()
   const [jobType, setJobType] = useState<JobType>('asset')
   const [imageModel, setImageModel] = useState(imageModels.default)
+  const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
+  const selectedModelInfo = useMemo(() => availableImageModels.find((item) => item.id === imageModel), [availableImageModels, imageModel])
+  const selectedModelSupportsI2I = supportsImageToImage(selectedModelInfo)
   const [assetName, setAssetName] = useState(() => text('冰霜之心', 'Frost Heart'))
   const [assetKind, setAssetKind] = useState<AssetKindChoice>('item_icon')
   const [assetExtraPrompt, setAssetExtraPrompt] = useState('')
@@ -164,7 +191,14 @@ export function SingleGeneratePanel({ pricing, loading, token, imageModels, onSu
     || missingRowPrompts
     || (isAsset && !assetName.trim())
     || (isSprite && !prompt.trim())
+    || ((hasAssetReference || (isSprite && !!refImagePath)) && !selectedModelSupportsI2I)
     || (isLocalPixelize && !inputImagePath.trim())
+
+  useEffect(() => {
+    if (!availableImageModels.some((item) => item.id === imageModel)) {
+      setImageModel(imageModels.default || availableImageModels[0]?.id || 'gpt-image-2')
+    }
+  }, [availableImageModels, imageModel, imageModels.default])
 
   // 模式切换时重置默认参数
   useEffect(() => {
@@ -270,6 +304,7 @@ export function SingleGeneratePanel({ pricing, loading, token, imageModels, onSu
 
   async function submit(event: FormEvent) {
     event.preventDefault()
+    if (submitBlocked) return
     const edge = edgeStylePixelize(edgeStyle)
     // 仅在用户选了非默认模型时传 image_model，避免覆盖后端配置
     const modelOverride = imageModel !== imageModels.default ? imageModel : undefined
@@ -373,13 +408,14 @@ export function SingleGeneratePanel({ pricing, loading, token, imageModels, onSu
             <Select value={imageModel} onValueChange={setImageModel}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {imageModels.models.map((m) => (
-                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                {availableImageModels.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>{modelOptionLabel(m)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </PixField>
         </div>
+        {!selectedModelSupportsI2I && (hasAssetReference || (isSprite && refImagePath)) && <Alert variant="warning">{text('当前模型不支持参考图 / 图生图，请切换支持 image-to-image 的模型或移除参考图。', 'The selected model does not support reference images / image-to-image. Switch to a model with image-to-image support or remove the reference.')}</Alert>}
 
         {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
           <PixField label={text('素材类型', 'Asset type')}>

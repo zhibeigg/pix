@@ -2,7 +2,8 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { CreditBalance, JobCreateRequest, PricingRule, UploadResponse } from '../types'
+import { useI18n } from '../i18n'
+import type { CreditBalance, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingRule, UploadResponse } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
@@ -18,14 +19,37 @@ import { PixelControls } from './PixelControls'
 type BatchMode = 'asset' | 'local_pixelize'
 type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
 type BatchUpload = { id: string; status: 'uploading' | 'uploaded' | 'failed'; error?: string; upload?: UploadResponse }
-type Props = { pricing: PricingRule[]; balance: CreditBalance | null; loading: boolean; token: string; onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void> }
+type Props = { pricing: PricingRule[]; balance: CreditBalance | null; loading: boolean; token: string; imageModels: ImageModelsResponse; onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void> }
 
 const PROMPT_MAX_LENGTH = 3000
 const LOGO_SIZE_OPTIONS = ['64x32', '96x48', '128x64', '192x96', '256x128']
 
-export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitMany }: Props) {
+function modelItems(imageModels: ImageModelsResponse): ImageModelInfo[] {
+  const byId = new Map((imageModels.items ?? []).map((item) => [item.id, item]))
+  return imageModels.models.map((id) => byId.get(id) ?? {
+    id,
+    label: id,
+    providers: [],
+    operations: ['text_to_image', 'image_to_image'],
+    sizes: [],
+    qualities: [],
+    output_formats: [],
+    protocols: [],
+    provider_count: 0,
+  })
+}
+
+function modelOptionLabel(model: ImageModelInfo) {
+  const providers = model.provider_count || model.providers.length
+  return providers > 1 ? `${model.label || model.id} · ${providers} providers` : (model.label || model.id)
+}
+
+export function BatchGeneratePanel({ pricing, balance, loading, token, imageModels, onSubmitMany }: Props) {
   const { t } = useTranslation()
+  const { text } = useI18n()
   const [batchMode, setBatchMode] = useState<BatchMode>('asset')
+  const [imageModel, setImageModel] = useState(imageModels.default)
+  const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
   const [prompts, setPrompts] = useState(() => t('batchForm.defaults.prompts'))
   const [assetKind, setAssetKind] = useState<AssetKindChoice>('item_icon')
   const [assetExtraPrompt, setAssetExtraPrompt] = useState(() => t('batchForm.defaults.assetExtraPrompt'))
@@ -52,6 +76,12 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
   const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : 'single_prop'
   const assetSubjectsLabel = isLogoAsset ? t('batchForm.logoSubjects') : isTileAsset ? t('batchForm.textureSubjects') : t('batchForm.assetSubjects')
   const assetSubjectPlaceholder = isLogoAsset ? t('batchForm.logoSubjectPlaceholder') : isTileAsset ? t('batchForm.textureSubjectPlaceholder') : t('batchForm.assetSubjectPlaceholder')
+
+  useEffect(() => {
+    if (!availableImageModels.some((item) => item.id === imageModel)) {
+      setImageModel(imageModels.default || availableImageModels[0]?.id || 'gpt-image-2')
+    }
+  }, [availableImageModels, imageModel, imageModels.default])
 
   useEffect(() => {
     if (batchMode === 'asset') { setPixelSize('16x16'); setColors(8); setRemoveBg(true); setEdgeStyle('hard') }
@@ -99,8 +129,9 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
     const edge = edgeStylePixelize(edgeStyle)
     const pixelize = isAsset ? buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }) : buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge })
     const grid = buildGridDesign()
+    const modelOverride = imageModel !== imageModels.default ? imageModel : undefined
     let payloads: JobCreateRequest[] = []
-    if (batchMode === 'asset') payloads = lines.map((name) => ({ job_type: 'asset', prompt: name, input_image_path: null, client_request_id: crypto.randomUUID(), pixelize, grid, asset: { name, extra_prompt: assetExtraPrompt.trim(), asset_kind: assetKind, subject_kind: subjectKind, no_preview: false } }))
+    if (batchMode === 'asset') payloads = lines.map((name) => ({ job_type: 'asset', prompt: name, input_image_path: null, client_request_id: crypto.randomUUID(), image_model: modelOverride, pixelize, grid, asset: { name, extra_prompt: assetExtraPrompt.trim(), asset_kind: assetKind, subject_kind: subjectKind, no_preview: false } }))
     else payloads = uploaded.map((item) => ({ job_type: 'local_pixelize', prompt: null, input_image_path: item.upload?.path ?? null, client_request_id: crypto.randomUUID(), skip_vl: true, pixelize, grid }))
     if (payloads.length >= 10 && !window.confirm(t('batchForm.confirmQueue', { count: payloads.length, total: totalPrice }))) return
     await onSubmitMany(payloads, '', batchMode)
@@ -111,6 +142,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, onSubmitM
       <form className="grid gap-5" onSubmit={submit}>
         <BatchCostSummary taskCount={taskCount} unitPrice={unitPrice} totalPrice={totalPrice} availableCredits={availableCredits} insufficientCredits={insufficientCredits} />
         <PixField label={t('batchForm.typeLabel')}><Select value={batchMode} onValueChange={(value) => setBatchMode(value as BatchMode)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="asset">{t('batchForm.types.asset')}</SelectItem><SelectItem value="local_pixelize">{t('batchForm.types.local_pixelize')}</SelectItem></SelectContent></Select></PixField>
+        {batchMode === 'asset' && <PixField label={text('生图模型', 'Image model')}><Select value={imageModel} onValueChange={setImageModel}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{availableImageModels.map((m) => <SelectItem value={m.id} key={m.id}>{modelOptionLabel(m)}</SelectItem>)}</SelectContent></Select></PixField>}
         {batchMode === 'asset' ? <div className="grid gap-4">
           {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
             <PixField label={t('batchForm.assetKindLabel')}><Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="item_icon">{t('batchForm.assetKinds.item_icon')}</SelectItem><SelectItem value="ui_component">{t('batchForm.assetKinds.ui_component')}</SelectItem><SelectItem value="tile_texture">{t('batchForm.assetKinds.tile_texture')}</SelectItem><SelectItem value="game_logo">{t('batchForm.assetKinds.game_logo')}</SelectItem></SelectContent></Select></PixField>

@@ -115,6 +115,26 @@ export type ReferralSummary = {
 
 export type JobType = 'asset' | 'text_to_image' | 'image_to_image' | 'local_pixelize' | 'repixelize' | 'sprite_sheet'
 
+export type ImageModelInfo = {
+  id: string
+  label: string
+  providers: string[]
+  operations: string[]
+  sizes: string[]
+  qualities: string[]
+  output_formats: string[]
+  protocols: string[]
+  provider_count: number
+  default_size?: string
+  default_quality?: string
+}
+
+export type ImageModelsResponse = {
+  default: string
+  models: string[]
+  items?: ImageModelInfo[]
+}
+
 export type PixelizeParams = {
   output_size: [number, number]
   colors: number
