@@ -10,6 +10,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from pix.api.http_client import ProviderError
 from pix.api.packy_client import PackyError
 from pix_web.credits import refund_reserved
 from pix_web.models import GenerationJob, GenerationPolicyEvent, utcnow
@@ -94,6 +95,16 @@ def _http_code_from_text(text: str) -> int | None:
 
 def classify_failure(exc: BaseException) -> FailureInfo:
     """把 worker 捕获到的异常转为结构化失败字段。"""
+    if isinstance(exc, ProviderError):
+        source = f"{exc.provider_id or 'image'}_api"
+        if exc.status_code in _TRANSIENT_HTTP_CODES:
+            return FailureInfo("upstream_error", source, f"http_{exc.status_code}")
+        if exc.status_code is not None:
+            return FailureInfo("upstream_error", source, f"http_{exc.status_code}")
+        if exc.category in {"content_policy", "invalid_request"}:
+            return FailureInfo("policy_blocked", source, exc.category)
+        return FailureInfo("upstream_error", source, exc.category or "provider_error")
+
     if isinstance(exc, PackyError):
         if exc.status_code in _TRANSIENT_HTTP_CODES:
             return FailureInfo("upstream_error", "packy_api", f"http_{exc.status_code}")
@@ -102,9 +113,9 @@ def classify_failure(exc: BaseException) -> FailureInfo:
         return FailureInfo("upstream_error", "packy_api", "packy_error")
 
     if isinstance(exc, httpx.TimeoutException):
-        return FailureInfo("upstream_error", "packy_api", "network_timeout")
+        return FailureInfo("upstream_error", "provider_api", "network_timeout")
     if isinstance(exc, httpx.HTTPError):
-        return FailureInfo("upstream_error", "packy_api", "network_error")
+        return FailureInfo("upstream_error", "provider_api", "network_error")
 
     text = _safe_text(exc)
     lowered = text.lower()

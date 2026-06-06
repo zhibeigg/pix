@@ -14,6 +14,7 @@ from PIL import Image
 from pix import __version__
 from pix.analysis.schema import PixAnalysis
 from pix.api.candidate_ranker import fallback_ranking, rank_candidates
+from pix.api.image_dispatcher import clear_image_provider_history, image_provider_history
 from pix.api.image_gen import edit_image, edit_images_batch, generate_image, generate_images_batch
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
 from pix.api.vision import VisionParseError, analyze_image
@@ -629,6 +630,7 @@ def run_pipeline(
     cache = Cache(cfg.cache.dir, enabled=cfg.cache.enabled and inputs.use_cache)
     effective_prompt, prompt_guard_meta = _prepare_prompt(cfg, inputs, notify)
     contact_sheet_meta: dict | None = None
+    clear_image_provider_history()
 
     # 2. 生图 / 图生图 / 复用已有图片
     source_path = run_dir / "01_source.png"
@@ -905,6 +907,7 @@ def run_pipeline(
                 "used": inputs.prompt is not None,
                 "mode": source_mode,
                 "source_only": True,
+                "provider_history": image_provider_history(),
                 "contact_sheet": None,
             },
             "vision": {
@@ -1074,6 +1077,7 @@ def run_pipeline(
             "input_fidelity": cfg.image_gen.edit_input_fidelity,
             "used": inputs.prompt is not None,
             "mode": source_mode,
+            "provider_history": image_provider_history(),
             "contact_sheet": contact_sheet_meta,
         },
         "vision": {

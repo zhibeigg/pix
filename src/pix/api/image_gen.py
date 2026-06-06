@@ -1,14 +1,15 @@
-"""Packy gpt-image-2 文生图。"""
+"""通用 Provider 生图/图生图入口。"""
 
 from __future__ import annotations
 
-import mimetypes
 import re
 from pathlib import Path
 from typing import Any
 
-from pix.api.packy_client import PackyError, make_packy_client
-from pix.config import AppConfig, is_gemini_model, require_image_api_key_for_model
+from pix.api.http_client import ProviderError
+from pix.api.image_dispatcher import dispatch_image_request
+from pix.api.image_model_registry import IMAGE_TO_IMAGE, TEXT_TO_IMAGE
+from pix.config import AppConfig, is_gemini_model
 from pix.io_utils import b64_to_bytes, download, ensure_dir, write_bytes
 
 
@@ -143,7 +144,7 @@ def _write_entry(
         return dest
     if url:
         return download(url, dest, timeout=timeout, trust_env=trust_env, proxy=proxy, max_retries=max_retries)
-    raise PackyError("图片响应条目缺少 url 和 b64_json")
+    raise ProviderError("图片响应条目缺少 url 和 b64_json", category="empty_response")
 
 
 def generate_image(
@@ -157,7 +158,7 @@ def generate_image(
     output_format: str | None = None,
     n: int = 1,
 ) -> Path:
-    """调 Packy /v1/images/generations 生图并落盘。
+    """通过 dispatcher 调用可用 Provider 文生图并落盘。
 
     Args:
         dest_path: 目标 PNG 路径。
@@ -165,37 +166,27 @@ def generate_image(
         实际保存的路径。
     """
     _model = model or cfg.image_gen.model
-    api_key = require_image_api_key_for_model(cfg, _model)
-    client = make_packy_client(cfg, api_key)
     _ensure_single_image_n(n, endpoint="文生图")
     _size = size or cfg.image_gen.size
     validate_size(_size, model=_model)
 
-    payload = _generation_payload(
+    result = dispatch_image_request(
         cfg,
-        prompt,
+        operation=TEXT_TO_IMAGE,
+        prompt=prompt,
+        model=_model,
         size=_size,
-        quality=quality,
-        model=model,
-        output_format=output_format,
+        quality=quality or cfg.image_gen.quality,
+        output_format=output_format or cfg.image_gen.output_format,
     )
-    resp = client.post_json("/v1/images/generations", payload)
-    url, b64 = _pick_image_url(resp)
-
-    ensure_dir(dest_path.parent)
-    if b64:
-        write_bytes(dest_path, b64_to_bytes(b64))
-        return dest_path
-    if url:
-        return download(
-            url,
-            dest_path,
-            timeout=cfg.api.timeout,
-            trust_env=cfg.api.trust_env_proxies,
-            proxy=cfg.api.proxy,
-            max_retries=cfg.api.max_retries,
-        )
-    raise PackyError(f"图片生成响应缺少 url 和 b64_json：{str(resp)[:500]}")
+    return _write_entry(
+        (result.image.url, result.image.b64_json),
+        dest_path,
+        timeout=cfg.api.timeout,
+        trust_env=cfg.api.trust_env_proxies,
+        proxy=cfg.api.proxy,
+        max_retries=cfg.api.max_retries,
+    )
 
 
 def edit_image(
@@ -211,42 +202,31 @@ def edit_image(
     input_fidelity: str | None = None,
     n: int = 1,
 ) -> Path:
-    """调 Packy /v1/images/edits 图生图并落盘。"""
+    """通过 dispatcher 调用可用 Provider 图生图并落盘。"""
     _model = model or cfg.image_gen.model
-    api_key = require_image_api_key_for_model(cfg, _model)
-    client = make_packy_client(cfg, api_key)
     _ensure_single_image_n(n, endpoint="图片编辑")
     _size = size or cfg.image_gen.size
     validate_size(_size, model=_model)
     image_path = Path(image_path)
-    mime = mimetypes.guess_type(str(image_path))[0] or "application/octet-stream"
-    data = _edit_payload(
+    result = dispatch_image_request(
         cfg,
-        prompt,
+        operation=IMAGE_TO_IMAGE,
+        prompt=prompt,
+        model=_model,
         size=_size,
-        quality=quality,
-        model=model,
-        output_format=output_format,
-        input_fidelity=input_fidelity,
+        quality=quality or cfg.image_gen.quality,
+        output_format=output_format or cfg.image_gen.output_format,
+        input_fidelity=input_fidelity or cfg.image_gen.edit_input_fidelity,
+        image_path=image_path,
     )
-    files = {"image": (image_path.name, image_path.read_bytes(), mime)}
-    resp = client.post_multipart("/v1/images/edits", data=data, files=files)
-    url, b64 = _pick_image_url(resp)
-
-    ensure_dir(dest_path.parent)
-    if b64:
-        write_bytes(dest_path, b64_to_bytes(b64))
-        return dest_path
-    if url:
-        return download(
-            url,
-            dest_path,
-            timeout=cfg.api.timeout,
-            trust_env=cfg.api.trust_env_proxies,
-            proxy=cfg.api.proxy,
-            max_retries=cfg.api.max_retries,
-        )
-    raise PackyError(f"图片编辑响应缺少 url 和 b64_json：{str(resp)[:500]}")
+    return _write_entry(
+        (result.image.url, result.image.b64_json),
+        dest_path,
+        timeout=cfg.api.timeout,
+        trust_env=cfg.api.trust_env_proxies,
+        proxy=cfg.api.proxy,
+        max_retries=cfg.api.max_retries,
+    )
 
 
 def generate_images_batch(
@@ -264,8 +244,8 @@ def generate_images_batch(
 ) -> list[Path]:
     """n-sample 文生图。
 
-    Packy gpt-image-2 Images API 文档声明 ``n`` 仅支持 1，因此多候选图按 N 次单图请求循环实现。
-    默认使用 ``response_format=b64_json``，若远端偶发返回 URL，则作为兼容兜底下载。
+    多 Provider 兼容路径统一按 N 次单图请求循环实现，方便每张候选独立失败切换。
+    默认请求 ``b64_json``，若远端只返回 URL，则作为兼容兜底下载。
 
     Args:
         prompt: 基础 prompt；若 prompt_variations 非空，则从第 2 张开始追加一句变体。
@@ -274,8 +254,6 @@ def generate_images_batch(
     assert n >= 1
     ensure_dir(dest_dir)
     _model = model or cfg.image_gen.model
-    api_key = require_image_api_key_for_model(cfg, _model)
-    client = make_packy_client(cfg, api_key)
     _size = size or cfg.image_gen.size
     validate_size(_size, model=_model)
 
@@ -283,22 +261,19 @@ def generate_images_batch(
     paths: list[Path] = []
     for index in range(1, n + 1):
         variant_prompt = _with_prompt_variation(prompt, variations, index - 1)
-        payload = _generation_payload(
+        result = dispatch_image_request(
             cfg,
-            variant_prompt,
+            operation=TEXT_TO_IMAGE,
+            prompt=variant_prompt,
+            model=_model,
             size=_size,
-            quality=quality,
-            model=model,
-            output_format=output_format,
+            quality=quality or cfg.image_gen.quality,
+            output_format=output_format or cfg.image_gen.output_format,
         )
-        resp = client.post_json("/v1/images/generations", payload)
-        entry = _pick_image_url(resp)
-        if not any(entry):
-            raise PackyError(f"n-sample 文生图第 {index} 张没有返回 url 或 b64_json：{str(resp)[:500]}")
         name = filename_template.format(index=index)
         paths.append(
             _write_entry(
-                entry,
+                (result.image.url, result.image.b64_json),
                 dest_dir / name,
                 timeout=cfg.api.timeout,
                 trust_env=cfg.api.trust_env_proxies,
@@ -324,40 +299,33 @@ def edit_images_batch(
     filename_template: str = "sample_{index:02d}.png",
     prompt_variations: list[str] | None = None,
 ) -> list[Path]:
-    """n-sample 图生图：按 Packy n=1 限制循环请求多张编辑结果。"""
+    """n-sample 图生图：循环请求多张编辑结果，并允许逐张 Provider 失败切换。"""
     assert n >= 1
     ensure_dir(dest_dir)
     _model = model or cfg.image_gen.model
-    api_key = require_image_api_key_for_model(cfg, _model)
-    client = make_packy_client(cfg, api_key)
     _size = size or cfg.image_gen.size
     validate_size(_size, model=_model)
     image_path = Path(image_path)
-    mime = mimetypes.guess_type(str(image_path))[0] or "application/octet-stream"
-    image_bytes = image_path.read_bytes()
 
-    files = {"image": (image_path.name, image_bytes, mime)}
     variations = [v for v in (prompt_variations or []) if v.strip()]
     paths: list[Path] = []
     for index in range(1, n + 1):
         variant_prompt = _with_prompt_variation(prompt, variations, index - 1)
-        data = _edit_payload(
+        result = dispatch_image_request(
             cfg,
-            variant_prompt,
+            operation=IMAGE_TO_IMAGE,
+            prompt=variant_prompt,
+            model=_model,
             size=_size,
-            quality=quality,
-            model=model,
-            output_format=output_format,
-            input_fidelity=input_fidelity,
+            quality=quality or cfg.image_gen.quality,
+            output_format=output_format or cfg.image_gen.output_format,
+            input_fidelity=input_fidelity or cfg.image_gen.edit_input_fidelity,
+            image_path=image_path,
         )
-        resp = client.post_multipart("/v1/images/edits", data=data, files=files)
-        entry = _pick_image_url(resp)
-        if not any(entry):
-            raise PackyError(f"n-sample 图生图第 {index} 张没有返回 url 或 b64_json：{str(resp)[:500]}")
         name = filename_template.format(index=index)
         paths.append(
             _write_entry(
-                entry,
+                (result.image.url, result.image.b64_json),
                 dest_dir / name,
                 timeout=cfg.api.timeout,
                 trust_env=cfg.api.trust_env_proxies,

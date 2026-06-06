@@ -64,7 +64,7 @@ npm run build
    cp .env.production.example .env.production
    ```
 
-2. 修改 `.env.production` 中的数据库密码、JWT secret、Packy API key、邮件与支付配置。
+2. 修改 `.env.production` 中的数据库密码、JWT secret、生图 Provider API key（推荐 Crazyrouter，可保留 Packy fallback）、邮件与支付配置。
 3. 启动：
 
    ```bash
@@ -82,7 +82,11 @@ npm run build
 
 | 变量 | 用途 |
 |---|---|
-| `PACKY_API_KEY` | 生图 API key，需支持 `gpt-image-2`。 |
+| `CRAZYROUTER_API_KEY` | 推荐的生图 Provider API key；支持 GPT Image、Qwen、Doubao、Nano Banana、Midjourney、Ideogram、Kling/FAL 等多协议模型。 |
+| `CRAZYROUTER_BASE_URL` | Crazyrouter API Base URL，默认 `https://crazyrouter.com`。 |
+| `PIX_IMAGE_DEFAULT_MODEL` | 默认 logical 生图模型，例如 `gpt-image-2`。 |
+| `PIX_IMAGE_PROVIDERS_JSON` | 可选：用 JSON 覆盖/补充多 Provider 配置，适合容器密钥管理场景。 |
+| `PACKY_API_KEY` | Packy 兼容旧部署 / fallback Provider 的生图 API key，需支持 `gpt-image-2`。 |
 | `PACKY_VL_API_KEY` | 视觉模型 API key，可与 `PACKY_API_KEY` 共用。 |
 | `PACKY_BASE_URL` | Packy API Base URL，默认 `https://www.packyapi.com`。 |
 | `PIX_WEB_DATABASE_URL` | 后端数据库连接。开发可用 SQLite，生产建议 PostgreSQL。 |
@@ -119,7 +123,7 @@ npm run build
 
 1. `build_asset_prompt` 根据用户主体、素材类型、尺寸、颜色数和抠色容差构建 prompt。
 2. 本地 prompt guard 只审核用户原始输入，不把服务端模板暴露给审核模型；“直接复刻/抄袭参考图”类请求会在创建任务前拒绝，不入队、不冻结点数，并写入策略审计事件供后台统计。
-3. 使用 `gpt-image-2` 生成单张源图。
+3. 使用当前配置的 logical 生图模型生成单张源图；同一模型可由 Crazyrouter、Packy 等多个 Provider 承载并自动失败切换。
 4. 默认 `skip_vl = true`，不走普通 VL 分析。
 5. Pixel Grid extract：
    - `perfect_pixel` 网格对齐，并保存 `02_perfect_pixel_preprocess.png`；
@@ -130,9 +134,13 @@ npm run build
    - sample cells / cluster palette；
    - 渲染最终 PNG 与 `.grid.json`。
 
-## Packy gpt-image-2 调用规范
+## 通用生图 Provider 调用规范
 
-当前代码严格按 Packy 的 GPT-Image 教程使用 Images API：文生图与图片编辑都走 `/v1/images/generations` / `/v1/images/edits`，`n` 固定为 `1`，不启用 `stream` / `partial_images`。默认优先要求返回 `b64_json` 并直接落盘；只有远端偶发返回 `url` 时，才作为兼容兜底去下载。多图需求则在调用方循环发起多次单图请求。
+Pix 现在通过 logical model → provider candidates 的方式调用生图上游。默认可配置 Crazyrouter 与 Packy 两类 Provider：同一个模型（如 `gpt-image-2`）可以同时映射到多家 Provider，运行时按 `priority` 排序；网络错误、超时、429/5xx、空响应、响应结构异常、Provider 临时不可用、鉴权/余额类错误会按 `image_gen.failover_on` 自动切换下一家。
+
+OpenAI Images 兼容模型走 `/v1/images/generations` / `/v1/images/edits` 或 `image_input` payload；Midjourney、Kling 这类异步协议会提交任务后轮询查询端点；Ideogram/FAL 使用各自专用路径。默认优先要求返回 `b64_json` 并直接落盘；如果上游只返回临时 `url`，才作为兼容兜底下载。多候选图仍在调用方循环发起多次单图请求，方便每张候选独立失败切换。
+
+前端通过 `GET /settings/image-models` 获取结构化模型能力：`models` 字符串数组保留给旧前端兼容，新前端读取 `items[]` 中的 `operations`、`sizes`、`qualities`、`providers` 和 `provider_count` 来决定模型列表、图生图入口和参数选项。
 
 调试可视化阶段以 `fullflow-perfect-first-v2/step-preview-bg-first` 的顺序为准：
 

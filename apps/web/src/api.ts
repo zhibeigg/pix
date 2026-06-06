@@ -11,6 +11,7 @@ import type {
   CreditTransaction,
   SequenceAlignmentRequest,
   GenerationJob,
+  ImageModelsResponse,
   JobBatchCreateResponse,
   JobCreateRequest,
   BootstrapAdminResponse,
@@ -333,7 +334,7 @@ export const api = {
     return request<PricingRule[]>('/pricing', {}, token)
   },
   imageModels() {
-    return request<{ default: string; models: string[] }>('/settings/image-models')
+    return request<ImageModelsResponse>('/settings/image-models')
   },
   adminPricing(token: string) {
     return request<PricingRule[]>('/admin/pricing', {}, token)

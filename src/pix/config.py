@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from dataclasses import dataclass, field, asdict
@@ -34,11 +35,11 @@ class ApiConfig:
     timeout: float = 600.0
     # 远端网关在长 idle 阶段偶尔会 close 连接；多重试几次能显著提升成功率。
     max_retries: int = 5
-    # sora 分组 key，用于 gpt-image-2
+    # 旧 Packy 兼容生图 key；新部署优先使用 image_providers。
     image_api_key: str | None = None
     # default 分组 key，用于 VL（Claude / Gemini / gpt-4o）
     vl_api_key: str | None = None
-    # Gemini 生图专用 key（用于 gemini-3.1-flash-image-preview 等）
+    # 旧 Gemini 生图专用 key（用于 gemini-3.1-flash-image-preview 等兼容模型）
     gemini_api_key: str | None = None
     # 是否信任进程级代理 / 系统代理。本地常见的 Clash 等本地代理会在长时间空闲时主动断开
     # 生图连接，造成 RemoteProtocolError；默认禁用，需要走代理时再显式开启。
@@ -48,15 +49,68 @@ class ApiConfig:
 
 
 @dataclass
+class ImageProviderModelConfig:
+    """单个上游 Provider 下的模型能力描述。"""
+
+    id: str = ""
+    provider_model: str = ""
+    label: str = ""
+    protocol: str = "openai_images"
+    operations: list[str] = field(default_factory=lambda: ["text_to_image", "image_to_image"])
+    sizes: list[str] = field(default_factory=list)
+    qualities: list[str] = field(default_factory=list)
+    output_formats: list[str] = field(default_factory=list)
+    endpoint: str = ""
+    edit_endpoint: str = ""
+    edit_mode: str = "multipart"  # multipart | image_input | none
+    supports_n: bool = False
+    requires_public_image_url: bool = False
+    extra: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ImageProviderConfig:
+    """生图 Provider 配置；同一个 logical model 可由多个 Provider 承载。"""
+
+    id: str = ""
+    display_name: str = ""
+    enabled: bool = True
+    base_url: str = ""
+    api_key_env: str = ""
+    api_key: str | None = None
+    priority: int = 100
+    discover_models: bool = False
+    protocols: list[str] = field(default_factory=lambda: ["openai_images"])
+    models: list[ImageProviderModelConfig] = field(default_factory=list)
+    extra_headers: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class ImageGenConfig:
     model: str = "gpt-image-2"
     size: str = "1024x1024"
-    # auto 让 packyapi 自适配 quality；high 单次响应可能 7~10 分钟，超过远端网关 idle 上限
+    # auto 让 provider 自适配 quality；high 单次响应可能持续数分钟，超过远端网关 idle 上限
     # 会被 RemoteProtocolError 截断；如需高画质请显式在管理后台改回 high。
     quality: str = "auto"
     output_format: str = "png"
-    # 图生图编辑时尽量保留原图主体和细节：low | high（Packy/OpenAI 兼容参数）
+    # 图生图编辑时尽量保留原图主体和细节：low | high（OpenAI Images 兼容参数）
     edit_input_fidelity: str = "high"
+    # 多 Provider 失败切换。仅对网络、限流、5xx、空响应、结构异常等可重试错误生效。
+    failover_enabled: bool = True
+    failover_on: list[str] = field(default_factory=lambda: [
+        "network",
+        "timeout",
+        "rate_limit",
+        "server_error",
+        "empty_response",
+        "malformed_response",
+        "provider_unavailable",
+        "auth",
+        "quota",
+    ])
+    model_discovery_enabled: bool = True
+    model_discovery_ttl_seconds: int = 3600
+    provider_poll_interval_seconds: float = 2.0
     # 受控生图：默认让模型一次生成九宫格候选，后端再切图和抠动态纯色 key background。
     contact_sheet_enabled: bool = True
     contact_sheet_rows: int = 3
@@ -294,6 +348,7 @@ class UiConfig:
 class AppConfig:
     api: ApiConfig = field(default_factory=ApiConfig)
     image_gen: ImageGenConfig = field(default_factory=ImageGenConfig)
+    image_providers: list[ImageProviderConfig] = field(default_factory=list)
     vision: VisionConfig = field(default_factory=VisionConfig)
     pixelize: PixelizeConfig = field(default_factory=PixelizeConfig)
     asset: AssetConfig = field(default_factory=AssetConfig)
@@ -310,7 +365,152 @@ class AppConfig:
 # ---------- 合并 ----------
 
 
+
+def _as_str_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    if isinstance(value, (list, tuple)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
+
+
+
+def _provider_model_from_mapping(data: Mapping[str, Any]) -> ImageProviderModelConfig:
+    model = ImageProviderModelConfig()
+    _update_dataclass(model, data)
+    model.operations = _as_str_list(model.operations) or ["text_to_image", "image_to_image"]
+    model.sizes = _as_str_list(model.sizes)
+    model.qualities = _as_str_list(model.qualities)
+    model.output_formats = _as_str_list(model.output_formats)
+    model.provider_model = model.provider_model or model.id
+    model.label = model.label or model.id
+    return model
+
+
+
+def _provider_from_mapping(data: Mapping[str, Any]) -> ImageProviderConfig:
+    provider = ImageProviderConfig()
+    simple = {key: value for key, value in data.items() if key != "models"}
+    _update_dataclass(provider, simple)
+    provider.protocols = _as_str_list(provider.protocols) or ["openai_images"]
+    raw_models = data.get("models")
+    if isinstance(raw_models, list):
+        provider.models = [
+            _provider_model_from_mapping(item)
+            for item in raw_models
+            if isinstance(item, Mapping)
+        ]
+    provider.display_name = provider.display_name or provider.id
+    return provider
+
+
+
+def _set_or_append_provider(cfg: AppConfig, provider: ImageProviderConfig) -> None:
+    if not provider.id:
+        return
+    for index, existing in enumerate(cfg.image_providers):
+        if existing.id == provider.id:
+            cfg.image_providers[index] = provider
+            return
+    cfg.image_providers.append(provider)
+
+
+
+def _packy_provider_from_legacy(cfg: AppConfig) -> ImageProviderConfig | None:
+    api_key = cfg.api.image_api_key or os.getenv("PACKY_API_KEY")
+    return ImageProviderConfig(
+        id="packy",
+        display_name="Packy",
+        enabled=True,
+        base_url=cfg.api.base_url or os.getenv("PACKY_BASE_URL", "https://www.packyapi.com"),
+        api_key_env="PACKY_API_KEY",
+        api_key=api_key,
+        priority=20,
+        discover_models=False,
+        protocols=["openai_images"],
+        models=[
+            ImageProviderModelConfig(
+                id="gpt-image-2",
+                provider_model="gpt-image-2",
+                label="GPT Image 2",
+                protocol="openai_images",
+                operations=["text_to_image", "image_to_image"],
+                sizes=["auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"],
+                qualities=["auto", "low", "medium", "high"],
+                output_formats=["png", "jpeg", "webp"],
+            ),
+            ImageProviderModelConfig(
+                id="gemini-3.1-flash-image-preview",
+                provider_model="gemini-3.1-flash-image-preview",
+                label="Gemini 3.1 Flash Image Preview",
+                protocol="openai_images",
+                operations=["text_to_image", "image_to_image"],
+                sizes=["auto", "1024x1024", "1536x1024", "1024x1536"],
+                output_formats=["png"],
+            ),
+        ],
+    )
+
+
+
+def _crazyrouter_provider_from_env() -> ImageProviderConfig | None:
+    api_key = os.getenv("CRAZYROUTER_API_KEY")
+    if not api_key:
+        return None
+    return ImageProviderConfig(
+        id="crazyrouter",
+        display_name="Crazyrouter",
+        enabled=True,
+        base_url=os.getenv("CRAZYROUTER_BASE_URL", "https://crazyrouter.com"),
+        api_key_env="CRAZYROUTER_API_KEY",
+        api_key=api_key,
+        priority=10,
+        discover_models=True,
+        protocols=["openai_images", "midjourney", "ideogram", "fal", "kling", "gemini_native"],
+        models=[],
+    )
+
+
+
+def _apply_providers_json(cfg: AppConfig, raw: str | None) -> None:
+    if not raw:
+        return
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return
+    providers_raw = parsed.get("image_providers") if isinstance(parsed, dict) else parsed
+    if not isinstance(providers_raw, list):
+        return
+    for item in providers_raw:
+        if isinstance(item, Mapping):
+            _set_or_append_provider(cfg, _provider_from_mapping(item))
+
+
+
+def _normalize_image_providers(cfg: AppConfig) -> None:
+    normalized: list[ImageProviderConfig] = []
+    for provider in cfg.image_providers:
+        if isinstance(provider, ImageProviderConfig):
+            normalized.append(provider)
+        elif isinstance(provider, Mapping):
+            normalized.append(_provider_from_mapping(provider))
+    cfg.image_providers = normalized
+    crazy = _crazyrouter_provider_from_env()
+    if crazy is not None:
+        _set_or_append_provider(cfg, crazy)
+    legacy = _packy_provider_from_legacy(cfg)
+    if legacy is not None and not any(provider.id == "packy" for provider in cfg.image_providers):
+        cfg.image_providers.append(legacy)
+    _apply_providers_json(cfg, os.getenv("PIX_IMAGE_PROVIDERS_JSON"))
+    cfg.image_providers.sort(key=lambda item: int(item.priority or 100))
+
+
+
 def _update_dataclass(obj: Any, values: Mapping[str, Any]) -> None:
+
     """浅层更新 dataclass 字段；未识别的字段静默忽略。"""
     if not values:
         return
@@ -355,6 +555,13 @@ def _load_toml(path: Path) -> dict[str, Any]:
 
 def _apply_mapping(cfg: AppConfig, data: Mapping[str, Any]) -> None:
     for section_name, section_values in data.items():
+        if section_name == "image_providers" and isinstance(section_values, list):
+            cfg.image_providers = [
+                _provider_from_mapping(item)
+                for item in section_values
+                if isinstance(item, Mapping)
+            ]
+            continue
         if not isinstance(section_values, Mapping):
             continue
         section_obj = getattr(cfg, section_name, None)
@@ -369,6 +576,7 @@ def _apply_env(cfg: AppConfig) -> None:
     vl_key = os.getenv("PACKY_VL_API_KEY") or api_key
     gemini_key = os.getenv("PACKY_GEMINI_API_KEY")
     base_url = os.getenv("PACKY_BASE_URL")
+    default_model = os.getenv("PIX_IMAGE_DEFAULT_MODEL")
 
     if api_key:
         cfg.api.image_api_key = api_key
@@ -378,6 +586,8 @@ def _apply_env(cfg: AppConfig) -> None:
         cfg.api.gemini_api_key = gemini_key
     if base_url:
         cfg.api.base_url = base_url
+    if default_model:
+        cfg.image_gen.model = default_model
 
 
 # ---------- 公共入口 ----------
@@ -421,14 +631,15 @@ def load_config(
     if overrides:
         _apply_mapping(cfg, overrides)
 
+    _normalize_image_providers(cfg)
     return cfg
 
 
 def require_image_api_key(cfg: AppConfig) -> str:
     if not cfg.api.image_api_key:
         raise RuntimeError(
-            "未找到 PACKY_API_KEY。请在 .env 中设置或导出环境变量。"
-            "（gpt-image-2 需要 sora 分组的令牌）"
+            "未找到可用生图 API key。旧 Packy 兼容路径请设置 PACKY_API_KEY；"
+            "新 Provider 推荐设置 CRAZYROUTER_API_KEY 或配置 [[image_providers]]。"
         )
     return cfg.api.image_api_key
 
