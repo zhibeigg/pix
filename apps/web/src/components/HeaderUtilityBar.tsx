@@ -125,7 +125,7 @@ function AnnouncementButton({ open, autoOpen, onOpenChange }: { open: boolean; a
 
   function relativePublishedLabel(value: string) {
     const time = new Date(value).getTime()
-    if (!Number.isFinite(time)) return t('utility.announcements.publishedAt', { time: value })
+    if (!Number.isFinite(time)) return ''
     const diffMs = Math.max(0, Date.now() - time)
     const minutes = Math.floor(diffMs / 60_000)
     if (minutes < 1) return t('utility.announcements.publishedRelative', { time: t('utility.announcements.justNow') })
@@ -134,6 +134,15 @@ function AnnouncementButton({ open, autoOpen, onOpenChange }: { open: boolean; a
     if (hours < 24) return t('utility.announcements.publishedRelative', { time: t('utility.announcements.hoursAgo', { count: hours }) })
     const days = Math.floor(hours / 24)
     return t('utility.announcements.publishedRelative', { time: t('utility.announcements.daysAgo', { count: days }) })
+  }
+
+  function publishedTimeLabel(value: string) {
+    const time = new Date(value).getTime()
+    const absolute = Number.isFinite(time) ? new Date(time).toLocaleString() : value
+    const relative = relativePublishedLabel(value)
+    return relative
+      ? `${t('utility.announcements.publishedAt', { time: absolute })} · ${relative}`
+      : t('utility.announcements.publishedAt', { time: absolute })
   }
 
   return (
@@ -185,7 +194,7 @@ function AnnouncementButton({ open, autoOpen, onOpenChange }: { open: boolean; a
                   <div className="min-w-0 pb-6">
                     <h3 className="text-base font-semibold tracking-[-0.01em]">{announcement.title || t('utility.announcements.system')}</h3>
                     {announcement.body && <p className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-[hsl(var(--pix-slate))] dark:text-white/68">{announcement.body}</p>}
-                    {announcement.published_at && <p className="mt-2 text-xs text-muted-foreground">{relativePublishedLabel(announcement.published_at)}</p>}
+                    {announcement.published_at && <p className="mt-2 text-xs text-muted-foreground">{publishedTimeLabel(announcement.published_at)}</p>}
                   </div>
                 </article>
               ))}
