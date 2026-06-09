@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AdminDashboard, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, PricingRule, SystemSetting, User } from '../types'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
@@ -70,6 +70,9 @@ function EmailTestBox({ onTest }: { onTest: (email: string) => Promise<void> }) 
 function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement, onTestAnnouncementEmail }: { onPublish: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onListAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }> }) {
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([])
   const [listLoading, setListLoading] = useState(false)
+  const [listRefreshing, setListRefreshing] = useState(false)
+  const listLoadedRef = useRef(false)
+  const listRequestIdRef = useRef(0)
   const [editing, setEditing] = useState<AnnouncementItem | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [title, setTitle] = useState('')
@@ -88,12 +91,23 @@ function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCre
 
   const loadList = useCallback(async () => {
     if (!onListAnnouncements) return
-    setListLoading(true)
+    const requestId = listRequestIdRef.current + 1
+    listRequestIdRef.current = requestId
+    const showBlockingLoading = !listLoadedRef.current
+    if (showBlockingLoading) setListLoading(true)
+    else setListRefreshing(true)
     try {
       const res = await onListAnnouncements()
+      if (listRequestIdRef.current !== requestId) return
       setAnnouncements(res.items)
-    } catch { /* ignore */ } finally {
-      setListLoading(false)
+      listLoadedRef.current = true
+    } catch {
+      // 保留已有列表，避免短暂网络抖动让公告界面闪烁或清空。
+    } finally {
+      if (listRequestIdRef.current === requestId) {
+        setListLoading(false)
+        setListRefreshing(false)
+      }
     }
   }, [onListAnnouncements])
 
@@ -146,7 +160,12 @@ function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCre
         setNotice(announcementPublishNotice(result))
         setNoticeVariant(result.email_notification_queued ? 'success' : result.email_skipped_reason === 'unchanged' ? 'info' : 'warning')
       }
-      cancelForm()
+      setShowCreate(false)
+      setEditing(null)
+      setTitle('')
+      setBody('')
+      setEnabled(true)
+      setNotify(true)
       void loadList()
     } catch (error) {
       const message = error instanceof Error ? error.message : '保存失败，请重试'
@@ -239,8 +258,9 @@ function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCre
         )}
 
         <div className="rounded-lg border border-border bg-card">
-          <div className="border-b border-border px-4 py-3">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <p className="text-sm font-semibold">公告列表</p>
+            {listRefreshing && <span className="text-xs text-muted-foreground">刷新中…</span>}
           </div>
           {listLoading ? (
             <div className="grid place-items-center py-8 text-sm text-muted-foreground">加载中…</div>

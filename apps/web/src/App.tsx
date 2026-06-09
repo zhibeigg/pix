@@ -824,43 +824,43 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setMessage(text('配置已更新', 'Settings updated'))
   }
 
-  async function publishAnnouncement(payload: AnnouncementPublishPayload): Promise<AnnouncementPublishResponse> {
+  const publishAnnouncement = useCallback(async (payload: AnnouncementPublishPayload): Promise<AnnouncementPublishResponse> => {
     if (!token) throw new Error(text('请先登录', 'Please sign in first'))
     const result = await api.publishAnnouncement(token, payload)
     await refreshCore(token)
     return result
-  }
+  }, [refreshCore, text, token])
 
-  async function adminAnnouncements() {
+  const adminAnnouncements = useCallback(async () => {
     if (!token) throw new Error(text('请先登录', 'Please sign in first'))
     return api.adminAnnouncements(token)
-  }
+  }, [text, token])
 
-  async function createAnnouncement(payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) {
+  const createAnnouncement = useCallback(async (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => {
     if (!token) throw new Error(text('请先登录', 'Please sign in first'))
     const result = await api.createAnnouncement(token, payload)
     await refreshCore(token)
     return result
-  }
+  }, [refreshCore, text, token])
 
-  async function updateAnnouncement(id: number, payload: { title?: string; body?: string; enabled?: boolean }) {
+  const updateAnnouncement = useCallback(async (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => {
     if (!token) throw new Error(text('请先登录', 'Please sign in first'))
     const result = await api.updateAnnouncement(token, id, payload)
     await refreshCore(token)
     return result
-  }
+  }, [refreshCore, text, token])
 
-  async function deleteAnnouncement(id: number) {
+  const deleteAnnouncement = useCallback(async (id: number) => {
     if (!token) throw new Error(text('请先登录', 'Please sign in first'))
     const result = await api.deleteAnnouncement(token, id)
     await refreshCore(token)
     return result
-  }
+  }, [refreshCore, text, token])
 
-  async function testAnnouncementEmail(email: string, title: string, body: string) {
+  const testAnnouncementEmail = useCallback(async (email: string, title: string, body: string) => {
     if (!token) throw new Error(text('请先登录', 'Please sign in first'))
     return api.testAnnouncementEmail(token, { email, title, body })
-  }
+  }, [text, token])
 
   async function createAdminPackage(payload: CreditPackage) {
     if (!token) return

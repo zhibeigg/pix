@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 文生图、图生图和 n-sample 候选生成从 Packy 直连改为 dispatcher 调度，并在任务 meta 中记录 provider 调用历史。
 - 配置示例新增 `[[image_providers]]`、Crazyrouter 环境变量、failover 与模型发现选项；Packy 变量保留为兼容旧部署 / fallback。
 
+### Fixed
+
+- 修复管理后台系统公告页在全局轮询刷新时反复切换加载态导致界面闪烁的问题，并保留公告保存后的反馈提示。
+
 ## [1.64.0] - 2026-06-05
 
 ### Added
