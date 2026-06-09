@@ -172,11 +172,15 @@ def delete_announcement(db: Session, announcement_id: int) -> None:
 
 
 def load_announcement_list(db: Session, *, include_disabled: bool = False, limit: int = 50) -> list[Announcement]:
-    """加载公告列表，按 sort_order ASC, created_at DESC 排序。"""
+    """加载公告列表，最新发布 / 最新创建的公告排在前面。"""
     stmt = select(Announcement)
     if not include_disabled:
         stmt = stmt.where(Announcement.enabled.is_(True))
-    stmt = stmt.order_by(Announcement.sort_order.asc(), Announcement.created_at.desc()).limit(limit)
+    stmt = stmt.order_by(
+        Announcement.sort_order.desc(),
+        Announcement.published_at.desc().nullslast(),
+        Announcement.created_at.desc(),
+    ).limit(limit)
     return list(db.scalars(stmt))
 
 

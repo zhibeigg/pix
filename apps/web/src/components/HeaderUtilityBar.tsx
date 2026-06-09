@@ -1,9 +1,9 @@
-import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Bell, Check, Languages, Megaphone, Monitor, Moon, Plus, Sun } from 'lucide-react'
 import { api } from '../api'
 import type { PixLanguage, PixThemeMode, PixThemePreference } from '../theme'
-import type { AnnouncementItem, PublicAnnouncement } from '../types'
+import type { AnnouncementItem } from '../types'
 import { useI18n } from '../i18n'
 import { cn } from '../lib/utils'
 import { Button } from './ui/button'
@@ -11,6 +11,12 @@ import { Dialog, DialogClose, DialogDescription, DialogFooter, DialogHeader, Dia
 
 const ANNOUNCEMENT_MUTE_KEY = 'pix_announcement_muted_date'
 const ANNOUNCEMENT_SEEN_KEY = 'pix_announcement_seen_ids'
+
+function announcementTimestamp(item: AnnouncementItem) {
+  const raw = item.published_at || item.created_at || item.updated_at
+  const value = raw ? new Date(raw).getTime() : 0
+  return Number.isFinite(value) ? value : 0
+}
 
 const languageOptions: Array<{ value: PixLanguage; labelKey: string; flag: string }> = [
   { value: 'zh-CN', labelKey: 'utility.language.chinese', flag: '🇨🇳' },
@@ -83,11 +89,15 @@ function AnnouncementButton({ open, autoOpen, onOpenChange }: { open: boolean; a
     if (open) void loadAnnouncements()
   }, [open])
 
-  const hasAnnouncement = announcements.length > 0
+  const sortedAnnouncements = useMemo(
+    () => [...announcements].sort((a, b) => announcementTimestamp(b) - announcementTimestamp(a) || b.id - a.id),
+    [announcements],
+  )
+  const hasAnnouncement = sortedAnnouncements.length > 0
   const seenIds = getSeenIds()
 
   function markAllSeen() {
-    const ids = announcements.map((a) => a.id)
+    const ids = sortedAnnouncements.map((a) => a.id)
     localStorage.setItem(ANNOUNCEMENT_SEEN_KEY, JSON.stringify(ids))
   }
 
@@ -96,21 +106,34 @@ function AnnouncementButton({ open, autoOpen, onOpenChange }: { open: boolean; a
     onOpenChange(nextOpen)
   }
 
-  const hasUnseen = announcements.some((a) => !seenIds.includes(a.id))
+  const hasUnseen = sortedAnnouncements.some((a) => !seenIds.includes(a.id))
 
   useEffect(() => {
     if (!autoOpen || open || !hasAnnouncement || !hasUnseen) return
-    const muteValue = announcementMuteValue(JSON.stringify(announcements.map((a) => a.id)))
+    const muteValue = announcementMuteValue(JSON.stringify(sortedAnnouncements.map((a) => a.id)))
     if (localStorage.getItem(ANNOUNCEMENT_MUTE_KEY) === muteValue) return
     markAllSeen()
     onOpenChange(true)
-  }, [autoOpen, hasAnnouncement, hasUnseen, onOpenChange, open, announcements])
+  }, [autoOpen, hasAnnouncement, hasUnseen, onOpenChange, open, sortedAnnouncements])
 
   function muteToday() {
-    const ids = announcements.map((a) => a.id)
+    const ids = sortedAnnouncements.map((a) => a.id)
     localStorage.setItem(ANNOUNCEMENT_MUTE_KEY, announcementMuteValue(JSON.stringify(ids)))
     markAllSeen()
     onOpenChange(false)
+  }
+
+  function relativePublishedLabel(value: string) {
+    const time = new Date(value).getTime()
+    if (!Number.isFinite(time)) return t('utility.announcements.publishedAt', { time: value })
+    const diffMs = Math.max(0, Date.now() - time)
+    const minutes = Math.floor(diffMs / 60_000)
+    if (minutes < 1) return t('utility.announcements.publishedRelative', { time: t('utility.announcements.justNow') })
+    if (minutes < 60) return t('utility.announcements.publishedRelative', { time: t('utility.announcements.minutesAgo', { count: minutes }) })
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return t('utility.announcements.publishedRelative', { time: t('utility.announcements.hoursAgo', { count: hours }) })
+    const days = Math.floor(hours / 24)
+    return t('utility.announcements.publishedRelative', { time: t('utility.announcements.daysAgo', { count: days }) })
   }
 
   return (
@@ -156,13 +179,13 @@ function AnnouncementButton({ open, autoOpen, onOpenChange }: { open: boolean; a
           <div className="min-h-[300px] px-6 py-4">
           {hasAnnouncement ? (
             <div className="w-full space-y-0">
-              {announcements.map((announcement) => (
+              {sortedAnnouncements.map((announcement) => (
                 <article key={announcement.id} className="motion-panel-enter relative flex gap-4 border-l-2 border-[hsl(var(--pix-paper-border))] pl-5 dark:border-white/10">
                   <span className="absolute left-[-5px] top-1 h-2 w-2 rounded-full bg-[hsl(var(--pix-link-blue))]" />
                   <div className="min-w-0 pb-6">
                     <h3 className="text-base font-semibold tracking-[-0.01em]">{announcement.title || t('utility.announcements.system')}</h3>
                     {announcement.body && <p className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-[hsl(var(--pix-slate))] dark:text-white/68">{announcement.body}</p>}
-                    {announcement.published_at && <p className="mt-2 text-xs text-muted-foreground">{t('utility.announcements.publishedAt', { time: new Date(announcement.published_at).toLocaleString() })}</p>}
+                    {announcement.published_at && <p className="mt-2 text-xs text-muted-foreground">{relativePublishedLabel(announcement.published_at)}</p>}
                   </div>
                 </article>
               ))}
