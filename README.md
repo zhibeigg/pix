@@ -127,18 +127,26 @@ npm run build
 4. 默认 `skip_vl = true`，不走普通 VL 分析。
 5. Pixel Grid extract：
    - `perfect_pixel` 网格对齐，并保存 `02_perfect_pixel_preprocess.png`；
-   - `remove_background` 去背景；默认固定使用四角纯色作为 key 的 GIMP Color-to-Alpha 风格算法，不再回退 flood-fill；
-   - 序列帧任务（mosaic 单图模式）：1 次 API 调用直接产出 rows×cols 网格 sprite sheet（rows/cols 各最大 8）。后端会先按 rows×cols 与目标帧尺寸自动计算适合的 API 渲染分辨率（不再继承通用 `image_gen.size=1024x1024`；例如 4×8、64×64 会渲染到 3072×1536，4×8、48×64 会渲染到 3072×2048，满足最大边 ≤3840、16 倍数、长短边比 ≤3:1、总像素 ≤8.3M 等约束），让每个像素艺术像素至少占 8×8 / 6×6 渲染像素。生成后按格切图（基于前景投影找最佳切分线，避免主体溢出邻列）+ 复用 `perfectPixel` + Color-to-Alpha + 共享调色板等成熟后处理流程，最终输出横向 `sprite_sheet.png`（兼容预览）+ 原版 `sprite_mosaic.png`（保留 rows×cols 排版可下载）+ `sequence.json`。多行 mosaic（rows>1）会额外输出 `sprite_sheet_grid.png`（rows×cols 二维网格预览）以及 `row_sheets/row_NN.png` + `previews/row_NN.gif`（每行一张横向 sheet + 一个独立动画 GIF），让 4×8 行走表这种「每行一个动作」的素材直接拿到 4 个独立动画。提供「角色参考图」时切换到 `edit_image`，让每个 cell 复用同一角色设计。作品库可打开「调整」编辑器：逐帧拖动主体、滚轮缩放、查看上一帧半透明影子并实时预览，保存时仅本地重合成（含 fps 与每帧 offset/scale），不重新生图也不额外扣点；
+   - `remove_background` 去背景；默认使用参考项目 `pixel_bg` 方法：边框中位数探测 key 色，按 `t_core/t_grow` 双阈值连通域生长生成背景 mask，去 key 色溢色并输出硬边二值 alpha；
+   - 序列帧任务（mosaic 单图模式）：1 次 API 调用直接产出 rows×cols 网格 sprite sheet（rows/cols 各最大 8）。后端会先按 rows×cols 与目标帧尺寸自动计算适合的 API 渲染分辨率（不再继承通用 `image_gen.size=1024x1024`；例如 4×8、64×64 会渲染到 3072×1536，4×8、48×64 会渲染到 3072×2048，满足最大边 ≤3840、16 倍数、长短边比 ≤3:1、总像素 ≤8.3M 等约束），让每个像素艺术像素至少占 8×8 / 6×6 渲染像素。生成后按格切图（基于前景投影找最佳切分线，避免主体溢出邻列）+ 复用 `perfectPixel` + 显式 key 色的 pixel_bg 双阈值 alpha + 共享调色板等成熟后处理流程，最终输出横向 `sprite_sheet.png`（兼容预览）+ 原版 `sprite_mosaic.png`（保留 rows×cols 排版可下载）+ `sequence.json`。多行 mosaic（rows>1）会额外输出 `sprite_sheet_grid.png`（rows×cols 二维网格预览）以及 `row_sheets/row_NN.png` + `previews/row_NN.gif`（每行一张横向 sheet + 一个独立动画 GIF），让 4×8 行走表这种「每行一个动作」的素材直接拿到 4 个独立动画。提供「角色参考图」时切换到 `edit_image`，让每个 cell 复用同一角色设计。作品库可打开「调整」编辑器：逐帧拖动主体、滚轮缩放、查看上一帧半透明影子并实时预览，保存时仅本地重合成（含 fps 与每帧 offset/scale），不重新生图也不额外扣点；
    - `auto_crop` / tight bbox 贴主体裁剪；
    - `transparent_canvas_pad` 补到预设尺寸档；
    - sample cells / cluster palette；
    - 渲染最终 PNG 与 `.grid.json`。
 
+## 管理后台运营能力
+
+管理后台「用户与点数」支持单用户调整、当前用户列表多选、全选当前列表，以及通过 `POST /admin/users/adjust-credits-batch` 对全部 active 用户批量补点 / 扣点。批量操作会为每个目标用户写入独立 `adjustment` 点数流水，并在提交前显示目标范围、每人点数变化与备注，便于运营补偿或活动发放。
+
 ## 通用生图 Provider 调用规范
 
 Pix 现在通过 logical model → provider candidates 的方式调用生图上游。默认可配置 Crazyrouter 与 Packy 两类 Provider：同一个模型（如 `gpt-image-2`）可以同时映射到多家 Provider，运行时按 `priority` 排序；网络错误、超时、429/5xx、空响应、响应结构异常、Provider 临时不可用、鉴权/余额类错误会按 `image_gen.failover_on` 自动切换下一家。
 
-OpenAI Images 兼容模型走 `/v1/images/generations` / `/v1/images/edits` 或 `image_input` payload；Midjourney、Kling 这类异步协议会提交任务后轮询查询端点；Ideogram/FAL 使用各自专用路径。默认优先要求返回 `b64_json` 并直接落盘；如果上游只返回临时 `url`，才作为兼容兜底下载。多候选图仍在调用方循环发起多次单图请求，方便每张候选独立失败切换。
+OpenAI Images 兼容模型走 `/v1/images/generations` / `/v1/images/edits` 或 `image_input` payload；Midjourney、Kling 这类异步协议会提交任务后轮询查询端点；Ideogram/FAL 使用各自专用路径。默认优先要求返回 `b64_json` 并直接落盘；如果上游只返回临时 `url`，才作为兼容兜底下载。为控制上游成本，素材任务默认关闭多候选图；仅在后台或配置显式开启 `image_gen.contact_sheet_enabled` 时，才会按 `n_sample_count` 发起多候选请求。
+
+候选 VL 评分未显式配置 `candidate_vl_ranking_model` 时固定使用 `claude-opus-4-8`，评分时直接以 multipart 文件上传候选图片给模型，不再把候选图编码成 chat `image_url` / 网格占位结构。`local_pixelize` 本地重处理会整体按生成图源图处理：重新走 perfect pixel、去背景、裁切等后处理，并在 perfect pixel 成功时采用自动检测出的真实像素尺寸，而不是强制沿用原任务的固定目标尺寸。
+
+模型能力会控制兼容参数：例如 `gpt-image-2` 当前不发送 `input_fidelity`，只有模型配置 `extra.supports_input_fidelity = true`（或内置判定支持）时图生图请求才会附带该字段，避免上游返回 `invalid_input_fidelity_model`。Crazyrouter 模型发现只会把明确可推断为图片能力的模型暴露给生图；普通文本模型（如 Doubao Lite 32K）不会再误入序列帧 / 生图候选。
 
 前端通过 `GET /settings/image-models` 获取结构化模型能力：`models` 字符串数组保留给旧前端兼容，新前端读取 `items[]` 中的 `operations`、`sizes`、`qualities`、`providers` 和 `provider_count` 来决定模型列表、图生图入口和参数选项。
 
@@ -147,7 +155,7 @@ OpenAI Images 兼容模型走 `/v1/images/generations` / `/v1/images/edits` 或 
 ```text
 01_source_raw.png
 02_perfect_pixel_auto_detect.png
-03_color_to_alpha_remove_background.png
+03_pixel_bg_remove_background.png
 04_auto_crop_tight_bbox.png
 05_rounded_transparent_canvas.png
 06_final_grid_asset.png
@@ -156,6 +164,8 @@ OpenAI Images 兼容模型走 `/v1/images/generations` / `/v1/images/edits` 或 
 这些 `outputs/` 调试产物不入库。
 
 作品库卡片支持“参数”快览：展开作品后可以查看任务提交时的 prompt、输入图、模型、像素化、素材直出、序列帧、计费快照和输出文件路径；快览里的完整 JSON 可一键复制，用于复现生成或排查问题。
+
+普通作品库默认保留最新 10 张未入素材包的成功作品；用户可在作品库中花费 60 点扩容 10 个保留格。保存进素材包的作品不占用普通作品库格子，仍按素材包规则长期保留。
 
 ## Prompt 构建规则
 
@@ -202,7 +212,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 适合场景：地砖、木板、草地、墙面、地毯等需要在游戏地图里反复平铺的纹理素材。
 
-默认 sprite 模板使用 `mosaic_prompt_template` / `mosaic_reference_prompt_template`：1 次 API 调用产出 rows×cols 整张 sheet（`rows × cols ≤ 64`），prompt 中包含 `Layout by Row` 段落 + 行级动作描述 + 整图尺寸契约。后端会为 sprite mosaic 独立选择 API 渲染尺寸，而不是复用通用 `image_gen.size`；内部先按 `target_frame_size × rows×cols × 8` 估算理想渲染画布，再按 API 约束（最大边 ≤3840、16 倍数、长短边比 ≤3:1、总像素 655,360—8,294,400）缩放到合法尺寸。fallback prompt 还会显式告诉模型每个 cell 的 render pixel 尺寸与 pixel-art 像素块大小（`render_width/render_height/cell_render_width/cell_render_height/upscale` 占位符），减少低分辨率生成造成的 perfectPixel 检测漂移。提供参考图时自动套用 `mosaic_reference_prompt_template`，让每个 cell 复用同一角色设计。后端单帧后处理链路固定为「切分每一帧 → perfect pixel → 显式 key_rgb 的 Color-to-Alpha → alpha bbox 裁剪」，不再复用带距离阈值硬抠/halo 清理的 icon 路径，也不会从 cell 四角重新采样背景色，避免多行 mosaic 中主体越界 cell 边界时四角采样到主体色而抠不干净。最终保留原版 `sprite_mosaic.png` + 横向 `sprite_sheet.png`，多行模式额外输出 `sprite_sheet_grid.png` + `row_sheets/` + `previews/`，作品库预览组件读 `sprite_sheet.png + sequence.json` 逐帧播放。
+默认 sprite 模板使用 `mosaic_prompt_template` / `mosaic_reference_prompt_template`：1 次 API 调用产出 rows×cols 整张 sheet（`rows × cols ≤ 64`），prompt 中包含 `Layout by Row` 段落 + 行级动作描述 + 整图尺寸契约。后端会为 sprite mosaic 独立选择 API 渲染尺寸，而不是复用通用 `image_gen.size`；内部先按 `target_frame_size × rows×cols × 8` 估算理想渲染画布，再按 API 约束（最大边 ≤3840、16 倍数、长短边比 ≤3:1、总像素 655,360—8,294,400）缩放到合法尺寸。fallback prompt 还会显式告诉模型每个 cell 的 render pixel 尺寸与 pixel-art 像素块大小（`render_width/render_height/cell_render_width/cell_render_height/upscale` 占位符），减少低分辨率生成造成的 perfectPixel 检测漂移。提供参考图时自动套用 `mosaic_reference_prompt_template`，让每个 cell 复用同一角色设计。后端单帧后处理链路固定为「切分每一帧 → perfect pixel → 显式 key_rgb 的 pixel_bg 双阈值 alpha → alpha bbox 裁剪」，不再复用全局 Color-to-Alpha，也不会从 cell 四角重新采样背景色，避免多行 mosaic 中主体越界 cell 边界时四角采样到主体色而抠不干净。最终保留原版 `sprite_mosaic.png` + 横向 `sprite_sheet.png`，多行模式额外输出 `sprite_sheet_grid.png` + `row_sheets/` + `previews/`，作品库预览组件读 `sprite_sheet.png + sequence.json` 逐帧播放。
 
 作品库支持「调整」编辑器：前端用 Canvas 叠加上一帧/闭环帧半透明影子，用户可拖动每帧主体、用滚轮缩放当前帧主体（绕帧中心），保存时本地重合成 alignment 版本（含 fps、每帧 offset 与 scale），不重新调用 AI，不额外扣点。序列帧作品不再提供「重新像素化」或「AI 微调」入口，避免把整张 sprite sheet 当普通单图再次处理；如需改帧位置使用「调整」，如需导出使用下载。
 

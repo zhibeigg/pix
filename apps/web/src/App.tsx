@@ -4,7 +4,7 @@ import { api, ApiError, TOKEN_KEY } from './api'
 import { AppTabs, type AppPage } from './components/AppTabs'
 import { AccountMenu } from './components/AccountMenu'
 import { AppHero } from './components/AppHero'
-import { AppToast, DeleteConfirmDialog, PackExpandConfirmDialog, showSystemNotification, SiteFooter, WorkspaceShell, type AppToastState, type DeleteConfirmState, type PackExpandConfirmState, type ToastVariant } from './components/AppOverlays'
+import { AppToast, DeleteConfirmDialog, GalleryExpandConfirmDialog, PackExpandConfirmDialog, showSystemNotification, SiteFooter, WorkspaceShell, type AppToastState, type DeleteConfirmState, type GalleryExpandConfirmState, type PackExpandConfirmState, type ToastVariant } from './components/AppOverlays'
 import { AuthPanel } from './components/AuthPanel'
 import { Button } from './components/ui/button'
 import { HeaderUtilityBar } from './components/HeaderUtilityBar'
@@ -22,7 +22,7 @@ const RewardsPage = lazy(() => import('./pages/RewardsPage').then((m) => ({ defa
 import { buildGridDesign, defaultPixelize } from './pixelize'
 import { useI18n } from './i18n'
 import { applyPageSeo } from './lib/seo'
-import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SequenceAlignmentRequest, SetupStatus, SystemSetting, User } from './types'
+import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GalleryQuota, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SequenceAlignmentRequest, SetupStatus, SystemSetting, User } from './types'
 
 type AppProps = {
   themeMode: PixThemeMode
@@ -33,7 +33,7 @@ type AppProps = {
   onLanguageChange: (language: PixLanguage) => void
 }
 
-const PHOTO_RETENTION_LIMIT = 10
+const DEFAULT_PHOTO_RETENTION_LIMIT = 10
 // 历史版本曾把邀请码持久化到 localStorage，会导致用户即使从普通 URL 进来也一直被"识别"为邀请。
 // 现在改为只信任当前 URL 的 ?aff=xxx，并在启动时清理历史残留。
 const LEGACY_REFERRAL_CODE_KEY = 'pix_referral_code'
@@ -99,9 +99,12 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [jobs, setJobs] = useState<GenerationJob[]>([])
   const [packs, setPacks] = useState<AssetPack[]>([])
   const [packQuota, setPackQuota] = useState<AssetPackQuota | null>(null)
+  const [galleryQuota, setGalleryQuota] = useState<GalleryQuota | null>(null)
   const [packExpandConfirm, setPackExpandConfirm] = useState<PackExpandConfirmState | null>(null)
+  const [galleryExpandConfirm, setGalleryExpandConfirm] = useState<GalleryExpandConfirmState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
   const [expandingPackLimit, setExpandingPackLimit] = useState(false)
+  const [expandingGalleryQuota, setExpandingGalleryQuota] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [pricing, setPricing] = useState<PricingRule[]>([])
   const [imageModels, setImageModels] = useState<ImageModelsResponse>({ default: 'gpt-image-2', models: ['gpt-image-2'], items: [] })
@@ -138,6 +141,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const selectedJobPool = page === 'packs' && selectedPackId ? selectedPackJobs : jobs
   const selectedJob = useMemo(() => selectedJobPool.find((job) => job.id === selectedJobId) ?? null, [selectedJobPool, selectedJobId])
   const retainedPhotos = useMemo(() => retainedPhotoCount(jobs), [jobs])
+  const galleryRetentionLimit = galleryQuota?.retained_limit ?? DEFAULT_PHOTO_RETENTION_LIMIT
   const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)).length, [jobs])
   const completedJobs = useMemo(() => jobs.filter((job) => job.status === 'succeeded').length, [jobs])
   const failedJobs = useMemo(() => jobs.filter((job) => job.status === 'failed').length, [jobs])
@@ -188,17 +192,17 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   }, [setMessage, text])
 
   const confirmPhotoRetentionBeforeCreate = useCallback((nextJobCount: number) => {
-    const overflow = retainedPhotos + nextJobCount - PHOTO_RETENTION_LIMIT
+    const overflow = retainedPhotos + nextJobCount - galleryRetentionLimit
     if (overflow <= 0) return true
     return window.confirm(text(
-      `当前已保留 ${retainedPhotos} 张作品。继续生成后，系统会自动删除最旧的 ${overflow} 张作品，只保留最新 ${PHOTO_RETENTION_LIMIT} 张。是否继续？`,
-      `You already keep ${retainedPhotos} works. Continuing will automatically delete the oldest ${overflow} works and keep only the latest ${PHOTO_RETENTION_LIMIT}. Continue?`,
+      `当前已保留 ${retainedPhotos} 张作品。继续生成后，系统会自动删除最旧的 ${overflow} 张作品，只保留最新 ${galleryRetentionLimit} 张。是否继续？`,
+      `You already keep ${retainedPhotos} works. Continuing will automatically delete the oldest ${overflow} works and keep only the latest ${galleryRetentionLimit}. Continue?`,
     ))
-  }, [retainedPhotos, text])
+  }, [galleryRetentionLimit, retainedPhotos, text])
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
-    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextPacks, nextPackQuota, nextPricing, nextImageModels] = await Promise.all([
+    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextGalleryQuota, nextPacks, nextPackQuota, nextPricing, nextImageModels] = await Promise.all([
       api.me(activeToken),
       api.balance(activeToken),
       api.transactions(activeToken),
@@ -206,6 +210,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       api.customRechargeOptions(),
       api.orders(activeToken),
       api.jobs(activeToken),
+      api.galleryQuota(activeToken),
       api.packs(activeToken),
       api.packQuota(activeToken),
       api.pricing(activeToken),
@@ -219,6 +224,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setOrders(nextOrders)
     notifyJobCompletions(nextJobs)
     setJobs(nextJobs)
+    setGalleryQuota(nextGalleryQuota)
     setPacks(nextPacks)
     setPackQuota(nextPackQuota)
     setPricing(nextPricing)
@@ -245,8 +251,10 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const refreshCurrent = useCallback(() => { void refreshCore() }, [refreshCore])
   const selectJobById = useCallback((job: GenerationJob) => { setSelectedJobId(job.id) }, [])
   const cancelPackExpand = useCallback(() => { setPackExpandConfirm(null) }, [])
+  const cancelGalleryExpand = useCallback(() => { setGalleryExpandConfirm(null) }, [])
   const cancelDelete = useCallback(() => { setDeleteConfirm(null) }, [])
   const confirmPackExpand = useCallback(() => { void confirmExpandPackLimit() }, [confirmExpandPackLimit])
+  const confirmGalleryExpand = useCallback(() => { void confirmExpandGalleryQuota() }, [confirmExpandGalleryQuota])
   const confirmDeleteAction = useCallback(() => { void confirmDelete() }, [confirmDelete])
 
   useEffect(() => {
@@ -305,8 +313,9 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       const delay = document.visibilityState === 'hidden' ? Math.max(baseDelay, 15000) : baseDelay
       timer = window.setTimeout(poll, delay)
       try {
-        const [nextJobs, nextPacks, nextPackQuota, nextBalance, nextOrders] = await Promise.all([
+        const [nextJobs, nextGalleryQuota, nextPacks, nextPackQuota, nextBalance, nextOrders] = await Promise.all([
           api.jobs(token),
+          api.galleryQuota(token),
           api.packs(token),
           api.packQuota(token),
           api.balance(token),
@@ -314,6 +323,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
         ])
         notifyJobCompletions(nextJobs)
         setJobs(nextJobs)
+        setGalleryQuota(nextGalleryQuota)
         setPacks(nextPacks)
         setPackQuota(nextPackQuota)
         setBalance(nextBalance)
@@ -444,6 +454,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setJobs([])
     setPacks([])
     setPackQuota(null)
+    setGalleryQuota(null)
     setSelectedPackId(null)
     setSelectedPackJobs([])
     setPricing([])
@@ -612,6 +623,21 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     })
   }
 
+  function expandGalleryQuota() {
+    if (!token) return
+    const price = galleryQuota?.expand_price_credits ?? 60
+    const slots = galleryQuota?.expand_slots ?? 10
+    const currentLimit = galleryQuota?.retained_limit ?? galleryRetentionLimit
+    setGalleryExpandConfirm({
+      price,
+      slots,
+      currentCount: galleryQuota?.retained_count ?? retainedPhotos,
+      currentLimit,
+      nextLimit: currentLimit + slots,
+      availableCredits: balance?.available_credits ?? null,
+    })
+  }
+
   async function confirmExpandPackLimit() {
     if (!token || !packExpandConfirm) return
     setExpandingPackLimit(true)
@@ -625,6 +651,22 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       showError(error)
     } finally {
       setExpandingPackLimit(false)
+    }
+  }
+
+  async function confirmExpandGalleryQuota() {
+    if (!token || !galleryExpandConfirm) return
+    setExpandingGalleryQuota(true)
+    try {
+      const quota = await api.expandGalleryQuota(token)
+      setGalleryQuota(quota)
+      setGalleryExpandConfirm(null)
+      await refreshCore(token)
+      setMessage(text(`作品库已扩容至 ${quota.retained_limit} 格`, `Gallery expanded to ${quota.retained_limit} slots`))
+    } catch (error) {
+      showError(error)
+    } finally {
+      setExpandingGalleryQuota(false)
     }
   }
 
@@ -810,6 +852,19 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setMessage(text('点数已调整', 'Credits adjusted'))
   }
 
+  async function adjustCreditsBatch(payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) {
+    if (!token) return
+    const result = await api.adjustCreditsBatch(token, {
+      user_ids: payload.userIds,
+      all_users: payload.allUsers,
+      amount: payload.amount,
+      note: payload.note,
+    })
+    await refreshCore(token)
+    setMessage(text(`已为 ${result.adjusted_count} 个用户调整点数`, `Credits adjusted for ${result.adjusted_count} users`))
+    return result
+  }
+
   async function updatePricing(key: string, priceCredits: number, enabled: boolean) {
     if (!token) return
     await api.updatePricing(token, key, priceCredits, enabled)
@@ -941,6 +996,12 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
         onCancel={cancelPackExpand}
         onConfirm={confirmPackExpand}
       />
+      <GalleryExpandConfirmDialog
+        state={galleryExpandConfirm}
+        loading={expandingGalleryQuota}
+        onCancel={cancelGalleryExpand}
+        onConfirm={confirmGalleryExpand}
+      />
       <DeleteConfirmDialog
         state={deleteConfirm}
         loading={deleting}
@@ -971,11 +1032,11 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           <Suspense fallback={<div className="grid min-h-[calc(100vh-160px)] place-items-center px-4 text-sm text-muted-foreground">{t('app.checkingSetup')}</div>}>
             {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
-            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} onSelectJob={selectJobById} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onSaveSequenceAlignment={saveSequenceAlignment} />}
+            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onSaveSequenceAlignment={saveSequenceAlignment} />}
             {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
             {page === 'rewards' && <RewardsPage token={token} onRefresh={refreshCurrent} />}
-            {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={refreshCurrent} onAdjustCredits={adjustCredits} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onPublishAnnouncement={publishAnnouncement} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} onAdminAnnouncements={adminAnnouncements} onCreateAnnouncement={createAnnouncement} onUpdateAnnouncement={updateAnnouncement} onDeleteAnnouncement={deleteAnnouncement} onTestAnnouncementEmail={testAnnouncementEmail} />}
+            {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={refreshCurrent} onAdjustCredits={adjustCredits} onAdjustCreditsBatch={adjustCreditsBatch} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onPublishAnnouncement={publishAnnouncement} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} onAdminAnnouncements={adminAnnouncements} onCreateAnnouncement={createAnnouncement} onUpdateAnnouncement={updateAnnouncement} onDeleteAnnouncement={deleteAnnouncement} onTestAnnouncementEmail={testAnnouncementEmail} />}
           </Suspense>
         </WorkspaceShell>
       ) : (

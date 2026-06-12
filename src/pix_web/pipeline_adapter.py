@@ -101,7 +101,9 @@ def asset_pixelize_params_from_json(data: dict[str, Any], cfg: AppConfig) -> Pix
     output_size = _value_from_json(data, "output_size", cfg.asset.pixel_size)
     asset = data.get("asset") or {}
     no_preview = bool(asset.get("no_preview", False)) if isinstance(asset, dict) else False
-    preview_scale = 0 if no_preview else int(_value_from_json(data, "preview_scale", cfg.asset.preview_scale))
+    preview_scale = (
+        0 if no_preview else int(_value_from_json(data, "preview_scale", cfg.asset.preview_scale))
+    )
     return PixelizeParams(
         output_size=(int(output_size[0]), int(output_size[1])),
         colors=int(_value_from_json(data, "colors", cfg.asset.colors)),
@@ -120,7 +122,11 @@ def asset_pixelize_params_from_json(data: dict[str, Any], cfg: AppConfig) -> Pix
         crop_padding=float(_value_from_json(data, "crop_padding", cfg.asset.crop_padding)),
         crop_square=bool(_value_from_json(data, "crop_square", cfg.asset.crop_square)),
         palette_mode=str(_value_from_json(data, "palette_mode", cfg.asset.palette_mode)),  # type: ignore[arg-type]
-        generated_preprocess_method=str(_value_from_json(data, "generated_preprocess_method", cfg.pixelize.generated_preprocess_method)),  # type: ignore[arg-type]
+        generated_preprocess_method=str(
+            _value_from_json(
+                data, "generated_preprocess_method", cfg.pixelize.generated_preprocess_method
+            )
+        ),  # type: ignore[arg-type]
     )
 
 
@@ -175,6 +181,9 @@ def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> Pipeli
     data = job.params_json or {}
     image_path = Path(job.input_image_path) if job.input_image_path else None
     out_root = settings.storage_root / "runs" / f"job-{job.id}"
+    # local_pixelize 的输入通常来自作品库候选、上传后的本地重处理或前端复用源图；
+    # 语义上应按“已生成源图”走 perfect pixel / 去背景 / 裁切等后处理，而不是普通上传 legacy 路径。
+    input_is_generated_source = job.job_type == "local_pixelize"
 
     return PipelineInput(
         prompt=job.prompt,
@@ -191,10 +200,13 @@ def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> Pipeli
         use_cache=True,
         refresh_cache=False,
         local_stage_context=_local_stage_context(settings),
+        input_is_generated_source=input_is_generated_source,
     )
 
 
-def asset_pipeline_input_from_job(job: GenerationJob, settings: WebSettings, cfg: AppConfig) -> PipelineInput:
+def asset_pipeline_input_from_job(
+    job: GenerationJob, settings: WebSettings, cfg: AppConfig
+) -> PipelineInput:
     data = job.params_json or {}
     asset = _asset_data(job)
     name = _asset_name(job)
@@ -216,7 +228,11 @@ def asset_pipeline_input_from_job(job: GenerationJob, settings: WebSettings, cfg
     reference_appendix = _asset_reference_prompt_appendix(asset_kind, image_path is not None)
     if reference_appendix:
         prompt = f"{prompt} {reference_appendix}"
-    image_quality = data.get("image_quality") if _request_includes(data, "image_quality") else cfg.asset.image_quality
+    image_quality = (
+        data.get("image_quality")
+        if _request_includes(data, "image_quality")
+        else cfg.asset.image_quality
+    )
     user_prompt_parts = [name, str(asset.get("extra_prompt") or "").strip()]
     prompt_guard_text = "\n".join(part for part in user_prompt_parts if part)
     return PipelineInput(
@@ -292,10 +308,14 @@ def _write_asset_meta(result: PipelineResult, job: GenerationJob, inputs: Pipeli
         "request_fields": data.get("request_fields") or [],
         "pixelize_fields": data.get("pixelize_fields") or [],
     }
-    result.meta_path.write_text(json.dumps(result.meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    result.meta_path.write_text(
+        json.dumps(result.meta, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
 
-def run_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: AppConfig) -> PipelineResult:
+def run_asset_job_pipeline(
+    job: GenerationJob, settings: WebSettings, cfg: AppConfig
+) -> PipelineResult:
     asset_cfg = deepcopy(cfg)
     asset_cfg.image_gen.contact_sheet_enabled = False
     asset_cfg.image_gen.prompt_guard_remote = False
@@ -305,7 +325,9 @@ def run_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: AppCo
     return result
 
 
-def run_tile_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: AppConfig) -> PipelineResult:
+def run_tile_asset_job_pipeline(
+    job: GenerationJob, settings: WebSettings, cfg: AppConfig
+) -> PipelineResult:
     """平铺纹理专用最小 pipeline：1 次生图 → perfect_pixel → 落盘。
 
     跳过候选生成、VL 评分、grid extract、chroma-key 抠色、auto_crop 与共享调色板等
@@ -384,7 +406,11 @@ def run_tile_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: 
         max_safe_side = max(512, max(width, height) * 8)
         if not applied or max(refined.size) > max_safe_side:
             # perfect_pixel 没生效（或输出仍接近原图），退化到目标尺寸
-            final_image = refined.resize((width, height), Image.NEAREST) if refined.size != (width, height) else refined
+            final_image = (
+                refined.resize((width, height), Image.NEAREST)
+                if refined.size != (width, height)
+                else refined
+            )
         else:
             final_image = refined
 
@@ -476,7 +502,9 @@ def run_tile_asset_job_pipeline(job: GenerationJob, settings: WebSettings, cfg: 
     )
 
 
-def run_job_pipeline(job: GenerationJob, settings: WebSettings, *, cfg: AppConfig | None = None) -> PipelineResult | SpritePipelineResult:
+def run_job_pipeline(
+    job: GenerationJob, settings: WebSettings, *, cfg: AppConfig | None = None
+) -> PipelineResult | SpritePipelineResult:
     resolved_cfg = cfg or load_config(config_file=settings.pix_config_file)
     if job.job_type == "asset":
         asset = _asset_data(job)

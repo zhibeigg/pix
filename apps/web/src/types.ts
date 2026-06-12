@@ -53,6 +53,14 @@ export type CreditTransaction = {
   created_at: string
 }
 
+export type AdminBatchAdjustCreditsResponse = {
+  adjusted_count: number
+  amount: number
+  note: string
+  all_users: boolean
+  transactions: CreditTransaction[]
+}
+
 export type ReferralCurrencyTotals = {
   currency: string
   pending_cents: number
@@ -354,6 +362,14 @@ export type AssetPackQuota = {
   remaining_packs: number
   expand_price_credits: number
   pack_capacity: number
+}
+
+export type GalleryQuota = {
+  retained_count: number
+  retained_limit: number
+  remaining_slots: number
+  expand_price_credits: number
+  expand_slots: number
 }
 
 export type GenerationJob = {

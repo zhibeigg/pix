@@ -79,34 +79,65 @@ def validate_job_request(req: JobCreateRequest) -> None:
     try:
         resolve_asset_generation_policy(tuple(req.pixelize.output_size))
     except AssetSizePolicyError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     if req.job_type == "asset" and not _asset_name(req):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="素材直出任务需要主体内容")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="素材直出任务需要主体内容"
+        )
     if req.job_type == "asset" and req.input_image_path and not Path(req.input_image_path).exists():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="参考图不存在")
     if req.job_type == "text_to_image" and not prompt:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="文生图任务需要 prompt")
-    if req.job_type == "text_to_image" and req.source_only and len(prompt) > RAW_IMAGE_PROMPT_MAX_LENGTH:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"原生生图 prompt 最多支持 {RAW_IMAGE_PROMPT_MAX_LENGTH} 字")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="文生图任务需要 prompt"
+        )
+    if (
+        req.job_type == "text_to_image"
+        and req.source_only
+        and len(prompt) > RAW_IMAGE_PROMPT_MAX_LENGTH
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"原生生图 prompt 最多支持 {RAW_IMAGE_PROMPT_MAX_LENGTH} 字",
+        )
     if req.job_type == "image_to_image" and not prompt:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="图生图任务需要 prompt")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="图生图任务需要 prompt"
+        )
     if req.job_type == "sprite_sheet" and not prompt:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="序列帧任务需要 prompt")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="序列帧任务需要 prompt"
+        )
     if req.job_type == "sprite_sheet":
         sprite = req.sprite
         if sprite.rows < 1 or sprite.rows > 8 or sprite.cols < 1 or sprite.cols > 8:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="序列帧每行/每列最多支持 8")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="序列帧每行/每列最多支持 8"
+            )
         if sprite.rows * sprite.cols < 1:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="序列帧网格至少需要 1 个单元")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="序列帧网格至少需要 1 个单元",
+            )
         if sprite.rows >= 2 and len(sprite.row_prompts) < sprite.rows:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="多行序列帧需要为每一行填写动作描述")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="多行序列帧需要为每一行填写动作描述",
+            )
         if sprite.reference_image_path and not Path(sprite.reference_image_path).exists():
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="参考图不存在")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="参考图不存在"
+            )
     if req.job_type in IMAGE_JOB_TYPES:
         if not req.input_image_path:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="该任务需要输入图片")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="该任务需要输入图片"
+            )
         if not Path(req.input_image_path).exists():
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="输入图片不存在")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="输入图片不存在"
+            )
 
 
 def params_json_from_request(req: JobCreateRequest, *, billing: dict | None = None) -> dict:
@@ -157,7 +188,9 @@ def _sprite_billing_units(req: JobCreateRequest) -> int:
 
 
 def _base_price_for_request(db: Session, req: JobCreateRequest) -> int:
-    price_key = "image_to_image" if req.job_type == "asset" and req.input_image_path else req.job_type
+    price_key = (
+        "image_to_image" if req.job_type == "asset" and req.input_image_path else req.job_type
+    )
     try:
         return get_price(db, price_key)
     except PricingDisabledError as exc:
@@ -171,7 +204,9 @@ def _price_for_request(db: Session, req: JobCreateRequest) -> int:
     return base_price
 
 
-def _billing_snapshot_for_request(db: Session, req: JobCreateRequest, *, total_price: int | None = None) -> dict | None:
+def _billing_snapshot_for_request(
+    db: Session, req: JobCreateRequest, *, total_price: int | None = None
+) -> dict | None:
     if req.job_type != "sprite_sheet":
         return None
     base_price = _base_price_for_request(db, req)
@@ -236,11 +271,14 @@ def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
         raise insufficient_credits_http() from exc
     db.commit()
     db.refresh(job)
-    return db.scalar(
-        select(GenerationJob)
-        .options(selectinload(GenerationJob.outputs))
-        .where(GenerationJob.id == job.id)
-    ) or job
+    return (
+        db.scalar(
+            select(GenerationJob)
+            .options(selectinload(GenerationJob.outputs))
+            .where(GenerationJob.id == job.id)
+        )
+        or job
+    )
 
 
 def _default_batch_name() -> str:
@@ -256,7 +294,9 @@ def create_jobs_batch(
     mode: str = "mixed",
 ) -> tuple[list[GenerationJob], int, GenerationBatch | None]:
     if not reqs:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="批量任务不能为空")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="批量任务不能为空"
+        )
 
     total_price = 0
     prices: list[int] = []
@@ -267,7 +307,10 @@ def create_jobs_batch(
         request_id = req.client_request_id.strip()
         if request_id:
             if request_id in seen_request_ids:
-                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="批量任务中存在重复 client_request_id")
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="批量任务中存在重复 client_request_id",
+                )
             seen_request_ids.add(request_id)
         existing = _existing_job(db, user, request_id)
         if existing is not None:
@@ -374,14 +417,19 @@ def retry_failed_job(db: Session, user: User, job_id: int) -> GenerationJob:
         raise insufficient_credits_http() from exc
 
     db.commit()
-    return db.scalar(
-        select(GenerationJob)
-        .options(selectinload(GenerationJob.outputs), selectinload(GenerationJob.batch))
-        .where(GenerationJob.id == job.id)
-    ) or job
+    return (
+        db.scalar(
+            select(GenerationJob)
+            .options(selectinload(GenerationJob.outputs), selectinload(GenerationJob.batch))
+            .where(GenerationJob.id == job.id)
+        )
+        or job
+    )
 
 
-def retry_failed_jobs_in_batch(db: Session, user: User, batch_id: int) -> tuple[list[GenerationJob], int, GenerationBatch]:
+def retry_failed_jobs_in_batch(
+    db: Session, user: User, batch_id: int
+) -> tuple[list[GenerationJob], int, GenerationBatch]:
     batch = db.scalar(
         select(GenerationBatch)
         .options(selectinload(GenerationBatch.jobs))

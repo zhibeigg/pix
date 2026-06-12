@@ -14,6 +14,7 @@ import type { AssetPack, CreditBalance, GenerationJob, User } from '../types'
 export type ToastVariant = 'success' | 'info' | 'error'
 export type AppToastState = { id: number; message: string; variant: ToastVariant }
 export type PackExpandConfirmState = { price: number; currentCount: number; currentLimit: number; nextLimit: number; availableCredits: number | null }
+export type GalleryExpandConfirmState = { price: number; currentCount: number; currentLimit: number; nextLimit: number; slots: number; availableCredits: number | null }
 export type DeleteConfirmState = { kind: 'job'; job: GenerationJob } | { kind: 'pack'; pack: AssetPack }
 
 /* ── DeleteConfirmDialog ───────────────────────────────── */
@@ -139,6 +140,48 @@ export function PackExpandConfirmDialog({ state, loading, onCancel, onConfirm }:
   )
 }
 
+export function GalleryExpandConfirmDialog({ state, loading, onCancel, onConfirm }: { state: GalleryExpandConfirmState | null; loading: boolean; onCancel: () => void; onConfirm: () => void }) {
+  const { t } = useI18n()
+  const available = state?.availableCredits ?? null
+  return (
+    <Dialog open={Boolean(state)} modal={false} onOpenChange={(open) => { if (!open && !loading) onCancel() }}>
+      <DialogContent className="overflow-hidden border-[hsl(var(--pix-paper-border))] bg-card p-0 shadow-[0_24px_80px_-24px_rgba(15,15,15,0.42)] sm:max-w-[480px] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
+        {state && (
+          <div className="relative grid gap-5 p-6">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_20%_0%,hsl(var(--pix-brand-green)/.18),transparent_38%),linear-gradient(180deg,hsl(var(--pix-mint)/.62),transparent)] dark:bg-[radial-gradient(circle_at_20%_0%,hsl(var(--pix-brand-green)/.26),transparent_38%),linear-gradient(180deg,hsl(var(--pix-navy)/.72),transparent)]" />
+            <DialogHeader className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-3 pr-8">
+              <div className="grid h-12 w-12 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary shadow-[0_12px_28px_-18px_rgba(79,70,229,0.72)] dark:border-primary/30 dark:bg-primary/18">
+                <PackagePlus className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-xl leading-tight">{t('gallery.expandDialogTitle')}</DialogTitle>
+                <DialogDescription className="mt-2 leading-6">{t('gallery.expandDialogDescription', { price: state.price, slots: state.slots })}</DialogDescription>
+              </div>
+            </DialogHeader>
+            <div className="relative grid gap-2 rounded-lg border border-border bg-background/82 p-3 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <DialogMetric label={t('gallery.expandDialogCurrent')} value={`${state.currentCount}/${state.currentLimit}`} />
+                <DialogMetric label={t('gallery.expandDialogAfter')} value={`${state.currentCount}/${state.nextLimit}`} tone="primary" />
+                <DialogMetric label={t('gallery.expandDialogCost')} value={t('common.points', { count: state.price })} />
+              </div>
+              {available !== null && (
+                <div className="mt-1 flex items-center gap-2 rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground dark:bg-white/6 dark:text-white/58">
+                  <Coins className="h-4 w-4 text-primary" />
+                  <span>{t('gallery.expandDialogBalance', { count: available })}</span>
+                </div>
+              )}
+            </div>
+            <DialogFooter className="relative">
+              <Button type="button" variant="outline" disabled={loading} onClick={onCancel}>{t('common.cancel')}</Button>
+              <Button type="button" disabled={loading} onClick={onConfirm}>{loading ? t('gallery.expandDialogWorking') : t('gallery.expandDialogConfirm')}</Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function DialogMetric({ label, value, tone = 'default' }: { label: ReactNode; value: ReactNode; tone?: 'default' | 'primary' }) {
   const labelClass = tone === 'primary' ? 'text-primary/72 dark:text-primary/82' : 'text-muted-foreground dark:text-white/52'
   return (
@@ -163,12 +206,12 @@ export function AppToast({ toast, onDismiss }: { toast: AppToastState | null; on
   const iconTone = toast.variant === 'error' ? 'text-red-100 dark:text-red-200' : toast.variant === 'info' ? 'text-[hsl(var(--pix-link-blue))] dark:text-sky-200' : 'text-emerald-700 dark:text-emerald-200'
 
   return (
-    <div className="pointer-events-none fixed left-1/2 top-5 z-[100] w-[min(calc(100vw-32px),420px)] -translate-x-1/2 px-0">
-      <div key={toast.id} role="status" aria-live="polite" className={`motion-success-pop pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-[0_16px_48px_-8px_rgba(15,15,15,0.26)] ring-1 ring-black/5 ${tone}`}>
-        <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${iconTone}`} />
-        <p className="min-w-0 flex-1 leading-6">{toast.message}</p>
-        <button type="button" onClick={onDismiss} aria-label={t('app.toastDismiss')} className="-mr-1 grid min-h-[44px] min-w-[44px] place-items-center rounded-md opacity-72 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
-          <X className="h-4 w-4" />
+    <div className="pointer-events-none fixed left-1/2 top-3 z-[100] w-[min(calc(100vw-24px),360px)] -translate-x-1/2 px-0 md:top-4">
+      <div key={toast.id} role="status" aria-live="polite" className={`motion-success-pop pointer-events-auto relative flex items-center gap-2.5 rounded-md border px-3 py-2 pr-10 text-sm font-medium shadow-[0_12px_34px_-14px_rgba(15,15,15,0.34)] ring-1 ring-black/5 ${tone}`}>
+        <Icon className={`h-4 w-4 shrink-0 ${iconTone}`} />
+        <p className="min-w-0 flex-1 leading-5">{toast.message}</p>
+        <button type="button" onClick={onDismiss} aria-label={t('app.toastDismiss')} className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md opacity-72 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
+          <X className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { AdminDashboard, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, PricingRule, SystemSetting, User } from '../types'
+import type { AdminBatchAdjustCreditsResponse, AdminDashboard, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, PricingRule, SystemSetting, User } from '../types'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -13,24 +13,20 @@ import { PixMetric } from './pix/PixMetric'
 import { PixPanel } from './pix/PixPanel'
 import { api } from '../api'
 
-type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onPublishAnnouncement: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void>; onAdminAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }> }
+type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onAdjustCreditsBatch: (payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) => Promise<AdminBatchAdjustCreditsResponse | void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onPublishAnnouncement: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void>; onAdminAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }> }
 const settingTabs = ['运营保护', '邮件验证码', '模型与 API', '素材默认值', '序列帧', '支付与站点', '存储 / 队列 / 安全']
 
-export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings, onRefresh, onAdjustCredits, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onPublishAnnouncement, onTestEmail, onAdminRetryJob, onAdminCancelJob, onAdminFailRefundJob, onAdminAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement, onTestAnnouncementEmail }: Props) {
+export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings, onRefresh, onAdjustCredits, onAdjustCreditsBatch, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onPublishAnnouncement, onTestEmail, onAdminRetryJob, onAdminCancelJob, onAdminFailRefundJob, onAdminAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement, onTestAnnouncementEmail }: Props) {
   const [tab, setTab] = useState('dashboard')
-  const [selectedUser, setSelectedUser] = useState('0')
-  const [amount, setAmount] = useState(100)
-  const [note, setNote] = useState('运营补点')
   const groups = useMemo(() => groupSettings(settings), [settings])
   const settingGroup = groups[tab]
-  async function submitAdjust(event: FormEvent) { event.preventDefault(); if (Number(selectedUser)) await onAdjustCredits(Number(selectedUser), amount, note) }
   return (
     <PixPanel eyebrow="Control Room" title="管理后台" description="配置站点、模型、邮件、套餐和运营保护。高风险环境项只显示状态。" action={<Button variant="outline" onClick={onRefresh}>刷新</Button>}>
       <div className="grid gap-6">
         <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="jobs">任务操作</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
         {tab === 'dashboard' && dashboard && <DashboardGrid dashboard={dashboard} />}
         {tab === 'jobs' && <AdminJobsList jobs={jobs} onRetry={onAdminRetryJob} onCancel={onAdminCancelJob} onFailRefund={onAdminFailRefundJob} />}
-        {tab === 'users' && <form className="grid max-w-xl gap-4" onSubmit={submitAdjust}><PixField label="用户"><Select value={selectedUser} onValueChange={setSelectedUser}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">选择用户</SelectItem>{users.map((u) => <SelectItem value={String(u.id)} key={u.id}>{u.email} · {u.role}</SelectItem>)}</SelectContent></Select></PixField><PixField label="点数变化"><Input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></PixField><PixField label="备注"><Input value={note} onChange={(e) => setNote(e.target.value)} /></PixField><Button type="submit">调整点数</Button></form>}
+        {tab === 'users' && <AdminCreditsPanel users={users} onAdjustSingle={onAdjustCredits} onAdjustBatch={onAdjustCreditsBatch} />}
         {tab === 'announcements' && <AnnouncementEditor onPublish={onPublishAnnouncement} onTestEmail={onTestEmail} onListAnnouncements={onAdminAnnouncements} onCreateAnnouncement={onCreateAnnouncement} onUpdateAnnouncement={onUpdateAnnouncement} onDeleteAnnouncement={onDeleteAnnouncement} onTestAnnouncementEmail={onTestAnnouncementEmail} />}
         {tab === 'pricing' && <div className="grid gap-3"><h3 className="text-lg font-semibold">价格规则</h3>{pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}</div>}
         {tab === 'packages' && <PackageEditor packages={packages} onCreate={onCreatePackage} onUpdate={onUpdatePackage} />}
@@ -41,6 +37,120 @@ export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings
 }
 
 function groupSettings(settings: SystemSetting[]) { return settings.reduce<Record<string, SystemSetting[]>>((acc, setting) => { const category = setting.category || '其他'; acc[category] = acc[category] || []; acc[category].push(setting); return acc }, {}) }
+
+function AdminCreditsPanel({ users, onAdjustSingle, onAdjustBatch }: { users: User[]; onAdjustSingle: (userId: number, amount: number, note: string) => Promise<void>; onAdjustBatch: (payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) => Promise<AdminBatchAdjustCreditsResponse | void> }) {
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [allUsers, setAllUsers] = useState(false)
+  const [amount, setAmount] = useState(100)
+  const [note, setNote] = useState('运营补点')
+  const [quickUser, setQuickUser] = useState('0')
+  const [submitting, setSubmitting] = useState(false)
+  const [resultText, setResultText] = useState('')
+  const pageUserIds = users.map((user) => user.id)
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
+  const allPageSelected = pageUserIds.length > 0 && pageUserIds.every((id) => selectedSet.has(id))
+  const targetCountLabel = allUsers ? '全部活跃用户' : `${selectedIds.length} 个已选用户`
+  const canSubmit = amount !== 0 && (allUsers || selectedIds.length > 0) && !submitting
+
+  function toggleUser(userId: number, checked: boolean) {
+    setAllUsers(false)
+    setSelectedIds((current) => checked ? Array.from(new Set([...current, userId])) : current.filter((id) => id !== userId))
+  }
+
+  function toggleAllPage(checked: boolean) {
+    setAllUsers(false)
+    setSelectedIds(checked ? pageUserIds : [])
+  }
+
+  function applyQuickUser(value: string) {
+    setQuickUser(value)
+    const userId = Number(value)
+    if (userId > 0) {
+      setAllUsers(false)
+      setSelectedIds([userId])
+    }
+  }
+
+  async function submitBatch(event: FormEvent) {
+    event.preventDefault()
+    if (!canSubmit) return
+    const targetText = allUsers ? '全部活跃用户' : `${selectedIds.length} 个用户`
+    const sign = amount > 0 ? '+' : ''
+    if (!window.confirm(`确认给 ${targetText} 调整 ${sign}${amount} 点？`)) return
+    setSubmitting(true)
+    setResultText('')
+    try {
+      if (!allUsers && selectedIds.length === 1) {
+        await onAdjustSingle(selectedIds[0], amount, note)
+        setResultText(`已为 1 个用户调整 ${sign}${amount} 点。`)
+      } else {
+        const result = await onAdjustBatch({ userIds: selectedIds, allUsers, amount, note })
+        const count = result?.adjusted_count ?? (allUsers ? 0 : selectedIds.length)
+        setResultText(`已为 ${count} 个用户调整 ${sign}${amount} 点。`)
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]" onSubmit={submitBatch}>
+      <div className="grid gap-4 rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">用户与点数</h3>
+            <p className="text-sm text-muted-foreground">选择单个或多个用户后统一调整点数；需要覆盖所有账户时使用“全部活跃用户”。</p>
+          </div>
+          <Badge variant={allUsers || selectedIds.length > 0 ? 'info' : 'outline'}>{targetCountLabel}</Badge>
+        </div>
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+          <PixField label="快速选择单人">
+            <Select value={quickUser} onValueChange={applyQuickUser}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="0">选择用户</SelectItem>{users.map((u) => <SelectItem value={String(u.id)} key={u.id}>{u.email} · {u.role}</SelectItem>)}</SelectContent>
+            </Select>
+          </PixField>
+          <label className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+            <Checkbox checked={allPageSelected} onCheckedChange={(value) => toggleAllPage(Boolean(value))} />
+            全选当前列表
+          </label>
+          <label className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+            <Checkbox checked={allUsers} onCheckedChange={(value) => { const checked = Boolean(value); setAllUsers(checked); if (checked) setSelectedIds([]) }} />
+            全部活跃用户
+          </label>
+        </div>
+        <div className="max-h-[360px] overflow-auto rounded-xl border border-border">
+          {users.length === 0 ? <p className="p-4 text-sm text-muted-foreground">暂无用户。</p> : users.map((user) => {
+            const selected = selectedSet.has(user.id)
+            return (
+              <label key={user.id} className={`grid cursor-pointer gap-2 border-b border-border px-4 py-3 last:border-b-0 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center ${selected ? 'bg-primary/10' : 'bg-card'}`}>
+                <Checkbox checked={selected} onCheckedChange={(value) => toggleUser(user.id, Boolean(value))} />
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{user.display_name || user.email}</span>
+                  <span className="block truncate text-xs text-muted-foreground">#{user.id} · {user.email}</span>
+                </span>
+                <Badge variant={user.role === 'admin' ? 'default' : user.status === 'active' ? 'secondary' : 'outline'}>{user.role} · {user.status}</Badge>
+              </label>
+            )
+          })}
+        </div>
+      </div>
+      <div className="grid content-start gap-4 rounded-xl border border-border bg-muted/40 p-4">
+        <PixField label="点数变化"><Input type="number" value={amount} onChange={(event) => setAmount(Number(event.target.value))} /></PixField>
+        <PixField label="备注"><Input value={note} onChange={(event) => setNote(event.target.value)} /></PixField>
+        <div className="rounded-lg border border-border bg-background p-3 text-sm text-muted-foreground">
+          <p className="font-medium text-foreground">发送摘要</p>
+          <p className="mt-1">对象：{targetCountLabel}</p>
+          <p>每人：{amount > 0 ? '+' : ''}{amount} 点</p>
+          <p className="truncate">备注：{note || '管理员批量调整点数'}</p>
+        </div>
+        <Button type="submit" disabled={!canSubmit}>{submitting ? '调整中…' : '批量调整点数'}</Button>
+        {resultText && <Alert variant="success">{resultText}</Alert>}
+      </div>
+    </form>
+  )
+}
+
 function DashboardGrid({ dashboard }: { dashboard: AdminDashboard }) {
   return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><PixMetric label="今日任务" value={dashboard.jobs_today} tone="info" /><PixMetric label="成功 / 失败" value={`${dashboard.succeeded_today} / ${dashboard.failed_today}`} tone={dashboard.failed_today > 0 ? 'danger' : 'success'} /><PixMetric label="策略拦截" value={dashboard.policy_blocked_today} tone={dashboard.policy_blocked_today > 0 ? 'warning' : 'success'} /><PixMetric label="上游 / 超时" value={`${dashboard.upstream_errors_today} / ${dashboard.timeout_jobs_today}`} tone={(dashboard.upstream_errors_today + dashboard.timeout_jobs_today) > 0 ? 'danger' : 'success'} /><PixMetric label="Pipeline 异常" value={dashboard.pipeline_errors_today} tone={dashboard.pipeline_errors_today > 0 ? 'danger' : 'success'} /><PixMetric label="排队 / 运行" value={`${dashboard.pending_jobs} / ${dashboard.running_jobs}`} tone="info" /><PixMetric label="运行超 30 分钟" value={dashboard.running_over_30m_jobs} tone={dashboard.running_over_30m_jobs > 0 ? 'warning' : 'success'} /><PixMetric label="候选失败 / 警告" value={`${dashboard.candidate_failures_today} / ${dashboard.pipeline_warnings_today}`} tone={(dashboard.candidate_failures_today + dashboard.pipeline_warnings_today) > 0 ? 'warning' : 'success'} /><PixMetric label="平均耗时" value={`${Math.round(dashboard.average_generation_seconds_today)}s`} /><PixMetric label="P95 耗时" value={`${Math.round(dashboard.p95_generation_seconds_today)}s`} /><PixMetric label="今日充值" value={dashboard.credits_recharged_today} tone="success" /><PixMetric label="今日消费" value={dashboard.credits_consumed_today} tone="warning" /><PixMetric label="今日上传" value={dashboard.uploads_today} /><PixMetric label="总用户" value={dashboard.total_users} /><PixMetric label="失败率" value={`${Math.round(dashboard.failure_rate * 100)}%`} tone={dashboard.failure_rate > 0.1 ? 'danger' : 'success'} /></div>
 }

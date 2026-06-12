@@ -26,6 +26,8 @@ from pix_web.queue import enqueue_jobs
 from pix_web.referrals import frontend_invite_base_url
 from pix_web.schemas import (
     AdminAdjustCreditsRequest,
+    AdminBatchAdjustCreditsRequest,
+    AdminBatchAdjustCreditsResponse,
     AdminDashboardResponse,
     AnnouncementCreateRequest,
     AnnouncementItemResponse,
@@ -78,6 +80,46 @@ def adjust_user_credits(
     db.commit()
     db.refresh(tx)
     return tx
+
+
+@router.post("/users/adjust-credits-batch", response_model=AdminBatchAdjustCreditsResponse)
+def adjust_users_credits_batch(
+    req: AdminBatchAdjustCreditsRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    if req.all_users:
+        stmt = select(User).where(User.status == "active").order_by(User.id.asc())
+    else:
+        unique_ids = sorted({int(user_id) for user_id in req.user_ids if int(user_id) > 0})
+        if not unique_ids:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="请选择至少一个有效用户")
+        stmt = select(User).where(User.id.in_(unique_ids)).order_by(User.id.asc())
+
+    target_users = list(db.scalars(stmt))
+    if not target_users:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="没有找到可调整点数的用户")
+    if not req.all_users:
+        found_ids = {user.id for user in target_users}
+        missing_ids = [user_id for user_id in unique_ids if user_id not in found_ids]
+        if missing_ids:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"用户不存在：{', '.join(str(user_id) for user_id in missing_ids[:10])}",
+            )
+
+    note = req.note or ("管理员批量调整点数（全部活跃用户）" if req.all_users else "管理员批量调整点数")
+    transactions = [adjust_credits(db, user, req.amount, note) for user in target_users]
+    db.commit()
+    for tx in transactions:
+        db.refresh(tx)
+    return {
+        "adjusted_count": len(transactions),
+        "amount": req.amount,
+        "note": note,
+        "all_users": req.all_users,
+        "transactions": transactions,
+    }
 
 
 @router.get("/jobs", response_model=list[JobResponse])

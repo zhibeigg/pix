@@ -111,8 +111,8 @@ class ImageGenConfig:
     model_discovery_enabled: bool = True
     model_discovery_ttl_seconds: int = 3600
     provider_poll_interval_seconds: float = 2.0
-    # 受控生图：默认让模型一次生成九宫格候选，后端再切图和抠动态纯色 key background。
-    contact_sheet_enabled: bool = True
+    # 受控候选生图：默认关闭，避免素材任务一次生成多张候选导致上游成本放大。
+    contact_sheet_enabled: bool = False
     contact_sheet_rows: int = 3
     contact_sheet_cols: int = 3
     green_screen_color: str = "auto"
@@ -135,7 +135,7 @@ class ImageGenConfig:
     prompt_guard_failure_policy: str = "local"  # local | reject
     # 用户原始描述上限；Web 表单和后端校验统一为 3000 字。
     prompt_guard_max_chars: int = 3000
-    # 候选图评分：把切出的候选一次性送入 VL，按像素素材质量排序并选择最高分。
+    # 候选图评分：把候选图片直接上传到 VL，按像素素材质量排序并选择最高分。
     candidate_vl_ranking_enabled: bool = True
     candidate_vl_ranking_model: str = ""
     candidate_vl_ranking_failure_policy: str = "first"  # first | reject
@@ -143,8 +143,8 @@ class ImageGenConfig:
     #   n_sample     —— 直接调用 n=N 让模型返回 N 张独立 full-res 图，每张单独抠色评分（默认）
     #   contact_sheet —— 旧路径：生成 RxC 九宫格再切图
     candidate_mode: str = "n_sample"
-    # n-sample 候选数量；经验值 4 个；成本随 N 线性增长
-    n_sample_count: int = 4
+    # n-sample 候选数量；默认 1 个，避免候选模式开启时放大上游成本。
+    n_sample_count: int = 1
     # 若 provider 不支持 n=N 单次返回，fallback 循环调用时追加的 prompt 变体（非强约束，仅鼓励差异）
     n_sample_prompt_variations: list[str] = field(default_factory=lambda: [
         "slight variation in color tone.",
@@ -168,7 +168,7 @@ class ImageGenConfig:
 
 @dataclass
 class VisionConfig:
-    model: str = "claude-opus-4-7"
+    model: str = "claude-opus-4-8"
     temperature: float = 0.2
     max_tokens: int = 2048
     retry_on_parse: int = 1
@@ -187,7 +187,7 @@ class PixelizeConfig:
     resample: str = "smart"
     # 是否在 smart 模式下尝试探测输入像素格并吸附到整数倍
     snap_to_grid: bool = True
-    # 自动抠背景（以四角纯色作为 key，使用 Color-to-Alpha）
+    # 自动抠背景（参考 pixel_bg：边框中位数 key 色 + 双阈值连通域 + 二值 alpha）
     remove_bg: bool = False
     bg_tolerance: int = 12
     bg_feather: int = 0
@@ -220,7 +220,7 @@ class AssetConfig:
     bg_tolerance: int = 26
     bg_feather: int = 0
     edge_style: str = "hard"
-    bg_removal_algorithm: str = "color_to_alpha"  # 固定使用 color_to_alpha；保留字段兼容旧配置
+    bg_removal_algorithm: str = "pixel_bg"  # pixel_bg 双阈值连通域 + 二值 alpha；旧值运行时兼容
     color_to_alpha_shape: str = "sphere"  # sphere | cube
     color_to_alpha_transparency: int = 48
     color_to_alpha_opacity: int = 255
@@ -440,6 +440,7 @@ def _packy_provider_from_legacy(cfg: AppConfig) -> ImageProviderConfig | None:
                 sizes=["auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"],
                 qualities=["auto", "low", "medium", "high"],
                 output_formats=["png", "jpeg", "webp"],
+                extra={"supports_input_fidelity": False},
             ),
             ImageProviderModelConfig(
                 id="gemini-3.1-flash-image-preview",

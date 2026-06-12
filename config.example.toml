@@ -35,6 +35,8 @@ operations = ["text_to_image", "image_to_image"]
 sizes = ["auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"]
 qualities = ["auto", "low", "medium", "high"]
 output_formats = ["png", "jpeg", "webp"]
+# gpt-image-2 当前不支持 input_fidelity；Provider 请求会按此能力决定是否发参。
+extra = { supports_input_fidelity = false }
 
 [[image_providers]]
 id = "packy"
@@ -55,6 +57,8 @@ operations = ["text_to_image", "image_to_image"]
 sizes = ["auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"]
 qualities = ["auto", "low", "medium", "high"]
 output_formats = ["png", "jpeg", "webp"]
+# gpt-image-2 当前不支持 input_fidelity；Provider 请求会按此能力决定是否发参。
+extra = { supports_input_fidelity = false }
 
 [image_gen]
 model          = "gpt-image-2"
@@ -70,8 +74,8 @@ failover_on = ["network", "timeout", "rate_limit", "server_error", "empty_respon
 model_discovery_enabled = true
 model_discovery_ttl_seconds = 3600
 provider_poll_interval_seconds = 2.0
-# 默认受控生图：一次生成九宫格候选，后端切图并抠纯色 key background。
-contact_sheet_enabled = true
+# 候选生图默认关闭：避免一次任务生成多张候选图导致上游成本放大；需要质量优先时可手动开启。
+contact_sheet_enabled = false
 contact_sheet_rows = 3
 contact_sheet_cols = 3
 # auto 会按 prompt 动态选择不易撞色的纯色背景（如 #FF00FF/#00FFFF/#00FF00），也可固定为某个 HEX。
@@ -85,16 +89,16 @@ prompt_guard_remote = true
 prompt_guard_model = ""              # 留空使用 [vision].model
 prompt_guard_failure_policy = "local" # local | reject
 prompt_guard_max_chars = 3000 # 用户原始描述上限；Web 表单和后端校验统一为 3000 字
-# 候选排序：九宫格切出的候选会一次性送入 VL 按效果评分，最高分作为默认 01_source.png。
+# 候选排序：候选图片会直接以 multipart 文件上传给 VL 按效果评分，最高分作为默认 01_source.png。
 candidate_vl_ranking_enabled = true
-candidate_vl_ranking_model = ""              # 留空使用 [vision].model
+candidate_vl_ranking_model = ""              # 留空使用候选评分默认模型 claude-opus-4-8
 candidate_vl_ranking_failure_policy = "first" # first | reject
 # 候选生成模式：
 #   n_sample     —— 直接让模型返回 N 张独立 full-res 图，每张单独抠色，VL 看 full-res 评分（推荐）
 #   contact_sheet —— 旧路径：生成 RxC 九宫格再切图；候选细节更少
 candidate_mode = "n_sample"
-# n_sample 模式下的候选数量，建议 3~6
-n_sample_count = 4
+# n_sample 模式下的候选数量；默认 1，避免多图成本，质量优先时可调高到 3~6。
+n_sample_count = 1
 # 若 provider 单次 n=N 不够 N 张，fallback 循环补齐时追加的 prompt 变体（非强约束，仅鼓励差异）
 n_sample_prompt_variations = [
     "slight variation in color tone.",
@@ -105,8 +109,8 @@ n_sample_prompt_variations = [
 n_sample_prompt_template = "Create one TRUE pixel-art game asset candidate from this generation brief: {description}. Follow the generation brief exactly, not a painted digital illustration. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, and a simple silhouette. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and clean extraction. Use pure solid key-color {green} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no extra frame, no labels."
 
 [vision]
-# Packy 支持的视觉模型，示例：claude-opus-4-7 / claude-sonnet-4-5 / gemini-2.5-pro / gpt-4o 等
-model          = "claude-opus-4-7"
+# Packy 支持的视觉模型，示例：claude-opus-4-8 / claude-sonnet-4-5 / gemini-2.5-pro / gpt-4o 等
+model          = "claude-opus-4-8"
 temperature    = 0.2
 max_tokens     = 2048
 # 连续 JSON 校验失败时的重试次数
@@ -131,9 +135,9 @@ saturation     = 1.0
 resample       = "smart"
 # smart 模式下是否探测输入的像素格并吸附到整数倍
 snap_to_grid   = true
-# 自动抠背景：四角连通色变透明，保存为 PNG 带 alpha
+# 自动抠背景：参考 pixel_bg，边框中位数 key 色 + 双阈值连通域变透明，保存为 PNG 带 alpha
 remove_bg      = false
-# 背景容差（每通道欧氏距离阈值，越大抠越狠；8-24 常用）
+# 背景容差：26 对应参考项目默认 t_core=60 / t_grow=120；更低值会收紧阈值
 bg_tolerance   = 12
 # 边缘风格：hard=不额外处理，feather=alpha 羽化，outline=外侧描边（三者互斥）
 # 低像素透明素材会尊重用户/配置选择，不再自动强制改用 outline。
@@ -167,8 +171,9 @@ image_quality  = "low"
 skip_vl        = true
 remove_bg      = true
 bg_tolerance   = 26
-# 背景移除算法：固定使用 Color-to-Alpha；旧选项仅为兼容历史配置。
-bg_removal_algorithm = "color_to_alpha" # color_to_alpha
+# 背景移除算法：默认使用 pixel_bg 双阈值连通域 + 二值 alpha；会清理主体内部封闭 key 背景。
+bg_removal_algorithm = "pixel_bg" # pixel_bg（旧值 imagemagick_fuzz_floodfill_alpha/color_to_alpha/auto 等会兼容到同一路径）
+# 旧 Color-to-Alpha 参数保留兼容历史配置；默认背景移除不再使用全局 Color-to-Alpha。
 color_to_alpha_shape = "sphere" # sphere | cube
 color_to_alpha_transparency = 48
 color_to_alpha_opacity = 255

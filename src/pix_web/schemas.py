@@ -14,7 +14,9 @@ from PIL import Image
 
 from pix_web.storage import file_url
 
-JobType = Literal["asset", "text_to_image", "image_to_image", "local_pixelize", "repixelize", "sprite_sheet"]
+JobType = Literal[
+    "asset", "text_to_image", "image_to_image", "local_pixelize", "repixelize", "sprite_sheet"
+]
 
 
 def _load_meta_json(path: str | None) -> dict[str, Any]:
@@ -101,7 +103,11 @@ def _resolve_meta_relative_path(meta_json_path: str | None, value: str | None) -
     path = Path(value)
     if path.is_absolute():
         return str(path)
-    return str(Path(meta_json_path).with_name(value) if "/" not in value and "\\" not in value else Path(meta_json_path).parent / value)
+    return str(
+        Path(meta_json_path).with_name(value)
+        if "/" not in value and "\\" not in value
+        else Path(meta_json_path).parent / value
+    )
 
 
 JobStatus = Literal["pending", "running", "succeeded", "failed", "cancelled"]
@@ -346,14 +352,19 @@ class SpriteParamsSchema(BaseModel):
         """
         if not isinstance(data, dict):
             return data
-        cleaned = {key: value for key, value in data.items() if key not in {
-            "generation_mode",
-            "key_mode",
-            "key_tolerance",
-            "key_softness",
-            "key_alpha_floor",
-            "key_despill",
-        }}
+        cleaned = {
+            key: value
+            for key, value in data.items()
+            if key
+            not in {
+                "generation_mode",
+                "key_mode",
+                "key_tolerance",
+                "key_softness",
+                "key_alpha_floor",
+                "key_despill",
+            }
+        }
         try:
             cols_val = int(cleaned.get("cols", 1) or 1)
             if cols_val > 8:
@@ -377,7 +388,9 @@ class AssetParamsSchema(BaseModel):
     name: str = Field(default="", max_length=160)
     extra_prompt: str = Field(default="", max_length=3000)
     asset_kind: Literal["item_icon", "ui_component", "tile_texture", "game_logo"] = "item_icon"
-    subject_kind: Literal["single_prop", "single_ui", "tileable_pattern", "logo_mark"] = "single_prop"
+    subject_kind: Literal["single_prop", "single_ui", "tileable_pattern", "logo_mark"] = (
+        "single_prop"
+    )
     use_vl: bool | None = None
     no_preview: bool = False
 
@@ -504,31 +517,39 @@ class JobOutputResponse(BaseModel):
             path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("path") or ""))
             if not path:
                 continue
-            pixelized_path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("pixelized_path") or ""))
-            preview_path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("preview_path") or ""))
-            result.append({
-                "index": item.get("index"),
-                "row": item.get("row"),
-                "col": item.get("col"),
-                "path": path,
-                "url": file_url(path),
-                "bbox": item.get("bbox"),
-                "score": item.get("score"),
-                "rank": item.get("rank"),
-                "reason": item.get("reason"),
-                "selected": bool(item.get("selected")),
-                "pixelized_path": pixelized_path,
-                "pixelized_url": file_url(pixelized_path),
-                "preview_path": preview_path,
-                "preview_url": file_url(preview_path),
-            })
+            pixelized_path = _resolve_meta_relative_path(
+                self.meta_json_path, str(item.get("pixelized_path") or "")
+            )
+            preview_path = _resolve_meta_relative_path(
+                self.meta_json_path, str(item.get("preview_path") or "")
+            )
+            result.append(
+                {
+                    "index": item.get("index"),
+                    "row": item.get("row"),
+                    "col": item.get("col"),
+                    "path": path,
+                    "url": file_url(path),
+                    "bbox": item.get("bbox"),
+                    "score": item.get("score"),
+                    "rank": item.get("rank"),
+                    "reason": item.get("reason"),
+                    "selected": bool(item.get("selected")),
+                    "pixelized_path": pixelized_path,
+                    "pixelized_url": file_url(pixelized_path),
+                    "preview_path": preview_path,
+                    "preview_url": file_url(preview_path),
+                }
+            )
         return result
 
     @computed_field
     @property
     def sprite_sheet_path(self) -> str | None:
         outputs = _outputs_meta(self.meta_json_path)
-        sheet = outputs.get("sprite_sheet") or _sprite_meta(self.meta_json_path).get("horizontal_sheet")
+        sheet = outputs.get("sprite_sheet") or _sprite_meta(self.meta_json_path).get(
+            "horizontal_sheet"
+        )
         return _resolve_meta_relative_path(self.meta_json_path, str(sheet)) if sheet else None
 
     @computed_field
@@ -540,7 +561,9 @@ class JobOutputResponse(BaseModel):
     @property
     def sprite_mosaic_path(self) -> str | None:
         outputs = _outputs_meta(self.meta_json_path)
-        mosaic = outputs.get("sprite_mosaic") or _sprite_meta(self.meta_json_path).get("mosaic_sheet")
+        mosaic = outputs.get("sprite_mosaic") or _sprite_meta(self.meta_json_path).get(
+            "mosaic_sheet"
+        )
         return _resolve_meta_relative_path(self.meta_json_path, str(mosaic)) if mosaic else None
 
     @computed_field
@@ -552,7 +575,9 @@ class JobOutputResponse(BaseModel):
     @property
     def sprite_sheet_grid_path(self) -> str | None:
         outputs = _outputs_meta(self.meta_json_path)
-        grid = outputs.get("sprite_sheet_grid") or _sprite_meta(self.meta_json_path).get("grid_sheet")
+        grid = outputs.get("sprite_sheet_grid") or _sprite_meta(self.meta_json_path).get(
+            "grid_sheet"
+        )
         return _resolve_meta_relative_path(self.meta_json_path, str(grid)) if grid else None
 
     @computed_field
@@ -574,17 +599,27 @@ class JobOutputResponse(BaseModel):
                 continue
             sheet_value = entry.get("sheet")
             gif_value = entry.get("gif")
-            sheet_path = _resolve_meta_relative_path(self.meta_json_path, str(sheet_value)) if sheet_value else None
-            gif_path = _resolve_meta_relative_path(self.meta_json_path, str(gif_value)) if gif_value else None
-            items.append({
-                "row_index": entry.get("row_index"),
-                "frame_indices": entry.get("frame_indices") or [],
-                "action_phase": entry.get("action_phase") or "",
-                "sheet_path": sheet_path,
-                "sheet_url": file_url(sheet_path),
-                "gif_path": gif_path,
-                "gif_url": file_url(gif_path),
-            })
+            sheet_path = (
+                _resolve_meta_relative_path(self.meta_json_path, str(sheet_value))
+                if sheet_value
+                else None
+            )
+            gif_path = (
+                _resolve_meta_relative_path(self.meta_json_path, str(gif_value))
+                if gif_value
+                else None
+            )
+            items.append(
+                {
+                    "row_index": entry.get("row_index"),
+                    "frame_indices": entry.get("frame_indices") or [],
+                    "action_phase": entry.get("action_phase") or "",
+                    "sheet_path": sheet_path,
+                    "sheet_url": file_url(sheet_path),
+                    "gif_path": gif_path,
+                    "gif_url": file_url(gif_path),
+                }
+            )
         return items
 
     @computed_field
@@ -620,7 +655,9 @@ class JobOutputResponse(BaseModel):
     @property
     def sequence_json_path(self) -> str | None:
         outputs = _outputs_meta(self.meta_json_path)
-        sequence = outputs.get("sequence_json") or _sprite_meta(self.meta_json_path).get("sequence_json")
+        sequence = outputs.get("sequence_json") or _sprite_meta(self.meta_json_path).get(
+            "sequence_json"
+        )
         return _resolve_meta_relative_path(self.meta_json_path, str(sequence)) if sequence else None
 
     @computed_field
@@ -639,24 +676,30 @@ class JobOutputResponse(BaseModel):
             if not isinstance(item, dict):
                 continue
             path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("path") or ""))
-            raw_path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("raw_path") or ""))
-            reference_path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("reference_path") or ""))
+            raw_path = _resolve_meta_relative_path(
+                self.meta_json_path, str(item.get("raw_path") or "")
+            )
+            reference_path = _resolve_meta_relative_path(
+                self.meta_json_path, str(item.get("reference_path") or "")
+            )
             if not path:
                 continue
-            frames.append({
-                "index": item.get("index"),
-                "row": item.get("row"),
-                "col": item.get("col"),
-                "path": path,
-                "url": file_url(path),
-                "raw_path": raw_path,
-                "raw_url": file_url(raw_path),
-                "reference_path": reference_path,
-                "reference_url": file_url(reference_path),
-                "sheet_rect": item.get("sheet_rect"),
-                "action_phase": item.get("action_phase"),
-                "bbox": item.get("bbox"),
-            })
+            frames.append(
+                {
+                    "index": item.get("index"),
+                    "row": item.get("row"),
+                    "col": item.get("col"),
+                    "path": path,
+                    "url": file_url(path),
+                    "raw_path": raw_path,
+                    "raw_url": file_url(raw_path),
+                    "reference_path": reference_path,
+                    "reference_url": file_url(reference_path),
+                    "sheet_rect": item.get("sheet_rect"),
+                    "action_phase": item.get("action_phase"),
+                    "bbox": item.get("bbox"),
+                }
+            )
         return frames
 
     @computed_field
@@ -771,9 +814,40 @@ class AssetPackQuotaResponse(BaseModel):
     pack_capacity: int
 
 
+class GalleryQuotaResponse(BaseModel):
+    retained_count: int
+    retained_limit: int
+    remaining_slots: int
+    expand_price_credits: int
+    expand_slots: int
+
+
 class AdminAdjustCreditsRequest(BaseModel):
     amount: int
     note: str = ""
+
+
+class AdminBatchAdjustCreditsRequest(BaseModel):
+    user_ids: list[int] = Field(default_factory=list)
+    all_users: bool = False
+    amount: int
+    note: str = ""
+
+    @model_validator(mode="after")
+    def validate_target(self) -> "AdminBatchAdjustCreditsRequest":
+        if self.amount == 0:
+            raise ValueError("点数变化不能为 0")
+        if not self.all_users and not self.user_ids:
+            raise ValueError("请选择至少一个用户，或启用 all_users")
+        return self
+
+
+class AdminBatchAdjustCreditsResponse(BaseModel):
+    adjusted_count: int
+    amount: int
+    note: str
+    all_users: bool = False
+    transactions: list[CreditTransactionResponse] = Field(default_factory=list)
 
 
 class PricingRuleResponse(BaseModel):

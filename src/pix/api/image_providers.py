@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from pix.api.http_client import ProviderError, ProviderHttpClient
-from pix.api.image_model_registry import IMAGE_TO_IMAGE, TEXT_TO_IMAGE, ProviderCandidate, provider_api_key
-from pix.config import AppConfig, ImageProviderConfig, ImageProviderModelConfig
+from pix.api.image_model_registry import IMAGE_TO_IMAGE, ProviderCandidate, provider_api_key
+from pix.config import AppConfig, ImageProviderModelConfig
 from pix.io_utils import image_to_base64_data_url
 
 
@@ -138,8 +138,7 @@ class OpenAIImagesProvider(BaseImageProvider):
             payload["quality"] = request.quality
         if request.output_format and _supports_value(self.model.output_formats, request.output_format):
             payload["output_format"] = request.output_format
-        provider_model = (self.model.provider_model or self.model.id).lower()
-        if request.input_fidelity and request.operation == IMAGE_TO_IMAGE and "gpt-image" in provider_model:
+        if request.input_fidelity and request.operation == IMAGE_TO_IMAGE and _supports_input_fidelity(self.model):
             payload["input_fidelity"] = request.input_fidelity
         # 尽量让兼容 API 直接返回 base64，若模型忽略该参数也会走 URL 兜底。
         payload["response_format"] = "b64_json"
@@ -296,6 +295,29 @@ def _first_str(data: dict[str, Any], *keys: str) -> str | None:
 
 def _supports_value(values: list[str], value: str) -> bool:
     return bool(values) and value in values
+
+
+def _extra_flag(model: ImageProviderModelConfig, key: str) -> bool | None:
+    value = (model.extra or {}).get(key)
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    return bool(value)
+
+
+def _supports_input_fidelity(model: ImageProviderModelConfig) -> bool:
+    configured = _extra_flag(model, "supports_input_fidelity")
+    if configured is not None:
+        return configured
+    provider_model = (model.provider_model or model.id).lower()
+    return "gpt-image-1" in provider_model
 
 
 def _aspect_ratio(size: str) -> str:

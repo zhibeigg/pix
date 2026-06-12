@@ -34,7 +34,25 @@ def _verification_body(code: str, site_url: str) -> str:
     )
 
 
+
+def _reset_subject() -> str:
+    return "Pix 密码重置验证码"
+
+
+
+def _reset_body(code: str, site_url: str) -> str:
+    return (
+        "你的 Pix 密码重置验证码是：\n\n"
+        f"{code}\n\n"
+        "验证码 10 分钟内有效。请不要把验证码转发给他人。\n"
+        f"访问 Pix：{site_url}\n\n"
+        "若不是你本人操作，请忽略这封邮件。"
+    )
+
+
+
 def _clean_header(value: str) -> str:
+
     return " ".join(value.strip().split())
 
 
@@ -148,7 +166,6 @@ def _code_display_html(code: str) -> str:
 
 def _verification_html_body(code: str, site_url: str) -> str:
     safe_code = escape(code.strip())
-    safe_url = escape(site_url)
     return f"""<!doctype html>
 <html lang="zh-CN">
   <head>
@@ -173,7 +190,6 @@ def _verification_html_body(code: str, site_url: str) -> str:
 
 def _reset_html_body(code: str, site_url: str) -> str:
     safe_code = escape(code.strip())
-    safe_url = escape(site_url)
     return f"""<!doctype html>
 <html lang="zh-CN">
   <head>
@@ -196,6 +212,15 @@ def _reset_html_body(code: str, site_url: str) -> str:
 </html>"""
 
 
+def _verification_message(settings: WebSettings, email: str, code: str) -> EmailMessage:
+    site_url = _site_url_from_settings(settings)
+    message = _base_message(settings, email, _verification_subject())
+    message.set_content(_verification_body(code, site_url))
+    message.add_alternative(_verification_html_body(code, site_url), subtype="html")
+    return message
+
+
+
 def _reset_message(settings: WebSettings, email: str, code: str) -> EmailMessage:
     site_url = _site_url_from_settings(settings)
     message = _base_message(settings, email, _reset_subject())
@@ -204,7 +229,25 @@ def _reset_message(settings: WebSettings, email: str, code: str) -> EmailMessage
     return message
 
 
+
+def send_verification_email(settings: WebSettings, email: str, code: str) -> None:
+    """发送注册验证码；失败时抛出 EmailDeliveryError。"""
+    if settings.email_provider == "console":
+        logger.warning("Pix 注册验证码 email=%s code=%s", email, code)
+        return
+    if settings.email_provider != "smtp":
+        raise EmailDeliveryError(f"未知邮件发送方式: {settings.email_provider}")
+    try:
+        _send_smtp_message(settings, _verification_message(settings, email, code))
+    except EmailDeliveryError:
+        raise
+    except Exception as exc:
+        raise EmailDeliveryError(f"SMTP 注册验证码邮件发送失败: {exc}") from exc
+
+
+
 def send_password_reset_email(settings: WebSettings, email: str, code: str) -> None:
+
     """发送密码重置验证码；失败时抛出 EmailDeliveryError。"""
     if settings.email_provider == "console":
         logger.warning("Pix 密码重置验证码 email=%s code=%s", email, code)

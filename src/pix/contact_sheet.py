@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 
 from pix.config import AppConfig
-from pix.pixelize.bg_removal import apply_color_to_alpha
+from pix.pixelize.bg_removal import apply_pixel_bg_alpha
 from pix.pixelize.perfect_pixel import preprocess_generated_image
 
 
@@ -373,39 +373,13 @@ def remove_green_screen(
     crop_padding: float = 0.12,
     crop_square: bool = True,
 ) -> tuple[Image.Image, tuple[int, int, int, int] | None]:
-    """针对纯色 key background 做透明化，并按主体 bbox 裁剪留白。
-
-    处理步骤：
-    1. 全局移除与 key-color 距离 <= tolerance 的像素
-    2. 对背景附近的半透明/混色边缘做 soft matte + despill（去除 key-color 对 RGB 的污染）
-    3. 完全透明像素 RGB 置黑（防止缩放时渗出背景色）
-    """
-    rgba = np.asarray(image.convert("RGBA")).copy()
-    rgb = rgba[..., :3].astype(np.float64)
-    ref = np.array(green_rgb, dtype=np.float64)
-    dist = np.sqrt(((rgb - ref) ** 2).sum(axis=2))
-
-    # 1. 全局移除背景
-    bg_mask = dist <= max(0, int(tolerance))
-    rgba[bg_mask, 3] = 0
-
-    # 2. 对背景附近的半透明/混色边缘做 GIMP Color-to-Alpha 风格 despill。
-    rgba = np.asarray(
-        apply_color_to_alpha(
-            Image.fromarray(rgba, mode="RGBA"),
-            key_rgb=green_rgb,
-            transparency_threshold=max(0, int(tolerance)),
-            opacity_threshold=255,
-            shape="sphere",
-            interpolation="linear",
-            protect_non_key_tinted=True,
-        )
-    ).copy()
-
-    # 3. 透明像素 RGB 置黑
-    fully_transparent = rgba[..., 3] == 0
-    rgba[fully_transparent, :3] = 0
-
+    """针对纯色 key background 做 pixel_bg 双阈值连通域透明化。"""
+    transparent = apply_pixel_bg_alpha(
+        image,
+        key_rgb=green_rgb,
+        tolerance=max(0, int(tolerance)),
+    )
+    rgba = np.asarray(transparent.convert("RGBA")).copy()
     alpha = rgba[..., 3]
     visible = alpha > 8
     if not visible.any():
