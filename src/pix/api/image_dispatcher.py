@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from pix.api.http_client import ProviderError
-from pix.api.image_model_registry import IMAGE_TO_IMAGE, TEXT_TO_IMAGE, candidates_for_model
+from pix.api.image_model_registry import IMAGE_TO_IMAGE, TEXT_TO_IMAGE, available_model_infos, candidates_for_model
 from pix.api.image_providers import ImageProviderRequest, ImageProviderResult, provider_for_candidate
 from pix.config import AppConfig
 
@@ -55,10 +55,16 @@ def dispatch_image_request(
     input_fidelity: str | None = None,
     image_path: Path | None = None,
 ) -> DispatchResult:
-    logical_model = model or cfg.image_gen.model
+    requested_model = model or cfg.image_gen.model
+    logical_model = requested_model
     candidates = candidates_for_model(cfg, logical_model, operation)
+    if not candidates and not model:
+        fallback_model = _default_fallback_model(cfg, requested_model, operation)
+        if fallback_model:
+            logical_model = fallback_model
+            candidates = candidates_for_model(cfg, logical_model, operation)
     if not candidates:
-        built = f"模型 {logical_model} 不支持 {operation} 或未配置可用 Provider"
+        built = f"模型 {requested_model} 不支持 {operation} 或未配置可用 Provider"
         raise ProviderError(built, category="unsupported_model", provider_id="", retryable=False)
 
     attempts: list[dict[str, Any]] = []
@@ -129,6 +135,16 @@ def dispatch_image_request(
             retryable=False,
         ) from last_error
     raise ProviderError(message, category="provider_unavailable", retryable=False)
+
+
+def _default_fallback_model(cfg: AppConfig, requested_model: str, operation: str) -> str | None:
+    """配置默认模型不可用时，回退到当前 Provider 列表里第一个可执行同类操作的图片模型。"""
+    for info in available_model_infos(cfg):
+        if info.id == requested_model:
+            continue
+        if operation in (info.operations or (TEXT_TO_IMAGE,)):
+            return info.id
+    return None
 
 
 def _combined_failure_message(model: str, attempts: list[dict[str, Any]]) -> str:

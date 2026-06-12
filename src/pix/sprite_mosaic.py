@@ -26,7 +26,7 @@ from pix.cache import Cache
 from pix.config import AppConfig
 from pix.contact_sheet import parse_hex_color, resolve_key_color
 from pix.io_utils import new_run_dir, sha256_of_file
-from pix.pixelize.bg_removal import apply_color_to_alpha
+from pix.pixelize.bg_removal import apply_pixel_bg_alpha
 from pix.pixelize.core import PixelizeParams
 from pix.pixelize.perfect_pixel import preprocess_generated_image
 from pix.sprite import (
@@ -159,7 +159,7 @@ _RENDER_UPSCALE_FLOOR = 4
 # 即便每像素上采样系数已经退到 4，也要保证整体 sheet 至少有这么多渲染像素，
 # 防止 8×1 之类极端窄长 mosaic 被压成 1024×128 之类的退化档。
 _API_MIN_LONG_SIDE = 1024
-_FRAME_BACKGROUND_FLOW = "split_frame_to_perfect_pixel_to_color_to_alpha_to_alpha_bbox"
+_FRAME_BACKGROUND_FLOW = "split_frame_to_perfect_pixel_to_pixel_bg_alpha_to_alpha_bbox"
 
 
 def _round_to_multiple(value: float, multiple: int) -> int:
@@ -696,11 +696,11 @@ def _extract_cell_content(
     key_tolerance: int,
     generated_preprocess_method: str | None,
 ) -> tuple[Image.Image, tuple[int, int, int, int] | None, dict[str, Any]]:
-    """对单个 cell 严格执行：切分帧 → perfect pixel → Color-to-Alpha → alpha bbox 裁剪。
+    """对单个 cell 严格执行：切分帧 → perfect pixel → pixel_bg alpha → alpha bbox 裁剪。
 
-    这里必须使用 prompt 中显式传入的 ``key_rgb``，不能从 cell 四角重新采样。
-    多行 mosaic 里主体经常溢出 cell 边界（长发、裙摆、武器），四角采样可能采到
-    主体色，导致背景没抠干净或主体边缘被啃掉。
+    这里必须使用 prompt 中显式传入的 ``key_rgb``，并走双阈值连通域 + 二值 alpha。
+    多行 mosaic 里主体经常溢出 cell 边界（长发、裙摆、武器），显式 key 色能避免
+    从 cell 四角采到主体色导致背景没抠干净或主体边缘被啃掉。
     """
     _ = cfg  # 保留参数以兼容历史调用方；序列帧去背景不再读取 cfg 中的旧算法开关
     preprocessed = preprocess_generated_image(
@@ -710,23 +710,19 @@ def _extract_cell_content(
     )
     image = preprocessed.image.convert("RGBA")
 
-    # 序列帧要求的后处理链路是：perfect pixel 后直接 Color-to-Alpha，
-    # 再按最终 alpha bbox 裁剪；不额外插入距离阈值硬抠或四角 flood-fill。
-    alpha_image = apply_color_to_alpha(
+    # 序列帧要求的后处理链路是：perfect pixel 后使用显式 key 色做 pixel_bg
+    # 双阈值连通域 + 二值 alpha，再按最终 alpha bbox 裁剪；不从四角重新采样背景色。
+    alpha_image = apply_pixel_bg_alpha(
         image,
         key_rgb=key_rgb,
-        transparency_threshold=max(0, int(key_tolerance)),
-        opacity_threshold=255,
-        shape="sphere",
-        interpolation="linear",
-        protect_non_key_tinted=True,
+        tolerance=max(0, int(key_tolerance)),
     )
     bbox = _visible_bbox(alpha_image, threshold=8)
     if bbox is None:
         return Image.new("RGBA", (1, 1), (0, 0, 0, 0)), None, {
             "preprocess": preprocessed.meta,
             "background_flow": _FRAME_BACKGROUND_FLOW,
-            "background_algorithm": "color_to_alpha",
+            "background_algorithm": "pixel_bg",
             "bbox": None,
             "alpha_size": list(alpha_image.size),
             "key_rgb": list(key_rgb),
@@ -736,7 +732,7 @@ def _extract_cell_content(
     return content, bbox, {
         "preprocess": preprocessed.meta,
         "background_flow": _FRAME_BACKGROUND_FLOW,
-        "background_algorithm": "color_to_alpha",
+        "background_algorithm": "pixel_bg",
         "alpha_size": list(alpha_image.size),
         "bbox": list(bbox),
         "content_size": list(content.size),

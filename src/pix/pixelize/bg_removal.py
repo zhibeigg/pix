@@ -1,18 +1,261 @@
-"""背景去除：以四角纯色为 key，固定使用 Color-to-Alpha 抠背景。
+"""背景去除：pixel_bg 双阈值连通域 + 二值 Alpha。
 
 设计原则：
-- 不依赖 rembg 这种重模型；对"单主体 + 纯色底"的图片效果最好
-- 对已经像素化的图操作最稳，因为边缘清晰、色块整齐
-- 保留 flood-fill 工具函数用于历史兼容/调试，但默认流程不再回退 flood-fill
+- 不依赖 rembg 这种重模型；对"像素主体 + 纯色 key 背景"的图片效果最好
+- 对齐 `C:\\Users\\78574\\Downloads\\test` 项目方法：边框中位数背景色、core/grow 双阈值、连通域、去溢色、硬边透明
+- 默认会清理主体内部封闭 key 背景区，并保留旧函数名/参数以兼容现有调用链
 """
 
 from __future__ import annotations
 
 from collections import deque
-from typing import Iterable, Literal
+from dataclasses import dataclass, field
+from typing import Any, Iterable, Literal
 
 import numpy as np
 from PIL import Image
+from scipy import ndimage
+
+
+@dataclass
+class RemovalConfig:
+    """像素素材背景去除配置。
+
+    该配置对齐 `C:\\Users\\78574\\Downloads\\test` 项目的 pixel_bg 方法：
+    自动探测/指定 key 背景色 → 双阈值连通域区域生长 → 去溢色 → 二值 alpha。
+    """
+
+    t_core: float = 60.0
+    t_grow: float = 120.0
+    connectivity: int = 8
+    border_width: int = 2
+    despill: bool = True
+    remove_enclosed_background: bool = True
+    min_subject_area: int = 0
+    uniformity_guard: float = 30.0
+    bg_color: tuple[int, int, int] | None = None
+    enforce_uniformity_guard: bool = True
+
+    def __post_init__(self) -> None:
+        if self.t_core >= self.t_grow:
+            raise ValueError("t_core 必须小于 t_grow")
+
+
+@dataclass
+class RemovalResult:
+    image: Image.Image
+    bg_color: tuple[int, int, int]
+    confidence: str
+    stats: dict[str, Any] = field(default_factory=dict)
+
+
+def _config_from_legacy_tolerance(
+    tolerance: int,
+    *,
+    bg_color: tuple[int, int, int] | None = None,
+    remove_enclosed_background: bool = True,
+    enforce_uniformity_guard: bool = True,
+) -> RemovalConfig:
+    """把项目历史 bg_tolerance 映射到 pixel_bg 双阈值。
+
+    26 是当前素材直出的默认容差，映射为参考项目默认 t_core=60 / t_grow=120。
+    更低容差会同比收紧；高于 26 时保持参考默认，避免旧 green_screen_tolerance=48
+    被放大成过度 aggressive 的阈值。
+    """
+    safe = max(0, int(tolerance))
+    if safe <= 0:
+        return RemovalConfig(
+            t_core=0.5,
+            t_grow=0.51,
+            bg_color=bg_color,
+            remove_enclosed_background=remove_enclosed_background,
+            enforce_uniformity_guard=enforce_uniformity_guard,
+        )
+    scale = min(1.0, safe / 26.0)
+    return RemovalConfig(
+        t_core=max(1.0, 60.0 * scale),
+        t_grow=max(2.0, 120.0 * scale),
+        bg_color=bg_color,
+        remove_enclosed_background=remove_enclosed_background,
+        enforce_uniformity_guard=enforce_uniformity_guard,
+    )
+
+
+def _border_pixels(rgb: np.ndarray, border_width: int) -> np.ndarray:
+    """返回边框带的所有像素，形状 (N, 3)。"""
+    h, w = rgb.shape[:2]
+    bw = max(1, min(int(border_width), max(1, h // 2), max(1, w // 2)))
+    top = rgb[:bw, :, :].reshape(-1, 3)
+    bottom = rgb[-bw:, :, :].reshape(-1, 3)
+    left = rgb[:, :bw, :].reshape(-1, 3)
+    right = rgb[:, -bw:, :].reshape(-1, 3)
+    return np.concatenate([top, bottom, left, right], axis=0)
+
+
+def detect_background_color(rgb: np.ndarray, border_width: int) -> tuple[np.ndarray, float]:
+    """从边框带探测背景参考色；返回 (每通道中位数背景色, 平均色距方差指标)。"""
+    border = _border_pixels(rgb, border_width).astype(np.float64)
+    bg = np.median(border, axis=0)
+    dist = np.sqrt(((border - bg) ** 2).sum(axis=1))
+    return bg, float(dist.mean())
+
+
+def color_distance(rgb: np.ndarray, bg: np.ndarray) -> np.ndarray:
+    """每像素到背景色的 RGB 欧氏距离，返回 (H, W) float64。"""
+    diff = rgb.astype(np.float64) - np.asarray(bg, dtype=np.float64)
+    return np.sqrt((diff ** 2).sum(axis=2))
+
+
+def compute_background_mask(
+    distance: np.ndarray,
+    t_core: float,
+    t_grow: float,
+    connectivity: int = 8,
+    *,
+    require_border: bool = True,
+) -> np.ndarray:
+    """pixel_bg 双阈值区域生长背景掩码。
+
+    背景 = 含高置信度种子 (distance < t_core) 的 loose (distance < t_grow) 连通域。
+    require_border=False 时也会清除被主体包围的封闭 key 色背景区。
+    """
+    seed = distance < float(t_core)
+    loose = distance < float(t_grow)
+
+    structure = ndimage.generate_binary_structure(2, 2 if int(connectivity) == 8 else 1)
+    labels, _count = ndimage.label(loose, structure=structure)
+
+    seed_labels = set(np.unique(labels[seed]).tolist())
+    seed_labels.discard(0)
+
+    keep = seed_labels
+    if require_border:
+        border_ids = np.concatenate([labels[0, :], labels[-1, :], labels[:, 0], labels[:, -1]])
+        border_labels = set(np.unique(border_ids).tolist())
+        border_labels.discard(0)
+        keep = seed_labels & border_labels
+
+    if not keep:
+        return np.zeros(distance.shape, dtype=bool)
+    return np.isin(labels, list(keep))
+
+
+def _despill_key_color(rgb: np.ndarray, bg_mask: np.ndarray, bg: np.ndarray) -> np.ndarray:
+    """按参考项目 despill_magenta 思路中和 key 色溢色，并泛化到动态 key 色。"""
+    out = rgb.copy()
+    subject = ~bg_mask
+    if not subject.any():
+        return out
+    edge = subject & ndimage.binary_dilation(bg_mask)
+    key = np.asarray(bg, dtype=np.float64)
+    key_max = float(key.max())
+    key_min = float(key.min())
+    high_channels = key >= key_max - 16.0
+    low_channels = key <= key_min + 16.0
+    if not high_channels.any() or not low_channels.any():
+        return out
+
+    arr = out.astype(np.int16)
+    high = arr[..., high_channels]
+    low = arr[..., low_channels]
+    low_mean = np.rint(low.mean(axis=2)).astype(np.int16)
+    leans = edge & (high.min(axis=2) > low_mean)
+    if not leans.any():
+        return out
+    for channel, is_high in enumerate(high_channels.tolist()):
+        if is_high:
+            channel_values = arr[..., channel]
+            out[..., channel] = np.where(leans, np.minimum(channel_values, low_mean), channel_values).astype(np.uint8)
+    return out
+
+
+def apply_binary_alpha(
+    rgb: np.ndarray,
+    bg_mask: np.ndarray,
+    min_subject_area: int = 0,
+) -> np.ndarray:
+    """生成硬边 RGBA：背景 alpha=0，主体 alpha=255。"""
+    alpha = np.where(bg_mask, 0, 255).astype(np.uint8)
+
+    if int(min_subject_area) > 0:
+        subject = ~bg_mask
+        labels, n_labels = ndimage.label(subject)
+        if n_labels > 0:
+            sizes = ndimage.sum(
+                np.ones_like(labels),
+                labels,
+                index=np.arange(1, n_labels + 1),
+            )
+            small_ids = [i + 1 for i, size in enumerate(sizes) if size < int(min_subject_area)]
+            if small_ids:
+                remove = np.isin(labels, small_ids)
+                alpha = np.where(remove, 0, alpha).astype(np.uint8)
+
+    out = np.dstack([rgb[..., :3], alpha])
+    transparent = out[..., 3] == 0
+    if transparent.any():
+        out[transparent, :3] = 0
+    return out
+
+
+def remove_background_with_result(
+    image: Image.Image,
+    config: RemovalConfig | None = None,
+) -> RemovalResult:
+    """pixel_bg 参考方法：返回带 confidence/stats 的结果对象。"""
+    config = config or RemovalConfig()
+    rgba = image.convert("RGBA")
+    arr = np.asarray(rgba).copy()
+    rgb = arr[..., :3]
+
+    if _border_transparency_ratio(arr) >= 0.05:
+        transparent = arr[..., 3] == 0
+        if transparent.any():
+            arr[transparent, :3] = 0
+        return RemovalResult(
+            image=Image.fromarray(arr, mode="RGBA"),
+            bg_color=(0, 0, 0),
+            confidence="high",
+            stats={"reason": "already_transparent_border", "bg_ratio": float(transparent.mean())},
+        )
+
+    if config.bg_color is None:
+        bg, variance = detect_background_color(rgb, config.border_width)
+    else:
+        bg = np.asarray(config.bg_color, dtype=np.float64)
+        border = _border_pixels(rgb, config.border_width).astype(np.float64)
+        variance = float(np.sqrt(((border - bg) ** 2).sum(axis=1)).mean())
+    bg_tuple = tuple(int(round(float(channel))) for channel in bg[:3])
+
+    if config.enforce_uniformity_guard and variance > float(config.uniformity_guard):
+        return RemovalResult(
+            image=rgba,
+            bg_color=bg_tuple,
+            confidence="low",
+            stats={"reason": "border_not_uniform", "variance": variance},
+        )
+
+    distance = color_distance(rgb, bg)
+    bg_mask = compute_background_mask(
+        distance,
+        config.t_core,
+        config.t_grow,
+        config.connectivity,
+        require_border=not config.remove_enclosed_background,
+    )
+
+    work_rgb = rgb.copy()
+    if config.despill:
+        work_rgb = _despill_key_color(work_rgb, bg_mask, bg)
+
+    out_arr = apply_binary_alpha(work_rgb, bg_mask, config.min_subject_area)
+    out_img = Image.fromarray(out_arr, mode="RGBA")
+    return RemovalResult(
+        image=out_img,
+        bg_color=bg_tuple,
+        confidence="high",
+        stats={"bg_ratio": float(bg_mask.mean()), "variance": variance},
+    )
 
 
 def key_color_mask(
@@ -55,66 +298,20 @@ def remove_key_color(
     edge_spill_passes: int = 3,
     edge_spill_outline: bool = False,
 ) -> Image.Image:
-    """全局移除指定纯色背景，并可清理边缘 key-color 碎点与量化溢色。"""
-    rgba = np.asarray(image.convert("RGBA")).copy()
-    mask = key_color_mask(rgba, key_rgb, tolerance=tolerance, visible_only=True)
-    outline_mask = np.zeros(rgba.shape[:2], dtype=bool)
-    if spill_tolerance is not None and int(spill_tolerance) > int(tolerance):
-        spill = key_color_mask(rgba, key_rgb, tolerance=int(spill_tolerance), visible_only=True)
-        # 只清理已经靠近透明背景或本轮 key-color 背景的溢色边，避免误伤远离背景的正常同色装饰。
-        near_transparent = _dilate_mask_8((rgba[..., 3] == 0) | mask)
-        mask |= spill & near_transparent
-    if edge_speckle:
-        for _ in range(max(1, int(edge_speckle_passes))):
-            probe = rgba.copy()
-            if mask.any():
-                probe[mask, :3] = 0
-                probe[mask, 3] = 0
-            speckle = key_color_edge_speckle_mask(
-                probe,
-                key_rgb,
-                base_mask=None,
-                max_area=edge_speckle_max_area,
-                max_thickness=edge_speckle_max_thickness,
-                radius=edge_speckle_radius,
-            )
-            speckle &= ~mask
-            if not speckle.any():
-                break
-            mask |= speckle
-    if edge_spill:
-        # 量化/缩放可能把 #FF00FF 压成 #C400C4、#420347 这类同色相暗紫边。
-        # 这类残留不一定与原 key color 距离足够近，因此用色相相似度 + 透明边界邻近度保守剥离。
-        for _ in range(max(1, int(edge_spill_passes))):
-            probe = rgba.copy()
-            if mask.any():
-                probe[mask, :3] = 0
-                probe[mask, 3] = 0
-            spill = key_color_edge_spill_mask(
-                probe,
-                key_rgb,
-                base_mask=mask,
-                radius=edge_spill_radius,
-            )
-            spill &= ~mask
-            if not spill.any():
-                break
-            if edge_spill_outline:
-                outline_mask |= _key_color_spill_outline_mask(probe, spill)
-            mask |= spill
-    if mask.any():
-        rgba[mask, :3] = 0
-        rgba[mask, 3] = 0
-    if edge_spill_outline and outline_mask.any():
-        foreground = (rgba[..., 3] > 0) & ~outline_mask
-        outline_rgb = _infer_outline_rgb(rgba, foreground)
-        rgba[outline_mask, :3] = outline_rgb
-        rgba[outline_mask, 3] = 255
-    # 透明像素的 RGB 也清零，避免某些预览器/工具忽略 alpha 时显示 key color 底色。
-    transparent = rgba[..., 3] == 0
-    if transparent.any():
-        rgba[transparent, :3] = 0
-    return Image.fromarray(rgba, mode="RGBA")
+    """兼容旧 key-color 入口，实际统一走 pixel_bg 双阈值连通域方法。"""
+    _ = (
+        spill_tolerance,
+        edge_speckle,
+        edge_speckle_max_area,
+        edge_speckle_max_thickness,
+        edge_speckle_radius,
+        edge_speckle_passes,
+        edge_spill,
+        edge_spill_radius,
+        edge_spill_passes,
+        edge_spill_outline,
+    )
+    return apply_pixel_bg_alpha(image, key_rgb=key_rgb, tolerance=tolerance)
 
 
 def key_color_edge_speckle_mask(
@@ -641,6 +838,161 @@ def _closed_background_hole_mask(
     return result
 
 
+def _fuzzy_color_match_mask(
+    rgb: np.ndarray,
+    ref_colors: Iterable[tuple[int, int, int]],
+    tolerance: int,
+) -> np.ndarray:
+    """返回 ImageMagick fuzz 语义下可视为目标背景色的像素。
+
+    项目使用 0-255 的 tolerance。这里保留历史容差手感：单通道轻微波动可被视为
+    同色，同时仍用 RGB 距离避免大范围误删。
+    """
+    if rgb.ndim != 3 or rgb.shape[-1] < 3:
+        raise ValueError("_fuzzy_color_match_mask 需要 RGB/RGBA 数组")
+    refs = list(ref_colors)
+    h, w = rgb.shape[:2]
+    if not refs:
+        return np.zeros((h, w), dtype=bool)
+    safe_tolerance = max(0, int(tolerance))
+    tol_sq = safe_tolerance * safe_tolerance * 3
+    rgb_i = rgb[..., :3].astype(np.int32)
+    match = np.zeros((h, w), dtype=bool)
+    for ref_color in refs:
+        ref = np.asarray(ref_color, dtype=np.int32)
+        diff = rgb_i - ref
+        match |= (diff * diff).sum(axis=2) <= tol_sq
+    return match
+
+
+
+def _border_transparency_ratio(rgba: np.ndarray) -> float:
+    """返回图像四边中 alpha=0 的比例，用于避免透明 RGB 被当作背景色。"""
+    if rgba.ndim != 3 or rgba.shape[-1] < 4:
+        return 0.0
+    h, w = rgba.shape[:2]
+    if h == 0 or w == 0:
+        return 0.0
+    border_parts = [rgba[0, :, 3], rgba[h - 1, :, 3]]
+    if h > 2:
+        border_parts.extend([rgba[1:h - 1, 0, 3], rgba[1:h - 1, w - 1, 3]])
+    border = np.concatenate([part.reshape(-1) for part in border_parts if part.size > 0])
+    if border.size == 0:
+        return 0.0
+    return float((border == 0).sum() / border.size)
+
+
+
+def _border_seed_points(mask: np.ndarray) -> list[tuple[int, int]]:
+    """返回 mask 中位于图像四边的 seed 点。"""
+    if mask.ndim != 2:
+        raise ValueError("_border_seed_points 需要二维 mask")
+    h, w = mask.shape
+    if h == 0 or w == 0:
+        return []
+    seeds: list[tuple[int, int]] = []
+    for x in range(w):
+        if mask[0, x]:
+            seeds.append((0, x))
+        if h > 1 and mask[h - 1, x]:
+            seeds.append((h - 1, x))
+    for y in range(1, max(1, h - 1)):
+        if mask[y, 0]:
+            seeds.append((y, 0))
+        if w > 1 and mask[y, w - 1]:
+            seeds.append((y, w - 1))
+    return seeds
+
+
+
+def _scanline_floodfill_mask(mask: np.ndarray, seeds: Iterable[tuple[int, int]]) -> np.ndarray:
+    """基于预先算好的 fuzzy mask 做 scanline flood fill。"""
+    if mask.ndim != 2:
+        raise ValueError("_scanline_floodfill_mask 需要二维 mask")
+    h, w = mask.shape
+    filled = np.zeros((h, w), dtype=bool)
+    stack: deque[tuple[int, int]] = deque()
+    for sy, sx in seeds:
+        if 0 <= sy < h and 0 <= sx < w and mask[sy, sx] and not filled[sy, sx]:
+            stack.append((sy, sx))
+
+    while stack:
+        y, x = stack.pop()
+        if not (0 <= y < h and 0 <= x < w) or filled[y, x] or not mask[y, x]:
+            continue
+
+        left = x
+        while left > 0 and mask[y, left - 1] and not filled[y, left - 1]:
+            left -= 1
+        right = x
+        while right + 1 < w and mask[y, right + 1] and not filled[y, right + 1]:
+            right += 1
+        filled[y, left:right + 1] = True
+
+        for ny in (y - 1, y + 1):
+            if ny < 0 or ny >= h:
+                continue
+            nx = left
+            while nx <= right:
+                while nx <= right and (filled[ny, nx] or not mask[ny, nx]):
+                    nx += 1
+                if nx <= right:
+                    stack.append((ny, nx))
+                    while nx <= right and (not filled[ny, nx]) and mask[ny, nx]:
+                        nx += 1
+    return filled
+
+
+
+def apply_imagemagick_fuzz_floodfill_alpha(
+    image: Image.Image,
+    *,
+    key_rgb: tuple[int, int, int] | None = None,
+    ref_colors: Iterable[tuple[int, int, int]] | None = None,
+    seeds: Iterable[tuple[int, int]] | None = None,
+    tolerance: int = 12,
+    clear_transparent_rgb: bool = True,
+) -> Image.Image:
+    """兼容旧函数名，实际改用 pixel_bg 双阈值连通域背景去除。
+
+    `key_rgb` 会作为显式背景色；未传时从边框中位数自动探测。`ref_colors` / `seeds`
+    是旧 ImageMagick floodfill 兼容参数，新算法不再依赖 seed floodfill。
+    """
+    _ = (ref_colors, seeds)
+    config = _config_from_legacy_tolerance(
+        tolerance,
+        bg_color=key_rgb,
+        remove_enclosed_background=True,
+        # 显式 key 色常用于 sprite/contact sheet：主体可能触边，不能因为边框方差高就跳过抠图。
+        enforce_uniformity_guard=key_rgb is None,
+    )
+    out = remove_background_with_result(image, config).image
+    if clear_transparent_rgb:
+        rgba = np.asarray(out.convert("RGBA")).copy()
+        transparent = rgba[..., 3] == 0
+        if transparent.any():
+            rgba[transparent, :3] = 0
+        out = Image.fromarray(rgba, mode="RGBA")
+    return out
+
+
+def apply_pixel_bg_alpha(
+    image: Image.Image,
+    *,
+    key_rgb: tuple[int, int, int] | None = None,
+    tolerance: int = 12,
+    clear_transparent_rgb: bool = True,
+) -> Image.Image:
+    """新命名入口：使用 pixel_bg 双阈值连通域生成透明 alpha。"""
+    return apply_imagemagick_fuzz_floodfill_alpha(
+        image,
+        key_rgb=key_rgb,
+        tolerance=tolerance,
+        clear_transparent_rgb=clear_transparent_rgb,
+    )
+
+
+
 def _interpolate_alpha(value: np.ndarray, interpolation: str | None) -> np.ndarray:
     mode = (interpolation or "linear").strip().lower()
     if mode == "power":
@@ -673,40 +1025,19 @@ def apply_color_to_alpha(
     protect_non_key_tinted: bool = True,
     min_key_chroma: float = 24.0,
 ) -> Image.Image:
-    """GIMP Color-to-Alpha 风格 key 色移除，并清理透明 RGB。
-
-    与原算法相比默认启用 key 色方向保护：只有纯 key 色或带 key 色通道方向的混色
-    才会被改 alpha，避免灰白/金属色因为欧氏距离接近品红而被误删。
-    """
-    rgba_f = np.asarray(image.convert("RGBA"), dtype=np.float32)
-    rgb = rgba_f[..., :3]
-    source_alpha = rgba_f[..., 3] / 255.0
-    key = np.asarray(key_rgb, dtype=np.float32)
-    transparent_t = max(0.0, float(transparency_threshold))
-    opaque_t = max(transparent_t + 1.0, float(opacity_threshold))
-    distances = _color_distance(rgb, key, shape)
-    alpha = np.clip((distances - transparent_t) / max(1.0, opaque_t - transparent_t), 0.0, 1.0)
-    alpha = _interpolate_alpha(alpha, interpolation)
-
-    if protect_non_key_tinted:
-        key_tinted = _key_tinted_mask(rgb, key, min_chroma=min_key_chroma)
-        pure_key = distances <= transparent_t
-        apply_mask = pure_key | key_tinted
-        alpha = np.where(apply_mask, alpha, 1.0)
-
-    alpha = np.minimum(alpha, source_alpha)
-    proportion = np.maximum(distances / max(1.0, opaque_t), 1e-5)
-    extrapolated = (rgb - key) / proportion[..., None] + key
-    out_rgb = rgb.copy()
-    intermediate = (alpha > 0.0) & (alpha < 1.0)
-    out_rgb[intermediate] = extrapolated[intermediate]
-    out = np.zeros_like(rgba_f)
-    out[..., :3] = np.clip(np.rint(out_rgb), 0, 255)
-    out[..., 3] = np.clip(np.rint(alpha * 255.0), 0, 255)
-    transparent = out[..., 3] == 0
-    if transparent.any():
-        out[transparent, :3] = 0
-    return Image.fromarray(out.astype(np.uint8), mode="RGBA")
+    """兼容旧 Color-to-Alpha 入口，实际统一走 pixel_bg 双阈值连通域方法。"""
+    _ = (
+        opacity_threshold,
+        shape,
+        interpolation,
+        protect_non_key_tinted,
+        min_key_chroma,
+    )
+    return apply_pixel_bg_alpha(
+        image,
+        key_rgb=key_rgb,
+        tolerance=max(0, int(transparency_threshold)),
+    )
 
 
 def apply_key_color_soft_matte(
@@ -877,33 +1208,25 @@ def remove_background(
     color_to_alpha_opacity: int = 255,
     color_to_alpha_interpolation: str = "linear",
 ) -> Image.Image:
-    """以四角纯色作为 key，固定使用 Color-to-Alpha 抠背景。
+    """去背景入口：统一使用参考项目 pixel_bg 算法。
 
-    Args:
-        image: 原图（RGB 或 RGBA）
-        tolerance: 保留用于兼容旧调用；Color-to-Alpha 使用独立阈值参数。
-        feather: 边缘强度。edge_style=feather 时表示 alpha 羽化半径；
-            edge_style=outline 时表示描边宽度；hard 时不生效。
-        edge_style: hard=硬边透明；feather=主体边缘 alpha 羽化；outline=主体外侧补深色描边。
-        keep_border_bleed: 保留用于兼容旧调用；固定 Color-to-Alpha 路径不再做 flood-fill 贴边保护。
-        bg_removal_algorithm: 保留用于兼容旧配置；当前无论 auto/flood_fill/hybrid 都走 Color-to-Alpha。
+    流程为：边框中位数探测背景色 → 双阈值连通域区域生长 → key 色去溢色 → 二值 alpha。
+    旧的 `bg_removal_algorithm` / Color-to-Alpha 配置仅保留兼容，不再改变实现路径。
     """
-    if image.mode != "RGBA":
-        image = image.convert("RGBA")
-    arr = np.asarray(image.convert("RGB"))
-    corner_seeds = _sample_corner_colors(arr)
-    ref_rgb = tuple(int(v) for v in np.median(np.asarray(corner_seeds, dtype=np.float32), axis=0)) if corner_seeds else (0, 0, 0)
-    ref = np.asarray(ref_rgb, dtype=np.float32)
-
-    out = apply_color_to_alpha(
-        image,
-        key_rgb=ref_rgb,
-        transparency_threshold=max(0, int(color_to_alpha_transparency)),
-        opacity_threshold=max(1, int(color_to_alpha_opacity)),
-        shape=color_to_alpha_shape,
-        interpolation=color_to_alpha_interpolation,
-        protect_non_key_tinted=_looks_like_chroma_key(ref),
+    _ = (
+        keep_border_bleed,
+        bg_removal_algorithm,
+        color_to_alpha_shape,
+        color_to_alpha_transparency,
+        color_to_alpha_opacity,
+        color_to_alpha_interpolation,
     )
+    config = _config_from_legacy_tolerance(
+        tolerance,
+        remove_enclosed_background=True,
+        enforce_uniformity_guard=True,
+    )
+    out = remove_background_with_result(image, config).image
     style = edge_style if edge_style in ("hard", "feather", "outline") else "hard"
     strength = max(0, int(feather))
     if style in {"feather", "outline"} and strength > 0:

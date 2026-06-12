@@ -10,9 +10,11 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.config import WebSettings
-from pix_web.models import AssetPackItem, CreditTransaction, GenerationJob, GenerationOutput
+from pix_web.models import AssetPackItem, CreditTransaction, GalleryQuota, GenerationJob, GenerationOutput
 
 MAX_RETAINED_PHOTOS_PER_USER = 10
+GALLERY_EXPAND_PRICE_CREDITS = 60
+GALLERY_EXPAND_SLOTS = 10
 ACTIVE_JOB_STATUSES = {"pending", "running"}
 
 
@@ -21,7 +23,28 @@ def retained_photo_count(db: Session, user_id: int) -> int:
     return len(_successful_jobs_with_outputs(db, user_id))
 
 
+
+def get_or_create_gallery_quota(db: Session, user_id: int) -> GalleryQuota:
+    quota = db.scalar(select(GalleryQuota).where(GalleryQuota.user_id == user_id))
+    if quota is not None:
+        return quota
+    quota = GalleryQuota(user_id=user_id, retained_limit=MAX_RETAINED_PHOTOS_PER_USER)
+    db.add(quota)
+    db.flush()
+    return quota
+
+
+
+def effective_gallery_limit(db: Session, user_id: int) -> int:
+    quota = db.scalar(select(GalleryQuota).where(GalleryQuota.user_id == user_id))
+    if quota is None:
+        return MAX_RETAINED_PHOTOS_PER_USER
+    return max(MAX_RETAINED_PHOTOS_PER_USER, quota.retained_limit)
+
+
+
 def delete_user_job(db: Session, user_id: int, job_id: int, settings: WebSettings) -> None:
+
     """手动删除用户作品，清理输出文件、素材包引用和流水关联。"""
     job = db.scalar(
         select(GenerationJob)
@@ -46,12 +69,13 @@ def delete_user_job(db: Session, user_id: int, job_id: int, settings: WebSetting
         _remove_safe_run_dir(raw_dir, settings.storage_root)
 
 
-def prune_user_photos(db: Session, user_id: int, settings: WebSettings, *, keep: int = MAX_RETAINED_PHOTOS_PER_USER) -> int:
-    """保留用户最新 keep 张成功作品，删除更旧作品及其输出目录。"""
-    if keep < 1:
-        keep = 1
+def prune_user_photos(db: Session, user_id: int, settings: WebSettings, *, keep: int | None = None) -> int:
+    """保留用户最新 keep 张成功作品；未显式传入 keep 时使用用户作品库容量。"""
+    effective_keep = effective_gallery_limit(db, user_id) if keep is None else keep
+    if effective_keep < 1:
+        effective_keep = 1
     jobs = _successful_jobs_with_outputs(db, user_id)
-    stale_jobs = jobs[keep:]
+    stale_jobs = jobs[effective_keep:]
     if not stale_jobs:
         return 0
 

@@ -20,7 +20,7 @@ def _bg_removal_options(cfg) -> dict:
     if asset is None:
         return {}
     return {
-        "bg_removal_algorithm": getattr(asset, "bg_removal_algorithm", "auto"),
+        "bg_removal_algorithm": getattr(asset, "bg_removal_algorithm", "pixel_bg"),
         "color_to_alpha_shape": getattr(asset, "color_to_alpha_shape", "sphere"),
         "color_to_alpha_transparency": getattr(asset, "color_to_alpha_transparency", 48),
         "color_to_alpha_opacity": getattr(asset, "color_to_alpha_opacity", 255),

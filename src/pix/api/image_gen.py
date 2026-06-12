@@ -124,7 +124,8 @@ def _edit_payload(
     if not is_gemini_model(effective_model):
         payload["quality"] = quality or cfg.image_gen.quality
         payload["output_format"] = output_format or cfg.image_gen.output_format
-        payload["input_fidelity"] = input_fidelity or cfg.image_gen.edit_input_fidelity
+        if "gpt-image-1" in effective_model.lower():
+            payload["input_fidelity"] = input_fidelity or cfg.image_gen.edit_input_fidelity
     return payload
 
 
@@ -174,7 +175,7 @@ def generate_image(
         cfg,
         operation=TEXT_TO_IMAGE,
         prompt=prompt,
-        model=_model,
+        model=model,
         size=_size,
         quality=quality or cfg.image_gen.quality,
         output_format=output_format or cfg.image_gen.output_format,
@@ -212,7 +213,7 @@ def edit_image(
         cfg,
         operation=IMAGE_TO_IMAGE,
         prompt=prompt,
-        model=_model,
+        model=model,
         size=_size,
         quality=quality or cfg.image_gen.quality,
         output_format=output_format or cfg.image_gen.output_format,
@@ -265,7 +266,7 @@ def generate_images_batch(
             cfg,
             operation=TEXT_TO_IMAGE,
             prompt=variant_prompt,
-            model=_model,
+            model=model,
             size=_size,
             quality=quality or cfg.image_gen.quality,
             output_format=output_format or cfg.image_gen.output_format,
@@ -315,7 +316,7 @@ def edit_images_batch(
             cfg,
             operation=IMAGE_TO_IMAGE,
             prompt=variant_prompt,
-            model=_model,
+            model=model,
             size=_size,
             quality=quality or cfg.image_gen.quality,
             output_format=output_format or cfg.image_gen.output_format,

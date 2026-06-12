@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,7 +11,8 @@ from typing import Any, Iterable
 
 from pix.api.packy_client import PackyError, make_packy_client
 from pix.config import AppConfig, require_vl_api_key
-from pix.io_utils import image_to_base64_data_url
+
+DEFAULT_CANDIDATE_RANKING_MODEL = "claude-opus-4-8"
 
 _JSON_BLOCK_RE = re.compile(r"```json\s*(.*?)\s*```", re.DOTALL)
 _LOOSE_JSON_RE = re.compile(r"\{[\s\S]*\}")
@@ -153,12 +155,70 @@ def _normalize_ranked_payload(raw: str, candidate_indexes: list[int], *, model: 
     return CandidateRanking(selected_index=selected_index, candidates=ordered, model=model)
 
 
-def fallback_ranking(candidate_indexes: Iterable[int], *, model: str, error: str | None = None) -> CandidateRanking:
+def fallback_ranking(
+    candidate_indexes: Iterable[int], *, model: str, error: str | None = None
+) -> CandidateRanking:
     indexes = list(candidate_indexes)
     if not indexes:
         return CandidateRanking(selected_index=0, candidates=[], model=model, mode="fallback", error=error)
-    scores = [CandidateScore(index=index, rank=rank, score=0.0, reason="VL 评分不可用，按原始候选顺序回退") for rank, index in enumerate(indexes, start=1)]
-    return CandidateRanking(selected_index=indexes[0], candidates=scores, model=model, mode="fallback", error=error)
+    scores = [
+        CandidateScore(index=index, rank=rank, score=0.0, reason="VL 评分不可用，按原始候选顺序回退")
+        for rank, index in enumerate(indexes, start=1)
+    ]
+    return CandidateRanking(
+        selected_index=indexes[0], candidates=scores, model=model, mode="fallback", error=error
+    )
+
+
+def _build_uploaded_image_payload(
+    candidate_items: list[tuple[int, Path]],
+    *,
+    user_prompt: str,
+    target_size: tuple[int, int],
+    model_name: str,
+    temperature: float,
+    max_tokens: int,
+) -> tuple[dict[str, Any], dict[str, tuple[str, bytes, str]]]:
+    width, height = target_size
+    manifest: list[dict[str, Any]] = []
+    files: dict[str, tuple[str, bytes, str]] = {}
+    for index, path in candidate_items:
+        field_name = f"candidate_{index:02d}"
+        mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+        upload_name = f"{field_name}{path.suffix or '.png'}"
+        files[field_name] = (upload_name, path.read_bytes(), mime)
+        manifest.append({"index": index, "field": field_name, "filename": upload_name})
+
+    criteria = (
+        "你是游戏像素素材美术总监。请对候选图按最终像素化质量从高到低排序。\n"
+        f"用户原始需求：{user_prompt}\n"
+        f"目标输出尺寸：{int(width)}x{int(height)}。\n"
+        "候选图片已作为 multipart 文件直接上传给模型；请查看真实附件图像，"
+        "不要根据文件名、manifest 或任何网格/占位结构臆测图像内容。\n"
+        f"附件映射：{json.dumps(manifest, ensure_ascii=False)}\n"
+        "评分标准：1) 符合用户描述；2) 单一主体、居中、无文字/水印/UI；"
+        "3) 透明或抠色背景移除后边缘干净；4) 低分辨率下轮廓可读；"
+        "5) 高对比、形态辨识度强；6) 无残留背景、裁切错误、多主体或噪声。\n"
+        "只返回 JSON，不要 Markdown。格式："
+        "{\"selected_index\":5,\"candidates\":["
+        "{\"index\":5,\"rank\":1,\"score\":92,\"reason\":\"原因\"}]}。"
+        "必须包含所有候选，score 为 0-100，rank=1 表示最好。"
+    )
+    payload: dict[str, Any] = {
+        "model": model_name,
+        "messages": [{"role": "user", "content": criteria}],
+        "temperature": float(temperature),
+        "max_tokens": int(max_tokens),
+    }
+    # multipart 表单同时提供完整 payload 和 OpenAI-compatible 扁平字段，兼容不同上游解析方式。
+    return {
+        "payload": json.dumps(payload, ensure_ascii=False),
+        "model": model_name,
+        "messages": json.dumps(payload["messages"], ensure_ascii=False),
+        "temperature": str(payload["temperature"]),
+        "max_tokens": str(payload["max_tokens"]),
+        "candidate_manifest": json.dumps(manifest, ensure_ascii=False),
+    }, files
 
 
 def rank_candidates(
@@ -170,35 +230,22 @@ def rank_candidates(
     model: str | None = None,
 ) -> CandidateRanking:
     """用 VL 对多个候选图一次性评分排序。"""
-    model_name = model or cfg.image_gen.candidate_vl_ranking_model or cfg.vision.model
+    model_name = model or cfg.image_gen.candidate_vl_ranking_model or DEFAULT_CANDIDATE_RANKING_MODEL
     candidate_items = [(int(index), Path(path)) for index, path in candidates]
     if not candidate_items:
         return CandidateRanking(selected_index=0, candidates=[], model=model_name)
 
     api_key = require_vl_api_key(cfg)
     client = make_packy_client(cfg, api_key)
-    width, height = target_size
-    criteria = (
-        "你是游戏像素素材美术总监。请对候选图按最终像素化质量从高到低排序。\n"
-        f"用户原始需求：{user_prompt}\n"
-        f"目标输出尺寸：{int(width)}x{int(height)}。\n"
-        "评分标准：1) 符合用户描述；2) 单一主体、居中、无文字/水印/UI；"
-        "3) 透明或抠色背景移除后边缘干净；4) 低分辨率下轮廓可读；"
-        "5) 高对比、形态辨识度强；6) 无残留背景、裁切错误、多主体或噪声。\n"
-        "只返回 JSON，不要 Markdown。格式："
-        "{\"selected_index\":5,\"candidates\":[{\"index\":5,\"rank\":1,\"score\":92,\"reason\":\"原因\"}]}。"
-        "必须包含所有候选，score 为 0-100，rank=1 表示最好。"
+    payload, files = _build_uploaded_image_payload(
+        candidate_items,
+        user_prompt=user_prompt,
+        target_size=target_size,
+        model_name=model_name,
+        temperature=min(float(cfg.vision.temperature), 0.2),
+        max_tokens=max(int(cfg.vision.max_tokens), 1800),
     )
-    content: list[dict[str, Any]] = [{"type": "text", "text": criteria}]
-    for index, path in candidate_items:
-        content.append({"type": "text", "text": f"candidate_{index:02d}"})
-        content.append({"type": "image_url", "image_url": {"url": image_to_base64_data_url(path)}})
-
-    payload: dict[str, Any] = {
-        "model": model_name,
-        "messages": [{"role": "user", "content": content}],
-        "temperature": min(float(cfg.vision.temperature), 0.2),
-        "max_tokens": max(int(cfg.vision.max_tokens), 1800),
-    }
-    raw = _extract_content(client.post_json("/v1/chat/completions", payload))
+    raw = _extract_content(
+        client.post_multipart("/v1/chat/completions", data=payload, files=files)
+    )
     return _normalize_ranked_payload(raw, [index for index, _ in candidate_items], model=model_name)

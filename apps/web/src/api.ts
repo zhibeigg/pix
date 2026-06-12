@@ -7,9 +7,11 @@ import type {
   AssetPack,
   AssetPackQuota,
   CreditBalance,
+  AdminBatchAdjustCreditsResponse,
   GenerationBatch,
   CreditTransaction,
   SequenceAlignmentRequest,
+  GalleryQuota,
   GenerationJob,
   ImageModelsResponse,
   JobBatchCreateResponse,
@@ -257,6 +259,12 @@ export const api = {
   jobs(token: string) {
     return request<GenerationJob[]>('/jobs?limit=50', {}, token)
   },
+  galleryQuota(token: string) {
+    return request<GalleryQuota>('/jobs/gallery-quota', {}, token)
+  },
+  expandGalleryQuota(token: string) {
+    return request<GalleryQuota>('/jobs/gallery-quota/expand', { method: 'POST' }, token)
+  },
   batches(token: string) {
     return request<GenerationBatch[]>('/batches?limit=50', {}, token)
   },
@@ -327,6 +335,13 @@ export const api = {
     return request<CreditTransaction>(
       `/admin/users/${userId}/adjust-credits`,
       { method: 'POST', body: JSON.stringify({ amount, note }) },
+      token,
+    )
+  },
+  adjustCreditsBatch(token: string, payload: { user_ids?: number[]; all_users?: boolean; amount: number; note: string }) {
+    return request<AdminBatchAdjustCreditsResponse>(
+      '/admin/users/adjust-credits-batch',
+      { method: 'POST', body: JSON.stringify(payload) },
       token,
     )
   },

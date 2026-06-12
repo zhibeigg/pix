@@ -88,6 +88,7 @@ def built_in_model(model_id: str) -> ImageProviderModelConfig | None:
             sizes=base_sizes,
             qualities=base_qualities,
             output_formats=base_formats,
+            extra={"supports_input_fidelity": "gpt-image-1" in lower},
         )
     if "dall-e" in lower:
         return ImageProviderModelConfig(
@@ -113,7 +114,7 @@ def built_in_model(model_id: str) -> ImageProviderModelConfig | None:
             output_formats=base_formats,
             edit_mode="image_input" if "edit" in lower else "multipart",
         )
-    if "doubao" in lower or "seedream" in lower:
+    if "seedream" in lower or ("doubao" in lower and any(token in lower for token in ("image", "vision"))):
         return ImageProviderModelConfig(
             id=mid,
             provider_model=mid,

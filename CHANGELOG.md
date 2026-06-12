@@ -9,16 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 作品库新增付费扩容：默认普通作品保留 10 张，用户可花费 60 点为作品库增加 10 个保留格；后端新增 `GET /jobs/gallery-quota` 与 `POST /jobs/gallery-quota/expand`，清理策略会按用户扩容后的容量保留作品。
+- 管理后台「用户与点数」新增批量调整能力：可多选、全选当前用户列表，或对全部 active 用户统一补点 / 扣点；后端新增 `POST /admin/users/adjust-credits-batch` 并为每个目标用户写入独立点数流水。
 - 生图层新增通用 Provider 架构：支持 Crazyrouter/Packy 等多 Provider、多模型能力发现和按 logical model 的失败切换。
 - `/settings/image-models` 返回结构化模型能力（providers、operations、sizes、qualities、protocols），前端单张、批量和原始生图页可动态选择模型。
 
 ### Changed
 
+- 候选 VL 评分默认模型切换为 `claude-opus-4-8`，并改为 multipart 直接上传候选图片给模型，不再使用 chat `image_url` / 网格占位式模拟图片结构。
+- 背景去除默认算法切换为参考项目 `pixel_bg` 方法：边框中位数 key 色探测、`t_core/t_grow` 双阈值连通域生长、key 色去溢色与硬边二值 Alpha，并统一替换普通素材、Pixel Grid、contact sheet 与 sprite mosaic 的去背景入口。
+- 默认关闭素材多候选生图，并将 `n_sample_count` 默认值降为 1；需要质量优先时可在后台显式开启，避免普通任务一次生成多张图放大上游成本。
 - 文生图、图生图和 n-sample 候选生成从 Packy 直连改为 dispatcher 调度，并在任务 meta 中记录 provider 调用历史。
 - 配置示例新增 `[[image_providers]]`、Crazyrouter 环境变量、failover 与模型发现选项；Packy 变量保留为兼容旧部署 / fallback。
 
 ### Fixed
 
+- 修复 `local_pixelize` 本地重处理被当作普通上传图走 legacy 路径的问题；现在会整体按生成图源图执行 perfect pixel / 去背景 / 裁切后处理，并采用 perfect pixel 自动检测到的真实像素尺寸。
+- 收紧顶部全局提示 Toast 的高度、内边距和关闭按钮尺寸，避免绿色成功提示弹出时显得过高且留白过多。
+- 修复 `gpt-image-2` 图生图请求仍发送 `input_fidelity` 导致上游返回 `invalid_input_fidelity_model` 的问题；现在该参数按模型能力开关发送。
+- 修复 Crazyrouter 模型发现把 Doubao 文本模型误识别为图片模型，导致序列帧任务调用非生图模型失败的问题；默认模型不可用且未显式指定模型时会回退到第一个可用图片模型。
 - 修复管理后台系统公告页在全局轮询刷新时反复切换加载态导致界面闪烁的问题，并保留公告保存后的反馈提示。
 - 修复系统公告列表旧公告排在前面的问题；公告弹窗现在按最新发布倒序展示，并同时保留具体发布时间与“几小时前 / 几天前发布”的相对时间。
 

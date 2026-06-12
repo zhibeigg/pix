@@ -13,7 +13,11 @@ from PIL import Image
 
 from pix import __version__
 from pix.analysis.schema import PixAnalysis
-from pix.api.candidate_ranker import fallback_ranking, rank_candidates
+from pix.api.candidate_ranker import (
+    DEFAULT_CANDIDATE_RANKING_MODEL,
+    fallback_ranking,
+    rank_candidates,
+)
 from pix.api.image_dispatcher import clear_image_provider_history, image_provider_history
 from pix.api.image_gen import edit_image, edit_images_batch, generate_image, generate_images_batch
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
@@ -77,6 +81,8 @@ class PipelineInput:
     source_only: bool = False
     # Web worker 可注入跨进程本地阶段锁；核心 pipeline 不直接依赖 pix_web。
     local_stage_context: LocalStageContext | None = None
+    # 本地图片是否应按 AI 生成源图处理；用于 local_pixelize 复用完整生成图后处理链路。
+    input_is_generated_source: bool = False
 
 
 @dataclass
@@ -100,13 +106,13 @@ def _local_stage(factory: LocalStageContext | None) -> ContextManager[None]:
     return factory() if factory is not None else nullcontext()
 
 
-def _prepare_prompt(cfg: AppConfig, inputs: PipelineInput, notify: ProgressCb) -> tuple[str | None, dict | None]:
+def _prepare_prompt(
+    cfg: AppConfig, inputs: PipelineInput, notify: ProgressCb
+) -> tuple[str | None, dict | None]:
     """审核用户原始输入，并生成发给生图模型的受控 prompt。"""
     if inputs.prompt is None:
         return None, None
-    guard_text = (
-        inputs.prompt_guard_text if inputs.prompt_guard_text is not None else inputs.prompt
-    )
+    guard_text = inputs.prompt_guard_text if inputs.prompt_guard_text is not None else inputs.prompt
     try:
         guard = validate_user_prompt(
             cfg,
@@ -280,7 +286,7 @@ def _finalize_candidate_result(
 ) -> dict:
     """共用流程：评分 → 选最优 → 复制到 source_path → 落 meta。"""
     key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, user_prompt)
-    ranking_model = cfg.image_gen.candidate_vl_ranking_model or cfg.vision.model
+    ranking_model = cfg.image_gen.candidate_vl_ranking_model or DEFAULT_CANDIDATE_RANKING_MODEL
     ranking = None
     if cfg.image_gen.candidate_vl_ranking_enabled and rank_with_vl:
         try:
@@ -299,20 +305,31 @@ def _finalize_candidate_result(
                 target_size=target_size,
                 model=ranking_model,
             )
-            notify("candidate_ranking_ready", {"selected_index": ranking.selected_index, "mode": ranking.mode})
+            notify(
+                "candidate_ranking_ready",
+                {"selected_index": ranking.selected_index, "mode": ranking.mode},
+            )
         except Exception as exc:
             if cfg.image_gen.candidate_vl_ranking_failure_policy == "reject":
                 raise
-            ranking = fallback_ranking((candidate.index for candidate in result.candidates), model=ranking_model, error=str(exc))
+            ranking = fallback_ranking(
+                (candidate.index for candidate in result.candidates),
+                model=ranking_model,
+                error=str(exc),
+            )
             notify("candidate_ranking_failed", {"error": str(exc), "fallback": "first"})
     else:
         mode = "skipped" if not rank_with_vl else "disabled"
-        ranking = fallback_ranking((candidate.index for candidate in result.candidates), model=ranking_model, error=mode)
+        ranking = fallback_ranking(
+            (candidate.index for candidate in result.candidates), model=ranking_model, error=mode
+        )
 
     result = apply_candidate_ranking(result, [item.to_metadata() for item in ranking.candidates])
     scores_path = run_dir / "01_candidate_scores.json"
     with _local_stage(local_stage_context):
-        scores_path.write_text(json.dumps(ranking.to_metadata(), ensure_ascii=False, indent=2), encoding="utf-8")
+        scores_path.write_text(
+            json.dumps(ranking.to_metadata(), ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         copy_selected_candidate(result, source_path)
     meta = result.to_metadata(
         run_dir,
@@ -354,6 +371,7 @@ def _render_candidate_pixel_outputs(
     cfg: AppConfig | None = None,
     source_description: str = "",
     generated_preprocess_method: str | None = None,
+    preserve_preprocessed_size: bool = False,
 ) -> dict | None:
     """为 contact sheet 的每个候选生成最终像素图，并更新候选 meta。"""
     if not result_meta or not isinstance(result_meta.get("candidates"), list):
@@ -395,6 +413,7 @@ def _render_candidate_pixel_outputs(
                 source_description=source_description,
                 auto_skip_redundant_bg=True,
                 generated_preprocess_method=generated_preprocess_method,
+                preserve_preprocessed_size=preserve_preprocessed_size,
             )
             pixel_img.save(pixel_path)
             if preview_img is not None:
@@ -466,7 +485,9 @@ def _run_grid_pixelize(
         preprocess_output_path=preprocess_output_path,
     )
 
-    edge_style = params.edge_style if params.edge_style in ("hard", "feather", "outline") else "hard"
+    edge_style = (
+        params.edge_style if params.edge_style in ("hard", "feather", "outline") else "hard"
+    )
     edge_strength = max(0, int(params.bg_feather))
     edge_treatment: dict = {
         "style": edge_style,
@@ -535,7 +556,7 @@ def _run_grid_pixelize(
 
         if ramp_palette_obj is not None and ramp_palette_obj.rgb_list:
             old_rgb = [
-                tuple(int(grid.palette[i].hex.lstrip("#")[s:s + 2], 16) for s in (0, 2, 4))
+                tuple(int(grid.palette[i].hex.lstrip("#")[s : s + 2], 16) for s in (0, 2, 4))
                 for i in range(len(grid.palette))
             ]
             new_rgb = remap_palette_to_ramp(old_rgb, ramp_palette_obj)
@@ -643,7 +664,9 @@ def run_pipeline(
     def _job_material_prompt_fields(*, user_prompt: str, effective_prompt: str) -> dict:
         if not use_sheet_overall:
             return {"prompt": effective_prompt}
-        return _material_prompt_fields(cfg, user_prompt=user_prompt, effective_prompt=effective_prompt)
+        return _material_prompt_fields(
+            cfg, user_prompt=user_prompt, effective_prompt=effective_prompt
+        )
 
     def _run_n_sample_generation(*, do_edit: bool, image_path: Path | None) -> list[Path]:
         """根据 mode 生成 N 张独立单图；命中缓存的逐张复用，缺失的用一次 batch 调用补齐。"""
@@ -651,7 +674,9 @@ def run_pipeline(
         samples_dir.mkdir(parents=True, exist_ok=True)
         cached_paths: list[Path | None] = [None] * n
         material_base = {
-            **_job_material_prompt_fields(user_prompt=inputs.prompt or "", effective_prompt=effective_prompt or ""),
+            **_job_material_prompt_fields(
+                user_prompt=inputs.prompt or "", effective_prompt=effective_prompt or ""
+            ),
             "size": inputs.image_size or cfg.image_gen.size,
             "quality": inputs.image_quality or cfg.image_gen.quality,
             "model": inputs.image_model or cfg.image_gen.model,
@@ -706,7 +731,9 @@ def run_pipeline(
                 target.write_bytes(Path(src).read_bytes())
                 cached_paths[slot_index] = target
                 # 写入缓存
-                cache.store_copy(cache_kind, {**material_base, "index": slot_index + 1}, "png", target)
+                cache.store_copy(
+                    cache_kind, {**material_base, "index": slot_index + 1}, "png", target
+                )
             # 清理 _pending 临时目录
             for p in tmp_dir.glob("*"):
                 try:
@@ -742,7 +769,9 @@ def run_pipeline(
             use_sheet = use_sheet_overall and candidate_mode_name == "contact_sheet"
             generated_path = contact_sheet_path if use_sheet else source_path
             material = {
-                **_job_material_prompt_fields(user_prompt=inputs.prompt, effective_prompt=effective_prompt),
+                **_job_material_prompt_fields(
+                    user_prompt=inputs.prompt, effective_prompt=effective_prompt
+                ),
                 "image_sha256": input_hash,
                 "size": inputs.image_size or cfg.image_gen.size,
                 "quality": inputs.image_quality or cfg.image_gen.quality,
@@ -802,10 +831,10 @@ def run_pipeline(
                     source_mode = "edited"
                 notify("source_ready", {"path": str(source_path), "mode": source_mode})
     elif inputs.image_path is not None:
-        # 复制到 run_dir
+        # 复制到 run_dir。候选复用虽然是本地路径，但来源仍是 AI 生成图，后续应走生成图后处理。
         data = Path(inputs.image_path).read_bytes()
         source_path.write_bytes(data)
-        source_mode = "upload"
+        source_mode = "generated_upload" if inputs.input_is_generated_source else "upload"
         notify("source_ready", {"path": str(source_path), "mode": source_mode})
     else:
         assert inputs.prompt is not None
@@ -830,7 +859,9 @@ def run_pipeline(
             use_sheet = use_sheet_overall and candidate_mode_name == "contact_sheet"
             generated_path = contact_sheet_path if use_sheet else source_path
             material = {
-                **_job_material_prompt_fields(user_prompt=inputs.prompt, effective_prompt=effective_prompt),
+                **_job_material_prompt_fields(
+                    user_prompt=inputs.prompt, effective_prompt=effective_prompt
+                ),
                 "size": inputs.image_size or cfg.image_gen.size,
                 "quality": inputs.image_quality or cfg.image_gen.quality,
                 "model": inputs.image_model or cfg.image_gen.model,
@@ -858,7 +889,10 @@ def run_pipeline(
                     source_mode = "cache"
                 notify("source_ready", {"path": str(source_path), "mode": source_mode})
             else:
-                notify("image_gen_start", {"prompt": effective_prompt, "user_prompt": inputs.prompt, **material})
+                notify(
+                    "image_gen_start",
+                    {"prompt": effective_prompt, "user_prompt": inputs.prompt, **material},
+                )
                 generate_image(
                     cfg,
                     effective_prompt,
@@ -958,7 +992,9 @@ def run_pipeline(
         if cached is not None:
             analysis_path.write_text(cached.read_text(encoding="utf-8"), encoding="utf-8")
             try:
-                analysis = PixAnalysis.model_validate_json(analysis_path.read_text(encoding="utf-8"))
+                analysis = PixAnalysis.model_validate_json(
+                    analysis_path.read_text(encoding="utf-8")
+                )
                 notify("analysis_ready", {"path": str(analysis_path), "mode": "cache"})
             except Exception:
                 analysis = None
@@ -1004,12 +1040,26 @@ def run_pipeline(
             notify=notify,
             cfg=cfg,
             source_description=inputs.prompt or "",
-            generated_preprocess_method=generated_preprocess_method if contact_sheet_meta else "legacy",
+            generated_preprocess_method=generated_preprocess_method
+            if contact_sheet_meta
+            else "legacy",
+            preserve_preprocessed_size=bool(contact_sheet_meta),
         )
         selected_candidate = None
         if contact_sheet_meta and isinstance(contact_sheet_meta.get("candidates"), list):
-            selected_candidate = next((item for item in contact_sheet_meta["candidates"] if isinstance(item, dict) and item.get("selected")), None)
-        if selected_candidate and selected_candidate.get("preprocessed_path") and not preprocess_path.exists():
+            selected_candidate = next(
+                (
+                    item
+                    for item in contact_sheet_meta["candidates"]
+                    if isinstance(item, dict) and item.get("selected")
+                ),
+                None,
+            )
+        if (
+            selected_candidate
+            and selected_candidate.get("preprocessed_path")
+            and not preprocess_path.exists()
+        ):
             selected_preprocess = run_dir / str(selected_candidate["preprocessed_path"])
             if selected_preprocess.exists():
                 preprocess_path.write_bytes(selected_preprocess.read_bytes())
@@ -1018,7 +1068,11 @@ def run_pipeline(
             candidate_pixel_path = run_dir / str(selected_candidate["pixelized_path"])
             pixel_path.write_bytes(candidate_pixel_path.read_bytes())
             preview_rel = selected_candidate.get("preview_path")
-            pix_meta = selected_candidate.get("pixelized_meta") if isinstance(selected_candidate.get("pixelized_meta"), dict) else {}
+            pix_meta = (
+                selected_candidate.get("pixelized_meta")
+                if isinstance(selected_candidate.get("pixelized_meta"), dict)
+                else {}
+            )
             pix_meta = dict(pix_meta)
             pix_meta["candidate_outputs"] = candidate_outputs_meta
             if preview_rel:
@@ -1035,6 +1089,7 @@ def run_pipeline(
                 source_description=inputs.prompt or "",
                 auto_skip_redundant_bg=True,
                 generated_preprocess_method=generated_preprocess_method,
+                preserve_preprocessed_size=inputs.input_is_generated_source,
                 preprocess_output_path=preprocess_path,
             )
             pixel_img.save(pixel_path)
@@ -1057,7 +1112,10 @@ def run_pipeline(
                 preview_path = run_dir / "04_pixelized_preview.png"
                 preview_img.save(preview_path)
             pix_meta["candidate_outputs"] = candidate_outputs_meta
-        notify("pixelize_ready", {"path": str(pixel_path), "grid": str(grid_path) if grid_path else None})
+        notify(
+            "pixelize_ready",
+            {"path": str(pixel_path), "grid": str(grid_path) if grid_path else None},
+        )
 
     # 5. meta
     meta = {
@@ -1090,8 +1148,12 @@ def run_pipeline(
         "outputs": {
             "source": source_path.name,
             "contact_sheet": contact_sheet_path.name if contact_sheet_path.exists() else None,
-            "candidate_scores": "01_candidate_scores.json" if (run_dir / "01_candidate_scores.json").exists() else None,
-            "candidate_outputs": "candidate_outputs" if (run_dir / "candidate_outputs").exists() else None,
+            "candidate_scores": "01_candidate_scores.json"
+            if (run_dir / "01_candidate_scores.json").exists()
+            else None,
+            "candidate_outputs": "candidate_outputs"
+            if (run_dir / "candidate_outputs").exists()
+            else None,
             "analysis": analysis_path.name if analysis_path else None,
             "perfect_pixel_preprocess": preprocess_path.name if preprocess_path.exists() else None,
             "pixelized": pixel_path.name,

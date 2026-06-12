@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
@@ -44,7 +44,7 @@ def _bg_removal_options(cfg) -> dict:
     if asset is None:
         return {}
     return {
-        "bg_removal_algorithm": getattr(asset, "bg_removal_algorithm", "auto"),
+        "bg_removal_algorithm": getattr(asset, "bg_removal_algorithm", "pixel_bg"),
         "color_to_alpha_shape": getattr(asset, "color_to_alpha_shape", "sphere"),
         "color_to_alpha_transparency": getattr(asset, "color_to_alpha_transparency", 48),
         "color_to_alpha_opacity": getattr(asset, "color_to_alpha_opacity", 255),
@@ -94,7 +94,9 @@ class PixelizeParams:
             crop_padding=getattr(cfg, "crop_padding", 0.12),
             crop_square=getattr(cfg, "crop_square", True),
             palette_mode=getattr(cfg, "palette_mode", "auto"),  # type: ignore[arg-type]
-            generated_preprocess_method=getattr(cfg, "generated_preprocess_method", "perfect_pixel"),  # type: ignore[arg-type]
+            generated_preprocess_method=getattr(
+                cfg, "generated_preprocess_method", "perfect_pixel"
+            ),  # type: ignore[arg-type]
         )
 
 
@@ -471,7 +473,11 @@ def _outline_rgb_from_foreground(rgba: np.ndarray, foreground: np.ndarray) -> tu
     pixels = rgba[foreground, :3]
     if pixels.size == 0:
         return (16, 16, 16)
-    luma = pixels[:, 0].astype(np.float32) * 0.2126 + pixels[:, 1].astype(np.float32) * 0.7152 + pixels[:, 2].astype(np.float32) * 0.0722
+    luma = (
+        pixels[:, 0].astype(np.float32) * 0.2126
+        + pixels[:, 1].astype(np.float32) * 0.7152
+        + pixels[:, 2].astype(np.float32) * 0.0722
+    )
     darkest = pixels[int(np.argmin(luma))]
     if float(luma.min()) < 72:
         return tuple(int(v) for v in darkest)
@@ -513,8 +519,10 @@ def _quantize(
 ) -> Image.Image:
     pal_img = build_palette_image(palette_rgb)
     dither_method = (
-        Image.Dither.FLOYDSTEINBERG if dither == "floyd_steinberg"
-        else Image.Dither.ORDERED if dither == "ordered"
+        Image.Dither.FLOYDSTEINBERG
+        if dither == "floyd_steinberg"
+        else Image.Dither.ORDERED
+        if dither == "ordered"
         else Image.Dither.NONE
     )
     # 保留可能的 alpha：先量化 RGB，再把原 alpha 贴回
@@ -577,7 +585,8 @@ def _resolve_ramp_palette(
     """
     info: dict = {"source": "local", "vl_error": None, "requested": params.palette_mode}
     draft_hex = [
-        "#{:02X}{:02X}{:02X}".format(*rgb) for rgb in kmeans_palette(image, max(4, min(8, params.colors)))
+        "#{:02X}{:02X}{:02X}".format(*rgb)
+        for rgb in kmeans_palette(image, max(4, min(8, params.colors)))
     ]
     info["draft_palette"] = draft_hex
     if description:
@@ -614,6 +623,7 @@ def pixelize(
     source_description: str = "",
     auto_skip_redundant_bg: bool = False,
     generated_preprocess_method: str | None = None,
+    preserve_preprocessed_size: bool = False,
     preprocess_output_path: str | Path | None = None,
 ) -> tuple[Image.Image, Image.Image | None, dict]:
     """执行像素化。
@@ -632,6 +642,9 @@ def pixelize(
         generated_preprocess_method: 仅 pipeline 标记输入来自 AI 生图/图生图时传入。
             ``None`` 表示本地/直接调用，保持旧流程；``perfect_pixel`` 会先按目标网格
             做 perfectPixel 风格采样对齐。
+        preserve_preprocessed_size: 当 perfect pixel 成功时，采用自动检测出的预处理图尺寸
+            作为最终输出尺寸，而不是强行缩放回 params.output_size。用于候选图复用等
+            已经是生成结果的本地路径。
         preprocess_output_path: 需要调试/追踪时保存 perfect pixel 预处理图。
 
     Returns:
@@ -647,24 +660,22 @@ def pixelize(
 
     preset = _resolve_preset(params, analysis)
     eff = _effective_params(params, preset, analysis)
-    edge_policy = _apply_low_pixel_edge_policy(eff, has_transparency=input_has_transparency)
+    requested_output_size = tuple(eff.output_size)
 
     # 源图本身已经抠好背景（alpha=0 占比超过阈值）时，自动跳过 remove_bg / auto_crop，
     # 避免对已抠图重复抠图导致主体被误压缩。仅在调用方传入 auto_skip_redundant_bg=True
     # 时启用；普通 pixelize 调用方默认不开，保留显式 remove_bg / auto_crop 的语义。
     skipped_remove_bg = (
-        auto_skip_redundant_bg
-        and pre_transparency_ratio >= 0.10
-        and bool(eff.remove_bg)
+        auto_skip_redundant_bg and pre_transparency_ratio >= 0.10 and bool(eff.remove_bg)
     )
     skipped_auto_crop = (
-        auto_skip_redundant_bg
-        and pre_transparency_ratio >= 0.10
-        and bool(eff.auto_crop)
+        auto_skip_redundant_bg and pre_transparency_ratio >= 0.10 and bool(eff.auto_crop)
     )
 
     # 1. AI 生成结果首先走 perfectPixel 网格对齐；本地直接 pixelize 默认不启用。
-    generated_method = generated_preprocess_method if generated_preprocess_method is not None else "legacy"
+    generated_method = (
+        generated_preprocess_method if generated_preprocess_method is not None else "legacy"
+    )
     generated_preprocess = preprocess_generated_image(
         img,
         method=generated_method,
@@ -672,7 +683,17 @@ def pixelize(
     )
     img = generated_preprocess.image
     generated_preprocess_meta = generated_preprocess.meta
-    if preprocess_output_path is not None and generated_preprocess_meta.get("method") == "perfect_pixel":
+    adopted_preprocessed_size = False
+    if preserve_preprocessed_size and generated_preprocess_meta.get("applied"):
+        detected_size = (max(1, int(img.width)), max(1, int(img.height)))
+        if detected_size != tuple(eff.output_size):
+            eff = replace(eff, output_size=detected_size)
+            adopted_preprocessed_size = True
+    edge_policy = _apply_low_pixel_edge_policy(eff, has_transparency=input_has_transparency)
+    if (
+        preprocess_output_path is not None
+        and generated_preprocess_meta.get("method") == "perfect_pixel"
+    ):
         preprocess_path = Path(preprocess_output_path)
         preprocess_path.parent.mkdir(parents=True, exist_ok=True)
         img.save(preprocess_path)
@@ -784,6 +805,9 @@ def pixelize(
         "edge_policy": edge_policy,
         "input_transparency_ratio": round(pre_transparency_ratio, 4),
         "generated_preprocess": generated_preprocess_meta,
+        "requested_output_size": list(requested_output_size),
+        "preserve_preprocessed_size": bool(preserve_preprocessed_size),
+        "adopted_preprocessed_size": bool(adopted_preprocessed_size),
         "preprocess_order": ["perfect_pixel", "remove_background", "auto_crop"],
         "auto_crop_policy": "tight_after_perfect_pixel" if tight_crop else "configured_padding",
         "skipped_remove_bg": skipped_remove_bg,

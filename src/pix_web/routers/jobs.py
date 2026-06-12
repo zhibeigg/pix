@@ -7,15 +7,29 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.config import WebSettings
+from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, spend_credits
 from pix_web.jobs import create_job, create_jobs_batch, retry_failed_job
 from pix_web.models import GenerationJob, User
 from pix_web.queue import enqueue_jobs
-from pix_web.retention import delete_user_job, prune_user_photos
-from pix_web.schemas import JobBatchCreateRequest, JobBatchCreateResponse, JobCreateRequest, JobResponse, SequenceAlignmentRequest
+from pix_web.retention import GALLERY_EXPAND_PRICE_CREDITS, GALLERY_EXPAND_SLOTS, delete_user_job, effective_gallery_limit, get_or_create_gallery_quota, prune_user_photos, retained_photo_count
+from pix_web.schemas import GalleryQuotaResponse, JobBatchCreateRequest, JobBatchCreateResponse, JobCreateRequest, JobResponse, SequenceAlignmentRequest
 from pix_web.sequence_alignment import apply_sequence_alignment
 from pix_web.security import get_current_user, get_db, get_settings
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+
+
+def _gallery_quota_response(db: Session, user: User) -> GalleryQuotaResponse:
+    retained_limit = effective_gallery_limit(db, user.id)
+    retained_count = retained_photo_count(db, user.id)
+    return GalleryQuotaResponse(
+        retained_count=retained_count,
+        retained_limit=retained_limit,
+        remaining_slots=max(0, retained_limit - retained_count),
+        expand_price_credits=GALLERY_EXPAND_PRICE_CREDITS,
+        expand_slots=GALLERY_EXPAND_SLOTS,
+    )
 
 
 @router.post("", response_model=JobResponse)
@@ -59,6 +73,27 @@ def list_jobs(
         .limit(max(1, min(200, limit)))
     )
     return list(db.scalars(stmt))
+
+
+@router.get("/gallery-quota", response_model=GalleryQuotaResponse)
+def get_gallery_quota(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> GalleryQuotaResponse:
+    get_or_create_gallery_quota(db, user.id)
+    response = _gallery_quota_response(db, user)
+    db.commit()
+    return response
+
+
+@router.post("/gallery-quota/expand", response_model=GalleryQuotaResponse)
+def expand_gallery_quota(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> GalleryQuotaResponse:
+    quota = get_or_create_gallery_quota(db, user.id)
+    current_limit = effective_gallery_limit(db, user.id)
+    try:
+        spend_credits(db, user, GALLERY_EXPAND_PRICE_CREDITS, note=f"作品库容量 +{GALLERY_EXPAND_SLOTS}")
+    except InsufficientCreditsError as exc:
+        raise insufficient_credits_http() from exc
+    quota.retained_limit = current_limit + GALLERY_EXPAND_SLOTS
+    db.commit()
+    return _gallery_quota_response(db, user)
 
 
 @router.post("/{job_id}/sequence-alignment", response_model=JobResponse)

@@ -3,7 +3,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Crosshair, Download, FileDown, PackagePlus, RotateCcw, Trash2, X } from 'lucide-react'
 import { fileName, signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
-import type { ContactSheetCandidate, GenerationJob, JobOutput, SequenceAlignmentRequest } from '../types'
+import type { ContactSheetCandidate, GalleryQuota, GenerationJob, JobOutput, SequenceAlignmentRequest } from '../types'
 import { jobInputSummary } from '../pixelize'
 import { jobTypeLabel } from '../labels'
 import { formatDateTime } from '../lib/utils'
@@ -18,21 +18,25 @@ import { SpriteSequencePreview } from './SpriteSequencePreview'
 import { SpriteSequenceAlignmentEditor } from './SpriteSequenceAlignmentEditor'
 import { JobParameterSnapshotDialog } from './JobParameterSnapshotDialog'
 
-type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; draggableSucceeded?: boolean }
+type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; galleryQuota?: GalleryQuota | null; onExpandGalleryQuota?: () => void; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; draggableSucceeded?: boolean }
 type DownloadKind = 'source' | 'pixelized' | 'sprite_gif' | 'sprite_sheet' | 'sprite_mosaic' | 'sequence_json' | 'contact_sheet'
 type DownloadOption = { id: DownloadKind; label: string; description: string; path: string; url: string; filename: string }
 
-export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, onSelect, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, draggableSucceeded = false }: GalleryGridProps) {
+export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, galleryQuota = null, onExpandGalleryQuota, onSelect, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, draggableSucceeded = false }: GalleryGridProps) {
   const { t } = useI18n()
   const [page, setPage] = useState(1)
   const pageSize = 48
   const ordered = useMemo(() => [...jobs].sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at))), [jobs])
+  const galleryLimit = galleryQuota?.retained_limit ?? 10
+  const galleryUsed = galleryQuota?.retained_count ?? ordered.filter((job) => job.status === 'succeeded' && job.outputs.length > 0).length
+  const expandPrice = galleryQuota?.expand_price_credits ?? 60
+  const expandSlots = galleryQuota?.expand_slots ?? 10
   const totalPages = Math.max(1, Math.ceil(ordered.length / pageSize))
   const safePage = Math.min(page, totalPages)
   const visible = ordered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   return (
-    <PixPanel eyebrow={t('gallery.eyebrow')} title={t('gallery.title')} description={subtitle} action={<div className="flex flex-wrap gap-2"><Badge variant="info">{t('gallery.itemCount', { count: ordered.length })}</Badge><Badge variant="outline">{t('gallery.maxWorks')}</Badge><Badge variant="outline">{t('gallery.page', { page: safePage, total: totalPages })}</Badge></div>}>
+    <PixPanel eyebrow={t('gallery.eyebrow')} title={t('gallery.title')} description={subtitle} action={<div className="flex flex-wrap items-center gap-2"><Badge variant="info">{t('gallery.itemCount', { count: ordered.length })}</Badge><Badge variant={galleryUsed >= galleryLimit ? 'warning' : 'outline'}>{t('gallery.retentionQuota', { used: galleryUsed, limit: galleryLimit })}</Badge><Badge variant="outline">{t('gallery.page', { page: safePage, total: totalPages })}</Badge>{onExpandGalleryQuota && <Button type="button" size="sm" variant="outline" onClick={onExpandGalleryQuota}>{t('gallery.expandQuotaButton', { price: expandPrice, slots: expandSlots })}</Button>}</div>}>
       {ordered.length === 0 ? <div className="rounded-lg border border-dashed border-border bg-muted/45 p-8 text-center text-muted-foreground">{t('gallery.empty')}</div> : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {visible.map((job) => <GalleryCard key={job.id} job={job} selected={selectedJobId === job.id} retrying={retryingJobId === job.id} draggable={draggableSucceeded && job.status === 'succeeded'} onSelect={onSelect} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} onDeleteJob={onDeleteJob} onSaveToPack={onSaveToPack} onRemoveFromPack={onRemoveFromPack} onSaveSequenceAlignment={onSaveSequenceAlignment} />)}

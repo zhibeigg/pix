@@ -112,11 +112,11 @@ def _sprite_bg_removal_options(cfg: AppConfig | None, *, tolerance: int) -> dict
     asset = getattr(cfg, "asset", None)
     if asset is None:
         return {
-            "bg_removal_algorithm": "color_to_alpha",
+            "bg_removal_algorithm": "pixel_bg",
             "color_to_alpha_transparency": max(0, int(tolerance)),
         }
     return {
-        "bg_removal_algorithm": "color_to_alpha",
+        "bg_removal_algorithm": getattr(asset, "bg_removal_algorithm", "pixel_bg"),
         "color_to_alpha_shape": getattr(asset, "color_to_alpha_shape", "sphere"),
         "color_to_alpha_transparency": max(0, int(tolerance)),
         "color_to_alpha_opacity": getattr(asset, "color_to_alpha_opacity", 255),
