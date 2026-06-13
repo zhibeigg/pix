@@ -23,6 +23,7 @@ type Props = { pricing: PricingRule[]; balance: CreditBalance | null; loading: b
 
 const PROMPT_MAX_LENGTH = 3000
 const LOGO_SIZE_OPTIONS = ['64x32', '96x48', '128x64', '192x96', '256x128']
+const UI_COMPONENT_IMAGE_SIZE = 'auto'
 
 function modelItems(imageModels: ImageModelsResponse): ImageModelInfo[] {
   const byId = new Map((imageModels.items ?? []).map((item) => [item.id, item]))
@@ -74,6 +75,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, imageMode
   const isTileAsset = isAsset && assetKind === 'tile_texture'
   const isLogoAsset = isAsset && assetKind === 'game_logo'
   const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : 'single_prop'
+  const uiComponentImageSize = assetKind === 'ui_component' ? UI_COMPONENT_IMAGE_SIZE : undefined
   const assetSubjectsLabel = isLogoAsset ? t('batchForm.logoSubjects') : isTileAsset ? t('batchForm.textureSubjects') : t('batchForm.assetSubjects')
   const assetSubjectPlaceholder = isLogoAsset ? t('batchForm.logoSubjectPlaceholder') : isTileAsset ? t('batchForm.textureSubjectPlaceholder') : t('batchForm.assetSubjectPlaceholder')
 
@@ -131,7 +133,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, imageMode
     const grid = buildGridDesign()
     const modelOverride = imageModel !== imageModels.default ? imageModel : undefined
     let payloads: JobCreateRequest[] = []
-    if (batchMode === 'asset') payloads = lines.map((name) => ({ job_type: 'asset', prompt: name, input_image_path: null, client_request_id: crypto.randomUUID(), image_model: modelOverride, pixelize, grid, asset: { name, extra_prompt: assetExtraPrompt.trim(), asset_kind: assetKind, subject_kind: subjectKind, no_preview: false } }))
+    if (batchMode === 'asset') payloads = lines.map((name) => ({ job_type: 'asset', prompt: name, input_image_path: null, client_request_id: crypto.randomUUID(), image_size: uiComponentImageSize, image_model: modelOverride, pixelize, grid, asset: { name, extra_prompt: assetExtraPrompt.trim(), asset_kind: assetKind, subject_kind: subjectKind, no_preview: false } }))
     else payloads = uploaded.map((item) => ({ job_type: 'local_pixelize', prompt: null, input_image_path: item.upload?.path ?? null, client_request_id: crypto.randomUUID(), skip_vl: true, pixelize, grid }))
     if (payloads.length >= 10 && !window.confirm(t('batchForm.confirmQueue', { count: payloads.length, total: totalPrice }))) return
     await onSubmitMany(payloads, '', batchMode)
