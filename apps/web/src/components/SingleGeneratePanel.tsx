@@ -24,6 +24,7 @@ const PROMPT_MAX_LENGTH = 3000
 const ROW_PROMPT_MAX_LENGTH = 600
 const MAX_GRID_AXIS = 8
 const LOGO_SIZE_OPTIONS = ['64x32', '96x48', '128x64', '192x96', '256x128']
+const UI_COMPONENT_IMAGE_SIZE = 'auto'
 
 type SpritePreset = 'horizontal' | 'four_directions' | 'character_full' | 'custom'
 
@@ -167,6 +168,7 @@ export function SingleGeneratePanel({ pricing, loading, token, imageModels, onSu
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
   const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : 'single_prop'
+  const uiComponentImageSize = assetKind === 'ui_component' ? UI_COMPONENT_IMAGE_SIZE : undefined
   const assetNameLabel = isLogoAsset ? text('Logo 标题 / 品牌名', 'Logo title / brand name') : isTileAsset ? text('纹理主题 / 题材', 'Texture theme') : text('主体', 'Subject')
   const assetNamePlaceholder = isLogoAsset
     ? text('例如：星尘纪元、PIX FORGE、龙焰', 'e.g. Starfall Age, PIX FORGE, Dragonflame')
@@ -318,6 +320,7 @@ export function SingleGeneratePanel({ pricing, loading, token, imageModels, onSu
           prompt: subject,
           input_image_path: assetRefPath,
           client_request_id: crypto.randomUUID(),
+          image_size: uiComponentImageSize,
           image_model: modelOverride,
           pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
           grid: buildGridDesign(),
@@ -332,6 +335,7 @@ export function SingleGeneratePanel({ pricing, loading, token, imageModels, onSu
           prompt: i2iPrompt,
           input_image_path: assetRefPath,
           client_request_id: crypto.randomUUID(),
+          image_size: uiComponentImageSize,
           image_model: modelOverride,
           skip_vl: skipVl,
           pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
@@ -344,6 +348,7 @@ export function SingleGeneratePanel({ pricing, loading, token, imageModels, onSu
         prompt: subject,
         input_image_path: null,
         client_request_id: crypto.randomUUID(),
+        image_size: uiComponentImageSize,
         image_model: modelOverride,
         pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
         grid: buildGridDesign(),
