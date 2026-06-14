@@ -124,6 +124,7 @@ export function RawImagePage({ pricing, balance, jobs, loading, token, imageMode
 
   return (
     <form className="grid gap-5" onSubmit={submit}>
+      <h1 className="sr-only">{text('原始生图', 'Raw image generation')}</h1>
       <PixPanel
         eyebrow={text('原图炉', 'Raw forge')}
         title={text('原始生图', 'Raw image generation')}

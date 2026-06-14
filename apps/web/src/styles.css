@@ -45,6 +45,18 @@
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* 语义阴影 utility —— Tailwind v4 的 shadow-[var(--x)] 会经由受 @property 约束的 --tw-shadow，
+   导致 var() 引用无类型变量时回退为透明（阴影丢失）。故用 @utility 直接声明 box-shadow，
+   绕过 --tw-shadow 机制；明暗由 --pix-shadow-* 在 :root/[data-theme=dark] 的定义自动切换。 */
+@utility pix-shadow-hairline { box-shadow: var(--pix-shadow-hairline); }
+@utility pix-shadow-raised { box-shadow: var(--pix-shadow-raised); }
+@utility pix-shadow-panel { box-shadow: var(--pix-shadow-panel); }
+@utility pix-shadow-panel-hover { box-shadow: var(--pix-shadow-panel-hover); }
+@utility pix-shadow-overlay { box-shadow: var(--pix-shadow-overlay); }
+@utility pix-shadow-dialog { box-shadow: var(--pix-shadow-dialog); }
+@utility pix-shadow-toast { box-shadow: var(--pix-shadow-toast); }
+@utility pix-shadow-ledger { box-shadow: var(--data-shadow); }
+
 :root,
 [data-theme="light"] {
   color-scheme: light;
@@ -78,6 +90,7 @@
   --pix-steel: 43 3% 38%;
   --pix-stone: 42 7% 62%;
   --pix-muted: 42 7% 71%;
+  --pix-text-subtle: 42 6% 45%;
   --pix-amber: 48 87% 80%;
   --pix-mint: 137 52% 90%;
   --pix-sky: 208 74% 92%;
@@ -146,6 +159,27 @@
   --data-text-soft: var(--ledger-text-soft);
   --data-text-faint: var(--ledger-text-faint);
   --data-shadow: var(--ledger-shadow);
+
+  /* 语义阴影 scale —— 收口全站内联 shadow-[...]（亮色）。用法：shadow-[var(--pix-shadow-panel)] */
+  --pix-shadow-hairline: 0 1px 2px rgba(15, 15, 15, 0.04);
+  --pix-shadow-raised: 0 4px 12px rgba(15, 15, 15, 0.08);
+  --pix-shadow-panel: 0 10px 30px -24px rgba(15, 15, 15, 0.28);
+  --pix-shadow-panel-hover: 0 18px 46px -34px rgba(15, 15, 15, 0.42);
+  --pix-shadow-overlay: 0 16px 48px -8px rgba(15, 15, 15, 0.16);
+  --pix-shadow-dialog: 0 24px 80px -24px rgba(15, 15, 15, 0.42);
+  --pix-shadow-toast: 0 12px 34px -14px rgba(15, 15, 15, 0.34);
+
+  /* 语义状态色 tone —— 暖色品牌派的统一别名（surface=填充背景, text=前景）。
+     danger 直接用 --destructive，muted 用 --muted/--muted-foreground，故此处只声明三色。 */
+  --tone-success-surface: var(--pix-mint);
+  --tone-success-text: var(--pix-brand-green);
+  --tone-success-line: var(--pix-brand-green);
+  --tone-warning-surface: var(--pix-peach);
+  --tone-warning-text: var(--pix-brand-orange-deep);
+  --tone-warning-line: var(--pix-brand-orange);
+  --tone-info-surface: var(--pix-sky);
+  --tone-info-text: var(--pix-link-blue);
+  --tone-info-line: var(--pix-link-blue);
 }
 
 [data-theme="dark"] {
@@ -180,6 +214,7 @@
   --pix-dark-hairline: 223 36% 25%;
   --pix-dark-on: 42 36% 96%;
   --pix-dark-muted: 42 7% 68%;
+  --pix-text-subtle: 42 8% 68%;
 
   --pix-paper: 223 38% 16%;
   --pix-paper-soft: 223 34% 12%;
@@ -224,6 +259,15 @@
   --data-text-soft: var(--ledger-text-soft);
   --data-text-faint: var(--ledger-text-faint);
   --data-shadow: var(--ledger-shadow);
+
+  /* 语义阴影 scale（暗色）—— 暗背景需要更深、扩散更大的阴影；tone-* 复用 :root 定义（Badge 实心 chip 不分明暗） */
+  --pix-shadow-hairline: 0 1px 2px rgba(0, 0, 0, 0.36);
+  --pix-shadow-raised: 0 18px 44px -28px rgba(0, 0, 0, 0.84);
+  --pix-shadow-panel: 0 22px 70px -48px rgba(0, 0, 0, 0.95);
+  --pix-shadow-panel-hover: 0 26px 78px -52px rgba(0, 0, 0, 1);
+  --pix-shadow-overlay: 0 20px 56px -22px rgba(0, 0, 0, 0.74);
+  --pix-shadow-dialog: 0 30px 88px -28px rgba(0, 0, 0, 0.92);
+  --pix-shadow-toast: 0 18px 44px -18px rgba(0, 0, 0, 0.66);
 }
 
 * {

@@ -8,6 +8,7 @@ import { Alert } from '../components/ui/alert'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { PageHeader } from '../components/PageHeader'
+import { useConfirm } from '../components/ConfirmDialog'
 import { PixPanel } from '../components/pix/PixPanel'
 
 const REWARD_TABS = ['invites', 'rewards', 'settlements'] as const
@@ -21,6 +22,7 @@ type RewardsPageProps = {
 
 export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
   const { t } = useI18n()
+  const confirm = useConfirm()
   const [summary, setSummary] = useState<ReferralSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
@@ -83,7 +85,7 @@ export function RewardsPage({ token, onRefresh }: RewardsPageProps) {
 
   async function withdrawRewards() {
     if (!summary || available <= 0) return
-    if (!window.confirm(t('rewards.withdrawConfirm'))) return
+    if (!(await confirm({ title: t('rewards.withdrawConfirm'), confirmText: t('common.confirm') }))) return
     setWorking(true)
     setNotice('')
     setError('')
@@ -219,7 +221,7 @@ function RewardEmpty({ title, action }: { title: ReactNode; action?: ReactNode }
 }
 
 function RuleItem({ children }: { children: ReactNode }) {
-  return <li className="grid grid-cols-[10px_minmax(0,1fr)] gap-3"><span className="mt-2 h-2 w-2 rounded-full bg-emerald-500" />{children}</li>
+  return <li className="grid grid-cols-[10px_minmax(0,1fr)] gap-3"><span className="mt-2 h-2 w-2 rounded-full bg-[hsl(var(--tone-success-line))]" />{children}</li>
 }
 
 function tabLabel(tab: RewardTab, t: Translate) {

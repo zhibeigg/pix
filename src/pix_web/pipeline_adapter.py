@@ -29,6 +29,7 @@ from pix_web.models import GenerationJob
 
 _LOCAL_STAGE_LOCK_TIMEOUT_SECONDS = 1800.0
 _LOCAL_STAGE_LOCK_POLL_SECONDS = 0.1
+_UI_COMPONENT_IMAGE_SIZE = "auto"
 
 
 def _local_stage_context(settings: WebSettings):
@@ -70,6 +71,16 @@ def _request_includes(data: dict[str, Any], key: str) -> bool:
     if fields is None:
         return key in data and data.get(key) is not None
     return key in fields
+
+
+def _asset_image_size(data: dict[str, Any], cfg: AppConfig) -> str:
+    image_size = data.get("image_size")
+    if image_size:
+        return str(image_size)
+    asset = data.get("asset") or {}
+    if isinstance(asset, dict) and str(asset.get("asset_kind") or "") == "ui_component":
+        return _UI_COMPONENT_IMAGE_SIZE
+    return cfg.image_gen.size
 
 
 def pixelize_params_from_json(data: dict[str, Any]) -> PixelizeParams:
@@ -239,7 +250,7 @@ def asset_pipeline_input_from_job(
         prompt=prompt,
         prompt_guard_text=prompt_guard_text,
         image_path=image_path,
-        image_size=data.get("image_size") or cfg.image_gen.size,
+        image_size=_asset_image_size(data, cfg),
         image_quality=image_quality,
         image_model=data.get("image_model"),
         vl_model=data.get("vl_model"),

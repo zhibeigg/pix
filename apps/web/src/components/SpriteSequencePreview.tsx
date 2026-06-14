@@ -20,6 +20,7 @@ export function SpriteSequencePreview({ sheetUrl, frames = [], fps = 8, fallback
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [frameIndex, setFrameIndex] = useState(0)
+  const [isVisible, setIsVisible] = useState(true)
   const activeFrame = playableFrames.length > 0 ? playableFrames[frameIndex % playableFrames.length] : null
   const rect = activeFrame?.sheet_rect ?? null
   const sheetSize = useMemo(() => {
@@ -40,12 +41,20 @@ export function SpriteSequencePreview({ sheetUrl, frames = [], fps = 8, fallback
   }, [])
 
   useEffect(() => {
-    if (!sheetUrl || playableFrames.length <= 1 || loading) return
+    const node = containerRef.current
+    if (!node) return
+    const observer = new IntersectionObserver(([entry]) => setIsVisible(entry.isIntersecting), { rootMargin: '150px' })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [sheetUrl, playableFrames.length])
+
+  useEffect(() => {
+    if (!sheetUrl || playableFrames.length <= 1 || loading || !isVisible) return
     const interval = window.setInterval(() => {
       setFrameIndex((current) => (current + 1) % playableFrames.length)
     }, Math.max(20, Math.round(1000 / Math.max(1, fps || 8))))
     return () => window.clearInterval(interval)
-  }, [sheetUrl, playableFrames.length, fps, loading])
+  }, [sheetUrl, playableFrames.length, fps, loading, isVisible])
 
   useEffect(() => {
     setFrameIndex(0)

@@ -6,10 +6,10 @@ const alertVariants = cva('motion-panel-enter relative w-full rounded-md border 
   variants: {
     variant: {
       default: 'border-border bg-card text-card-foreground',
-      info: 'border-[hsl(var(--pix-link-blue))]/30 bg-[hsl(var(--pix-sky))]/70 text-foreground',
-      success: 'border-[hsl(var(--pix-brand-green))]/30 bg-[hsl(var(--pix-mint))]/80 text-foreground',
-      warning: 'border-[hsl(var(--pix-brand-orange))]/30 bg-[hsl(var(--pix-peach))]/80 text-foreground',
-      destructive: 'border-destructive/35 bg-destructive/10 text-destructive dark:text-red-100',
+      info: 'border-[hsl(var(--tone-info-line))]/30 bg-[hsl(var(--tone-info-surface))]/70 text-foreground',
+      success: 'border-[hsl(var(--tone-success-line))]/30 bg-[hsl(var(--tone-success-surface))]/80 text-foreground',
+      warning: 'border-[hsl(var(--tone-warning-line))]/30 bg-[hsl(var(--tone-warning-surface))]/80 text-foreground',
+      destructive: 'border-destructive/35 bg-destructive/10 text-destructive dark:text-[hsl(0_90%_92%)]',
     },
   },
   defaultVariants: { variant: 'default' },

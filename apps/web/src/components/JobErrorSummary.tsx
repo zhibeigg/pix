@@ -24,7 +24,7 @@ export function JobErrorSummary({ error, compact = false, className }: { error?:
       </AlertDescription>
       {detail && (
         <details className="rounded-md border border-destructive/20 bg-card/70 px-3 py-2 text-xs text-foreground/80 dark:bg-black/20" onClick={(event) => event.stopPropagation()}>
-          <summary className="cursor-pointer font-semibold text-destructive dark:text-red-100">{text('查看技术详情', 'Show technical details')}</summary>
+          <summary className="cursor-pointer font-semibold text-destructive dark:text-[hsl(0_90%_92%)]">{text('查看技术详情', 'Show technical details')}</summary>
           <pre className="mt-2 max-h-44 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-muted-foreground">{detail}</pre>
         </details>
       )}
