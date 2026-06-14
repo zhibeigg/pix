@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import { App } from './App'
+import { ConfirmProvider } from './components/ConfirmDialog'
 import { I18nProvider } from './i18n'
 import './styles.css'
 import type { PixLanguage, PixThemeMode, PixThemePreference } from './theme'
@@ -62,14 +63,16 @@ function PixThemeRoot() {
 
   return (
     <I18nProvider language={language}>
-      <App
-        themeMode={resolvedThemeMode}
-        themePreference={themePreference}
-        systemThemeMode={systemThemeMode}
-        language={language}
-        onThemePreferenceChange={changeThemePreference}
-        onLanguageChange={changeLanguage}
-      />
+      <ConfirmProvider>
+        <App
+          themeMode={resolvedThemeMode}
+          themePreference={themePreference}
+          systemThemeMode={systemThemeMode}
+          language={language}
+          onThemePreferenceChange={changeThemePreference}
+          onLanguageChange={changeLanguage}
+        />
+      </ConfirmProvider>
     </I18nProvider>
   )
 }

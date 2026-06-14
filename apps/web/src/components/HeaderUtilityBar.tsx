@@ -148,7 +148,7 @@ function AnnouncementButton({ open, autoOpen, onOpenChange }: { open: boolean; a
   return (
     <Dialog open={open} onOpenChange={changeOpen} modal={false}>
       <DialogTrigger asChild>
-        <button type="button" className={cn(utilityButtonClass, hasUnseen && 'border-primary/30 bg-card text-primary shadow-[0_4px_12px_rgba(15,15,15,0.08)]')} aria-label={t('utility.announcements.open')}>
+        <button type="button" className={cn(utilityButtonClass, hasUnseen && 'border-primary/30 bg-card text-primary pix-shadow-raised')} aria-label={t('utility.announcements.open')}>
           <span className="relative grid place-items-center">
             <Bell className="h-4 w-4" />
             {hasUnseen && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-primary ring-2 ring-card" />}
@@ -159,7 +159,7 @@ function AnnouncementButton({ open, autoOpen, onOpenChange }: { open: boolean; a
         <DialogOverlay />
         <DialogPrimitive.Content
           onCloseAutoFocus={(event) => event.preventDefault()}
-          className="announcement-dialog-content fixed z-50 grid min-h-[456px] content-start gap-0 overflow-hidden rounded-lg border border-border bg-card p-0 shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)] focus:outline-none dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]"
+          className="announcement-dialog-content fixed z-50 grid min-h-[456px] content-start gap-0 overflow-hidden rounded-lg border border-border bg-card p-0 pix-shadow-overlay focus:outline-none dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]"
           style={{
             left: '50%',
             maxHeight: 'calc(100dvh - 32px)',
@@ -234,7 +234,7 @@ function ThemeHoverMenu({ open, preference, resolvedMode, systemMode, onChange, 
         </button>
       )}
     >
-      <div role="radiogroup" aria-label={t('utility.theme.groupLabel')} className="w-48 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)]">
+      <div role="radiogroup" aria-label={t('utility.theme.groupLabel')} className="w-48 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground pix-shadow-overlay">
         {themeOptions.map((option) => {
           const Icon = option.icon
           const active = preference === option.value
@@ -273,7 +273,7 @@ function LanguageHoverMenu({ open, language, onChange, onOpenChange }: { open: b
         </button>
       )}
     >
-      <div role="radiogroup" aria-label={t('utility.language.groupLabel')} className="w-36 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)]">
+      <div role="radiogroup" aria-label={t('utility.language.groupLabel')} className="w-36 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground pix-shadow-overlay">
         {languageOptions.map((option) => (
           <button
             key={option.value}
@@ -347,5 +347,5 @@ function todayKey() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
 
-const utilityButtonClass = 'grid h-11 w-11 place-items-center rounded-full border border-border bg-[hsl(var(--secondary))] text-[hsl(var(--pix-charcoal))] shadow-[0_1px_2px_rgba(15,15,15,0.04)] transition hover:bg-card hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-foreground'
-const utilityButtonActiveClass = 'border-[hsl(var(--pix-sky))] bg-card text-primary shadow-[0_4px_12px_rgba(15,15,15,0.08)]'
+const utilityButtonClass = 'grid h-11 w-11 place-items-center rounded-full border border-border bg-[hsl(var(--secondary))] text-[hsl(var(--pix-charcoal))] pix-shadow-hairline transition hover:bg-card hover:pix-shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-foreground'
+const utilityButtonActiveClass = 'border-[hsl(var(--pix-sky))] bg-card text-primary pix-shadow-raised'

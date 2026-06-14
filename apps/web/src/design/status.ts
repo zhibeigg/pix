@@ -12,12 +12,3 @@ export function statusTone(status: string) {
 export function statusLabel(status: string, language: PixLanguage = 'zh-CN') {
   return jobStatusLabel(status, language)
 }
-
-export function statusClass(status: string) {
-  const tone = statusTone(status)
-  if (tone === 'success') return 'border-emerald-500/30 bg-emerald-500/12 text-emerald-800 dark:text-emerald-200'
-  if (tone === 'danger') return 'border-red-500/30 bg-red-500/12 text-red-800 dark:text-red-200'
-  if (tone === 'info') return 'border-sky-500/30 bg-sky-500/12 text-sky-800 dark:text-sky-200'
-  if (tone === 'warning') return 'border-amber-500/30 bg-amber-500/12 text-amber-900 dark:text-amber-200'
-  return 'border-border bg-muted text-muted-foreground'
-}

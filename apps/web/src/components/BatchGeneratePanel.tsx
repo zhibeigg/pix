@@ -3,6 +3,7 @@ import { Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import { useI18n } from '../i18n'
+import { useConfirm } from './ConfirmDialog'
 import type { CreditBalance, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingRule, UploadResponse } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
 import { Alert } from './ui/alert'
@@ -48,6 +49,7 @@ function modelOptionLabel(model: ImageModelInfo) {
 export function BatchGeneratePanel({ pricing, balance, loading, token, imageModels, onSubmitMany }: Props) {
   const { t } = useTranslation()
   const { text } = useI18n()
+  const confirm = useConfirm()
   const [batchMode, setBatchMode] = useState<BatchMode>('asset')
   const [imageModel, setImageModel] = useState(imageModels.default)
   const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
@@ -135,7 +137,7 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, imageMode
     let payloads: JobCreateRequest[] = []
     if (batchMode === 'asset') payloads = lines.map((name) => ({ job_type: 'asset', prompt: name, input_image_path: null, client_request_id: crypto.randomUUID(), image_size: uiComponentImageSize, image_model: modelOverride, pixelize, grid, asset: { name, extra_prompt: assetExtraPrompt.trim(), asset_kind: assetKind, subject_kind: subjectKind, no_preview: false } }))
     else payloads = uploaded.map((item) => ({ job_type: 'local_pixelize', prompt: null, input_image_path: item.upload?.path ?? null, client_request_id: crypto.randomUUID(), skip_vl: true, pixelize, grid }))
-    if (payloads.length >= 10 && !window.confirm(t('batchForm.confirmQueue', { count: payloads.length, total: totalPrice }))) return
+    if (payloads.length >= 10 && !(await confirm({ title: t('batchForm.title'), description: t('batchForm.confirmQueue', { count: payloads.length, total: totalPrice }), confirmText: t('common.confirm') }))) return
     await onSubmitMany(payloads, '', batchMode)
   }
 
