@@ -36,6 +36,8 @@ function TrimmedImage({ url, alt, className }: { url: string; alt?: string; clas
   useEffect(() => {
     let cancelled = false
     setSrc(url)
+    // 动图（GIF）不裁剪：画到 canvas 只会取到首帧，再转 data URL 会把动画变成静态图。
+    if (/\.gif(\?|&|%|$)/i.test(url)) return
     const probe = new Image()
     probe.decoding = 'async'
     probe.onload = () => {
