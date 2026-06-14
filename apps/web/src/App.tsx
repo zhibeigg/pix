@@ -25,6 +25,8 @@ import { useI18n } from './i18n'
 import { useToast } from './hooks/useToast'
 import { useHashRoute } from './hooks/useHashRoute'
 import { useReferralCode, LEGACY_REFERRAL_CODE_KEY } from './hooks/useReferralCode'
+import { useBillingActions } from './hooks/useBillingActions'
+import { useAdminActions } from './hooks/useAdminActions'
 import { applyPageSeo } from './lib/seo'
 import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GalleryQuota, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SequenceAlignmentRequest, SetupStatus, SystemSetting, User } from './types'
 
@@ -211,6 +213,9 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const confirmPackExpand = useCallback(() => { void confirmExpandPackLimit() }, [confirmExpandPackLimit])
   const confirmGalleryExpand = useCallback(() => { void confirmExpandGalleryQuota() }, [confirmExpandGalleryQuota])
   const confirmDeleteAction = useCallback(() => { void confirmDelete() }, [confirmDelete])
+
+  const { createPaymentOrder, startCheckout, createCustomPaymentOrder, startCustomCheckout, mockPayPaymentOrder, createAdminPackage, updateAdminPackage } = useBillingActions({ token, refreshCore, setMessage, showError, text, setCheckout })
+  const { adjustCredits, adjustCreditsBatch, updatePricing, updateSetting, testEmailSetting, adminRetryJob, adminCancelJob, adminFailRefundJob, publishAnnouncement, adminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, testAnnouncementEmail } = useAdminActions({ token, refreshCore, setMessage, text })
 
   useEffect(() => {
     refreshSetupStatus().catch(showError)
@@ -723,184 +728,6 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       pixelize,
       grid,
     })
-  }
-
-  async function createPaymentOrder(packageKey: string) {
-    if (!token) return
-    try {
-      const order = await api.createOrder(token, { package_key: packageKey, provider: 'mock' })
-      setCheckout(null)
-      await refreshCore(token)
-      setMessage(text(`订单 #${order.id} 已创建`, `Order #${order.id} created`))
-    } catch (error) {
-      showError(error)
-    }
-  }
-
-  async function startCheckout(packageKey: string, provider: string) {
-    if (!token) return
-    try {
-      const result = await api.checkout(token, { package_key: packageKey, provider })
-      setCheckout(result)
-      if (result.payment_url) {
-        window.open(result.payment_url, '_blank', 'noopener,noreferrer')
-      }
-      await refreshCore(token)
-      setMessage(text(`订单 #${result.order.id} 已创建：${provider}`, `Order #${result.order.id} created: ${provider}`))
-    } catch (error) {
-      showError(error)
-    }
-  }
-
-  async function createCustomPaymentOrder(customCredits: number) {
-    if (!token) return
-    try {
-      const order = await api.createOrder(token, { custom_credits: customCredits, provider: 'mock' })
-      setCheckout(null)
-      await refreshCore(token)
-      setMessage(text(`自定义订单 #${order.id} 已创建`, `Custom order #${order.id} created`))
-    } catch (error) {
-      showError(error)
-    }
-  }
-
-  async function startCustomCheckout(customCredits: number, provider: string) {
-    if (!token) return
-    try {
-      const result = await api.checkout(token, { custom_credits: customCredits, provider })
-      setCheckout(result)
-      if (result.payment_url) {
-        window.open(result.payment_url, '_blank', 'noopener,noreferrer')
-      }
-      await refreshCore(token)
-      setMessage(text(`自定义订单 #${result.order.id} 已创建：${provider}`, `Custom order #${result.order.id} created: ${provider}`))
-    } catch (error) {
-      showError(error)
-    }
-  }
-
-  async function mockPayPaymentOrder(orderId: number) {
-    if (!token) return
-    try {
-      await api.mockPayOrder(token, orderId)
-      await refreshCore(token)
-      setMessage(text('模拟支付成功，点数已到账', 'Mock payment succeeded; credits received'))
-    } catch (error) {
-      showError(error)
-    }
-  }
-
-  async function adjustCredits(userId: number, amount: number, note: string) {
-    if (!token) return
-    await api.adjustCredits(token, userId, amount, note)
-    await refreshCore(token)
-    setMessage(text('点数已调整', 'Credits adjusted'))
-  }
-
-  async function adjustCreditsBatch(payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) {
-    if (!token) return
-    const result = await api.adjustCreditsBatch(token, {
-      user_ids: payload.userIds,
-      all_users: payload.allUsers,
-      amount: payload.amount,
-      note: payload.note,
-    })
-    await refreshCore(token)
-    setMessage(text(`已为 ${result.adjusted_count} 个用户调整点数`, `Credits adjusted for ${result.adjusted_count} users`))
-    return result
-  }
-
-  async function updatePricing(key: string, priceCredits: number, enabled: boolean) {
-    if (!token) return
-    await api.updatePricing(token, key, priceCredits, enabled)
-    await refreshCore(token)
-    setMessage(text('价格规则已更新', 'Pricing rule updated'))
-  }
-
-  async function updateSetting(key: string, value: string, clear = false) {
-    if (!token) return
-    await api.updateSetting(token, key, value, clear)
-    await refreshCore(token)
-    setMessage(text('配置已更新', 'Settings updated'))
-  }
-
-  const publishAnnouncement = useCallback(async (payload: AnnouncementPublishPayload): Promise<AnnouncementPublishResponse> => {
-    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
-    const result = await api.publishAnnouncement(token, payload)
-    await refreshCore(token)
-    return result
-  }, [refreshCore, text, token])
-
-  const adminAnnouncements = useCallback(async () => {
-    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
-    return api.adminAnnouncements(token)
-  }, [text, token])
-
-  const createAnnouncement = useCallback(async (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => {
-    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
-    const result = await api.createAnnouncement(token, payload)
-    await refreshCore(token)
-    return result
-  }, [refreshCore, text, token])
-
-  const updateAnnouncement = useCallback(async (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => {
-    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
-    const result = await api.updateAnnouncement(token, id, payload)
-    await refreshCore(token)
-    return result
-  }, [refreshCore, text, token])
-
-  const deleteAnnouncement = useCallback(async (id: number) => {
-    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
-    const result = await api.deleteAnnouncement(token, id)
-    await refreshCore(token)
-    return result
-  }, [refreshCore, text, token])
-
-  const testAnnouncementEmail = useCallback(async (email: string, title: string, body: string) => {
-    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
-    return api.testAnnouncementEmail(token, { email, title, body })
-  }, [text, token])
-
-  async function createAdminPackage(payload: CreditPackage) {
-    if (!token) return
-    await api.createAdminPackage(token, payload)
-    await refreshCore(token)
-    setMessage(text('充值套餐已创建', 'Credit package created'))
-  }
-
-  async function updateAdminPackage(key: string, payload: Omit<CreditPackage, 'key'>) {
-    if (!token) return
-    await api.updateAdminPackage(token, key, payload)
-    await refreshCore(token)
-    setMessage(text('充值套餐已更新', 'Credit package updated'))
-  }
-
-  async function testEmailSetting(email: string) {
-    if (!token) return
-    const result = await api.testEmailSetting(token, email)
-    setMessage(result.debug_code ? `${result.message}：${result.debug_code}` : result.message, 'info')
-  }
-
-  async function adminRetryJob(job: GenerationJob) {
-    if (!token || job.status !== 'failed') return
-    const created = await api.adminRetryJob(token, job.id)
-    setMessage(text(`管理员已重试任务 #${job.id}，新任务 #${created.id} 已提交。`, `Admin retried job #${job.id}; new job #${created.id} submitted.`))
-    await refreshCore(token)
-  }
-
-  async function adminCancelJob(job: GenerationJob) {
-    if (!token || !['pending', 'running'].includes(job.status)) return
-    await api.adminCancelJob(token, job.id)
-    setMessage(text(`任务 #${job.id} 已取消并退款。`, `Job #${job.id} cancelled and refunded.`))
-    await refreshCore(token)
-  }
-
-  async function adminFailRefundJob(job: GenerationJob) {
-    if (!token || !['pending', 'running', 'failed'].includes(job.status)) return
-    await api.adminFailRefundJob(token, job.id)
-    setMessage(text(`任务 #${job.id} 已标记失败并退款。`, `Job #${job.id} marked failed and refunded.`))
-    await refreshCore(token)
   }
 
   const needsAdminSetup = setupStatus?.needs_admin && !user
