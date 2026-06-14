@@ -22,6 +22,9 @@ const RawImagePage = lazy(() => import('./pages/RawImagePage').then((m) => ({ de
 const RewardsPage = lazy(() => import('./pages/RewardsPage').then((m) => ({ default: m.RewardsPage })))
 import { buildGridDesign, defaultPixelize } from './pixelize'
 import { useI18n } from './i18n'
+import { useToast } from './hooks/useToast'
+import { useHashRoute } from './hooks/useHashRoute'
+import { useReferralCode, LEGACY_REFERRAL_CODE_KEY } from './hooks/useReferralCode'
 import { applyPageSeo } from './lib/seo'
 import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GalleryQuota, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SequenceAlignmentRequest, SetupStatus, SystemSetting, User } from './types'
 
@@ -35,35 +38,6 @@ type AppProps = {
 }
 
 const DEFAULT_PHOTO_RETENTION_LIMIT = 10
-// 历史版本曾把邀请码持久化到 localStorage，会导致用户即使从普通 URL 进来也一直被"识别"为邀请。
-// 现在改为只信任当前 URL 的 ?aff=xxx，并在启动时清理历史残留。
-const LEGACY_REFERRAL_CODE_KEY = 'pix_referral_code'
-const HASH_PAGES: AppPage[] = ['home', 'workspace', 'raw-image', 'gallery', 'packs', 'billing', 'rewards', 'admin']
-
-function referralCodeFromLocation() {
-  const candidates: string[] = []
-  if (typeof window === 'undefined') return ''
-  candidates.push(new URLSearchParams(window.location.search).get('aff') ?? '')
-  const hash = window.location.hash || ''
-  const queryIndex = hash.indexOf('?')
-  if (queryIndex >= 0) candidates.push(new URLSearchParams(hash.slice(queryIndex + 1)).get('aff') ?? '')
-  return candidates.map((item) => item.trim().toUpperCase()).find(Boolean) ?? ''
-}
-
-function pageFromHash(user: User | null): AppPage {
-  const pathname = window.location.pathname.replace(/\/+$/, '') || '/'
-  const rootPath = pathname === '/' || pathname === '/index.html'
-  const hash = window.location.hash || ''
-  if (!hash) return rootPath ? 'home' : 'not-found'
-  // `#/workspace` 是应用路由；`#auth-panel` / `#examples` 是首页锚点，不应被识别为 404。
-  if (!hash.startsWith('#/')) return rootPath ? 'home' : 'not-found'
-  const raw = hash.slice(2).split('?', 1)[0]
-  if (!raw) return rootPath ? 'home' : 'not-found'
-  if (!HASH_PAGES.includes(raw as AppPage)) return 'not-found'
-  const page = raw as AppPage
-  if (page === 'admin' && user?.role !== 'admin') return 'workspace'
-  return page
-}
 
 type PaymentReturnInfo = { provider: string; status: string; orderId: string }
 
@@ -117,18 +91,9 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [busy, setBusy] = useState(false)
   const [retryingJobId, setRetryingJobId] = useState<number | null>(null)
   const [downloadingPackId, setDownloadingPackId] = useState<number | null>(null)
-  const [toast, setToast] = useState<AppToastState | null>(null)
   const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null)
   const [setupLoading, setSetupLoading] = useState(true)
-  const [page, setPage] = useState<AppPage>(() => pageFromHash(null))
   const [mode, setMode] = useState<WorkMode>('single')
-  const [referralCode, setReferralCode] = useState(() => {
-    // 启动时清掉历史持久化的邀请码，避免老用户每次进站都被误判为带邀请。
-    if (typeof window !== 'undefined') {
-      try { localStorage.removeItem(LEGACY_REFERRAL_CODE_KEY) } catch { /* ignore */ }
-    }
-    return referralCodeFromLocation()
-  })
   const [selectedPackId, setSelectedPackId] = useState<number | null>(null)
   const [selectedPackJobs, setSelectedPackJobs] = useState<GenerationJob[]>([])
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
@@ -139,6 +104,10 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const jobStatusSeededRef = useRef(false)
   const pollSigRef = useRef('')
 
+  const { toast, setMessage, showError, dismissToast } = useToast(text)
+  const { page, setPage, navigate } = useHashRoute(user, language)
+  const { referralCode, setReferralCode } = useReferralCode()
+
   const isAdmin = user?.role === 'admin'
   const selectedPack = useMemo(() => packs.find((pack) => pack.id === selectedPackId) ?? null, [packs, selectedPackId])
   const selectedJobPool = page === 'packs' && selectedPackId ? selectedPackJobs : jobs
@@ -148,21 +117,6 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)).length, [jobs])
   const completedJobs = useMemo(() => jobs.filter((job) => job.status === 'succeeded').length, [jobs])
   const failedJobs = useMemo(() => jobs.filter((job) => job.status === 'failed').length, [jobs])
-
-  const dismissToast = useCallback(() => setToast(null), [])
-  const setMessage = useCallback((message: string, variant: ToastVariant = 'success') => {
-    setToast(message ? { id: Date.now(), message, variant } : null)
-  }, [])
-
-  useEffect(() => {
-    applyPageSeo(page, language)
-  }, [language, page])
-
-  useEffect(() => {
-    if (!toast) return
-    const timer = window.setTimeout(() => setToast(null), toast.variant === 'error' ? 5200 : 3200)
-    return () => window.clearTimeout(timer)
-  }, [toast])
 
   const notifyJobCompletions = useCallback((nextJobs: GenerationJob[]) => {
     const previous = jobStatusSnapshotRef.current
@@ -187,12 +141,6 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       setSetupLoading(false)
     }
   }, [])
-
-  const showError = useCallback((error: unknown) => {
-    if (error instanceof ApiError) setMessage(error.message, 'error')
-    else if (error instanceof Error) setMessage(error.message, 'error')
-    else setMessage(text('发生未知错误', 'Unknown error'), 'error')
-  }, [setMessage, text])
 
   const confirmPhotoRetentionBeforeCreate = useCallback((nextJobCount: number) => {
     const overflow = retainedPhotos + nextJobCount - galleryRetentionLimit
@@ -267,21 +215,6 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   useEffect(() => {
     refreshSetupStatus().catch(showError)
   }, [refreshSetupStatus, showError])
-
-  useEffect(() => {
-    const fromUrl = referralCodeFromLocation()
-    if (!fromUrl) return
-    setReferralCode(fromUrl)
-  }, [])
-
-  useEffect(() => {
-    function syncHash() {
-      setPage(pageFromHash(user))
-    }
-    window.addEventListener('hashchange', syncHash)
-    syncHash()
-    return () => window.removeEventListener('hashchange', syncHash)
-  }, [user])
 
   useEffect(() => {
     if (!token) return
@@ -453,11 +386,6 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   function requestRegisterCode(email: string, turnstileToken: string): Promise<EmailCodeResponse> {
     return api.requestRegisterCode(email, turnstileToken)
-  }
-
-  function navigate(nextPage: AppPage) {
-    window.location.hash = `/${nextPage}`
-    setPage(nextPage)
   }
 
   function logout() {
