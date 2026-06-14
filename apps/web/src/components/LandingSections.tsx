@@ -1,5 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
-import { Check, Copy, Download, Pause, Play } from 'lucide-react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react'
+import { Check, ChevronLeft, ChevronRight, Copy, Download, Pause, Play } from 'lucide-react'
 import { useI18n } from '../i18n'
 import { homepageExampleIconSizes, homepageExampleItemIcons, getHomepageIconsForExample, type HomepageExampleItemIcon } from '../homepageIconExamples'
 import { homepageExampleCategories, homepageExamples, getHomepageExampleItemSubject, getHomepageExampleItemSubjectPrompt, getHomepageExampleLabel, type HomepageExample } from '../homepageExamples'
@@ -56,6 +56,55 @@ function AssetTypeChip({ active, onClick, children }: { active: boolean; onClick
   return <button type="button" role="tab" aria-selected={active} onClick={onClick} className={`inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-primary/20 ${active ? 'border-primary bg-primary text-primary-foreground shadow-[0_4px_10px_-6px_rgba(0,0,0,0.4)]' : 'border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground dark:bg-white/7'}`}>{children}</button>
 }
 
+const ICON_PAGE_SIZE = 24
+const TEXTURE_PAGE_SIZE = 9
+const SPRITE_PAGE_SIZE = 6
+
+/**
+ * 列表分页：把过滤后的长列表切片成单页。列表引用变化（即筛选条件改变，useMemo 产出新数组）时
+ * 自动回到第 1 页；列表变短时把页码收敛到末页。setPage 来自 useState，引用稳定。
+ */
+function usePagedList<T>(items: T[], pageSize: number) {
+  const [page, setPage] = useState(1)
+  const prevItems = useRef(items)
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize))
+  let current = page
+  if (prevItems.current !== items) {
+    prevItems.current = items
+    current = 1
+    if (page !== 1) setPage(1)
+  } else if (page > totalPages) {
+    current = totalPages
+  }
+  const start = (current - 1) * pageSize
+  return {
+    page: current,
+    totalPages,
+    total: items.length,
+    pageItems: items.slice(start, start + pageSize),
+    rangeStart: items.length === 0 ? 0 : start + 1,
+    rangeEnd: Math.min(start + pageSize, items.length),
+    setPage,
+  }
+}
+
+function AtlasPager({ paged, scrollTargetRef }: { paged: ReturnType<typeof usePagedList>; scrollTargetRef: RefObject<HTMLDivElement | null> }) {
+  const { text } = useI18n()
+  const { page, totalPages, total, rangeStart, rangeEnd, setPage } = paged
+  if (totalPages <= 1) return null
+  const go = (next: number) => {
+    setPage(next)
+    scrollTargetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  return (
+    <nav aria-label={text('分页', 'Pagination')} className="mt-1 flex flex-wrap items-center justify-center gap-3">
+      <Button type="button" size="sm" variant="outline" disabled={page <= 1} onClick={() => go(page - 1)} aria-label={text('上一页', 'Previous page')}><ChevronLeft />{text('上一页', 'Prev')}</Button>
+      <span className="text-xs font-medium text-muted-foreground tabular-nums" aria-live="polite">{text(`第 ${page}/${totalPages} 页`, `Page ${page}/${totalPages}`)}<span className="mx-1.5 opacity-40">·</span>{text(`${rangeStart}–${rangeEnd} / 共 ${total}`, `${rangeStart}–${rangeEnd} of ${total}`)}</span>
+      <Button type="button" size="sm" variant="outline" disabled={page >= totalPages} onClick={() => go(page + 1)} aria-label={text('下一页', 'Next page')}>{text('下一页', 'Next')}<ChevronRight /></Button>
+    </nav>
+  )
+}
+
 function IconAtlas() {
   const { language, text } = useI18n()
   const [sizeFilter, setSizeFilter] = useState<IconSizeFilter>('all')
@@ -83,6 +132,8 @@ function IconAtlas() {
     return true
   }), [categoryFilter, sizeFilter, themeFilter])
 
+  const iconGridRef = useRef<HTMLDivElement>(null)
+  const pagedIcons = usePagedList(filteredIcons, ICON_PAGE_SIZE)
   const activeFilterCount = [sizeFilter, categoryFilter, themeFilter].filter((value) => value !== 'all').length
   const clearFilters = useCallback(() => {
     setSizeFilter('all')
@@ -153,12 +204,15 @@ function IconAtlas() {
       </div>
 
       {filteredIcons.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {filteredIcons.map((icon) => {
-            const example = homepageExampleById.get(icon.exampleId)
-            if (!example) return null
-            return <ExampleIconCard key={icon.id} icon={icon} example={example} onItemContextMenu={openItemActionMenu} />
-          })}
+        <div className="grid gap-5">
+          <div ref={iconGridRef} className="grid grid-cols-2 gap-3 scroll-mt-24 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            {pagedIcons.pageItems.map((icon) => {
+              const example = homepageExampleById.get(icon.exampleId)
+              if (!example) return null
+              return <ExampleIconCard key={icon.id} icon={icon} example={example} onItemContextMenu={openItemActionMenu} />
+            })}
+          </div>
+          <AtlasPager paged={pagedIcons} scrollTargetRef={iconGridRef} />
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
@@ -217,6 +271,8 @@ function TextureAtlas() {
     () => homepageTextureExamples.filter((ex) => categoryFilter === 'all' || ex.category === categoryFilter),
     [categoryFilter],
   )
+  const textureGridRef = useRef<HTMLDivElement>(null)
+  const pagedTextures = usePagedList(filtered, TEXTURE_PAGE_SIZE)
   return (
     <div className="grid gap-6">
       <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] pix-shadow-raised dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white md:p-8">
@@ -248,8 +304,11 @@ function TextureAtlas() {
       </div>
 
       {filtered.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((example) => <TextureCard key={example.id} example={example} />)}
+        <div className="grid gap-5">
+          <div ref={textureGridRef} className="grid grid-cols-1 gap-4 scroll-mt-24 md:grid-cols-2 xl:grid-cols-3">
+            {pagedTextures.pageItems.map((example) => <TextureCard key={example.id} example={example} />)}
+          </div>
+          <AtlasPager paged={pagedTextures} scrollTargetRef={textureGridRef} />
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
@@ -319,6 +378,8 @@ function SpriteAtlas() {
     () => homepageSpriteExamples.filter((ex) => categoryFilter === 'all' || ex.category === categoryFilter),
     [categoryFilter],
   )
+  const spriteGridRef = useRef<HTMLDivElement>(null)
+  const pagedSprites = usePagedList(filtered, SPRITE_PAGE_SIZE)
   return (
     <div className="grid gap-6">
       <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] pix-shadow-raised dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white md:p-8">
@@ -350,8 +411,11 @@ function SpriteAtlas() {
       </div>
 
       {filtered.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {filtered.map((example) => <SpriteCard key={example.id} example={example} />)}
+        <div className="grid gap-5">
+          <div ref={spriteGridRef} className="grid grid-cols-1 gap-4 scroll-mt-24 md:grid-cols-2">
+            {pagedSprites.pageItems.map((example) => <SpriteCard key={example.id} example={example} />)}
+          </div>
+          <AtlasPager paged={pagedSprites} scrollTargetRef={spriteGridRef} />
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
