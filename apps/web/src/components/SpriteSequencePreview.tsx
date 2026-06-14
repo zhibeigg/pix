@@ -12,10 +12,11 @@ type Props = {
   label?: ReactNode
   className?: string
   imageClassName?: string
+  trim?: boolean
   children?: ReactNode
 }
 
-export function SpriteSequencePreview({ sheetUrl, frames = [], fps = 8, fallbackUrl, loading = false, label, className, imageClassName, children }: Props) {
+export function SpriteSequencePreview({ sheetUrl, frames = [], fps = 8, fallbackUrl, loading = false, label, className, imageClassName, trim = false, children }: Props) {
   const playableFrames = useMemo(() => frames.filter((frame) => frame.sheet_rect && frame.sheet_rect.w > 0 && frame.sheet_rect.h > 0).sort((a, b) => Number(a.index) - Number(b.index)), [frames])
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
@@ -61,7 +62,7 @@ export function SpriteSequencePreview({ sheetUrl, frames = [], fps = 8, fallback
   }, [sheetUrl, playableFrames.length])
 
   if (!sheetUrl || !rect || !sheetSize) {
-    return <PixPreviewFrame url={fallbackUrl} loading={loading} label={label} className={className} imageClassName={imageClassName}>{children}</PixPreviewFrame>
+    return <PixPreviewFrame url={fallbackUrl} loading={loading} label={label} className={className} imageClassName={imageClassName} trim={trim}>{children}</PixPreviewFrame>
   }
 
   const fit = fitRect(rect.w, rect.h, Math.max(1, containerSize.width - 24), Math.max(1, containerSize.height - 24))
