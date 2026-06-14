@@ -22,12 +22,9 @@ for arg in "$@"; do
 done
 
 # ── 读取版本号 ────────────────────────────────────────────────
-VERSION=$(python3 -c "
-import re, pathlib
-text = pathlib.Path('$REPO_ROOT/pyproject.toml').read_text()
-m = re.search(r'version\s*=\s*\"([^\"]+)\"', text)
-print(m.group(1) if m else 'unknown')
-")
+# 用 grep/sed 读取，跨平台且无需 Python（避免把 MSYS 路径传给 Windows Python 解析失败）。
+VERSION=$(grep -m1 -E '^[[:space:]]*version[[:space:]]*=' "$REPO_ROOT/pyproject.toml" | sed -E 's/.*"([^"]+)".*/\1/')
+[ -n "$VERSION" ] || VERSION="unknown"
 echo "═══════════════════════════════════════════════════"
 echo "  Pix Forge · 构建 v${VERSION}"
 echo "═══════════════════════════════════════════════════"
@@ -39,7 +36,7 @@ if [ "$SKIP_FRONTEND" = false ]; then
   echo ""
   echo "▸ [1/3] 构建前端 (React + Vite)..."
   cd "$REPO_ROOT/apps/web"
-  npm run build
+  if command -v pnpm &>/dev/null; then pnpm run build; else npm run build; fi
   echo "  ✔ 前端产物 → dist/web/"
 else
   echo ""
@@ -53,8 +50,12 @@ if [ "$SKIP_BACKEND" = false ]; then
   cd "$REPO_ROOT"
   if command -v uv &>/dev/null; then
     uv build --wheel --out-dir "$DIST_DIR"
-  else
+  elif command -v python3 &>/dev/null; then
     python3 -m build --wheel --outdir "$DIST_DIR"
+  elif command -v python &>/dev/null; then
+    python -m build --wheel --outdir "$DIST_DIR"
+  else
+    echo "✗ 构建 wheel 需要 uv 或 python(-m build)"; exit 1
   fi
   echo "  ✔ wheel → dist/pix-${VERSION}-py3-none-any.whl"
 else
