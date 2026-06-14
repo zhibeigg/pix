@@ -1,4 +1,4 @@
-import { useMemo, useState, type DragEvent } from 'react'
+import { lazy, Suspense, useMemo, useState, type DragEvent } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Crosshair, Download, FileDown, PackagePlus, RotateCcw, Trash2, X } from 'lucide-react'
 import { fileName, signedFileUrl } from '../fileUrls'
@@ -15,8 +15,9 @@ import { PixPanel } from './pix/PixPanel'
 import { PixStatusBadge } from './pix/PixStatusBadge'
 import { JobErrorSummary } from './JobErrorSummary'
 import { SpriteSequencePreview } from './SpriteSequencePreview'
-import { SpriteSequenceAlignmentEditor } from './SpriteSequenceAlignmentEditor'
 import { JobParameterSnapshotDialog } from './JobParameterSnapshotDialog'
+
+const SpriteSequenceAlignmentEditor = lazy(() => import('./SpriteSequenceAlignmentEditor').then((m) => ({ default: m.SpriteSequenceAlignmentEditor })))
 
 type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; galleryQuota?: GalleryQuota | null; onExpandGalleryQuota?: () => void; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; draggableSucceeded?: boolean }
 type DownloadKind = 'source' | 'pixelized' | 'sprite_gif' | 'sprite_sheet' | 'sprite_mosaic' | 'sequence_json' | 'contact_sheet'
@@ -100,7 +101,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
           onSelect(job)
         }
       }}
-      className={`cursor-pointer overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/55 hover:shadow-[0_4px_12px_rgba(15,15,15,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[hsl(var(--pix-dark-card))] ${isActive ? 'pix-work-card-loading' : ''} ${selected ? 'border-primary shadow-[0_4px_12px_rgba(15,15,15,0.08)] ring-2 ring-primary/15' : job.status === 'failed' ? 'border-destructive/40' : 'border-border dark:border-[hsl(var(--pix-dark-hairline))]'}`}
+      className={`cursor-pointer overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/55 hover:pix-shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[hsl(var(--pix-dark-card))] ${isActive ? 'pix-work-card-loading' : ''} ${selected ? 'border-primary pix-shadow-raised ring-2 ring-primary/15' : job.status === 'failed' ? 'border-destructive/40' : 'border-border dark:border-[hsl(var(--pix-dark-hairline))]'}`}
     >
       <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={spriteFrames} fps={spriteFps} fallbackUrl={previewUrl} loading={isActive} label={isActive ? jobStatusLabel(job, t) : selectedAction ? selectedAction.label : job.status === 'succeeded' ? 'PIX' : t('gallery.waitingOutput')} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" imageClassName="absolute inset-0 h-full max-h-none w-full p-0 bg-contain" ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div></SpriteSequencePreview>
       <div className="grid gap-2.5 p-3">
@@ -133,7 +134,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
               <DialogPrimitive.Content
                 onClick={(event) => event.stopPropagation()}
                 onCloseAutoFocus={(event) => event.preventDefault()}
-                className="fixed z-50 flex flex-col overflow-hidden rounded-lg border border-border bg-card p-0 shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)] focus:outline-none dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]"
+                className="fixed z-50 flex flex-col overflow-hidden rounded-lg border border-border bg-card p-0 pix-shadow-overlay focus:outline-none dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]"
                 style={{
                   height: 'min(900px, calc(100dvh - 32px))',
                   left: '50%',
@@ -152,7 +153,9 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
                   </DialogHeader>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-                  <SpriteSequenceAlignmentEditor job={job} output={alignmentOutput} saving={savingAlignment} onSave={saveAlignment} />
+                  <Suspense fallback={<div className="grid min-h-[240px] place-items-center text-sm text-muted-foreground">···</div>}>
+                    <SpriteSequenceAlignmentEditor job={job} output={alignmentOutput} saving={savingAlignment} onSave={saveAlignment} />
+                  </Suspense>
                 </div>
                 <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
                   <X className="h-4 w-4" />

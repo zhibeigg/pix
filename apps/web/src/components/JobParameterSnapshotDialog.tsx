@@ -66,7 +66,7 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
         <DialogPrimitive.Content
           onClick={(event) => event.stopPropagation()}
           onCloseAutoFocus={(event) => event.preventDefault()}
-          className="fixed z-50 grid gap-4 overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)] focus:outline-none dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]"
+          className="fixed z-50 grid gap-4 overflow-y-auto rounded-lg border border-border bg-card p-6 pix-shadow-overlay focus:outline-none dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]"
           style={{
             left: '50%',
             maxHeight: 'calc(100dvh - 32px)',

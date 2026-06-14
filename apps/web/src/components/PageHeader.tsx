@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react'
+import { Eyebrow } from './ui/eyebrow'
 
 export function PageHeader({ eyebrow, title, description, action }: { eyebrow?: ReactNode; title: ReactNode; description?: ReactNode; action?: ReactNode }) {
   return (
-    <section className="relative overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-card p-6 shadow-[0_10px_30px_-24px_rgba(15,15,15,0.28)] md:p-8 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))] dark:shadow-[0_22px_70px_-48px_rgba(0,0,0,0.95)]">
+    <section className="relative overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-card p-6 pix-shadow-panel md:p-8 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          {eyebrow && <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-primary">{eyebrow}</p>}
-          <h2 className="mt-2 text-4xl font-semibold leading-[1.15] tracking-[-.5px] md:text-5xl">{title}</h2>
+          {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
+          <h1 className="mt-2 text-4xl font-semibold leading-[1.15] tracking-[-.5px] md:text-5xl">{title}</h1>
           {description && <p className="mt-3 max-w-3xl text-base leading-[1.55] text-muted-foreground">{description}</p>}
         </div>
         {action && <div className="shrink-0">{action}</div>}

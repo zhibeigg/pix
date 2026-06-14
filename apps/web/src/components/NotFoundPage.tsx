@@ -19,11 +19,11 @@ export function NotFoundPage({ user }: { user: User | null }) {
       <NotFoundDecor />
       <div className="relative z-10 mx-auto grid max-w-6xl gap-8 lg:grid-cols-[minmax(0,1fr)_440px] lg:items-center">
         <div className="max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-[hsl(var(--pix-steel))] shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-white/15 dark:bg-white/10 dark:text-white/72">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-[hsl(var(--pix-steel))] pix-shadow-hairline dark:border-white/15 dark:bg-white/10 dark:text-white/72">
             <span className="h-2 w-2 rounded-[3px] bg-primary dark:bg-[hsl(var(--pix-amber))]" />
             {text('素材坐标丢失', 'Asset coordinates lost')}
           </div>
-          <h2 className="mt-6 text-[clamp(3.5rem,12vw,8.5rem)] font-semibold leading-[.88] tracking-[-0.08em] text-[hsl(var(--pix-ink))] dark:text-white">404</h2>
+          <h1 className="mt-6 text-[clamp(3.5rem,12vw,8.5rem)] font-semibold leading-[.88] tracking-[-0.08em] text-[hsl(var(--pix-ink))] dark:text-white">404</h1>
           <p className="mt-5 max-w-2xl text-[28px] font-semibold leading-tight tracking-[-0.04em] text-[hsl(var(--pix-ink))] md:text-[42px] dark:text-white">
             {text('这张像素素材还没有被铸造出来。', 'This pixel asset has not been forged yet.')}
           </p>

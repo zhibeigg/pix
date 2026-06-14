@@ -192,6 +192,14 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 - 默认开启透明背景，但不做额外边缘处理：`edge_style=hard`、`bg_feather=0`，不再自动添加 outline 描边。
 - 如确实需要描边或羽化，可在「边缘处理」里手动切换。
 
+### UI 组件（ui_component）
+
+素材类型选择「UI 组件」时，前端单张与批量任务会显式提交 `image_size=auto`，后端也会对旧前端漏传尺寸的 UI 组件兜底为 `auto`：
+
+- 目标像素尺寸仍由「像素尺寸」控制，默认 `32x32`，颜色数默认 12 色。
+- 源图尺寸交给 Provider / 模型自动选择，避免复杂 UI 边框、面板或多空位布局被固定正方形源图过度裁切或留白。
+- 默认开启透明背景并使用 `edge_style=outline`，方便把 UI 边框或面板叠到游戏界面中。
+
 ### 游戏 Logo（game_logo）
 
 素材类型选择「游戏 Logo」时，仍走普通素材直出链路，输出适合标题页、主菜单、启动页或 HUD 品牌区使用的透明 PNG：

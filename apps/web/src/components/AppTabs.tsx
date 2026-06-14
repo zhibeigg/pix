@@ -43,12 +43,12 @@ export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsPr
               className={cn(
                 'group rounded-md px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-white/70',
                 active
-                  ? 'border border-border bg-card text-[hsl(var(--pix-ink))] shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-[hsl(var(--pix-brand-purple-300)/.28)] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:ring-1 dark:ring-[hsl(var(--pix-brand-purple-300)/.18)]'
+                  ? 'border border-border bg-card text-[hsl(var(--pix-ink))] pix-shadow-hairline dark:border-[hsl(var(--pix-brand-purple-300)/.28)] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:ring-1 dark:ring-[hsl(var(--pix-brand-purple-300)/.18)]'
                   : 'text-[hsl(var(--pix-slate))] hover:bg-white/70 hover:text-[hsl(var(--pix-ink))] dark:text-white/62 dark:hover:bg-[hsl(var(--pix-dark-card-raised)/.72)] dark:hover:text-white',
               )}
             >
               <span className="block text-sm font-semibold leading-tight">{tabLabel(tab)}</span>
-              <span className={cn('mt-0.5 block text-[11px]', active ? 'text-[hsl(var(--pix-steel))] dark:text-white/58' : 'text-[hsl(var(--pix-muted))] group-hover:text-[hsl(var(--pix-steel))] dark:text-white/38 dark:group-hover:text-white/62')}>{tabDescription(tab)}</span>
+              <span className={cn('mt-0.5 block text-[11px]', active ? 'text-[hsl(var(--pix-steel))] dark:text-white/58' : 'text-[hsl(var(--pix-text-subtle))] group-hover:text-[hsl(var(--pix-steel))] dark:text-white/55 dark:group-hover:text-white/72')}>{tabDescription(tab)}</span>
             </button>
           )
         })}

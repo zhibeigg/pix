@@ -108,7 +108,7 @@ function IconAtlas() {
 
   return (
     <div className="grid gap-6">
-      <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] md:p-8">
+      <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] pix-shadow-raised dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white md:p-8">
         <div className="grid items-start gap-6 lg:grid-cols-[.86fr_1.14fr]">
           <div>
             <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('新版后处理', 'Processed set')}</Badge>
@@ -141,7 +141,7 @@ function IconAtlas() {
 
           <label className="grid gap-2 sm:max-w-sm">
             <span className="text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{text('风格 / 题材', 'Style / theme')}</span>
-            <select value={themeFilter} onChange={(event) => setThemeFilter(event.target.value)} className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(15,15,15,0.04)] outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:bg-[hsl(var(--pix-dark-card))]">
+            <select value={themeFilter} onChange={(event) => setThemeFilter(event.target.value)} className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground pix-shadow-hairline outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:bg-[hsl(var(--pix-dark-card))]">
               <option value="all">{text('全部风格', 'All styles')}</option>
               {themeOptions.map((example) => {
                 const label = getHomepageExampleLabel(example, language)
@@ -219,7 +219,7 @@ function TextureAtlas() {
   )
   return (
     <div className="grid gap-6">
-      <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] md:p-8">
+      <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] pix-shadow-raised dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white md:p-8">
         <div className="grid items-start gap-6 lg:grid-cols-[.86fr_1.14fr]">
           <div>
             <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('平铺纹理', 'Tileable texture')}</Badge>
@@ -321,7 +321,7 @@ function SpriteAtlas() {
   )
   return (
     <div className="grid gap-6">
-      <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_18px_60px_-34px_rgba(0,0,0,0.85)] md:p-8">
+      <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] pix-shadow-raised dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white md:p-8">
         <div className="grid items-start gap-6 lg:grid-cols-[.86fr_1.14fr]">
           <div>
             <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('序列帧', 'Sprite sheet')}</Badge>
@@ -532,7 +532,7 @@ function ExampleItemActionMenu({ target, onClose }: { target: ExampleItemActionT
   }, [onClose, subjectPrompt])
 
   return (
-    <div role="menu" aria-label={text('范例物品操作', 'Sample item actions')} className="fixed z-[110] w-72 max-w-[calc(100vw-24px)] rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-[0_16px_48px_-8px_rgba(15,15,15,0.16)]" style={{ left: target.x, top: target.y }} onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => event.preventDefault()}>
+    <div role="menu" aria-label={text('范例物品操作', 'Sample item actions')} className="fixed z-[110] w-72 max-w-[calc(100vw-24px)] rounded-lg border border-border bg-popover p-2 text-popover-foreground pix-shadow-overlay" style={{ left: target.x, top: target.y }} onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => event.preventDefault()}>
       <div className="px-2 pb-2 pt-1">
         <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">{sizeLabel} · {target.icon.slotLabel}</p>
         <p className="mt-1 text-sm font-semibold">{label ? `${label.theme} / ${subject}` : subject}</p>
@@ -574,7 +574,7 @@ function AuthSection({ authSlot }: { authSlot: ReactNode }) {
   const { text } = useI18n()
   return (
     <section id="auth-panel" className="scroll-mt-28 border-t border-border bg-[hsl(var(--secondary))] px-4 py-16 md:px-8 md:py-20 dark:border-white/10 dark:bg-[hsl(var(--pix-navy-deep))]">
-      <div className="mx-auto grid max-w-7xl items-center gap-10 rounded-lg bg-card p-6 shadow-[0_4px_12px_rgba(15,15,15,0.08)] dark:border dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card))] dark:shadow-[0_30px_80px_-46px_rgba(0,0,0,0.9)] md:p-10 lg:grid-cols-[.9fr_1.1fr]">
+      <div className="mx-auto grid max-w-7xl items-center gap-10 rounded-lg bg-card p-6 pix-shadow-raised dark:border dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card))] md:p-10 lg:grid-cols-[.9fr_1.1fr]">
         <div>
           <Badge>{text('开始生产', 'Start producing')}</Badge>
           <h2 className="mt-5 font-sans text-4xl font-semibold tracking-tight md:text-6xl">{text('进入像素工位台', 'Enter the pixel workbench')}</h2>

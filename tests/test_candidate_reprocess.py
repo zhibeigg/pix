@@ -8,12 +8,39 @@ from unittest.mock import patch
 
 from PIL import Image
 
+from pix.config import AppConfig
 from pix.pixelize.core import PixelizeParams, pixelize
 from pix.pixelize.perfect_pixel import GeneratedPreprocessResult
-from pix_web.pipeline_adapter import pipeline_input_from_job
+from pix_web.pipeline_adapter import asset_pipeline_input_from_job, pipeline_input_from_job
 
 
 class LocalPixelizePostprocessTests(unittest.TestCase):
+    def test_ui_component_asset_defaults_image_size_to_auto(self) -> None:
+        cfg = AppConfig()
+        cfg.image_gen.size = "1024x1024"
+        job = SimpleNamespace(
+            id=77,
+            job_type="asset",
+            prompt="修仙副本队伍面板",
+            input_image_path=None,
+            params_json={
+                "image_size": None,
+                "image_quality": "low",
+                "pixelize": {"output_size": [32, 32], "colors": 12},
+                "asset": {
+                    "name": "修仙副本队伍面板",
+                    "asset_kind": "ui_component",
+                    "subject_kind": "single_ui",
+                },
+                "grid": {"mode": "extract"},
+            },
+        )
+        settings = SimpleNamespace(storage_root=Path("web_outputs"))
+
+        inputs = asset_pipeline_input_from_job(job, settings, cfg)  # type: ignore[arg-type]
+
+        self.assertEqual(inputs.image_size, "auto")
+
     def test_local_pixelize_uses_generated_source_postprocess(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             image_path = Path(tmp) / "local.png"

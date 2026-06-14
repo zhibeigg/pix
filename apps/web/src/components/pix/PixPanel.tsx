@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/utils'
+import { Eyebrow } from '../ui/eyebrow'
 
 export function PixPanel({ title, eyebrow, description, action, children, className }: { title?: ReactNode; eyebrow?: ReactNode; description?: ReactNode; action?: ReactNode; children?: ReactNode; className?: string }) {
   return (
-    <section className={cn('motion-panel-enter overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-card shadow-[0_10px_30px_-24px_rgba(15,15,15,0.28)] transition-[border-color,box-shadow,opacity,transform] duration-[var(--motion-base)] ease-[var(--ease-out-quart)] hover:shadow-[0_18px_46px_-34px_rgba(15,15,15,0.42)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))] dark:shadow-[0_22px_70px_-48px_rgba(0,0,0,0.95)] dark:hover:shadow-[0_26px_78px_-52px_rgba(0,0,0,1)]', className)}>
+    <section className={cn('motion-panel-enter overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-card pix-shadow-panel transition-[border-color,box-shadow,opacity,transform] duration-[var(--motion-base)] ease-[var(--ease-out-quart)] hover:pix-shadow-panel-hover dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]', className)}>
       {(title || eyebrow || description || action) && (
         <header className="flex flex-col gap-3 border-b border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-paper)/.45)] p-6 md:flex-row md:items-start md:justify-between dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft)/.52)]">
           <div className="min-w-0">
-            {eyebrow && <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-primary">{eyebrow}</p>}
+            {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
             {title && <h2 className="mt-1 text-[28px] font-semibold leading-[1.25] tracking-tight md:text-3xl">{title}</h2>}
             {description && <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>}
           </div>
