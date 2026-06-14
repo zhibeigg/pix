@@ -49,7 +49,7 @@ export function DeleteConfirmDialog({ state, loading, onCancel, onConfirm }: { s
       <DialogPortal>
         <DialogOverlay />
         <DialogPrimitive.Content
-          className="fixed z-50 overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-card p-0 shadow-[0_24px_80px_-24px_rgba(15,15,15,0.42)] focus:outline-none dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]"
+          className="fixed z-50 overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-card p-0 pix-shadow-dialog focus:outline-none dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]"
           style={{
             left: '50%',
             maxHeight: 'calc(100dvh - 32px)',
@@ -98,40 +98,45 @@ export function DeleteConfirmDialog({ state, loading, onCancel, onConfirm }: { s
 
 /* ── PackExpandConfirmDialog ───────────────────────────── */
 
-export function PackExpandConfirmDialog({ state, loading, onCancel, onConfirm }: { state: PackExpandConfirmState | null; loading: boolean; onCancel: () => void; onConfirm: () => void }) {
+type ExpandConfirmShared = { price: number; currentCount: number; currentLimit: number; nextLimit: number; availableCredits: number | null }
+
+function ExpandConfirmDialog({ state, loading, tone, i18nPrefix, descriptionParams, onCancel, onConfirm }: { state: ExpandConfirmShared | null; loading: boolean; tone: 'primary' | 'green'; i18nPrefix: string; descriptionParams: Record<string, unknown>; onCancel: () => void; onConfirm: () => void }) {
   const { t } = useI18n()
   const available = state?.availableCredits ?? null
+  const overlayClass = tone === 'green'
+    ? 'bg-[radial-gradient(circle_at_20%_0%,hsl(var(--pix-brand-green)/.18),transparent_38%),linear-gradient(180deg,hsl(var(--pix-mint)/.62),transparent)] dark:bg-[radial-gradient(circle_at_20%_0%,hsl(var(--pix-brand-green)/.26),transparent_38%),linear-gradient(180deg,hsl(var(--pix-navy)/.72),transparent)]'
+    : 'bg-[radial-gradient(circle_at_20%_0%,hsl(var(--primary)/.18),transparent_38%),linear-gradient(180deg,hsl(var(--pix-mint)/.62),transparent)] dark:bg-[radial-gradient(circle_at_20%_0%,hsl(var(--primary)/.32),transparent_38%),linear-gradient(180deg,hsl(var(--pix-navy)/.72),transparent)]'
   return (
     <Dialog open={Boolean(state)} modal={false} onOpenChange={(open) => { if (!open && !loading) onCancel() }}>
-      <DialogContent className="overflow-hidden border-[hsl(var(--pix-paper-border))] bg-card p-0 shadow-[0_24px_80px_-24px_rgba(15,15,15,0.42)] sm:max-w-[480px] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
+      <DialogContent className="overflow-hidden border-[hsl(var(--pix-paper-border))] bg-card p-0 pix-shadow-dialog sm:max-w-[480px] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
         {state && (
           <div className="relative grid gap-5 p-6">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_20%_0%,hsl(var(--primary)/.18),transparent_38%),linear-gradient(180deg,hsl(var(--pix-mint)/.62),transparent)] dark:bg-[radial-gradient(circle_at_20%_0%,hsl(var(--primary)/.32),transparent_38%),linear-gradient(180deg,hsl(var(--pix-navy)/.72),transparent)]" />
+            <div className={`pointer-events-none absolute inset-x-0 top-0 h-28 ${overlayClass}`} />
             <DialogHeader className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-3 pr-8">
               <div className="grid h-12 w-12 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary shadow-[0_12px_28px_-18px_rgba(79,70,229,0.72)] dark:border-primary/30 dark:bg-primary/18">
                 <PackagePlus className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-xl leading-tight">{t('packs.expandDialogTitle')}</DialogTitle>
-                <DialogDescription className="mt-2 leading-6">{t('packs.expandDialogDescription', { price: state.price })}</DialogDescription>
+                <DialogTitle className="text-xl leading-tight">{t(`${i18nPrefix}Title`)}</DialogTitle>
+                <DialogDescription className="mt-2 leading-6">{t(`${i18nPrefix}Description`, descriptionParams)}</DialogDescription>
               </div>
             </DialogHeader>
             <div className="relative grid gap-2 rounded-lg border border-border bg-background/82 p-3 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
               <div className="grid grid-cols-3 gap-2 text-center">
-                <DialogMetric label={t('packs.expandDialogCurrent')} value={`${state.currentCount}/${state.currentLimit}`} />
-                <DialogMetric label={t('packs.expandDialogAfter')} value={`${state.currentCount}/${state.nextLimit}`} tone="primary" />
-                <DialogMetric label={t('packs.expandDialogCost')} value={t('common.points', { count: state.price })} />
+                <DialogMetric label={t(`${i18nPrefix}Current`)} value={`${state.currentCount}/${state.currentLimit}`} />
+                <DialogMetric label={t(`${i18nPrefix}After`)} value={`${state.currentCount}/${state.nextLimit}`} tone="primary" />
+                <DialogMetric label={t(`${i18nPrefix}Cost`)} value={t('common.points', { count: state.price })} />
               </div>
               {available !== null && (
                 <div className="mt-1 flex items-center gap-2 rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground dark:bg-white/6 dark:text-white/58">
                   <Coins className="h-4 w-4 text-primary" />
-                  <span>{t('packs.expandDialogBalance', { count: available })}</span>
+                  <span>{t(`${i18nPrefix}Balance`, { count: available })}</span>
                 </div>
               )}
             </div>
             <DialogFooter className="relative">
               <Button type="button" variant="outline" disabled={loading} onClick={onCancel}>{t('common.cancel')}</Button>
-              <Button type="button" disabled={loading} onClick={onConfirm}>{loading ? t('packs.expandDialogWorking') : t('packs.expandDialogConfirm')}</Button>
+              <Button type="button" disabled={loading} onClick={onConfirm}>{loading ? t(`${i18nPrefix}Working`) : t(`${i18nPrefix}Confirm`)}</Button>
             </DialogFooter>
           </div>
         )}
@@ -140,46 +145,12 @@ export function PackExpandConfirmDialog({ state, loading, onCancel, onConfirm }:
   )
 }
 
+export function PackExpandConfirmDialog({ state, loading, onCancel, onConfirm }: { state: PackExpandConfirmState | null; loading: boolean; onCancel: () => void; onConfirm: () => void }) {
+  return <ExpandConfirmDialog state={state} loading={loading} tone="primary" i18nPrefix="packs.expandDialog" descriptionParams={{ price: state?.price ?? 0 }} onCancel={onCancel} onConfirm={onConfirm} />
+}
+
 export function GalleryExpandConfirmDialog({ state, loading, onCancel, onConfirm }: { state: GalleryExpandConfirmState | null; loading: boolean; onCancel: () => void; onConfirm: () => void }) {
-  const { t } = useI18n()
-  const available = state?.availableCredits ?? null
-  return (
-    <Dialog open={Boolean(state)} modal={false} onOpenChange={(open) => { if (!open && !loading) onCancel() }}>
-      <DialogContent className="overflow-hidden border-[hsl(var(--pix-paper-border))] bg-card p-0 shadow-[0_24px_80px_-24px_rgba(15,15,15,0.42)] sm:max-w-[480px] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
-        {state && (
-          <div className="relative grid gap-5 p-6">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_20%_0%,hsl(var(--pix-brand-green)/.18),transparent_38%),linear-gradient(180deg,hsl(var(--pix-mint)/.62),transparent)] dark:bg-[radial-gradient(circle_at_20%_0%,hsl(var(--pix-brand-green)/.26),transparent_38%),linear-gradient(180deg,hsl(var(--pix-navy)/.72),transparent)]" />
-            <DialogHeader className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-3 pr-8">
-              <div className="grid h-12 w-12 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary shadow-[0_12px_28px_-18px_rgba(79,70,229,0.72)] dark:border-primary/30 dark:bg-primary/18">
-                <PackagePlus className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <DialogTitle className="text-xl leading-tight">{t('gallery.expandDialogTitle')}</DialogTitle>
-                <DialogDescription className="mt-2 leading-6">{t('gallery.expandDialogDescription', { price: state.price, slots: state.slots })}</DialogDescription>
-              </div>
-            </DialogHeader>
-            <div className="relative grid gap-2 rounded-lg border border-border bg-background/82 p-3 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <DialogMetric label={t('gallery.expandDialogCurrent')} value={`${state.currentCount}/${state.currentLimit}`} />
-                <DialogMetric label={t('gallery.expandDialogAfter')} value={`${state.currentCount}/${state.nextLimit}`} tone="primary" />
-                <DialogMetric label={t('gallery.expandDialogCost')} value={t('common.points', { count: state.price })} />
-              </div>
-              {available !== null && (
-                <div className="mt-1 flex items-center gap-2 rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground dark:bg-white/6 dark:text-white/58">
-                  <Coins className="h-4 w-4 text-primary" />
-                  <span>{t('gallery.expandDialogBalance', { count: available })}</span>
-                </div>
-              )}
-            </div>
-            <DialogFooter className="relative">
-              <Button type="button" variant="outline" disabled={loading} onClick={onCancel}>{t('common.cancel')}</Button>
-              <Button type="button" disabled={loading} onClick={onConfirm}>{loading ? t('gallery.expandDialogWorking') : t('gallery.expandDialogConfirm')}</Button>
-            </DialogFooter>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  )
+  return <ExpandConfirmDialog state={state} loading={loading} tone="green" i18nPrefix="gallery.expandDialog" descriptionParams={{ price: state?.price ?? 0, slots: state?.slots ?? 0 }} onCancel={onCancel} onConfirm={onConfirm} />
 }
 
 function DialogMetric({ label, value, tone = 'default' }: { label: ReactNode; value: ReactNode; tone?: 'default' | 'primary' }) {
@@ -199,15 +170,15 @@ export function AppToast({ toast, onDismiss }: { toast: AppToastState | null; on
   if (!toast) return null
   const Icon = toast.variant === 'error' ? CircleAlert : toast.variant === 'info' ? Info : CheckCircle2
   const tone = toast.variant === 'error'
-    ? 'border-destructive/35 bg-destructive text-destructive-foreground dark:border-red-400/30 dark:bg-red-950 dark:text-red-100'
+    ? 'border-destructive/35 bg-destructive text-destructive-foreground dark:border-[hsl(var(--destructive))]/35 dark:bg-[hsl(0_55%_16%)] dark:text-[hsl(0_90%_92%)]'
     : toast.variant === 'info'
-      ? 'border-[hsl(var(--pix-link-blue))]/30 bg-[hsl(var(--pix-sky))] text-[hsl(var(--pix-navy))] dark:border-sky-300/25 dark:bg-[hsl(var(--pix-navy-deep))] dark:text-sky-100'
-      : 'border-[hsl(var(--pix-brand-green))]/30 bg-[hsl(var(--pix-mint))] text-[hsl(var(--pix-navy))] dark:border-emerald-300/25 dark:bg-[hsl(var(--pix-navy-deep))] dark:text-emerald-100'
-  const iconTone = toast.variant === 'error' ? 'text-red-100 dark:text-red-200' : toast.variant === 'info' ? 'text-[hsl(var(--pix-link-blue))] dark:text-sky-200' : 'text-emerald-700 dark:text-emerald-200'
+      ? 'border-[hsl(var(--tone-info-line))]/30 bg-[hsl(var(--tone-info-surface))] text-[hsl(var(--pix-navy))] dark:border-[hsl(var(--tone-info-line))]/30 dark:bg-[hsl(var(--pix-navy-deep))] dark:text-[hsl(var(--pix-sky))]'
+      : 'border-[hsl(var(--tone-success-line))]/30 bg-[hsl(var(--tone-success-surface))] text-[hsl(var(--pix-navy))] dark:border-[hsl(var(--tone-success-line))]/30 dark:bg-[hsl(var(--pix-navy-deep))] dark:text-[hsl(var(--pix-mint))]'
+  const iconTone = toast.variant === 'error' ? 'text-[hsl(0_90%_92%)] dark:text-[hsl(0_88%_86%)]' : toast.variant === 'info' ? 'text-[hsl(var(--pix-link-blue))] dark:text-[hsl(208_80%_82%)]' : 'text-[hsl(var(--pix-brand-green))] dark:text-[hsl(150_60%_80%)]'
 
   return (
     <div className="pointer-events-none fixed left-1/2 top-3 z-[100] w-[min(calc(100vw-24px),360px)] -translate-x-1/2 px-0 md:top-4">
-      <div key={toast.id} role="status" aria-live="polite" className={`motion-success-pop pointer-events-auto relative flex items-center gap-2.5 rounded-md border px-3 py-2 pr-10 text-sm font-medium shadow-[0_12px_34px_-14px_rgba(15,15,15,0.34)] ring-1 ring-black/5 ${tone}`}>
+      <div key={toast.id} role="status" aria-live="polite" className={`motion-success-pop pointer-events-auto relative flex items-center gap-2.5 rounded-md border px-3 py-2 pr-10 text-sm font-medium pix-shadow-toast ring-1 ring-black/5 ${tone}`}>
         <Icon className={`h-4 w-4 shrink-0 ${iconTone}`} />
         <p className="min-w-0 flex-1 leading-5">{toast.message}</p>
         <button type="button" onClick={onDismiss} aria-label={t('app.toastDismiss')} className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md opacity-72 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
@@ -228,7 +199,7 @@ export function WorkspaceShell({ page, user, balance, activeJobs, completedJobs,
         <div className="grid gap-6 lg:sticky lg:top-20 lg:min-h-[calc(100vh-97px)] lg:grid-rows-[auto_auto_1fr_auto]">
           <div>
             <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-[hsl(var(--pix-steel))] dark:text-white/58">{t('sidebar.workspace')}</p>
-            <div className="mt-3 rounded-md border border-border bg-card p-3 shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:shadow-[0_18px_48px_-36px_rgba(0,0,0,0.85)]">
+            <div className="mt-3 rounded-md border border-border bg-card p-3 pix-shadow-hairline dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
               <p className="truncate text-sm font-semibold">{user.display_name || user.email}</p>
               <p className="mt-1 truncate text-xs text-muted-foreground dark:text-white/45">{user.email}</p>
             </div>
@@ -258,7 +229,7 @@ export function WorkspaceShell({ page, user, balance, activeJobs, completedJobs,
 
 function SidebarMetric({ label, value, tone = 'default' }: { label: ReactNode; value: ReactNode; tone?: 'default' | 'danger' }) {
   return (
-    <div className={`rounded-md border px-3 py-2 shadow-[0_1px_2px_rgba(15,15,15,0.04)] ${tone === 'danger' ? 'border-[hsl(var(--destructive)/.28)] bg-[hsl(var(--destructive)/.08)] text-[hsl(var(--destructive))] dark:border-[hsl(var(--destructive)/.30)] dark:bg-[hsl(var(--destructive)/.10)] dark:text-white' : 'border-border bg-card text-[hsl(var(--pix-ink))] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white'}`}>
+    <div className={`rounded-md border px-3 py-2 pix-shadow-hairline ${tone === 'danger' ? 'border-[hsl(var(--destructive)/.28)] bg-[hsl(var(--destructive)/.08)] text-[hsl(var(--destructive))] dark:border-[hsl(var(--destructive)/.30)] dark:bg-[hsl(var(--destructive)/.10)] dark:text-white' : 'border-border bg-card text-[hsl(var(--pix-ink))] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white'}`}>
       <p className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground dark:text-white/52">{label}</p>
       <p className="mt-1 text-lg font-semibold leading-tight">{value}</p>
     </div>

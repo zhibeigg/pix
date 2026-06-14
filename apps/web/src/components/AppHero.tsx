@@ -30,13 +30,13 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
       <HeroSurfaceDecor />
       <div className="relative z-10 mx-auto grid max-w-7xl gap-10">
         <div className="mx-auto max-w-5xl text-center">
-          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-[hsl(var(--pix-steel))] shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:border-white/15 dark:bg-white/10 dark:text-white/75 dark:shadow-none">
+          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-[hsl(var(--pix-steel))] pix-shadow-hairline dark:border-white/15 dark:bg-white/10 dark:text-white/75 dark:shadow-none">
             <span className="h-2 w-2 rounded-[3px] bg-primary dark:bg-[hsl(var(--pix-amber))]" />
             {text('给游戏开发者的 AI 像素素材工具', 'AI pixel asset tool for game developers')}
           </div>
-          <h2 className="mt-6 text-[40px] font-semibold leading-[1.05] tracking-[-1.4px] text-[hsl(var(--pix-ink))] md:text-[64px] md:tracking-[-2px] xl:text-[80px] dark:text-white">
+          <h1 className="mt-6 text-[40px] font-semibold leading-[1.05] tracking-[-1.4px] text-[hsl(var(--pix-ink))] md:text-[64px] md:tracking-[-2px] xl:text-[80px] dark:text-white">
             {text('10–30 分钟，', '10–30 minutes to')}<br className="hidden md:block" />{text('做出可进游戏的像素素材', 'game-ready pixel assets')}
-          </h2>
+          </h1>
           <p className="mx-auto mt-5 max-w-3xl text-lg leading-[1.55] text-[hsl(var(--pix-slate))] dark:text-white/70">
             {text('输入道具、角色、技能特效或 UI 描述，批量生成统一尺寸、透明背景、可导出的像素 PNG 和精灵帧。它解决美术排期慢、反复切图抠图、尺寸色板不统一、素材难归档的问题；早期原型通常可把 1–3 天打样压到 10–30 分钟，每批少花数百到数千元沟通与外包成本。', 'Describe items, characters, VFX, or UI, then batch-generate consistent, transparent, export-ready pixel PNGs and sprite frames. It removes slow art queues, repeated cutout/export work, inconsistent sizes and palettes, and messy asset handoff; early prototypes can usually shrink 1–3 days of mockup work to 10–30 minutes and reduce hundreds to thousands in coordination or outsourcing costs.')}
           </p>
@@ -102,12 +102,12 @@ function WorkspaceMockup({ balance, activeJobs, batchCount }: { balance: CreditB
       </div>
       <div className="grid md:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="hidden border-r border-border bg-[hsl(var(--secondary))] p-4 md:block dark:border-[hsl(var(--pix-paper-border))] dark:bg-[hsl(var(--pix-paper-soft))]">
-          <p className="text-[11px] font-semibold uppercase tracking-[1px] text-[hsl(var(--pix-stone))] dark:text-[hsl(var(--pix-paper-steel))]">{text('工作区', 'Workspace')}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[1px] text-[hsl(var(--pix-text-subtle))] dark:text-[hsl(var(--pix-paper-steel))]">{text('工作区', 'Workspace')}</p>
           <div className="mt-4 grid gap-2 text-sm">
-            {navItems.map((item, index) => <div key={item} className={`rounded-md px-3 py-2 ${index === 0 ? 'bg-card font-medium shadow-[0_1px_2px_rgba(15,15,15,0.04)] dark:bg-[hsl(var(--pix-paper))]' : 'text-[hsl(var(--pix-steel))] dark:text-[hsl(var(--pix-paper-steel))]'}`}>{item}</div>)}
+            {navItems.map((item, index) => <div key={item} className={`rounded-md px-3 py-2 ${index === 0 ? 'bg-card font-medium pix-shadow-hairline dark:bg-[hsl(var(--pix-paper))]' : 'text-[hsl(var(--pix-steel))] dark:text-[hsl(var(--pix-paper-steel))]'}`}>{item}</div>)}
           </div>
           <div className="mt-6 rounded-lg border border-border bg-card p-3 dark:border-[hsl(var(--pix-paper-border))] dark:bg-[hsl(var(--pix-paper))]">
-            <p className="text-[11px] font-semibold uppercase tracking-[1px] text-[hsl(var(--pix-stone))] dark:text-[hsl(var(--pix-paper-steel))]">{text('点数', 'Credits')}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[1px] text-[hsl(var(--pix-text-subtle))] dark:text-[hsl(var(--pix-paper-steel))]">{text('点数', 'Credits')}</p>
             <p className="mt-2 text-2xl font-semibold">{balance?.available_credits ?? '—'}</p>
           </div>
         </aside>

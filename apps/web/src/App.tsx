@@ -6,6 +6,7 @@ import { AccountMenu } from './components/AccountMenu'
 import { AppHero } from './components/AppHero'
 import { AppToast, DeleteConfirmDialog, GalleryExpandConfirmDialog, PackExpandConfirmDialog, showSystemNotification, SiteFooter, WorkspaceShell, type AppToastState, type DeleteConfirmState, type GalleryExpandConfirmState, type PackExpandConfirmState, type ToastVariant } from './components/AppOverlays'
 import { AuthPanel } from './components/AuthPanel'
+import { useConfirm } from './components/ConfirmDialog'
 import { Button } from './components/ui/button'
 import { HeaderUtilityBar } from './components/HeaderUtilityBar'
 import { LandingSections } from './components/LandingSections'
@@ -87,6 +88,7 @@ function retainedPhotoCount(jobs: GenerationJob[]) {
 
 export function App({ themeMode, themePreference, systemThemeMode, language, onThemePreferenceChange, onLanguageChange }: AppProps) {
   const { text, t } = useI18n()
+  const confirm = useConfirm()
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? '')
   const [user, setUser] = useState<User | null>(null)
   const [balance, setBalance] = useState<CreditBalance | null>(null)
@@ -135,6 +137,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const handledPaymentReturnRef = useRef('')
   const jobStatusSnapshotRef = useRef<Map<number, string>>(new Map())
   const jobStatusSeededRef = useRef(false)
+  const pollSigRef = useRef('')
 
   const isAdmin = user?.role === 'admin'
   const selectedPack = useMemo(() => packs.find((pack) => pack.id === selectedPackId) ?? null, [packs, selectedPackId])
@@ -193,12 +196,16 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   const confirmPhotoRetentionBeforeCreate = useCallback((nextJobCount: number) => {
     const overflow = retainedPhotos + nextJobCount - galleryRetentionLimit
-    if (overflow <= 0) return true
-    return window.confirm(text(
-      `当前已保留 ${retainedPhotos} 张作品。继续生成后，系统会自动删除最旧的 ${overflow} 张作品，只保留最新 ${galleryRetentionLimit} 张。是否继续？`,
-      `You already keep ${retainedPhotos} works. Continuing will automatically delete the oldest ${overflow} works and keep only the latest ${galleryRetentionLimit}. Continue?`,
-    ))
-  }, [galleryRetentionLimit, retainedPhotos, text])
+    if (overflow <= 0) return Promise.resolve(true)
+    return confirm({
+      title: text('作品库将自动清理', 'Gallery will auto-clean'),
+      description: text(
+        `当前已保留 ${retainedPhotos} 张作品。继续生成后，系统会自动删除最旧的 ${overflow} 张作品，只保留最新 ${galleryRetentionLimit} 张。是否继续？`,
+        `You already keep ${retainedPhotos} works. Continuing will automatically delete the oldest ${overflow} works and keep only the latest ${galleryRetentionLimit}. Continue?`,
+      ),
+      confirmText: text('继续生成', 'Continue'),
+    })
+  }, [confirm, galleryRetentionLimit, retainedPhotos, text])
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
@@ -313,21 +320,31 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       const delay = document.visibilityState === 'hidden' ? Math.max(baseDelay, 15000) : baseDelay
       timer = window.setTimeout(poll, delay)
       try {
-        const [nextJobs, nextGalleryQuota, nextPacks, nextPackQuota, nextBalance, nextOrders] = await Promise.all([
+        const [nextJobs, nextGalleryQuota, nextPacks, nextPackQuota, nextBalance] = await Promise.all([
           api.jobs(token),
           api.galleryQuota(token),
           api.packs(token),
           api.packQuota(token),
           api.balance(token),
-          api.orders(token),
         ])
-        notifyJobCompletions(nextJobs)
-        setJobs(nextJobs)
-        setGalleryQuota(nextGalleryQuota)
-        setPacks(nextPacks)
-        setPackQuota(nextPackQuota)
-        setBalance(nextBalance)
-        setOrders(nextOrders)
+        // 轮询签名：仅在 jobs/packs/balance/quota 实际变化时提交，稳定期完全不 setState、不触发重渲染。
+        // orders 变动低频，已移出 3 秒轮询，由 refreshCore（登录 / 写操作 / 支付返回）按需刷新。
+        const sig = JSON.stringify([
+          nextJobs.map((job) => [job.id, job.status, job.outputs?.length ?? 0, job.error_message ?? '']),
+          nextPacks.map((pack) => [pack.id, pack.status, pack.item_count]),
+          nextBalance?.available_credits, nextBalance?.reserved_credits,
+          nextGalleryQuota?.retained_count, nextGalleryQuota?.retained_limit,
+          nextPackQuota?.pack_count, nextPackQuota?.pack_limit,
+        ])
+        if (sig !== pollSigRef.current) {
+          pollSigRef.current = sig
+          notifyJobCompletions(nextJobs)
+          setJobs(nextJobs)
+          setGalleryQuota(nextGalleryQuota)
+          setPacks(nextPacks)
+          setPackQuota(nextPackQuota)
+          setBalance(nextBalance)
+        }
         pollFailuresRef.current = 0
       } catch {
         pollFailuresRef.current += 1
@@ -471,7 +488,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function createJob(payload: JobCreateRequest) {
     if (!token) return
-    if (!confirmPhotoRetentionBeforeCreate(1)) return
+    if (!(await confirmPhotoRetentionBeforeCreate(1))) return
     setBusy(true)
     setMessage('')
     try {
@@ -489,7 +506,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function createJobs(payloads: JobCreateRequest[], batchName = '', mode = 'mixed') {
     if (!token || payloads.length === 0) return
-    if (!confirmPhotoRetentionBeforeCreate(payloads.length)) return
+    if (!(await confirmPhotoRetentionBeforeCreate(payloads.length))) return
     setBusy(true)
     setMessage('')
     try {
@@ -507,7 +524,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function createRawImageJob(payload: JobCreateRequest) {
     if (!token) return
-    if (!confirmPhotoRetentionBeforeCreate(1)) return
+    if (!(await confirmPhotoRetentionBeforeCreate(1))) return
     setBusy(true)
     setMessage('')
     try {
@@ -573,7 +590,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   async function toggleArchivePack(pack: AssetPack) {
     if (!token) return
     const nextStatus = pack.status === 'archived' ? 'active' : 'archived'
-    if (nextStatus === 'archived' && !window.confirm(text(`归档「${pack.name}」？`, `Archive “${pack.name}”?`))) return
+    if (nextStatus === 'archived' && !(await confirm({ title: text('归档素材包', 'Archive pack'), description: text(`归档「${pack.name}」？`, `Archive “${pack.name}”?`), confirmText: text('归档', 'Archive') }))) return
     try {
       await api.updatePack(token, pack.id, { status: nextStatus })
       await refreshCore(token)
@@ -733,8 +750,8 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function retryJob(job: GenerationJob) {
     if (!token || job.status !== 'failed') return
-    if (!confirmPhotoRetentionBeforeCreate(1)) return
-    if (!window.confirm(text(`重试任务 #${job.id}？将按当前价格重新冻结点数。`, `Retry job #${job.id}? Credits will be reserved at the current price.`))) return
+    if (!(await confirmPhotoRetentionBeforeCreate(1))) return
+    if (!(await confirm({ title: text('重试任务', 'Retry job'), description: text(`重试任务 #${job.id}？将按当前价格重新冻结点数。`, `Retry job #${job.id}? Credits will be reserved at the current price.`), confirmText: text('确认重试', 'Retry') }))) return
     setRetryingJobId(job.id)
     setMessage('')
     try {
@@ -968,7 +985,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
             <img src="/pix-logo-64.png" alt="" className="h-9 w-9 shrink-0 [image-rendering:pixelated]" />
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-muted-foreground">Pix Forge</p>
-              <h1 className="truncate text-xl font-semibold tracking-tight">{t('app.title')}</h1>
+              <p className="truncate text-xl font-semibold tracking-tight">{t('app.title')}</p>
             </div>
           </a>
           {user && <div className="hidden min-w-0 lg:block" aria-hidden="true" />}
