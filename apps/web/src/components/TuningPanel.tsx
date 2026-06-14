@@ -64,7 +64,7 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
               </div>
               <div className="pix-checkerboard overflow-x-auto rounded-lg border border-border bg-muted/40 p-3 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
                 {spriteSheetUrl
-                  ? <img src={spriteSheetUrl} alt={text('横向精灵表', 'Horizontal sprite sheet')} className="block max-w-none [image-rendering:pixelated]" style={sheetInfo.sheetPixelSize ? { width: sheetInfo.sheetPixelSize.width, height: sheetInfo.sheetPixelSize.height } : { width: 'auto', height: 'auto' }} />
+                  ? <img src={spriteSheetUrl} alt={text('横向精灵表', 'Horizontal sprite sheet')} className="block h-auto w-full [image-rendering:pixelated]" />
                   : <div className="grid min-h-28 place-items-center text-sm text-muted-foreground">{isActive ? text('作品生成中…', 'Work is generating…') : text('暂无精灵表文件', 'No sprite sheet file')}</div>}
               </div>
             </div>
@@ -143,8 +143,13 @@ function buildSpriteSheetInfo(job: GenerationJob, output?: JobOutput) {
     : pairLabel(asNumberPair(pixelize?.output_size))
   const sheetPixelSize = sheetSizeFromFrames(frames)
   const sheetSize = sheetPixelSize ? `${sheetPixelSize.width}×${sheetPixelSize.height}` : null
-  const rows = Number(output?.sprite_grid?.rows ?? sprite?.rows)
-  const cols = Number(output?.sprite_grid?.cols ?? sprite?.cols)
+  // 网格按真实横向精灵表推导（列=表宽/帧宽，行=表高/帧高），回退到生成请求的 mosaic rows/cols。
+  // 旧逻辑直接用 mosaic 参数（如 9×4），与最终「9 帧 / 720×64 单行」对不上，容易误会。
+  const gridFromSheet = sheetPixelSize && firstRect && firstRect.w > 0 && firstRect.h > 0
+    ? { rows: Math.max(1, Math.round(sheetPixelSize.height / firstRect.h)), cols: Math.max(1, Math.round(sheetPixelSize.width / firstRect.w)) }
+    : null
+  const rows = gridFromSheet ? gridFromSheet.rows : Number(output?.sprite_grid?.rows ?? sprite?.rows)
+  const cols = gridFromSheet ? gridFromSheet.cols : Number(output?.sprite_grid?.cols ?? sprite?.cols)
   const frameCount = Number(sprite?.frame_count) || frames.length
   const fps = spriteFpsFromJob(job)
   const rowOutputs = Array.isArray(output?.sprite_rows_outputs) ? output.sprite_rows_outputs : []
