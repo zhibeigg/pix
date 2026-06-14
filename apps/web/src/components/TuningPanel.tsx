@@ -12,8 +12,9 @@ import { PixPanel } from './pix/PixPanel'
 import { PixStatusBadge } from './pix/PixStatusBadge'
 import { PixelControls } from './PixelControls'
 import { SpriteSequencePreview } from './SpriteSequencePreview'
+import type { SpriteRowAction } from './GalleryGrid'
 
-export function TuningPanel({ job, pricing, loading, onSubmit }: { job: GenerationJob | null; pricing: PricingRule[]; loading: boolean; onSubmit: (payload: JobCreateRequest) => Promise<void> }) {
+export function TuningPanel({ job, action, pricing, loading, onSubmit }: { job: GenerationJob | null; action?: SpriteRowAction | null; pricing: PricingRule[]; loading: boolean; onSubmit: (payload: JobCreateRequest) => Promise<void> }) {
   const { text } = useI18n()
   const [pixelSize, setPixelSize] = useState('128x128')
   const [colors, setColors] = useState(16)
@@ -49,6 +50,9 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
 
   if (job.job_type === 'sprite_sheet') {
     const sheetInfo = buildSpriteSheetInfo(job, output)
+    // 选中某个动作时，右侧预览改为展示该动作的序列（优先动图 GIF，回退该行 sheet），并同步帧数/网格/动作标签。
+    const activeAction = action ?? null
+    const actionPreviewUrl = !isActive && activeAction ? signedFileUrl(activeAction.gifUrl || activeAction.sheetUrl || undefined) : null
     const mosaicUrl = isActive ? null : signedFileUrl(output?.sprite_mosaic_url || undefined)
     const gridUrl = isActive ? null : signedFileUrl(output?.sprite_sheet_grid_url || undefined)
     const gifUrl = isActive ? null : signedFileUrl(output?.sprite_gif_url || undefined)
@@ -60,20 +64,20 @@ export function TuningPanel({ job, pricing, loading, onSubmit }: { job: Generati
             <div className="grid gap-2">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold">{text('横向精灵表', 'Horizontal sprite sheet')}</p>
-                {sheetInfo.sheetSize && <Badge variant="outline">{sheetInfo.sheetSize}</Badge>}
+                {activeAction ? <Badge variant="outline">{activeAction.label}</Badge> : sheetInfo.sheetSize ? <Badge variant="outline">{sheetInfo.sheetSize}</Badge> : null}
               </div>
               <div className="pix-checkerboard overflow-x-auto rounded-lg border border-border bg-muted/40 p-3 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
-                {spriteSheetUrl
-                  ? <img src={spriteSheetUrl} alt={text('横向精灵表', 'Horizontal sprite sheet')} className="block h-auto w-full [image-rendering:pixelated]" />
+                {(actionPreviewUrl || spriteSheetUrl)
+                  ? <img src={actionPreviewUrl || spriteSheetUrl || undefined} alt={activeAction ? activeAction.label : text('横向精灵表', 'Horizontal sprite sheet')} className="block h-auto w-full [image-rendering:pixelated]" />
                   : <div className="grid min-h-28 place-items-center text-sm text-muted-foreground">{isActive ? text('作品生成中…', 'Work is generating…') : text('暂无精灵表文件', 'No sprite sheet file')}</div>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <SpriteInfoCell label={text('单帧', 'Frame')} value={sheetInfo.frameSize} />
-              <SpriteInfoCell label={text('帧数', 'Frames')} value={sheetInfo.frameCount} />
-              <SpriteInfoCell label={text('网格', 'Grid')} value={sheetInfo.grid} />
+              <SpriteInfoCell label={text('帧数', 'Frames')} value={activeAction ? String(activeAction.frameIndices.length) : sheetInfo.frameCount} />
+              <SpriteInfoCell label={text('网格', 'Grid')} value={activeAction ? `1×${activeAction.frameIndices.length}` : sheetInfo.grid} />
               <SpriteInfoCell label="FPS" value={sheetInfo.fps} />
-              <SpriteInfoCell label={text('动作', 'Actions')} value={sheetInfo.actions} />
+              <SpriteInfoCell label={text('动作', 'Actions')} value={activeAction ? activeAction.label : sheetInfo.actions} />
               <SpriteInfoCell label={text('颜色', 'Colors')} value={sheetInfo.colors} />
             </div>
             <div className="flex flex-wrap gap-2">

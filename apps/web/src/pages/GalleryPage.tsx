@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useI18n } from '../i18n'
-import { GalleryGrid } from '../components/GalleryGrid'
+import { GalleryGrid, type SpriteRowAction } from '../components/GalleryGrid'
 import { PageHeader } from '../components/PageHeader'
 import { TuningPanel } from '../components/TuningPanel'
 import type { ContactSheetCandidate, GalleryQuota, GenerationJob, JobCreateRequest, PricingRule, SequenceAlignmentRequest } from '../types'
@@ -24,13 +24,14 @@ interface GalleryPageProps {
 
 export const GalleryPage = React.memo(function GalleryPage({ jobs, selectedJob, selectedJobId, pricing, loading, retryingJobId, galleryQuota, onExpandGalleryQuota, onSelectJob, onCandidatePixelize, onCreateJob, onRetryJob, onDeleteJob, onSaveSequenceAlignment }: GalleryPageProps) {
   const { t } = useI18n()
+  const [activeAction, setActiveAction] = React.useState<SpriteRowAction | null>(null)
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
       <div className="grid min-w-0 gap-6">
         <PageHeader eyebrow={t('pages.gallery.eyebrow')} title={t('pages.gallery.title')} description={t('pages.gallery.description')} />
-        <GalleryGrid jobs={jobs} subtitle={t('pages.gallery.allWorks')} selectedJobId={selectedJobId} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={onExpandGalleryQuota} onSelect={onSelectJob} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} onDeleteJob={onDeleteJob} onSaveSequenceAlignment={onSaveSequenceAlignment} />
+        <GalleryGrid jobs={jobs} subtitle={t('pages.gallery.allWorks')} selectedJobId={selectedJobId} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={onExpandGalleryQuota} onSelect={onSelectJob} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} onDeleteJob={onDeleteJob} onSaveSequenceAlignment={onSaveSequenceAlignment} onActiveActionChange={setActiveAction} />
       </div>
-      <TuningPanel job={selectedJob} pricing={pricing} loading={loading} onSubmit={onCreateJob} />
+      <TuningPanel job={selectedJob} action={activeAction} pricing={pricing} loading={loading} onSubmit={onCreateJob} />
     </div>
   )
 })
