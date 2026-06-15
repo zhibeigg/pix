@@ -538,3 +538,10 @@ export type AdminDashboard = {
   uploads_today: number
   failure_rate: number
 }
+
+export type PerfKpi = { success_rate: number; running: number; total: number; failed: number; avg_seconds: number; p95_seconds: number }
+export type PerfSeriesPoint = { t: string; succeeded: number; failed: number; total: number }
+export type PerfProvider = { provider: string; succeeded: number; failed: number; total: number; success_rate: number }
+export type PerfFailure = { code: string; count: number }
+export type PerfRecentJob = { id: number; job_type: string; status: string; provider: string; failure_code: string; seconds: number; created_at: string }
+export type PerformanceMetrics = { range: string; bucket_seconds: number; generated_at: string; kpi: PerfKpi; series: PerfSeriesPoint[]; providers: PerfProvider[]; failures: PerfFailure[]; recent: PerfRecentJob[] }
