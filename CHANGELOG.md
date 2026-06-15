@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- 修复打开下拉菜单 / 弹窗（Radix Select、Dialog 等）时整页横向"左右晃动"的问题：页面已用 `scrollbar-gutter: stable` 预留滚动条槽，但 react-remove-scroll 锁定滚动时仍注入等宽的 `body[data-scroll-locked] { margin-right }` 补偿造成重复占位；原有中和规则与库规则同特异性 `(0,1,1)` 且都带 `!important`、又先于库样式注入而失效，现以 `html` 前缀提升特异性到 `(0,1,2)`，使中和规则稳定胜出。
 - 修复 `local_pixelize` 本地重处理被当作普通上传图走 legacy 路径的问题；现在会整体按生成图源图执行 perfect pixel / 去背景 / 裁切后处理，并采用 perfect pixel 自动检测到的真实像素尺寸。
 - 收紧顶部全局提示 Toast 的高度、内边距和关闭按钮尺寸，避免绿色成功提示弹出时显得过高且留白过多。
 - 修复 `gpt-image-2` 图生图请求仍发送 `input_fidelity` 导致上游返回 `invalid_input_fidelity_model` 的问题；现在该参数按模型能力开关发送。

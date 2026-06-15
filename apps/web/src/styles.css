@@ -300,11 +300,17 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Radix Select/Dialog can lock body scroll through react-remove-scroll.
-   The app already reserves scrollbar space on html, so its runtime gap compensation
-   makes the whole page jump horizontally when menus/dialogs open. */
-body[data-scroll-locked],
-body.with-scroll-bars-hidden {
+/* Radix Select/Dialog lock body scroll through react-remove-scroll, which injects
+   `body[data-scroll-locked] { margin-right: <scrollbar>px !important }` into a <style>
+   appended to the END of <head> the moment a menu/dialog opens. We already reserve the
+   scrollbar gutter on <html> (scrollbar-gutter: stable), so that runtime compensation
+   double-counts and shoves the whole page sideways on every open/close — the shake.
+   The neutralizer below must OUT-SPECIFY the library rule: an equal-specificity
+   `body[data-scroll-locked]` (0,1,1) override also carries !important, so the tie is
+   broken by source order — and the library's tag is injected later, so it would win.
+   Prefixing with `html` raises us to (0,1,2), which wins regardless of injection order. */
+html body[data-scroll-locked],
+html body.with-scroll-bars-hidden {
   margin-right: 0 !important;
   padding-right: 0 !important;
 }
