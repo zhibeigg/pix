@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from contextlib import nullcontext
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, ContextManager
 
@@ -594,29 +594,47 @@ def _split_sheet_to_cells(
         fg_mask = _key_color_foreground_mask(rgba[..., :3], key_rgb, key_tolerance)
 
     height, width = fg_mask.shape
-    row_splits = _projection_splits(fg_mask.sum(axis=1), height, safe_rows)
+    # 自动检测实际网格：模型未严格按 rows×cols 画时（少画/多画一行/列），盲信参数会把 cell
+    # 切在间隙上变空帧；这里按前景投影纠正为实际网格，再切分。
+    row_projection = fg_mask.sum(axis=1)
+    actual_rows = _detect_grid_count(row_projection, height, safe_rows)
+    row_splits = _projection_splits(row_projection, height, actual_rows)
+    detected_cols: list[int] = []
+    for row_index in range(actual_rows):
+        top = int(row_splits[row_index])
+        bottom = int(row_splits[row_index + 1])
+        if bottom <= top:
+            bottom = min(height, top + 1)
+        band = fg_mask[top:bottom, :].sum(axis=0).astype(np.int64)
+        detected_cols.append(_detect_grid_count(band, width, safe_cols))
+    actual_cols = _most_common(detected_cols, safe_cols)
+
     cells: list[Image.Image] = []
     per_row_col_splits: list[list[int]] = []
-    for row_index in range(safe_rows):
-        top = row_splits[row_index]
-        bottom = row_splits[row_index + 1]
+    for row_index in range(actual_rows):
+        top = int(row_splits[row_index])
+        bottom = int(row_splits[row_index + 1])
         if bottom <= top:
-            top, bottom = row_splits[row_index], min(height, row_splits[row_index] + 1)
+            top, bottom = int(row_splits[row_index]), min(height, int(row_splits[row_index]) + 1)
         # 行带内的列投影：仅对该行的前景做投影，避免别行干扰
         col_proj = fg_mask[top:bottom, :].sum(axis=0).astype(np.int64) if bottom > top else np.zeros(width, dtype=np.int64)
-        col_splits = _projection_splits(col_proj, width, safe_cols)
+        col_splits = _projection_splits(col_proj, width, actual_cols)
         per_row_col_splits.append(col_splits.tolist())
-        for col_index in range(safe_cols):
-            left = col_splits[col_index]
-            right = col_splits[col_index + 1]
+        for col_index in range(actual_cols):
+            left = int(col_splits[col_index])
+            right = int(col_splits[col_index + 1])
             if right <= left:
-                left, right = col_splits[col_index], min(width, col_splits[col_index] + 1)
-            cells.append(image.crop((int(left), int(top), int(right), int(bottom))).convert("RGBA"))
+                left, right = int(col_splits[col_index]), min(width, int(col_splits[col_index]) + 1)
+            cells.append(image.crop((left, top, right, bottom)).convert("RGBA"))
     meta = {
         "image_size": [int(width), int(height)],
+        "requested_rows": safe_rows,
+        "requested_cols": safe_cols,
+        "rows": int(actual_rows),
+        "cols": int(actual_cols),
         "row_splits": row_splits.tolist(),
         "col_splits_per_row": per_row_col_splits,
-        "method": "foreground_projection_minimum",
+        "method": "foreground_projection_autogrid",
     }
     return cells, meta
 
@@ -685,6 +703,56 @@ def _projection_splits(projection: np.ndarray, total: int, segments: int) -> np.
         splits.append(max(splits[-1] + 1, best))
     splits.append(int(total))
     return np.asarray(splits, dtype=np.int64)
+
+
+def _detect_grid_count(projection: np.ndarray, total: int, hint: int) -> int:
+    """从 1D 前景投影检测实际分段数；不可靠时回退 hint。
+
+    纠正「模型没严格按 rows×cols 画」导致的切分错位：例如请求 cols=8 但实际只画了 7 列，
+    按 8 等分会把某个 cell 切在列间隙上变成空帧。这里数「显著低谷带」推断真实行/列数，
+    仅在与 hint 偏差不大（≤ max(1, hint/3)）时采纳，避免误伤正常作品（参数正确或主体填满）。
+    """
+    safe_hint = max(1, int(hint))
+    proj = np.asarray(projection, dtype=np.float64)
+    if safe_hint <= 1 or proj.size == 0:
+        return safe_hint
+    peak = float(proj.max())
+    if peak <= 0:
+        return safe_hint
+    content_line = proj > peak * 0.04
+    if not content_line.any():
+        return safe_hint
+    start = int(np.argmax(content_line))
+    end = proj.size - int(np.argmax(content_line[::-1]))
+    span = max(1, end - start)
+    min_gap = max(2, int(round((span / safe_hint) * 0.18)))
+    valley = proj <= peak * 0.06
+    gaps = 0
+    i = start
+    while i < end:
+        if valley[i]:
+            j = i
+            while j < end and valley[j]:
+                j += 1
+            if (j - i) >= min_gap:
+                gaps += 1
+            i = j
+        else:
+            i += 1
+    detected = gaps + 1
+    if detected >= 1 and abs(detected - safe_hint) <= max(1, round(safe_hint / 3)):
+        return int(detected)
+    return safe_hint
+
+
+def _most_common(values: list[int], fallback: int) -> int:
+    """众数；并列时取较大值（更可能是真实列数，避免少切）。"""
+    if not values:
+        return fallback
+    counts: dict[int, int] = {}
+    for value in values:
+        counts[value] = counts.get(value, 0) + 1
+    return int(max(counts.items(), key=lambda kv: (kv[1], kv[0]))[0])
 
 
 def _extract_cell_content(
@@ -866,6 +934,12 @@ def run_sprite_mosaic_pipeline(
             key_rgb=key_rgb,
             key_tolerance=settings.key_tolerance,
         )
+        # 切分按实际检测到的网格走（模型可能没严格按请求的 rows×cols 画）；之后所有
+        # settings.rows/cols（行号、rows_outputs、网格预览、sequence.json）随之统一。
+        detected_rows = int(split_meta.get("rows", settings.rows))
+        detected_cols = int(split_meta.get("cols", settings.cols))
+        if (detected_rows, detected_cols) != (settings.rows, settings.cols):
+            settings = replace(settings, rows=detected_rows, cols=detected_cols)
         notify("sprite_mosaic_split", split_meta)
         raw_dir.mkdir(parents=True, exist_ok=True)
         contents: list[Image.Image] = []
