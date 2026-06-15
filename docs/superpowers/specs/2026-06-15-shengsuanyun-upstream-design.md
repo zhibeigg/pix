@@ -137,8 +137,10 @@ dispatch_image_request(model="gpt-image-2", op=text_to_image)
 - `pix-web-check` 配置自检确认 provider 正确注册、优先级排序正确。
 - 若用户提供真实 `SHENGSUANYUN_API_KEY`，跑一次端到端冒烟。
 
-## 8. 待实测确认的细节（已设计为容错，不阻塞实现）
-- 查询路径 `{id}` 用 `request_id` 还是 `task_id`：代码两者兼容。
-- 图生图 `image` 用 base64 data URL 还是纯 base64 / 仅 URL：先按 base64 data URL（与现有
-  `image_input` 模式一致），实测异常再调整。
-- `background`/`moderation`/`output_compression` 默认值：按用户示例 `auto/auto/100`。
+## 8. 实测结论（2026-06-15 真实 key 端到端验证通过）
+用真实 `SHENGSUANYUN_API_KEY` 跑 ShengSuanYunProvider 真实代码路径：文生图 31s、图生图
+75.9s 均成功出图（结果为胜算云 OSS 图片 URL）。原"待实测"细节全部确认：
+- 查询路径用 `data.request_id` 轮询成功（代码同时兼容 `task_id`）。
+- 图生图 `image` 用 base64 data URL **被胜算云接受**（排除"仅支持 URL"风险）。
+- `background`/`moderation` 默认下发 `auto`、`output_compression` 仅 jpeg/webp 下发，均正常。
+- 胜算云结果只返回图片 URL（无 base64），下游 URL 下载兜底已覆盖。
