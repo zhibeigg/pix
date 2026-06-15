@@ -524,5 +524,9 @@ export const en = {
     sequenceJsonDescription: 'sequence.json with FPS, frame rects, and playback order.',
     contactSheet: 'Contact sheet',
     contactSheetDescription: 'Overview image of generated candidates.',
+    currentAction: 'Current action ({{action}})',
+    currentActionDescription: 'Download the horizontal sheet of the currently selected action row only.',
+    allActions: 'All actions (zip)',
+    allActionsDescription: 'Pack one horizontal sheet per action into a zip.',
   },
 } as const

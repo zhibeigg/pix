@@ -524,5 +524,9 @@ export const zhCN = {
     sequenceJsonDescription: '记录帧率、帧坐标和播放顺序的 sequence.json。',
     contactSheet: '候选总览图',
     contactSheetDescription: '候选生成结果总览图。',
+    currentAction: '当前动作图（{{action}}）',
+    currentActionDescription: '仅下载当前选中动作这一行的横向序列帧图。',
+    allActions: '所有动作打包',
+    allActionsDescription: '把每个动作各一张横向图打包成 zip 下载。',
   },
 } as const

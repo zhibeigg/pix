@@ -12,3 +12,9 @@ export function signedFileUrl(url?: string | null) {
 export function fileName(path: string) {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? path
 }
+
+export function spriteActionsZipUrl(jobId: number): string {
+  const token = localStorage.getItem(TOKEN_KEY)
+  const path = `/jobs/${jobId}/sprite-actions.zip`
+  return `${API_BASE}${token ? `${path}?token=${encodeURIComponent(token)}` : path}`
+}

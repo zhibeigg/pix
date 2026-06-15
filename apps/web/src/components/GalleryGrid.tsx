@@ -1,7 +1,7 @@
 import { lazy, Suspense, useMemo, useState, type DragEvent, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Crosshair, Download, FileDown, PackagePlus, RotateCcw, Trash2, X } from 'lucide-react'
-import { fileName, signedFileUrl } from '../fileUrls'
+import { fileName, signedFileUrl, spriteActionsZipUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { ContactSheetCandidate, GalleryQuota, GenerationJob, JobOutput, SequenceAlignmentRequest } from '../types'
 import { jobInputSummary } from '../pixelize'
@@ -20,7 +20,7 @@ import { JobParameterSnapshotDialog } from './JobParameterSnapshotDialog'
 const SpriteSequenceAlignmentEditor = lazy(() => import('./SpriteSequenceAlignmentEditor').then((m) => ({ default: m.SpriteSequenceAlignmentEditor })))
 
 type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; galleryQuota?: GalleryQuota | null; showRetentionQuota?: boolean; onExpandGalleryQuota?: () => void; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; onActiveActionChange?: (action: SpriteRowAction | null) => void; renderJobBadges?: (job: GenerationJob) => ReactNode; draggableSucceeded?: boolean }
-type DownloadKind = 'source' | 'pixelized' | 'sprite_gif' | 'sprite_sheet' | 'sprite_mosaic' | 'sequence_json' | 'contact_sheet'
+type DownloadKind = 'source' | 'pixelized' | 'sprite_gif' | 'sprite_sheet' | 'sprite_mosaic' | 'sequence_json' | 'contact_sheet' | 'sprite_action_current' | 'sprite_actions_zip'
 type DownloadOption = { id: DownloadKind; label: string; description: string; path: string; url: string; filename: string }
 
 export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, galleryQuota = null, showRetentionQuota = true, onExpandGalleryQuota, onSelect, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, onActiveActionChange, renderJobBadges, draggableSucceeded = false }: GalleryGridProps) {
@@ -51,11 +51,11 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
 function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, onActiveActionChange, renderJobBadges }: { job: GenerationJob; selected: boolean; retrying: boolean; draggable: boolean; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; onActiveActionChange?: (action: SpriteRowAction | null) => void; renderJobBadges?: (job: GenerationJob) => ReactNode }) {
   const { language, t } = useI18n()
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
-  const downloadOptions = output ? buildDownloadOptions(job, output, t) : []
   const rowActions = useMemo(() => output ? spriteRowActions(output, t, language) : [], [output, t, language])
   const [selectedActionIndex, setSelectedActionIndex] = useState(0)
   const safeSelectedActionIndex = rowActions.length > 0 ? Math.min(selectedActionIndex, rowActions.length - 1) : 0
   const selectedAction = rowActions[safeSelectedActionIndex]
+  const downloadOptions = useMemo(() => output ? buildDownloadOptions(job, output, t, rowActions, selectedAction) : [], [job, output, t, rowActions, selectedAction])
   const alignmentOutput = useMemo(() => output ? actionScopedOutput(output, selectedAction) : undefined, [output, selectedAction])
   const [alignmentOpen, setAlignmentOpen] = useState(false)
   const [savingAlignment, setSavingAlignment] = useState(false)
@@ -313,7 +313,7 @@ function actionLabelFromPhase(phase: string, rowIndex: number, t: (key: string, 
   return t('gallery.actionFallback', { index: rowIndex + 1 })
 }
 
-function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: string, options?: Record<string, unknown>) => string): DownloadOption[] {
+function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: string, options?: Record<string, unknown>) => string, rowActions: SpriteRowAction[], selectedAction: SpriteRowAction | undefined): DownloadOption[] {
   const isSpriteOutput = job.job_type === 'sprite_sheet' || output.sprite_frames.length > 0 || Boolean(output.sprite_sheet_url || output.sprite_mosaic_url || output.sequence_json_url)
   const specs: Array<{ id: DownloadKind; label: string; description: string; path?: string | null; url?: string | null; fallback: string }> = isSpriteOutput ? [
     { id: 'sprite_gif', label: t('downloads.spriteGif'), description: t('downloads.spriteGifDescription'), path: output.sprite_gif_path, url: output.sprite_gif_url, fallback: 'sprite.gif' },
@@ -326,7 +326,7 @@ function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: st
     { id: 'contact_sheet', label: t('downloads.contactSheet'), description: t('downloads.contactSheetDescription'), path: output.contact_sheet_path, url: output.contact_sheet_url, fallback: 'contact-sheet.png' },
   ]
   const seen = new Set<string>()
-  return specs.flatMap((spec) => {
+  const options = specs.flatMap((spec) => {
     const url = signedFileUrl(spec.url)
     if (!url) return []
     const dedupeKey = spec.path || spec.url || url
@@ -334,6 +334,32 @@ function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: st
     seen.add(dedupeKey)
     return [{ id: spec.id, label: spec.label, description: spec.description, path: spec.path || '', url, filename: downloadFileName(job, spec.path || spec.fallback) }]
   })
+  // 多动作序列帧：追加「当前动作图」和「所有动作打包」。
+  if (rowActions.length > 1) {
+    const prefix = jobFileNamePrefix(job)
+    const selectedUrl = signedFileUrl(selectedAction?.sheetUrl ?? undefined)
+    if (selectedAction && selectedUrl) {
+      const nn = String(selectedAction.rowIndex + 1).padStart(2, '0')
+      const phase = safeFileNamePart(selectedAction.title)
+      options.push({
+        id: 'sprite_action_current',
+        label: t('downloads.currentAction', { action: selectedAction.label }),
+        description: t('downloads.currentActionDescription'),
+        path: '',
+        url: selectedUrl,
+        filename: phase ? `${prefix}_action${nn}_${phase}.png` : `${prefix}_action${nn}.png`,
+      })
+    }
+    options.push({
+      id: 'sprite_actions_zip',
+      label: t('downloads.allActions'),
+      description: t('downloads.allActionsDescription'),
+      path: '',
+      url: spriteActionsZipUrl(job.id),
+      filename: `${prefix}_sprite_actions.zip`,
+    })
+  }
+  return options
 }
 
 function downloadImage(url: string, filename: string) {
