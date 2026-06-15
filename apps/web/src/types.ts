@@ -374,6 +374,7 @@ export type GalleryQuota = {
 
 export type GenerationJob = {
   id: number
+  user_id: number
   batch_id: number | null
   batch_name: string | null
   job_type: string

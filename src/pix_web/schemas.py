@@ -722,6 +722,7 @@ class JobOutputResponse(BaseModel):
 
 class JobResponse(BaseModel):
     id: int
+    user_id: int
     batch_id: int | None
     job_type: str
     status: str

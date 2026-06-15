@@ -318,10 +318,10 @@ export const api = {
     return request<AdminDashboard>('/admin/dashboard', {}, token)
   },
   adminUsers(token: string) {
-    return request<User[]>('/admin/users?limit=100', {}, token)
+    return request<User[]>('/admin/users?limit=500', {}, token)
   },
   adminJobs(token: string) {
-    return request<GenerationJob[]>('/admin/jobs?limit=100', {}, token)
+    return request<GenerationJob[]>('/admin/jobs?limit=500', {}, token)
   },
   performanceMetrics(token: string, range: string) {
     return request<PerformanceMetrics>(`/admin/performance-metrics?range=${encodeURIComponent(range)}`, {}, token)

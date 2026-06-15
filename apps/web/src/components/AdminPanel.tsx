@@ -13,6 +13,7 @@ import { PixMetric } from './pix/PixMetric'
 import { PixPanel } from './pix/PixPanel'
 import { api } from '../api'
 import { PerformanceMonitorTab } from './PerformanceMonitorTab'
+import { GalleryGrid } from './GalleryGrid'
 import { useConfirm } from './ConfirmDialog'
 
 type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onAdjustCreditsBatch: (payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) => Promise<AdminBatchAdjustCreditsResponse | void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onPublishAnnouncement: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void>; onAdminAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }>; token: string }
@@ -25,9 +26,9 @@ export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings
   return (
     <PixPanel eyebrow="Control Room" title="管理后台" description="配置站点、模型、邮件、套餐和运营保护。高风险环境项只显示状态。" action={<Button variant="outline" onClick={onRefresh}>刷新</Button>}>
       <div className="grid gap-6">
-        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="jobs">任务操作</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger><TabsTrigger value="performance">性能监控</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
+        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="jobs">任务与作品</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger><TabsTrigger value="performance">性能监控</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
         {tab === 'dashboard' && dashboard && <DashboardGrid dashboard={dashboard} />}
-        {tab === 'jobs' && <AdminJobsList jobs={jobs} onRetry={onAdminRetryJob} onCancel={onAdminCancelJob} onFailRefund={onAdminFailRefundJob} />}
+        {tab === 'jobs' && <AdminJobsPanel jobs={jobs} users={users} onRetry={onAdminRetryJob} onCancel={onAdminCancelJob} onFailRefund={onAdminFailRefundJob} />}
         {tab === 'users' && <AdminCreditsPanel users={users} onAdjustSingle={onAdjustCredits} onAdjustBatch={onAdjustCreditsBatch} />}
         {tab === 'announcements' && <AnnouncementEditor onPublish={onPublishAnnouncement} onTestEmail={onTestEmail} onListAnnouncements={onAdminAnnouncements} onCreateAnnouncement={onCreateAnnouncement} onUpdateAnnouncement={onUpdateAnnouncement} onDeleteAnnouncement={onDeleteAnnouncement} onTestAnnouncementEmail={onTestAnnouncementEmail} />}
         {tab === 'pricing' && <div className="grid gap-3"><h3 className="text-lg font-semibold">价格规则</h3>{pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}</div>}
@@ -158,10 +159,116 @@ function AdminCreditsPanel({ users, onAdjustSingle, onAdjustBatch }: { users: Us
 function DashboardGrid({ dashboard }: { dashboard: AdminDashboard }) {
   return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><PixMetric label="今日任务" value={dashboard.jobs_today} tone="info" /><PixMetric label="成功 / 失败" value={`${dashboard.succeeded_today} / ${dashboard.failed_today}`} tone={dashboard.failed_today > 0 ? 'danger' : 'success'} /><PixMetric label="策略拦截" value={dashboard.policy_blocked_today} tone={dashboard.policy_blocked_today > 0 ? 'warning' : 'success'} /><PixMetric label="上游 / 超时" value={`${dashboard.upstream_errors_today} / ${dashboard.timeout_jobs_today}`} tone={(dashboard.upstream_errors_today + dashboard.timeout_jobs_today) > 0 ? 'danger' : 'success'} /><PixMetric label="Pipeline 异常" value={dashboard.pipeline_errors_today} tone={dashboard.pipeline_errors_today > 0 ? 'danger' : 'success'} /><PixMetric label="排队 / 运行" value={`${dashboard.pending_jobs} / ${dashboard.running_jobs}`} tone="info" /><PixMetric label="运行超 30 分钟" value={dashboard.running_over_30m_jobs} tone={dashboard.running_over_30m_jobs > 0 ? 'warning' : 'success'} /><PixMetric label="候选失败 / 警告" value={`${dashboard.candidate_failures_today} / ${dashboard.pipeline_warnings_today}`} tone={(dashboard.candidate_failures_today + dashboard.pipeline_warnings_today) > 0 ? 'warning' : 'success'} /><PixMetric label="平均耗时" value={`${Math.round(dashboard.average_generation_seconds_today)}s`} /><PixMetric label="P95 耗时" value={`${Math.round(dashboard.p95_generation_seconds_today)}s`} /><PixMetric label="今日充值" value={dashboard.credits_recharged_today} tone="success" /><PixMetric label="今日消费" value={dashboard.credits_consumed_today} tone="warning" /><PixMetric label="今日上传" value={dashboard.uploads_today} /><PixMetric label="总用户" value={dashboard.total_users} /><PixMetric label="失败率" value={`${Math.round(dashboard.failure_rate * 100)}%`} tone={dashboard.failure_rate > 0.1 ? 'danger' : 'success'} /></div>
 }
-function AdminJobsList({ jobs, onRetry, onCancel, onFailRefund }: { jobs: GenerationJob[]; onRetry: (job: GenerationJob) => Promise<void>; onCancel: (job: GenerationJob) => Promise<void>; onFailRefund: (job: GenerationJob) => Promise<void> }) {
+
+type AdminJobView = 'gallery' | 'operations'
+type AdminJobStatusFilter = 'all' | 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled'
+
+function AdminJobsPanel({ jobs, users, onRetry, onCancel, onFailRefund }: { jobs: GenerationJob[]; users: User[]; onRetry: (job: GenerationJob) => Promise<void>; onCancel: (job: GenerationJob) => Promise<void>; onFailRefund: (job: GenerationJob) => Promise<void> }) {
+  const [view, setView] = useState<AdminJobView>('gallery')
+  const [status, setStatus] = useState<AdminJobStatusFilter>('all')
+  const [userId, setUserId] = useState('all')
+  const [query, setQuery] = useState('')
+  const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
+  const usersById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users])
+  const filteredJobs = useMemo(() => {
+    const normalized = query.trim().toLowerCase()
+    const targetUserId = userId === 'all' ? null : Number(userId)
+    return jobs.filter((job) => {
+      if (status !== 'all' && job.status !== status) return false
+      if (targetUserId && job.user_id !== targetUserId) return false
+      if (!normalized) return true
+      const owner = usersById.get(job.user_id)
+      const haystack = [String(job.id), `#${job.id}`, job.job_type, job.status, job.prompt ?? '', job.batch_name ?? '', owner?.email ?? '', owner?.display_name ?? ''].join(' ').toLowerCase()
+      return haystack.includes(normalized)
+    })
+  }, [jobs, query, status, userId, usersById])
+  const statusSummary = useMemo(() => ({
+    total: filteredJobs.length,
+    active: filteredJobs.filter((job) => ['pending', 'running'].includes(job.status)).length,
+    succeeded: filteredJobs.filter((job) => job.status === 'succeeded').length,
+    failed: filteredJobs.filter((job) => job.status === 'failed').length,
+  }), [filteredJobs])
+  const renderOwnerBadge = (job: GenerationJob) => {
+    const owner = usersById.get(job.user_id)
+    const label = owner ? (owner.display_name || owner.email) : `用户 #${job.user_id}`
+    return <Badge variant="outline" className="max-w-[180px] truncate" title={owner?.email ?? label}>{label}</Badge>
+  }
+
+  return (
+    <div className="grid gap-5">
+      <div className="grid gap-4 rounded-xl border border-border bg-muted/35 p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">任务与作品</h3>
+            <p className="text-sm text-muted-foreground">显示最新 500 个任务。作品视图可像用户作品库一样快速预览产物；操作列表保留退款与重试。</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="info">{statusSummary.total} 个匹配</Badge>
+            <Badge variant={statusSummary.active > 0 ? 'warning' : 'outline'}>活跃 {statusSummary.active}</Badge>
+            <Badge variant="success">完成 {statusSummary.succeeded}</Badge>
+            <Badge variant={statusSummary.failed > 0 ? 'danger' : 'outline'}>失败 {statusSummary.failed}</Badge>
+          </div>
+        </div>
+        <div className="grid gap-3 lg:grid-cols-[180px_220px_minmax(220px,1fr)_auto]">
+          <PixField label="状态">
+            <Select value={status} onValueChange={(value) => setStatus(value as AdminJobStatusFilter)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="all">全部状态</SelectItem><SelectItem value="pending">排队中</SelectItem><SelectItem value="running">生产中</SelectItem><SelectItem value="succeeded">已完成</SelectItem><SelectItem value="failed">失败</SelectItem><SelectItem value="cancelled">已取消</SelectItem></SelectContent>
+            </Select>
+          </PixField>
+          <PixField label="用户">
+            <Select value={userId} onValueChange={setUserId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="all">全部用户</SelectItem>{users.map((user) => <SelectItem value={String(user.id)} key={user.id}>{user.display_name || user.email}</SelectItem>)}</SelectContent>
+            </Select>
+          </PixField>
+          <PixField label="搜索">
+            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="任务 ID、prompt、批次或用户邮箱" />
+          </PixField>
+          <div className="grid content-end">
+            <Button type="button" variant="outline" onClick={() => { setStatus('all'); setUserId('all'); setQuery(''); setSelectedJobId(null) }}>重置筛选</Button>
+          </div>
+        </div>
+        <Tabs value={view} onValueChange={(value) => setView(value as AdminJobView)}>
+          <TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="gallery">作品视图</TabsTrigger><TabsTrigger value="operations">操作列表</TabsTrigger></TabsList>
+        </Tabs>
+      </div>
+      {view === 'gallery' ? (
+        filteredJobs.length === 0
+          ? <Alert variant="info">没有符合筛选条件的任务。</Alert>
+          : <GalleryGrid jobs={filteredJobs} selectedJobId={selectedJobId} subtitle="全站任务产物预览；管理员使用当前登录凭证访问受保护文件。" showRetentionQuota={false} onSelect={(job) => setSelectedJobId(job.id)} renderJobBadges={renderOwnerBadge} />
+      ) : <AdminJobsList jobs={filteredJobs} usersById={usersById} onRetry={onRetry} onCancel={onCancel} onFailRefund={onFailRefund} />}
+    </div>
+  )
+}
+
+function AdminJobsList({ jobs, usersById, onRetry, onCancel, onFailRefund }: { jobs: GenerationJob[]; usersById: Map<number, User>; onRetry: (job: GenerationJob) => Promise<void>; onCancel: (job: GenerationJob) => Promise<void>; onFailRefund: (job: GenerationJob) => Promise<void> }) {
   const confirm = useConfirm()
-  if (!jobs.length) return <Alert variant="info">暂无任务记录。</Alert>
-  return <div className="grid gap-3"><div><h3 className="text-lg font-semibold">任务操作</h3><p className="text-sm text-muted-foreground">显示最新 100 个任务；可重试失败任务，或取消/标记失败并退款排队中与运行中任务。</p></div>{jobs.map((job) => <div key={job.id} className="grid gap-3 rounded-lg border border-border bg-card p-4 xl:grid-cols-[minmax(0,1fr)_auto]"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">#{job.id} · {job.job_type}</p><Badge variant={job.status === 'succeeded' ? 'success' : job.status === 'failed' ? 'danger' : job.status === 'running' ? 'warning' : job.status === 'cancelled' ? 'muted' : 'info'}>{job.status}</Badge>{job.failure_type && <Badge variant="outline">{job.failure_type}</Badge>}{job.failure_source && <Badge variant="outline">{job.failure_source}</Badge>}{job.failure_code && <Badge variant="outline">{job.failure_code}</Badge>}</div><p className="mt-1 truncate text-sm text-muted-foreground">{job.prompt || '无 prompt'} · {formatDateTime(job.created_at)} · 运行 {formatRuntime(job)}</p><div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground"><span>点数 {job.price_credits}</span><span>冻结 {job.reserved_credits}</span><span>候选失败 {job.candidate_failure_count}</span><span>流水线警告 {job.pipeline_warning_count}</span></div>{job.error_message && <p className="mt-2 line-clamp-2 text-sm text-destructive">{job.error_message.slice(0, 220)}</p>}</div><div className="flex flex-wrap items-center gap-2 xl:justify-end">{job.status === 'failed' && <Button variant="outline" size="sm" onClick={async () => { if (await confirm({ title: '重试任务', description: `重试任务 #${job.id}？`, confirmText: '重试' })) void onRetry(job) }}>重试</Button>}{['pending', 'running'].includes(job.status) && <Button variant="outline" size="sm" onClick={async () => { if (await confirm({ title: '取消并退款', description: `取消任务 #${job.id} 并退款？`, confirmText: '取消并退款', tone: 'danger' })) void onCancel(job) }}>取消并退款</Button>}{['pending', 'running', 'failed'].includes(job.status) && <Button variant="soft" size="sm" onClick={async () => { if (await confirm({ title: '标记失败并退款', description: `标记任务 #${job.id} 失败并退款？`, confirmText: '标记失败退款', tone: 'danger' })) void onFailRefund(job) }}>标记失败退款</Button>}</div></div>)}</div>
+  if (!jobs.length) return <Alert variant="info">没有符合筛选条件的任务。</Alert>
+  return (
+    <div className="grid gap-3">
+      <div><h3 className="text-lg font-semibold">任务操作</h3><p className="text-sm text-muted-foreground">当前显示筛选后的任务；可重试失败任务，或取消/标记失败并退款排队中与运行中任务。</p></div>
+      {jobs.map((job) => {
+        const owner = usersById.get(job.user_id)
+        const ownerLabel = owner ? `${owner.display_name || owner.email} · #${owner.id}` : `用户 #${job.user_id}`
+        return (
+          <div key={job.id} className="grid gap-3 rounded-lg border border-border bg-card p-4 xl:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2"><p className="font-semibold">#{job.id} · {job.job_type}</p><Badge variant={job.status === 'succeeded' ? 'success' : job.status === 'failed' ? 'danger' : job.status === 'running' ? 'warning' : job.status === 'cancelled' ? 'muted' : 'info'}>{job.status}</Badge><Badge variant="outline" title={owner?.email ?? ownerLabel}>{ownerLabel}</Badge>{job.failure_type && <Badge variant="outline">{job.failure_type}</Badge>}{job.failure_source && <Badge variant="outline">{job.failure_source}</Badge>}{job.failure_code && <Badge variant="outline">{job.failure_code}</Badge>}</div>
+              <p className="mt-1 truncate text-sm text-muted-foreground">{job.prompt || '无 prompt'} · {formatDateTime(job.created_at)} · 运行 {formatRuntime(job)}</p>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground"><span>点数 {job.price_credits}</span><span>冻结 {job.reserved_credits}</span><span>候选失败 {job.candidate_failure_count}</span><span>流水线警告 {job.pipeline_warning_count}</span></div>
+              {job.error_message && <p className="mt-2 line-clamp-2 text-sm text-destructive">{job.error_message.slice(0, 220)}</p>}
+            </div>
+            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+              {job.status === 'failed' && <Button variant="outline" size="sm" onClick={async () => { if (await confirm({ title: '重试任务', description: `重试任务 #${job.id}？`, confirmText: '重试' })) void onRetry(job) }}>重试</Button>}
+              {['pending', 'running'].includes(job.status) && <Button variant="outline" size="sm" onClick={async () => { if (await confirm({ title: '取消并退款', description: `取消任务 #${job.id} 并退款？`, confirmText: '取消并退款', tone: 'danger' })) void onCancel(job) }}>取消并退款</Button>}
+              {['pending', 'running', 'failed'].includes(job.status) && <Button variant="destructive" size="sm" onClick={async () => { if (await confirm({ title: '标记失败并退款', description: `将任务 #${job.id} 标记为失败并退款？`, confirmText: '失败并退款', tone: 'danger' })) void onFailRefund(job) }}>失败并退款</Button>}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 function formatRuntime(job: GenerationJob) {
