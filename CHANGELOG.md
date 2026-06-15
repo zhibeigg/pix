@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 生图层新增通用 Provider 架构：支持 Crazyrouter/Packy 等多 Provider、多模型能力发现和按 logical model 的失败切换。
 - `/settings/image-models` 返回结构化模型能力（providers、operations、sizes、qualities、protocols），前端单张、批量和原始生图页可动态选择模型。
 - 新增胜算云（ShengSuanYun，`shengsuanyun` 协议）生图上游：OpenAI gpt-image 兼容请求体 + 异步任务轮询（`POST /api/v1/tasks/generations` 提交、`GET /api/v1/tasks/generations/{id}` 轮询），承载 `gpt-image-2` 文生图与图生图（图生图复用同端点仅多传 `image` 字段）；检测到 `SHENGSUANYUN_API_KEY` 自动注入为生图 Provider 并参与失败切换。
+- 管理后台新增「性能监控」面板：实时查看任务成功率、活跃并发、任务量与成功率时间序列、provider 成功率对比（胜算云 / Packy / Crazyrouter）、失败分类与最近任务流，可切换 `1h / 24h / 7d` 范围、前端每 8s 轮询刷新。后端新增 `GET /admin/performance-metrics` 聚合接口；`generation_jobs` 增加 `provider` 列（迁移 `0016`），worker 落库时写入最终生效 provider。
 
 ### Changed
 

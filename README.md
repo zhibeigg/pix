@@ -140,6 +140,8 @@ npm run build
 
 管理后台「用户与点数」支持单用户调整、当前用户列表多选、全选当前列表，以及通过 `POST /admin/users/adjust-credits-batch` 对全部 active 用户批量补点 / 扣点。批量操作会为每个目标用户写入独立 `adjustment` 点数流水，并在提交前显示目标范围、每人点数变化与备注，便于运营补偿或活动发放。
 
+管理后台「性能监控」面板提供生图任务的实时可观测：成功率、活跃并发、任务量与成功率时间序列、各 provider（胜算云 / Packy / Crazyrouter）成功率对比、失败分类与最近任务流，可在 `1h / 24h / 7d` 范围间切换，前端每 8 秒轮询刷新。数据来自后端 `GET /admin/performance-metrics` 聚合接口；`generation_jobs.provider` 列（迁移 `0016`）由 worker 在任务落库时写入最终生效 provider，因此 provider 维度只覆盖该列上线后的新任务，历史任务归入「未知」。
+
 ## 通用生图 Provider 调用规范
 
 Pix 现在通过 logical model → provider candidates 的方式调用生图上游。默认可配置 Packy、胜算云（ShengSuanYun）与 Crazyrouter 三类 Provider：同一个模型（如 `gpt-image-2`）可以同时映射到多家 Provider，运行时按 `priority` 排序（默认 Packy=10 → 胜算云=20 → Crazyrouter=30）；网络错误、超时、429/5xx、空响应、响应结构异常、Provider 临时不可用、鉴权/余额类错误会按 `image_gen.failover_on` 自动切换下一家。
