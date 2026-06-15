@@ -1068,3 +1068,53 @@ class AdminDashboardResponse(BaseModel):
     orders_paid_today: int
     uploads_today: int
     failure_rate: float
+
+
+class PerfKpi(BaseModel):
+    success_rate: float = 0.0
+    running: int = 0
+    total: int = 0
+    failed: int = 0
+    avg_seconds: float = 0.0
+    p95_seconds: float = 0.0
+
+
+class PerfSeriesPoint(BaseModel):
+    t: str
+    succeeded: int = 0
+    failed: int = 0
+    total: int = 0
+
+
+class PerfProvider(BaseModel):
+    provider: str
+    succeeded: int = 0
+    failed: int = 0
+    total: int = 0
+    success_rate: float = 0.0
+
+
+class PerfFailure(BaseModel):
+    code: str
+    count: int = 0
+
+
+class PerfRecentJob(BaseModel):
+    id: int
+    job_type: str
+    status: str
+    provider: str = ""
+    failure_code: str = ""
+    seconds: float = 0.0
+    created_at: str
+
+
+class PerformanceMetricsResponse(BaseModel):
+    range: str
+    bucket_seconds: int
+    generated_at: str
+    kpi: PerfKpi
+    series: list[PerfSeriesPoint]
+    providers: list[PerfProvider]
+    failures: list[PerfFailure]
+    recent: list[PerfRecentJob]
