@@ -71,18 +71,25 @@ SQLAlchemy 模型加在 `src/pix_web/models.py`（与 `SystemSetting` 同风格�
 
 实现：
 
-- 新增 `image_providers_from_db(db) -> list[dict]`（放 `src/pix_web/system_settings.py` 或新模块
-  `src/pix_web/provider_store.py`）：读 `image_providers` 表 → 转 provider 字典列表（含 models）。
-- 扩展 `load_managed_pix_config(db, settings)`：base cfg（file+env）加载后，**若 DB 有供应商则整体
-  替换 `cfg.image_providers`**（DB 为唯一真相源），复用 `src/pix/config.py` 现成的
-  `_set_or_append_provider` / 仿 `_apply_providers_json` 做注入与按 `priority` 排序。
-- **Key 解析**：注入时 `api_key` 非空则用之；为空且 `api_key_env` 有值则从环境变量读取
-  （保留「用环境变量管 Key」的工作流，便于平滑迁移）。
+- 新增 `image_providers_from_db(db) -> list[ImageProviderConfig]`（放 `src/pix_web/system_settings.py`
+  或新模块 `src/pix_web/provider_store.py`）：读 `image_providers` 表 → 转 provider 配置列表（含 models）。
+- 扩展 `load_managed_pix_config(db, settings)`：`load_config()` 返回的 base cfg 里，
+  `_normalize_image_providers`（`src/pix/config.py`）**已把 `.env` 派生的 crazyrouter/shengsuanyun/packy
+  追加进 `cfg.image_providers` 了**。因此当 DB 有供应商时，**整体替换（清空后重设）`cfg.image_providers`**，
+  而不是用 `_set_or_append_provider` 往已填充的列表里追加（否则会与 env 注入项重复/冲突）；替换后按
+  `priority` 排序。`_apply_providers_json` 仅作「如何把 dict 转 provider 配置」的实现参考。
+- **Key 解析**：无需新写回退逻辑——dispatch 层现成的 `provider_api_key`（`src/pix/api/image_model_registry.py:62`）
+  已实现「`api_key` 优先、为空回退 `api_key_env` 环境变量」。只需把 `api_key`（可选 `api_key_env`）
+  原样存进 provider 配置，运行时回退即生效（保留「用环境变量管 Key」的工作流，便于平滑迁移）。
 
 ## 5. 首次启动种子迁移
 
-- 新增 `ensure_seeded_image_providers(db)`，在 Web app 与 Worker 启动时各调用一次（紧随
-  `ensure_default_system_settings`）。**幂等**：仅当表为空时执行。
+- 新增 `ensure_seeded_image_providers(db)`，在 `init_db()`（`src/pix_web/db.py`，已集中调用
+  `ensure_default_pricing`/`ensure_default_system_settings`/`ensure_default_packages`，且被
+  `main.py` 与 `worker.py` 共同调用）里追加调用一次。**幂等**：仅当表为空时执行。
+- 注意：`init_db` 的这些 `ensure_default_*` 仅在 `create_schema=settings.auto_create_db` 时运行；
+  纯 Alembic 迁移部署（`auto_create_db=False`）会跳过自动种子——与现有所有 `ensure_default_*` 行为一致，
+  此时由首次在后台保存或迁移脚本补齐（保持项目约定）。
 - 种子来源：直接调用现成的 `load_config(config_file=settings.pix_config_file)`——它已把
   `config.toml` 的 `[[image_providers]]` + `.env` 的 KEY 注入合并好。把合并后的
   `cfg.image_providers`（含已解析的 `api_key`）逐条写入 DB。
@@ -103,7 +110,9 @@ SQLAlchemy 模型加在 `src/pix_web/models.py`（与 `SystemSetting` 同风格�
 
 - 预设带推荐 models，开箱即用。
 - 自定义供应商两种方式（二选一或都填）：
-  - 勾「自动发现模型」→ `discover_models=true`，运行时按现有发现机制拉取（需上游支持 `/models`）。
+  - 勾「自动发现模型」→ provider 的 `discover_models=true`，运行时由 `discover_provider_models(cfg, provider)`
+    （`src/pix/api/image_model_registry.py`）拉取；**还需全局 `pix.image_gen.model_discovery_enabled` 打开
+    才生效**（需上游支持模型列表端点）。
   - 手填简单清单：逻辑名 / 上游模型名 / 勾选 operations（text_to_image、image_to_image）。
 - 其余字段（sizes/qualities/output_formats/edit_mode）按 `protocol` 给默认，不在 UI 暴露。
 
