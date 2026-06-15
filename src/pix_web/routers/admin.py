@@ -18,6 +18,7 @@ from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits
 from pix_web.dashboard import admin_dashboard
 from pix_web.job_observability import admin_fail_job_and_refund, cancel_job_and_refund, load_job_with_outputs
+from pix_web.metrics import task_performance_metrics
 from pix_web.jobs import retry_failed_job
 from pix_web.email_sender import EmailDeliveryError, send_announcement_email, send_announcement_email_batch_task, send_verification_email
 from pix_web.email_verification import generate_code
@@ -29,6 +30,7 @@ from pix_web.schemas import (
     AdminBatchAdjustCreditsRequest,
     AdminBatchAdjustCreditsResponse,
     AdminDashboardResponse,
+    PerformanceMetricsResponse,
     AnnouncementCreateRequest,
     AnnouncementItemResponse,
     AnnouncementListResponse,
@@ -58,6 +60,15 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.get("/dashboard", response_model=AdminDashboardResponse)
 def dashboard(_admin: User = Depends(require_admin), db: Session = Depends(get_db)) -> dict[str, int | float]:
     return admin_dashboard(db)
+
+
+@router.get("/performance-metrics", response_model=PerformanceMetricsResponse)
+def performance_metrics(
+    range: str = "24h",
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    return task_performance_metrics(db, range)
 
 
 @router.get("/users", response_model=list[UserResponse])
