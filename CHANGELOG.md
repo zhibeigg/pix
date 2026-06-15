@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 管理后台「用户与点数」新增批量调整能力：可多选、全选当前用户列表，或对全部 active 用户统一补点 / 扣点；后端新增 `POST /admin/users/adjust-credits-batch` 并为每个目标用户写入独立点数流水。
 - 生图层新增通用 Provider 架构：支持 Crazyrouter/Packy 等多 Provider、多模型能力发现和按 logical model 的失败切换。
 - `/settings/image-models` 返回结构化模型能力（providers、operations、sizes、qualities、protocols），前端单张、批量和原始生图页可动态选择模型。
+- 新增胜算云（ShengSuanYun，`shengsuanyun` 协议）生图上游：OpenAI gpt-image 兼容请求体 + 异步任务轮询（`POST /api/v1/tasks/generations` 提交、`GET /api/v1/tasks/generations/{id}` 轮询），承载 `gpt-image-2` 文生图与图生图（图生图复用同端点仅多传 `image` 字段）；检测到 `SHENGSUANYUN_API_KEY` 自动注入为生图 Provider 并参与失败切换。
 
 ### Changed
 
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 默认关闭素材多候选生图，并将 `n_sample_count` 默认值降为 1；需要质量优先时可在后台显式开启，避免普通任务一次生成多张图放大上游成本。
 - 文生图、图生图和 n-sample 候选生成从 Packy 直连改为 dispatcher 调度，并在任务 meta 中记录 provider 调用历史。
 - 配置示例新增 `[[image_providers]]`、Crazyrouter 环境变量、failover 与模型发现选项；Packy 变量保留为兼容旧部署 / fallback。
+- 调整生图 Provider 默认 priority 顺序为 Packy=10 → 胜算云=20 → Crazyrouter=30：多 Provider 失败切换的主力由 Crazyrouter 改为 Packy。
 
 ### Fixed
 

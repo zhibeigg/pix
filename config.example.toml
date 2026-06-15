@@ -22,7 +22,7 @@ display_name = "Crazyrouter"
 enabled = true
 base_url = "https://crazyrouter.com"
 api_key_env = "CRAZYROUTER_API_KEY"
-priority = 10
+priority = 30
 discover_models = true
 protocols = ["openai_images", "midjourney", "ideogram", "fal", "kling", "gemini_native"]
 
@@ -44,7 +44,7 @@ display_name = "Packy（兼容旧部署）"
 enabled = true
 base_url = "https://www.packyapi.com"
 api_key_env = "PACKY_API_KEY"
-priority = 20
+priority = 10
 discover_models = false
 protocols = ["openai_images"]
 
@@ -58,6 +58,31 @@ sizes = ["auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"
 qualities = ["auto", "low", "medium", "high"]
 output_formats = ["png", "jpeg", "webp"]
 # gpt-image-2 当前不支持 input_fidelity；Provider 请求会按此能力决定是否发参。
+extra = { supports_input_fidelity = false }
+
+# 胜算云（ShengSuanYun）：异步任务协议（POST 提交 + GET 轮询），OpenAI gpt-image 兼容请求体。
+# 检测到 SHENGSUANYUN_API_KEY 环境变量时也会自动注入，无需在此显式配置。
+[[image_providers]]
+id = "shengsuanyun"
+display_name = "ShengSuanYun（胜算云）"
+enabled = true
+base_url = "https://router.shengsuanyun.com"
+api_key_env = "SHENGSUANYUN_API_KEY"
+priority = 20
+discover_models = false
+protocols = ["shengsuanyun"]
+
+[[image_providers.models]]
+id = "gpt-image-2"
+provider_model = "openai/gpt-image-2"
+label = "GPT Image 2"
+protocol = "shengsuanyun"
+operations = ["text_to_image", "image_to_image"]
+sizes = ["auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"]
+qualities = ["auto", "low", "medium", "high"]
+output_formats = ["png", "jpeg", "webp"]
+# 图生图通过 image 字段（base64 data URL）走同一异步端点；不发 input_fidelity。
+edit_mode = "image_input"
 extra = { supports_input_fidelity = false }
 
 [image_gen]
