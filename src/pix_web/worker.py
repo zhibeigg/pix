@@ -11,6 +11,7 @@ import traceback
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
+from pix.api.image_dispatcher import image_provider_history
 from pix_web.config import WebSettings, load_web_settings
 from pix_web.credits import consume_reserved, refund_reserved
 from pix_web.db import init_db, make_engine, make_session_factory
@@ -49,6 +50,15 @@ def claim_next_job(db: Session) -> GenerationJob | None:
             job = db.get(GenerationJob, job_id)
             if job is not None:
                 return job
+
+
+def _provider_from_history(history: object) -> str:
+    """从 dispatcher 的 provider 调用历史取最后一次尝试的 provider（成功或失败均适用）。"""
+    if isinstance(history, list) and history:
+        last = history[-1]
+        if isinstance(last, dict):
+            return str(last.get("provider") or "")[:32]
+    return ""
 
 
 def _persist_result_diagnostics(job: GenerationJob, result_meta: dict) -> None:
@@ -92,6 +102,7 @@ def process_job(db: Session, job: GenerationJob, settings: WebSettings) -> Gener
         db.add(output)
         job.status = "succeeded"
         job.finished_at = utcnow()
+        job.provider = _provider_from_history(image_provider_history())
         consume_reserved(db, job)
         db.commit()
         prune_user_photos(db, job.user_id, settings)
@@ -108,6 +119,7 @@ def process_job(db: Session, job: GenerationJob, settings: WebSettings) -> Gener
         job.status = "failed"
         job.error_message = f"{exc}\n\n{traceback.format_exc()}"[:8000]
         job.finished_at = utcnow()
+        job.provider = _provider_from_history(image_provider_history())
         apply_failure_info(job, failure)
         if failure.failure_type == "policy_blocked":
             record_policy_event(

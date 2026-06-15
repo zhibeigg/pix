@@ -1,5 +1,6 @@
 import type {
   AdminDashboard,
+  PerformanceMetrics,
   AnnouncementItem,
   AnnouncementListResponse,
   AnnouncementPublishPayload,
@@ -321,6 +322,9 @@ export const api = {
   },
   adminJobs(token: string) {
     return request<GenerationJob[]>('/admin/jobs?limit=100', {}, token)
+  },
+  performanceMetrics(token: string, range: string) {
+    return request<PerformanceMetrics>(`/admin/performance-metrics?range=${encodeURIComponent(range)}`, {}, token)
   },
   adminRetryJob(token: string, jobId: number) {
     return request<GenerationJob>(`/admin/jobs/${jobId}/retry`, { method: 'POST' }, token)

@@ -298,6 +298,7 @@ class GenerationJob(Base):
     failure_type: Mapped[str] = mapped_column(String(64), default="", index=True)
     failure_source: Mapped[str] = mapped_column(String(64), default="", index=True)
     failure_code: Mapped[str] = mapped_column(String(128), default="", index=True)
+    provider: Mapped[str] = mapped_column(String(32), default="", index=True)
     candidate_failure_count: Mapped[int] = mapped_column(Integer, default=0)
     pipeline_warning_count: Mapped[int] = mapped_column(Integer, default=0)
     queue_priority: Mapped[int] = mapped_column(Integer, default=0, index=True)
