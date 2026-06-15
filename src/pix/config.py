@@ -427,7 +427,7 @@ def _packy_provider_from_legacy(cfg: AppConfig) -> ImageProviderConfig | None:
         base_url=cfg.api.base_url or os.getenv("PACKY_BASE_URL", "https://www.packyapi.com"),
         api_key_env="PACKY_API_KEY",
         api_key=api_key,
-        priority=20,
+        priority=10,
         discover_models=False,
         protocols=["openai_images"],
         models=[
@@ -467,10 +467,42 @@ def _crazyrouter_provider_from_env() -> ImageProviderConfig | None:
         base_url=os.getenv("CRAZYROUTER_BASE_URL", "https://crazyrouter.com"),
         api_key_env="CRAZYROUTER_API_KEY",
         api_key=api_key,
-        priority=10,
+        priority=30,
         discover_models=True,
         protocols=["openai_images", "midjourney", "ideogram", "fal", "kling", "gemini_native"],
         models=[],
+    )
+
+
+
+def _shengsuanyun_provider_from_env() -> ImageProviderConfig | None:
+    api_key = os.getenv("SHENGSUANYUN_API_KEY")
+    if not api_key:
+        return None
+    return ImageProviderConfig(
+        id="shengsuanyun",
+        display_name="ShengSuanYun（胜算云）",
+        enabled=True,
+        base_url=os.getenv("SHENGSUANYUN_BASE_URL", "https://router.shengsuanyun.com"),
+        api_key_env="SHENGSUANYUN_API_KEY",
+        api_key=api_key,
+        priority=20,
+        discover_models=False,
+        protocols=["shengsuanyun"],
+        models=[
+            ImageProviderModelConfig(
+                id="gpt-image-2",
+                provider_model="openai/gpt-image-2",
+                label="GPT Image 2",
+                protocol="shengsuanyun",
+                operations=["text_to_image", "image_to_image"],
+                sizes=["auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"],
+                qualities=["auto", "low", "medium", "high"],
+                output_formats=["png", "jpeg", "webp"],
+                edit_mode="image_input",
+                extra={"supports_input_fidelity": False},
+            ),
+        ],
     )
 
 
@@ -502,6 +534,9 @@ def _normalize_image_providers(cfg: AppConfig) -> None:
     crazy = _crazyrouter_provider_from_env()
     if crazy is not None:
         _set_or_append_provider(cfg, crazy)
+    shengsuanyun = _shengsuanyun_provider_from_env()
+    if shengsuanyun is not None:
+        _set_or_append_provider(cfg, shengsuanyun)
     legacy = _packy_provider_from_legacy(cfg)
     if legacy is not None and not any(provider.id == "packy" for provider in cfg.image_providers):
         cfg.image_providers.append(legacy)

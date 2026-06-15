@@ -232,6 +232,124 @@ class GeminiNativeProvider(OpenAIImagesProvider):
     """预留 Imagen/Gemini 原生协议扩展点；当前按 Images 兼容协议兜底。"""
 
 
+class ShengSuanYunProvider(BaseImageProvider):
+    """胜算云（ShengSuanYun）异步任务协议。
+
+    请求体为 OpenAI gpt-image 兼容风格，但走「提交任务 + 轮询查询」异步流程：
+        POST /api/v1/tasks/generations      → 响应 data.request_id / data.task_id
+        GET  /api/v1/tasks/generations/{id} → 轮询 data.status 直到 COMPLETED
+    成功结果图片位于 data.data.image_urls[]（仅 URL，无 base64）。
+    图生图复用同一端点与轮询，仅额外传 image 字段（base64 data URL）。
+    """
+
+    def generate(self, request: ImageProviderRequest) -> ImageProviderResult:
+        return self._submit_and_poll(self._base_payload(request))
+
+    def edit(self, request: ImageProviderRequest) -> ImageProviderResult:
+        if request.image_path is None:
+            raise ProviderError(
+                "图生图缺少参考图",
+                category="invalid_request",
+                provider_id=self.provider.id,
+                retryable=False,
+            )
+        payload = self._base_payload(request)
+        payload["image"] = image_to_base64_data_url(request.image_path)
+        return self._submit_and_poll(payload)
+
+    def _base_payload(self, request: ImageProviderRequest) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "model": self.model.provider_model or request.model,
+            "prompt": request.prompt,
+            "n": 1,
+        }
+        if request.size and request.size != "auto":
+            payload["size"] = request.size
+        elif request.size == "auto" and _supports_value(self.model.sizes, "auto"):
+            payload["size"] = "auto"
+        if request.quality and _supports_value(self.model.qualities, request.quality):
+            payload["quality"] = request.quality
+        if request.output_format and _supports_value(self.model.output_formats, request.output_format):
+            payload["output_format"] = request.output_format
+            if request.output_format in {"jpeg", "webp"}:
+                payload["output_compression"] = 100
+        # 胜算云 gpt-image 兼容参数；与上游官方示例保持一致的默认值。
+        payload["background"] = "auto"
+        payload["moderation"] = "auto"
+        return payload
+
+    def _submit_and_poll(self, payload: dict[str, Any]) -> ImageProviderResult:
+        endpoint = self.model.endpoint or "/api/v1/tasks/generations"
+        resp = self.client.post_json(endpoint, payload)
+        envelope = resp.get("data") if isinstance(resp.get("data"), dict) else resp
+        task_id = str(envelope.get("request_id") or envelope.get("task_id") or "")
+        if not task_id:
+            raise ProviderError(
+                f"胜算云提交响应缺少 request_id/task_id：{str(resp)[:500]}",
+                category="malformed_response",
+                provider_id=self.provider.id,
+            )
+        final = _run_async_poll(self._poll_task(endpoint, task_id))
+        return self._result_from_task(final)
+
+    async def _poll_task(self, endpoint: str, task_id: str) -> dict[str, Any]:
+        deadline = time.monotonic() + float(self.cfg.api.timeout or 600.0)
+        interval = max(0.5, float(self.cfg.image_gen.provider_poll_interval_seconds or 2.0))
+        query = f"{endpoint.rstrip('/')}/{task_id}"
+        last: dict[str, Any] = {}
+        while time.monotonic() < deadline:
+            last = self.client.get_json(query)
+            envelope = last.get("data") if isinstance(last.get("data"), dict) else last
+            status = str(envelope.get("status") or "").upper()
+            if status == "COMPLETED":
+                return last
+            if status in {"FAILED", "CANCELLED"}:
+                reason = str(envelope.get("fail_reason") or "").strip()
+                raise ProviderError(
+                    f"胜算云任务失败（{status}）：{reason or str(last)[:500]}",
+                    category="provider_unavailable",
+                    provider_id=self.provider.id,
+                )
+            await asyncio.sleep(interval)
+        raise ProviderError(
+            f"胜算云任务超时：{str(last)[:500]}",
+            category="timeout",
+            provider_id=self.provider.id,
+        )
+
+    def _result_from_task(self, resp: dict[str, Any]) -> ImageProviderResult:
+        envelope = resp.get("data") if isinstance(resp.get("data"), dict) else {}
+        inner = envelope.get("data") if isinstance(envelope.get("data"), dict) else {}
+        image_urls = inner.get("image_urls") if isinstance(inner, dict) else None
+        url: str | None = None
+        if isinstance(image_urls, list):
+            url = next((item for item in image_urls if isinstance(item, str) and item.strip()), None)
+        if url:
+            return ImageProviderResult(
+                url=url,
+                provider_id=self.provider.id,
+                provider_model=self.model.provider_model or self.model.id,
+                protocol=self.model.protocol,
+                raw=resp,
+            )
+        # 兜底：兼容上游未来可能直接返回 data[].url / b64 的形态。
+        fallback_url, fallback_b64 = pick_image_entry(resp)
+        if not fallback_url and not fallback_b64:
+            raise ProviderError(
+                f"胜算云结果缺少 image_urls：{str(resp)[:500]}",
+                category="empty_response",
+                provider_id=self.provider.id,
+            )
+        return ImageProviderResult(
+            url=fallback_url,
+            b64_json=fallback_b64,
+            provider_id=self.provider.id,
+            provider_model=self.model.provider_model or self.model.id,
+            protocol=self.model.protocol,
+            raw=resp,
+        )
+
+
 _PROVIDER_BY_PROTOCOL = {
     "openai_images": OpenAIImagesProvider,
     "midjourney": MidjourneyProvider,
@@ -239,6 +357,7 @@ _PROVIDER_BY_PROTOCOL = {
     "fal": FalProvider,
     "kling": KlingProvider,
     "gemini_native": GeminiNativeProvider,
+    "shengsuanyun": ShengSuanYunProvider,
 }
 
 
@@ -344,11 +463,16 @@ def _ideogram_endpoint(model_id: str) -> str:
 
 
 def _run_async_poll(coro: Any) -> dict[str, Any]:
+    """在同步上下文中运行异步轮询协程。
+
+    pix 生图跑在同步 worker 线程（无运行中的事件循环），因此创建独立事件循环执行。
+    不能用 `try asyncio.run() except RuntimeError` 兜底：ProviderError 继承自
+    RuntimeError，轮询任务失败 / 超时抛出的 ProviderError 会被 except 误捕获，进而重用
+    已 await 的协程触发 "cannot reuse already awaited coroutine"，吞掉真正的失败原因并
+    破坏多 Provider 失败切换。
+    """
+    loop = asyncio.new_event_loop()
     try:
-        return asyncio.run(coro)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
