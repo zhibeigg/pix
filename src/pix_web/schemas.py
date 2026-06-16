@@ -888,6 +888,12 @@ class PricingRuleUpdateRequest(BaseModel):
     enabled: bool = True
 
 
+class PricingDiscountResponse(BaseModel):
+    active: bool
+    rate: float
+    label: str = ""
+
+
 class SystemSettingResponse(BaseModel):
     key: str
     value: str

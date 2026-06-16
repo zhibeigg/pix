@@ -10,6 +10,7 @@ from pix_web.credits import adjust_credits, refund_reserved
 from pix_web.jobs import create_job_in_transaction
 from pix_web.models import Base, CreditAccount, SystemSetting, User
 from pix_web.pricing import apply_discount
+from pix_web.routers.pricing import pricing_discount
 from pix_web.schemas import AssetParamsSchema, JobCreateRequest, SpriteParamsSchema
 from pix_web.system_settings import (
     SETTING_DEFINITIONS,
@@ -160,3 +161,20 @@ class DiscountBillingTests(_DbTestCase):
         assert billing["original_total_points"] == 40
         assert billing["total_points"] == 20
         assert billing["discount"]["rate"] == 0.5
+
+
+class PricingDiscountEndpointTests(_DbTestCase):
+    def test_inactive_by_default(self) -> None:
+        resp = pricing_discount(db=self.db)
+        assert resp.active is False
+        assert resp.rate == 1.0
+
+    def test_active_payload(self) -> None:
+        self.db.add(SystemSetting(key="pricing.discount_enabled", value="true"))
+        self.db.add(SystemSetting(key="pricing.discount_rate", value="0.8"))
+        self.db.add(SystemSetting(key="pricing.discount_label", value="限时 8 折"))
+        self.db.commit()
+        resp = pricing_discount(db=self.db)
+        assert resp.active is True
+        assert resp.rate == 0.8
+        assert resp.label == "限时 8 折"
