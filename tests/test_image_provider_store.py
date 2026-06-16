@@ -120,5 +120,22 @@ class LoadManagedConfigWiringTests(unittest.TestCase):
         self.assertEqual(cfg.image_providers[0].id, "only-db")
 
 
+class ProviderPresetTests(unittest.TestCase):
+    def test_presets_are_well_formed(self) -> None:
+        from pix_web.provider_presets import PROVIDER_PRESETS, preset_to_dict
+
+        keys = [p.key for p in PROVIDER_PRESETS]
+        self.assertIn("shengsuanyun", keys)
+        self.assertIn("custom", keys)
+        whitelist = {"openai_images", "midjourney", "ideogram", "fal", "kling", "gemini_native", "shengsuanyun"}
+        for preset in PROVIDER_PRESETS:
+            data = preset_to_dict(preset)
+            self.assertTrue(data["display_name"])
+            self.assertTrue(data["protocols"])
+            for proto in data["protocols"]:
+                self.assertIn(proto, whitelist)
+            self.assertIsInstance(data["models"], list)
+
+
 if __name__ == "__main__":
     unittest.main()
