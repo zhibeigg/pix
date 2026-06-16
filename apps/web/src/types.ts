@@ -386,6 +386,8 @@ export type GenerationJob = {
   price_credits: number
   reserved_credits: number
   error_message: string
+  user_error_message?: string
+  error_diagnostics_json?: Record<string, unknown>
   failure_type: string
   failure_source: string
   failure_code: string

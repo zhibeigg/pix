@@ -152,7 +152,7 @@ npm run build
 
 ## 通用生图 Provider 调用规范
 
-Pix 现在通过 logical model → provider candidates 的方式调用生图上游。默认可配置 Packy、胜算云（ShengSuanYun）与 Crazyrouter 三类 Provider：同一个模型（如 `gpt-image-2`）可以同时映射到多家 Provider，运行时按 `priority` 排序（默认 Packy=10 → 胜算云=20 → Crazyrouter=30）；网络错误、超时、429/5xx、空响应、响应结构异常、Provider 临时不可用、鉴权/余额类错误会按 `image_gen.failover_on` 自动切换下一家。
+Pix 现在通过 logical model → provider candidates 的方式调用生图上游。默认可配置 Packy、胜算云（ShengSuanYun）与 Crazyrouter 三类 Provider：同一个模型（如 `gpt-image-2`）可以同时映射到多家 Provider，运行时按 `priority` 排序（默认 Packy=10 → 胜算云=20 → Crazyrouter=30）；网络错误、超时、429/5xx、空响应、响应结构异常、Provider 临时不可用、鉴权/余额类错误会自动切换下一家，直到没有其它可用 Provider。策略拦截、非法请求或不支持的模型/操作不会切换，避免浪费额度或绕过安全策略。普通用户只看到安全简短失败提示；管理员后台可查看脱敏后的 Provider 尝试历史、失败分类和 traceback。
 
 OpenAI Images 兼容模型走 `/v1/images/generations` / `/v1/images/edits` 或 `image_input` payload；Midjourney、Kling 这类异步协议会提交任务后轮询查询端点；胜算云（`shengsuanyun` 协议）用 OpenAI gpt-image 兼容请求体走异步任务流程（`POST /api/v1/tasks/generations` 提交、`GET /api/v1/tasks/generations/{id}` 轮询，图生图复用同端点仅多传 `image` 字段，结果只返回图片 URL）；Ideogram/FAL 使用各自专用路径。默认优先要求返回 `b64_json` 并直接落盘；如果上游只返回临时 `url`，才作为兼容兜底下载。为控制上游成本，素材任务默认关闭多候选图；仅在后台或配置显式开启 `image_gen.contact_sheet_enabled` 时，才会按 `n_sample_count` 发起多候选请求。
 
@@ -260,7 +260,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.78.0`。
+当前版本：`1.79.0`。
 
 版本号格式为 `A.B.C`：
 

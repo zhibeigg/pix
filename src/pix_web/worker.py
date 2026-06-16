@@ -17,10 +17,12 @@ from pix_web.credits import consume_reserved, refund_reserved
 from pix_web.db import init_db, make_engine, make_session_factory
 from pix_web.job_observability import (
     apply_failure_info,
+    build_error_diagnostics,
     classify_failure,
     cleanup_timed_out_running_jobs,
     record_policy_event,
     update_job_diagnostics,
+    user_message_for_failure,
 )
 from pix_web.models import GenerationJob, GenerationOutput, utcnow
 from pix_web.pipeline_adapter import run_job_pipeline
@@ -116,10 +118,19 @@ def process_job(db: Session, job: GenerationJob, settings: WebSettings) -> Gener
             db.rollback()
             return job
         failure = classify_failure(exc)
+        provider_history = image_provider_history()
+        traceback_text = traceback.format_exc()
         job.status = "failed"
-        job.error_message = f"{exc}\n\n{traceback.format_exc()}"[:8000]
+        job.error_message = f"{exc}\n\n{traceback_text}"[:8000]
+        job.user_error_message = user_message_for_failure(failure)
+        job.error_diagnostics_json = build_error_diagnostics(
+            exc,
+            failure=failure,
+            provider_history=provider_history,
+            traceback_text=traceback_text,
+        )
         job.finished_at = utcnow()
-        job.provider = _provider_from_history(image_provider_history())
+        job.provider = _provider_from_history(provider_history)
         apply_failure_info(job, failure)
         if failure.failure_type == "policy_blocked":
             record_policy_event(

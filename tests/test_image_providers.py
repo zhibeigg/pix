@@ -164,10 +164,31 @@ class ImageDispatcherTests(unittest.TestCase):
         self.assertEqual(result.image.provider_id, "p2")
         self.assertEqual([attempt["status"] for attempt in result.attempts], ["failed", "success"])
 
-    def test_non_retryable_error_does_not_failover(self) -> None:
+    def test_auth_error_fails_over_to_second_provider(self) -> None:
         cfg = _cfg_with_two_providers()
 
         def factory(_cfg, candidate):  # noqa: ANN001
+            return _StubProvider(candidate.provider.id, should_fail=candidate.provider.id == "p1", category="auth")
+
+        with patch("pix.api.image_dispatcher.provider_for_candidate", side_effect=factory):
+            result = dispatch_image_request(
+                cfg,
+                operation=TEXT_TO_IMAGE,
+                prompt="test",
+                model="gpt-image-2",
+                size="1024x1024",
+                quality="auto",
+                output_format="png",
+            )
+        self.assertEqual(result.image.provider_id, "p2")
+        self.assertEqual([attempt["provider"] for attempt in result.attempts], ["p1", "p2"])
+
+    def test_non_retryable_request_error_does_not_failover(self) -> None:
+        cfg = _cfg_with_two_providers()
+        seen: list[str] = []
+
+        def factory(_cfg, candidate):  # noqa: ANN001
+            seen.append(candidate.provider.id)
             return _StubProvider(candidate.provider.id, should_fail=True, category="invalid_request")
 
         with patch("pix.api.image_dispatcher.provider_for_candidate", side_effect=factory):
@@ -182,6 +203,29 @@ class ImageDispatcherTests(unittest.TestCase):
                     output_format="png",
                 )
         self.assertEqual(ctx.exception.category, "invalid_request")
+        self.assertEqual(seen, ["p1"])
+
+    def test_content_policy_error_does_not_failover(self) -> None:
+        cfg = _cfg_with_two_providers()
+        seen: list[str] = []
+
+        def factory(_cfg, candidate):  # noqa: ANN001
+            seen.append(candidate.provider.id)
+            return _StubProvider(candidate.provider.id, should_fail=True, category="content_policy")
+
+        with patch("pix.api.image_dispatcher.provider_for_candidate", side_effect=factory):
+            with self.assertRaises(ProviderError) as ctx:
+                dispatch_image_request(
+                    cfg,
+                    operation=TEXT_TO_IMAGE,
+                    prompt="test",
+                    model="gpt-image-2",
+                    size="1024x1024",
+                    quality="auto",
+                    output_format="png",
+                )
+        self.assertEqual(ctx.exception.category, "content_policy")
+        self.assertEqual(seen, ["p1"])
 
     def test_default_model_falls_back_to_available_image_model(self) -> None:
         cfg = _cfg_with_two_providers()

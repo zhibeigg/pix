@@ -14,6 +14,24 @@ from pix.config import AppConfig
 
 _HISTORY = threading.local()
 
+_PROVIDER_FAILOVER_CATEGORIES = {
+    "network",
+    "timeout",
+    "rate_limit",
+    "server_error",
+    "empty_response",
+    "malformed_response",
+    "provider_unavailable",
+    "auth",
+    "quota",
+}
+_NO_FAILOVER_CATEGORIES = {
+    "content_policy",
+    "invalid_request",
+    "unsupported_operation",
+    "unsupported_model",
+}
+
 
 @dataclass(frozen=True)
 class DispatchResult:
@@ -43,6 +61,18 @@ def _record_event(event: dict[str, Any]) -> None:
     _HISTORY.events = events
 
 
+def _should_failover(exc: ProviderError, *, has_next_candidate: bool, failover_enabled: bool) -> bool:
+    if not failover_enabled or not has_next_candidate:
+        return False
+    if exc.category in _NO_FAILOVER_CATEGORIES:
+        return False
+    if exc.category in _PROVIDER_FAILOVER_CATEGORIES:
+        return True
+    if exc.status_code is not None:
+        return exc.status_code in {401, 402, 403, 408, 429} or exc.status_code >= 500
+    return bool(exc.retryable)
+
+
 def dispatch_image_request(
     cfg: AppConfig,
     *,
@@ -68,7 +98,6 @@ def dispatch_image_request(
         raise ProviderError(built, category="unsupported_model", provider_id="", retryable=False)
 
     attempts: list[dict[str, Any]] = []
-    failover_categories = set(cfg.image_gen.failover_on or [])
     last_error: ProviderError | None = None
     request = ImageProviderRequest(
         operation=operation,
@@ -107,11 +136,10 @@ def dispatch_image_request(
             attempt = exc.to_attempt(provider=candidate.provider.id, model=candidate.model.provider_model or candidate.model.id)
             attempt["protocol"] = candidate.model.protocol
             attempts.append(attempt)
-            should_failover = (
-                bool(cfg.image_gen.failover_enabled)
-                and index < len(candidates) - 1
-                and (exc.retryable or exc.category in failover_categories)
-                and exc.category in failover_categories
+            should_failover = _should_failover(
+                exc,
+                has_next_candidate=index < len(candidates) - 1,
+                failover_enabled=bool(cfg.image_gen.failover_enabled),
             )
             if not should_failover:
                 _record_event({

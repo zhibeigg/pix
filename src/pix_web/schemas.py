@@ -757,6 +757,29 @@ class JobResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AdminJobResponse(JobResponse):
+    user_error_message: str = ""
+    error_diagnostics_json: dict[str, Any] = Field(default_factory=dict)
+
+
+def safe_user_job_error(job: Any) -> str:
+    if getattr(job, "status", "") != "failed":
+        return ""
+    user_message = str(getattr(job, "user_error_message", "") or "").strip()
+    if user_message:
+        return user_message
+    failure_type = str(getattr(job, "failure_type", "") or "")
+    if failure_type == "policy_blocked":
+        return "素材描述未通过安全检查，请调整描述后重试。"
+    return "生成服务暂时不可用，系统已自动退款。请稍后重试。"
+
+
+def public_job_response(job: Any) -> dict[str, Any]:
+    data = JobResponse.model_validate(job).model_dump(mode="python")
+    data["error_message"] = safe_user_job_error(job)
+    return data
+
+
 class JobBatchCreateResponse(BaseModel):
     jobs: list[JobResponse]
     total_price_credits: int

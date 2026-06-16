@@ -17,6 +17,13 @@ from pix_web.models import GenerationJob, GenerationPolicyEvent, utcnow
 
 POLICY_BLOCKED_MESSAGE = "该请求涉及直接复刻参考图，请改为“参考风格/构图，重新设计原创素材”。"
 RUNNING_JOB_TIMEOUT_MESSAGE = "任务运行超时，系统自动清理"
+GENERIC_UPSTREAM_USER_MESSAGE = "生成服务暂时不可用，系统已尝试所有可用上游并自动退款。请稍后重试。"
+GENERIC_PIPELINE_USER_MESSAGE = "后台处理任务时出现异常，系统已自动退款。请稍后重试。"
+POLICY_USER_MESSAGE = "素材描述未通过安全检查，请调整描述后重试。"
+_DIAGNOSTIC_STRING_LIMIT = 1000
+_DIAGNOSTIC_TRACEBACK_LIMIT = 6000
+_DIAGNOSTIC_LIST_LIMIT = 20
+_SENSITIVE_KEY_MARKERS = ("authorization", "api_key", "apikey", "token", "secret", "password", "bearer")
 
 
 @dataclass(frozen=True)
@@ -93,6 +100,84 @@ def _http_code_from_text(text: str) -> int | None:
     return None
 
 
+def _shorten(value: str, limit: int = _DIAGNOSTIC_STRING_LIMIT) -> str:
+    text = value.replace("\r\n", "\n").strip()
+    return text if len(text) <= limit else f"{text[:limit]}…"
+
+
+def _is_sensitive_key(key: object) -> bool:
+    lowered = str(key or "").lower()
+    return any(marker in lowered for marker in _SENSITIVE_KEY_MARKERS)
+
+
+def sanitize_diagnostic_value(value: Any, *, depth: int = 0) -> Any:
+    if depth > 8:
+        return "<truncated>"
+    if isinstance(value, dict):
+        result: dict[str, Any] = {}
+        for key, item in list(value.items())[:_DIAGNOSTIC_LIST_LIMIT]:
+            clean_key = str(key)
+            result[clean_key] = "<redacted>" if _is_sensitive_key(clean_key) else sanitize_diagnostic_value(item, depth=depth + 1)
+        return result
+    if isinstance(value, list):
+        return [sanitize_diagnostic_value(item, depth=depth + 1) for item in value[:_DIAGNOSTIC_LIST_LIMIT]]
+    if isinstance(value, tuple):
+        return [sanitize_diagnostic_value(item, depth=depth + 1) for item in list(value)[:_DIAGNOSTIC_LIST_LIMIT]]
+    if isinstance(value, str):
+        return _shorten(value)
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    return _shorten(str(value))
+
+
+def user_message_for_failure(info: FailureInfo) -> str:
+    if info.failure_type == "policy_blocked":
+        return POLICY_USER_MESSAGE
+    if info.failure_type in {"upstream_error", "timeout"}:
+        return GENERIC_UPSTREAM_USER_MESSAGE
+    return GENERIC_PIPELINE_USER_MESSAGE
+
+
+def build_error_diagnostics(
+    exc: BaseException,
+    *,
+    failure: FailureInfo,
+    provider_history: list[dict[str, Any]],
+    traceback_text: str,
+) -> dict[str, Any]:
+    provider_attempts: list[dict[str, Any]] = []
+    for event in provider_history[:_DIAGNOSTIC_LIST_LIMIT]:
+        attempts = event.get("attempts") if isinstance(event, dict) else None
+        if isinstance(attempts, list):
+            provider_attempts.extend(
+                sanitize_diagnostic_value(item) for item in attempts[:_DIAGNOSTIC_LIST_LIMIT]
+                if isinstance(item, dict)
+            )
+    raw: dict[str, Any] = {
+        "failure": {
+            "type": failure.failure_type,
+            "source": failure.failure_source,
+            "code": failure.failure_code,
+        },
+        "exception": {
+            "type": exc.__class__.__name__,
+            "message": _shorten(str(exc), 2000),
+        },
+        "provider_history": sanitize_diagnostic_value(provider_history),
+        "provider_attempts": provider_attempts[:_DIAGNOSTIC_LIST_LIMIT],
+        "traceback": _shorten(traceback_text, _DIAGNOSTIC_TRACEBACK_LIMIT),
+    }
+    if isinstance(exc, ProviderError):
+        raw["provider_error"] = {
+            "provider_id": exc.provider_id,
+            "category": exc.category,
+            "status_code": exc.status_code,
+            "retryable": exc.retryable,
+            "body": _shorten(exc.body or "", 2000) if exc.body else "",
+        }
+    return sanitize_diagnostic_value(raw)
+
+
 def classify_failure(exc: BaseException) -> FailureInfo:
     """把 worker 捕获到的异常转为结构化失败字段。"""
     if isinstance(exc, ProviderError):
@@ -167,9 +252,13 @@ def mark_job_failed_and_refund(
     message: str,
     refund_note: str,
     status: str = "failed",
+    user_message: str | None = None,
+    diagnostics: dict[str, Any] | None = None,
 ) -> GenerationJob:
     job.status = status
     job.error_message = message[:8000]
+    job.user_error_message = user_message or user_message_for_failure(info)
+    job.error_diagnostics_json = diagnostics or {}
     job.finished_at = utcnow()
     apply_failure_info(job, info)
     refund_reserved(db, job, note=refund_note)

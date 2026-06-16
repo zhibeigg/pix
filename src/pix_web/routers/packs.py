@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, spend_credits
 from pix_web.models import AssetPack, AssetPackItem, AssetPackQuota, GenerationJob, GenerationOutput, User
-from pix_web.schemas import AssetPackAddItemRequest, AssetPackCreateRequest, AssetPackQuotaResponse, AssetPackResponse, AssetPackUpdateRequest, JobResponse
+from pix_web.schemas import AssetPackAddItemRequest, AssetPackCreateRequest, AssetPackQuotaResponse, AssetPackResponse, AssetPackUpdateRequest, JobResponse, public_job_response
 from pix_web.security import get_current_user, get_db
 
 router = APIRouter(prefix="/packs", tags=["packs"])
@@ -220,7 +220,7 @@ def delete_pack(pack_id: int, user: User = Depends(get_current_user), db: Sessio
 
 
 @router.get("/{pack_id}/jobs", response_model=list[JobResponse])
-def list_pack_jobs(pack_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> list[GenerationJob]:
+def list_pack_jobs(pack_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> list[dict]:
     _get_owned_pack(db, user, pack_id)
     stmt = (
         select(GenerationJob)
@@ -229,7 +229,7 @@ def list_pack_jobs(pack_id: int, user: User = Depends(get_current_user), db: Ses
         .where(AssetPackItem.pack_id == pack_id, AssetPackItem.user_id == user.id)
         .order_by(AssetPackItem.position.asc(), AssetPackItem.created_at.asc())
     )
-    return list(db.scalars(stmt).unique())
+    return [public_job_response(job) for job in db.scalars(stmt).unique()]
 
 
 @router.post("/{pack_id}/items", response_model=AssetPackResponse)

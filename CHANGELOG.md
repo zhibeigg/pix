@@ -20,9 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 管理后台新增「上游供应商」统一管理：从预设（胜算云 / Packy / Crazyrouter / OpenAI / Midjourney / Ideogram / Fal / Kling）或自定义（OpenAI 兼容）一键新增生图供应商，支持编辑 / 删除 / 启停 / 调整 priority。供应商配置改为以数据库 `image_providers` 表为单一真相源（迁移 `0017`），首次启动从 `config.toml` + `.env` 种子导入，之后增删改即时生效、无需重启（`load_managed_pix_config` 每任务叠加数据库供应商并按 priority 排序）。后端新增 `GET/POST/PUT/DELETE /admin/providers` 与 `GET /admin/providers/presets`；API Key 明文入库、响应遮罩、写入式更新（提交空值保持不变）。
 - 邮箱验证码请求新增自适应 Turnstile 反刷码：记录请求 IP，并按同邮箱 / 同 IP 的时间窗口与免校验次数，只在频繁请求时要求 Cloudflare Turnstile。
 - 新增老部署 Provider 设置迁移提醒文档：说明旧 Packy / Gemini / VL 后台入口移除后，如何把 `.env` / `config.toml` 同步到新的「上游供应商」中。
+- 生图任务新增后台错误诊断：记录脱敏后的 Provider 尝试历史、失败分类和 traceback，帮助管理员分析额度、鉴权、网络、上游 5xx 或响应结构问题。
 
 ### Changed
 
+- Provider 层错误（网络、超时、限流、5xx、鉴权、额度、空响应或响应异常）会继续尝试同 logical model 下其它可用上游；所有可用上游均失败后才让任务失败并退款，策略/非法请求类错误不切换。
+- 普通用户任务错误改为安全简短提示，不再暴露上游 body 或 traceback；管理员后台保留详细错误和脱敏诊断资料。
 - 后台「模型与 API」移除旧 Packy / Gemini / VL 密钥与旧 Base URL 设置入口；供应商密钥统一在「上游供应商」管理，旧环境变量仍保留为老部署首次种子导入 / fallback 兼容。
 - 注册 / 找回密码的验证码发送不再默认显示 Turnstile；当后端判定请求频繁并返回 428 后，前端才显示人机校验并提示用户重试。
 - 收敛过期 Dependabot PR：在当前 Web-only 仓库结构上同步仍有效的运行时 / 开发依赖下限，并保持已删除的 GitHub Actions 工作流与 PySide6 桌面 GUI 依赖不再恢复。

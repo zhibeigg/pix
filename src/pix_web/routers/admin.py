@@ -30,6 +30,7 @@ from pix_web.schemas import (
     AdminBatchAdjustCreditsRequest,
     AdminBatchAdjustCreditsResponse,
     AdminDashboardResponse,
+    AdminJobResponse,
     PerformanceMetricsResponse,
     AnnouncementCreateRequest,
     AnnouncementItemResponse,
@@ -44,7 +45,6 @@ from pix_web.schemas import (
     CreditTransactionResponse,
     EmailTestRequest,
     EmailTestResponse,
-    JobResponse,
     PricingRuleResponse,
     PricingRuleUpdateRequest,
     SystemSettingResponse,
@@ -133,7 +133,7 @@ def adjust_users_credits_batch(
     }
 
 
-@router.get("/jobs", response_model=list[JobResponse])
+@router.get("/jobs", response_model=list[AdminJobResponse])
 def jobs(_admin: User = Depends(require_admin), db: Session = Depends(get_db), limit: int = 100) -> list[GenerationJob]:
     stmt = (
         select(GenerationJob)
@@ -144,7 +144,7 @@ def jobs(_admin: User = Depends(require_admin), db: Session = Depends(get_db), l
     return list(db.scalars(stmt))
 
 
-@router.post("/jobs/{job_id}/retry", response_model=JobResponse)
+@router.post("/jobs/{job_id}/retry", response_model=AdminJobResponse)
 def retry_admin_job(
     job_id: int,
     _admin: User = Depends(require_admin),
@@ -162,7 +162,7 @@ def retry_admin_job(
     return job
 
 
-@router.post("/jobs/{job_id}/cancel", response_model=JobResponse)
+@router.post("/jobs/{job_id}/cancel", response_model=AdminJobResponse)
 def cancel_admin_job(
     job_id: int,
     _admin: User = Depends(require_admin),
@@ -179,7 +179,7 @@ def cancel_admin_job(
     return load_job_with_outputs(db, job_id) or job
 
 
-@router.post("/jobs/{job_id}/fail-refund", response_model=JobResponse)
+@router.post("/jobs/{job_id}/fail-refund", response_model=AdminJobResponse)
 def fail_refund_admin_job(
     job_id: int,
     _admin: User = Depends(require_admin),

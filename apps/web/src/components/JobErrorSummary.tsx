@@ -10,10 +10,10 @@ type FriendlyJobError = {
   action: string
 }
 
-export function JobErrorSummary({ error, compact = false, className }: { error?: string | null; compact?: boolean; className?: string }) {
+export function JobErrorSummary({ error, compact = false, className, showDetails = false }: { error?: string | null; compact?: boolean; className?: string; showDetails?: boolean }) {
   const { text } = useI18n()
   const friendly = summarizeJobError(error, text)
-  const detail = normalizeErrorDetail(error)
+  const detail = showDetails ? normalizeErrorDetail(error) : ''
 
   return (
     <Alert variant="destructive" className={cn('space-y-2 text-left', compact && 'p-3', className)}>

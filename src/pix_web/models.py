@@ -296,6 +296,8 @@ class GenerationJob(Base):
     price_credits: Mapped[int] = mapped_column(Integer, default=0)
     reserved_credits: Mapped[int] = mapped_column(Integer, default=0)
     error_message: Mapped[str] = mapped_column(Text, default="")
+    user_error_message: Mapped[str] = mapped_column(Text, default="")
+    error_diagnostics_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     failure_type: Mapped[str] = mapped_column(String(64), default="", index=True)
     failure_source: Mapped[str] = mapped_column(String(64), default="", index=True)
     failure_code: Mapped[str] = mapped_column(String(128), default="", index=True)

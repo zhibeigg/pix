@@ -258,7 +258,7 @@ function AdminJobsList({ jobs, usersById, onRetry, onCancel, onFailRefund }: { j
               <div className="flex flex-wrap items-center gap-2"><p className="font-semibold">#{job.id} · {job.job_type}</p><Badge variant={job.status === 'succeeded' ? 'success' : job.status === 'failed' ? 'danger' : job.status === 'running' ? 'warning' : job.status === 'cancelled' ? 'muted' : 'info'}>{job.status}</Badge><Badge variant="outline" title={owner?.email ?? ownerLabel}>{ownerLabel}</Badge>{job.failure_type && <Badge variant="outline">{job.failure_type}</Badge>}{job.failure_source && <Badge variant="outline">{job.failure_source}</Badge>}{job.failure_code && <Badge variant="outline">{job.failure_code}</Badge>}</div>
               <p className="mt-1 truncate text-sm text-muted-foreground">{job.prompt || '无 prompt'} · {formatDateTime(job.created_at)} · 运行 {formatRuntime(job)}</p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground"><span>点数 {job.price_credits}</span><span>冻结 {job.reserved_credits}</span><span>候选失败 {job.candidate_failure_count}</span><span>流水线警告 {job.pipeline_warning_count}</span></div>
-              {job.error_message && <p className="mt-2 line-clamp-2 text-sm text-destructive">{job.error_message.slice(0, 220)}</p>}
+              {job.status === 'failed' && <AdminJobDiagnostics job={job} />}
             </div>
             <div className="flex flex-wrap items-center gap-2 xl:justify-end">
               {job.status === 'failed' && <Button variant="outline" size="sm" onClick={async () => { if (await confirm({ title: '重试任务', description: `重试任务 #${job.id}？`, confirmText: '重试' })) void onRetry(job) }}>重试</Button>}
@@ -268,6 +268,26 @@ function AdminJobsList({ jobs, usersById, onRetry, onCancel, onFailRefund }: { j
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function AdminJobDiagnostics({ job }: { job: GenerationJob }) {
+  const diagnostics = job.error_diagnostics_json && Object.keys(job.error_diagnostics_json).length > 0
+    ? JSON.stringify(job.error_diagnostics_json, null, 2)
+    : ''
+  const userMessage = job.user_error_message || '—'
+  return (
+    <div className="mt-2 grid gap-2 text-sm">
+      <p className="text-destructive">{job.error_message ? job.error_message.slice(0, 220) : userMessage}</p>
+      <details className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
+        <summary className="cursor-pointer font-semibold">诊断详情</summary>
+        <div className="mt-2 grid gap-2">
+          <p><span className="font-semibold">用户提示：</span>{userMessage}</p>
+          {diagnostics && <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded bg-card p-2 font-mono text-[11px] leading-5 text-muted-foreground">{diagnostics}</pre>}
+          {job.error_message && <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded bg-card p-2 font-mono text-[11px] leading-5 text-muted-foreground">{job.error_message}</pre>}
+        </div>
+      </details>
     </div>
   )
 }

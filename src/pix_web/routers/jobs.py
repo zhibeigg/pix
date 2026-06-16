@@ -18,7 +18,7 @@ from pix_web.jobs import create_job, create_jobs_batch, retry_failed_job
 from pix_web.models import GenerationJob, User
 from pix_web.queue import enqueue_jobs
 from pix_web.retention import GALLERY_EXPAND_PRICE_CREDITS, GALLERY_EXPAND_SLOTS, delete_user_job, effective_gallery_limit, get_or_create_gallery_quota, prune_user_photos, retained_photo_count
-from pix_web.schemas import GalleryQuotaResponse, JobBatchCreateRequest, JobBatchCreateResponse, JobCreateRequest, JobResponse, SequenceAlignmentRequest
+from pix_web.schemas import GalleryQuotaResponse, JobBatchCreateRequest, JobBatchCreateResponse, JobCreateRequest, JobResponse, SequenceAlignmentRequest, public_job_response
 from pix_web.sequence_alignment import apply_sequence_alignment
 from pix_web.routers.files import _file_user
 from pix_web.security import get_current_user, get_db, get_settings
@@ -135,10 +135,10 @@ def create(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
-) -> GenerationJob:
+) -> dict:
     job = create_job(db, user, req)
     enqueue_jobs(settings, [job.id])
-    return job
+    return public_job_response(job)
 
 
 @router.post("/batch", response_model=JobBatchCreateResponse)
@@ -150,7 +150,11 @@ def create_batch(
 ) -> JobBatchCreateResponse:
     jobs, total_price, batch = create_jobs_batch(db, user, req.jobs, batch_name=req.batch_name, mode=req.mode)
     enqueue_jobs(settings, [job.id for job in jobs if job.status == "pending"])
-    return JobBatchCreateResponse(jobs=jobs, total_price_credits=total_price, batch_id=batch.id if batch else None)
+    return JobBatchCreateResponse(
+        jobs=[JobResponse.model_validate(public_job_response(job)) for job in jobs],
+        total_price_credits=total_price,
+        batch_id=batch.id if batch else None,
+    )
 
 
 @router.get("", response_model=list[JobResponse])
@@ -159,7 +163,7 @@ def list_jobs(
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
     limit: int = 50,
-) -> list[GenerationJob]:
+) -> list[dict]:
     if prune_user_photos(db, user.id, settings):
         db.commit()
     stmt = (
@@ -169,7 +173,7 @@ def list_jobs(
         .order_by(GenerationJob.created_at.desc())
         .limit(max(1, min(200, limit)))
     )
-    return list(db.scalars(stmt))
+    return [public_job_response(job) for job in db.scalars(stmt)]
 
 
 @router.get("/gallery-quota", response_model=GalleryQuotaResponse)
@@ -199,7 +203,7 @@ def save_sequence_alignment(
     req: SequenceAlignmentRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> GenerationJob:
+) -> dict:
     job = db.scalar(
         select(GenerationJob)
         .options(selectinload(GenerationJob.outputs))
@@ -212,11 +216,12 @@ def save_sequence_alignment(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="任务没有可调整的输出")
     apply_sequence_alignment(job, output, req)
     db.commit()
-    return db.scalar(
+    refreshed = db.scalar(
         select(GenerationJob)
         .options(selectinload(GenerationJob.outputs))
         .where(GenerationJob.id == job_id, GenerationJob.user_id == user.id)
     ) or job
+    return public_job_response(refreshed)
 
 
 @router.post("/{job_id}/retry", response_model=JobResponse)
@@ -225,10 +230,10 @@ def retry_job(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
-) -> GenerationJob:
+) -> dict:
     job = retry_failed_job(db, user, job_id)
     enqueue_jobs(settings, [job.id])
-    return job
+    return public_job_response(job)
 
 
 @router.delete("/{job_id}")
@@ -248,7 +253,7 @@ def get_job(
     job_id: int,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> GenerationJob:
+) -> dict:
     job = db.scalar(
         select(GenerationJob)
         .options(selectinload(GenerationJob.outputs))
@@ -256,4 +261,4 @@ def get_job(
     )
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
-    return job
+    return public_job_response(job)
