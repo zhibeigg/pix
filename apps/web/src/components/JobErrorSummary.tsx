@@ -77,7 +77,7 @@ export function summarizeJobError(error: string | null | undefined, text: TextFn
     return {
       title: text('图片服务认证失败', 'Image service authentication failed'),
       description: text('后端连接图片服务时没有通过认证。', 'The backend could not authenticate with the image service.'),
-      action: text('请检查 PACKY_API_KEY / PACKY_VL_API_KEY 是否正确，并重启服务。', 'Check PACKY_API_KEY / PACKY_VL_API_KEY and restart the service.'),
+      action: text('请在后台「上游供应商」检查当前 Provider 的 API Key，老部署也可确认旧环境变量已完成首次导入。', 'Check the current provider API key in Admin → Providers; legacy deployments should also confirm old env vars were imported.'),
     }
   }
 

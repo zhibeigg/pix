@@ -1,10 +1,10 @@
 # Pix Web 核心配置示例
 # 如需覆盖默认素材生成参数，可复制为 config.toml，并通过 PIX_WEB_PIX_CONFIG 指向该文件。
-# 网站版管理后台也可以覆盖 [api]、[image_gen]、[vision] 和 [asset] 中的常用字段；
-# 后台保存的值优先于本文件，环境级密钥/数据库/队列配置仍建议使用环境变量或密钥管理。
+# 网站版管理后台也可以覆盖 [api] 调用策略、[image_gen]、[vision] 和 [asset] 中的常用字段；
+# 供应商密钥和 Base URL 请优先使用后台「上游供应商」；环境级密钥/数据库/队列配置仍建议使用环境变量或密钥管理。
 
 [api]
-# 通用上游调用网络参数；base_url 保留给旧 PACKY_* 兼容路径，新部署优先使用 [[image_providers]].base_url。
+# 通用上游调用网络参数；base_url 仅保留给旧 PACKY_* 兼容路径和首次种子导入，新部署请使用「上游供应商」。
 base_url       = "https://www.packyapi.com"
 # 连接与读取超时（秒）；生图/序列帧高 quality 时单次响应可能持续数分钟，给足余量
 timeout        = 600.0

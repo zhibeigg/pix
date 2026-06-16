@@ -88,9 +88,9 @@ npm run build
 | `SHENGSUANYUN_BASE_URL` | 胜算云 API Base URL，默认 `https://router.shengsuanyun.com`。 |
 | `PIX_IMAGE_DEFAULT_MODEL` | 默认 logical 生图模型，例如 `gpt-image-2`。 |
 | `PIX_IMAGE_PROVIDERS_JSON` | 可选：用 JSON 覆盖/补充多 Provider 配置，适合容器密钥管理场景。 |
-| `PACKY_API_KEY` | Packy 兼容旧部署 / fallback Provider 的生图 API key，需支持 `gpt-image-2`。 |
-| `PACKY_VL_API_KEY` | 视觉模型 API key，可与 `PACKY_API_KEY` 共用。 |
-| `PACKY_BASE_URL` | Packy API Base URL，默认 `https://www.packyapi.com`。 |
+| `PACKY_API_KEY` | Packy 老部署兼容 / 首次导入「上游供应商」种子 / fallback Provider 的生图 API key；新部署请优先在后台「上游供应商」配置。 |
+| `PACKY_VL_API_KEY` | 视觉模型旧变量，老部署兼容 / 首次导入用，可与 `PACKY_API_KEY` 共用。 |
+| `PACKY_BASE_URL` | Packy 旧 Base URL，老部署兼容 / 首次导入用，默认 `https://www.packyapi.com`。 |
 | `PIX_WEB_DATABASE_URL` | 后端数据库连接。开发可用 SQLite，生产建议 PostgreSQL。 |
 | `PIX_WEB_JWT_SECRET` | 登录 token 签名密钥，生产必须替换为长随机值。 |
 | `PIX_WEB_STORAGE_ROOT` | 用户上传、生成结果和任务文件根目录，默认 `web_outputs`。 |
@@ -112,6 +112,8 @@ npm run build
 | `PIX_WEB_TURNSTILE_IP_WINDOW_SECONDS` / `PIX_WEB_TURNSTILE_IP_MAX_WITHOUT_CHALLENGE` | 同 IP 验证码请求触发 Turnstile 的统计窗口和免校验次数，默认 `3600` 秒 / `5` 次。 |
 
 更多配置见 `.env.example`、`.env.production.example` 和 `config.example.toml`。
+
+> 老部署注意：后台「模型与 API」已移除旧 Packy / Gemini / VL 密钥入口，供应商密钥统一迁移到「上游供应商」。升级前请阅读 [`docs/deployment/legacy-provider-settings-migration.md`](docs/deployment/legacy-provider-settings-migration.md)。
 
 ## 系统公告与邮件通知
 
@@ -258,7 +260,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.77.0`。
+当前版本：`1.78.0`。
 
 版本号格式为 `A.B.C`：
 
