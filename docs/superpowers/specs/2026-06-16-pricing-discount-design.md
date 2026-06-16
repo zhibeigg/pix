@@ -66,6 +66,13 @@ class PricingDiscount:
         return self.enabled and 0.0 <= self.rate < 1.0
 
 
+def _parse_float(value: str, fallback: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
 def load_pricing_discount(db: Session) -> PricingDiscount:
     values = _stored_values(db)
     enabled = _parse_bool(values.get("pricing.discount_enabled", "false"))
@@ -73,6 +80,13 @@ def load_pricing_discount(db: Session) -> PricingDiscount:
     label = values.get("pricing.discount_label", "").strip()
     return PricingDiscount(enabled=enabled, rate=rate, label=label)
 ```
+
+> `_parse_float` 是新增辅助函数——`system_settings.py` 现有 `_parse_bool` / `_parse_positive_int`，
+> 但没有 float 版本，需一并加上（或在 `load_pricing_discount` 内联 `try/float/except`）。
+>
+> **写时校验与读时裁剪是互补的两道防线，二者都要保留**：`_normalize_value` 在保存时拒绝越界值（422）
+> 是给管理员的即时反馈；`load_pricing_discount` 在读取时把 rate 裁剪到 `[0,1]`，是对历史脏数据 /
+> 早于校验逻辑写入的旧行的兜底，不能因为有了写时校验就省略。
 
 `src/pix_web/pricing.py` 新增纯函数（核心取整规则，独立可测）：
 
@@ -118,8 +132,12 @@ def apply_discount(amount: int, rate: float) -> int:
 - 记录 `original_total_points`（折前总价）、`total_points`（折后实扣）、`discount: {rate, label}`；
 - 序列帧保持原有字段（`rows`/`cols`/`frame_base_price`/`frame_count`/`billing_units`/`formula` 等），
   其中 `total_points` 改为折后实扣值，新增 `original_total_points`；
-- 非序列帧任务原本返回 `None`；折扣生效（`discount.active`）时也写入一个含 `discount` 块的精简快照，
+- 非序列帧任务原本返回 `None`；折扣生效（`discount.active`）时也写入一个精简快照，
   方便作品库「参数」快览审计；折扣未生效时维持 `None`（不改变现有行为）。
+  非序列帧精简快照的**固定字段集**为：`original_total_points`、`total_points`、
+  `discount: {rate, label}`（不含序列帧专属的 rows/cols/units 等）。固定字段集是为了让
+  consume/refund 集成测试与未来的审计展示有稳定的断言结构。
+- `discount` 块的字段统一为 `{rate: float, label: str}`（label 取 `PricingDiscount.label`，可能为空字符串）。
 
 ### 4.4 对外接口
 
@@ -154,7 +172,10 @@ def apply_discount(amount: int, rate: float) -> int:
   - 折扣生效时创建任务 → `job.reserved_credits` == `job.price_credits` == 折后值；账户冻结额=折后值；
   - 任务失败退款额 == 折后值（退回 `available_credits`）；
   - 折扣关闭时 == 原价；
-  - 序列帧折后价 == `apply_discount(base × units, rate)`。
+  - 序列帧折后价 == `apply_discount(base × units, rate)`；
+  - **重试路径**：失败任务在折扣下重试（`retry_failed_job`）→ 新任务按**当前**折扣重新计价
+    （`_request_from_failed_job` 从 `params_json` 重建请求并重走 `_price_for_request`，
+    因此用的是当前折扣，而非原任务锁定的旧价），冻结额 == 当前折后值。闭合「批量/重试路径都走折后价」的风险。
 
 ## 6. 同步更新清单（项目规范要求）
 
