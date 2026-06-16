@@ -81,26 +81,108 @@ export function ApiPage({ token }: { token: string }) {
   const [createdKey, setCreatedKey] = useState('')
   const [copied, setCopied] = useState('')
   const baseUrl = useMemo(() => externalBaseUrl(), [])
-  const assetCurl = useMemo(() => `curl -X POST "${baseUrl}/jobs" \\
-  -H "Authorization: Bearer $PIX_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -H "Idempotency-Key: demo-sword-001" \\
-  -d '{
-    "job_type": "asset",
-    "asset": { "name": "蓝色魔法剑", "asset_kind": "item_icon" },
-    "pixelize": { "output_size": [32, 32], "colors": 16, "transparent": true },
-    "image_model": "image2",
-    "skip_vl": true
-  }'`, [baseUrl])
-  const pollCurl = useMemo(() => `curl "${baseUrl}/jobs/123" \\
+  const authCurl = useMemo(() => String.raw`# 先把 API 页面创建出的令牌保存到环境变量
+export PIX_API_KEY="pix_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+export PIX_API_BASE="${baseUrl}"
+
+# 所有外部接口都使用 Bearer 认证
+curl "$PIX_API_BASE/me" \
+  -H "Authorization: Bearer $PIX_API_KEY"`, [baseUrl])
+  const inspectCurl = useMemo(() => String.raw`# 查询账号、余额和可用模型
+curl "$PIX_API_BASE/me" \
   -H "Authorization: Bearer $PIX_API_KEY"
 
-curl -L "${baseUrl}/jobs/123/outputs/pixelized" \\
-  -H "Authorization: Bearer $PIX_API_KEY" \\
-  -o pixelized.png`, [baseUrl])
-  const uploadCurl = useMemo(() => `curl -X POST "${baseUrl}/uploads/images" \\
-  -H "Authorization: Bearer $PIX_API_KEY" \\
-  -F "file=@reference.png"`, [baseUrl])
+curl "$PIX_API_BASE/balance" \
+  -H "Authorization: Bearer $PIX_API_KEY"
+
+curl "$PIX_API_BASE/models" \
+  -H "Authorization: Bearer $PIX_API_KEY"`, [])
+  const uploadCurl = useMemo(() => String.raw`# 上传参考图，返回的 path 可作为后续 input_image_path
+curl -X POST "$PIX_API_BASE/uploads/images" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -F "file=@reference.png"
+
+# 返回示例
+# { "path": ".../uploads/xxx.png", "url": "/files/...", "filename": "reference.png" }`, [])
+  const assetCurl = useMemo(() => String.raw`# 创建素材直出任务。Idempotency-Key 可选；相同 key 重试会复用同一任务
+curl -X POST "$PIX_API_BASE/jobs" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: demo-sword-001" \
+  -d '{
+    "job_type": "asset",
+    "asset": {
+      "name": "蓝色魔法剑",
+      "asset_kind": "item_icon"
+    },
+    "pixelize": {
+      "output_size": [32, 32],
+      "colors": 16,
+      "remove_bg": true
+    },
+    "image_model": "image2",
+    "skip_vl": true
+  }'
+
+# 202 返回 JobResponse，记录 id 后轮询 /jobs/{id}`, [])
+  const imageCurl = useMemo(() => String.raw`# 图生图 / 参考图重绘：先上传图片，再把返回 path 放到 input_image_path
+curl -X POST "$PIX_API_BASE/jobs" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: demo-reference-redraw-001" \
+  -d '{
+    "job_type": "image_to_image",
+    "prompt": "把参考图重绘成 32x32 像素风游戏图标，透明背景，高对比轮廓",
+    "input_image_path": "把上传接口返回的 path 填在这里",
+    "pixelize": {
+      "output_size": [32, 32],
+      "colors": 16,
+      "remove_bg": true
+    },
+    "image_model": "image2"
+  }'`, [])
+  const spriteCurl = useMemo(() => String.raw`# 创建序列帧任务：rows 表示动作行，cols 表示每行动画帧数
+curl -X POST "$PIX_API_BASE/jobs" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: demo-hero-walk-001" \
+  -d '{
+    "job_type": "sprite_sheet",
+    "prompt": "一个蓝色斗篷骑士，侧视角像素风行走动画，动作连贯",
+    "sprite": {
+      "rows": 1,
+      "cols": 8,
+      "fps": 8,
+      "row_prompts": ["walk cycle, left to right"]
+    },
+    "pixelize": {
+      "output_size": [48, 48],
+      "colors": 24,
+      "remove_bg": true
+    },
+    "image_model": "image2"
+  }'`, [])
+  const pollCurl = useMemo(() => String.raw`# 轮询任务详情，status 为 succeeded 后再下载
+curl "$PIX_API_BASE/jobs/123" \
+  -H "Authorization: Bearer $PIX_API_KEY"
+
+# 列表分页：status 可选 pending / running / succeeded / failed，before_id 用于翻页
+curl "$PIX_API_BASE/jobs?status=succeeded&limit=20" \
+  -H "Authorization: Bearer $PIX_API_KEY"`, [])
+  const downloadCurl = useMemo(() => String.raw`# 单图任务常用输出：source / pixelized / preview
+curl -L "$PIX_API_BASE/jobs/123/outputs/pixelized" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -o pixelized.png
+
+# 序列帧输出：sprite-sheet / sprite-mosaic / sprite-grid
+curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-sheet" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -o sprite-sheet.png
+
+# 多行动作序列帧可打包下载每行动作图
+curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -o sprite-actions.zip`, [])
 
   async function load() {
     setLoading(true)
@@ -274,26 +356,49 @@ curl -L "${baseUrl}/jobs/123/outputs/pixelized" \\
 
       <section className="grid gap-5 rounded-lg border border-border bg-card p-5 pix-shadow-panel dark:bg-[hsl(var(--pix-dark-card))]">
         <div>
-          <h2 className="flex items-center gap-2 text-xl font-semibold"><Code2 className="h-5 w-5 text-primary" />{text('快速开始', 'Quick start')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{text('以下示例可直接给脚本、游戏编辑器插件或自动化流水线使用。', 'Use these examples from scripts, editor plugins, or automation pipelines.')}</p>
+          <h2 className="flex items-center gap-2 text-xl font-semibold"><Code2 className="h-5 w-5 text-primary" />{text('API 调用文档', 'API reference')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{text('按下面顺序接入：保存令牌 → 检查账号和模型 → 上传参考图（可选）→ 创建任务 → 轮询任务 → 下载结果。', 'Integrate in this order: save token → inspect account/models → upload references (optional) → create jobs → poll jobs → download outputs.')}</p>
         </div>
-        <CodeBlock title={text('1. 创建素材直出任务', '1. Create an asset job')} code={assetCurl} copied={copied} onCopy={(code) => void copy(code, 'asset')} copyKey="asset" />
-        <CodeBlock title={text('2. 上传参考图', '2. Upload a reference image')} code={uploadCurl} copied={copied} onCopy={(code) => void copy(code, 'upload')} copyKey="upload" />
-        <CodeBlock title={text('3. 轮询并下载结果', '3. Poll and download output')} code={pollCurl} copied={copied} onCopy={(code) => void copy(code, 'poll')} copyKey="poll" />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <ApiDocNote title={text('认证', 'Auth')} body={text('所有 /external/v1 接口都支持 Authorization: Bearer <API Key>，也兼容 X-Pix-Api-Key 请求头。', 'All /external/v1 endpoints accept Authorization: Bearer <API Key>, and X-Pix-Api-Key is also supported.')} />
+          <ApiDocNote title={text('幂等', 'Idempotency')} body={text('创建任务建议传 Idempotency-Key；同一账号同一 key 重试会返回同一个任务，避免重复扣点。', 'Pass Idempotency-Key when creating jobs; retries with the same key reuse the same job and avoid duplicate charges.')} />
+          <ApiDocNote title={text('输出类型', 'Outputs')} body={text('单图下载 source / pixelized / preview；序列帧下载 sprite-sheet / sprite-mosaic / sprite-grid 或 sprite-actions.zip。', 'Single-image outputs: source / pixelized / preview; sprite outputs: sprite-sheet / sprite-mosaic / sprite-grid or sprite-actions.zip.')} />
+          <ApiDocNote title={text('权限 Scope', 'Scopes')} body={text('按最小权限创建 Key：jobs:create 创建任务，jobs:read 查询任务，files:read 下载结果，uploads:create 上传图片。', 'Use least-privilege keys: jobs:create, jobs:read, files:read, and uploads:create as needed.')} />
+        </div>
+        <CodeBlock title={text('1. 保存令牌并测试认证', '1. Save token and test auth')} description={text('把 API 页面创建出的令牌保存成环境变量，后续示例可直接复制运行。', 'Store the generated API token as an environment variable; later examples can be copied as-is.')} code={authCurl} copied={copied} onCopy={(code) => void copy(code, 'auth')} copyKey="auth" />
+        <CodeBlock title={text('2. 查询账号、余额和模型', '2. Inspect account, credits, and models')} description={text('用于确认 Key 权限、账号余额和当前可选的生图模型。', 'Use this to verify key scopes, credit balance, and available generation models.')} code={inspectCurl} copied={copied} onCopy={(code) => void copy(code, 'inspect')} copyKey="inspect" />
+        <CodeBlock title={text('3. 上传参考图（可选）', '3. Upload a reference image (optional)')} description={text('上传返回的 path 可以写入 input_image_path，用于图生图或角色参考图。', 'The returned path can be used as input_image_path for image-to-image jobs or character references.')} code={uploadCurl} copied={copied} onCopy={(code) => void copy(code, 'upload')} copyKey="upload" />
+        <CodeBlock title={text('4. 创建素材直出任务', '4. Create an asset job')} description={text('适合游戏图标、道具、UI 小物件等单图素材；创建成功返回 202 和任务 id。', 'Best for icons, props, UI items, and other single-image assets; returns 202 with a job id.')} code={assetCurl} copied={copied} onCopy={(code) => void copy(code, 'asset')} copyKey="asset" />
+        <CodeBlock title={text('5. 创建图生图 / 参考图重绘任务', '5. Create an image-to-image job')} description={text('先上传图片，再把上传结果 path 放到 input_image_path。', 'Upload an image first, then pass the returned path as input_image_path.')} code={imageCurl} copied={copied} onCopy={(code) => void copy(code, 'image')} copyKey="image" />
+        <CodeBlock title={text('6. 创建序列帧任务', '6. Create a sprite-sheet job')} description={text('用于角色行走、攻击、待机等动画；rows × cols 决定动作行和帧数。', 'Use this for walk, attack, idle, and other animations; rows × cols controls action rows and frame count.')} code={spriteCurl} copied={copied} onCopy={(code) => void copy(code, 'sprite')} copyKey="sprite" />
+        <CodeBlock title={text('7. 轮询任务和分页列表', '7. Poll jobs and list pages')} description={text('任务状态通常为 pending / running / succeeded / failed；成功后再下载输出。', 'Job status is usually pending / running / succeeded / failed; download outputs after success.')} code={pollCurl} copied={copied} onCopy={(code) => void copy(code, 'poll')} copyKey="poll" />
+        <CodeBlock title={text('8. 下载输出文件', '8. Download output files')} description={text('下载接口需要 files:read 权限；文件不存在或任务未完成时会返回 404 / 409。', 'Download endpoints require files:read; unavailable files or unfinished jobs return 404 / 409.')} code={downloadCurl} copied={copied} onCopy={(code) => void copy(code, 'download')} copyKey="download" />
       </section>
     </div>
   )
 }
 
-function CodeBlock({ title, code, copied, copyKey, onCopy }: { title: string; code: string; copied: string; copyKey: string; onCopy: (code: string) => void }) {
+function ApiDocNote({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-lg border border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-sky))]/45 p-3 text-sm dark:border-white/10 dark:bg-white/6">
+      <p className="font-semibold text-[hsl(var(--pix-ink))] dark:text-white">{title}</p>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground dark:text-white/62">{body}</p>
+    </div>
+  )
+}
+
+function CodeBlock({ title, description, code, copied, copyKey, onCopy }: { title: string; description?: string; code: string; copied: string; copyKey: string; onCopy: (code: string) => void }) {
   const { text } = useI18n()
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-[hsl(var(--pix-ink))] text-white dark:bg-black/35">
-      <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-2 text-sm">
-        <span className="font-semibold">{title}</span>
-        <Button type="button" size="sm" variant="secondary" onClick={() => onCopy(code)}>{copied === copyKey ? <Check /> : <Clipboard />}{copied === copyKey ? text('已复制', 'Copied') : text('复制', 'Copy')}</Button>
+    <div className="overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-white text-[hsl(var(--pix-ink))] shadow-sm dark:border-white/10 dark:bg-black/35 dark:text-white">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-sky))]/55 px-4 py-2.5 text-sm dark:border-white/10 dark:bg-white/7">
+        <div className="min-w-0">
+          <span className="font-semibold">{title}</span>
+          {description && <p className="mt-1 text-xs leading-5 text-muted-foreground dark:text-white/60">{description}</p>}
+        </div>
+        <Button type="button" size="sm" variant="outline" className="bg-white/80 dark:bg-white/10" onClick={() => onCopy(code)}>{copied === copyKey ? <Check /> : <Clipboard />}{copied === copyKey ? text('已复制', 'Copied') : text('复制', 'Copy')}</Button>
       </div>
-      <pre className="overflow-x-auto p-4 text-xs leading-6"><code>{code}</code></pre>
+      <pre className="overflow-x-auto bg-[hsl(var(--pix-paper))] p-4 text-xs leading-6 text-[hsl(var(--pix-charcoal))] dark:bg-black/25 dark:text-white/88"><code>{code}</code></pre>
     </div>
   )
 }

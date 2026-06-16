@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.86.1] - 2026-06-16
+
+### Changed
+
+- API 页面调用文档扩充为完整接入流程，覆盖认证、账号 / 余额 / 模型查询、上传参考图、素材直出、图生图、序列帧、轮询分页和下载输出示例。
+- 优化 API 文档代码块白天模式配色，使用浅色高对比背景与边框，避免白天模式下大面积黑色代码块过于突兀。
+
 ## [1.86.0] - 2026-06-16
 
 ### Added

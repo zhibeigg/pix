@@ -158,7 +158,7 @@ npm run build
 
 ## 对外 API
 
-普通用户登录后可在网站「API」页面创建、停用或删除长期 API Key，并查看调用文档与 `curl` 示例。页面内置类似 sub2api 的令牌生成器：先在浏览器生成 `pix_live_` + 32 字节随机 hex 的候选令牌，提交创建后才生效；后端会校验格式与唯一性，数据库只保存 hash 与 prefix。API Key 明文只在创建成功时展示一次；列表页只展示名称、prefix、scope、创建时间、最后使用时间和撤销时间。外部程序使用 `Authorization: Bearer <api_key>` 调用 `/external/v1/...`，任务仍归属该 key 对应用户，并复用现有任务创建、扣点预留、队列入队、作品权限和文件下载逻辑。
+普通用户登录后可在网站「API」页面创建、停用或删除长期 API Key，并查看详细调用文档与 `curl` 示例。页面内置类似 sub2api 的令牌生成器：先在浏览器生成 `pix_live_` + 32 字节随机 hex 的候选令牌，提交创建后才生效；后端会校验格式与唯一性，数据库只保存 hash 与 prefix。API Key 明文只在创建成功时展示一次；列表页只展示名称、prefix、scope、创建时间、最后使用时间和撤销时间。外部程序使用 `Authorization: Bearer <api_key>` 调用 `/external/v1/...`，任务仍归属该 key 对应用户，并复用现有任务创建、扣点预留、队列入队、作品权限和文件下载逻辑。API 页面已覆盖认证、账号 / 余额 / 模型查询、上传参考图、素材直出、图生图、序列帧、轮询分页和下载输出等接入步骤。
 
 可分配的 scope：
 
@@ -312,7 +312,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.86.0`。
+当前版本：`1.86.1`。
 
 版本号格式为 `A.B.C`：
 
