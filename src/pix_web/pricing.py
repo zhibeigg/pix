@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -47,3 +49,16 @@ def get_price(db: Session, key: str) -> int:
     if not rule.enabled:
         raise PricingDisabledError(f"价格规则已禁用: {key}")
     return max(0, int(rule.price_credits))
+
+
+def apply_discount(amount: int, rate: float) -> int:
+    """按折扣倍率打折后的实扣点数。
+
+    规则：原价>0 时向下取整且保底 1 点（不因折扣变免费）；
+    rate>=1 或 amount<=0 原样返回；rate<=0 返回 0（限免）。
+    """
+    if amount <= 0 or rate >= 1.0:
+        return amount
+    if rate <= 0.0:
+        return 0
+    return max(1, math.floor(amount * rate))
