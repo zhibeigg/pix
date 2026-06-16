@@ -144,6 +144,8 @@ npm run build
 
 管理后台「性能监控」面板提供生图任务的实时可观测：成功率、活跃并发、任务量与成功率时间序列、各 provider（胜算云 / Packy / Crazyrouter）成功率对比、失败分类与最近任务流，可在 `1h / 24h / 7d` 范围间切换，前端每 8 秒轮询刷新。数据来自后端 `GET /admin/performance-metrics` 聚合接口；`generation_jobs.provider` 列（迁移 `0016`）由 worker 在任务落库时写入最终生效 provider，因此 provider 维度只覆盖该列上线后的新任务，历史任务归入「未知」。
 
+管理后台「上游供应商」面板统一管理生图上游：从内置预设（胜算云 / Packy / Crazyrouter / OpenAI / Midjourney / Ideogram / Fal / Kling）或「自定义（OpenAI 兼容）」一键新增供应商，填入 API Key 即可；支持编辑、删除、启停与调整 `priority`。供应商配置以数据库 `image_providers` 表为单一真相源（迁移 `0017`），后端 `GET/POST/PUT/DELETE /admin/providers` 提供增删改查、`GET /admin/providers/presets` 返回预设目录。首次启动会把 `config.toml` 的 `[[image_providers]]` 与 `.env` 各家 Key 导入数据库做种子；之后改动即时生效、无需重启（worker 每个任务都通过 `load_managed_pix_config` 重新加载有效配置并叠加数据库供应商）。API Key 写入后仅展示「已配置 / 未配置」状态、提交空值保持不变，与其它密钥设置一致。
+
 ## 通用生图 Provider 调用规范
 
 Pix 现在通过 logical model → provider candidates 的方式调用生图上游。默认可配置 Packy、胜算云（ShengSuanYun）与 Crazyrouter 三类 Provider：同一个模型（如 `gpt-image-2`）可以同时映射到多家 Provider，运行时按 `priority` 排序（默认 Packy=10 → 胜算云=20 → Crazyrouter=30）；网络错误、超时、429/5xx、空响应、响应结构异常、Provider 临时不可用、鉴权/余额类错误会按 `image_gen.failover_on` 自动切换下一家。
