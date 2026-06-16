@@ -483,6 +483,8 @@ export const zhCN = {
     next: '下一页',
     details: '详情',
     expanded: '已展开',
+    reuse: '复用',
+    reuseTitle: '回到工作台并填充这次生成的提示词和参数',
     retry: '重试',
     retrying: '重试中…',
     delete: '删除',

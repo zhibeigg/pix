@@ -13,7 +13,7 @@ import { LandingSections } from './components/LandingSections'
 import { NotFoundPage } from './components/NotFoundPage'
 import { SetupWizard } from './components/SetupWizard'
 import { GalleryPage } from './pages/GalleryPage'
-import { WorkspacePage, type WorkMode } from './pages/WorkspacePage'
+import { WorkspacePage, type ReuseJobSeed, type WorkMode } from './pages/WorkspacePage'
 
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 const BillingPage = lazy(() => import('./pages/BillingPage').then((m) => ({ default: m.BillingPage })))
@@ -97,10 +97,12 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null)
   const [setupLoading, setSetupLoading] = useState(true)
   const [mode, setMode] = useState<WorkMode>('single')
+  const [reuseJobSeed, setReuseJobSeed] = useState<ReuseJobSeed | null>(null)
   const [selectedPackId, setSelectedPackId] = useState<number | null>(null)
   const [selectedPackJobs, setSelectedPackJobs] = useState<GenerationJob[]>([])
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
   const [selectedRawJobId, setSelectedRawJobId] = useState<number | null>(null)
+  const reuseRevisionRef = useRef(0)
   const pollFailuresRef = useRef(0)
   const handledPaymentReturnRef = useRef('')
   const jobStatusSnapshotRef = useRef<Map<number, string>>(new Map())
@@ -210,6 +212,14 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   const refreshCurrent = useCallback(() => { void refreshCore() }, [refreshCore])
   const selectJobById = useCallback((job: GenerationJob) => { setSelectedJobId(job.id) }, [])
+  const reuseJobInWorkbench = useCallback((job: GenerationJob) => {
+    reuseRevisionRef.current += 1
+    setReuseJobSeed({ revision: reuseRevisionRef.current, job })
+    setSelectedJobId(job.id)
+    setMode('single')
+    navigate('workspace')
+    setMessage(text(`已复用任务 #${job.id} 的提示词和参数。`, `Reused prompt and parameters from job #${job.id}.`), 'success')
+  }, [navigate, setMessage, text])
   const cancelPackExpand = useCallback(() => { setPackExpandConfirm(null) }, [])
   const cancelGalleryExpand = useCallback(() => { setGalleryExpandConfirm(null) }, [])
   const cancelDelete = useCallback(() => { setDeleteConfirm(null) }, [])
@@ -419,6 +429,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setAdminDashboard(null)
     setSelectedJobId(null)
     setSelectedRawJobId(null)
+    setReuseJobSeed(null)
     setRetryingJobId(null)
     setMessage(text('已退出', 'Signed out'))
   }
@@ -806,10 +817,10 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           onNavigate={navigate}
         >
           <Suspense fallback={<div className="grid min-h-[calc(100vh-160px)] place-items-center px-4 text-sm text-muted-foreground">{t('app.checkingSetup')}</div>}>
-            {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
+            {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} reuseJobSeed={reuseJobSeed} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'raw-image' && <RawImagePage pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
-            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onSaveSequenceAlignment={saveSequenceAlignment} />}
-            {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
+            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onSaveSequenceAlignment={saveSequenceAlignment} />}
+            {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
             {page === 'rewards' && <RewardsPage token={token} onRefresh={refreshCurrent} />}
             {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={refreshCurrent} onAdjustCredits={adjustCredits} onAdjustCreditsBatch={adjustCreditsBatch} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onPublishAnnouncement={publishAnnouncement} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} onAdminAnnouncements={adminAnnouncements} onCreateAnnouncement={createAnnouncement} onUpdateAnnouncement={updateAnnouncement} onDeleteAnnouncement={deleteAnnouncement} onTestAnnouncementEmail={testAnnouncementEmail} onListProviders={listProviders} onListProviderPresets={listProviderPresets} onCreateProvider={createProvider} onUpdateProvider={updateProvider} onDeleteProvider={deleteProvider} token={token} />}

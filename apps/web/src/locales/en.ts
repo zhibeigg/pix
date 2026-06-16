@@ -483,6 +483,8 @@ export const en = {
     next: 'Next',
     details: 'Details',
     expanded: 'Expanded',
+    reuse: 'Reuse',
+    reuseTitle: 'Return to the workspace and refill this prompt and parameters',
     retry: 'Retry',
     retrying: 'Retrying…',
     delete: 'Delete',

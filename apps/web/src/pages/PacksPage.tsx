@@ -28,11 +28,12 @@ interface PacksPageProps {
   onAddJobToPack: (pack: AssetPack, job: GenerationJob) => Promise<void>
   onRemoveJobFromPack: (pack: AssetPack, job: GenerationJob) => Promise<void>
   onSelectJob: (job: GenerationJob) => void
+  onReuseJob?: (job: GenerationJob) => void
   onCandidatePixelize: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>
   onRefresh: () => void
 }
 
-export function PacksPage({ packs, packQuota, selectedPack, selectedPackId, selectedPackJobs, jobs, selectedJobId, downloading, onSelectPack, onClearSelection, onCreatePack, onRenamePack, onToggleArchive, onDeletePack, onExpandPackLimit, onDownloadPack, onAddJobToPack, onRemoveJobFromPack, onSelectJob, onCandidatePixelize, onRefresh }: PacksPageProps) {
+export function PacksPage({ packs, packQuota, selectedPack, selectedPackId, selectedPackJobs, jobs, selectedJobId, downloading, onSelectPack, onClearSelection, onCreatePack, onRenamePack, onToggleArchive, onDeletePack, onExpandPackLimit, onDownloadPack, onAddJobToPack, onRemoveJobFromPack, onSelectJob, onReuseJob, onCandidatePixelize, onRefresh }: PacksPageProps) {
   const { t } = useI18n()
   const [dragOver, setDragOver] = useState(false)
   const successfulJobs = jobs.filter((job) => job.status === 'succeeded' && job.outputs.length > 0)
@@ -68,9 +69,9 @@ export function PacksPage({ packs, packQuota, selectedPack, selectedPackId, sele
             <div className="flex items-center gap-2 text-sm font-semibold"><PackagePlus className="h-4 w-4 text-primary" />{selectedPack ? t('packs.dropToSave') : t('packs.selectFirst')}</div>
             {selectedPack && <div className="flex flex-wrap gap-2"><Badge variant="outline">{t('packs.capacity', { used: selectedPack.item_count, capacity: selectedPack.capacity })}</Badge><Badge variant={selectedPack.remaining_capacity > 0 ? 'success' : 'warning'}>{t('packs.remaining', { count: selectedPack.remaining_capacity })}</Badge></div>}
           </div>
-          {selectedPack ? <GalleryGrid jobs={selectedPackJobs} subtitle={t('pages.packs.packSubtitle', { name: selectedPack.name })} selectedJobId={selectedJobId} onSelect={onSelectJob} onCandidatePixelize={onCandidatePixelize} onRemoveFromPack={(job) => onRemoveJobFromPack(selectedPack, job)} /> : <Alert variant="info">{t('packs.selectHint')}</Alert>}
+          {selectedPack ? <GalleryGrid jobs={selectedPackJobs} subtitle={t('pages.packs.packSubtitle', { name: selectedPack.name })} selectedJobId={selectedJobId} onSelect={onSelectJob} onReuseJob={onReuseJob} onCandidatePixelize={onCandidatePixelize} onRemoveFromPack={(job) => onRemoveJobFromPack(selectedPack, job)} /> : <Alert variant="info">{t('packs.selectHint')}</Alert>}
         </section>
-        <GalleryGrid jobs={successfulJobs} subtitle={selectedPack ? t('packs.galleryHintSelected') : t('packs.galleryHint')} selectedJobId={selectedJobId} onSelect={onSelectJob} onCandidatePixelize={onCandidatePixelize} onSaveToPack={selectedPack ? (job) => onAddJobToPack(selectedPack, job) : undefined} draggableSucceeded={Boolean(selectedPack)} />
+        <GalleryGrid jobs={successfulJobs} subtitle={selectedPack ? t('packs.galleryHintSelected') : t('packs.galleryHint')} selectedJobId={selectedJobId} onSelect={onSelectJob} onReuseJob={onReuseJob} onCandidatePixelize={onCandidatePixelize} onSaveToPack={selectedPack ? (job) => onAddJobToPack(selectedPack, job) : undefined} draggableSucceeded={Boolean(selectedPack)} />
       </div>
     </div>
   )

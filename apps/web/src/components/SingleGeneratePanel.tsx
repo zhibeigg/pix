@@ -1,9 +1,9 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
-import type { ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule } from '../types'
+import type { GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -17,7 +17,7 @@ import { PixPanel } from './pix/PixPanel'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
 
-type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; onSubmit: (payload: JobCreateRequest) => Promise<void> }
+type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; reuseJobSeed?: { revision: number; job: GenerationJob } | null; onSubmit: (payload: JobCreateRequest) => Promise<void> }
 type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
 
 const PROMPT_MAX_LENGTH = 3000
@@ -111,13 +111,58 @@ function modelOptionLabel(model: ImageModelInfo) {
   return providers > 1 ? `${model.label || model.id} · ${providers} providers` : (model.label || model.id)
 }
 
-export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, onSubmit }: Props) {
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function numberValue(value: unknown): number | null {
+  const next = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
+  return Number.isFinite(next) ? next : null
+}
+
+function booleanValue(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null
+}
+
+function pixelSizeValue(value: unknown): string | null {
+  if (!Array.isArray(value) || value.length !== 2) return null
+  const width = numberValue(value[0])
+  const height = numberValue(value[1])
+  return width && height ? `${Math.round(width)}x${Math.round(height)}` : null
+}
+
+function assetKindValue(value: unknown): AssetKindChoice | null {
+  return value === 'item_icon' || value === 'ui_component' || value === 'tile_texture' || value === 'game_logo' ? value : null
+}
+
+function edgeStyleValue(value: unknown): EdgeStyleChoice | null {
+  return value === 'hard' || value === 'outline' || value === 'feather' ? value : null
+}
+
+function rowPromptValues(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => stringValue(item)) : []
+}
+
+function reusableWorkbenchType(job: GenerationJob): JobType {
+  if (job.job_type === 'sprite_sheet') return 'sprite_sheet'
+  if (job.job_type === 'local_pixelize' || job.job_type === 'repixelize') return 'local_pixelize'
+  return 'asset'
+}
+
+export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, reuseJobSeed, onSubmit }: Props) {
   const { text } = useI18n()
   const [jobType, setJobType] = useState<JobType>('asset')
   const [imageModel, setImageModel] = useState(imageModels.default)
   const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
   const selectedModelInfo = useMemo(() => availableImageModels.find((item) => item.id === imageModel), [availableImageModels, imageModel])
   const selectedModelSupportsI2I = supportsImageToImage(selectedModelInfo)
+  const skipNextModeResetRef = useRef(false)
+  const skipNextAssetResetRef = useRef(false)
+  const lastAppliedReuseRevisionRef = useRef<number | null>(null)
   const [assetName, setAssetName] = useState(() => text('冰霜之心', 'Frost Heart'))
   const [assetKind, setAssetKind] = useState<AssetKindChoice>('item_icon')
   const [assetExtraPrompt, setAssetExtraPrompt] = useState('')
@@ -202,8 +247,9 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     }
   }, [availableImageModels, imageModel, imageModels.default])
 
-  // 模式切换时重置默认参数
+  // 模式切换时重置默认参数；作品复用会一次性回填旧参数，跳过对应的自动默认值覆盖。
   useEffect(() => {
+    if (skipNextModeResetRef.current) { skipNextModeResetRef.current = false; return }
     if (jobType === 'asset') { setPixelSize('16x16'); setColors(8); setRemoveBg(true); setEdgeStyle('hard') }
     else if (jobType === 'sprite_sheet') { setPixelSize('64x64'); setColors(16); setRemoveBg(false); setFps(8); setSpritePreset('horizontal'); setRows(1); setCols(8); setRowPrompts(['']) }
     else { setPixelSize('128x128'); setColors(16); setRemoveBg(true) }
@@ -212,6 +258,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   // asset_kind 切换时重置常用默认：平铺纹理铺满画布；Logo 走宽幅透明 PNG，不额外描边。
   useEffect(() => {
     if (jobType !== 'asset') return
+    if (skipNextAssetResetRef.current) { skipNextAssetResetRef.current = false; return }
     if (assetKind === 'tile_texture') {
       setPixelSize('32x32'); setColors(12); setRemoveBg(false); setEdgeStyle('hard')
       // 切到平铺纹理时清掉之前的参考图（不支持）
@@ -224,6 +271,78 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       setPixelSize('32x32'); setColors(12); setRemoveBg(true); setEdgeStyle('outline')
     }
   }, [assetKind, jobType])
+
+  useEffect(() => {
+    if (!reuseJobSeed || lastAppliedReuseRevisionRef.current === reuseJobSeed.revision) return
+    lastAppliedReuseRevisionRef.current = reuseJobSeed.revision
+    const job = reuseJobSeed.job
+    const params = asRecord(job.params_json)
+    const pixelize = asRecord(params?.pixelize)
+    const sprite = asRecord(params?.sprite)
+    const asset = asRecord(params?.asset)
+    const nextJobType = reusableWorkbenchType(job)
+    const nextAssetKind = assetKindValue(asset?.asset_kind) ?? 'item_icon'
+
+    if (nextJobType !== jobType) skipNextModeResetRef.current = true
+    if (nextJobType === 'asset' && nextAssetKind !== assetKind) skipNextAssetResetRef.current = true
+    setJobType(nextJobType)
+
+    const model = stringValue(params?.image_model)
+    if (model && availableImageModels.some((item) => item.id === model)) setImageModel(model)
+    else if (!model) setImageModel(imageModels.default || availableImageModels[0]?.id || 'image2')
+
+    const reusedPixelSize = pixelSizeValue(pixelize?.output_size)
+    if (reusedPixelSize) setPixelSize(reusedPixelSize)
+    const reusedColors = numberValue(pixelize?.colors)
+    if (reusedColors !== null) setColors(Math.max(1, Math.round(reusedColors)))
+    const reusedRemoveBg = booleanValue(pixelize?.remove_bg)
+    if (reusedRemoveBg !== null) setRemoveBg(reusedRemoveBg)
+    const reusedEdgeStyle = edgeStyleValue(pixelize?.edge_style)
+    if (reusedEdgeStyle) setEdgeStyle(reusedEdgeStyle)
+    setSkipVl(Boolean(params?.skip_vl))
+
+    if (nextJobType === 'sprite_sheet') {
+      const nextRows = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(numberValue(sprite?.rows) ?? 1)))
+      const nextCols = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(numberValue(sprite?.cols) ?? 8)))
+      const nextFps = Math.max(1, Math.min(60, Math.round(numberValue(sprite?.fps) ?? 8)))
+      const nextRowPrompts = ensureRowPromptsLength(rowPromptValues(sprite?.row_prompts), nextRows)
+      setPrompt(job.prompt?.trim() || '')
+      setRows(nextRows)
+      setCols(nextCols)
+      setFps(nextFps)
+      setRowPrompts(nextRowPrompts)
+      setSpritePreset('custom')
+      const referencePath = stringValue(sprite?.reference_image_path)
+      setRefImagePath(referencePath)
+      setRefImageUrl('')
+      setRefUploadMessage(referencePath ? text('已复用原任务的参考图路径。', 'Reused the original job reference image path.') : '')
+      setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('')
+      setInputImagePath(''); setUploadUrl(''); setUploadMessage('')
+      setRemoveBg(false)
+      return
+    }
+
+    if (nextJobType === 'local_pixelize') {
+      setInputImagePath(job.input_image_path ?? '')
+      setUploadUrl(signedFileUrl(job.input_image_url ?? undefined))
+      setUploadMessage(job.input_image_path ? text('已复用原任务的输入图片。', 'Reused the original input image.') : '')
+      setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('')
+      setRefImagePath(''); setRefImageUrl(''); setRefUploadMessage('')
+      return
+    }
+
+    setAssetKind(nextAssetKind)
+    const assetSubject = stringValue(asset?.name) || job.prompt?.trim() || ''
+    setAssetName(assetSubject)
+    setAssetExtraPrompt(stringValue(asset?.extra_prompt))
+    setPrompt(job.prompt?.trim() || assetSubject)
+    const referencePath = job.input_image_path ?? ''
+    setAssetRefPath(referencePath)
+    setAssetRefUrl(signedFileUrl(job.input_image_url ?? undefined))
+    setAssetRefMessage(referencePath ? text('已复用原任务的参考图。', 'Reused the original reference image.') : '')
+    setRefImagePath(''); setRefImageUrl(''); setRefUploadMessage('')
+    setInputImagePath(''); setUploadUrl(''); setUploadMessage('')
+  }, [availableImageModels, assetKind, imageModels.default, jobType, reuseJobSeed, text])
 
   // 应用预设
   function applyPreset(preset: SpritePreset) {
