@@ -414,6 +414,12 @@ export type PricingRule = {
   updated_at: string
 }
 
+export type PricingDiscount = {
+  active: boolean
+  rate: number
+  label: string
+}
+
 export type SettingType = 'string' | 'number' | 'boolean' | 'textarea' | 'select' | 'secret' | 'status'
 
 export type PublicAnnouncement = {

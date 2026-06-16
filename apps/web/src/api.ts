@@ -22,6 +22,7 @@ import type {
   PaymentCheckout,
   PaymentOrder,
   PricingRule,
+  PricingDiscount,
   PublicAnnouncement,
   ReferralSettlement,
   ReferralSummary,
@@ -355,6 +356,9 @@ export const api = {
   },
   pricing(token?: string | null) {
     return request<PricingRule[]>('/pricing', {}, token)
+  },
+  pricingDiscount(token?: string | null) {
+    return request<PricingDiscount>('/pricing/discount', {}, token)
   },
   imageModels() {
     return request<ImageModelsResponse>('/settings/image-models')
