@@ -44,6 +44,7 @@ def create_api_key(
         name=req.name,
         scopes=req.scopes,
         expires_at=req.expires_at,
+        custom_key=req.custom_key,
     )
     return ApiKeyCreateResponse(key=raw_key, item=ApiKeyResponse.model_validate(row))
 

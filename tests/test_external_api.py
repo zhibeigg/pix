@@ -84,6 +84,26 @@ class ExternalApiTests(unittest.TestCase):
         self.assertFalse(revoked.json()["enabled"])
         self.assertIsNotNone(revoked.json()["revoked_at"])
 
+    def test_api_key_create_accepts_pre_generated_token_once(self) -> None:
+        custom_key = "pix_live_" + "a" * 64
+        response = self.client.post(
+            "/api-keys",
+            headers={"Authorization": f"Bearer {self.jwt}"},
+            json={"name": "Generated", "scopes": ["me:read"], "custom_key": custom_key},
+        )
+        self.assertEqual(response.status_code, 201, response.text)
+        self.assertEqual(response.json()["key"], custom_key)
+        row = self.db.get(ExternalApiKey, response.json()["item"]["id"])
+        self.assertIsNotNone(row)
+        self.assertEqual(row.key_hash, hash_api_key(custom_key))
+
+        duplicate = self.client.post(
+            "/api-keys",
+            headers={"Authorization": f"Bearer {self.jwt}"},
+            json={"name": "Duplicate", "scopes": ["me:read"], "custom_key": custom_key},
+        )
+        self.assertEqual(duplicate.status_code, 409, duplicate.text)
+
     def test_external_api_key_auth_and_scope_enforcement(self) -> None:
         raw = self._create_key(scopes=["me:read"])
         me = self.client.get("/external/v1/me", headers={"X-Pix-Api-Key": raw})

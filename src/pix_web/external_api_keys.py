@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -26,6 +27,8 @@ API_KEY_SCOPES: tuple[str, ...] = (
 )
 DEFAULT_API_KEY_SCOPES: tuple[str, ...] = API_KEY_SCOPES
 API_KEY_PREFIX = "pix_live_"
+API_KEY_HEX_BYTES = 32
+API_KEY_PATTERN = re.compile(r"^pix_live_[A-Za-z0-9_-]{32,128}$")
 
 
 @dataclass(frozen=True)
@@ -59,7 +62,19 @@ def hash_api_key(value: str) -> str:
 
 
 def generate_api_key() -> str:
-    return f"{API_KEY_PREFIX}{secrets.token_urlsafe(32)}"
+    return f"{API_KEY_PREFIX}{secrets.token_hex(API_KEY_HEX_BYTES)}"
+
+
+def normalize_custom_api_key(value: str | None) -> str | None:
+    key = (value or "").strip()
+    if not key:
+        return None
+    if not API_KEY_PATTERN.fullmatch(key):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="API Key 格式无效：必须以 pix_live_ 开头，并仅包含字母、数字、下划线或连字符",
+        )
+    return key
 
 
 def key_display_prefix(value: str) -> str:
@@ -73,13 +88,17 @@ def create_external_api_key(
     name: str,
     scopes: list[str] | None = None,
     expires_at: datetime | None = None,
+    custom_key: str | None = None,
 ) -> tuple[str, ExternalApiKey]:
-    raw_key = generate_api_key()
+    raw_key = normalize_custom_api_key(custom_key) or generate_api_key()
+    key_hash = hash_api_key(raw_key)
+    if db.scalar(select(ExternalApiKey.id).where(ExternalApiKey.key_hash == key_hash)) is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="API Key 已存在，请重新生成")
     row = ExternalApiKey(
         user_id=user.id,
         name=(name or "").strip()[:120] or "API Key",
         key_prefix=key_display_prefix(raw_key),
-        key_hash=hash_api_key(raw_key),
+        key_hash=key_hash,
         scopes=normalize_api_key_scopes(scopes),
         enabled=True,
         expires_at=expires_at,

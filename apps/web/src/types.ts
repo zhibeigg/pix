@@ -70,6 +70,7 @@ export type ApiKeyCreatePayload = {
   name: string
   scopes: string[]
   expires_at?: string | null
+  custom_key?: string | null
 }
 
 export type ApiKeyUpdatePayload = {

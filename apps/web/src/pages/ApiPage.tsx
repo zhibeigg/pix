@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Clipboard, Code2, KeyRound, RotateCw, ShieldCheck, Trash2 } from 'lucide-react'
+import { Check, Clipboard, Code2, KeyRound, RotateCw, ShieldCheck, Sparkles, Trash2 } from 'lucide-react'
 import { api, API_BASE } from '../api'
 import { useI18n } from '../i18n'
 import type { ApiKeyItem } from '../types'
@@ -7,6 +7,8 @@ import { PageHeader } from '../components/PageHeader'
 import { Alert } from '../components/ui/alert'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
+
+const API_TOKEN_PREFIX = 'pix_live_'
 
 const API_SCOPES = [
   'me:read',
@@ -56,6 +58,16 @@ async function copyText(value: string) {
   return ok
 }
 
+function generateApiTokenCandidate() {
+  const bytes = new Uint8Array(32)
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes)
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256)
+  }
+  return `${API_TOKEN_PREFIX}${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`
+}
+
 export function ApiPage({ token }: { token: string }) {
   const { language, text } = useI18n()
   const [keys, setKeys] = useState<ApiKeyItem[]>([])
@@ -65,6 +77,7 @@ export function ApiPage({ token }: { token: string }) {
   const [name, setName] = useState('')
   const [selectedScopes, setSelectedScopes] = useState<string[]>(API_SCOPES)
   const [expiresAt, setExpiresAt] = useState('')
+  const [tokenCandidate, setTokenCandidate] = useState(() => generateApiTokenCandidate())
   const [createdKey, setCreatedKey] = useState('')
   const [copied, setCopied] = useState('')
   const baseUrl = useMemo(() => externalBaseUrl(), [])
@@ -116,11 +129,13 @@ curl -L "${baseUrl}/jobs/123/outputs/pixelized" \\
         name: name.trim() || text('外部调用 Key', 'External API key'),
         scopes: selectedScopes.length > 0 ? selectedScopes : API_SCOPES,
         expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+        custom_key: tokenCandidate.trim(),
       }
       const result = await api.createApiKey(token, payload)
       setCreatedKey(result.key)
       setName('')
       setExpiresAt('')
+      setTokenCandidate(generateApiTokenCandidate())
       setSelectedScopes(API_SCOPES)
       await load()
     } catch (err) {
@@ -211,10 +226,21 @@ curl -L "${baseUrl}/jobs/123/outputs/pixelized" \\
           </div>
           <div className="grid content-end gap-2">
             <label className="grid gap-1 text-sm font-medium">
+              <span className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-primary" />{text('令牌生成', 'Token generation')}</span>
+              <div className="grid gap-2 rounded-md border border-border bg-background p-2">
+                <input value={tokenCandidate} readOnly className="min-w-0 rounded border border-input bg-muted/50 px-2 py-1.5 font-mono text-[11px]" />
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={() => setTokenCandidate(generateApiTokenCandidate())}><Sparkles />{text('重新生成', 'Regenerate')}</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => void copy(tokenCandidate, 'candidate-key')}>{copied === 'candidate-key' ? <Check /> : <Clipboard />}{copied === 'candidate-key' ? text('已复制', 'Copied') : text('复制', 'Copy')}</Button>
+                </div>
+              </div>
+              <span className="text-xs font-normal text-muted-foreground">{text('类似 sub2api 的 32 字节随机令牌；点击创建后才会生效，服务端仅保存哈希。', 'A sub2api-style 32-byte random token; it becomes active only after creation and is stored as a hash.')}</span>
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
               {text('过期时间（可选）', 'Expires at (optional)')}
               <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
             </label>
-            <Button onClick={() => void createKey()} disabled={saving}><ShieldCheck />{saving ? text('创建中…', 'Creating…') : text('创建 Key', 'Create key')}</Button>
+            <Button onClick={() => void createKey()} disabled={saving}><ShieldCheck />{saving ? text('创建中…', 'Creating…') : text('创建令牌', 'Create token')}</Button>
           </div>
         </div>
 

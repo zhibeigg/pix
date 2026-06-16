@@ -219,6 +219,7 @@ class ApiKeyCreateRequest(BaseModel):
     name: str = Field(default="", max_length=120)
     scopes: list[str] = Field(default_factory=list, max_length=16)
     expires_at: datetime | None = None
+    custom_key: str | None = Field(default=None, max_length=160)
 
 
 class ApiKeyUpdateRequest(BaseModel):

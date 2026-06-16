@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.86.0] - 2026-06-16
+
+### Added
+
+- API 页面新增类似 sub2api 的令牌生成器：浏览器端可预生成 `pix_live_` + 32 字节随机 hex 的候选令牌、复制或重新生成，提交创建后后端校验格式与唯一性，并继续只保存 hash 与 prefix。
+
+### Changed
+
+- 对外 API Key 默认生成格式改为 `pix_live_` + 32 字节随机 hex，便于与页面令牌生成预览保持一致。
+
 ## [1.85.1] - 2026-06-16
 
 ### Fixed
