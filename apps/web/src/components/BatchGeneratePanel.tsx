@@ -6,7 +6,7 @@ import { useI18n } from '../i18n'
 import { useConfirm } from './ConfirmDialog'
 import type { CreditBalance, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule, UploadResponse } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
-import { applyDiscount } from '../lib/pricing'
+import { applyDiscount, discountPercentOff, discountZhe } from '../lib/pricing'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -148,10 +148,12 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
   return (
     <PixPanel eyebrow={t('batchForm.eyebrow')} title={t('batchForm.title')} description={t('batchForm.description')} action={(
       <div className="flex flex-wrap items-center gap-2">
+        {/* Batch 价格走 i18next 插值 key（taskBadge），无法塞进 EstimateBadge 的 text(zh,en) 结构，
+            因此这里复用已折后的 total，并在旁边单独渲染折扣标签 + 原价划线。 */}
         <Badge variant={insufficientCredits ? 'danger' : 'info'}>{t('batchForm.taskBadge', { count: taskCount, total: totalPrice })}</Badge>
         {discountActive && (
           <span className="inline-flex items-center gap-1 text-xs">
-            <span className="font-semibold text-amber-600">{(discount?.label || '').trim() || text(`${Math.round((discount?.rate ?? 1) * 100) / 10} 折`, `${Math.round((1 - (discount?.rate ?? 1)) * 100)}% OFF`)}</span>
+            <span className="font-semibold text-amber-600">{(discount?.label || '').trim() || text(`${discountZhe(discount?.rate ?? 1)} 折`, `${discountPercentOff(discount?.rate ?? 1)}% OFF`)}</span>
             <del className="opacity-60">{text(`${originalTotalPrice} 点`, `${originalTotalPrice} credits`)}</del>
           </span>
         )}
