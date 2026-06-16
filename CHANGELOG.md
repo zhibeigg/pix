@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.85.1] - 2026-06-16
+
+### Fixed
+
+- 修复管理后台顶部设置标签漏展示「价格折扣」分组的问题，使折扣总开关、折扣倍率和折扣标签可直接在后台配置。
+
 ## [1.85.0] - 2026-06-16
 
 ### Added

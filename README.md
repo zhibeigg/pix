@@ -148,7 +148,7 @@ npm run build
 
 管理后台「用户与点数」支持单用户调整、当前用户列表多选、全选当前列表，以及通过 `POST /admin/users/adjust-credits-batch` 对全部 active 用户批量补点 / 扣点。批量操作会为每个目标用户写入独立 `adjustment` 点数流水，并在提交前显示目标范围、每人点数变化与备注，便于运营补偿或活动发放。
 
-管理后台「系统设置 → 价格折扣」可开启全局点数折扣：设置 `pricing.discount_enabled` 开关、`pricing.discount_rate` 倍率（0~1，如 0.8 = 8 折，0 = 限免）与可选 `pricing.discount_label` 促销文案。折扣只作用于生成任务（asset / 文生图 / 图生图 / 序列帧），按「先算总价再打折、向下取整、原价>0 保底 1 点」扣点，并在创建任务时锁定；作品库 / 素材包扩容不受影响。前端通过公开接口 `GET /pricing/discount`（返回 `{active, rate, label}`）展示原价划线 + 折后价 + 折扣标签。折扣实扣点数会写入任务计费快照（`billing.original_total_points` / `total_points` / `discount`）。
+管理后台「价格折扣」可开启全局点数折扣：设置 `pricing.discount_enabled` 开关、`pricing.discount_rate` 倍率（0~1，如 0.8 = 8 折，0 = 限免）与可选 `pricing.discount_label` 促销文案。折扣只作用于生成任务（asset / 文生图 / 图生图 / 序列帧），按「先算总价再打折、向下取整、原价>0 保底 1 点」扣点，并在创建任务时锁定；作品库 / 素材包扩容不受影响。前端通过公开接口 `GET /pricing/discount`（返回 `{active, rate, label}`）展示原价划线 + 折后价 + 折扣标签。折扣实扣点数会写入任务计费快照（`billing.original_total_points` / `total_points` / `discount`）。
 
 管理后台「任务与作品」支持按作品库视角查看最新全站任务：管理员可按状态、用户、任务 ID / prompt / 批次 / 用户邮箱筛选，并直接预览、下载任务产物；同页保留操作列表用于重试失败任务、取消排队 / 运行任务并退款、标记失败并退款。后端 `GET /admin/jobs?limit=500` 返回 `JobResponse[]`，其中 `user_id` 暴露任务归属，`outputs` 继续包含受保护文件 URL；管理员前端使用自己的登录 token 调用 `/files` 打开这些产物。
 
@@ -312,7 +312,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.85.0`。
+当前版本：`1.85.1`。
 
 版本号格式为 `A.B.C`：
 
