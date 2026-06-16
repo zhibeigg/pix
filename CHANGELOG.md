@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 收敛过期 Dependabot PR：在当前 Web-only 仓库结构上同步仍有效的运行时 / 开发依赖下限，并保持已删除的 GitHub Actions 工作流与 PySide6 桌面 GUI 依赖不再恢复。
 - UI 组件（`asset_kind=ui_component`）素材直出的源图尺寸改为 `auto`：前端单张 / 批量任务显式提交 `image_size=auto`，后端也为旧前端漏传尺寸的 UI 组件提供同样兜底。
 - 候选 VL 评分默认模型切换为 `claude-opus-4-8`，并改为 multipart 直接上传候选图片给模型，不再使用 chat `image_url` / 网格占位式模拟图片结构。
 - 背景去除默认算法切换为参考项目 `pixel_bg` 方法：边框中位数 key 色探测、`t_core/t_grow` 双阈值连通域生长、key 色去溢色与硬边二值 Alpha，并统一替换普通素材、Pixel Grid、contact sheet 与 sprite mosaic 的去背景入口。

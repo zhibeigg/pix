@@ -200,13 +200,17 @@ def sample_majority(image, x_coords, y_coords, max_samples=128, iters=6, seed=0)
 
     for j in range(ny):
         y0, y1 = int(y[j]), int(y[j + 1])
-        y0 = np.clip(y0, 0, H); y1 = np.clip(y1, 0, H)
-        if y1 <= y0: y1 = min(y0 + 1, H)
+        y0 = np.clip(y0, 0, H)
+        y1 = np.clip(y1, 0, H)
+        if y1 <= y0:
+            y1 = min(y0 + 1, H)
 
         for i in range(nx):
             x0, x1 = int(x[i]), int(x[i + 1])
-            x0 = np.clip(x0, 0, W); x1 = np.clip(x1, 0, W)
-            if x1 <= x0: x1 = min(x0 + 1, W)
+            x0 = np.clip(x0, 0, W)
+            x1 = np.clip(x1, 0, W)
+            if x1 <= x0:
+                x1 = min(x0 + 1, W)
 
             cell = img[y0:y1, x0:x1].reshape(-1, C)
             n = cell.shape[0]
@@ -223,8 +227,10 @@ def sample_majority(image, x_coords, y_coords, max_samples=128, iters=6, seed=0)
                 d0 = ((cell - c0) ** 2).sum(1)
                 d1 = ((cell - c1) ** 2).sum(1)
                 m1 = d1 < d0
-                if np.any(~m1): c0 = cell[~m1].mean(0)
-                if np.any(m1):  c1 = cell[m1].mean(0)
+                if np.any(~m1):
+                    c0 = cell[~m1].mean(0)
+                if np.any(m1):
+                    c1 = cell[m1].mean(0)
 
             out[j, i] = c1 if m1.sum() >= (~m1).sum() else c0
 
@@ -247,13 +253,17 @@ def sample_median(image, x_coords, y_coords):
 
     for j in range(ny):
         y0, y1 = int(y[j]), int(y[j + 1])
-        y0 = np.clip(y0, 0, H); y1 = np.clip(y1, 0, H)
-        if y1 <= y0: y1 = min(y0 + 1, H)
+        y0 = np.clip(y0, 0, H)
+        y1 = np.clip(y1, 0, H)
+        if y1 <= y0:
+            y1 = min(y0 + 1, H)
 
         for i in range(nx):
             x0, x1 = int(x[i]), int(x[i + 1])
-            x0 = np.clip(x0, 0, W); x1 = np.clip(x1, 0, W)
-            if x1 <= x0: x1 = min(x0 + 1, W)
+            x0 = np.clip(x0, 0, W)
+            x1 = np.clip(x1, 0, W)
+            if x1 <= x0:
+                x1 = min(x0 + 1, W)
 
             cell = img[y0:y1, x0:x1].reshape(-1, C)
             if cell.shape[0] == 0:
