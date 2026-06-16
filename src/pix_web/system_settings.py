@@ -14,6 +14,7 @@ from pix.api.prompt_guard import local_prompt_guard
 from pix.config import AppConfig, load_config
 from pix_web.config import WebSettings
 from pix_web.models import GenerationJob, SystemSetting, UploadEvent, User
+from pix_web.provider_store import apply_db_image_providers
 
 SettingType = Literal["string", "number", "boolean", "textarea", "select", "secret", "status"]
 SettingSource = Literal["database", "environment_only"]
@@ -553,7 +554,8 @@ def managed_pix_overrides_from_db(db: Session) -> dict[str, dict[str, Any]]:
 
 
 def load_managed_pix_config(db: Session, settings: WebSettings) -> AppConfig:
-    return load_config(config_file=settings.pix_config_file, overrides=managed_pix_overrides_from_db(db))
+    cfg = load_config(config_file=settings.pix_config_file, overrides=managed_pix_overrides_from_db(db))
+    return apply_db_image_providers(cfg, db)
 
 
 def _utc_day_start() -> datetime:

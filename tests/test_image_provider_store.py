@@ -91,5 +91,34 @@ class ProviderStoreTests(unittest.TestCase):
         self.assertEqual([c.provider.id for c in candidates], ["p1", "p2"])
 
 
+class LoadManagedConfigWiringTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(self.engine)
+        self.db = sessionmaker(bind=self.engine)()
+
+    def tearDown(self) -> None:
+        self.db.close()
+        Base.metadata.drop_all(self.engine)
+        self.engine.dispose()
+
+    def test_load_managed_pix_config_uses_db_providers(self) -> None:
+        from types import SimpleNamespace
+
+        from pix_web.system_settings import load_managed_pix_config
+
+        self.db.add(ImageProvider(
+            id="only-db", display_name="OnlyDB", enabled=True, base_url="https://db.example",
+            api_key="kk", api_key_env="", priority=1, discover_models=False,
+            protocols=["openai_images"], models=[],
+        ))
+        self.db.commit()
+        settings = SimpleNamespace(pix_config_file=None)
+        with patch.dict(os.environ, {}, clear=True):
+            cfg = load_managed_pix_config(self.db, settings)
+        self.assertIn("only-db", [p.id for p in cfg.image_providers])
+        self.assertEqual(cfg.image_providers[0].id, "only-db")
+
+
 if __name__ == "__main__":
     unittest.main()
