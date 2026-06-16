@@ -1118,6 +1118,9 @@ class PerfSeriesPoint(BaseModel):
 
 class PerfProvider(BaseModel):
     provider: str
+    display_name: str = ""
+    enabled: bool = False
+    priority: int = 100
     succeeded: int = 0
     failed: int = 0
     total: int = 0
@@ -1134,6 +1137,7 @@ class PerfRecentJob(BaseModel):
     job_type: str
     status: str
     provider: str = ""
+    provider_display_name: str = ""
     failure_code: str = ""
     seconds: float = 0.0
     created_at: str

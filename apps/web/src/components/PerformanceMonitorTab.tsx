@@ -139,10 +139,10 @@ export function PerformanceMonitorTab({ token }: { token: string }) {
           </div>
         </div>
         <div>
-          <div className="text-sm text-muted-foreground mb-2">{text('Provider 成功率', 'Provider success rate')}</div>
+          <div className="text-sm text-muted-foreground mb-2">{text('提供商成功率', 'Provider success rate')}</div>
           <div className="grid gap-2">
             {(data?.providers ?? []).map((p) => (
-              <ProviderBar key={p.provider || 'unknown'} name={p.provider || text('未知', 'unknown')} rate={Math.round(p.success_rate * 100)} total={p.total} />
+              <ProviderBar key={p.provider || 'unknown'} name={p.display_name || p.provider || text('未知', 'unknown')} id={p.provider} enabled={p.enabled} rate={Math.round(p.success_rate * 100)} total={p.total} />
             ))}
             {(!data || data.providers.length === 0) && <div className="text-xs text-muted-foreground">{text('暂无数据', 'No data yet')}</div>}
           </div>
@@ -170,7 +170,7 @@ export function PerformanceMonitorTab({ token }: { token: string }) {
                 <span className="font-mono text-muted-foreground">#{job.id}</span>
                 <span className={`px-1.5 py-0.5 rounded ${job.status === 'succeeded' ? 'bg-emerald-500/15 text-emerald-600' : job.status === 'failed' ? 'bg-red-500/15 text-red-600' : 'bg-muted text-muted-foreground'}`}>{job.status}</span>
                 <span>{job.job_type}</span>
-                {job.provider && <span className="text-muted-foreground">{job.provider}</span>}
+                {job.provider && <span className="text-muted-foreground">{job.provider_display_name || job.provider}</span>}
                 {job.failure_code && <span className="text-red-600">{job.failure_code}</span>}
                 <span className="ml-auto text-muted-foreground">{job.seconds}s</span>
               </div>
@@ -193,12 +193,17 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
   )
 }
 
-function ProviderBar({ name, rate, total }: { name: string; rate: number; total: number }) {
+function ProviderBar({ name, id, enabled, rate, total }: { name: string; id: string; enabled: boolean; rate: number; total: number }) {
+  const { text } = useI18n()
   return (
     <div>
-      <div className="flex justify-between text-xs mb-1">
-        <span>{name}</span>
-        <span className="text-muted-foreground">{rate}% · {total}</span>
+      <div className="flex justify-between gap-3 text-xs mb-1">
+        <span className="min-w-0 truncate">
+          <span>{name}</span>
+          {id && id !== name && <span className="ml-1 text-muted-foreground">{id}</span>}
+          {!enabled && <span className="ml-1 text-muted-foreground">{text('停用', 'disabled')}</span>}
+        </span>
+        <span className="shrink-0 text-muted-foreground">{rate}% · {total}</span>
       </div>
       <div className="h-1.5 rounded bg-muted overflow-hidden flex">
         <div style={{ width: `${rate}%`, background: '#1D9E75' }} />
