@@ -4,9 +4,11 @@ import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import { defaultPixelize, summarizePrompt } from '../pixelize'
+import { applyDiscount } from '../lib/pricing'
 import type { CreditBalance, GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule } from '../types'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
+import { EstimateBadge } from '../components/EstimateBadge'
 import { Input } from '../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Textarea } from '../components/ui/textarea'
@@ -59,7 +61,7 @@ function modelOptionLabel(model: ImageModelInfo) {
   return providers > 1 ? `${model.label || model.id} · ${providers} providers` : (model.label || model.id)
 }
 
-export function RawImagePage({ pricing, balance, jobs, loading, token, imageModels, selectedJobId, onSelectJob, onCreateJob, onRefresh }: Props) {
+export function RawImagePage({ pricing, discount, balance, jobs, loading, token, imageModels, selectedJobId, onSelectJob, onCreateJob, onRefresh }: Props) {
   const { text } = useI18n()
   const [model, setModel] = useState(imageModels.default || 'image2')
   const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
@@ -79,8 +81,9 @@ export function RawImagePage({ pricing, balance, jobs, loading, token, imageMode
   const hasReference = !!refImagePath
   const billingKey = hasReference ? 'image_to_image' : 'text_to_image'
   const price = pricing.find((item) => item.key === billingKey)?.price_credits ?? 0
+  const discountedPrice = applyDiscount(price, discount)
   const promptTooLong = prompt.length > RAW_IMAGE_PROMPT_MAX_LENGTH
-  const insufficientCredits = typeof balance?.available_credits === 'number' && balance.available_credits < price
+  const insufficientCredits = typeof balance?.available_credits === 'number' && balance.available_credits < discountedPrice
   const isSelectedActive = selectedJob?.status === 'pending' || selectedJob?.status === 'running'
   const mainImageUrl = isSelectedActive ? null : rawSourceUrl(selectedJob)
   const failedError = selectedJob?.status === 'failed' ? summarizeJobError(selectedJob.error_message, text) : null
@@ -130,7 +133,7 @@ export function RawImagePage({ pricing, balance, jobs, loading, token, imageMode
         eyebrow={text('原图炉', 'Raw forge')}
         title={text('原始生图', 'Raw image generation')}
         description={text('一次只出一张原图，不做候选、评分、抠图或像素化后处理。', 'Generate exactly one source image with no candidates, ranking, matting, or pixel post-processing.')}
-        action={<div className="flex flex-wrap gap-2"><Badge variant="outline">{text(`余额 ${balance?.available_credits ?? '—'} 点`, `Balance ${balance?.available_credits ?? '—'} credits`)}</Badge><Badge variant={insufficientCredits ? 'danger' : 'info'}>{text(`预计 ${price} 点`, `Estimated ${price} credits`)}</Badge><Button type="button" variant="outline" onClick={() => void onRefresh()}><RefreshCw />{text('刷新', 'Refresh')}</Button></div>}
+        action={<div className="flex flex-wrap gap-2"><Badge variant="outline">{text(`余额 ${balance?.available_credits ?? '—'} 点`, `Balance ${balance?.available_credits ?? '—'} credits`)}</Badge><EstimateBadge price={price} discount={discount} variant={insufficientCredits ? 'danger' : 'info'} /><Button type="button" variant="outline" onClick={() => void onRefresh()}><RefreshCw />{text('刷新', 'Refresh')}</Button></div>}
       >
         <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)_148px]">
           <div className="grid content-start gap-4">

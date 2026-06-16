@@ -6,6 +6,7 @@ import { useI18n } from '../i18n'
 import { useConfirm } from './ConfirmDialog'
 import type { CreditBalance, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule, UploadResponse } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
+import { applyDiscount } from '../lib/pricing'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -46,7 +47,7 @@ function modelOptionLabel(model: ImageModelInfo) {
   return providers > 1 ? `${model.label || model.id} · ${providers} providers` : (model.label || model.id)
 }
 
-export function BatchGeneratePanel({ pricing, balance, loading, token, imageModels, onSubmitMany }: Props) {
+export function BatchGeneratePanel({ pricing, discount, balance, loading, token, imageModels, onSubmitMany }: Props) {
   const { t } = useTranslation()
   const { text } = useI18n()
   const confirm = useConfirm()
@@ -67,8 +68,11 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, imageMode
   const lines = useMemo(() => prompts.split('\n').map((line) => line.trim()).filter(Boolean), [prompts])
   const uploaded = uploads.filter((item) => item.status === 'uploaded' && item.upload)
   const unitPrice = pricing.find((item) => item.key === batchMode)?.price_credits ?? 0
+  const discountedUnit = applyDiscount(unitPrice, discount)
   const taskCount = batchMode === 'asset' ? lines.length : uploaded.length
-  const totalPrice = taskCount * unitPrice
+  const totalPrice = taskCount * discountedUnit
+  const originalTotalPrice = taskCount * unitPrice
+  const discountActive = !!discount?.active && discountedUnit < unitPrice
   const availableCredits = balance?.available_credits ?? null
   const insufficientCredits = availableCredits !== null && totalPrice > availableCredits
   const parsedPixelSize = parsePixelSize(pixelSize)
@@ -142,9 +146,19 @@ export function BatchGeneratePanel({ pricing, balance, loading, token, imageMode
   }
 
   return (
-    <PixPanel eyebrow={t('batchForm.eyebrow')} title={t('batchForm.title')} description={t('batchForm.description')} action={<Badge variant={insufficientCredits ? 'danger' : 'info'}>{t('batchForm.taskBadge', { count: taskCount, total: totalPrice })}</Badge>}>
+    <PixPanel eyebrow={t('batchForm.eyebrow')} title={t('batchForm.title')} description={t('batchForm.description')} action={(
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={insufficientCredits ? 'danger' : 'info'}>{t('batchForm.taskBadge', { count: taskCount, total: totalPrice })}</Badge>
+        {discountActive && (
+          <span className="inline-flex items-center gap-1 text-xs">
+            <span className="font-semibold text-amber-600">{(discount?.label || '').trim() || text(`${Math.round((discount?.rate ?? 1) * 100) / 10} 折`, `${Math.round((1 - (discount?.rate ?? 1)) * 100)}% OFF`)}</span>
+            <del className="opacity-60">{text(`${originalTotalPrice} 点`, `${originalTotalPrice} credits`)}</del>
+          </span>
+        )}
+      </div>
+    )}>
       <form className="grid gap-5" onSubmit={submit}>
-        <BatchCostSummary taskCount={taskCount} unitPrice={unitPrice} totalPrice={totalPrice} availableCredits={availableCredits} insufficientCredits={insufficientCredits} />
+        <BatchCostSummary taskCount={taskCount} unitPrice={discountedUnit} totalPrice={totalPrice} availableCredits={availableCredits} insufficientCredits={insufficientCredits} />
         <PixField label={t('batchForm.typeLabel')}><Select value={batchMode} onValueChange={(value) => setBatchMode(value as BatchMode)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="asset">{t('batchForm.types.asset')}</SelectItem><SelectItem value="local_pixelize">{t('batchForm.types.local_pixelize')}</SelectItem></SelectContent></Select></PixField>
         {batchMode === 'asset' && <PixField label={text('生图模型', 'Image model')}><Select value={imageModel} onValueChange={setImageModel}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{availableImageModels.map((m) => <SelectItem value={m.id} key={m.id}>{modelOptionLabel(m)}</SelectItem>)}</SelectContent></Select></PixField>}
         {batchMode === 'asset' ? <div className="grid gap-4">

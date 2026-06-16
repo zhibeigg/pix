@@ -11,7 +11,7 @@ import { Checkbox } from './ui/checkbox'
 import { Input } from './ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Textarea } from './ui/textarea'
-import { Badge } from './ui/badge'
+import { EstimateBadge } from './EstimateBadge'
 import { PixField } from './pix/PixField'
 import { PixPanel } from './pix/PixPanel'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
@@ -111,7 +111,7 @@ function modelOptionLabel(model: ImageModelInfo) {
   return providers > 1 ? `${model.label || model.id} · ${providers} providers` : (model.label || model.id)
 }
 
-export function SingleGeneratePanel({ pricing, loading, token, imageModels, onSubmit }: Props) {
+export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, onSubmit }: Props) {
   const { text } = useI18n()
   const [jobType, setJobType] = useState<JobType>('asset')
   const [imageModel, setImageModel] = useState(imageModels.default)
@@ -396,7 +396,7 @@ export function SingleGeneratePanel({ pricing, loading, token, imageModels, onSu
   }
 
   return (
-      <PixPanel eyebrow={text('单张试做', 'Single test')} title={text('任务配方', 'Job recipe')} action={<Badge variant="info">{isSprite ? text(`预计 ${billingUnits} × ${basePrice} = ${price} 点（共 ${totalFrames} 帧）`, `Estimated ${billingUnits} × ${basePrice} = ${price} credits (${totalFrames} frames)`) : text(`预计 ${price} 点`, `Estimated ${price} credits`)}</Badge>}>
+      <PixPanel eyebrow={text('单张试做', 'Single test')} title={text('任务配方', 'Job recipe')} action={<EstimateBadge price={price} discount={discount} sprite={isSprite ? { billingUnits, basePrice, totalFrames } : null} />}>
       <form className="grid gap-5" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
           <PixField label={text('模式', 'Mode')}>
