@@ -15,9 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/settings/image-models` 返回结构化模型能力（providers、operations、sizes、qualities、protocols），前端单张、批量和原始生图页可动态选择模型。
 - 新增胜算云（ShengSuanYun，`shengsuanyun` 协议）生图上游：OpenAI gpt-image 兼容请求体 + 异步任务轮询（`POST /api/v1/tasks/generations` 提交、`GET /api/v1/tasks/generations/{id}` 轮询），承载 `gpt-image-2` 文生图与图生图（图生图复用同端点仅多传 `image` 字段）；检测到 `SHENGSUANYUN_API_KEY` 自动注入为生图 Provider 并参与失败切换。
 - 管理后台新增「性能监控」面板：实时查看任务成功率、活跃并发、任务量与成功率时间序列、provider 成功率对比（胜算云 / Packy / Crazyrouter）、失败分类与最近任务流，可切换 `1h / 24h / 7d` 范围、前端每 8s 轮询刷新。后端新增 `GET /admin/performance-metrics` 聚合接口；`generation_jobs` 增加 `provider` 列（迁移 `0016`），worker 落库时写入最终生效 provider。
+- 邮箱验证码请求新增自适应 Turnstile 反刷码：记录请求 IP，并按同邮箱 / 同 IP 的时间窗口与免校验次数，只在频繁请求时要求 Cloudflare Turnstile。
 
 ### Changed
 
+- 注册 / 找回密码的验证码发送不再默认显示 Turnstile；当后端判定请求频繁并返回 428 后，前端才显示人机校验并提示用户重试。
 - 收敛过期 Dependabot PR：在当前 Web-only 仓库结构上同步仍有效的运行时 / 开发依赖下限，并保持已删除的 GitHub Actions 工作流与 PySide6 桌面 GUI 依赖不再恢复。
 - UI 组件（`asset_kind=ui_component`）素材直出的源图尺寸改为 `auto`：前端单张 / 批量任务显式提交 `image_size=auto`，后端也为旧前端漏传尺寸的 UI 组件提供同样兜底。
 - 候选 VL 评分默认模型切换为 `claude-opus-4-8`，并改为 multipart 直接上传候选图片给模型，不再使用 chat `image_url` / 网格占位式模拟图片结构。

@@ -6,7 +6,7 @@ const TURNSTILE_SCRIPT_ID = 'cf-turnstile-script'
 type TurnstileWidgetOptions = {
   sitekey: string
   callback: (token: string) => void
-  'error-callback'?: () => void
+  'error-callback'?: (errorCode?: string) => void
   'expired-callback'?: () => void
   'timeout-callback'?: () => void
   theme?: 'light' | 'dark' | 'auto'
@@ -118,17 +118,18 @@ export function useTurnstile({ enabled, siteKey, theme = 'auto', language }: Use
           const id = api.render(containerNodeRef.current, {
             sitekey: siteKey,
             theme,
-            language,
+            language: language?.toLowerCase(),
             'response-field': false,
             callback: (value: string) => {
               setToken(value)
               setReady(true)
               setError(null)
             },
-            'error-callback': () => {
+            'error-callback': (errorCode?: string) => {
               setToken('')
               setReady(false)
-              setError('人机校验加载失败，请重试')
+              const suffix = errorCode ? `（错误码：${errorCode}）` : ''
+              setError(`人机校验失败${suffix}，请关闭代理/VPN或浏览器插件后重试，也可以切换网络或浏览器。`)
             },
             'expired-callback': () => {
               setToken('')

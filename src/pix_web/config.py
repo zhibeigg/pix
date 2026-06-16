@@ -66,6 +66,10 @@ class WebSettings:
     turnstile_site_key: str = ""
     turnstile_secret_key: str = ""
     turnstile_verify_url: str = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+    turnstile_email_window_seconds: int = 3600
+    turnstile_email_max_without_challenge: int = 2
+    turnstile_ip_window_seconds: int = 3600
+    turnstile_ip_max_without_challenge: int = 5
 
 
 _DEFAULTS = {
@@ -97,6 +101,10 @@ _DEFAULTS = {
     "PIX_WEB_EMAIL_DEBUG_CODES": "false",
     "PIX_WEB_TURNSTILE_ENABLED": "false",
     "PIX_WEB_TURNSTILE_VERIFY_URL": WebSettings.turnstile_verify_url,
+    "PIX_WEB_TURNSTILE_EMAIL_WINDOW_SECONDS": str(WebSettings.turnstile_email_window_seconds),
+    "PIX_WEB_TURNSTILE_EMAIL_MAX_WITHOUT_CHALLENGE": str(WebSettings.turnstile_email_max_without_challenge),
+    "PIX_WEB_TURNSTILE_IP_WINDOW_SECONDS": str(WebSettings.turnstile_ip_window_seconds),
+    "PIX_WEB_TURNSTILE_IP_MAX_WITHOUT_CHALLENGE": str(WebSettings.turnstile_ip_max_without_challenge),
 }
 
 
@@ -229,4 +237,24 @@ def load_web_settings() -> WebSettings:
             "PIX_WEB_TURNSTILE_VERIFY_URL", _DEFAULTS["PIX_WEB_TURNSTILE_VERIFY_URL"]
         ).strip()
         or WebSettings.turnstile_verify_url,
+        turnstile_email_window_seconds=_env_int(
+            "PIX_WEB_TURNSTILE_EMAIL_WINDOW_SECONDS",
+            WebSettings.turnstile_email_window_seconds,
+            0,
+        ),
+        turnstile_email_max_without_challenge=_env_int(
+            "PIX_WEB_TURNSTILE_EMAIL_MAX_WITHOUT_CHALLENGE",
+            WebSettings.turnstile_email_max_without_challenge,
+            0,
+        ),
+        turnstile_ip_window_seconds=_env_int(
+            "PIX_WEB_TURNSTILE_IP_WINDOW_SECONDS",
+            WebSettings.turnstile_ip_window_seconds,
+            0,
+        ),
+        turnstile_ip_max_without_challenge=_env_int(
+            "PIX_WEB_TURNSTILE_IP_MAX_WITHOUT_CHALLENGE",
+            WebSettings.turnstile_ip_max_without_challenge,
+            0,
+        ),
     )

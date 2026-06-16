@@ -105,9 +105,11 @@ npm run build
 | `PIX_WEB_CORS_ORIGINS` | 前后端不同源部署时填写允许的 Origin，多个用逗号分隔。 |
 | `PIX_WEB_EMAIL_PROVIDER` | 邮件发送方式，开发可用 `console`，生产公告通知和验证码建议使用 `smtp`。 |
 | `PIX_WEB_SMTP_HOST` / `PIX_WEB_SMTP_PORT` / `PIX_WEB_SMTP_FROM` | SMTP 投递配置；系统公告邮件和注册验证码共用。 |
-| `PIX_WEB_TURNSTILE_ENABLED` | 是否在注册发送验证码前要求 Cloudflare Turnstile 校验，默认关闭。 |
+| `PIX_WEB_TURNSTILE_ENABLED` | 是否启用 Cloudflare Turnstile 自适应反刷码；启用后仅同邮箱 / 同 IP 频繁请求验证码时触发，默认关闭。 |
 | `PIX_WEB_TURNSTILE_SITE_KEY` | Turnstile Site Key，前端可见。 |
 | `PIX_WEB_TURNSTILE_SECRET_KEY` | Turnstile Secret Key，仅后端校验使用，建议放密钥管理。 |
+| `PIX_WEB_TURNSTILE_EMAIL_WINDOW_SECONDS` / `PIX_WEB_TURNSTILE_EMAIL_MAX_WITHOUT_CHALLENGE` | 同邮箱验证码请求触发 Turnstile 的统计窗口和免校验次数，默认 `3600` 秒 / `2` 次。 |
+| `PIX_WEB_TURNSTILE_IP_WINDOW_SECONDS` / `PIX_WEB_TURNSTILE_IP_MAX_WITHOUT_CHALLENGE` | 同 IP 验证码请求触发 Turnstile 的统计窗口和免校验次数，默认 `3600` 秒 / `5` 次。 |
 
 更多配置见 `.env.example`、`.env.production.example` 和 `config.example.toml`。
 
@@ -252,7 +254,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.74.1`。
+当前版本：`1.75.1`。
 
 版本号格式为 `A.B.C`：
 
