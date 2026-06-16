@@ -197,7 +197,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const isLocalPixelize = jobType === 'local_pixelize'
   const isTileAsset = isAsset && assetKind === 'tile_texture'
   const isLogoAsset = isAsset && assetKind === 'game_logo'
-  // 平铺纹理不走参考图模式；Logo 参考图会保留 asset job_type，以便继续使用 Logo 专用 prompt。
+  // 平铺纹理不走参考图模式；普通素材参考图仍保留 asset job_type，以便继续使用素材直出 prompt。
   const assetSupportsReference = isAsset && (assetKind === 'item_icon' || assetKind === 'ui_component' || assetKind === 'game_logo')
   const hasAssetReference = assetSupportsReference && !!assetRefPath
   const basePrice = useMemo(() => {
@@ -227,10 +227,10 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       : text('可留空；如需补充材质、颜色或题材风格再填写。', 'Optional; add material, color, or theme notes if needed.')
   const assetReferenceHint = isLogoAsset
     ? text('提供后会保留参考图的徽章轮廓、主色调和字形气质，但最终文字只使用上方 Logo 标题。', 'When provided, it preserves the reference emblem silhouette, main color mood, and lettering attitude, while final text only uses the logo title above.')
-    : text('提供后将以图生图模式微调：在保留参考图主体的基础上按描述变换风格 / 配色 / 细节。留空走默认文生图素材直出。', 'When provided, the job runs as image-to-image: it preserves the reference subject while adapting style/colors/details to your description. Leave empty to use the default text-to-image asset path.')
+    : text('提供后会先把参考图理解为像素风参考，再按素材直出 Prompt 重绘；不是简单处理上传图。留空走默认文生图素材直出。', 'When provided, the reference is first interpreted as pixel-art inspiration, then redrawn with the asset-output prompt. It is not merely processed as the uploaded image. Leave empty for text-to-image asset output.')
   const assetReferenceAttachedMessage = isLogoAsset
     ? text('已附带参考图：将保留参考图的 Logo 轮廓、主色调和字形气质，并按上方标题生成。', 'With a reference image attached, the logo keeps the reference silhouette, color mood, and lettering attitude while using the title above.')
-    : text('已附带参考图：将走图生图（image-to-image）路径，按描述对参考图主体进行像素化微调。', 'With a reference image attached, the job uses image-to-image: the model pixelizes the reference subject according to your description.')
+    : text('已附带参考图：将按素材直出规则重绘为像素风，参考图只作为构图、轮廓和配色灵感。', 'With a reference image attached, the job redraws it as pixel art using asset-output rules; the reference only guides composition, silhouette, and color mood.')
   const invalidGrid = isSprite && (safeRows < 1 || safeCols < 1 || safeRows > MAX_GRID_AXIS || safeCols > MAX_GRID_AXIS)
   const missingRowPrompts = isSprite && safeRows >= 2 && rowPrompts.slice(0, safeRows).some((value) => !value.trim())
   const submitBlocked = invalidSubAssetSize
@@ -412,7 +412,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       const uploaded = await api.uploadImage(token, file)
       const readyMessage = isLogoAsset
         ? text('参考图已就绪，提交后将保留其 Logo 气质并按上方标题生成。', 'Reference ready. The logo will keep its visual attitude while using the title above.')
-        : text('参考图已就绪，提交后将以图生图模式微调。', 'Reference ready. Job will run as image-to-image on submit.')
+        : text('参考图已就绪，提交后将按素材直出规则重绘为像素风。', 'Reference ready. The job will redraw it as pixel art using the asset-output rules.')
       setAssetRefPath(uploaded.path); setAssetRefUrl(signedFileUrl(uploaded.url)); setAssetRefMessage(readyMessage)
     } catch (error) {
       setAssetRefMessage(error instanceof Error ? error.message : text('参考图上传失败', 'Reference upload failed'))
@@ -432,8 +432,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     if (isAsset) {
       const assetExtra = assetExtraPrompt.trim()
       const subject = assetName.trim()
-      // Logo + 参考图仍提交 asset，保留 game_logo 专用 prompt；其它参考图沿用旧 image_to_image 路径。
-      if (hasAssetReference && isLogoAsset) {
+      // 素材 + 参考图仍提交 asset，让后端使用素材直出 prompt 模板；参考图只作为重绘依据。
+      if (hasAssetReference) {
         await onSubmit({
           job_type: 'asset',
           prompt: subject,
@@ -441,24 +441,10 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           client_request_id: crypto.randomUUID(),
           image_size: uiComponentImageSize,
           image_model: modelOverride,
-          pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
-          grid: buildGridDesign(),
-          asset: { name: subject, extra_prompt: assetExtra, asset_kind: assetKind, subject_kind: subjectKind, no_preview: false },
-        })
-        return
-      }
-      if (hasAssetReference) {
-        const i2iPrompt = assetExtra ? `${subject}：${assetExtra}` : subject
-        await onSubmit({
-          job_type: 'image_to_image',
-          prompt: i2iPrompt,
-          input_image_path: assetRefPath,
-          client_request_id: crypto.randomUUID(),
-          image_size: uiComponentImageSize,
-          image_model: modelOverride,
           skip_vl: skipVl,
           pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
           grid: buildGridDesign(),
+          asset: { name: subject, extra_prompt: assetExtra, asset_kind: assetKind, subject_kind: subjectKind, no_preview: false },
         })
         return
       }
@@ -667,7 +653,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         {invalidSubAssetSize && <Alert variant="destructive">{text('素材最低支持 16×16。', 'Minimum asset size is 16×16.')}</Alert>}
         {invalidGrid && <Alert variant="destructive">{text('序列帧每行/每列最多 8。', 'Sprite sequence rows and cols are capped at 8.')}</Alert>}
         {missingRowPrompts && <Alert variant="destructive">{text('多行序列帧需要为每一行填写动作描述。', 'Multi-row sequences require an action description for each row.')}</Alert>}
-        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : isLogoAsset && hasAssetReference ? text('参考图生成 Logo', 'Generate logo from reference') : isLogoAsset ? text('生成游戏 Logo', 'Generate game logo') : hasAssetReference ? text('图生图微调', 'Generate (image-to-image)') : text('生成游戏素材', 'Generate game asset')) : text('生成单张素材', 'Generate single asset')}</Button>
+        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : isLogoAsset && hasAssetReference ? text('参考图生成 Logo', 'Generate logo from reference') : isLogoAsset ? text('生成游戏 Logo', 'Generate game logo') : hasAssetReference ? text('参考图重绘', 'Redraw from reference') : text('生成游戏素材', 'Generate game asset')) : text('生成单张素材', 'Generate single asset')}</Button>
       </form>
     </PixPanel>
   )

@@ -41,6 +41,35 @@ class LocalPixelizePostprocessTests(unittest.TestCase):
 
         self.assertEqual(inputs.image_size, "auto")
 
+    def test_asset_reference_uses_asset_prompt_redraw_constraints(self) -> None:
+        cfg = AppConfig()
+        job = SimpleNamespace(
+            id=88,
+            job_type="asset",
+            prompt="幻影斩技能书",
+            input_image_path="/tmp/reference.png",
+            params_json={
+                "pixelize": {"output_size": [16, 16], "colors": 8},
+                "asset": {
+                    "name": "幻影斩技能书",
+                    "extra_prompt": "蓝色幻影剑气",
+                    "asset_kind": "item_icon",
+                    "subject_kind": "single_prop",
+                },
+                "grid": {"mode": "extract"},
+            },
+        )
+        settings = SimpleNamespace(storage_root=Path("web_outputs"))
+
+        inputs = asset_pipeline_input_from_job(job, settings, cfg)  # type: ignore[arg-type]
+
+        self.assertEqual(inputs.image_path, Path("/tmp/reference.png"))
+        self.assertEqual(inputs.prompt_guard_text, "幻影斩技能书\n蓝色幻影剑气")
+        self.assertIn("TRUE pixel-art game item icon", inputs.prompt or "")
+        self.assertIn("First convert the reference", inputs.prompt or "")
+        self.assertIn("Do not simply trace", inputs.prompt or "")
+        self.assertIn("do not copy readable text", inputs.prompt or "")
+
     def test_local_pixelize_uses_generated_source_postprocess(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             image_path = Path(tmp) / "local.png"

@@ -180,12 +180,20 @@ def _asset_reference_prompt_appendix(asset_kind: str, has_reference: bool) -> st
         return ""
     if asset_kind == "game_logo":
         return (
-            "Use the provided reference image as logo inspiration: preserve its emblem silhouette, "
+            "Use the provided reference image as logo inspiration: first reinterpret it in the same TRUE pixel-art vocabulary "
+            "(large square pixels, hard edges, limited palette), then preserve its emblem silhouette, "
             "shape language, main color mood, stroke rhythm, and lettering attitude where useful, "
             "but redesign it as a clean pixel-art game logo. The final readable text must only use "
             "the exact title, acronym, or brand text from the Subject; do not copy or invent any extra words from the reference."
         )
-    return ""
+    return (
+        "Use the provided reference image only as visual input for an asset redraw. First convert the reference mentally into "
+        "a clean TRUE pixel-art interpretation with large square pixels, hard edges, a limited palette, and a simple silhouette; "
+        "then apply the asset brief above as the authority for subject, size, palette limit, background, and forbidden elements. "
+        "Do not simply trace, upscale, posterize, or pixelize the uploaded image. Redesign it as a fresh centered game asset; "
+        "keep only useful composition, silhouette, material cues, and color mood from the reference. For ordinary item icons "
+        "and UI components, do not copy readable text, labels, paragraphs, or tiny details from the reference."
+    )
 
 
 def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> PipelineInput:

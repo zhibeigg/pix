@@ -129,7 +129,7 @@ npm run build
 
 1. `build_asset_prompt` 根据用户主体、素材类型、尺寸、颜色数和抠色容差构建 prompt。
 2. 本地 prompt guard 只审核用户原始输入，不把服务端模板暴露给审核模型；“直接复刻/抄袭参考图”类请求会在创建任务前拒绝，不入队、不冻结点数，并写入策略审计事件供后台统计。
-3. 使用当前配置的 logical 生图模型生成单张源图；同一模型可由 Crazyrouter、Packy 等多个 Provider 承载并自动失败切换。
+3. 使用当前配置的 logical 生图模型生成单张源图；同一模型可由 Crazyrouter、Packy 等多个 Provider 承载并自动失败切换。普通素材上传参考图时仍走 `job_type=asset` 的素材直出链路（按图生图价格计费）：后端先要求模型把参考图理解 / 转译为 TRUE pixel-art，再套用素材模板中的尺寸、颜色数、纯色背景、禁文字等约束重绘，避免退化成简单处理上传图。
 4. 默认 `skip_vl = true`，不走普通 VL 分析。
 5. Pixel Grid extract：
    - `perfect_pixel` 网格对齐，并保存 `02_perfect_pixel_preprocess.png`；
@@ -262,7 +262,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.81.1`。
+当前版本：`1.81.2`。
 
 版本号格式为 `A.B.C`：
 
