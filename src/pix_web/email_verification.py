@@ -8,7 +8,7 @@ import hashlib
 import hmac
 import secrets
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from pix_web.config import WebSettings
@@ -51,6 +51,49 @@ def generate_code() -> str:
     return f"{secrets.randbelow(1_000_000):06d}"
 
 
+def _recent_cutoff(window_seconds: int) -> datetime:
+    return _now() - timedelta(seconds=max(0, window_seconds))
+
+
+def count_recent_email_code_requests(
+    db: Session,
+    email: str,
+    purpose: str,
+    window_seconds: int,
+) -> int:
+    if window_seconds <= 0:
+        return 0
+    normalized = normalize_email(email)
+    return db.scalar(
+        select(func.count())
+        .select_from(EmailVerificationCode)
+        .where(
+            EmailVerificationCode.email == normalized,
+            EmailVerificationCode.purpose == purpose,
+            EmailVerificationCode.sent_at >= _recent_cutoff(window_seconds),
+        )
+    ) or 0
+
+
+def count_recent_ip_code_requests(
+    db: Session,
+    request_ip: str | None,
+    purpose: str,
+    window_seconds: int,
+) -> int:
+    if window_seconds <= 0 or not request_ip:
+        return 0
+    return db.scalar(
+        select(func.count())
+        .select_from(EmailVerificationCode)
+        .where(
+            EmailVerificationCode.request_ip == request_ip,
+            EmailVerificationCode.purpose == purpose,
+            EmailVerificationCode.sent_at >= _recent_cutoff(window_seconds),
+        )
+    ) or 0
+
+
 def hash_code(settings: WebSettings, email: str, purpose: str, code: str) -> str:
     payload = f"{normalize_email(email)}:{purpose}:{code}".encode("utf-8")
     return hmac.new(settings.jwt_secret.encode("utf-8"), payload, hashlib.sha256).hexdigest()
@@ -74,6 +117,7 @@ def create_email_code(
     email: str,
     *,
     purpose: str = REGISTER_PURPOSE,
+    request_ip: str | None = None,
 ) -> EmailCodeResult:
     normalized = normalize_email(email)
     now = _now()
@@ -99,6 +143,7 @@ def create_email_code(
     record = EmailVerificationCode(
         email=normalized,
         purpose=purpose,
+        request_ip=(request_ip or "").strip() or None,
         code_hash=hash_code(settings, normalized, purpose, code),
         attempts=0,
         sent_at=now,

@@ -39,13 +39,24 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
   const [sendingCode, setSendingCode] = useState(false)
   const [countdown, setCountdown] = useState(0)
   const [passwordHint, setPasswordHint] = useState('')
+  const [turnstileRequired, setTurnstileRequired] = useState(false)
   const isRegister = mode === 'register'
   const isForgot = mode === 'forgot'
-  const turnstileActive = (isRegister || isForgot) && turnstileEnabled && Boolean(turnstileSiteKey)
+  const turnstileAvailable = turnstileEnabled && Boolean(turnstileSiteKey)
+  const turnstileActive = (isRegister || isForgot) && turnstileAvailable && turnstileRequired
   const turnstile = useTurnstile({ enabled: turnstileActive, siteKey: turnstileSiteKey, language })
 
   useEffect(() => { if (countdown > 0) { const tid = window.setTimeout(() => setCountdown((v) => Math.max(0, v - 1)), 1000); return () => window.clearTimeout(tid) } }, [countdown])
   const registrationBonusCopy = registrationBonusCredits > 0 ? text(`新人注册赠送 ${registrationBonusCredits} 点数`, `New accounts get ${registrationBonusCredits} bonus credits`) : ''
+
+  function isTurnstileRequiredError(error: unknown) {
+    return Boolean(error && typeof error === 'object' && 'status' in error && (error as { status?: number }).status === 428)
+  }
+
+  function handleTurnstileRequired(error: unknown) {
+    setTurnstileRequired(true)
+    setCodeError(error instanceof Error ? error.message : text('请求较频繁，请完成人机校验后再发送验证码', 'Too many requests. Complete verification before sending another code.'))
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -68,10 +79,12 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
     setSendingCode(true); setCodeMessage(''); setCodeError('')
     try {
       const r = await onRequestResetCode(email.trim(), turnstileActive ? turnstile.token : '')
+      setTurnstileRequired(false)
       setCountdown(r.retry_after_seconds || 60)
       setCodeMessage(r.debug_code ? text(`验证码已发送。测试验证码：${r.debug_code}`, `Verification code sent. Test code: ${r.debug_code}`) : t('auth.resetCodeSent', { email: email.trim() }))
     } catch (e) {
-      setCodeError(e instanceof Error ? e.message : text('验证码发送失败', 'Failed to send verification code'))
+      if (isTurnstileRequiredError(e)) handleTurnstileRequired(e)
+      else setCodeError(e instanceof Error ? e.message : text('验证码发送失败', 'Failed to send verification code'))
     } finally {
       setSendingCode(false)
       if (turnstileActive) turnstile.reset()
@@ -84,10 +97,12 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
     setSendingCode(true); setCodeMessage(''); setCodeError('')
     try {
       const r = await onRequestRegisterCode(email.trim(), turnstileActive ? turnstile.token : '')
+      setTurnstileRequired(false)
       setCountdown(r.retry_after_seconds || 60)
       setCodeMessage(r.debug_code ? text(`验证码已发送。测试验证码：${r.debug_code}`, `Verification code sent. Test code: ${r.debug_code}`) : text('验证码已发送，请查看邮箱', 'Verification code sent. Check your inbox.'))
     } catch (e) {
-      setCodeError(e instanceof Error ? e.message : text('验证码发送失败', 'Failed to send verification code'))
+      if (isTurnstileRequiredError(e)) handleTurnstileRequired(e)
+      else setCodeError(e instanceof Error ? e.message : text('验证码发送失败', 'Failed to send verification code'))
     } finally {
       setSendingCode(false)
       if (turnstileActive) turnstile.reset()
@@ -104,7 +119,12 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
   }
 
   function resetForm() {
-    setVerificationCode(''); setPassword(''); setDisplayName(''); setCodeMessage(''); setCodeError(''); setCountdown(0); setPasswordHint('')
+    setVerificationCode(''); setPassword(''); setDisplayName(''); setCodeMessage(''); setCodeError(''); setCountdown(0); setPasswordHint(''); setTurnstileRequired(false)
+  }
+
+  function updateEmail(value: string) {
+    setEmail(value)
+    if (turnstileRequired) setTurnstileRequired(false)
   }
 
   function switchMode(next: 'login' | 'register' | 'forgot') {
@@ -125,7 +145,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
       >
         <form className="grid gap-4" onSubmit={submit}>
           <PixField label={text('邮箱', 'Email')}>
-            <Input type="email" value={email} autoComplete="email" onChange={(e) => setEmail(e.target.value)} required />
+            <Input type="email" value={email} autoComplete="email" onChange={(e) => updateEmail(e.target.value)} required />
           </PixField>
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
             <PixField label={text('邮箱验证码', 'Verification code')}>
@@ -176,7 +196,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
       <form className="grid gap-4" onSubmit={submit}>
         {isRegister && referralCode && <Alert variant="success">{t('auth.referralDetected', { code: referralCode })}</Alert>}
         {isRegister && <PixField label={text('昵称', 'Display name')}><Input value={displayName} autoComplete="name" onChange={(e) => setDisplayName(e.target.value)} /></PixField>}
-        <PixField label={text('邮箱', 'Email')}><Input type="email" value={email} autoComplete="email" onChange={(e) => setEmail(e.target.value)} required /></PixField>
+        <PixField label={text('邮箱', 'Email')}><Input type="email" value={email} autoComplete="email" onChange={(e) => updateEmail(e.target.value)} required /></PixField>
         {isRegister && (
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
             <PixField label={text('邮箱验证码', 'Email verification code')}>

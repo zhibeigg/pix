@@ -14,8 +14,11 @@ from pix_web.credits import ensure_credit_account, recharge_credits
 from pix_web.email_sender import EmailDeliveryError, send_password_reset_email, send_verification_email
 from pix_web.email_verification import (
     PASSWORD_RESET_PURPOSE,
+    REGISTER_PURPOSE,
     EmailCodeError,
     consume_email_code,
+    count_recent_email_code_requests,
+    count_recent_ip_code_requests,
     create_email_code,
     normalize_email,
 )
@@ -51,6 +54,67 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 LOCAL_TEST_ACCOUNT_EMAIL = "local-test@pix.example"
 LOCAL_TEST_ACCOUNT_DISPLAY_NAME = "本地测试账号"
 LOCAL_TEST_ACCOUNT_CREDITS = 1000
+TURNSTILE_REQUIRED_DETAIL = "请求较频繁，请完成人机校验后再发送验证码"
+
+
+def _client_ip(request: Request) -> str | None:
+    forwarded_for = (request.headers.get("x-forwarded-for") or "").split(",", 1)[0].strip()
+    if forwarded_for:
+        return forwarded_for[:64]
+    real_ip = (request.headers.get("x-real-ip") or "").strip()
+    if real_ip:
+        return real_ip[:64]
+    return request.client.host[:64] if request.client and request.client.host else None
+
+
+def _turnstile_required_for_email_code(
+    db: Session,
+    settings: WebSettings,
+    email: str,
+    purpose: str,
+    request_ip: str | None,
+) -> bool:
+    if not is_turnstile_active(settings):
+        return False
+    email_limit = settings.turnstile_email_max_without_challenge
+    if email_limit > 0:
+        email_count = count_recent_email_code_requests(
+            db,
+            email,
+            purpose,
+            settings.turnstile_email_window_seconds,
+        )
+        if email_count >= email_limit:
+            return True
+    ip_limit = settings.turnstile_ip_max_without_challenge
+    if ip_limit > 0:
+        ip_count = count_recent_ip_code_requests(
+            db,
+            request_ip,
+            purpose,
+            settings.turnstile_ip_window_seconds,
+        )
+        if ip_count >= ip_limit:
+            return True
+    return False
+
+
+def _verify_turnstile_when_required(
+    db: Session,
+    settings: WebSettings,
+    email: str,
+    purpose: str,
+    request_ip: str | None,
+    token: str,
+) -> None:
+    if not _turnstile_required_for_email_code(db, settings, email, purpose, request_ip):
+        return
+    if not (token or "").strip():
+        raise HTTPException(
+            status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+            detail=TURNSTILE_REQUIRED_DETAIL,
+        )
+    verify_turnstile_token(settings, token, remote_ip=request_ip)
 
 
 def _user_count(db: Session) -> int:
@@ -178,13 +242,20 @@ def request_register_code(
     settings: WebSettings = Depends(get_settings),
 ) -> EmailCodeResponse:
     effective = load_effective_web_settings(db, settings)
-    remote_ip = request.client.host if request.client else None
-    verify_turnstile_token(effective, req.turnstile_token, remote_ip=remote_ip)
+    request_ip = _client_ip(request)
     email = normalize_email(str(req.email))
     if find_user_by_email(db, email) is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="邮箱已注册")
+    _verify_turnstile_when_required(
+        db,
+        effective,
+        email,
+        REGISTER_PURPOSE,
+        request_ip,
+        req.turnstile_token,
+    )
     try:
-        result = create_email_code(db, effective, email)
+        result = create_email_code(db, effective, email, request_ip=request_ip)
     except EmailCodeError as exc:
         db.rollback()
         _raise_email_code_error(exc)
@@ -260,9 +331,16 @@ def request_reset_code(
 ) -> EmailCodeResponse:
     """发送密码重置验证码。不暴露用户是否存在。"""
     effective = load_effective_web_settings(db, settings)
-    remote_ip = request.client.host if request.client else None
-    verify_turnstile_token(effective, req.turnstile_token, remote_ip=remote_ip)
+    request_ip = _client_ip(request)
     email = normalize_email(str(req.email))
+    _verify_turnstile_when_required(
+        db,
+        effective,
+        email,
+        PASSWORD_RESET_PURPOSE,
+        request_ip,
+        req.turnstile_token,
+    )
     user = find_user_by_email(db, email)
     if user is None:
         # 不暴露用户是否存在：假装已发送，但不实际发送
@@ -271,7 +349,7 @@ def request_reset_code(
             expires_in_seconds=effective.email_code_ttl_seconds,
         )
     try:
-        result = create_email_code(db, effective, email, purpose=PASSWORD_RESET_PURPOSE)
+        result = create_email_code(db, effective, email, purpose=PASSWORD_RESET_PURPOSE, request_ip=request_ip)
     except EmailCodeError as exc:
         db.rollback()
         _raise_email_code_error(exc)

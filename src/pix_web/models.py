@@ -38,6 +38,7 @@ class EmailVerificationCode(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     email: Mapped[str] = mapped_column(String(320), index=True)
     purpose: Mapped[str] = mapped_column(String(32), index=True)
+    request_ip: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     code_hash: Mapped[str] = mapped_column(String(128))
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
