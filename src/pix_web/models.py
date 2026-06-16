@@ -351,3 +351,23 @@ class Announcement(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class ImageProvider(Base):
+    """后台可管理的上游生图供应商；DB 为真相源，运行时叠加进 AppConfig。"""
+
+    __tablename__ = "image_providers"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(128), default="")
+    enabled: Mapped[bool] = mapped_column(default=True)
+    base_url: Mapped[str] = mapped_column(Text, default="")
+    api_key: Mapped[str] = mapped_column(Text, default="")
+    api_key_env: Mapped[str] = mapped_column(String(96), default="")
+    priority: Mapped[int] = mapped_column(Integer, default=100)
+    protocols: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    discover_models: Mapped[bool] = mapped_column(default=False)
+    models: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    preset_key: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
