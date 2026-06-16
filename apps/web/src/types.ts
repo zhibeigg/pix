@@ -558,6 +558,9 @@ export type PaymentCheckout = {
 
 export type AdminDashboard = {
   total_users: number
+  new_users_today: number
+  active_users_today: number
+  paying_users_today: number
   jobs_today: number
   succeeded_today: number
   failed_today: number

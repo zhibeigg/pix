@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.85.0] - 2026-06-16
+
+### Added
+
+- 管理后台「概览」新增今日新增用户、DAU、今日付费用户和付费订单指标，便于区分用户增长、活跃与付费转化。
+
+### Changed
+
+- 后台「今日充值」口径改为只统计今日已支付订单的点数，不再把注册赠送或管理员补点等 `recharge` 点数流水算入充值数据。
+
 ## [1.84.0] - 2026-06-16
 
 ### Added

@@ -1118,6 +1118,9 @@ class MockWebhookRequest(BaseModel):
 
 class AdminDashboardResponse(BaseModel):
     total_users: int
+    new_users_today: int = 0
+    active_users_today: int = 0
+    paying_users_today: int = 0
     jobs_today: int
     succeeded_today: int
     failed_today: int

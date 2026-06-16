@@ -7,7 +7,7 @@ from datetime import datetime, time, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from pix_web.models import CreditTransaction, GenerationJob, GenerationPolicyEvent, PaymentOrder, UploadEvent, User, utcnow
+from pix_web.models import GenerationJob, GenerationPolicyEvent, PaymentOrder, UploadEvent, User, utcnow
 
 
 def _utc_day_start() -> datetime:
@@ -58,6 +58,7 @@ def admin_dashboard(db: Session) -> dict[str, int | float]:
     succeeded_today = _count_jobs(db, status="succeeded", since=today)
     pending_jobs = _count_jobs(db, status="pending")
     running_jobs = _count_jobs(db, status="running")
+    new_users_today = db.scalar(select(func.count()).select_from(User).where(User.created_at >= today)) or 0
     policy_blocked_today = db.scalar(
         select(func.count()).select_from(GenerationPolicyEvent).where(GenerationPolicyEvent.created_at >= today)
     ) or 0
@@ -99,9 +100,9 @@ def admin_dashboard(db: Session) -> dict[str, int | float]:
     average_generation_seconds_today = sum(durations) / len(durations) if durations else 0.0
     p95_generation_seconds_today = _p95(durations)
     credits_recharged_today = db.scalar(
-        select(func.coalesce(func.sum(CreditTransaction.amount), 0)).where(
-            CreditTransaction.type == "recharge",
-            CreditTransaction.created_at >= today,
+        select(func.coalesce(func.sum(PaymentOrder.credits), 0)).where(
+            PaymentOrder.status == "paid",
+            PaymentOrder.paid_at >= today,
         )
     ) or 0
     credits_consumed_today = db.scalar(
@@ -116,13 +117,28 @@ def admin_dashboard(db: Session) -> dict[str, int | float]:
             PaymentOrder.paid_at >= today,
         )
     ) or 0
+    paying_users_today = db.scalar(
+        select(func.count(func.distinct(PaymentOrder.user_id))).where(
+            PaymentOrder.status == "paid",
+            PaymentOrder.paid_at >= today,
+        )
+    ) or 0
     uploads_today = db.scalar(
         select(func.count()).select_from(UploadEvent).where(UploadEvent.created_at >= today)
     ) or 0
+    active_user_ids = set(db.scalars(select(User.id).where(User.created_at >= today)))
+    active_user_ids.update(db.scalars(select(GenerationJob.user_id).where(GenerationJob.created_at >= today).distinct()))
+    active_user_ids.update(db.scalars(select(UploadEvent.user_id).where(UploadEvent.created_at >= today).distinct()))
+    active_user_ids.update(db.scalars(select(PaymentOrder.user_id).where(PaymentOrder.created_at >= today).distinct()))
+    active_user_ids.update(db.scalars(select(PaymentOrder.user_id).where(PaymentOrder.paid_at >= today).distinct()))
+    active_users_today = len(active_user_ids)
     total_users = db.scalar(select(func.count()).select_from(User)) or 0
     failure_rate = (failed_today / jobs_today) if jobs_today else 0.0
     return {
         "total_users": int(total_users),
+        "new_users_today": int(new_users_today),
+        "active_users_today": int(active_users_today),
+        "paying_users_today": int(paying_users_today),
         "jobs_today": int(jobs_today),
         "succeeded_today": int(succeeded_today),
         "failed_today": int(failed_today),
