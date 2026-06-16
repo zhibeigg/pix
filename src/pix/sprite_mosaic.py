@@ -594,10 +594,11 @@ def _split_sheet_to_cells(
         fg_mask = _key_color_foreground_mask(rgba[..., :3], key_rgb, key_tolerance)
 
     height, width = fg_mask.shape
-    # 自动检测实际网格：模型未严格按 rows×cols 画时（少画/多画一行/列），盲信参数会把 cell
-    # 切在间隙上变空帧；这里按前景投影纠正为实际网格，再切分。
+    # 行数代表用户请求的动作数，不能仅因前景投影相连/断裂就改写，否则会把 4 个动作误
+    # 合并为 3 个动作。投影仍用于寻找更合适的切线；列数可继续按每行前景纠正。
     row_projection = fg_mask.sum(axis=1)
-    actual_rows = _detect_grid_count(row_projection, height, safe_rows)
+    detected_rows = _detect_grid_count(row_projection, height, safe_rows)
+    actual_rows = safe_rows
     row_splits = _projection_splits(row_projection, height, actual_rows)
     detected_cols: list[int] = []
     for row_index in range(actual_rows):
@@ -632,6 +633,7 @@ def _split_sheet_to_cells(
         "requested_cols": safe_cols,
         "rows": int(actual_rows),
         "cols": int(actual_cols),
+        "detected_rows": int(detected_rows),
         "row_splits": row_splits.tolist(),
         "col_splits_per_row": per_row_col_splits,
         "method": "foreground_projection_autogrid",
