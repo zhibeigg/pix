@@ -3,7 +3,7 @@ import { Upload } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
-import type { ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingRule } from '../types'
+import type { ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -17,7 +17,7 @@ import { PixPanel } from './pix/PixPanel'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
 
-type Props = { pricing: PricingRule[]; loading: boolean; token: string; imageModels: ImageModelsResponse; onSubmit: (payload: JobCreateRequest) => Promise<void> }
+type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; onSubmit: (payload: JobCreateRequest) => Promise<void> }
 type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
 
 const PROMPT_MAX_LENGTH = 3000

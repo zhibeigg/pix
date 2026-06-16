@@ -5,13 +5,14 @@ import { JobList } from '../components/JobList'
 import { PageHeader } from '../components/PageHeader'
 import { SingleGeneratePanel } from '../components/SingleGeneratePanel'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
-import type { ContactSheetCandidate, CreditBalance, GenerationJob, ImageModelsResponse, JobCreateRequest, PricingRule } from '../types'
+import type { ContactSheetCandidate, CreditBalance, GenerationJob, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule } from '../types'
 
 export type WorkMode = 'single' | 'batch'
 
 interface WorkspacePageProps {
   mode: WorkMode
   pricing: PricingRule[]
+  discount?: PricingDiscount | null
   balance: CreditBalance | null
   jobs: GenerationJob[]
   loading: boolean
@@ -24,7 +25,7 @@ interface WorkspacePageProps {
   onRefresh: () => void
 }
 
-export function WorkspacePage({ mode, pricing, balance, jobs, loading, token, imageModels, onModeChange, onCreateJob, onCreateJobs, onCandidatePixelize, onRefresh }: WorkspacePageProps) {
+export function WorkspacePage({ mode, pricing, discount, balance, jobs, loading, token, imageModels, onModeChange, onCreateJob, onCreateJobs, onCandidatePixelize, onRefresh }: WorkspacePageProps) {
   const { t } = useI18n()
   const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)), [jobs])
   return (
@@ -34,7 +35,7 @@ export function WorkspacePage({ mode, pricing, balance, jobs, loading, token, im
           <TabsList><TabsTrigger value="single">{t('pages.workspace.single')}</TabsTrigger><TabsTrigger value="batch">{t('pages.workspace.batch')}</TabsTrigger></TabsList>
         </Tabs>
       )} />
-      {mode === 'single' ? <SingleGeneratePanel pricing={pricing} loading={loading} token={token} imageModels={imageModels} onSubmit={onCreateJob} /> : <BatchGeneratePanel pricing={pricing} balance={balance} loading={loading} token={token} imageModels={imageModels} onSubmitMany={onCreateJobs} />}
+      {mode === 'single' ? <SingleGeneratePanel pricing={pricing} discount={discount} loading={loading} token={token} imageModels={imageModels} onSubmit={onCreateJob} /> : <BatchGeneratePanel pricing={pricing} discount={discount} balance={balance} loading={loading} token={token} imageModels={imageModels} onSubmitMany={onCreateJobs} />}
       <JobList jobs={activeJobs} onRefresh={onRefresh} onCandidatePixelize={onCandidatePixelize} />
     </div>
   )

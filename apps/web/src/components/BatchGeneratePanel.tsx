@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import { useI18n } from '../i18n'
 import { useConfirm } from './ConfirmDialog'
-import type { CreditBalance, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingRule, UploadResponse } from '../types'
+import type { CreditBalance, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule, UploadResponse } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
@@ -20,7 +20,7 @@ import { PixelControls } from './PixelControls'
 type BatchMode = 'asset' | 'local_pixelize'
 type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
 type BatchUpload = { id: string; status: 'uploading' | 'uploaded' | 'failed'; error?: string; upload?: UploadResponse }
-type Props = { pricing: PricingRule[]; balance: CreditBalance | null; loading: boolean; token: string; imageModels: ImageModelsResponse; onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void> }
+type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; balance: CreditBalance | null; loading: boolean; token: string; imageModels: ImageModelsResponse; onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void> }
 
 const PROMPT_MAX_LENGTH = 3000
 const LOGO_SIZE_OPTIONS = ['64x32', '96x48', '128x64', '192x96', '256x128']

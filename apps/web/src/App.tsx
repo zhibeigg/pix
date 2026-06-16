@@ -28,7 +28,7 @@ import { useReferralCode, LEGACY_REFERRAL_CODE_KEY } from './hooks/useReferralCo
 import { useBillingActions } from './hooks/useBillingActions'
 import { useAdminActions } from './hooks/useAdminActions'
 import { applyPageSeo } from './lib/seo'
-import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GalleryQuota, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingRule, SequenceAlignmentRequest, SetupStatus, SystemSetting, User } from './types'
+import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GalleryQuota, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingDiscount, PricingRule, SequenceAlignmentRequest, SetupStatus, SystemSetting, User } from './types'
 
 type AppProps = {
   themeMode: PixThemeMode
@@ -85,6 +85,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [expandingGalleryQuota, setExpandingGalleryQuota] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [pricing, setPricing] = useState<PricingRule[]>([])
+  const [discount, setDiscount] = useState<PricingDiscount | null>(null)
   const [imageModels, setImageModels] = useState<ImageModelsResponse>({ default: 'image2', models: ['image2'], items: [] })
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [adminJobs, setAdminJobs] = useState<GenerationJob[]>([])
@@ -159,7 +160,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
-    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextGalleryQuota, nextPacks, nextPackQuota, nextPricing, nextImageModels] = await Promise.all([
+    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextGalleryQuota, nextPacks, nextPackQuota, nextPricing, nextImageModels, nextDiscount] = await Promise.all([
       api.me(activeToken),
       api.balance(activeToken),
       api.transactions(activeToken),
@@ -172,6 +173,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       api.packQuota(activeToken),
       api.pricing(activeToken),
       api.imageModels().catch(() => ({ default: 'image2', models: ['image2'], items: [] })),
+      api.pricingDiscount(activeToken).catch(() => null),
     ])
     setUser(me)
     setBalance(nextBalance)
@@ -186,6 +188,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setPackQuota(nextPackQuota)
     setPricing(nextPricing)
     setImageModels(nextImageModels)
+    setDiscount(nextDiscount)
     if (selectedPackId) {
       setSelectedPackJobs(await api.packJobs(activeToken, selectedPackId))
     }
@@ -408,6 +411,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setSelectedPackId(null)
     setSelectedPackJobs([])
     setPricing([])
+    setDiscount(null)
     setAdminUsers([])
     setAdminJobs([])
     setAdminPackages([])
@@ -802,8 +806,8 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           onNavigate={navigate}
         >
           <Suspense fallback={<div className="grid min-h-[calc(100vh-160px)] place-items-center px-4 text-sm text-muted-foreground">{t('app.checkingSetup')}</div>}>
-            {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
-            {page === 'raw-image' && <RawImagePage pricing={pricing} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
+            {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
+            {page === 'raw-image' && <RawImagePage pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
             {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onSaveSequenceAlignment={saveSequenceAlignment} />}
             {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}

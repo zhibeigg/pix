@@ -4,7 +4,7 @@ import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import { defaultPixelize, summarizePrompt } from '../pixelize'
-import type { CreditBalance, GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingRule } from '../types'
+import type { CreditBalance, GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule } from '../types'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Input } from '../components/ui/input'
@@ -19,6 +19,7 @@ import { JobErrorSummary, summarizeJobError } from '../components/JobErrorSummar
 
 type Props = {
   pricing: PricingRule[]
+  discount?: PricingDiscount | null
   balance: CreditBalance | null
   jobs: GenerationJob[]
   loading: boolean
