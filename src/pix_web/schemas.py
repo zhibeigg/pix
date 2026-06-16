@@ -1119,3 +1119,67 @@ class PerformanceMetricsResponse(BaseModel):
     providers: list[PerfProvider]
     failures: list[PerfFailure]
     recent: list[PerfRecentJob]
+
+
+class ImageProviderModelPayload(BaseModel):
+    id: str = Field(min_length=1, max_length=128)
+    provider_model: str = ""
+    label: str = ""
+    protocol: str = "openai_images"
+    operations: list[str] = Field(default_factory=lambda: ["text_to_image", "image_to_image"])
+    sizes: list[str] = Field(default_factory=list)
+    qualities: list[str] = Field(default_factory=list)
+    output_formats: list[str] = Field(default_factory=list)
+    edit_mode: str = "multipart"
+
+
+class ImageProviderCreateRequest(BaseModel):
+    id: str = Field(min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$")
+    display_name: str = Field(default="", max_length=128)
+    enabled: bool = True
+    base_url: str = ""
+    api_key: str = ""
+    api_key_env: str = Field(default="", max_length=96)
+    priority: int = 100
+    discover_models: bool = False
+    protocols: list[str] = Field(default_factory=lambda: ["openai_images"])
+    models: list[ImageProviderModelPayload] = Field(default_factory=list)
+    preset_key: str | None = None
+
+
+class ImageProviderUpdateRequest(BaseModel):
+    display_name: str = ""
+    enabled: bool = True
+    base_url: str = ""
+    api_key: str = ""           # 空=保留原值（写入式更新）
+    clear_api_key: bool = False
+    api_key_env: str = Field(default="", max_length=96)
+    priority: int = 100
+    discover_models: bool = False
+    protocols: list[str] = Field(default_factory=lambda: ["openai_images"])
+    models: list[ImageProviderModelPayload] = Field(default_factory=list)
+
+
+class ImageProviderResponse(BaseModel):
+    id: str
+    display_name: str
+    enabled: bool
+    base_url: str
+    has_api_key: bool
+    api_key_env: str
+    priority: int
+    discover_models: bool
+    protocols: list[str]
+    models: list[ImageProviderModelPayload]
+    preset_key: str | None = None
+
+
+class ImageProviderPresetResponse(BaseModel):
+    key: str
+    display_name: str
+    protocols: list[str]
+    base_url: str
+    api_key_env: str
+    discover_models: bool
+    models: list[ImageProviderModelPayload]
+    note: str = ""

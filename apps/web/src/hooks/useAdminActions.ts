@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { api } from '../api'
-import type { AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, GenerationJob } from '../types'
+import type { AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, GenerationJob, ImageProvider, ImageProviderPreset, ImageProviderCreatePayload, ImageProviderUpdatePayload } from '../types'
 import type { ToastVariant } from '../components/AppOverlays'
 
 type TextFn = (zh: string, en: string) => string
@@ -117,5 +117,36 @@ export function useAdminActions({ token, refreshCore, setMessage, text }: AdminA
     return api.testAnnouncementEmail(token, { email, title, body })
   }, [text, token])
 
-  return { adjustCredits, adjustCreditsBatch, updatePricing, updateSetting, testEmailSetting, adminRetryJob, adminCancelJob, adminFailRefundJob, publishAnnouncement, adminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, testAnnouncementEmail }
+  const listProviders = useCallback(async (): Promise<ImageProvider[]> => {
+    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
+    return api.adminProviders(token)
+  }, [text, token])
+
+  const listProviderPresets = useCallback(async (): Promise<ImageProviderPreset[]> => {
+    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
+    return api.adminProviderPresets(token)
+  }, [text, token])
+
+  const createProvider = useCallback(async (payload: ImageProviderCreatePayload) => {
+    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
+    await api.createAdminProvider(token, payload)
+    await refreshCore(token)
+    setMessage(text('供应商已新增', 'Provider created'))
+  }, [refreshCore, setMessage, text, token])
+
+  const updateProvider = useCallback(async (id: string, payload: ImageProviderUpdatePayload) => {
+    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
+    await api.updateAdminProvider(token, id, payload)
+    await refreshCore(token)
+    setMessage(text('供应商已更新', 'Provider updated'))
+  }, [refreshCore, setMessage, text, token])
+
+  const deleteProvider = useCallback(async (id: string) => {
+    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
+    await api.deleteAdminProvider(token, id)
+    await refreshCore(token)
+    setMessage(text('供应商已删除', 'Provider deleted'))
+  }, [refreshCore, setMessage, text, token])
+
+  return { adjustCredits, adjustCreditsBatch, updatePricing, updateSetting, testEmailSetting, adminRetryJob, adminCancelJob, adminFailRefundJob, publishAnnouncement, adminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, testAnnouncementEmail, listProviders, listProviderPresets, createProvider, updateProvider, deleteProvider }
 }
