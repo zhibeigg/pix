@@ -272,24 +272,75 @@ function AdminJobsList({ jobs, usersById, onRetry, onCancel, onFailRefund }: { j
   )
 }
 
+const DIAGNOSTIC_PREVIEW_LIMIT = 1800
+
 function AdminJobDiagnostics({ job }: { job: GenerationJob }) {
-  const diagnostics = job.error_diagnostics_json && Object.keys(job.error_diagnostics_json).length > 0
-    ? JSON.stringify(job.error_diagnostics_json, null, 2)
-    : ''
+  const [expanded, setExpanded] = useState(false)
+  const [copied, setCopied] = useState('')
+  const diagnostics = asRecord(job.error_diagnostics_json)
+  const failure = asRecord(diagnostics?.failure)
+  const exception = asRecord(diagnostics?.exception)
+  const providerAttempts = Array.isArray(diagnostics?.provider_attempts) ? diagnostics.provider_attempts : []
+  const failureType = toSummaryText(failure?.type)
+  const failureSource = toSummaryText(failure?.source)
+  const failureCode = toSummaryText(failure?.code)
+  const exceptionType = toSummaryText(exception?.type)
   const userMessage = job.user_error_message || '—'
+  const detailPreview = truncateForPreview(job.error_message || '', DIAGNOSTIC_PREVIEW_LIMIT)
+  const diagnosticPreview = expanded && diagnostics
+    ? truncateForPreview(JSON.stringify(diagnostics, null, 2), DIAGNOSTIC_PREVIEW_LIMIT)
+    : ''
+  const copyPayload = async (label: string, value: string) => {
+    if (!value) return
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(label)
+    } catch {
+      setCopied('复制失败')
+    }
+    window.setTimeout(() => setCopied(''), 1400)
+  }
   return (
     <div className="mt-2 grid gap-2 text-sm">
       <p className="text-destructive">{job.error_message ? job.error_message.slice(0, 220) : userMessage}</p>
-      <details className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
+      <details className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs" onToggle={(event) => setExpanded(event.currentTarget.open)}>
         <summary className="cursor-pointer font-semibold">诊断详情</summary>
         <div className="mt-2 grid gap-2">
           <p><span className="font-semibold">用户提示：</span>{userMessage}</p>
-          {diagnostics && <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded bg-card p-2 font-mono text-[11px] leading-5 text-muted-foreground">{diagnostics}</pre>}
-          {job.error_message && <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded bg-card p-2 font-mono text-[11px] leading-5 text-muted-foreground">{job.error_message}</pre>}
+          <div className="flex flex-wrap gap-2 text-muted-foreground">
+            {failureType && <span>类型：{failureType}</span>}
+            {failureSource && <span>来源：{failureSource}</span>}
+            {failureCode && <span>代码：{failureCode}</span>}
+            {exceptionType && <span>异常：{exceptionType}</span>}
+            {providerAttempts.length > 0 && <span>Provider 尝试：{providerAttempts.length}</span>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {diagnostics && <Button type="button" variant="outline" size="sm" onClick={() => { void copyPayload('诊断 JSON', JSON.stringify(diagnostics, null, 2)) }}>复制诊断 JSON</Button>}
+            {job.error_message && <Button type="button" variant="outline" size="sm" onClick={() => { void copyPayload('详细错误', job.error_message) }}>复制详细错误</Button>}
+            {copied && <span className="self-center text-xs text-muted-foreground">已复制：{copied}</span>}
+          </div>
+          {diagnosticPreview && <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-card p-2 font-mono text-[11px] leading-5 text-muted-foreground">{diagnosticPreview}</pre>}
+          {detailPreview && <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-card p-2 font-mono text-[11px] leading-5 text-muted-foreground">{detailPreview}</pre>}
         </div>
       </details>
     </div>
   )
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function toSummaryText(value: unknown) {
+  if (value === null || value === undefined) return ''
+  return String(value)
+}
+
+function truncateForPreview(value: string, limit: number) {
+  if (!value) return ''
+  return value.length <= limit ? value : `${value.slice(0, limit)}\n…已截断预览，完整内容请使用复制按钮。`
 }
 
 function formatRuntime(job: GenerationJob) {

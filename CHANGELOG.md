@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- 修复后台「任务与作品」诊断详情展开卡顿：默认只渲染摘要和短预览，完整诊断 JSON / 详细错误改为按需复制，避免超长 traceback 与上游响应一次性塞进 DOM。
 - 修复多行序列帧（mosaic）按错误网格列数切分导致空帧 / 错位的问题：模型未严格按 `rows×cols` 画（如请求 8 列实际画 7 列）时，盲信参数会把某个 cell 切在列间隙上变空帧；现切分前用前景投影自动检测实际行 / 列数（护栏：仅在与请求数偏差 ≤ ⅓ 时采纳，正常作品与主体填满图不受影响），`rows_outputs` / 网格预览 / `sequence.json` 跟随实际网格。
 - 修复打开下拉菜单 / 弹窗（Radix Select、Dialog 等）时整页横向"左右晃动"的问题：页面已用 `scrollbar-gutter: stable` 预留滚动条槽，但 react-remove-scroll 锁定滚动时仍注入等宽的 `body[data-scroll-locked] { margin-right }` 补偿造成重复占位；原有中和规则与库规则同特异性 `(0,1,1)` 且都带 `!important`、又先于库样式注入而失效，现以 `html` 前缀提升特异性到 `(0,1,2)`，使中和规则稳定胜出。
 - 修复 `local_pixelize` 本地重处理被当作普通上传图走 legacy 路径的问题；现在会整体按生成图源图执行 perfect pixel / 去背景 / 裁切后处理，并采用 perfect pixel 自动检测到的真实像素尺寸。
