@@ -74,6 +74,17 @@ class ReferralSettings:
 
 
 @dataclass(frozen=True)
+class PricingDiscount:
+    enabled: bool
+    rate: float
+    label: str
+
+    @property
+    def active(self) -> bool:
+        return self.enabled and 0.0 <= self.rate < 1.0
+
+
+@dataclass(frozen=True)
 class PublicAnnouncement:
     enabled: bool
     title: str
@@ -93,6 +104,9 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("referral.enabled", "邀请奖励开关", "邀请奖励", "boolean", "true", "关闭后不再绑定新邀请或生成新返佣。"),
     SettingDefinition("referral.commission_rate_bps", "返佣比例 bps", "邀请奖励", "number", "1000", "1000 = 10%；按好友实际支付金额计算。"),
     SettingDefinition("referral.pending_days", "待到账天数", "邀请奖励", "number", "30", "好友充值后返佣进入待到账，达到天数后转为可用收益。"),
+    SettingDefinition("pricing.discount_enabled", "折扣总开关", "价格折扣", "boolean", "false", "开启后所有生成任务按折扣倍率扣点；作品库 / 素材包扩容不受影响。"),
+    SettingDefinition("pricing.discount_rate", "折扣倍率", "价格折扣", "number", "1.0", "0~1，例如 0.8 = 8 折；0 = 限免；1 = 不打折。向下取整，原价>0 的任务折后保底 1 点。"),
+    SettingDefinition("pricing.discount_label", "折扣标签", "价格折扣", "string", "", "可选促销文案，例如「限时 8 折」；留空时前端按倍率自动生成。"),
     SettingDefinition("blocked_prompt_terms", "素材描述禁词", "运营保护", "textarea", "", "逗号、分号或换行分隔。"),
     SettingDefinition("web.email_provider", "邮件发送方式", "邮件验证码", "select", "", "console 适合开发；smtp 用于生产投递。", ("console", "smtp")),
     SettingDefinition("web.smtp_host", "SMTP Host", "邮件验证码", "string", "", "例如 smtp.example.com。", env_var="PIX_WEB_SMTP_HOST"),
@@ -230,6 +244,9 @@ DEFAULT_SYSTEM_SETTINGS: dict[str, str] = {
         "referral.enabled",
         "referral.commission_rate_bps",
         "referral.pending_days",
+        "pricing.discount_enabled",
+        "pricing.discount_rate",
+        "pricing.discount_label",
     }
 }
 ALLOWED_SETTING_KEYS = set(SETTING_DEFINITIONS_BY_KEY)
@@ -264,6 +281,13 @@ def _parse_positive_int(value: str, fallback: int) -> int:
     try:
         return max(0, int(value))
     except ValueError:
+        return fallback
+
+
+def _parse_float(value: str, fallback: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
         return fallback
 
 
@@ -392,6 +416,11 @@ def _normalize_value(definition: SettingDefinition, value: str) -> str:
             number = float(clean) if "." in clean else int(clean)
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="数字格式不正确") from exc
+        if definition.key == "pricing.discount_rate":
+            rate = float(number)
+            if rate < 0.0 or rate > 1.0:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="折扣倍率应在 0~1 之间")
+            return str(rate)
         if isinstance(number, float):
             return str(number)
         return str(max(0, number))
@@ -490,6 +519,14 @@ def load_referral_settings(db: Session) -> ReferralSettings:
             int(DEFAULT_SYSTEM_SETTINGS["referral.pending_days"]),
         ),
     )
+
+
+def load_pricing_discount(db: Session) -> PricingDiscount:
+    values = _stored_values(db)
+    enabled = _parse_bool(values.get("pricing.discount_enabled", "false"))
+    rate = min(1.0, max(0.0, _parse_float(values.get("pricing.discount_rate", "1"), 1.0)))
+    label = values.get("pricing.discount_label", "").strip()
+    return PricingDiscount(enabled=enabled, rate=rate, label=label)
 
 
 def _coerce_to_current_type(raw: str, current: Any) -> Any:
