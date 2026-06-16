@@ -1,4 +1,4 @@
-import { GalleryHorizontalEnd, Gift, LogOut, RefreshCw, Settings, UserRound, WalletCards } from 'lucide-react'
+import { GalleryHorizontalEnd, Gift, KeyRound, LogOut, RefreshCw, Settings, UserRound, WalletCards } from 'lucide-react'
 import { useI18n } from '../i18n'
 import type { CreditBalance, User } from '../types'
 import { Badge } from './ui/badge'
@@ -47,6 +47,7 @@ export function AccountMenu({ user, balance, activeJobs, completedJobs, failedJo
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => onNavigate('billing')}><WalletCards />{t('account.billingCenter')}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onNavigate('rewards')}><Gift />{t('account.referralRewards')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onNavigate('api')}><KeyRound />{t('account.apiAccess')}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onNavigate('gallery')}><GalleryHorizontalEnd />{t('account.gallery')}</DropdownMenuItem>
           {isAdmin && <DropdownMenuItem onClick={() => onNavigate('admin')}><Settings />{t('account.adminConsole')}</DropdownMenuItem>}
           <DropdownMenuItem onClick={() => void onRefresh()}><RefreshCw />{t('account.refreshData')}</DropdownMenuItem>

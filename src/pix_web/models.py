@@ -32,6 +32,24 @@ class User(Base):
     credit_account: Mapped["CreditAccount"] = relationship(back_populates="user", uselist=False)
 
 
+class ExternalApiKey(Base):
+    __tablename__ = "external_api_keys"
+    __table_args__ = (UniqueConstraint("key_hash", name="uq_external_api_keys_hash"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(120), default="")
+    key_prefix: Mapped[str] = mapped_column(String(32), default="", index=True)
+    key_hash: Mapped[str] = mapped_column(String(64), default="", index=True)
+    scopes: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    enabled: Mapped[bool] = mapped_column(default=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class EmailVerificationCode(Base):
     __tablename__ = "email_verification_codes"
 

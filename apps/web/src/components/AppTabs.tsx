@@ -2,7 +2,7 @@ import { cn } from '../lib/utils'
 import { useI18n } from '../i18n'
 import type { User } from '../types'
 
-export type AppPage = 'home' | 'workspace' | 'raw-image' | 'gallery' | 'packs' | 'billing' | 'rewards' | 'admin' | 'not-found'
+export type AppPage = 'home' | 'workspace' | 'raw-image' | 'gallery' | 'packs' | 'billing' | 'rewards' | 'api' | 'admin' | 'not-found'
 
 type AppTab = { page: AppPage; labelKey: string; descriptionKey: string; adminOnly?: boolean }
 
@@ -13,6 +13,7 @@ const tabs: AppTab[] = [
   { page: 'packs', labelKey: 'nav.packs', descriptionKey: 'nav.packsDescription' },
   { page: 'billing', labelKey: 'nav.billing', descriptionKey: 'nav.billingDescription' },
   { page: 'rewards', labelKey: 'nav.rewards', descriptionKey: 'nav.rewardsDescription' },
+  { page: 'api', labelKey: 'nav.api', descriptionKey: 'nav.apiDescription' },
   { page: 'admin', labelKey: 'nav.admin', descriptionKey: 'nav.adminDescription', adminOnly: true },
 ]
 

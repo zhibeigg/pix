@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.84.0] - 2026-06-16
+
 ### Added
 
+- 新增对外使用的 `/external/v1` API：外部程序可使用 `Authorization: Bearer <api_key>` 创建生图 / 图生图 / 素材直出 / 序列帧任务、上传参考图、查询任务并下载输出；外部任务仍归属 API Key 对应用户，并复用现有扣点、队列、权限和文件逻辑。
+- 新增普通用户「API」页面和 `/api-keys` 管理接口：支持创建、停用、删除长期 API Key，按 `jobs:create`、`jobs:read`、`files:read`、`uploads:create` scope 授权，明文 key 只展示一次，数据库仅保存 hash 与 prefix，并展示调用文档和 `curl` 示例。
 - 主页「范例图鉴」新增「实测样例」展示区：放入本地真实流程生成的 3 个中文 Logo 与 3 个 24×24 技能书，并分别展示 `image2` 与 `gemini-3.1-flash-image-preview` 结果；卡片标注生成模型、任务号、请求尺寸与实际 PNG 尺寸，并支持按样例类型和生成模型筛选。
 - 新增全局点数折扣：管理后台「系统设置 → 价格折扣」可开关折扣、设置倍率（0~1）与促销文案，生成任务按折扣倍率向下取整（原价>0 保底 1 点）扣点并在创建时锁定；作品库 / 素材包扩容不打折。新增公开接口 `GET /pricing/discount`，前端估价展示原价划线 + 折后价 + 折扣标签。
 - 作品库 / 素材包作品卡片新增「复用」按钮：可一键回到生产工作台，并自动回填原任务的提示词、素材 / 序列帧参数、像素尺寸、颜色数、模型与可复用参考图路径，方便长 prompt 快速再生成。

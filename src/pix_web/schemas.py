@@ -215,6 +215,45 @@ class CreditBalanceResponse(BaseModel):
     total_consumed: int
 
 
+class ApiKeyCreateRequest(BaseModel):
+    name: str = Field(default="", max_length=120)
+    scopes: list[str] = Field(default_factory=list, max_length=16)
+    expires_at: datetime | None = None
+
+
+class ApiKeyUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, max_length=120)
+    enabled: bool | None = None
+    scopes: list[str] | None = Field(default=None, max_length=16)
+    expires_at: datetime | None = None
+
+
+class ApiKeyResponse(BaseModel):
+    id: int
+    name: str
+    key_prefix: str
+    scopes: list[str] = []
+    enabled: bool
+    last_used_at: datetime | None
+    expires_at: datetime | None
+    revoked_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ApiKeyCreateResponse(BaseModel):
+    key: str
+    item: ApiKeyResponse
+
+
+class ExternalMeResponse(BaseModel):
+    user: UserResponse
+    scopes: list[str]
+    key_prefix: str
+
+
 class CreditTransactionResponse(BaseModel):
     id: int
     type: str

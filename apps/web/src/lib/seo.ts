@@ -75,6 +75,16 @@ const pageSeo: Record<AppPage, Record<PixLanguage, { title: string; description:
       description: 'Share Pix Forge with other game developers and earn credits for AI pixel asset generation.',
     },
   },
+  api: {
+    'zh-CN': {
+      title: '开发者 API｜外部程序调用 Pix Forge 生图',
+      description: '创建 Pix Forge API Key，让脚本、Bot、游戏编辑器插件或自动化流水线调用素材生成、任务查询和结果下载接口。',
+    },
+    en: {
+      title: 'Developer API for Pix Forge Generation',
+      description: 'Create Pix Forge API keys for scripts, bots, editor plugins, and automation pipelines to create generation jobs and download outputs.',
+    },
+  },
   admin: {
     'zh-CN': {
       title: '后台管理｜Pix Forge 运营控制台',

@@ -53,6 +53,37 @@ export type CreditTransaction = {
   created_at: string
 }
 
+export type ApiKeyItem = {
+  id: number
+  name: string
+  key_prefix: string
+  scopes: string[]
+  enabled: boolean
+  last_used_at: string | null
+  expires_at: string | null
+  revoked_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ApiKeyCreatePayload = {
+  name: string
+  scopes: string[]
+  expires_at?: string | null
+}
+
+export type ApiKeyUpdatePayload = {
+  name?: string
+  enabled?: boolean
+  scopes?: string[]
+  expires_at?: string | null
+}
+
+export type ApiKeyCreateResponse = {
+  key: string
+  item: ApiKeyItem
+}
+
 export type AdminBatchAdjustCreditsResponse = {
   adjusted_count: number
   amount: number

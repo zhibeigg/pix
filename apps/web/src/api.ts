@@ -1,6 +1,10 @@
 import type {
   AdminDashboard,
   PerformanceMetrics,
+  ApiKeyCreatePayload,
+  ApiKeyCreateResponse,
+  ApiKeyItem,
+  ApiKeyUpdatePayload,
   AnnouncementItem,
   AnnouncementListResponse,
   AnnouncementPublishPayload,
@@ -205,6 +209,18 @@ export const api = {
   },
   transactions(token: string) {
     return request<CreditTransaction[]>('/credits/transactions?limit=20', {}, token)
+  },
+  apiKeys(token: string) {
+    return request<ApiKeyItem[]>('/api-keys', {}, token)
+  },
+  createApiKey(token: string, payload: ApiKeyCreatePayload) {
+    return request<ApiKeyCreateResponse>('/api-keys', { method: 'POST', body: JSON.stringify(payload) }, token)
+  },
+  updateApiKey(token: string, keyId: number, payload: ApiKeyUpdatePayload) {
+    return request<ApiKeyItem>(`/api-keys/${keyId}`, { method: 'PATCH', body: JSON.stringify(payload) }, token)
+  },
+  revokeApiKey(token: string, keyId: number) {
+    return request<ApiKeyItem>(`/api-keys/${keyId}`, { method: 'DELETE' }, token)
   },
   packages() {
     return request<CreditPackage[]>('/billing/packages')

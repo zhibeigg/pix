@@ -13,7 +13,7 @@ from pix import __version__
 from pix_web.config import WebSettings, load_web_settings
 from pix_web.db import init_db, make_engine, make_session_factory
 from pix_web.referrals import frontend_invite_base_url
-from pix_web.routers import admin, announcements, auth, batches, billing, credits, files, jobs, packs, pricing, providers, referrals, settings as settings_router, uploads
+from pix_web.routers import admin, announcements, api_keys, auth, batches, billing, credits, external, files, jobs, packs, pricing, providers, referrals, settings as settings_router, uploads
 
 
 def create_app(settings: WebSettings | None = None) -> FastAPI:
@@ -46,6 +46,8 @@ def create_app(settings: WebSettings | None = None) -> FastAPI:
     app.include_router(files.router)
     app.include_router(pricing.router)
     app.include_router(settings_router.router)
+    app.include_router(api_keys.router)
+    app.include_router(external.router)
     app.include_router(announcements.router)
     app.include_router(admin.router)
     app.include_router(providers.router)

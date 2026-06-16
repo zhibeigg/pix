@@ -150,9 +150,55 @@ npm run build
 
 管理后台「任务与作品」支持按作品库视角查看最新全站任务：管理员可按状态、用户、任务 ID / prompt / 批次 / 用户邮箱筛选，并直接预览、下载任务产物；同页保留操作列表用于重试失败任务、取消排队 / 运行任务并退款、标记失败并退款。后端 `GET /admin/jobs?limit=500` 返回 `JobResponse[]`，其中 `user_id` 暴露任务归属，`outputs` 继续包含受保护文件 URL；管理员前端使用自己的登录 token 调用 `/files` 打开这些产物。
 
-管理后台「性能监控」面板提供生图任务的实时可观测：成功率、活跃并发、任务量与成功率时间序列、各 provider（胜算云 / Packy / Crazyrouter）成功率对比、失败分类与最近任务流，可在 `1h / 24h / 7d` 范围间切换，前端每 8 秒轮询刷新。数据来自后端 `GET /admin/performance-metrics` 聚合接口；`generation_jobs.provider` 列（迁移 `0016`）由 worker 在任务落库时写入最终生效 provider，因此 provider 维度只覆盖该列上线后的新任务，历史任务归入「未知」。
+管理后台「性能监控」面板提供生图任务的实时可观测：成功率、活跃并发、任务量与成功率时间序列、提供商成功率对比、失败分类与最近任务流，可在 `1h / 24h / 7d` 范围间切换，前端每 8 秒轮询刷新。数据来自后端 `GET /admin/performance-metrics` 聚合接口；提供商成功率以后台已添加的 `image_providers` 为基准，优先读取任务 meta / diagnostics 中的 provider 尝试历史，因此 fallback 中前置失败供应商和最终成功供应商都会计入各自统计。
 
 管理后台「上游供应商」面板统一管理生图上游：从内置预设（胜算云 / Packy / Crazyrouter / OpenAI / Midjourney / Ideogram / Fal / Kling）或「自定义（OpenAI 兼容）」一键新增供应商，填入 API Key 即可；支持编辑、删除、启停与调整 `priority`。供应商配置以数据库 `image_providers` 表为单一真相源（迁移 `0017`），后端 `GET/POST/PUT/DELETE /admin/providers` 提供增删改查、`GET /admin/providers/presets` 返回预设目录。首次启动会把 `config.toml` 的 `[[image_providers]]` 与 `.env` 各家 Key 导入数据库做种子；之后改动即时生效、无需重启（worker 每个任务都通过 `load_managed_pix_config` 重新加载有效配置并叠加数据库供应商）。API Key 写入后仅展示「已配置 / 未配置」状态、提交空值保持不变，与其它密钥设置一致。
+
+## 对外 API
+
+普通用户登录后可在网站「API」页面创建、停用或删除长期 API Key，并查看调用文档与 `curl` 示例。API Key 明文只在创建成功时展示一次，数据库只保存 hash 与 prefix；列表页只展示名称、prefix、scope、创建时间、最后使用时间和撤销时间。外部程序使用 `Authorization: Bearer <api_key>` 调用 `/external/v1/...`，任务仍归属该 key 对应用户，并复用现有任务创建、扣点预留、队列入队、作品权限和文件下载逻辑。
+
+可分配的 scope：
+
+- `jobs:create`：创建素材直出、文生图、图生图、本地重处理、重新像素化、序列帧等任务；
+- `jobs:read`：查询自己的任务列表与任务详情；
+- `files:read`：下载自己的任务输出或序列帧动作 zip；
+- `uploads:create`：上传参考图 / 输入图，供后续任务 payload 使用。
+
+常用调用示例：
+
+```bash
+# 创建任务（Idempotency-Key 可选；相同 key 会复用同一任务）
+curl -X POST "https://example.com/api/external/v1/jobs" \
+  -H "Authorization: Bearer pix_live_xxx" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: sword-001" \
+  -d '{
+    "job_type": "asset",
+    "asset": {"name": "blue magic sword", "asset_kind": "item_icon"},
+    "pixelize": {"output_size": [32, 32], "colors": 8, "remove_bg": true},
+    "skip_vl": true
+  }'
+
+# 查询任务
+curl "https://example.com/api/external/v1/jobs/{job_id}" \
+  -H "Authorization: Bearer pix_live_xxx"
+
+# 上传参考图
+curl -X POST "https://example.com/api/external/v1/uploads" \
+  -H "Authorization: Bearer pix_live_xxx" \
+  -F "file=@reference.png"
+
+# 下载任务输出（kind 可用 final、source、sprite_sheet、sprite_mosaic、grid 等）
+curl -L "https://example.com/api/external/v1/jobs/{job_id}/outputs/final" \
+  -H "Authorization: Bearer pix_live_xxx" \
+  -o output.png
+
+# 下载多行动作序列帧 zip
+curl -L "https://example.com/api/external/v1/jobs/{job_id}/sprite-actions.zip" \
+  -H "Authorization: Bearer pix_live_xxx" \
+  -o sprite-actions.zip
+```
 
 ## 通用生图 Provider 调用规范
 
@@ -264,7 +310,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.82.0`。
+当前版本：`1.84.0`。
 
 版本号格式为 `A.B.C`：
 
