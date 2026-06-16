@@ -10,11 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from pix.api.image_model_registry import TEXT_TO_IMAGE, candidates_for_model, provider_api_key
 from pix.config import AppConfig
 from pix_web.models import Base, ImageProvider
-from pix_web.provider_store import (
-    apply_db_image_providers,
-    ensure_seeded_image_providers,
-    image_providers_from_db,
-)
+from pix_web.provider_store import apply_db_image_providers, ensure_seeded_image_providers
 
 
 class ProviderStoreTests(unittest.TestCase):
