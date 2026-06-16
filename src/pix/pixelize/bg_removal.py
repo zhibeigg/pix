@@ -106,6 +106,24 @@ def color_distance(rgb: np.ndarray, bg: np.ndarray) -> np.ndarray:
     return np.sqrt((diff ** 2).sum(axis=2))
 
 
+def _adaptive_thresholds(config: RemovalConfig, variance: float) -> tuple[float, float, bool]:
+    """根据边框纯度收紧双阈值，避免纯色 key 背景吞掉相近主体色。
+
+    旧默认 tolerance=26 会映射到 t_core=60/t_grow=120。对边框极纯的洋红、绿幕、
+    白底素材来说，120 的 loose 阈值会把橙棕皮革等距离约 100 的主体色也连成背景。
+    边框越纯，说明真实背景颜色越稳定，grow 阈值可以更保守；边框复杂时保持旧阈值。
+    """
+    t_core = float(config.t_core)
+    t_grow = float(config.t_grow)
+    if not config.enforce_uniformity_guard and config.bg_color is not None:
+        return t_core, t_grow, False
+    if variance > float(config.uniformity_guard):
+        return t_core, t_grow, False
+    adaptive_grow = max(t_core + 8.0, 36.0 + float(variance) * 3.0)
+    next_grow = min(t_grow, adaptive_grow)
+    return t_core, next_grow, next_grow < t_grow
+
+
 def compute_background_mask(
     distance: np.ndarray,
     t_core: float,
@@ -235,11 +253,12 @@ def remove_background_with_result(
             stats={"reason": "border_not_uniform", "variance": variance},
         )
 
+    t_core, t_grow, thresholds_adapted = _adaptive_thresholds(config, variance)
     distance = color_distance(rgb, bg)
     bg_mask = compute_background_mask(
         distance,
-        config.t_core,
-        config.t_grow,
+        t_core,
+        t_grow,
         config.connectivity,
         require_border=not config.remove_enclosed_background,
     )
@@ -254,7 +273,13 @@ def remove_background_with_result(
         image=out_img,
         bg_color=bg_tuple,
         confidence="high",
-        stats={"bg_ratio": float(bg_mask.mean()), "variance": variance},
+        stats={
+            "bg_ratio": float(bg_mask.mean()),
+            "variance": variance,
+            "t_core": float(t_core),
+            "t_grow": float(t_grow),
+            "thresholds_adapted": bool(thresholds_adapted),
+        },
     )
 
 

@@ -80,6 +80,18 @@ class PixelBgBackgroundRemovalTests(unittest.TestCase):
         self.assertEqual(int(alpha[0, 0]), 0)
         self.assertEqual(int(alpha[2, 2]), 255)
 
+    def test_uniform_magenta_background_keeps_warm_subject_color(self) -> None:
+        image = Image.new("RGBA", (5, 5), (184, 58, 138, 255))
+        image.putpixel((2, 2), (167, 100, 47, 255))
+
+        res = remove_background_with_result(image)
+        alpha = np.asarray(res.image)[..., 3]
+
+        self.assertEqual(int(alpha[0, 0]), 0)
+        self.assertEqual(int(alpha[2, 2]), 255)
+        self.assertTrue(res.stats.get("thresholds_adapted"))
+        self.assertLess(float(res.stats.get("t_grow", 999)), 120.0)
+
     def test_remove_green_screen_uses_explicit_key_color(self) -> None:
         image = Image.new("RGBA", (7, 7), (0, 255, 0, 255))
         image.putpixel((0, 0), (0, 0, 0, 255))
