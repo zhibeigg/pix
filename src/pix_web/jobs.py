@@ -17,7 +17,12 @@ from pix_web.job_observability import record_policy_event
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
 from pix_web.pricing import PricingDisabledError, apply_discount, get_price
 from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema, SpriteParamsSchema
-from pix_web.system_settings import enforce_generation_limits, enforce_prompt_policy, load_pricing_discount
+from pix_web.system_settings import (
+    PricingDiscount,
+    enforce_generation_limits,
+    enforce_prompt_policy,
+    load_pricing_discount,
+)
 
 AI_JOB_TYPES = {"asset", "text_to_image", "image_to_image", "sprite_sheet"}
 IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "repixelize"}
@@ -216,7 +221,7 @@ def _billing_snapshot_for_request(
     *,
     original_total: int,
     discounted_total: int,
-    discount,
+    discount: PricingDiscount,
 ) -> dict | None:
     is_sprite = req.job_type == "sprite_sheet"
     if not is_sprite and not discount.active:

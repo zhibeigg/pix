@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from pix_web.credits import adjust_credits, refund_reserved
-from pix_web.jobs import create_job_in_transaction
+from pix_web.jobs import create_job_in_transaction, create_jobs_batch, retry_failed_job
 from pix_web.models import Base, CreditAccount, SystemSetting, User
 from pix_web.pricing import apply_discount
 from pix_web.routers.pricing import pricing_discount
@@ -161,6 +161,39 @@ class DiscountBillingTests(_DbTestCase):
         assert billing["original_total_points"] == 40
         assert billing["total_points"] == 20
         assert billing["discount"]["rate"] == 0.5
+
+    def test_batch_reserves_discounted_price_per_job(self) -> None:
+        # 批量路径：每个 job 独立 apply_discount，再相加；折扣只应用一次
+        self._enable_discount("0.5")
+        req1 = JobCreateRequest(
+            job_type="asset", asset=AssetParamsSchema(name="frost"), client_request_id="batch-1"
+        )
+        req2 = JobCreateRequest(
+            job_type="asset", asset=AssetParamsSchema(name="ember"), client_request_id="batch-2"
+        )
+        jobs, total_price, _batch = create_jobs_batch(self.db, self.user, [req1, req2])
+        self.db.commit()
+        assert [job.price_credits for job in jobs] == [10, 10]   # 20 * 0.5，逐任务
+        assert total_price == 20
+        assert self._available() == 980                          # 1000 - 10 - 10
+
+    def test_retry_reprices_at_current_discount(self) -> None:
+        # 重试路径：失败任务按“当前”折扣重新计价，折扣只应用一次
+        self._enable_discount("0.5")
+        job = create_job_in_transaction(self.db, self.user, self._asset_req())
+        self.db.commit()
+        assert job.price_credits == 10
+        # 模拟失败流程：退还冻结点数并置为 failed
+        refund_reserved(self.db, job)
+        job.status = "failed"
+        self.db.commit()
+        assert self._available() == 1000
+
+        retried = retry_failed_job(self.db, self.user, job.id)
+        self.db.commit()
+        assert retried.price_credits == 10                       # 20 * 0.5（当前折扣，未叠加）
+        assert retried.reserved_credits == 10
+        assert self._available() == 990                          # 1000 - 10
 
 
 class PricingDiscountEndpointTests(_DbTestCase):

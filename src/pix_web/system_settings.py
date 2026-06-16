@@ -523,9 +523,20 @@ def load_referral_settings(db: Session) -> ReferralSettings:
 
 def load_pricing_discount(db: Session) -> PricingDiscount:
     values = _stored_values(db)
-    enabled = _parse_bool(values.get("pricing.discount_enabled", "false"))
-    rate = min(1.0, max(0.0, _parse_float(values.get("pricing.discount_rate", "1"), 1.0)))
-    label = values.get("pricing.discount_label", "").strip()
+    enabled = _parse_bool(
+        values.get("pricing.discount_enabled", DEFAULT_SYSTEM_SETTINGS["pricing.discount_enabled"])
+    )
+    rate = min(
+        1.0,
+        max(
+            0.0,
+            _parse_float(
+                values.get("pricing.discount_rate", DEFAULT_SYSTEM_SETTINGS["pricing.discount_rate"]),
+                1.0,
+            ),
+        ),
+    )
+    label = values.get("pricing.discount_label", DEFAULT_SYSTEM_SETTINGS["pricing.discount_label"]).strip()
     return PricingDiscount(enabled=enabled, rate=rate, label=label)
 
 
