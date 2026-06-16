@@ -49,6 +49,8 @@ npm install
 npm run dev
 ```
 
+主页「范例图鉴」包含物品图标、真实上游实测样例、平铺纹理和序列帧四个展示区。实测样例会展示本地真实流程生成的 Logo / 技能书结果，并在卡片和筛选器中标注使用的生成模型（如 `image2`、`gemini-3.1-flash-image-preview`），静态图片位于 `apps/web/public/homepage-examples/showcase/`。
+
 前端构建：
 
 ```bash

@@ -5,6 +5,7 @@ import { homepageExampleIconSizes, homepageExampleItemIcons, getHomepageIconsFor
 import { homepageExampleCategories, homepageExamples, getHomepageExampleItemSubject, getHomepageExampleItemSubjectPrompt, getHomepageExampleLabel, type HomepageExample } from '../homepageExamples'
 import { homepageTextureExamples, homepageTextureCategoriesInUse, getHomepageTextureLabel, type HomepageTextureExample, type HomepageTextureCategory } from '../homepageTextureExamples'
 import { homepageSpriteExamples, homepageSpriteCategoriesInUse, getHomepageSpriteLabel, type HomepageSpriteExample, type HomepageSpriteCategory } from '../homepageSpriteExamples'
+import { homepageShowcaseExamples, homepageShowcaseKindsInUse, homepageShowcaseModelLabels, homepageShowcaseModelsInUse, getHomepageShowcaseLabel, type HomepageShowcaseExample, type HomepageShowcaseKind, type HomepageShowcaseModel } from '../homepageShowcaseExamples'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 
@@ -14,7 +15,7 @@ type LandingSectionsProps = { authSlot: ReactNode }
 type IconSizeFilter = 'all' | string
 type CategoryFilter = 'all' | string
 type ThemeFilter = 'all' | string
-type AssetTypeTab = 'item_icon' | 'tile_texture' | 'sprite_sheet'
+type AssetTypeTab = 'item_icon' | 'showcase' | 'tile_texture' | 'sprite_sheet'
 type ItemContextMenuHandler = (icon: HomepageExampleItemIcon, event: MouseEvent<HTMLElement>) => void
 type ExampleItemActionTarget = {
   icon: HomepageExampleItemIcon
@@ -26,7 +27,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
   const { text } = useI18n()
   return (
     <>
-      <SectionFrame id="examples" eyebrow={text('范例图鉴', 'Sample atlas')} title={text('按资产类型分类浏览：物品图标 + 平铺纹理 + 序列帧', 'Browse by asset type: item icons + tileable textures + sprite sheets')} description={text('物品图标按尺寸 / 大类 / 风格筛选 608 张全流程重生成 PNG；平铺纹理一次出图、铺满画布、四边无缝拼接；序列帧用单图 mosaic 模式一次性产出 N 帧动画 sprite sheet，前端用 CSS 切帧实时播放。', 'Item icons cover 608 fully regenerated PNGs filtered by size / category / theme. Tileable textures fill the whole canvas with seamless tiling in one API call. Sprite sheets use the single-image mosaic mode to produce all frames in one shot, then play live in the browser via CSS frame stepping.')}>
+      <SectionFrame id="examples" eyebrow={text('范例图鉴', 'Sample atlas')} title={text('按资产类型与生成模型浏览：物品图标 + 实测样例 + 平铺纹理 + 序列帧', 'Browse by asset type and model: item icons + tested samples + tileable textures + sprite sheets')} description={text('物品图标按尺寸 / 大类 / 风格筛选 608 张全流程重生成 PNG；实测样例展示本地真实上游生成的 Logo 与 24×24 技能书，并标注 image2 / Gemini 模型；平铺纹理与序列帧分别展示专用 pipeline 的结果。', 'Item icons cover 608 regenerated PNGs filtered by size / category / theme. Tested samples show real local upstream Logo and 24×24 skill-book runs with image2 / Gemini model labels. Tile textures and sprite sheets show their dedicated pipelines.')}>
         <ExampleAtlas />
       </SectionFrame>
 
@@ -43,11 +44,12 @@ function ExampleAtlas() {
       <div role="tablist" aria-label={text('资产类型', 'Asset type')} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2 dark:bg-[hsl(var(--pix-dark-card))]">
         <span className="px-2 text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{text('资产类型', 'Asset type')}</span>
         <AssetTypeChip active={assetType === 'item_icon'} onClick={() => setAssetType('item_icon')}>{text('物品图标', 'Item icons')}<span className="ml-2 opacity-60">{homepageExampleItemIcons.length}</span></AssetTypeChip>
+        <AssetTypeChip active={assetType === 'showcase'} onClick={() => setAssetType('showcase')}>{text('实测样例', 'Tested samples')}<span className="ml-2 opacity-60">{homepageShowcaseExamples.length}</span></AssetTypeChip>
         <AssetTypeChip active={assetType === 'tile_texture'} onClick={() => setAssetType('tile_texture')}>{text('平铺纹理', 'Tile textures')}<span className="ml-2 opacity-60">{homepageTextureExamples.length}</span></AssetTypeChip>
         <AssetTypeChip active={assetType === 'sprite_sheet'} onClick={() => setAssetType('sprite_sheet')}>{text('序列帧', 'Sprite sheets')}<span className="ml-2 opacity-60">{homepageSpriteExamples.length}</span></AssetTypeChip>
       </div>
 
-      {assetType === 'item_icon' ? <IconAtlas /> : assetType === 'tile_texture' ? <TextureAtlas /> : <SpriteAtlas />}
+      {assetType === 'item_icon' ? <IconAtlas /> : assetType === 'showcase' ? <ShowcaseAtlas /> : assetType === 'tile_texture' ? <TextureAtlas /> : <SpriteAtlas />}
     </div>
   )
 }
@@ -57,6 +59,7 @@ function AssetTypeChip({ active, onClick, children }: { active: boolean; onClick
 }
 
 const ICON_PAGE_SIZE = 24
+const SHOWCASE_PAGE_SIZE = 12
 const TEXTURE_PAGE_SIZE = 9
 const SPRITE_PAGE_SIZE = 6
 
@@ -261,6 +264,134 @@ const ExampleIconCard = memo(function ExampleIconCard({ icon, example, onItemCon
     </article>
   )
 })
+
+type ShowcaseKindFilter = 'all' | HomepageShowcaseKind
+
+type ShowcaseModelFilter = 'all' | HomepageShowcaseModel
+
+function ShowcaseAtlas() {
+  const { language, text } = useI18n()
+  const [kindFilter, setKindFilter] = useState<ShowcaseKindFilter>('all')
+  const [modelFilter, setModelFilter] = useState<ShowcaseModelFilter>('all')
+  const filtered = useMemo(
+    () => homepageShowcaseExamples.filter((ex) => (kindFilter === 'all' || ex.kind === kindFilter) && (modelFilter === 'all' || ex.model === modelFilter)),
+    [kindFilter, modelFilter],
+  )
+  const showcaseGridRef = useRef<HTMLDivElement>(null)
+  const pagedShowcase = usePagedList(filtered, SHOWCASE_PAGE_SIZE)
+  const activeFilterCount = [kindFilter, modelFilter].filter((value) => value !== 'all').length
+  const clearFilters = useCallback(() => {
+    setKindFilter('all')
+    setModelFilter('all')
+  }, [])
+
+  return (
+    <div className="grid gap-6">
+      <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] pix-shadow-raised dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white md:p-8">
+        <div className="grid items-start gap-6 lg:grid-cols-[.86fr_1.14fr]">
+          <div>
+            <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('真实上游实测', 'Real upstream run')}</Badge>
+            <h3 className="mt-5 text-3xl font-semibold md:text-5xl">{text('同一题材并排看 image2 与 Gemini', 'Compare image2 and Gemini on the same brief')}</h3>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('这里放的是本地真实流程生成结果：3 个中文 Logo 与 3 本 24×24 技能书，各自用 image2 和 Gemini 3.1 Flash 跑一遍。卡片会显示使用模型、任务号、请求尺寸与最终 PNG 实际尺寸。', 'These are real local pipeline outputs: three Chinese logos and three 24×24 skill-book briefs, each run once with image2 and Gemini 3.1 Flash. Cards show model, job id, requested size, and final PNG size.')}</p>
+          </div>
+          <div className="grid gap-3 rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/60 p-4 dark:border-white/10 dark:bg-white/7">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <AtlasStat label={text('当前命中', 'Showing')} value={filtered.length} />
+              <AtlasStat label={text('全部实测', 'Total samples')} value={homepageShowcaseExamples.length} />
+              <AtlasStat label={text('生成模型', 'Models')} value={homepageShowcaseModelsInUse.length} />
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[hsl(var(--pix-steel))] dark:text-white/58">
+              <span>{text('模型信息直接显示在卡片上', 'Model information is shown on every card')}</span>
+              {activeFilterCount > 0 && <Button type="button" size="sm" variant="ghost" onClick={clearFilters} className="h-7 px-2 text-xs">{text('清空筛选', 'Clear filters')}</Button>}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4">
+          <FilterGroup label={text('样例类型', 'Sample type')}>
+            <FilterChip active={kindFilter === 'all'} onClick={() => setKindFilter('all')}>{text('全部类型', 'All types')}</FilterChip>
+            {homepageShowcaseKindsInUse.map((kind) => {
+              const sample = homepageShowcaseExamples.find((ex) => ex.kind === kind)
+              const count = homepageShowcaseExamples.filter((ex) => ex.kind === kind).length
+              const label = sample ? getHomepageShowcaseLabel(sample, language).kind : kind
+              return <FilterChip key={kind} active={kindFilter === kind} onClick={() => setKindFilter(kind)}>{label}<span className="ml-1 opacity-60">{count}</span></FilterChip>
+            })}
+          </FilterGroup>
+          <FilterGroup label={text('生成模型', 'Generation model')}>
+            <FilterChip active={modelFilter === 'all'} onClick={() => setModelFilter('all')}>{text('全部模型', 'All models')}</FilterChip>
+            {homepageShowcaseModelsInUse.map((model) => {
+              const count = homepageShowcaseExamples.filter((ex) => ex.model === model).length
+              return <FilterChip key={model} active={modelFilter === model} onClick={() => setModelFilter(model)}>{homepageShowcaseModelLabels[model]}<span className="ml-1 opacity-60">{count}</span></FilterChip>
+            })}
+          </FilterGroup>
+        </div>
+      </div>
+
+      {filtered.length > 0 ? (
+        <div className="grid gap-5">
+          <div ref={showcaseGridRef} className="grid grid-cols-1 gap-4 scroll-mt-24 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {pagedShowcase.pageItems.map((example) => <ShowcaseCard key={example.id} example={example} />)}
+          </div>
+          <AtlasPager paged={pagedShowcase} scrollTargetRef={showcaseGridRef} />
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
+          <p className="text-base font-semibold text-foreground">{text('没有匹配的实测样例', 'No matching tested samples')}</p>
+          <Button type="button" variant="outline" onClick={clearFilters} className="mt-4">{text('查看全部', 'Show all')}</Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const ShowcaseCard = memo(function ShowcaseCard({ example }: { example: HomepageShowcaseExample }) {
+  const { language, text } = useI18n()
+  const [copied, setCopied] = useState(false)
+  const label = getHomepageShowcaseLabel(example, language)
+  const actualSize = `${example.width}×${example.height}`
+
+  async function handleCopy() {
+    const ok = await copyTextToClipboard(label.prompt)
+    setCopied(ok)
+    if (ok) window.setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <article className="rounded-lg border border-border bg-card p-3 transition hover:-translate-y-0.5 hover:border-primary/55 hover:shadow-[0_10px_24px_-18px_rgba(15,15,15,0.45)] dark:bg-[hsl(var(--pix-dark-card))]">
+      <a href={example.src} target="_blank" rel="noreferrer" className="block" title={text(`打开 ${label.title} 原图`, `Open source image for ${label.title}`)}>
+        <div className="pix-checkerboard grid aspect-square place-items-center overflow-hidden rounded-lg border border-border bg-card p-4 dark:bg-[hsl(var(--pix-dark-band))]">
+          <img src={example.src} alt={text(`${label.title}，${label.kind}，${label.model} 生成，实际尺寸 ${actualSize}`, `${label.title}, ${label.kind}, generated with ${label.model}, actual size ${actualSize}`)} loading="lazy" decoding="async" draggable={false} className="h-full w-full object-contain [image-rendering:pixelated]" />
+        </div>
+      </a>
+      <div className="mt-3 min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{label.title}</p>
+            <p className="mt-1 truncate text-xs text-muted-foreground">{label.kind} · job #{example.jobId}</p>
+          </div>
+          <ModelBadge model={example.model} label={label.model} />
+        </div>
+        <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">{label.prompt}</p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <span className="rounded-full border border-border bg-[hsl(var(--secondary))] px-2 py-0.5 font-mono text-[11px] font-semibold text-[hsl(var(--pix-slate))] dark:bg-white/7 dark:text-white/68">{text(`请求 ${example.requestedSize}`, `Requested ${example.requestedSize}`)}</span>
+          <IconSizeBadge sizeKey={`${example.width}x${example.height}`} />
+          <span className="rounded-full border border-border bg-[hsl(var(--secondary))] px-2 py-0.5 text-[11px] font-semibold text-[hsl(var(--pix-slate))] dark:bg-white/7 dark:text-white/68">{example.colors} {text('色', 'colors')}</span>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => downloadStaticFile(example.src, `${example.id}.png`)}><Download />{text('下载', 'Download')}</Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => void handleCopy()}>{copied ? <Check /> : <Copy />}{copied ? text('已复制', 'Copied') : text('复制 Prompt', 'Copy prompt')}</Button>
+        </div>
+      </div>
+    </article>
+  )
+})
+
+function ModelBadge({ model, label }: { model: HomepageShowcaseModel; label: string }) {
+  const tone = model === 'image2'
+    ? 'border-[hsl(var(--pix-link-blue)/.24)] bg-[hsl(var(--pix-link-blue)/.10)] text-[hsl(var(--pix-link-blue))] dark:border-[hsl(var(--pix-link-blue)/.22)] dark:bg-[hsl(var(--pix-link-blue)/.14)] dark:text-[hsl(var(--pix-sky))]'
+    : 'border-[hsl(var(--pix-brand-purple)/.24)] bg-[hsl(var(--pix-brand-purple)/.10)] text-[hsl(var(--pix-brand-purple-800))] dark:border-[hsl(var(--pix-brand-purple)/.24)] dark:bg-[hsl(var(--pix-brand-purple)/.14)] dark:text-[hsl(var(--pix-brand-purple-300))]'
+  return <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${tone}`}>{label}</span>
+}
 
 type TextureCategoryFilter = 'all' | HomepageTextureCategory
 
