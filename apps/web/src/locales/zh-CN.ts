@@ -80,7 +80,7 @@ export const zhCN = {
     rewards: '邀请奖励',
     rewardsDescription: '好友返佣',
     admin: '后台',
-    adminDescription: '运营配置',
+    adminDescription: '任务 / 运营',
     workspaceNavigation: '工作区导航',
     mainNavigation: '主导航',
   },
@@ -461,7 +461,7 @@ export const zhCN = {
     gallery: { eyebrow: '作品', title: '作品库', description: '普通作品默认保留 10 张，可用点数扩容；保存进素材包后会永久保留。', allWorks: '全部作品' },
     packs: { eyebrow: '素材包', title: '素材包', selectedDescription: '拖入作品后会永久保存，可按需扩容。', emptyDescription: '新建素材包并从作品库保存作品。', packSubtitle: '素材包：{{name}}', selectPack: '请选择素材包' },
     billing: { eyebrow: '点数', title: '点数中心', description: '充值、订单、流水。' },
-    admin: { eyebrow: '后台', title: '管理后台', description: '运营、点数、价格配置。' },
+    admin: { eyebrow: '后台', title: '管理后台', description: '快速查看全站任务作品，并管理运营、点数与价格配置。' },
   },
   gallery: {
     title: '作品网格',
@@ -524,5 +524,9 @@ export const zhCN = {
     sequenceJsonDescription: '记录帧率、帧坐标和播放顺序的 sequence.json。',
     contactSheet: '候选总览图',
     contactSheetDescription: '候选生成结果总览图。',
+    currentAction: '当前动作图（{{action}}）',
+    currentActionDescription: '仅下载当前选中动作这一行的横向序列帧图。',
+    allActions: '所有动作打包',
+    allActionsDescription: '把每个动作各一张横向图打包成 zip 下载。',
   },
 } as const

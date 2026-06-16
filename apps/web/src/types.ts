@@ -374,6 +374,7 @@ export type GalleryQuota = {
 
 export type GenerationJob = {
   id: number
+  user_id: number
   batch_id: number | null
   batch_name: string | null
   job_type: string
@@ -545,3 +546,67 @@ export type PerfProvider = { provider: string; succeeded: number; failed: number
 export type PerfFailure = { code: string; count: number }
 export type PerfRecentJob = { id: number; job_type: string; status: string; provider: string; failure_code: string; seconds: number; created_at: string }
 export type PerformanceMetrics = { range: string; bucket_seconds: number; generated_at: string; kpi: PerfKpi; series: PerfSeriesPoint[]; providers: PerfProvider[]; failures: PerfFailure[]; recent: PerfRecentJob[] }
+
+export interface ImageProviderModelPayload {
+  id: string
+  provider_model: string
+  label: string
+  protocol: string
+  operations: string[]
+  sizes: string[]
+  qualities: string[]
+  output_formats: string[]
+  edit_mode: string
+}
+
+export interface ImageProvider {
+  id: string
+  display_name: string
+  enabled: boolean
+  base_url: string
+  has_api_key: boolean
+  api_key_env: string
+  priority: number
+  discover_models: boolean
+  protocols: string[]
+  models: ImageProviderModelPayload[]
+  preset_key: string | null
+}
+
+export interface ImageProviderPreset {
+  key: string
+  display_name: string
+  protocols: string[]
+  base_url: string
+  api_key_env: string
+  discover_models: boolean
+  models: ImageProviderModelPayload[]
+  note: string
+}
+
+export interface ImageProviderCreatePayload {
+  id: string
+  display_name: string
+  enabled: boolean
+  base_url: string
+  api_key: string
+  api_key_env: string
+  priority: number
+  discover_models: boolean
+  protocols: string[]
+  models: ImageProviderModelPayload[]
+  preset_key: string | null
+}
+
+export interface ImageProviderUpdatePayload {
+  display_name: string
+  enabled: boolean
+  base_url: string
+  api_key: string
+  clear_api_key: boolean
+  api_key_env: string
+  priority: number
+  discover_models: boolean
+  protocols: string[]
+  models: ImageProviderModelPayload[]
+}

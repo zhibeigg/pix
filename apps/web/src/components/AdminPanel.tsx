@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { AdminBatchAdjustCreditsResponse, AdminDashboard, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, PricingRule, SystemSetting, User } from '../types'
+import type { AdminBatchAdjustCreditsResponse, AdminDashboard, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, PricingRule, SystemSetting, User, ImageProvider, ImageProviderPreset, ImageProviderCreatePayload, ImageProviderUpdatePayload, ImageProviderModelPayload } from '../types'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -13,25 +13,27 @@ import { PixMetric } from './pix/PixMetric'
 import { PixPanel } from './pix/PixPanel'
 import { api } from '../api'
 import { PerformanceMonitorTab } from './PerformanceMonitorTab'
+import { GalleryGrid } from './GalleryGrid'
 import { useConfirm } from './ConfirmDialog'
 
-type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onAdjustCreditsBatch: (payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) => Promise<AdminBatchAdjustCreditsResponse | void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onPublishAnnouncement: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void>; onAdminAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }>; token: string }
+type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onAdjustCreditsBatch: (payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) => Promise<AdminBatchAdjustCreditsResponse | void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onPublishAnnouncement: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void>; onAdminAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }>; onListProviders?: () => Promise<ImageProvider[]>; onListProviderPresets?: () => Promise<ImageProviderPreset[]>; onCreateProvider?: (payload: ImageProviderCreatePayload) => Promise<void>; onUpdateProvider?: (id: string, payload: ImageProviderUpdatePayload) => Promise<void>; onDeleteProvider?: (id: string) => Promise<void>; token: string }
 const settingTabs = ['运营保护', '邮件验证码', '模型与 API', '素材默认值', '序列帧', '支付与站点', '存储 / 队列 / 安全']
 
-export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings, onRefresh, onAdjustCredits, onAdjustCreditsBatch, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onPublishAnnouncement, onTestEmail, onAdminRetryJob, onAdminCancelJob, onAdminFailRefundJob, onAdminAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement, onTestAnnouncementEmail, token }: Props) {
+export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings, onRefresh, onAdjustCredits, onAdjustCreditsBatch, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onPublishAnnouncement, onTestEmail, onAdminRetryJob, onAdminCancelJob, onAdminFailRefundJob, onAdminAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement, onTestAnnouncementEmail, onListProviders, onListProviderPresets, onCreateProvider, onUpdateProvider, onDeleteProvider, token }: Props) {
   const [tab, setTab] = useState('dashboard')
   const groups = useMemo(() => groupSettings(settings), [settings])
   const settingGroup = groups[tab]
   return (
     <PixPanel eyebrow="Control Room" title="管理后台" description="配置站点、模型、邮件、套餐和运营保护。高风险环境项只显示状态。" action={<Button variant="outline" onClick={onRefresh}>刷新</Button>}>
       <div className="grid gap-6">
-        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="jobs">任务操作</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger><TabsTrigger value="performance">性能监控</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
+        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="jobs">任务与作品</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger><TabsTrigger value="providers">上游供应商</TabsTrigger><TabsTrigger value="performance">性能监控</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
         {tab === 'dashboard' && dashboard && <DashboardGrid dashboard={dashboard} />}
-        {tab === 'jobs' && <AdminJobsList jobs={jobs} onRetry={onAdminRetryJob} onCancel={onAdminCancelJob} onFailRefund={onAdminFailRefundJob} />}
+        {tab === 'jobs' && <AdminJobsPanel jobs={jobs} users={users} onRetry={onAdminRetryJob} onCancel={onAdminCancelJob} onFailRefund={onAdminFailRefundJob} />}
         {tab === 'users' && <AdminCreditsPanel users={users} onAdjustSingle={onAdjustCredits} onAdjustBatch={onAdjustCreditsBatch} />}
         {tab === 'announcements' && <AnnouncementEditor onPublish={onPublishAnnouncement} onTestEmail={onTestEmail} onListAnnouncements={onAdminAnnouncements} onCreateAnnouncement={onCreateAnnouncement} onUpdateAnnouncement={onUpdateAnnouncement} onDeleteAnnouncement={onDeleteAnnouncement} onTestAnnouncementEmail={onTestAnnouncementEmail} />}
         {tab === 'pricing' && <div className="grid gap-3"><h3 className="text-lg font-semibold">价格规则</h3>{pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}</div>}
         {tab === 'packages' && <PackageEditor packages={packages} onCreate={onCreatePackage} onUpdate={onUpdatePackage} />}
+        {tab === 'providers' && <ProviderManager onList={onListProviders} onListPresets={onListProviderPresets} onCreate={onCreateProvider} onUpdate={onUpdateProvider} onDelete={onDeleteProvider} />}
         {tab === 'performance' && <PerformanceMonitorTab token={token} />}
         {settingGroup && <div className="grid gap-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-semibold">{tab}</h3><p className="text-sm text-muted-foreground">保存后只影响新请求/新任务；带"需重启"的项目请重启服务或 worker。</p></div>{tab === '邮件验证码' && <EmailTestBox onTest={onTestEmail} />}</div>{settingGroup.map((setting) => <SettingRow setting={setting} onUpdate={onUpdateSetting} key={setting.key} />)}</div>}
       </div>
@@ -158,10 +160,116 @@ function AdminCreditsPanel({ users, onAdjustSingle, onAdjustBatch }: { users: Us
 function DashboardGrid({ dashboard }: { dashboard: AdminDashboard }) {
   return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><PixMetric label="今日任务" value={dashboard.jobs_today} tone="info" /><PixMetric label="成功 / 失败" value={`${dashboard.succeeded_today} / ${dashboard.failed_today}`} tone={dashboard.failed_today > 0 ? 'danger' : 'success'} /><PixMetric label="策略拦截" value={dashboard.policy_blocked_today} tone={dashboard.policy_blocked_today > 0 ? 'warning' : 'success'} /><PixMetric label="上游 / 超时" value={`${dashboard.upstream_errors_today} / ${dashboard.timeout_jobs_today}`} tone={(dashboard.upstream_errors_today + dashboard.timeout_jobs_today) > 0 ? 'danger' : 'success'} /><PixMetric label="Pipeline 异常" value={dashboard.pipeline_errors_today} tone={dashboard.pipeline_errors_today > 0 ? 'danger' : 'success'} /><PixMetric label="排队 / 运行" value={`${dashboard.pending_jobs} / ${dashboard.running_jobs}`} tone="info" /><PixMetric label="运行超 30 分钟" value={dashboard.running_over_30m_jobs} tone={dashboard.running_over_30m_jobs > 0 ? 'warning' : 'success'} /><PixMetric label="候选失败 / 警告" value={`${dashboard.candidate_failures_today} / ${dashboard.pipeline_warnings_today}`} tone={(dashboard.candidate_failures_today + dashboard.pipeline_warnings_today) > 0 ? 'warning' : 'success'} /><PixMetric label="平均耗时" value={`${Math.round(dashboard.average_generation_seconds_today)}s`} /><PixMetric label="P95 耗时" value={`${Math.round(dashboard.p95_generation_seconds_today)}s`} /><PixMetric label="今日充值" value={dashboard.credits_recharged_today} tone="success" /><PixMetric label="今日消费" value={dashboard.credits_consumed_today} tone="warning" /><PixMetric label="今日上传" value={dashboard.uploads_today} /><PixMetric label="总用户" value={dashboard.total_users} /><PixMetric label="失败率" value={`${Math.round(dashboard.failure_rate * 100)}%`} tone={dashboard.failure_rate > 0.1 ? 'danger' : 'success'} /></div>
 }
-function AdminJobsList({ jobs, onRetry, onCancel, onFailRefund }: { jobs: GenerationJob[]; onRetry: (job: GenerationJob) => Promise<void>; onCancel: (job: GenerationJob) => Promise<void>; onFailRefund: (job: GenerationJob) => Promise<void> }) {
+
+type AdminJobView = 'gallery' | 'operations'
+type AdminJobStatusFilter = 'all' | 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled'
+
+function AdminJobsPanel({ jobs, users, onRetry, onCancel, onFailRefund }: { jobs: GenerationJob[]; users: User[]; onRetry: (job: GenerationJob) => Promise<void>; onCancel: (job: GenerationJob) => Promise<void>; onFailRefund: (job: GenerationJob) => Promise<void> }) {
+  const [view, setView] = useState<AdminJobView>('gallery')
+  const [status, setStatus] = useState<AdminJobStatusFilter>('all')
+  const [userId, setUserId] = useState('all')
+  const [query, setQuery] = useState('')
+  const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
+  const usersById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users])
+  const filteredJobs = useMemo(() => {
+    const normalized = query.trim().toLowerCase()
+    const targetUserId = userId === 'all' ? null : Number(userId)
+    return jobs.filter((job) => {
+      if (status !== 'all' && job.status !== status) return false
+      if (targetUserId && job.user_id !== targetUserId) return false
+      if (!normalized) return true
+      const owner = usersById.get(job.user_id)
+      const haystack = [String(job.id), `#${job.id}`, job.job_type, job.status, job.prompt ?? '', job.batch_name ?? '', owner?.email ?? '', owner?.display_name ?? ''].join(' ').toLowerCase()
+      return haystack.includes(normalized)
+    })
+  }, [jobs, query, status, userId, usersById])
+  const statusSummary = useMemo(() => ({
+    total: filteredJobs.length,
+    active: filteredJobs.filter((job) => ['pending', 'running'].includes(job.status)).length,
+    succeeded: filteredJobs.filter((job) => job.status === 'succeeded').length,
+    failed: filteredJobs.filter((job) => job.status === 'failed').length,
+  }), [filteredJobs])
+  const renderOwnerBadge = (job: GenerationJob) => {
+    const owner = usersById.get(job.user_id)
+    const label = owner ? (owner.display_name || owner.email) : `用户 #${job.user_id}`
+    return <Badge variant="outline" className="max-w-[180px] truncate" title={owner?.email ?? label}>{label}</Badge>
+  }
+
+  return (
+    <div className="grid gap-5">
+      <div className="grid gap-4 rounded-xl border border-border bg-muted/35 p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">任务与作品</h3>
+            <p className="text-sm text-muted-foreground">显示最新 500 个任务。作品视图可像用户作品库一样快速预览产物；操作列表保留退款与重试。</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="info">{statusSummary.total} 个匹配</Badge>
+            <Badge variant={statusSummary.active > 0 ? 'warning' : 'outline'}>活跃 {statusSummary.active}</Badge>
+            <Badge variant="success">完成 {statusSummary.succeeded}</Badge>
+            <Badge variant={statusSummary.failed > 0 ? 'danger' : 'outline'}>失败 {statusSummary.failed}</Badge>
+          </div>
+        </div>
+        <div className="grid gap-3 lg:grid-cols-[180px_220px_minmax(220px,1fr)_auto]">
+          <PixField label="状态">
+            <Select value={status} onValueChange={(value) => setStatus(value as AdminJobStatusFilter)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="all">全部状态</SelectItem><SelectItem value="pending">排队中</SelectItem><SelectItem value="running">生产中</SelectItem><SelectItem value="succeeded">已完成</SelectItem><SelectItem value="failed">失败</SelectItem><SelectItem value="cancelled">已取消</SelectItem></SelectContent>
+            </Select>
+          </PixField>
+          <PixField label="用户">
+            <Select value={userId} onValueChange={setUserId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="all">全部用户</SelectItem>{users.map((user) => <SelectItem value={String(user.id)} key={user.id}>{user.display_name || user.email}</SelectItem>)}</SelectContent>
+            </Select>
+          </PixField>
+          <PixField label="搜索">
+            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="任务 ID、prompt、批次或用户邮箱" />
+          </PixField>
+          <div className="grid content-end">
+            <Button type="button" variant="outline" onClick={() => { setStatus('all'); setUserId('all'); setQuery(''); setSelectedJobId(null) }}>重置筛选</Button>
+          </div>
+        </div>
+        <Tabs value={view} onValueChange={(value) => setView(value as AdminJobView)}>
+          <TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="gallery">作品视图</TabsTrigger><TabsTrigger value="operations">操作列表</TabsTrigger></TabsList>
+        </Tabs>
+      </div>
+      {view === 'gallery' ? (
+        filteredJobs.length === 0
+          ? <Alert variant="info">没有符合筛选条件的任务。</Alert>
+          : <GalleryGrid jobs={filteredJobs} selectedJobId={selectedJobId} subtitle="全站任务产物预览；管理员使用当前登录凭证访问受保护文件。" showRetentionQuota={false} onSelect={(job) => setSelectedJobId(job.id)} renderJobBadges={renderOwnerBadge} />
+      ) : <AdminJobsList jobs={filteredJobs} usersById={usersById} onRetry={onRetry} onCancel={onCancel} onFailRefund={onFailRefund} />}
+    </div>
+  )
+}
+
+function AdminJobsList({ jobs, usersById, onRetry, onCancel, onFailRefund }: { jobs: GenerationJob[]; usersById: Map<number, User>; onRetry: (job: GenerationJob) => Promise<void>; onCancel: (job: GenerationJob) => Promise<void>; onFailRefund: (job: GenerationJob) => Promise<void> }) {
   const confirm = useConfirm()
-  if (!jobs.length) return <Alert variant="info">暂无任务记录。</Alert>
-  return <div className="grid gap-3"><div><h3 className="text-lg font-semibold">任务操作</h3><p className="text-sm text-muted-foreground">显示最新 100 个任务；可重试失败任务，或取消/标记失败并退款排队中与运行中任务。</p></div>{jobs.map((job) => <div key={job.id} className="grid gap-3 rounded-lg border border-border bg-card p-4 xl:grid-cols-[minmax(0,1fr)_auto]"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">#{job.id} · {job.job_type}</p><Badge variant={job.status === 'succeeded' ? 'success' : job.status === 'failed' ? 'danger' : job.status === 'running' ? 'warning' : job.status === 'cancelled' ? 'muted' : 'info'}>{job.status}</Badge>{job.failure_type && <Badge variant="outline">{job.failure_type}</Badge>}{job.failure_source && <Badge variant="outline">{job.failure_source}</Badge>}{job.failure_code && <Badge variant="outline">{job.failure_code}</Badge>}</div><p className="mt-1 truncate text-sm text-muted-foreground">{job.prompt || '无 prompt'} · {formatDateTime(job.created_at)} · 运行 {formatRuntime(job)}</p><div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground"><span>点数 {job.price_credits}</span><span>冻结 {job.reserved_credits}</span><span>候选失败 {job.candidate_failure_count}</span><span>流水线警告 {job.pipeline_warning_count}</span></div>{job.error_message && <p className="mt-2 line-clamp-2 text-sm text-destructive">{job.error_message.slice(0, 220)}</p>}</div><div className="flex flex-wrap items-center gap-2 xl:justify-end">{job.status === 'failed' && <Button variant="outline" size="sm" onClick={async () => { if (await confirm({ title: '重试任务', description: `重试任务 #${job.id}？`, confirmText: '重试' })) void onRetry(job) }}>重试</Button>}{['pending', 'running'].includes(job.status) && <Button variant="outline" size="sm" onClick={async () => { if (await confirm({ title: '取消并退款', description: `取消任务 #${job.id} 并退款？`, confirmText: '取消并退款', tone: 'danger' })) void onCancel(job) }}>取消并退款</Button>}{['pending', 'running', 'failed'].includes(job.status) && <Button variant="soft" size="sm" onClick={async () => { if (await confirm({ title: '标记失败并退款', description: `标记任务 #${job.id} 失败并退款？`, confirmText: '标记失败退款', tone: 'danger' })) void onFailRefund(job) }}>标记失败退款</Button>}</div></div>)}</div>
+  if (!jobs.length) return <Alert variant="info">没有符合筛选条件的任务。</Alert>
+  return (
+    <div className="grid gap-3">
+      <div><h3 className="text-lg font-semibold">任务操作</h3><p className="text-sm text-muted-foreground">当前显示筛选后的任务；可重试失败任务，或取消/标记失败并退款排队中与运行中任务。</p></div>
+      {jobs.map((job) => {
+        const owner = usersById.get(job.user_id)
+        const ownerLabel = owner ? `${owner.display_name || owner.email} · #${owner.id}` : `用户 #${job.user_id}`
+        return (
+          <div key={job.id} className="grid gap-3 rounded-lg border border-border bg-card p-4 xl:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2"><p className="font-semibold">#{job.id} · {job.job_type}</p><Badge variant={job.status === 'succeeded' ? 'success' : job.status === 'failed' ? 'danger' : job.status === 'running' ? 'warning' : job.status === 'cancelled' ? 'muted' : 'info'}>{job.status}</Badge><Badge variant="outline" title={owner?.email ?? ownerLabel}>{ownerLabel}</Badge>{job.failure_type && <Badge variant="outline">{job.failure_type}</Badge>}{job.failure_source && <Badge variant="outline">{job.failure_source}</Badge>}{job.failure_code && <Badge variant="outline">{job.failure_code}</Badge>}</div>
+              <p className="mt-1 truncate text-sm text-muted-foreground">{job.prompt || '无 prompt'} · {formatDateTime(job.created_at)} · 运行 {formatRuntime(job)}</p>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground"><span>点数 {job.price_credits}</span><span>冻结 {job.reserved_credits}</span><span>候选失败 {job.candidate_failure_count}</span><span>流水线警告 {job.pipeline_warning_count}</span></div>
+              {job.error_message && <p className="mt-2 line-clamp-2 text-sm text-destructive">{job.error_message.slice(0, 220)}</p>}
+            </div>
+            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+              {job.status === 'failed' && <Button variant="outline" size="sm" onClick={async () => { if (await confirm({ title: '重试任务', description: `重试任务 #${job.id}？`, confirmText: '重试' })) void onRetry(job) }}>重试</Button>}
+              {['pending', 'running'].includes(job.status) && <Button variant="outline" size="sm" onClick={async () => { if (await confirm({ title: '取消并退款', description: `取消任务 #${job.id} 并退款？`, confirmText: '取消并退款', tone: 'danger' })) void onCancel(job) }}>取消并退款</Button>}
+              {['pending', 'running', 'failed'].includes(job.status) && <Button variant="destructive" size="sm" onClick={async () => { if (await confirm({ title: '标记失败并退款', description: `将任务 #${job.id} 标记为失败并退款？`, confirmText: '失败并退款', tone: 'danger' })) void onFailRefund(job) }}>失败并退款</Button>}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 function formatRuntime(job: GenerationJob) {
@@ -485,6 +593,271 @@ function announcementPublishNotice(result: AnnouncementPublishResponse) {
   if (result.email_skipped_reason === 'smtp_not_configured') return '公告已发布，但 SMTP 未配置，邮件未发送。请先在「邮件验证码」标签中配置 SMTP。'
   if (result.email_skipped_reason === 'disabled') return '公告已保存为草稿或已下线，未发送邮件。'
   return '公告已保存。'
+}
+
+const PROVIDER_CUSTOM_PRESET = '__custom__'
+
+function ProviderManager({ onList, onListPresets, onCreate, onUpdate, onDelete }: { onList?: () => Promise<ImageProvider[]>; onListPresets?: () => Promise<ImageProviderPreset[]>; onCreate?: (payload: ImageProviderCreatePayload) => Promise<void>; onUpdate?: (id: string, payload: ImageProviderUpdatePayload) => Promise<void>; onDelete?: (id: string) => Promise<void> }) {
+  const confirm = useConfirm()
+  const [providers, setProviders] = useState<ImageProvider[]>([])
+  const [presets, setPresets] = useState<ImageProviderPreset[]>([])
+  const [listLoading, setListLoading] = useState(false)
+  const [listRefreshing, setListRefreshing] = useState(false)
+  const listLoadedRef = useRef(false)
+  const listRequestIdRef = useRef(0)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<ImageProvider | null>(null)
+  const [id, setId] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [baseUrl, setBaseUrl] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [apiKeyEnv, setApiKeyEnv] = useState('')
+  const [priority, setPriority] = useState(100)
+  const [enabled, setEnabled] = useState(true)
+  const [discoverModels, setDiscoverModels] = useState(false)
+  const [protocols, setProtocols] = useState<string[]>([])
+  const [modelsText, setModelsText] = useState('[]')
+  const [clearKey, setClearKey] = useState(false)
+  const [presetKey, setPresetKey] = useState(PROVIDER_CUSTOM_PRESET)
+  const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [noticeVariant, setNoticeVariant] = useState<'info' | 'success' | 'warning'>('info')
+
+  const loadList = useCallback(async () => {
+    if (!onList) return
+    const requestId = listRequestIdRef.current + 1
+    listRequestIdRef.current = requestId
+    const showBlockingLoading = !listLoadedRef.current
+    if (showBlockingLoading) setListLoading(true)
+    else setListRefreshing(true)
+    try {
+      const res = await onList()
+      if (listRequestIdRef.current !== requestId) return
+      setProviders(res)
+      listLoadedRef.current = true
+      if (onListPresets) {
+        try {
+          const presetRes = await onListPresets()
+          if (listRequestIdRef.current === requestId) setPresets(presetRes)
+        } catch {
+          // 预设拉取失败时保留已有预设，不阻塞供应商列表展示。
+        }
+      }
+    } catch {
+      // 保留已有列表，避免短暂网络抖动让供应商界面闪烁或清空。
+    } finally {
+      if (listRequestIdRef.current === requestId) {
+        setListLoading(false)
+        setListRefreshing(false)
+      }
+    }
+  }, [onList, onListPresets])
+
+  useEffect(() => { void loadList() }, [loadList])
+
+  function resetForm() {
+    setEditing(null)
+    setId('')
+    setDisplayName('')
+    setBaseUrl('')
+    setApiKey('')
+    setApiKeyEnv('')
+    setPriority(100)
+    setEnabled(true)
+    setDiscoverModels(false)
+    setProtocols([])
+    setModelsText('[]')
+    setClearKey(false)
+    setPresetKey(PROVIDER_CUSTOM_PRESET)
+    setNotice('')
+  }
+
+  function startCreate() {
+    resetForm()
+    setShowForm(true)
+  }
+
+  function applyPreset(value: string) {
+    setPresetKey(value)
+    if (value === PROVIDER_CUSTOM_PRESET) {
+      setId('')
+      setDisplayName('')
+      setBaseUrl('')
+      setApiKeyEnv('')
+      setProtocols([])
+      setDiscoverModels(false)
+      setModelsText('[]')
+      return
+    }
+    const preset = presets.find((item) => item.key === value)
+    if (!preset) return
+    setId(preset.key)
+    setDisplayName(preset.display_name)
+    setBaseUrl(preset.base_url)
+    setApiKeyEnv(preset.api_key_env)
+    setProtocols(preset.protocols)
+    setDiscoverModels(preset.discover_models)
+    setModelsText(JSON.stringify(preset.models, null, 2))
+  }
+
+  function startEdit(item: ImageProvider) {
+    setEditing(item)
+    setId(item.id)
+    setDisplayName(item.display_name)
+    setBaseUrl(item.base_url)
+    setApiKey('')
+    setApiKeyEnv(item.api_key_env)
+    setPriority(item.priority)
+    setEnabled(item.enabled)
+    setDiscoverModels(item.discover_models)
+    setProtocols(item.protocols)
+    setModelsText(JSON.stringify(item.models, null, 2))
+    setClearKey(false)
+    setPresetKey(item.preset_key ?? PROVIDER_CUSTOM_PRESET)
+    setNotice('')
+    setShowForm(true)
+  }
+
+  function cancelForm() {
+    setShowForm(false)
+    resetForm()
+  }
+
+  async function save() {
+    let models: ImageProviderModelPayload[]
+    try {
+      const parsed = JSON.parse(modelsText)
+      if (!Array.isArray(parsed)) throw new Error('not array')
+      models = parsed as ImageProviderModelPayload[]
+    } catch {
+      setNotice('模型 JSON 格式不正确')
+      setNoticeVariant('warning')
+      return
+    }
+    setSaving(true)
+    setNotice('')
+    try {
+      if (editing && onUpdate) {
+        await onUpdate(editing.id, { display_name: displayName, enabled, base_url: baseUrl, api_key: apiKey, clear_api_key: clearKey, api_key_env: apiKeyEnv, priority, discover_models: discoverModels, protocols, models })
+      } else if (onCreate) {
+        await onCreate({ id, display_name: displayName, enabled, base_url: baseUrl, api_key: apiKey, api_key_env: apiKeyEnv, priority, discover_models: discoverModels, protocols, models, preset_key: presetKey === PROVIDER_CUSTOM_PRESET ? null : presetKey })
+      }
+      await loadList()
+      setShowForm(false)
+      resetForm()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '保存失败，请重试'
+      setNotice(message)
+      setNoticeVariant('warning')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function toggleEnabled(item: ImageProvider) {
+    if (!onUpdate) return
+    try {
+      await onUpdate(item.id, { display_name: item.display_name, enabled: !item.enabled, base_url: item.base_url, api_key: '', clear_api_key: false, api_key_env: item.api_key_env, priority: item.priority, discover_models: item.discover_models, protocols: item.protocols, models: item.models })
+      void loadList()
+    } catch { /* ignore */ }
+  }
+
+  async function removeItem(item: ImageProvider) {
+    if (!onDelete) return
+    if (!(await confirm({ title: '删除供应商', description: `确定删除供应商「${item.display_name || item.id}」？`, confirmText: '删除', tone: 'danger' }))) return
+    try {
+      await onDelete(item.id)
+      void loadList()
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">上游供应商</h3>
+            <p className="mt-1 text-sm text-muted-foreground">管理生图上游供应商：从预设快速创建，或手动配置接入地址、协议与模型。密钥写入后只展示状态，不回显明文。</p>
+          </div>
+          {!showForm && <Button type="button" onClick={startCreate}>新增供应商</Button>}
+        </div>
+      </div>
+
+      {showForm && (
+        <form className="grid gap-4 rounded-lg border border-border bg-card p-4" onSubmit={(event) => { event.preventDefault(); void save() }}>
+          {!editing && (
+            <PixField label="预设模板">
+              <Select value={presetKey} onValueChange={applyPreset}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={PROVIDER_CUSTOM_PRESET}>自定义（手动填写）</SelectItem>
+                  {presets.map((preset) => <SelectItem key={preset.key} value={preset.key}>{preset.display_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </PixField>
+          )}
+          <div className="grid gap-4 md:grid-cols-2">
+            <PixField label="供应商 ID"><Input value={id} disabled={Boolean(editing)} placeholder="例如：openai" onChange={(event) => setId(event.target.value)} /></PixField>
+            <PixField label="显示名称"><Input value={displayName} placeholder="例如：OpenAI" onChange={(event) => setDisplayName(event.target.value)} /></PixField>
+            <PixField label="接入地址 Base URL"><Input value={baseUrl} placeholder="https://api.example.com/v1" onChange={(event) => setBaseUrl(event.target.value)} /></PixField>
+            <PixField label="密钥环境变量"><Input value={apiKeyEnv} placeholder="例如：OPENAI_API_KEY" onChange={(event) => setApiKeyEnv(event.target.value)} /></PixField>
+            <PixField label="协议（逗号分隔）"><Input value={protocols.join(', ')} placeholder="例如：openai, responses" onChange={(event) => setProtocols(event.target.value.split(',').map((part) => part.trim()).filter(Boolean))} /></PixField>
+            <PixField label="优先级"><Input type="number" value={priority} onChange={(event) => setPriority(Number(event.target.value))} /></PixField>
+          </div>
+          <PixField label={editing ? `API 密钥（当前${editing.has_api_key ? '已配置' : '未配置'}，留空保持不变）` : 'API 密钥'}>
+            <Input type="password" value={apiKey} disabled={clearKey} placeholder={editing ? '留空保持当前密钥' : '可留空，改用环境变量'} onChange={(event) => setApiKey(event.target.value)} />
+          </PixField>
+          {editing && <label className="flex items-center gap-2 text-xs text-muted-foreground"><Checkbox checked={clearKey} onCheckedChange={(value) => setClearKey(Boolean(value))} />清空当前值</label>}
+          <label className="flex items-center gap-2 text-sm"><Checkbox checked={enabled} onCheckedChange={(value) => setEnabled(Boolean(value))} />启用供应商</label>
+          <label className="flex items-center gap-2 text-sm"><Checkbox checked={discoverModels} onCheckedChange={(value) => setDiscoverModels(Boolean(value))} />自动发现模型</label>
+          <PixField label="模型配置（JSON 数组）"><Textarea value={modelsText} rows={10} className="font-mono text-xs" placeholder='[{"id":"...","provider_model":"...","label":"...","protocol":"...","operations":[],"sizes":[],"qualities":[],"output_formats":[],"edit_mode":""}]' onChange={(event) => setModelsText(event.target.value)} /></PixField>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={saving || !displayName.trim() || (!editing && !id.trim())}>{saving ? '保存中…' : editing ? '保存修改' : '新增供应商'}</Button>
+            <Button type="button" variant="outline" disabled={saving} onClick={cancelForm}>取消</Button>
+          </div>
+          {notice && <Alert variant={noticeVariant}>{notice}</Alert>}
+        </form>
+      )}
+
+      <div className="rounded-lg border border-border bg-card">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <p className="text-sm font-semibold">供应商列表</p>
+          {listRefreshing && <span className="text-xs text-muted-foreground">刷新中…</span>}
+        </div>
+        {listLoading ? (
+          <div className="grid place-items-center py-8 text-sm text-muted-foreground">加载中…</div>
+        ) : providers.length === 0 ? (
+          <div className="grid place-items-center py-8 text-sm text-muted-foreground">暂无供应商</div>
+        ) : (
+          <div className="divide-y divide-border">
+            {providers.map((item) => (
+              <div key={item.id} className="flex items-start gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate text-sm font-semibold">{item.display_name || item.id}</span>
+                    <span className="text-xs text-muted-foreground">{item.id}</span>
+                    <Badge variant={item.enabled ? 'success' : 'muted'}>{item.enabled ? '已启用' : '已停用'}</Badge>
+                    {item.protocols.map((protocol) => <Badge key={protocol} variant="outline">{protocol}</Badge>)}
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span>优先级 {item.priority}</span>
+                    <span>密钥{item.has_api_key ? '已配置' : '未配置'}</span>
+                    <span>来源 {item.preset_key || '自定义'}</span>
+                    <span>模型 {item.models.length}</span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => startEdit(item)}>编辑</Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => void toggleEnabled(item)}>{item.enabled ? '下线' : '上线'}</Button>
+                  <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => void removeItem(item)}>删除</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function SettingRow({ setting, onUpdate }: { setting: SystemSetting; onUpdate: (key: string, value: string, clear?: boolean) => Promise<void> }) {

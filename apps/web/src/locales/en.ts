@@ -80,7 +80,7 @@ export const en = {
     rewards: 'Rewards',
     rewardsDescription: 'Referrals',
     admin: 'Admin',
-    adminDescription: 'Operations',
+    adminDescription: 'Jobs / Ops',
     workspaceNavigation: 'Workspace navigation',
     mainNavigation: 'Main navigation',
   },
@@ -461,7 +461,7 @@ export const en = {
     gallery: { eyebrow: 'Works', title: 'Gallery', description: 'Regular works keep 10 by default and can be expanded with credits; works saved into packs are retained permanently.', allWorks: 'All works' },
     packs: { eyebrow: 'Packs', title: 'Packs', selectedDescription: 'Drop works here to keep them permanently; expand capacity when needed.', emptyDescription: 'Create packs and save works from the gallery.', packSubtitle: 'Pack: {{name}}', selectPack: 'Select a pack' },
     billing: { eyebrow: 'Credits', title: 'Billing center', description: 'Top-ups, orders, and credit history.' },
-    admin: { eyebrow: 'Admin', title: 'Admin console', description: 'Operations, credits, and pricing configuration.' },
+    admin: { eyebrow: 'Admin', title: 'Admin console', description: 'Quickly inspect all task works, plus operations, credits, and pricing configuration.' },
   },
   gallery: {
     title: 'Work grid',
@@ -524,5 +524,9 @@ export const en = {
     sequenceJsonDescription: 'sequence.json with FPS, frame rects, and playback order.',
     contactSheet: 'Contact sheet',
     contactSheetDescription: 'Overview image of generated candidates.',
+    currentAction: 'Current action ({{action}})',
+    currentActionDescription: 'Download the horizontal sheet of the currently selected action row only.',
+    allActions: 'All actions (zip)',
+    allActionsDescription: 'Pack one horizontal sheet per action into a zip.',
   },
 } as const

@@ -140,7 +140,11 @@ npm run build
 
 管理后台「用户与点数」支持单用户调整、当前用户列表多选、全选当前列表，以及通过 `POST /admin/users/adjust-credits-batch` 对全部 active 用户批量补点 / 扣点。批量操作会为每个目标用户写入独立 `adjustment` 点数流水，并在提交前显示目标范围、每人点数变化与备注，便于运营补偿或活动发放。
 
+管理后台「任务与作品」支持按作品库视角查看最新全站任务：管理员可按状态、用户、任务 ID / prompt / 批次 / 用户邮箱筛选，并直接预览、下载任务产物；同页保留操作列表用于重试失败任务、取消排队 / 运行任务并退款、标记失败并退款。后端 `GET /admin/jobs?limit=500` 返回 `JobResponse[]`，其中 `user_id` 暴露任务归属，`outputs` 继续包含受保护文件 URL；管理员前端使用自己的登录 token 调用 `/files` 打开这些产物。
+
 管理后台「性能监控」面板提供生图任务的实时可观测：成功率、活跃并发、任务量与成功率时间序列、各 provider（胜算云 / Packy / Crazyrouter）成功率对比、失败分类与最近任务流，可在 `1h / 24h / 7d` 范围间切换，前端每 8 秒轮询刷新。数据来自后端 `GET /admin/performance-metrics` 聚合接口；`generation_jobs.provider` 列（迁移 `0016`）由 worker 在任务落库时写入最终生效 provider，因此 provider 维度只覆盖该列上线后的新任务，历史任务归入「未知」。
+
+管理后台「上游供应商」面板统一管理生图上游：从内置预设（胜算云 / Packy / Crazyrouter / OpenAI / Midjourney / Ideogram / Fal / Kling）或「自定义（OpenAI 兼容）」一键新增供应商，填入 API Key 即可；支持编辑、删除、启停与调整 `priority`。供应商配置以数据库 `image_providers` 表为单一真相源（迁移 `0017`），后端 `GET/POST/PUT/DELETE /admin/providers` 提供增删改查、`GET /admin/providers/presets` 返回预设目录。首次启动会把 `config.toml` 的 `[[image_providers]]` 与 `.env` 各家 Key 导入数据库做种子；之后改动即时生效、无需重启（worker 每个任务都通过 `load_managed_pix_config` 重新加载有效配置并叠加数据库供应商）。API Key 写入后仅展示「已配置 / 未配置」状态、提交空值保持不变，与其它密钥设置一致。
 
 ## 通用生图 Provider 调用规范
 
@@ -224,7 +228,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 适合场景：地砖、木板、草地、墙面、地毯等需要在游戏地图里反复平铺的纹理素材。
 
-默认 sprite 模板使用 `mosaic_prompt_template` / `mosaic_reference_prompt_template`：1 次 API 调用产出 rows×cols 整张 sheet（`rows × cols ≤ 64`），prompt 中包含 `Layout by Row` 段落 + 行级动作描述 + 整图尺寸契约。后端会为 sprite mosaic 独立选择 API 渲染尺寸，而不是复用通用 `image_gen.size`；内部先按 `target_frame_size × rows×cols × 8` 估算理想渲染画布，再按 API 约束（最大边 ≤3840、16 倍数、长短边比 ≤3:1、总像素 655,360—8,294,400）缩放到合法尺寸。fallback prompt 还会显式告诉模型每个 cell 的 render pixel 尺寸与 pixel-art 像素块大小（`render_width/render_height/cell_render_width/cell_render_height/upscale` 占位符），减少低分辨率生成造成的 perfectPixel 检测漂移。提供参考图时自动套用 `mosaic_reference_prompt_template`，让每个 cell 复用同一角色设计。后端单帧后处理链路固定为「切分每一帧 → perfect pixel → 显式 key_rgb 的 pixel_bg 双阈值 alpha → alpha bbox 裁剪」，不再复用全局 Color-to-Alpha，也不会从 cell 四角重新采样背景色，避免多行 mosaic 中主体越界 cell 边界时四角采样到主体色而抠不干净。最终保留原版 `sprite_mosaic.png` + 横向 `sprite_sheet.png`，多行模式额外输出 `sprite_sheet_grid.png` + `row_sheets/` + `previews/`，作品库预览组件读 `sprite_sheet.png + sequence.json` 逐帧播放。
+默认 sprite 模板使用 `mosaic_prompt_template` / `mosaic_reference_prompt_template`：1 次 API 调用产出 rows×cols 整张 sheet（`rows × cols ≤ 64`），prompt 中包含 `Layout by Row` 段落 + 行级动作描述 + 整图尺寸契约。后端会为 sprite mosaic 独立选择 API 渲染尺寸，而不是复用通用 `image_gen.size`；内部先按 `target_frame_size × rows×cols × 8` 估算理想渲染画布，再按 API 约束（最大边 ≤3840、16 倍数、长短边比 ≤3:1、总像素 655,360—8,294,400）缩放到合法尺寸。fallback prompt 还会显式告诉模型每个 cell 的 render pixel 尺寸与 pixel-art 像素块大小（`render_width/render_height/cell_render_width/cell_render_height/upscale` 占位符），减少低分辨率生成造成的 perfectPixel 检测漂移。提供参考图时自动套用 `mosaic_reference_prompt_template`，让每个 cell 复用同一角色设计。后端单帧后处理链路固定为「切分每一帧 → perfect pixel → 显式 key_rgb 的 pixel_bg 双阈值 alpha → alpha bbox 裁剪」，不再复用全局 Color-to-Alpha，也不会从 cell 四角重新采样背景色，避免多行 mosaic 中主体越界 cell 边界时四角采样到主体色而抠不干净。最终保留原版 `sprite_mosaic.png` + 横向 `sprite_sheet.png`，多行模式额外输出 `sprite_sheet_grid.png` + `row_sheets/` + `previews/`，作品库预览组件读 `sprite_sheet.png + sequence.json` 逐帧播放。多动作作品在作品库卡片选中某个动作后，「下载图片」可选「当前动作图」（该行 `row_sheets/row_NN.png`）或「所有动作打包」（后端 `GET /jobs/{job_id}/sprite-actions.zip` 把每行各一张横向图打包），文件统一命名 `{作品名}_action{NN}_{动作名}.png`。切图时还会用前景投影自动检测实际网格行 / 列数，纠正模型「少画 / 多画一行一列」导致的空帧 / 错位。
 
 作品库支持「调整」编辑器：前端用 Canvas 叠加上一帧/闭环帧半透明影子，用户可拖动每帧主体、用滚轮缩放当前帧主体（绕帧中心），保存时本地重合成 alignment 版本（含 fps、每帧 offset 与 scale），不重新调用 AI，不额外扣点。序列帧作品不再提供「重新像素化」或「AI 微调」入口，避免把整张 sprite sheet 当普通单图再次处理；如需改帧位置使用「调整」，如需导出使用下载。
 
@@ -252,7 +256,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.74.1`。
+当前版本：`1.76.0`。
 
 版本号格式为 `A.B.C`：
 

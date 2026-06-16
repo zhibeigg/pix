@@ -1,7 +1,7 @@
-import { lazy, Suspense, useMemo, useState, type DragEvent } from 'react'
+import { lazy, Suspense, useMemo, useState, type DragEvent, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Crosshair, Download, FileDown, PackagePlus, RotateCcw, Trash2, X } from 'lucide-react'
-import { fileName, signedFileUrl } from '../fileUrls'
+import { fileName, signedFileUrl, spriteActionsZipUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { ContactSheetCandidate, GalleryQuota, GenerationJob, JobOutput, SequenceAlignmentRequest } from '../types'
 import { jobInputSummary } from '../pixelize'
@@ -19,11 +19,11 @@ import { JobParameterSnapshotDialog } from './JobParameterSnapshotDialog'
 
 const SpriteSequenceAlignmentEditor = lazy(() => import('./SpriteSequenceAlignmentEditor').then((m) => ({ default: m.SpriteSequenceAlignmentEditor })))
 
-type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; galleryQuota?: GalleryQuota | null; onExpandGalleryQuota?: () => void; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; onActiveActionChange?: (action: SpriteRowAction | null) => void; draggableSucceeded?: boolean }
-type DownloadKind = 'source' | 'pixelized' | 'sprite_gif' | 'sprite_sheet' | 'sprite_mosaic' | 'sequence_json' | 'contact_sheet'
+type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; galleryQuota?: GalleryQuota | null; showRetentionQuota?: boolean; onExpandGalleryQuota?: () => void; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; onActiveActionChange?: (action: SpriteRowAction | null) => void; renderJobBadges?: (job: GenerationJob) => ReactNode; draggableSucceeded?: boolean }
+type DownloadKind = 'source' | 'pixelized' | 'sprite_gif' | 'sprite_sheet' | 'sprite_mosaic' | 'sequence_json' | 'contact_sheet' | 'sprite_action_current' | 'sprite_actions_zip'
 type DownloadOption = { id: DownloadKind; label: string; description: string; path: string; url: string; filename: string }
 
-export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, galleryQuota = null, onExpandGalleryQuota, onSelect, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, onActiveActionChange, draggableSucceeded = false }: GalleryGridProps) {
+export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, galleryQuota = null, showRetentionQuota = true, onExpandGalleryQuota, onSelect, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, onActiveActionChange, renderJobBadges, draggableSucceeded = false }: GalleryGridProps) {
   const { t } = useI18n()
   const [page, setPage] = useState(1)
   const pageSize = 48
@@ -37,10 +37,10 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
   const visible = ordered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   return (
-    <PixPanel eyebrow={t('gallery.eyebrow')} title={t('gallery.title')} description={subtitle} action={<div className="flex flex-wrap items-center gap-2"><Badge variant="info">{t('gallery.itemCount', { count: ordered.length })}</Badge><Badge variant={galleryUsed >= galleryLimit ? 'warning' : 'outline'}>{t('gallery.retentionQuota', { used: galleryUsed, limit: galleryLimit })}</Badge><Badge variant="outline">{t('gallery.page', { page: safePage, total: totalPages })}</Badge>{onExpandGalleryQuota && <Button type="button" size="sm" variant="outline" onClick={onExpandGalleryQuota}>{t('gallery.expandQuotaButton', { price: expandPrice, slots: expandSlots })}</Button>}</div>}>
+    <PixPanel eyebrow={t('gallery.eyebrow')} title={t('gallery.title')} description={subtitle} action={<div className="flex flex-wrap items-center gap-2"><Badge variant="info">{t('gallery.itemCount', { count: ordered.length })}</Badge>{showRetentionQuota && <Badge variant={galleryUsed >= galleryLimit ? 'warning' : 'outline'}>{t('gallery.retentionQuota', { used: galleryUsed, limit: galleryLimit })}</Badge>}<Badge variant="outline">{t('gallery.page', { page: safePage, total: totalPages })}</Badge>{showRetentionQuota && onExpandGalleryQuota && <Button type="button" size="sm" variant="outline" onClick={onExpandGalleryQuota}>{t('gallery.expandQuotaButton', { price: expandPrice, slots: expandSlots })}</Button>}</div>}>
       {ordered.length === 0 ? <div className="rounded-lg border border-dashed border-border bg-muted/45 p-8 text-center text-muted-foreground">{t('gallery.empty')}</div> : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-          {visible.map((job) => <GalleryCard key={job.id} job={job} selected={selectedJobId === job.id} retrying={retryingJobId === job.id} draggable={draggableSucceeded && job.status === 'succeeded'} onSelect={onSelect} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} onDeleteJob={onDeleteJob} onSaveToPack={onSaveToPack} onRemoveFromPack={onRemoveFromPack} onSaveSequenceAlignment={onSaveSequenceAlignment} onActiveActionChange={onActiveActionChange} />)}
+          {visible.map((job) => <GalleryCard key={job.id} job={job} selected={selectedJobId === job.id} retrying={retryingJobId === job.id} draggable={draggableSucceeded && job.status === 'succeeded'} onSelect={onSelect} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} onDeleteJob={onDeleteJob} onSaveToPack={onSaveToPack} onRemoveFromPack={onRemoveFromPack} onSaveSequenceAlignment={onSaveSequenceAlignment} onActiveActionChange={onActiveActionChange} renderJobBadges={renderJobBadges} />)}
         </div>
       )}
       {ordered.length > pageSize && <div className="mt-5 flex justify-center gap-2"><Button type="button" variant="outline" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>{t('gallery.previous')}</Button><Button type="button" variant="outline" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>{t('gallery.next')}</Button></div>}
@@ -48,14 +48,14 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
   )
 }
 
-function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, onActiveActionChange }: { job: GenerationJob; selected: boolean; retrying: boolean; draggable: boolean; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; onActiveActionChange?: (action: SpriteRowAction | null) => void }) {
+function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, onActiveActionChange, renderJobBadges }: { job: GenerationJob; selected: boolean; retrying: boolean; draggable: boolean; onSelect: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; onActiveActionChange?: (action: SpriteRowAction | null) => void; renderJobBadges?: (job: GenerationJob) => ReactNode }) {
   const { language, t } = useI18n()
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
-  const downloadOptions = output ? buildDownloadOptions(job, output, t) : []
   const rowActions = useMemo(() => output ? spriteRowActions(output, t, language) : [], [output, t, language])
   const [selectedActionIndex, setSelectedActionIndex] = useState(0)
   const safeSelectedActionIndex = rowActions.length > 0 ? Math.min(selectedActionIndex, rowActions.length - 1) : 0
   const selectedAction = rowActions[safeSelectedActionIndex]
+  const downloadOptions = useMemo(() => output ? buildDownloadOptions(job, output, t, rowActions, selectedAction) : [], [job, output, t, rowActions, selectedAction])
   const alignmentOutput = useMemo(() => output ? actionScopedOutput(output, selectedAction) : undefined, [output, selectedAction])
   const [alignmentOpen, setAlignmentOpen] = useState(false)
   const [savingAlignment, setSavingAlignment] = useState(false)
@@ -110,6 +110,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onCandidate
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant="outline">#{job.id}</Badge>
             <Badge variant="secondary" className="dark:border-[hsl(var(--pix-brand-purple-300)/.24)] dark:bg-[hsl(var(--pix-brand-purple-800)/.42)] dark:text-[hsl(var(--pix-brand-purple-300))]">{typeLabel}</Badge>
+            {renderJobBadges?.(job)}
             {rowActions.length > 1 && <Badge variant="outline">{t('gallery.actionCount', { count: rowActions.length })}</Badge>}
             {sizeTag && <Badge variant="outline" className={pixelSizeBadgeClass(sizeTag.size)} title={sizeTag.title}>{sizeTag.label}</Badge>}
           </div>
@@ -312,7 +313,7 @@ function actionLabelFromPhase(phase: string, rowIndex: number, t: (key: string, 
   return t('gallery.actionFallback', { index: rowIndex + 1 })
 }
 
-function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: string, options?: Record<string, unknown>) => string): DownloadOption[] {
+function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: string, options?: Record<string, unknown>) => string, rowActions: SpriteRowAction[], selectedAction: SpriteRowAction | undefined): DownloadOption[] {
   const isSpriteOutput = job.job_type === 'sprite_sheet' || output.sprite_frames.length > 0 || Boolean(output.sprite_sheet_url || output.sprite_mosaic_url || output.sequence_json_url)
   const specs: Array<{ id: DownloadKind; label: string; description: string; path?: string | null; url?: string | null; fallback: string }> = isSpriteOutput ? [
     { id: 'sprite_gif', label: t('downloads.spriteGif'), description: t('downloads.spriteGifDescription'), path: output.sprite_gif_path, url: output.sprite_gif_url, fallback: 'sprite.gif' },
@@ -325,7 +326,7 @@ function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: st
     { id: 'contact_sheet', label: t('downloads.contactSheet'), description: t('downloads.contactSheetDescription'), path: output.contact_sheet_path, url: output.contact_sheet_url, fallback: 'contact-sheet.png' },
   ]
   const seen = new Set<string>()
-  return specs.flatMap((spec) => {
+  const options = specs.flatMap((spec) => {
     const url = signedFileUrl(spec.url)
     if (!url) return []
     const dedupeKey = spec.path || spec.url || url
@@ -333,6 +334,32 @@ function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: st
     seen.add(dedupeKey)
     return [{ id: spec.id, label: spec.label, description: spec.description, path: spec.path || '', url, filename: downloadFileName(job, spec.path || spec.fallback) }]
   })
+  // 多动作序列帧：追加「当前动作图」和「所有动作打包」。
+  if (rowActions.length > 1) {
+    const prefix = jobFileNamePrefix(job)
+    const selectedUrl = signedFileUrl(selectedAction?.sheetUrl ?? undefined)
+    if (selectedAction && selectedUrl) {
+      const nn = String(selectedAction.rowIndex + 1).padStart(2, '0')
+      const phase = safeFileNamePart(selectedAction.title)
+      options.push({
+        id: 'sprite_action_current',
+        label: t('downloads.currentAction', { action: selectedAction.label }),
+        description: t('downloads.currentActionDescription'),
+        path: '',
+        url: selectedUrl,
+        filename: phase ? `${prefix}_action${nn}_${phase}.png` : `${prefix}_action${nn}.png`,
+      })
+    }
+    options.push({
+      id: 'sprite_actions_zip',
+      label: t('downloads.allActions'),
+      description: t('downloads.allActionsDescription'),
+      path: '',
+      url: spriteActionsZipUrl(job.id),
+      filename: `${prefix}_sprite_actions.zip`,
+    })
+  }
+  return options
 }
 
 function downloadImage(url: string, filename: string) {

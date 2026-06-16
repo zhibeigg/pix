@@ -97,7 +97,7 @@ PerformanceMonitorTab：Chart.js 渲染 KPI / 时序 / provider / 失败 / 任�
 ## 6. 前端设计
 - 依赖：`package.json` 加 `chart.js@4` + `react-chartjs-2@5`。
 - [AdminPanel.tsx](../../../apps/web/src/components/AdminPanel.tsx) 加 `<TabsTrigger value="performance">` +
-  条件渲染 `<PerformanceMonitorTab token=... />`。
+  条件渲染 `<PerformanceMonitorTab token=... />`；任务页保持运营处置能力，并补充作品库式全站任务预览，避免管理员在监控发现异常后还要切换到用户视角查产物。
 - `PerformanceMonitorTab.tsx`（新）：range 切换、`useEffect` 轮询（8s，组件卸载清理 timer）、
   KPI 卡、任务量+成功率时序图、吞吐时序、provider 成功率条、失败分类、任务流列表。
 - [api.ts](../../../apps/web/src/api.ts) 加 `performanceMetrics(token, range)`；`types.ts` 加响应类型。

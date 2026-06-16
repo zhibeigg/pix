@@ -9,12 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 管理后台「任务与作品」新增作品库视角：可按状态、用户、关键词筛选最新 500 个全站任务，像用户作品库一样预览 / 下载产物，并保留重试、取消退款和失败退款操作列表；`GET /admin/jobs` 的 `JobResponse` 现在包含 `user_id` 便于前端关联任务归属。
 - 作品库新增付费扩容：默认普通作品保留 10 张，用户可花费 60 点为作品库增加 10 个保留格；后端新增 `GET /jobs/gallery-quota` 与 `POST /jobs/gallery-quota/expand`，清理策略会按用户扩容后的容量保留作品。
 - 管理后台「用户与点数」新增批量调整能力：可多选、全选当前用户列表，或对全部 active 用户统一补点 / 扣点；后端新增 `POST /admin/users/adjust-credits-batch` 并为每个目标用户写入独立点数流水。
 - 生图层新增通用 Provider 架构：支持 Crazyrouter/Packy 等多 Provider、多模型能力发现和按 logical model 的失败切换。
 - `/settings/image-models` 返回结构化模型能力（providers、operations、sizes、qualities、protocols），前端单张、批量和原始生图页可动态选择模型。
 - 新增胜算云（ShengSuanYun，`shengsuanyun` 协议）生图上游：OpenAI gpt-image 兼容请求体 + 异步任务轮询（`POST /api/v1/tasks/generations` 提交、`GET /api/v1/tasks/generations/{id}` 轮询），承载 `gpt-image-2` 文生图与图生图（图生图复用同端点仅多传 `image` 字段）；检测到 `SHENGSUANYUN_API_KEY` 自动注入为生图 Provider 并参与失败切换。
 - 管理后台新增「性能监控」面板：实时查看任务成功率、活跃并发、任务量与成功率时间序列、provider 成功率对比（胜算云 / Packy / Crazyrouter）、失败分类与最近任务流，可切换 `1h / 24h / 7d` 范围、前端每 8s 轮询刷新。后端新增 `GET /admin/performance-metrics` 聚合接口；`generation_jobs` 增加 `provider` 列（迁移 `0016`），worker 落库时写入最终生效 provider。
+- 作品库序列帧新增「按动作下载」：多动作（多行）作品选中某个动作后，下载选项可选「当前动作图」或「所有动作打包 zip」。后端新增 `GET /jobs/{job_id}/sprite-actions.zip`（query token 鉴权、RFC 5987 中文文件名），文件统一命名 `{作品名}_action{NN}_{动作名}.png`，打包 `{作品名}_sprite_actions.zip`。
+- 管理后台新增「上游供应商」统一管理：从预设（胜算云 / Packy / Crazyrouter / OpenAI / Midjourney / Ideogram / Fal / Kling）或自定义（OpenAI 兼容）一键新增生图供应商，支持编辑 / 删除 / 启停 / 调整 priority。供应商配置改为以数据库 `image_providers` 表为单一真相源（迁移 `0017`），首次启动从 `config.toml` + `.env` 种子导入，之后增删改即时生效、无需重启（`load_managed_pix_config` 每任务叠加数据库供应商并按 priority 排序）。后端新增 `GET/POST/PUT/DELETE /admin/providers` 与 `GET /admin/providers/presets`；API Key 明文入库、响应遮罩、写入式更新（提交空值保持不变）。
 
 ### Changed
 
@@ -29,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- 修复多行序列帧（mosaic）按错误网格列数切分导致空帧 / 错位的问题：模型未严格按 `rows×cols` 画（如请求 8 列实际画 7 列）时，盲信参数会把某个 cell 切在列间隙上变空帧；现切分前用前景投影自动检测实际行 / 列数（护栏：仅在与请求数偏差 ≤ ⅓ 时采纳，正常作品与主体填满图不受影响），`rows_outputs` / 网格预览 / `sequence.json` 跟随实际网格。
 - 修复打开下拉菜单 / 弹窗（Radix Select、Dialog 等）时整页横向"左右晃动"的问题：页面已用 `scrollbar-gutter: stable` 预留滚动条槽，但 react-remove-scroll 锁定滚动时仍注入等宽的 `body[data-scroll-locked] { margin-right }` 补偿造成重复占位；原有中和规则与库规则同特异性 `(0,1,1)` 且都带 `!important`、又先于库样式注入而失效，现以 `html` 前缀提升特异性到 `(0,1,2)`，使中和规则稳定胜出。
 - 修复 `local_pixelize` 本地重处理被当作普通上传图走 legacy 路径的问题；现在会整体按生成图源图执行 perfect pixel / 去背景 / 裁切后处理，并采用 perfect pixel 自动检测到的真实像素尺寸。
 - 收紧顶部全局提示 Toast 的高度、内边距和关闭按钮尺寸，避免绿色成功提示弹出时显得过高且留白过多。

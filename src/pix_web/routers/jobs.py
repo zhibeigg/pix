@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import json
+from io import BytesIO
+from pathlib import Path
+from urllib.parse import quote
+from zipfile import ZIP_DEFLATED, ZipFile
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -14,10 +20,101 @@ from pix_web.queue import enqueue_jobs
 from pix_web.retention import GALLERY_EXPAND_PRICE_CREDITS, GALLERY_EXPAND_SLOTS, delete_user_job, effective_gallery_limit, get_or_create_gallery_quota, prune_user_photos, retained_photo_count
 from pix_web.schemas import GalleryQuotaResponse, JobBatchCreateRequest, JobBatchCreateResponse, JobCreateRequest, JobResponse, SequenceAlignmentRequest
 from pix_web.sequence_alignment import apply_sequence_alignment
+from pix_web.routers.files import _file_user
 from pix_web.security import get_current_user, get_db, get_settings
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
+
+def _safe_file_part(value: str) -> str:
+    cleaned = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in (value or "").strip())
+    return cleaned.strip("._")[:80]
+
+
+def _job_file_prefix(job: GenerationJob) -> str:
+    """作品文件名前缀：asset.name > prompt > job-id（与素材包命名同口径）。"""
+    params = job.params_json if isinstance(job.params_json, dict) else {}
+    asset = params.get("asset") if isinstance(params, dict) else None
+    asset_name = asset.get("name") if isinstance(asset, dict) else None
+    if isinstance(asset_name, str) and asset_name.strip():
+        base = _safe_file_part(asset_name)
+    elif job.prompt and job.prompt.strip():
+        base = _safe_file_part(job.prompt)
+    else:
+        base = "job"
+    return f"{base or 'job'}_{job.id}"
+
+
+def _sprite_action_rows(meta_json_path: str | None) -> list[dict[str, object]]:
+    """读 meta 的 sprite.rows_outputs，返回每个动作（行）的 {row_index, action_phase, sheet_abs}。"""
+    if not meta_json_path:
+        return []
+    path = Path(meta_json_path)
+    try:
+        meta = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    sprite = meta.get("sprite") if isinstance(meta, dict) else None
+    rows = sprite.get("rows_outputs") if isinstance(sprite, dict) else None
+    if not isinstance(rows, list):
+        return []
+    result: list[dict[str, object]] = []
+    for entry in rows:
+        if not isinstance(entry, dict):
+            continue
+        sheet_rel = entry.get("sheet")
+        if not sheet_rel:
+            continue
+        row_index = entry.get("row_index")
+        result.append({
+            "row_index": int(row_index) if isinstance(row_index, int) else len(result),
+            "action_phase": str(entry.get("action_phase") or ""),
+            "sheet_abs": str(path.parent / str(sheet_rel)),
+        })
+    return result
+
+
+@router.get("/{job_id}/sprite-actions.zip")
+def download_sprite_actions(
+    job_id: int,
+    user: User = Depends(_file_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """把序列帧作品每个动作（行）的横向 sheet 打包成 zip；query token 鉴权，支持浏览器直接下载。"""
+    job = db.scalar(
+        select(GenerationJob).options(selectinload(GenerationJob.outputs)).where(GenerationJob.id == job_id)
+    )
+    if job is None or (job.user_id != user.id and user.role != "admin"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="作品不存在")
+    if not job.outputs:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="作品没有输出")
+    rows = _sprite_action_rows(job.outputs[0].meta_json_path)
+    if not rows:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="该作品不是多动作序列帧")
+    prefix = _job_file_prefix(job)
+    buffer = BytesIO()
+    added = 0
+    with ZipFile(buffer, "w", ZIP_DEFLATED) as zip_file:
+        for row in rows:
+            sheet = str(row["sheet_abs"])
+            if not sheet or not Path(sheet).is_file():
+                continue
+            number = int(row["row_index"]) + 1
+            phase = _safe_file_part(str(row["action_phase"]))
+            name = f"{prefix}_action{number:02d}_{phase}.png" if phase else f"{prefix}_action{number:02d}.png"
+            zip_file.write(sheet, name)
+            added += 1
+    if added == 0:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="没有可打包的动作图")
+    filename = f"{prefix}_sprite_actions.zip"
+    # 作品名可能含中文，HTTP header 只能 latin-1：ASCII 兜底 + RFC 5987 filename* 带 UTF-8 原名。
+    ascii_name = filename.encode("ascii", "ignore").decode().strip("_") or "sprite_actions.zip"
+    disposition = f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": disposition},
+    )
 
 
 def _gallery_quota_response(db: Session, user: User) -> GalleryQuotaResponse:

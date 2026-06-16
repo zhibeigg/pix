@@ -16,6 +16,9 @@ trust_env_proxies = false
 proxy = ""
 
 # 多 Provider 生图配置。同一个 logical model 可配置多个 provider，运行时按 priority 自动失败切换。
+# 注意：供应商现以管理后台「上游供应商」为单一真相源（存数据库 image_providers 表）。
+# 下面的 [[image_providers]] 仅在该表为空时作为首次启动的种子导入；之后请在后台增删改
+# （即时生效、无需重启）。如需重新从本文件导入，清空 image_providers 表即可。
 [[image_providers]]
 id = "crazyrouter"
 display_name = "Crazyrouter"

@@ -34,6 +34,10 @@ import type {
   UploadResponse,
   User,
   EmailCodeResponse,
+  ImageProvider,
+  ImageProviderPreset,
+  ImageProviderCreatePayload,
+  ImageProviderUpdatePayload,
 } from './types'
 
 const configuredApiBase = (import.meta.env.VITE_PIX_API_BASE as string | undefined)?.trim()
@@ -318,10 +322,10 @@ export const api = {
     return request<AdminDashboard>('/admin/dashboard', {}, token)
   },
   adminUsers(token: string) {
-    return request<User[]>('/admin/users?limit=100', {}, token)
+    return request<User[]>('/admin/users?limit=500', {}, token)
   },
   adminJobs(token: string) {
-    return request<GenerationJob[]>('/admin/jobs?limit=100', {}, token)
+    return request<GenerationJob[]>('/admin/jobs?limit=500', {}, token)
   },
   performanceMetrics(token: string, range: string) {
     return request<PerformanceMetrics>(`/admin/performance-metrics?range=${encodeURIComponent(range)}`, {}, token)
@@ -400,5 +404,20 @@ export const api = {
   },
   testEmailSetting(token: string, email: string) {
     return request<EmailTestResponse>('/admin/settings/test-email', { method: 'POST', body: JSON.stringify({ email }) }, token)
+  },
+  adminProviders(token: string) {
+    return request<ImageProvider[]>('/admin/providers', {}, token)
+  },
+  adminProviderPresets(token: string) {
+    return request<ImageProviderPreset[]>('/admin/providers/presets', {}, token)
+  },
+  createAdminProvider(token: string, payload: ImageProviderCreatePayload) {
+    return request<ImageProvider>('/admin/providers', { method: 'POST', body: JSON.stringify(payload) }, token)
+  },
+  updateAdminProvider(token: string, id: string, payload: ImageProviderUpdatePayload) {
+    return request<ImageProvider>(`/admin/providers/${id}`, { method: 'PUT', body: JSON.stringify(payload) }, token)
+  },
+  deleteAdminProvider(token: string, id: string) {
+    return request<{ deleted: boolean }>(`/admin/providers/${id}`, { method: 'DELETE' }, token)
   },
 }
