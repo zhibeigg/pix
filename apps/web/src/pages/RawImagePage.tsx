@@ -60,7 +60,7 @@ function modelOptionLabel(model: ImageModelInfo) {
 
 export function RawImagePage({ pricing, balance, jobs, loading, token, imageModels, selectedJobId, onSelectJob, onCreateJob, onRefresh }: Props) {
   const { text } = useI18n()
-  const [model, setModel] = useState(imageModels.default || 'gpt-image-2')
+  const [model, setModel] = useState(imageModels.default || 'image2')
   const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
   const selectedModelInfo = useMemo(() => availableImageModels.find((item) => item.id === model), [availableImageModels, model])
   const modelSizes = selectedModelInfo?.sizes?.length ? selectedModelInfo.sizes : imageSizes
@@ -88,7 +88,7 @@ export function RawImagePage({ pricing, balance, jobs, loading, token, imageMode
 
   useEffect(() => {
     if (!availableImageModels.some((item) => item.id === model)) {
-      setModel(imageModels.default || availableImageModels[0]?.id || 'gpt-image-2')
+      setModel(imageModels.default || availableImageModels[0]?.id || 'image2')
     }
   }, [availableImageModels, imageModels.default, model])
 

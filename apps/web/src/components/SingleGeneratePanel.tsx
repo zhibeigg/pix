@@ -198,7 +198,7 @@ export function SingleGeneratePanel({ pricing, loading, token, imageModels, onSu
 
   useEffect(() => {
     if (!availableImageModels.some((item) => item.id === imageModel)) {
-      setImageModel(imageModels.default || availableImageModels[0]?.id || 'gpt-image-2')
+      setImageModel(imageModels.default || availableImageModels[0]?.id || 'image2')
     }
   }, [availableImageModels, imageModel, imageModels.default])
 

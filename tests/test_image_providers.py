@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from pix.api.http_client import ProviderError
 from pix.api.image_dispatcher import dispatch_image_request
-from pix.api.image_model_registry import IMAGE_TO_IMAGE, TEXT_TO_IMAGE, available_model_infos, built_in_model
+from pix.api.image_model_registry import IMAGE_TO_IMAGE, TEXT_TO_IMAGE, available_model_infos, built_in_model, candidates_for_model, public_image_model_id
 from pix.api.image_providers import ImageProviderRequest, ImageProviderResult, OpenAIImagesProvider
 from pix.config import AppConfig, ImageProviderConfig, ImageProviderModelConfig, load_config
 
@@ -20,17 +20,18 @@ class ImageProviderConfigTests(unittest.TestCase):
         assert provider is not None
         self.assertEqual(provider.base_url, "https://packy.example")
         self.assertEqual(provider.api_key, "pk-test")
-        self.assertIn("gpt-image-2", [model.id for model in provider.models])
+        self.assertIn("image2", [model.id for model in provider.models])
+        self.assertIn("gemini-3-pro-image-preview", [model.id for model in provider.models])
 
     def test_crazyrouter_env_adds_discoverable_provider(self) -> None:
-        with patch.dict(os.environ, {"CRAZYROUTER_API_KEY": "cr-test", "PIX_IMAGE_DEFAULT_MODEL": "nano-banana"}, clear=True):
+        with patch.dict(os.environ, {"CRAZYROUTER_API_KEY": "cr-test", "PIX_IMAGE_DEFAULT_MODEL": "gpt-image-2"}, clear=True):
             cfg = load_config(env_file=None)
         provider = next((item for item in cfg.image_providers if item.id == "crazyrouter"), None)
         self.assertIsNotNone(provider)
         assert provider is not None
         self.assertEqual(provider.base_url, "https://crazyrouter.com")
         self.assertTrue(provider.discover_models)
-        self.assertEqual(cfg.image_gen.model, "nano-banana")
+        self.assertEqual(cfg.image_gen.model, "image2")
 
     def test_available_models_merges_builtin_crazyrouter_models(self) -> None:
         cfg = AppConfig()
@@ -47,13 +48,22 @@ class ImageProviderConfigTests(unittest.TestCase):
         ]
         infos = available_model_infos(cfg)
         ids = {item.id for item in infos}
-        self.assertIn("gpt-image-2", ids)
-        self.assertIn("midjourney", ids)
-        self.assertIn("ideogram-v3", ids)
+        self.assertEqual(ids, {"image2", "gemini-3.1-flash-image-preview", "gemini-3-pro-image-preview"})
 
-    def test_doubao_text_model_is_not_inferred_as_image_model(self) -> None:
+    def test_legacy_gpt_image_2_provider_matches_image2_request(self) -> None:
+        cfg = _cfg_with_two_providers()
+        candidates = candidates_for_model(cfg, "image2", TEXT_TO_IMAGE)
+
+        self.assertEqual([candidate.provider.id for candidate in candidates], ["p1", "p2"])
+        self.assertEqual([candidate.model.id for candidate in candidates], ["image2", "image2"])
+        self.assertEqual([candidate.model.provider_model for candidate in candidates], ["gpt-image-2", "gpt-image-2"])
+
+    def test_only_allowed_models_are_inferred_as_image_models(self) -> None:
         self.assertIsNone(built_in_model("doubao-1-5-lite-32k-250115"))
-        self.assertIsNotNone(built_in_model("doubao-seedream-4-0-250828"))
+        self.assertIsNone(built_in_model("doubao-seedream-4-0-250828"))
+        self.assertIsNone(built_in_model("midjourney"))
+        self.assertEqual(built_in_model("gpt-image-2").id, "image2")
+        self.assertEqual(public_image_model_id("gpt-image-2"), "image2")
 
 
 class ImageProviderPayloadTests(unittest.TestCase):
@@ -247,7 +257,7 @@ class ImageDispatcherTests(unittest.TestCase):
                 output_format="png",
             )
         self.assertEqual(result.image.provider_id, "p1")
-        self.assertEqual(seen_models, ["gpt-image-2"])
+        self.assertEqual(seen_models, ["image2"])
 
 
 if __name__ == "__main__":

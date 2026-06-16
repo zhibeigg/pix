@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from pix.api.http_client import ProviderError, ProviderHttpClient
@@ -58,6 +58,17 @@ class _DiscoveryCacheEntry:
 
 _DISCOVERY_CACHE: dict[str, _DiscoveryCacheEntry] = {}
 
+IMAGE2_MODEL_ID = "image2"
+_IMAGE_MODEL_ALLOWLIST = (
+    IMAGE2_MODEL_ID,
+    "gemini-3.1-flash-image-preview",
+    "gemini-3-pro-image-preview",
+)
+_LEGACY_MODEL_ALIASES = {
+    "gpt-image-2": IMAGE2_MODEL_ID,
+    "openai/gpt-image-2": IMAGE2_MODEL_ID,
+}
+
 
 def provider_api_key(provider: ImageProviderConfig) -> str:
     if provider.api_key:
@@ -68,174 +79,95 @@ def provider_api_key(provider: ImageProviderConfig) -> str:
 
 
 def built_in_model(model_id: str) -> ImageProviderModelConfig | None:
-    """按模型名推断协议和基础能力。未知模型返回 None，避免前端暴露必失败选项。"""
+    """只暴露产品允许的生图模型；旧 gpt-image-2 归一为 image2。"""
     mid = (model_id or "").strip()
     if not mid:
         return None
-    lower = mid.lower()
-    label = _label_from_model_id(mid)
+    public_id = public_image_model_id(mid)
+    if public_id is None:
+        return None
     base_sizes = ["auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"]
     base_qualities = ["auto", "low", "medium", "high"]
     base_formats = ["png", "jpeg", "webp"]
-
-    if lower in {"gpt-image-2", "gpt-image-1"} or "gpt-image" in lower:
+    if public_id == IMAGE2_MODEL_ID:
         return ImageProviderModelConfig(
-            id=mid,
-            provider_model=mid,
-            label=label,
+            id=IMAGE2_MODEL_ID,
+            provider_model="gpt-image-2",
+            label="image2",
             protocol="openai_images",
             operations=[TEXT_TO_IMAGE, IMAGE_TO_IMAGE],
             sizes=base_sizes,
             qualities=base_qualities,
             output_formats=base_formats,
-            extra={"supports_input_fidelity": "gpt-image-1" in lower},
+            extra={"supports_input_fidelity": False},
         )
-    if "dall-e" in lower:
-        return ImageProviderModelConfig(
-            id=mid,
-            provider_model=mid,
-            label=label,
-            protocol="openai_images",
-            operations=[TEXT_TO_IMAGE],
-            sizes=["1024x1024", "1792x1024", "1024x1792"],
-            qualities=["standard", "hd"] if "3" in lower else [],
-            output_formats=["png"],
-        )
-    if "qwen" in lower and "image" in lower:
-        ops = [TEXT_TO_IMAGE, IMAGE_TO_IMAGE] if "edit" in lower else [TEXT_TO_IMAGE]
-        return ImageProviderModelConfig(
-            id=mid,
-            provider_model=mid,
-            label=label,
-            protocol="openai_images",
-            operations=ops,
-            sizes=base_sizes,
-            qualities=[],
-            output_formats=base_formats,
-            edit_mode="image_input" if "edit" in lower else "multipart",
-        )
-    if "seedream" in lower or ("doubao" in lower and any(token in lower for token in ("image", "vision"))):
-        return ImageProviderModelConfig(
-            id=mid,
-            provider_model=mid,
-            label=label,
-            protocol="openai_images",
-            operations=[TEXT_TO_IMAGE, IMAGE_TO_IMAGE],
-            sizes=base_sizes,
-            qualities=[],
-            output_formats=base_formats,
-            edit_mode="image_input",
-        )
-    if "grok" in lower and "image" in lower:
-        return ImageProviderModelConfig(
-            id=mid,
-            provider_model=mid,
-            label=label,
-            protocol="openai_images",
-            operations=[TEXT_TO_IMAGE],
-            sizes=base_sizes,
-            qualities=[],
-            output_formats=["png"],
-        )
-    if "nano-banana" in lower or ("gemini" in lower and "image" in lower):
-        return ImageProviderModelConfig(
-            id=mid,
-            provider_model=mid,
-            label=label,
-            protocol="openai_images",
-            operations=[TEXT_TO_IMAGE, IMAGE_TO_IMAGE],
-            sizes=["auto", "1024x1024", "1536x1024", "1024x1536"],
-            qualities=[],
-            output_formats=["png"],
-            edit_mode="image_input",
-        )
-    if "midjourney" in lower or lower.startswith("mj-"):
-        return ImageProviderModelConfig(
-            id=mid,
-            provider_model=mid,
-            label=label,
-            protocol="midjourney",
-            operations=[TEXT_TO_IMAGE],
-            sizes=["auto", "1024x1024", "1536x1024", "1024x1536"],
-            output_formats=["png"],
-        )
-    if "ideogram" in lower:
-        return ImageProviderModelConfig(
-            id=mid,
-            provider_model=mid,
-            label=label,
-            protocol="ideogram",
-            operations=[TEXT_TO_IMAGE],
-            sizes=["auto", "1024x1024", "1536x1024", "1024x1536"],
-            output_formats=["png"],
-        )
-    if lower.startswith("fal") or "fal-ai" in lower:
-        return ImageProviderModelConfig(
-            id=mid,
-            provider_model=mid,
-            label=label,
-            protocol="fal",
-            operations=[TEXT_TO_IMAGE, IMAGE_TO_IMAGE],
-            sizes=["auto", "1024x1024"],
-            output_formats=["png"],
-            edit_mode="image_input",
-        )
-    if "kling" in lower:
-        return ImageProviderModelConfig(
-            id=mid,
-            provider_model=mid,
-            label=label,
-            protocol="kling",
-            operations=[TEXT_TO_IMAGE],
-            sizes=["auto", "1024x1024", "1536x1024", "1024x1536"],
-            output_formats=["png"],
-        )
-    if "imagen" in lower:
-        return ImageProviderModelConfig(
-            id=mid,
-            provider_model=mid,
-            label=label,
-            protocol="gemini_native",
-            operations=[TEXT_TO_IMAGE],
-            sizes=["auto", "1024x1024"],
-            output_formats=["png"],
-        )
+    return ImageProviderModelConfig(
+        id=public_id,
+        provider_model=mid,
+        label=_label_from_model_id(public_id),
+        protocol="openai_images",
+        operations=[TEXT_TO_IMAGE, IMAGE_TO_IMAGE],
+        sizes=["auto", "1024x1024", "1536x1024", "1024x1536"],
+        qualities=[],
+        output_formats=["png"],
+        edit_mode="image_input",
+    )
+
+
+def public_image_model_id(model_id: str) -> str | None:
+    """把旧模型名归一为公开 logical model，并过滤掉不再支持的候选。"""
+    mid = (model_id or "").strip()
+    if not mid:
+        return None
+    lower = mid.lower()
+    public_id = _LEGACY_MODEL_ALIASES.get(lower, mid)
+    if public_id in _IMAGE_MODEL_ALLOWLIST:
+        return public_id
     return None
 
 
 def default_builtin_models() -> list[ImageProviderModelConfig]:
-    ids = [
-        "gpt-image-2",
-        "gpt-image-1",
-        "dall-e-3",
-        "qwen-image",
-        "qwen-image-edit",
-        "doubao-seedream-4-0-250828",
-        "doubao-seedream-3-0-t2i-250415",
-        "grok-2-image",
-        "nano-banana",
-        "nano-banana-2",
-        "nano-banana-pro",
-        "midjourney",
-        "ideogram-v3",
-        "kling-image-v1",
-        "gemini-3.1-flash-image-preview",
-    ]
-    return [model for mid in ids if (model := built_in_model(mid)) is not None]
+    return [model for mid in _IMAGE_MODEL_ALLOWLIST if (model := built_in_model(mid)) is not None]
 
 
-def provider_models(cfg: AppConfig, provider: ImageProviderConfig, *, include_discovered: bool = True) -> list[ImageProviderModelConfig]:
-    models = [model for model in provider.models if model.id]
+def provider_models(
+    cfg: AppConfig,
+    provider: ImageProviderConfig,
+    *,
+    include_discovered: bool = True,
+) -> list[ImageProviderModelConfig]:
+    models: list[ImageProviderModelConfig] = []
+    configured_ids: set[str] = set()
+    for item in provider.models:
+        model = _normalize_provider_model(item)
+        if model and model.id not in configured_ids:
+            models.append(model)
+            configured_ids.add(model.id)
     if provider.id == "crazyrouter":
-        configured_ids = {model.id for model in models}
-        models.extend(model for model in default_builtin_models() if model.id not in configured_ids)
-    if include_discovered and provider.discover_models and cfg.image_gen.model_discovery_enabled:
-        configured_ids = {model.id for model in models}
-        for model in discover_provider_models(cfg, provider):
+        for model in default_builtin_models():
             if model.id not in configured_ids:
                 models.append(model)
                 configured_ids.add(model.id)
+    if include_discovered and provider.discover_models and cfg.image_gen.model_discovery_enabled:
+        for model in discover_provider_models(cfg, provider):
+            normalized = _normalize_provider_model(model)
+            if normalized and normalized.id not in configured_ids:
+                models.append(normalized)
+                configured_ids.add(normalized.id)
     return models
+
+
+def _normalize_provider_model(model: ImageProviderModelConfig) -> ImageProviderModelConfig | None:
+    public_id = public_image_model_id(model.id)
+    if public_id is None:
+        return None
+    provider_model = model.provider_model or model.id
+    label = model.label or _label_from_model_id(public_id)
+    if public_id == IMAGE2_MODEL_ID:
+        label = "image2"
+        if provider_model == IMAGE2_MODEL_ID:
+            provider_model = "gpt-image-2"
+    return replace(model, id=public_id, provider_model=provider_model, label=label)
 
 
 def discover_provider_models(cfg: AppConfig, provider: ImageProviderConfig) -> list[ImageProviderModelConfig]:
@@ -338,13 +270,14 @@ def available_model_infos(cfg: AppConfig) -> list[ImageModelInfo]:
                 default_quality=cfg.image_gen.quality if cfg.image_gen.quality in qualities else qualities[0],
             )
         )
-    infos.sort(key=lambda item: (0 if item.id == cfg.image_gen.model else 1, item.label.lower(), item.id))
+    preferred_model = public_image_model_id(cfg.image_gen.model) or cfg.image_gen.model
+    infos.sort(key=lambda item: (0 if item.id == preferred_model else 1, item.label.lower(), item.id))
     return infos
 
 
 def candidates_for_model(cfg: AppConfig, model_id: str, operation: str) -> list[ProviderCandidate]:
     result: list[ProviderCandidate] = []
-    requested = model_id or cfg.image_gen.model
+    requested = public_image_model_id(model_id or cfg.image_gen.model)
     for provider in cfg.image_providers:
         if not provider.enabled:
             continue

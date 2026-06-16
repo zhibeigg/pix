@@ -108,14 +108,13 @@ model 的又一个候选 provider，增强可用性与冗余。
 - `.env.example` / `.env.production.example`：`SHENGSUANYUN_API_KEY` / `SHENGSUANYUN_BASE_URL`。
 - `README.md`：环境变量表 + 「通用生图 Provider 调用规范」补充胜算云（异步 task 协议、新优先级）。
 - `pyproject.toml`：版本 `1.73.0`；`CHANGELOG.md`：新增条目。
-- 前端：**无需改动**（`gpt-image-2` 的 `providers` 列表经 `/settings/image-models` 自动多出
-  `shengsuanyun`）。
-- `image_model_registry.py`：**无需改动**（单模型在 config 显式配置，非 crazyrouter 不走内置清单）。
+- 前端：生图下拉只暴露 `image2`、`gemini-3.1-flash-image-preview`、`gemini-3-pro-image-preview`；旧 `gpt-image-2` 会在后端归一为 `image2`。
+- `image_model_registry.py`：通过 allowlist 控制可选模型，胜算云的 `image2` 上游真实模型仍为 `openai/gpt-image-2`。
 
 ## 5. 数据流
 
 ```
-dispatch_image_request(model="gpt-image-2", op=text_to_image)
+dispatch_image_request(model="image2", op=text_to_image)
   └─ candidates_for_model 按 priority 排序: packy(10) → shengsuanyun(20) → crazyrouter(30)
        └─ ShengSuanYunProvider.generate()
             ├─ POST /api/v1/tasks/generations  → data.request_id

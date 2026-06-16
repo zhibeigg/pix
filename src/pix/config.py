@@ -87,7 +87,7 @@ class ImageProviderConfig:
 
 @dataclass
 class ImageGenConfig:
-    model: str = "gpt-image-2"
+    model: str = "image2"
     size: str = "1024x1024"
     # auto 让 provider 自适配 quality；high 单次响应可能持续数分钟，超过远端网关 idle 上限
     # 会被 RemoteProtocolError 截断；如需高画质请显式在管理后台改回 high。
@@ -432,9 +432,9 @@ def _packy_provider_from_legacy(cfg: AppConfig) -> ImageProviderConfig | None:
         protocols=["openai_images"],
         models=[
             ImageProviderModelConfig(
-                id="gpt-image-2",
+                id="image2",
                 provider_model="gpt-image-2",
-                label="GPT Image 2",
+                label="image2",
                 protocol="openai_images",
                 operations=["text_to_image", "image_to_image"],
                 sizes=["auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"],
@@ -446,6 +446,15 @@ def _packy_provider_from_legacy(cfg: AppConfig) -> ImageProviderConfig | None:
                 id="gemini-3.1-flash-image-preview",
                 provider_model="gemini-3.1-flash-image-preview",
                 label="Gemini 3.1 Flash Image Preview",
+                protocol="openai_images",
+                operations=["text_to_image", "image_to_image"],
+                sizes=["auto", "1024x1024", "1536x1024", "1024x1536"],
+                output_formats=["png"],
+            ),
+            ImageProviderModelConfig(
+                id="gemini-3-pro-image-preview",
+                provider_model="gemini-3-pro-image-preview",
+                label="Gemini 3 Pro Image Preview",
                 protocol="openai_images",
                 operations=["text_to_image", "image_to_image"],
                 sizes=["auto", "1024x1024", "1536x1024", "1024x1536"],
@@ -491,9 +500,9 @@ def _shengsuanyun_provider_from_env() -> ImageProviderConfig | None:
         protocols=["shengsuanyun"],
         models=[
             ImageProviderModelConfig(
-                id="gpt-image-2",
+                id="image2",
                 provider_model="openai/gpt-image-2",
-                label="GPT Image 2",
+                label="image2",
                 protocol="shengsuanyun",
                 operations=["text_to_image", "image_to_image"],
                 sizes=["auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"],
@@ -623,7 +632,7 @@ def _apply_env(cfg: AppConfig) -> None:
     if base_url:
         cfg.api.base_url = base_url
     if default_model:
-        cfg.image_gen.model = default_model
+        cfg.image_gen.model = "image2" if default_model.strip().lower() == "gpt-image-2" else default_model
 
 
 # ---------- 公共入口 ----------

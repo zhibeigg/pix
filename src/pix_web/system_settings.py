@@ -120,7 +120,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.api.max_retries", "Provider 单家重试次数", "模型与 API", "number", "", "默认 3 次；只对 5xx/429/网络错误生效，之后可切换下一家 Provider。"),
     SettingDefinition("pix.api.trust_env_proxies", "信任系统/环境代理", "模型与 API", "boolean", "", "默认关闭，避免本地 Clash 等代理在长 idle 连接上提前断开生图请求；需要走代理时再开启。"),
     SettingDefinition("pix.api.proxy", "Provider 调用代理 URL", "模型与 API", "string", "", "可选；填写形如 http://127.0.0.1:7890 的代理。优先级高于系统代理；留空表示直连。"),
-    SettingDefinition("pix.image_gen.model", "默认生图模型", "模型与 API", "string", "", "Logical model，例如 gpt-image-2；具体 Provider 由 [[image_providers]] 和失败切换策略决定。"),
+    SettingDefinition("pix.image_gen.model", "默认生图模型", "模型与 API", "string", "", "Logical model，仅支持 image2、gemini-3.1-flash-image-preview、gemini-3-pro-image-preview；具体 Provider 由上游供应商和失败切换策略决定。"),
     SettingDefinition("pix.image_gen.size", "源图尺寸", "模型与 API", "select", "", options=("auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048")),
     SettingDefinition("pix.image_gen.quality", "生图质量", "模型与 API", "select", "", options=("low", "medium", "high", "auto")),
     SettingDefinition("pix.image_gen.output_format", "源图格式", "模型与 API", "select", "", options=("png", "jpeg", "webp")),

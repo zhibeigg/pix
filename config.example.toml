@@ -30,15 +30,15 @@ discover_models = true
 protocols = ["openai_images", "midjourney", "ideogram", "fal", "kling", "gemini_native"]
 
 [[image_providers.models]]
-id = "gpt-image-2"
+id = "image2"
 provider_model = "gpt-image-2"
-label = "GPT Image 2"
+label = "image2"
 protocol = "openai_images"
 operations = ["text_to_image", "image_to_image"]
 sizes = ["auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"]
 qualities = ["auto", "low", "medium", "high"]
 output_formats = ["png", "jpeg", "webp"]
-# gpt-image-2 当前不支持 input_fidelity；Provider 请求会按此能力决定是否发参。
+# image2 会映射到上游 gpt-image-2；当前不支持 input_fidelity，Provider 请求会按此能力决定是否发参。
 extra = { supports_input_fidelity = false }
 
 [[image_providers]]
@@ -52,15 +52,15 @@ discover_models = false
 protocols = ["openai_images"]
 
 [[image_providers.models]]
-id = "gpt-image-2"
+id = "image2"
 provider_model = "gpt-image-2"
-label = "GPT Image 2"
+label = "image2"
 protocol = "openai_images"
 operations = ["text_to_image", "image_to_image"]
 sizes = ["auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"]
 qualities = ["auto", "low", "medium", "high"]
 output_formats = ["png", "jpeg", "webp"]
-# gpt-image-2 当前不支持 input_fidelity；Provider 请求会按此能力决定是否发参。
+# image2 会映射到上游 gpt-image-2；当前不支持 input_fidelity，Provider 请求会按此能力决定是否发参。
 extra = { supports_input_fidelity = false }
 
 # 胜算云（ShengSuanYun）：异步任务协议（POST 提交 + GET 轮询），OpenAI gpt-image 兼容请求体。
@@ -76,9 +76,9 @@ discover_models = false
 protocols = ["shengsuanyun"]
 
 [[image_providers.models]]
-id = "gpt-image-2"
+id = "image2"
 provider_model = "openai/gpt-image-2"
-label = "GPT Image 2"
+label = "image2"
 protocol = "shengsuanyun"
 operations = ["text_to_image", "image_to_image"]
 sizes = ["auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"]
@@ -89,7 +89,7 @@ edit_mode = "image_input"
 extra = { supports_input_fidelity = false }
 
 [image_gen]
-model          = "gpt-image-2"
+model          = "image2"
 size           = "1024x1024"      # 见 Packy 文档；auto/1024x1024/1536x1024/1024x1536/2048x2048/...；UI 组件 asset 默认会覆盖为 auto
 quality        = "high"           # low | medium | high | auto
 output_format  = "png"
@@ -98,7 +98,7 @@ edit_input_fidelity = "high"
 # Provider 失败切换：仅对网络、超时、429/5xx、空响应、结构异常、临时不可用、鉴权/余额等可切换错误生效。
 failover_enabled = true
 failover_on = ["network", "timeout", "rate_limit", "server_error", "empty_response", "malformed_response", "provider_unavailable", "auth", "quota"]
-# 模型发现：Crazyrouter 等支持发现接口的 provider 会缓存结果，并只暴露已知协议/能力的模型。
+# 模型发现：Crazyrouter 等支持发现接口的 provider 会缓存结果，并经过 allowlist 过滤；生图下拉只保留 image2 / Gemini 3.1 Flash / Gemini 3 Pro。
 model_discovery_enabled = true
 model_discovery_ttl_seconds = 3600
 provider_poll_interval_seconds = 2.0

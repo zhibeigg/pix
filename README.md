@@ -82,11 +82,11 @@ npm run build
 
 | 变量 | 用途 |
 |---|---|
-| `CRAZYROUTER_API_KEY` | 推荐的生图 Provider API key；支持 GPT Image、Qwen、Doubao、Nano Banana、Midjourney、Ideogram、Kling/FAL 等多协议模型。 |
+| `CRAZYROUTER_API_KEY` | 推荐的生图 Provider API key；当前生图模型选择收敛为 `image2`、`gemini-3.1-flash-image-preview`、`gemini-3-pro-image-preview`。 |
 | `CRAZYROUTER_BASE_URL` | Crazyrouter API Base URL，默认 `https://crazyrouter.com`。 |
-| `SHENGSUANYUN_API_KEY` | 胜算云（ShengSuanYun）生图 Provider API key，异步任务协议、承载 `gpt-image-2`；provider priority 第二（介于 Packy 与 Crazyrouter 之间），自动参与失败切换。 |
+| `SHENGSUANYUN_API_KEY` | 胜算云（ShengSuanYun）生图 Provider API key，异步任务协议、承载 `image2`（上游 `openai/gpt-image-2`）；provider priority 第二（介于 Packy 与 Crazyrouter 之间），自动参与失败切换。 |
 | `SHENGSUANYUN_BASE_URL` | 胜算云 API Base URL，默认 `https://router.shengsuanyun.com`。 |
-| `PIX_IMAGE_DEFAULT_MODEL` | 默认 logical 生图模型，例如 `gpt-image-2`。 |
+| `PIX_IMAGE_DEFAULT_MODEL` | 默认 logical 生图模型，建议 `image2`；可选值仅为 `image2`、`gemini-3.1-flash-image-preview`、`gemini-3-pro-image-preview`。 |
 | `PIX_IMAGE_PROVIDERS_JSON` | 可选：用 JSON 覆盖/补充多 Provider 配置，适合容器密钥管理场景。 |
 | `PACKY_API_KEY` | Packy 老部署兼容 / 首次导入「上游供应商」种子 / fallback Provider 的生图 API key；新部署请优先在后台「上游供应商」配置。 |
 | `PACKY_VL_API_KEY` | 视觉模型旧变量，老部署兼容 / 首次导入用，可与 `PACKY_API_KEY` 共用。 |
@@ -152,13 +152,13 @@ npm run build
 
 ## 通用生图 Provider 调用规范
 
-Pix 现在通过 logical model → provider candidates 的方式调用生图上游。默认可配置 Packy、胜算云（ShengSuanYun）与 Crazyrouter 三类 Provider：同一个模型（如 `gpt-image-2`）可以同时映射到多家 Provider，运行时按 `priority` 排序（默认 Packy=10 → 胜算云=20 → Crazyrouter=30）；网络错误、超时、429/5xx、空响应、响应结构异常、Provider 临时不可用、鉴权/余额类错误会自动切换下一家，直到没有其它可用 Provider。策略拦截、非法请求或不支持的模型/操作不会切换，避免浪费额度或绕过安全策略。普通用户只看到安全简短失败提示；管理员后台可查看脱敏后的 Provider 尝试历史、失败分类和 traceback。
+Pix 现在通过 logical model → provider candidates 的方式调用生图上游。前端和 `/settings/image-models` 只开放 3 个 logical model：`image2`、`gemini-3.1-flash-image-preview`、`gemini-3-pro-image-preview`；旧配置中的 `gpt-image-2` 会自动归一为 `image2`，但上游真实 `provider_model` 仍可保持 `gpt-image-2` / `openai/gpt-image-2`。同一个模型可以同时映射到多家 Provider，运行时按 `priority` 排序（默认 Packy=10 → 胜算云=20 → Crazyrouter=30）；网络错误、超时、429/5xx、空响应、响应结构异常、Provider 临时不可用、鉴权/余额类错误会自动切换下一家，直到没有其它可用 Provider。策略拦截、非法请求或不支持的模型/操作不会切换，避免浪费额度或绕过安全策略。普通用户只看到安全简短失败提示；管理员后台可查看脱敏后的 Provider 尝试历史、失败分类和 traceback。
 
 OpenAI Images 兼容模型走 `/v1/images/generations` / `/v1/images/edits` 或 `image_input` payload；Midjourney、Kling 这类异步协议会提交任务后轮询查询端点；胜算云（`shengsuanyun` 协议）用 OpenAI gpt-image 兼容请求体走异步任务流程（`POST /api/v1/tasks/generations` 提交、`GET /api/v1/tasks/generations/{id}` 轮询，图生图复用同端点仅多传 `image` 字段，结果只返回图片 URL）；Ideogram/FAL 使用各自专用路径。默认优先要求返回 `b64_json` 并直接落盘；如果上游只返回临时 `url`，才作为兼容兜底下载。为控制上游成本，素材任务默认关闭多候选图；仅在后台或配置显式开启 `image_gen.contact_sheet_enabled` 时，才会按 `n_sample_count` 发起多候选请求。
 
 候选 VL 评分未显式配置 `candidate_vl_ranking_model` 时固定使用 `claude-opus-4-8`，评分时直接以 multipart 文件上传候选图片给模型，不再把候选图编码成 chat `image_url` / 网格占位结构。`local_pixelize` 本地重处理会整体按生成图源图处理：重新走 perfect pixel、去背景、裁切等后处理，并在 perfect pixel 成功时采用自动检测出的真实像素尺寸，而不是强制沿用原任务的固定目标尺寸。
 
-模型能力会控制兼容参数：例如 `gpt-image-2` 当前不发送 `input_fidelity`，只有模型配置 `extra.supports_input_fidelity = true`（或内置判定支持）时图生图请求才会附带该字段，避免上游返回 `invalid_input_fidelity_model`。Crazyrouter 模型发现只会把明确可推断为图片能力的模型暴露给生图；普通文本模型（如 Doubao Lite 32K）不会再误入序列帧 / 生图候选。
+模型能力会控制兼容参数：例如 `image2`（上游 `gpt-image-2`）当前不发送 `input_fidelity`，只有模型配置 `extra.supports_input_fidelity = true`（或内置判定支持）时图生图请求才会附带该字段，避免上游返回 `invalid_input_fidelity_model`。Crazyrouter 模型发现结果会继续经过 allowlist 过滤，只暴露 `image2` 与两个 Gemini Image Preview 模型；Doubao、Qwen、Midjourney、Ideogram、FAL、Kling 等模型不会再出现在生图下拉候选中。
 
 前端通过 `GET /settings/image-models` 获取结构化模型能力：`models` 字符串数组保留给旧前端兼容，新前端读取 `items[]` 中的 `operations`、`sizes`、`qualities`、`providers` 和 `provider_count` 来决定模型列表、图生图入口和参数选项。
 
@@ -260,7 +260,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ## 版本与发布
 
-当前版本：`1.79.0`。
+当前版本：`1.80.0`。
 
 版本号格式为 `A.B.C`：
 

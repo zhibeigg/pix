@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from pix.api.image_model_registry import available_model_infos
+from pix.api.image_model_registry import available_model_infos, public_image_model_id
 from pix.config import AppConfig
 from pix_web.config import WebSettings
 from pix_web.security import get_db, get_settings
@@ -45,11 +45,11 @@ def available_image_models(
     `models` 保留给旧前端兼容；新前端应优先读取 `items` 中的能力信息。
     """
     cfg: AppConfig = load_managed_pix_config(db, web_settings)
-    default_model = cfg.image_gen.model or "gpt-image-2"
     infos = available_model_infos(cfg)
     if not infos:
         infos = []
     model_ids = [item.id for item in infos]
+    default_model = public_image_model_id(cfg.image_gen.model) or (model_ids[0] if model_ids else "image2")
     if default_model not in model_ids:
         model_ids.insert(0, default_model)
     return ImageModelsResponse(

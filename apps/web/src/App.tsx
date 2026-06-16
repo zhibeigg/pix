@@ -85,7 +85,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [expandingGalleryQuota, setExpandingGalleryQuota] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [pricing, setPricing] = useState<PricingRule[]>([])
-  const [imageModels, setImageModels] = useState<ImageModelsResponse>({ default: 'gpt-image-2', models: ['gpt-image-2'], items: [] })
+  const [imageModels, setImageModels] = useState<ImageModelsResponse>({ default: 'image2', models: ['image2'], items: [] })
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [adminJobs, setAdminJobs] = useState<GenerationJob[]>([])
   const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([])
@@ -171,7 +171,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       api.packs(activeToken),
       api.packQuota(activeToken),
       api.pricing(activeToken),
-      api.imageModels().catch(() => ({ default: 'gpt-image-2', models: ['gpt-image-2'], items: [] })),
+      api.imageModels().catch(() => ({ default: 'image2', models: ['image2'], items: [] })),
     ])
     setUser(me)
     setBalance(nextBalance)

@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 管理后台「用户与点数」新增批量调整能力：可多选、全选当前用户列表，或对全部 active 用户统一补点 / 扣点；后端新增 `POST /admin/users/adjust-credits-batch` 并为每个目标用户写入独立点数流水。
 - 生图层新增通用 Provider 架构：支持 Crazyrouter/Packy 等多 Provider、多模型能力发现和按 logical model 的失败切换。
 - `/settings/image-models` 返回结构化模型能力（providers、operations、sizes、qualities、protocols），前端单张、批量和原始生图页可动态选择模型。
-- 新增胜算云（ShengSuanYun，`shengsuanyun` 协议）生图上游：OpenAI gpt-image 兼容请求体 + 异步任务轮询（`POST /api/v1/tasks/generations` 提交、`GET /api/v1/tasks/generations/{id}` 轮询），承载 `gpt-image-2` 文生图与图生图（图生图复用同端点仅多传 `image` 字段）；检测到 `SHENGSUANYUN_API_KEY` 自动注入为生图 Provider 并参与失败切换。
+- 新增胜算云（ShengSuanYun，`shengsuanyun` 协议）生图上游：OpenAI gpt-image 兼容请求体 + 异步任务轮询（`POST /api/v1/tasks/generations` 提交、`GET /api/v1/tasks/generations/{id}` 轮询），承载 `image2`（上游 `openai/gpt-image-2`）文生图与图生图（图生图复用同端点仅多传 `image` 字段）；检测到 `SHENGSUANYUN_API_KEY` 自动注入为生图 Provider 并参与失败切换。
 - 管理后台新增「性能监控」面板：实时查看任务成功率、活跃并发、任务量与成功率时间序列、provider 成功率对比（胜算云 / Packy / Crazyrouter）、失败分类与最近任务流，可切换 `1h / 24h / 7d` 范围、前端每 8s 轮询刷新。后端新增 `GET /admin/performance-metrics` 聚合接口；`generation_jobs` 增加 `provider` 列（迁移 `0016`），worker 落库时写入最终生效 provider。
 - 作品库序列帧新增「按动作下载」：多动作（多行）作品选中某个动作后，下载选项可选「当前动作图」或「所有动作打包 zip」。后端新增 `GET /jobs/{job_id}/sprite-actions.zip`（query token 鉴权、RFC 5987 中文文件名），文件统一命名 `{作品名}_action{NN}_{动作名}.png`，打包 `{作品名}_sprite_actions.zip`。
 - 管理后台新增「上游供应商」统一管理：从预设（胜算云 / Packy / Crazyrouter / OpenAI / Midjourney / Ideogram / Fal / Kling）或自定义（OpenAI 兼容）一键新增生图供应商，支持编辑 / 删除 / 启停 / 调整 priority。供应商配置改为以数据库 `image_providers` 表为单一真相源（迁移 `0017`），首次启动从 `config.toml` + `.env` 种子导入，之后增删改即时生效、无需重启（`load_managed_pix_config` 每任务叠加数据库供应商并按 priority 排序）。后端新增 `GET/POST/PUT/DELETE /admin/providers` 与 `GET /admin/providers/presets`；API Key 明文入库、响应遮罩、写入式更新（提交空值保持不变）。
@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 生图模型选择收敛为 `image2`、`gemini-3.1-flash-image-preview`、`gemini-3-pro-image-preview` 三项；旧 `gpt-image-2` 配置会自动映射到 `image2`，Crazyrouter 模型发现结果也会经过 allowlist 过滤，不再把 Qwen、Doubao、Nano Banana、Midjourney、Ideogram、FAL、Kling 等模型塞进下拉菜单。
 - Provider 层错误（网络、超时、限流、5xx、鉴权、额度、空响应或响应异常）会继续尝试同 logical model 下其它可用上游；所有可用上游均失败后才让任务失败并退款，策略/非法请求类错误不切换。
 - 普通用户任务错误改为安全简短提示，不再暴露上游 body 或 traceback；管理员后台保留详细错误和脱敏诊断资料。
 - 后台「模型与 API」移除旧 Packy / Gemini / VL 密钥与旧 Base URL 设置入口；供应商密钥统一在「上游供应商」管理，旧环境变量仍保留为老部署首次种子导入 / fallback 兼容。

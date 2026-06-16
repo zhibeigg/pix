@@ -81,10 +81,11 @@ class ProviderStoreTests(unittest.TestCase):
         self._row(id="p1", priority=10)
         self._row(id="p2", display_name="P2", base_url="https://p2.example", api_key="k2", priority=20)
         cfg = AppConfig()
-        cfg.image_gen.model = "gpt-image-2"
+        cfg.image_gen.model = "image2"
         apply_db_image_providers(cfg, self.db)
-        candidates = candidates_for_model(cfg, "gpt-image-2", TEXT_TO_IMAGE)
+        candidates = candidates_for_model(cfg, "image2", TEXT_TO_IMAGE)
         self.assertEqual([c.provider.id for c in candidates], ["p1", "p2"])
+        self.assertEqual([c.model.id for c in candidates], ["image2", "image2"])
 
 
 class LoadManagedConfigWiringTests(unittest.TestCase):
