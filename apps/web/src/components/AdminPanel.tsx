@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { AdminBatchAdjustCreditsResponse, AdminDashboard, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, PricingRule, SystemSetting, User } from '../types'
+import type { AdminBatchAdjustCreditsResponse, AdminDashboard, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, PricingRule, SystemSetting, User, ImageProvider, ImageProviderPreset, ImageProviderCreatePayload, ImageProviderUpdatePayload, ImageProviderModelPayload } from '../types'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -16,23 +16,24 @@ import { PerformanceMonitorTab } from './PerformanceMonitorTab'
 import { GalleryGrid } from './GalleryGrid'
 import { useConfirm } from './ConfirmDialog'
 
-type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onAdjustCreditsBatch: (payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) => Promise<AdminBatchAdjustCreditsResponse | void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onPublishAnnouncement: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void>; onAdminAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }>; token: string }
+type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onAdjustCreditsBatch: (payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) => Promise<AdminBatchAdjustCreditsResponse | void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onPublishAnnouncement: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void>; onAdminAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }>; onListProviders?: () => Promise<ImageProvider[]>; onListProviderPresets?: () => Promise<ImageProviderPreset[]>; onCreateProvider?: (payload: ImageProviderCreatePayload) => Promise<void>; onUpdateProvider?: (id: string, payload: ImageProviderUpdatePayload) => Promise<void>; onDeleteProvider?: (id: string) => Promise<void>; token: string }
 const settingTabs = ['运营保护', '邮件验证码', '模型与 API', '素材默认值', '序列帧', '支付与站点', '存储 / 队列 / 安全']
 
-export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings, onRefresh, onAdjustCredits, onAdjustCreditsBatch, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onPublishAnnouncement, onTestEmail, onAdminRetryJob, onAdminCancelJob, onAdminFailRefundJob, onAdminAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement, onTestAnnouncementEmail, token }: Props) {
+export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings, onRefresh, onAdjustCredits, onAdjustCreditsBatch, onUpdatePricing, onCreatePackage, onUpdatePackage, onUpdateSetting, onPublishAnnouncement, onTestEmail, onAdminRetryJob, onAdminCancelJob, onAdminFailRefundJob, onAdminAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement, onTestAnnouncementEmail, onListProviders, onListProviderPresets, onCreateProvider, onUpdateProvider, onDeleteProvider, token }: Props) {
   const [tab, setTab] = useState('dashboard')
   const groups = useMemo(() => groupSettings(settings), [settings])
   const settingGroup = groups[tab]
   return (
     <PixPanel eyebrow="Control Room" title="管理后台" description="配置站点、模型、邮件、套餐和运营保护。高风险环境项只显示状态。" action={<Button variant="outline" onClick={onRefresh}>刷新</Button>}>
       <div className="grid gap-6">
-        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="jobs">任务与作品</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger><TabsTrigger value="performance">性能监控</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
+        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="jobs">任务与作品</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger><TabsTrigger value="providers">上游供应商</TabsTrigger><TabsTrigger value="performance">性能监控</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
         {tab === 'dashboard' && dashboard && <DashboardGrid dashboard={dashboard} />}
         {tab === 'jobs' && <AdminJobsPanel jobs={jobs} users={users} onRetry={onAdminRetryJob} onCancel={onAdminCancelJob} onFailRefund={onAdminFailRefundJob} />}
         {tab === 'users' && <AdminCreditsPanel users={users} onAdjustSingle={onAdjustCredits} onAdjustBatch={onAdjustCreditsBatch} />}
         {tab === 'announcements' && <AnnouncementEditor onPublish={onPublishAnnouncement} onTestEmail={onTestEmail} onListAnnouncements={onAdminAnnouncements} onCreateAnnouncement={onCreateAnnouncement} onUpdateAnnouncement={onUpdateAnnouncement} onDeleteAnnouncement={onDeleteAnnouncement} onTestAnnouncementEmail={onTestAnnouncementEmail} />}
         {tab === 'pricing' && <div className="grid gap-3"><h3 className="text-lg font-semibold">价格规则</h3>{pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}</div>}
         {tab === 'packages' && <PackageEditor packages={packages} onCreate={onCreatePackage} onUpdate={onUpdatePackage} />}
+        {tab === 'providers' && <ProviderManager onList={onListProviders} onListPresets={onListProviderPresets} onCreate={onCreateProvider} onUpdate={onUpdateProvider} onDelete={onDeleteProvider} />}
         {tab === 'performance' && <PerformanceMonitorTab token={token} />}
         {settingGroup && <div className="grid gap-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-semibold">{tab}</h3><p className="text-sm text-muted-foreground">保存后只影响新请求/新任务；带"需重启"的项目请重启服务或 worker。</p></div>{tab === '邮件验证码' && <EmailTestBox onTest={onTestEmail} />}</div>{settingGroup.map((setting) => <SettingRow setting={setting} onUpdate={onUpdateSetting} key={setting.key} />)}</div>}
       </div>
@@ -592,6 +593,271 @@ function announcementPublishNotice(result: AnnouncementPublishResponse) {
   if (result.email_skipped_reason === 'smtp_not_configured') return '公告已发布，但 SMTP 未配置，邮件未发送。请先在「邮件验证码」标签中配置 SMTP。'
   if (result.email_skipped_reason === 'disabled') return '公告已保存为草稿或已下线，未发送邮件。'
   return '公告已保存。'
+}
+
+const PROVIDER_CUSTOM_PRESET = '__custom__'
+
+function ProviderManager({ onList, onListPresets, onCreate, onUpdate, onDelete }: { onList?: () => Promise<ImageProvider[]>; onListPresets?: () => Promise<ImageProviderPreset[]>; onCreate?: (payload: ImageProviderCreatePayload) => Promise<void>; onUpdate?: (id: string, payload: ImageProviderUpdatePayload) => Promise<void>; onDelete?: (id: string) => Promise<void> }) {
+  const confirm = useConfirm()
+  const [providers, setProviders] = useState<ImageProvider[]>([])
+  const [presets, setPresets] = useState<ImageProviderPreset[]>([])
+  const [listLoading, setListLoading] = useState(false)
+  const [listRefreshing, setListRefreshing] = useState(false)
+  const listLoadedRef = useRef(false)
+  const listRequestIdRef = useRef(0)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<ImageProvider | null>(null)
+  const [id, setId] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [baseUrl, setBaseUrl] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [apiKeyEnv, setApiKeyEnv] = useState('')
+  const [priority, setPriority] = useState(100)
+  const [enabled, setEnabled] = useState(true)
+  const [discoverModels, setDiscoverModels] = useState(false)
+  const [protocols, setProtocols] = useState<string[]>([])
+  const [modelsText, setModelsText] = useState('[]')
+  const [clearKey, setClearKey] = useState(false)
+  const [presetKey, setPresetKey] = useState(PROVIDER_CUSTOM_PRESET)
+  const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [noticeVariant, setNoticeVariant] = useState<'info' | 'success' | 'warning'>('info')
+
+  const loadList = useCallback(async () => {
+    if (!onList) return
+    const requestId = listRequestIdRef.current + 1
+    listRequestIdRef.current = requestId
+    const showBlockingLoading = !listLoadedRef.current
+    if (showBlockingLoading) setListLoading(true)
+    else setListRefreshing(true)
+    try {
+      const res = await onList()
+      if (listRequestIdRef.current !== requestId) return
+      setProviders(res)
+      listLoadedRef.current = true
+      if (onListPresets) {
+        try {
+          const presetRes = await onListPresets()
+          if (listRequestIdRef.current === requestId) setPresets(presetRes)
+        } catch {
+          // 预设拉取失败时保留已有预设，不阻塞供应商列表展示。
+        }
+      }
+    } catch {
+      // 保留已有列表，避免短暂网络抖动让供应商界面闪烁或清空。
+    } finally {
+      if (listRequestIdRef.current === requestId) {
+        setListLoading(false)
+        setListRefreshing(false)
+      }
+    }
+  }, [onList, onListPresets])
+
+  useEffect(() => { void loadList() }, [loadList])
+
+  function resetForm() {
+    setEditing(null)
+    setId('')
+    setDisplayName('')
+    setBaseUrl('')
+    setApiKey('')
+    setApiKeyEnv('')
+    setPriority(100)
+    setEnabled(true)
+    setDiscoverModels(false)
+    setProtocols([])
+    setModelsText('[]')
+    setClearKey(false)
+    setPresetKey(PROVIDER_CUSTOM_PRESET)
+    setNotice('')
+  }
+
+  function startCreate() {
+    resetForm()
+    setShowForm(true)
+  }
+
+  function applyPreset(value: string) {
+    setPresetKey(value)
+    if (value === PROVIDER_CUSTOM_PRESET) {
+      setId('')
+      setDisplayName('')
+      setBaseUrl('')
+      setApiKeyEnv('')
+      setProtocols([])
+      setDiscoverModels(false)
+      setModelsText('[]')
+      return
+    }
+    const preset = presets.find((item) => item.key === value)
+    if (!preset) return
+    setId(preset.key)
+    setDisplayName(preset.display_name)
+    setBaseUrl(preset.base_url)
+    setApiKeyEnv(preset.api_key_env)
+    setProtocols(preset.protocols)
+    setDiscoverModels(preset.discover_models)
+    setModelsText(JSON.stringify(preset.models, null, 2))
+  }
+
+  function startEdit(item: ImageProvider) {
+    setEditing(item)
+    setId(item.id)
+    setDisplayName(item.display_name)
+    setBaseUrl(item.base_url)
+    setApiKey('')
+    setApiKeyEnv(item.api_key_env)
+    setPriority(item.priority)
+    setEnabled(item.enabled)
+    setDiscoverModels(item.discover_models)
+    setProtocols(item.protocols)
+    setModelsText(JSON.stringify(item.models, null, 2))
+    setClearKey(false)
+    setPresetKey(item.preset_key ?? PROVIDER_CUSTOM_PRESET)
+    setNotice('')
+    setShowForm(true)
+  }
+
+  function cancelForm() {
+    setShowForm(false)
+    resetForm()
+  }
+
+  async function save() {
+    let models: ImageProviderModelPayload[]
+    try {
+      const parsed = JSON.parse(modelsText)
+      if (!Array.isArray(parsed)) throw new Error('not array')
+      models = parsed as ImageProviderModelPayload[]
+    } catch {
+      setNotice('模型 JSON 格式不正确')
+      setNoticeVariant('warning')
+      return
+    }
+    setSaving(true)
+    setNotice('')
+    try {
+      if (editing && onUpdate) {
+        await onUpdate(editing.id, { display_name: displayName, enabled, base_url: baseUrl, api_key: apiKey, clear_api_key: clearKey, api_key_env: apiKeyEnv, priority, discover_models: discoverModels, protocols, models })
+      } else if (onCreate) {
+        await onCreate({ id, display_name: displayName, enabled, base_url: baseUrl, api_key: apiKey, api_key_env: apiKeyEnv, priority, discover_models: discoverModels, protocols, models, preset_key: presetKey === PROVIDER_CUSTOM_PRESET ? null : presetKey })
+      }
+      await loadList()
+      setShowForm(false)
+      resetForm()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '保存失败，请重试'
+      setNotice(message)
+      setNoticeVariant('warning')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function toggleEnabled(item: ImageProvider) {
+    if (!onUpdate) return
+    try {
+      await onUpdate(item.id, { display_name: item.display_name, enabled: !item.enabled, base_url: item.base_url, api_key: '', clear_api_key: false, api_key_env: item.api_key_env, priority: item.priority, discover_models: item.discover_models, protocols: item.protocols, models: item.models })
+      void loadList()
+    } catch { /* ignore */ }
+  }
+
+  async function removeItem(item: ImageProvider) {
+    if (!onDelete) return
+    if (!(await confirm({ title: '删除供应商', description: `确定删除供应商「${item.display_name || item.id}」？`, confirmText: '删除', tone: 'danger' }))) return
+    try {
+      await onDelete(item.id)
+      void loadList()
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">上游供应商</h3>
+            <p className="mt-1 text-sm text-muted-foreground">管理生图上游供应商：从预设快速创建，或手动配置接入地址、协议与模型。密钥写入后只展示状态，不回显明文。</p>
+          </div>
+          {!showForm && <Button type="button" onClick={startCreate}>新增供应商</Button>}
+        </div>
+      </div>
+
+      {showForm && (
+        <form className="grid gap-4 rounded-lg border border-border bg-card p-4" onSubmit={(event) => { event.preventDefault(); void save() }}>
+          {!editing && (
+            <PixField label="预设模板">
+              <Select value={presetKey} onValueChange={applyPreset}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={PROVIDER_CUSTOM_PRESET}>自定义（手动填写）</SelectItem>
+                  {presets.map((preset) => <SelectItem key={preset.key} value={preset.key}>{preset.display_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </PixField>
+          )}
+          <div className="grid gap-4 md:grid-cols-2">
+            <PixField label="供应商 ID"><Input value={id} disabled={Boolean(editing)} placeholder="例如：openai" onChange={(event) => setId(event.target.value)} /></PixField>
+            <PixField label="显示名称"><Input value={displayName} placeholder="例如：OpenAI" onChange={(event) => setDisplayName(event.target.value)} /></PixField>
+            <PixField label="接入地址 Base URL"><Input value={baseUrl} placeholder="https://api.example.com/v1" onChange={(event) => setBaseUrl(event.target.value)} /></PixField>
+            <PixField label="密钥环境变量"><Input value={apiKeyEnv} placeholder="例如：OPENAI_API_KEY" onChange={(event) => setApiKeyEnv(event.target.value)} /></PixField>
+            <PixField label="协议（逗号分隔）"><Input value={protocols.join(', ')} placeholder="例如：openai, responses" onChange={(event) => setProtocols(event.target.value.split(',').map((part) => part.trim()).filter(Boolean))} /></PixField>
+            <PixField label="优先级"><Input type="number" value={priority} onChange={(event) => setPriority(Number(event.target.value))} /></PixField>
+          </div>
+          <PixField label={editing ? `API 密钥（当前${editing.has_api_key ? '已配置' : '未配置'}，留空保持不变）` : 'API 密钥'}>
+            <Input type="password" value={apiKey} disabled={clearKey} placeholder={editing ? '留空保持当前密钥' : '可留空，改用环境变量'} onChange={(event) => setApiKey(event.target.value)} />
+          </PixField>
+          {editing && <label className="flex items-center gap-2 text-xs text-muted-foreground"><Checkbox checked={clearKey} onCheckedChange={(value) => setClearKey(Boolean(value))} />清空当前值</label>}
+          <label className="flex items-center gap-2 text-sm"><Checkbox checked={enabled} onCheckedChange={(value) => setEnabled(Boolean(value))} />启用供应商</label>
+          <label className="flex items-center gap-2 text-sm"><Checkbox checked={discoverModels} onCheckedChange={(value) => setDiscoverModels(Boolean(value))} />自动发现模型</label>
+          <PixField label="模型配置（JSON 数组）"><Textarea value={modelsText} rows={10} className="font-mono text-xs" placeholder='[{"id":"...","provider_model":"...","label":"...","protocol":"...","operations":[],"sizes":[],"qualities":[],"output_formats":[],"edit_mode":""}]' onChange={(event) => setModelsText(event.target.value)} /></PixField>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={saving || !displayName.trim() || (!editing && !id.trim())}>{saving ? '保存中…' : editing ? '保存修改' : '新增供应商'}</Button>
+            <Button type="button" variant="outline" disabled={saving} onClick={cancelForm}>取消</Button>
+          </div>
+          {notice && <Alert variant={noticeVariant}>{notice}</Alert>}
+        </form>
+      )}
+
+      <div className="rounded-lg border border-border bg-card">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <p className="text-sm font-semibold">供应商列表</p>
+          {listRefreshing && <span className="text-xs text-muted-foreground">刷新中…</span>}
+        </div>
+        {listLoading ? (
+          <div className="grid place-items-center py-8 text-sm text-muted-foreground">加载中…</div>
+        ) : providers.length === 0 ? (
+          <div className="grid place-items-center py-8 text-sm text-muted-foreground">暂无供应商</div>
+        ) : (
+          <div className="divide-y divide-border">
+            {providers.map((item) => (
+              <div key={item.id} className="flex items-start gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate text-sm font-semibold">{item.display_name || item.id}</span>
+                    <span className="text-xs text-muted-foreground">{item.id}</span>
+                    <Badge variant={item.enabled ? 'success' : 'muted'}>{item.enabled ? '已启用' : '已停用'}</Badge>
+                    {item.protocols.map((protocol) => <Badge key={protocol} variant="outline">{protocol}</Badge>)}
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span>优先级 {item.priority}</span>
+                    <span>密钥{item.has_api_key ? '已配置' : '未配置'}</span>
+                    <span>来源 {item.preset_key || '自定义'}</span>
+                    <span>模型 {item.models.length}</span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => startEdit(item)}>编辑</Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => void toggleEnabled(item)}>{item.enabled ? '下线' : '上线'}</Button>
+                  <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => void removeItem(item)}>删除</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function SettingRow({ setting, onUpdate }: { setting: SystemSetting; onUpdate: (key: string, value: string, clear?: boolean) => Promise<void> }) {
