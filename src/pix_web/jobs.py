@@ -15,9 +15,9 @@ from pix.asset import AssetSizePolicyError, resolve_asset_generation_policy
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, reserve_credits
 from pix_web.job_observability import record_policy_event
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
-from pix_web.pricing import PricingDisabledError, get_price
+from pix_web.pricing import PricingDisabledError, apply_discount, get_price
 from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema, SpriteParamsSchema
-from pix_web.system_settings import enforce_generation_limits, enforce_prompt_policy
+from pix_web.system_settings import enforce_generation_limits, enforce_prompt_policy, load_pricing_discount
 
 AI_JOB_TYPES = {"asset", "text_to_image", "image_to_image", "sprite_sheet"}
 IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "repixelize"}
@@ -197,33 +197,50 @@ def _base_price_for_request(db: Session, req: JobCreateRequest) -> int:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
-def _price_for_request(db: Session, req: JobCreateRequest) -> int:
+def _original_price_for_request(db: Session, req: JobCreateRequest) -> int:
     base_price = _base_price_for_request(db, req)
     if req.job_type == "sprite_sheet":
         return base_price * _sprite_billing_units(req)
     return base_price
 
 
+def _price_for_request(db: Session, req: JobCreateRequest) -> int:
+    """对外的实扣价：原价经全局折扣后的折后价。"""
+    original = _original_price_for_request(db, req)
+    return apply_discount(original, load_pricing_discount(db).rate)
+
+
 def _billing_snapshot_for_request(
-    db: Session, req: JobCreateRequest, *, total_price: int | None = None
+    db: Session,
+    req: JobCreateRequest,
+    *,
+    original_total: int,
+    discounted_total: int,
+    discount,
 ) -> dict | None:
-    if req.job_type != "sprite_sheet":
+    is_sprite = req.job_type == "sprite_sheet"
+    if not is_sprite and not discount.active:
         return None
-    base_price = _base_price_for_request(db, req)
-    frame_count = _frame_count_for_price(req)
-    units = _sprite_billing_units(req)
-    total = base_price * units if total_price is None else int(total_price)
-    return {
-        "rows": req.sprite.rows,
-        "cols": req.sprite.cols,
-        "frame_base_price": base_price,
-        "frame_count": frame_count,
-        "billing_units": units,
-        "max_frame_count": 64,
-        "total_points": total,
-        "formula": "ceil(rows*cols/9) * frame_base_price",
-        "billing_note": "one API call per job; postprocess included",
-    }
+    snapshot: dict = {}
+    if is_sprite:
+        base_price = _base_price_for_request(db, req)
+        snapshot.update(
+            {
+                "rows": req.sprite.rows,
+                "cols": req.sprite.cols,
+                "frame_base_price": base_price,
+                "frame_count": _frame_count_for_price(req),
+                "billing_units": _sprite_billing_units(req),
+                "max_frame_count": 64,
+                "formula": "ceil(rows*cols/9) * frame_base_price",
+                "billing_note": "one API call per job; postprocess included",
+            }
+        )
+    snapshot["original_total_points"] = original_total
+    snapshot["total_points"] = discounted_total
+    if discount.active:
+        snapshot["discount"] = {"rate": discount.rate, "label": discount.label}
+    return snapshot
 
 
 def create_job_in_transaction(
@@ -240,8 +257,12 @@ def create_job_in_transaction(
     if existing is not None:
         return existing
 
-    price = _price_for_request(db, req)
-    billing = _billing_snapshot_for_request(db, req, total_price=price)
+    original_price = _original_price_for_request(db, req)
+    discount = load_pricing_discount(db)
+    price = apply_discount(original_price, discount.rate)
+    billing = _billing_snapshot_for_request(
+        db, req, original_total=original_price, discounted_total=price, discount=discount
+    )
     job = GenerationJob(
         user_id=user.id,
         batch_id=batch.id if batch is not None else None,
