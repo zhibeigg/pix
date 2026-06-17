@@ -435,7 +435,6 @@ class _TileMaterial:
 
 def _generate_tile_material(
     asset_cfg: AppConfig,
-    settings: WebSettings,
     *,
     name: str,
     extra_prompt: str,
@@ -446,7 +445,6 @@ def _generate_tile_material(
     image_size: str,
     image_quality: str | None,
     image_model: str | None,
-    run_dir: Path,
     raw_path: Path,
     pixel_path: Path,
 ) -> _TileMaterial:
@@ -569,7 +567,6 @@ def run_tile_asset_job_pipeline(
     with _local_stage_context(settings)():
         material = _generate_tile_material(
             asset_cfg,
-            settings,
             name=name,
             extra_prompt=extra_prompt,
             texture_kind=requested_texture_kind,
@@ -579,7 +576,6 @@ def run_tile_asset_job_pipeline(
             image_size=image_size,
             image_quality=image_quality,
             image_model=image_model,
-            run_dir=run_dir,
             raw_path=raw_path,
             pixel_path=pixel_path,
         )
@@ -759,7 +755,6 @@ def run_dual_grid_asset_job_pipeline(
     with _local_stage_context(settings)():
         material_a_result = _generate_tile_material(
             asset_cfg,
-            settings,
             name=material_a,
             extra_prompt="",
             texture_kind=requested_kind_a,
@@ -769,7 +764,6 @@ def run_dual_grid_asset_job_pipeline(
             image_size=image_size,
             image_quality=image_quality,
             image_model=image_model,
-            run_dir=run_dir,
             raw_path=run_dir / "01_material_a_source.png",
             pixel_path=materials_dir / "material_a.png",
         )
@@ -777,7 +771,6 @@ def run_dual_grid_asset_job_pipeline(
         if not transparent_mode:
             material_b_result = _generate_tile_material(
                 asset_cfg,
-                settings,
                 name=material_b_raw,
                 extra_prompt="",
                 texture_kind=requested_kind_b,
@@ -787,11 +780,12 @@ def run_dual_grid_asset_job_pipeline(
                 image_size=image_size,
                 image_quality=image_quality,
                 image_model=image_model,
-                run_dir=run_dir,
                 raw_path=run_dir / "01_material_b_source.png",
                 pixel_path=materials_dir / "material_b.png",
             )
 
+    # `_material_to_rgba_array` 以 NEAREST 强制把每张材质落到 (width, height)，
+    # 这正是 spec §8「A、B 理论上都 = output_size」的执行点：两数组形状由此对齐。
     mat_a = _material_to_rgba_array(material_a_result.pixel_path, (width, height))
     mat_b = (
         _material_to_rgba_array(material_b_result.pixel_path, (width, height))
@@ -801,9 +795,16 @@ def run_dual_grid_asset_job_pipeline(
     # 透明模式描边缺省色 = 材质 A 最暗可见色（让描边与主体融合）；A 全透明则回退深灰。
     outline_rgb = _darkest_visible_rgb(mat_a, (32, 32, 32))
 
+    # 防御性契约（spec §8）：两材质形状必须一致，否则 compose_atlas 内的布尔掩码
+    # 索引会抛晦涩的 numpy IndexError。当前因上面强制 resize 不可达，留作护栏。
+    assert mat_b is None or mat_b.shape == mat_a.shape, (
+        f"material A/B shape mismatch: {mat_a.shape} vs {mat_b.shape}"
+    )
+
     atlas, tiles, mapping = dual_grid.compose_atlas(mat_a, mat_b, style, outline_rgb)
     seed = dual_grid.preview_seed(name, material_a, material_b_raw, style)
-    preview = dual_grid.render_preview(tiles, width, height, seed)
+    preview_cells = 8
+    preview = dual_grid.render_preview(tiles, width, height, seed, cells=preview_cells)
 
     atlas_path = run_dir / "dual_grid_atlas.png"
     preview_path = run_dir / "dual_grid_preview.png"
@@ -854,6 +855,7 @@ def run_dual_grid_asset_job_pipeline(
             "convention": dual_grid.CONVENTION,
             "mapping": mapping,
             "preview_seed": seed,
+            "preview_cells": preview_cells,
             "shared_palette": False,
             "colors": int(params.colors),
             "skip_vl": True,
