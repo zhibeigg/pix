@@ -23,6 +23,12 @@ export function AdminPanel({ dashboard, users, jobs, pricing, packages, settings
   const [tab, setTab] = useState('dashboard')
   const groups = useMemo(() => groupSettings(settings), [settings])
   const settingGroup = groups[tab]
+  // 概览自动刷新：在「概览」标签页时每 30s 拉取一次最新统计，解决「不是实时」。
+  useEffect(() => {
+    if (tab !== 'dashboard') return
+    const id = window.setInterval(() => { onRefresh() }, 30000)
+    return () => window.clearInterval(id)
+  }, [tab, onRefresh])
   return (
     <PixPanel eyebrow="Control Room" title="管理后台" description="配置站点、模型、邮件、套餐和运营保护。高风险环境项只显示状态。" action={<Button variant="outline" onClick={onRefresh}>刷新</Button>}>
       <div className="grid gap-6">
@@ -166,6 +172,7 @@ function DashboardGrid({ dashboard }: { dashboard: AdminDashboard }) {
       <PixMetric label="DAU" value={dashboard.active_users_today} tone="info" />
       <PixMetric label="今日付费用户" value={dashboard.paying_users_today} tone={dashboard.paying_users_today > 0 ? 'success' : 'default'} />
       <PixMetric label="订单充值" value={dashboard.credits_recharged_today} tone="success" />
+      <PixMetric label="今日新订单" value={dashboard.orders_created_today ?? 0} tone="info" />
       <PixMetric label="付费订单" value={dashboard.orders_paid_today} tone={dashboard.orders_paid_today > 0 ? 'success' : 'default'} />
       <PixMetric label="今日消费" value={dashboard.credits_consumed_today} tone="warning" />
       <PixMetric label="今日上传" value={dashboard.uploads_today} />

@@ -578,6 +578,7 @@ export type AdminDashboard = {
   p95_generation_seconds_today: number
   credits_consumed_today: number
   credits_recharged_today: number
+  orders_created_today?: number
   orders_paid_today: number
   uploads_today: number
   failure_rate: number

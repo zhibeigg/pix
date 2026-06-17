@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone, tzinfo
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -104,6 +105,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("referral.enabled", "邀请奖励开关", "邀请奖励", "boolean", "true", "关闭后不再绑定新邀请或生成新返佣。"),
     SettingDefinition("referral.commission_rate_bps", "返佣比例 bps", "邀请奖励", "number", "1000", "1000 = 10%；按好友实际支付金额计算。"),
     SettingDefinition("referral.pending_days", "待到账天数", "邀请奖励", "number", "30", "好友充值后返佣进入待到账，达到天数后转为可用收益。"),
+    SettingDefinition("site.timezone", "站点时区", "支付与站点", "string", "Asia/Shanghai", "统计「今日」数据用的业务时区（IANA 名，如 Asia/Shanghai = UTC+8）；概览的今日订单/任务/用户按它切分自然日。无效或缺 tzdata 时按 UTC+8 处理。"),
     SettingDefinition("pricing.discount_enabled", "折扣总开关", "价格折扣", "boolean", "false", "开启后所有生成任务按折扣倍率扣点；作品库 / 素材包扩容不受影响。"),
     SettingDefinition("pricing.discount_rate", "折扣倍率", "价格折扣", "number", "1.0", "0~1，例如 0.8 = 8 折；0 = 限免；1 = 不打折。向下取整，原价>0 的任务折后保底 1 点。"),
     SettingDefinition("pricing.discount_label", "折扣标签", "价格折扣", "string", "", "可选促销文案，例如「限时 8 折」；留空时前端按倍率自动生成。"),
@@ -449,6 +451,23 @@ def update_system_setting(db: Session, key: str, value: str, *, clear: bool = Fa
 def _stored_values(db: Session) -> dict[str, str]:
     ensure_default_system_settings(db)
     return {setting.key: setting.value for setting in db.scalars(select(SystemSetting))}
+
+
+def _parse_timezone(value: str) -> tzinfo:
+    """解析 IANA 时区名为 tzinfo；空/无效/缺 tzdata 时回退固定 UTC+8。
+
+    用于「今日」统计的业务时区。中国/新加坡均为 UTC+8 且无 DST，固定偏移兜底等价。
+    """
+    name = (value or "").strip() or "Asia/Shanghai"
+    try:
+        return ZoneInfo(name)
+    except Exception:  # noqa: BLE001 - 无效时区或运行环境缺 tzdata 时回退
+        return timezone(timedelta(hours=8))
+
+
+def resolve_site_timezone(db: Session) -> tzinfo:
+    """读取站点时区设置（site.timezone），用于「今日」数据按业务时区切分。"""
+    return _parse_timezone(_stored_values(db).get("site.timezone", "Asia/Shanghai"))
 
 
 def load_operational_settings(db: Session) -> OperationalSettings:

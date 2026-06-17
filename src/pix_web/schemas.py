@@ -1138,6 +1138,7 @@ class AdminDashboardResponse(BaseModel):
     p95_generation_seconds_today: float = 0.0
     credits_consumed_today: int
     credits_recharged_today: int
+    orders_created_today: int = 0
     orders_paid_today: int
     uploads_today: int
     failure_rate: float

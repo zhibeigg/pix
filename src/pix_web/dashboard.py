@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone, tzinfo
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from pix_web.models import GenerationJob, GenerationPolicyEvent, PaymentOrder, UploadEvent, User, utcnow
+from pix_web.system_settings import resolve_site_timezone
 
 
-def _utc_day_start() -> datetime:
-    now = datetime.now(timezone.utc)
-    return datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
+def _business_day_start(tz: tzinfo, now: datetime | None = None) -> datetime:
+    """按业务时区返回「今天 0 点」对应的 UTC 时间，用于和 UTC 存储的时间戳比较。
+
+    例：tz=UTC+8、现在 07:00 UTC（15:00 SGT）→ 今天 0 点是 2026-06-17 00:00 +08
+    = 2026-06-16 16:00 UTC。这样早上（00:00–08:00 SGT）支付的订单不会被算到「昨天」。
+    """
+    now_utc = now or datetime.now(timezone.utc)
+    now_local = now_utc.astimezone(tz)
+    local_midnight = datetime.combine(now_local.date(), time.min, tzinfo=tz)
+    return local_midnight.astimezone(timezone.utc)
 
 
 def _count_jobs(db: Session, *, status: str | None = None, since: datetime | None = None) -> int:
@@ -52,7 +60,7 @@ def _p95(values: list[float]) -> float:
 
 
 def admin_dashboard(db: Session) -> dict[str, int | float]:
-    today = _utc_day_start()
+    today = _business_day_start(resolve_site_timezone(db))
     jobs_today = _count_jobs(db, since=today)
     failed_today = _count_jobs(db, status="failed", since=today)
     succeeded_today = _count_jobs(db, status="succeeded", since=today)
@@ -111,6 +119,11 @@ def admin_dashboard(db: Session) -> dict[str, int | float]:
             GenerationJob.finished_at >= today,
         )
     ) or 0
+    orders_created_today = db.scalar(
+        select(func.count()).select_from(PaymentOrder).where(
+            PaymentOrder.created_at >= today,
+        )
+    ) or 0
     orders_paid_today = db.scalar(
         select(func.count()).select_from(PaymentOrder).where(
             PaymentOrder.status == "paid",
@@ -155,6 +168,7 @@ def admin_dashboard(db: Session) -> dict[str, int | float]:
         "p95_generation_seconds_today": float(round(p95_generation_seconds_today, 3)),
         "credits_consumed_today": int(credits_consumed_today),
         "credits_recharged_today": int(credits_recharged_today),
+        "orders_created_today": int(orders_created_today),
         "orders_paid_today": int(orders_paid_today),
         "uploads_today": int(uploads_today),
         "failure_rate": float(failure_rate),
