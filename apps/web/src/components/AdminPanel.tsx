@@ -302,9 +302,11 @@ function AdminJobsList({ jobs, usersById, onRetry, onCancel, onFailRefund }: { j
 }
 
 const DIAGNOSTIC_PREVIEW_LIMIT = 1800
+const DIAGNOSTIC_ERROR_PREVIEW_LIMIT = 1200
 
 function AdminJobDiagnostics({ job }: { job: GenerationJob }) {
   const [expanded, setExpanded] = useState(false)
+  const [renderDetails, setRenderDetails] = useState(false)
   const [copied, setCopied] = useState('')
   const diagnostics = asRecord(job.error_diagnostics_json)
   const failure = asRecord(diagnostics?.failure)
@@ -315,10 +317,18 @@ function AdminJobDiagnostics({ job }: { job: GenerationJob }) {
   const failureCode = toSummaryText(failure?.code)
   const exceptionType = toSummaryText(exception?.type)
   const userMessage = job.user_error_message || '—'
-  const detailPreview = truncateForPreview(job.error_message || '', DIAGNOSTIC_PREVIEW_LIMIT)
-  const diagnosticPreview = expanded && diagnostics
-    ? truncateForPreview(JSON.stringify(diagnostics, null, 2), DIAGNOSTIC_PREVIEW_LIMIT)
-    : ''
+  const detailPreview = renderDetails ? truncateForPreview(job.error_message || '', DIAGNOSTIC_ERROR_PREVIEW_LIMIT) : ''
+  const diagnosticSummary = renderDetails && diagnostics ? buildDiagnosticSummary(diagnostics) : ''
+
+  useEffect(() => {
+    if (!expanded) {
+      setRenderDetails(false)
+      return
+    }
+    const frame = window.requestAnimationFrame(() => setRenderDetails(true))
+    return () => window.cancelAnimationFrame(frame)
+  }, [expanded])
+
   const copyPayload = async (label: string, value: string) => {
     if (!value) return
     try {
@@ -329,31 +339,106 @@ function AdminJobDiagnostics({ job }: { job: GenerationJob }) {
     }
     window.setTimeout(() => setCopied(''), 1400)
   }
+
+  const copyDiagnostics = async () => {
+    if (!diagnostics) return
+    await copyPayload('诊断 JSON', JSON.stringify(diagnostics, null, 2))
+  }
+
   return (
     <div className="mt-2 grid gap-2 text-sm">
       <p className="text-destructive">{job.error_message ? job.error_message.slice(0, 220) : userMessage}</p>
-      <details className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs" onToggle={(event) => setExpanded(event.currentTarget.open)}>
-        <summary className="cursor-pointer font-semibold">诊断详情</summary>
-        <div className="mt-2 grid gap-2">
-          <p><span className="font-semibold">用户提示：</span>{userMessage}</p>
-          <div className="flex flex-wrap gap-2 text-muted-foreground">
-            {failureType && <span>类型：{failureType}</span>}
-            {failureSource && <span>来源：{failureSource}</span>}
-            {failureCode && <span>代码：{failureCode}</span>}
-            {exceptionType && <span>异常：{exceptionType}</span>}
-            {providerAttempts.length > 0 && <span>Provider 尝试：{providerAttempts.length}</span>}
+      <div className="rounded-md border border-border bg-muted/30 text-xs">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left font-semibold"
+          onClick={() => setExpanded((value) => !value)}
+        >
+          <span aria-hidden>{expanded ? '▼' : '▶'}</span>
+          <span>诊断详情</span>
+        </button>
+        {expanded && (
+          <div className="grid gap-2 border-t border-border px-3 py-2">
+            {!renderDetails ? <p className="text-muted-foreground">正在加载诊断摘要…</p> : (
+              <>
+                <p><span className="font-semibold">用户提示：</span>{userMessage}</p>
+                <div className="flex flex-wrap gap-2 text-muted-foreground">
+                  {failureType && <span>类型：{failureType}</span>}
+                  {failureSource && <span>来源：{failureSource}</span>}
+                  {failureCode && <span>代码：{failureCode}</span>}
+                  {exceptionType && <span>异常：{exceptionType}</span>}
+                  {providerAttempts.length > 0 && <span>Provider 尝试：{providerAttempts.length}</span>}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {diagnostics && <Button type="button" variant="outline" size="sm" onClick={() => { void copyDiagnostics() }}>复制完整诊断 JSON</Button>}
+                  {job.error_message && <Button type="button" variant="outline" size="sm" onClick={() => { void copyPayload('详细错误', job.error_message) }}>复制详细错误</Button>}
+                  {copied && <span className="self-center text-xs text-muted-foreground">已复制：{copied}</span>}
+                </div>
+                {diagnosticSummary && <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-card p-2 font-mono text-[11px] leading-5 text-muted-foreground">{diagnosticSummary}</pre>}
+                {detailPreview && <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-card p-2 font-mono text-[11px] leading-5 text-muted-foreground">{detailPreview}</pre>}
+              </>
+            )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            {diagnostics && <Button type="button" variant="outline" size="sm" onClick={() => { void copyPayload('诊断 JSON', JSON.stringify(diagnostics, null, 2)) }}>复制诊断 JSON</Button>}
-            {job.error_message && <Button type="button" variant="outline" size="sm" onClick={() => { void copyPayload('详细错误', job.error_message) }}>复制详细错误</Button>}
-            {copied && <span className="self-center text-xs text-muted-foreground">已复制：{copied}</span>}
-          </div>
-          {diagnosticPreview && <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-card p-2 font-mono text-[11px] leading-5 text-muted-foreground">{diagnosticPreview}</pre>}
-          {detailPreview && <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-card p-2 font-mono text-[11px] leading-5 text-muted-foreground">{detailPreview}</pre>}
-        </div>
-      </details>
+        )}
+      </div>
     </div>
   )
+}
+
+function buildDiagnosticSummary(diagnostics: Record<string, unknown>) {
+  const lines: string[] = []
+  const keys = Object.keys(diagnostics)
+  if (keys.length) lines.push(`字段：${keys.slice(0, 18).join(', ')}${keys.length > 18 ? ` …共 ${keys.length} 项` : ''}`)
+
+  const failure = asRecord(diagnostics.failure)
+  if (failure) {
+    lines.push(`failure: type=${toSummaryText(failure.type) || '—'} source=${toSummaryText(failure.source) || '—'} code=${toSummaryText(failure.code) || '—'}`)
+  }
+
+  const exception = asRecord(diagnostics.exception)
+  if (exception) {
+    const message = compactPreviewText(exception.message ?? exception.detail ?? exception.traceback, 360)
+    lines.push(`exception: ${toSummaryText(exception.type) || '—'}${message ? ` · ${message}` : ''}`)
+  }
+
+  appendAttemptSummary(lines, 'provider_attempts', diagnostics.provider_attempts)
+  appendAttemptSummary(lines, 'provider_history', diagnostics.provider_history)
+
+  if (!lines.length) return '没有可展示的轻量摘要。完整内容请使用复制按钮。'
+  lines.push('')
+  lines.push('为避免展开时卡顿，此处只展示轻量摘要；完整诊断请点击“复制完整诊断 JSON”。')
+  return truncateForPreview(lines.join('\n'), DIAGNOSTIC_PREVIEW_LIMIT)
+}
+
+function appendAttemptSummary(lines: string[], label: string, value: unknown) {
+  if (!Array.isArray(value) || value.length === 0) return
+  lines.push(`${label}: ${value.length} 条`)
+  value.slice(0, 4).forEach((item, index) => {
+    const record = asRecord(item)
+    if (!record) {
+      lines.push(`  #${index + 1}: ${compactPreviewText(item, 260)}`)
+      return
+    }
+    const provider = toSummaryText(record.provider ?? record.provider_id ?? record.alias ?? record.name)
+    const status = toSummaryText(record.status ?? record.error_type ?? record.type)
+    const code = toSummaryText(record.code ?? record.status_code ?? record.http_status)
+    const message = compactPreviewText(record.message ?? record.error ?? record.detail ?? record.response, 220)
+    lines.push(`  #${index + 1}: ${[provider, status, code].filter(Boolean).join(' · ') || '—'}${message ? ` · ${message}` : ''}`)
+  })
+  if (value.length > 4) lines.push(`  …还有 ${value.length - 4} 条未预览`)
+}
+
+function compactPreviewText(value: unknown, limit: number) {
+  if (value === null || value === undefined) return ''
+  const text = typeof value === 'string'
+    ? value
+    : Array.isArray(value)
+      ? `[array length=${value.length}]`
+      : typeof value === 'object'
+        ? `[object keys=${Object.keys(value as Record<string, unknown>).slice(0, 8).join(', ')}]`
+        : String(value)
+  return text.length > limit ? `${text.slice(0, limit)}…` : text
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
