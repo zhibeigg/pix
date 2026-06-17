@@ -20,8 +20,10 @@ CONVENTION = "pix-dualgrid-v1"
 TransitionStyle = Literal["rounded", "hard", "outline"]
 
 
-def material_mask(idx: int, w: int, h: int, style: str) -> np.ndarray:
+def material_mask(idx: int, w: int, h: int, style: TransitionStyle) -> np.ndarray:
     """返回 (h, w) 的布尔掩码：True = 该像素归材质 A。idx ∈ [0,15] 的角位组合。"""
+    # 退化情形：w/h < 2 时单行/单列无法编码该边两端的两个不同角，故 1px 维度
+    # 不保证无缝（边不变量需要至少 2px 才能区分近角材质）；此处仅做防御性下限钳制。
     sw, sh = max(1, int(w)), max(1, int(h))
     tl, tr, bl, br = (idx & TL) != 0, (idx & TR) != 0, (idx & BL) != 0, (idx & BR) != 0
     if style == "hard":
@@ -61,7 +63,7 @@ def compose_tile(
     mask: np.ndarray,
     mat_a: np.ndarray,
     mat_b: np.ndarray | None,
-    style: str,
+    style: TransitionStyle,
     outline_rgb: tuple[int, int, int],
 ) -> np.ndarray:
     """按归属掩码采样材质（本地坐标）合成单瓦片 RGBA。mat_b=None 即透明模式。"""
@@ -80,7 +82,7 @@ def compose_tile(
 def compose_atlas(
     mat_a: np.ndarray,
     mat_b: np.ndarray | None,
-    style: str,
+    style: TransitionStyle,
     outline_rgb: tuple[int, int, int],
 ) -> tuple[np.ndarray, list[np.ndarray], list[dict]]:
     """生成 16 瓦片 + 4×4 图集 + bitmask→cell 映射表。"""
@@ -114,9 +116,11 @@ def render_preview(
     tiles: list[np.ndarray], w: int, h: int, seed: int, cells: int = 8
 ) -> np.ndarray:
     """随机 cells×cells 世界格 → (cells-1)×(cells-1) 显示瓦片，验证无缝拼接。"""
+    if cells < 2:
+        raise ValueError(f"cells must be >= 2 (got {cells})")
     rng = np.random.default_rng(int(seed))
     world = rng.integers(0, 2, size=(cells, cells))
-    disp = max(1, cells - 1)
+    disp = cells - 1
     out = np.zeros((disp * h, disp * w, 4), dtype=np.uint8)
     for i in range(disp):
         for j in range(disp):

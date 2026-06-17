@@ -118,3 +118,11 @@ def test_render_preview_size_and_determinism() -> None:
 def test_preview_seed_is_deterministic() -> None:
     assert preview_seed("n", "a", "b", "rounded") == preview_seed("n", "a", "b", "rounded")
     assert preview_seed("n", "a", "b", "rounded") != preview_seed("n", "a", "b", "hard")
+
+
+def test_render_preview_rejects_too_few_cells() -> None:
+    mat_a = _solid(8, 8, (10, 200, 10, 255))
+    mat_b = _solid(8, 8, (10, 10, 200, 255))
+    _atlas, tiles, _ = compose_atlas(mat_a, mat_b, "hard", (0, 0, 0))
+    with pytest.raises(ValueError):
+        render_preview(tiles, 8, 8, seed=0, cells=1)
