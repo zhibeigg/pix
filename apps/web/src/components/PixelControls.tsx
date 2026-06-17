@@ -25,9 +25,10 @@ type PixelControlsProps = {
   edgeStyle?: EdgeStyleChoice
   onEdgeStyleChange?: (value: EdgeStyleChoice) => void
   edgeStyleDisabled?: boolean
+  sizeHidden?: boolean
 }
 
-export function PixelControls({ pixelSize, onPixelSizeChange, colors, onColorsChange, pixelLabel, sizeOptions = DEFAULT_SIZE_OPTIONS, compact = false, edgeStyle, onEdgeStyleChange, edgeStyleDisabled = false }: PixelControlsProps) {
+export function PixelControls({ pixelSize, onPixelSizeChange, colors, onColorsChange, pixelLabel, sizeOptions = DEFAULT_SIZE_OPTIONS, compact = false, edgeStyle, onEdgeStyleChange, edgeStyleDisabled = false, sizeHidden = false }: PixelControlsProps) {
   const { text } = useI18n()
   const resolvedPixelLabel = pixelLabel ?? text('像素尺寸', 'Pixel size')
   const safeColors = clampColors(colors)
@@ -36,14 +37,20 @@ export function PixelControls({ pixelSize, onPixelSizeChange, colors, onColorsCh
 
   return (
     <div className={cn('grid gap-4', compact ? 'grid-cols-1' : 'md:grid-cols-[minmax(0,1fr)_minmax(300px,.85fr)]')}>
-      <PixField label={resolvedPixelLabel}>
-        <Input value={pixelSize} onChange={(event) => onPixelSizeChange(event.target.value)} />
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {sizeOptions.map((size) => (
-            <Button key={size} type="button" size="sm" variant={pixelSize === size ? 'default' : 'outline'} className="h-7 rounded-lg px-2.5 text-xs" onClick={() => onPixelSizeChange(size)}>{size}</Button>
-          ))}
-        </div>
-      </PixField>
+      {sizeHidden ? (
+        <PixField label={resolvedPixelLabel}>
+          <p className="text-xs text-muted-foreground">{text('尺寸自动按检测到的像素网格确定，无需选择。', 'Size is auto-detected from the pixel grid; no selection needed.')}</p>
+        </PixField>
+      ) : (
+        <PixField label={resolvedPixelLabel}>
+          <Input value={pixelSize} onChange={(event) => onPixelSizeChange(event.target.value)} />
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {sizeOptions.map((size) => (
+              <Button key={size} type="button" size="sm" variant={pixelSize === size ? 'default' : 'outline'} className="h-7 rounded-lg px-2.5 text-xs" onClick={() => onPixelSizeChange(size)}>{size}</Button>
+            ))}
+          </div>
+        </PixField>
+      )}
 
       <div className="rounded-lg border border-border bg-card p-3.5">
         <div className="flex items-center justify-between gap-3">

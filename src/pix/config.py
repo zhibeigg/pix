@@ -95,6 +95,9 @@ class ImageGenConfig:
     output_format: str = "png"
     # 图生图编辑时尽量保留原图主体和细节：low | high（OpenAI Images 兼容参数）
     edit_input_fidelity: str = "high"
+    # 参考图微调（image_to_image）是否复用素材直出的像素风 prompt 模板：开启后把上传图当参考图，
+    # 按 TRUE 像素风重绘（与素材直出一致），而不是把用户原文直接发给模型。关闭则回退原始 prompt 直传。
+    image_to_image_pixel_prompt: bool = True
     # 多 Provider 失败切换。仅对网络、限流、5xx、空响应、结构异常等可重试错误生效。
     failover_enabled: bool = True
     failover_on: list[str] = field(default_factory=lambda: [
@@ -120,13 +123,13 @@ class ImageGenConfig:
     contact_sheet_prompt_template: str = (
         "Create a {rows}x{cols} contact sheet containing exactly {count} distinct TRUE pixel-art game asset candidates from this generation brief: {description}. "
         "In every cell, follow the generation brief exactly, not a painted digital illustration. "
-        "Canvas size for each candidate must be exactly {width}x{height} pixels, where each pixel is one square grid cell. "
+        "Canvas size for each candidate must be exactly {width}x{height} pixels, where each pixel is one square cell of a conceptual pixel grid (do not draw any visible grid lines or graph paper). "
         "Use large, chunky readable pixels, limited colors, and a simple silhouette. "
         "For human characters, make sure the face is flat and no shadow. "
         "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and clean extraction. "
-        "Use pure solid key-color {green} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
-        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
-        "The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no extra frame, no labels."
+        "Use one flat solid key-color {green} for every candidate background and all empty cells for chroma-key removal — each background must be perfectly uniform with NO gradient, NO vignette, NO lighting or shading, and NO drawn grid lines, graph paper, or visible cell borders/separators between candidates; keep every visible subject color outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
+        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the conceptual pixel grid. "
+        "The output image should be pixel-perfect, each cell only contains one color. No text, no watermark, no extra frame, no labels."
     )
     # Prompt guard 只审核用户原始输入，不把服务端模板暴露给模型。
     prompt_guard_enabled: bool = True
@@ -156,13 +159,13 @@ class ImageGenConfig:
     n_sample_prompt_template: str = (
         "Create one TRUE pixel-art game asset candidate from this generation brief: {description}. "
         "Follow the generation brief exactly, not a painted digital illustration. "
-        "Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. "
+        "Canvas size must be exactly {width}x{height} pixels, where each pixel is one square cell of a conceptual pixel grid (do not draw any visible grid lines or graph paper). "
         "Use large, chunky readable pixels, limited colors, and a simple silhouette. "
         "For human characters, make sure the face is flat and no shadow. "
         "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and clean extraction. "
-        "Use pure solid key-color {green} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
-        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
-        "The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no extra frame, no labels."
+        "Use one flat solid key-color {green} for the entire background and fill it edge to edge for chroma-key removal — the background must be perfectly uniform with NO gradient, NO vignette, NO lighting or shading, and NO drawn grid lines or graph paper; keep every visible subject color outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
+        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the conceptual pixel grid. "
+        "The output image should be pixel-perfect, each cell only contains one color. No text, no watermark, no extra frame, no labels."
     )
 
 
@@ -245,16 +248,19 @@ class AssetConfig:
         "Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} "
         "designed for {asset_usage_label}, not a painted digital illustration. Subject: {name}. "
         "Subject kind: {subject_kind_label}. Canvas size must be exactly {width}x{height} pixels, "
-        "where each pixel is one square grid cell. Use large, chunky readable pixels, limited colors, "
+        "where each pixel is one square cell of a conceptual pixel grid — do NOT draw any visible grid lines, "
+        "gridlines, graph-paper or checkerboard pattern. Use large, chunky readable pixels, limited colors, "
         "and a simple silhouette. "
         "Use no more than {max_colors} visible subject colors; background color does not count. "
         "For human characters, make sure the face is flat and no shadow. "
         "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding "
-        "and {placement_context}. Use a pure solid single-color background for chroma-key removal; "
-        "choose a background color that is not close to any visible subject color, with color-distance greater "
-        "than the removal tolerance ({key_tolerance} RGB Euclidean distance). No anti-aliasing or smoothing — "
-        "every pixel must be a perfect square aligned to the grid. The output image should be pixel-perfect, "
-        "each grid cell only contains one color. {forbidden_elements}"
+        "and {placement_context}. Fill the ENTIRE canvas edge to edge with one single flat uniform background "
+        "color for chroma-key removal: the background must be perfectly solid with NO gradient, NO vignette, "
+        "NO lighting or shading, NO drawn grid lines or graph paper, and NO border or frame; it must reach all "
+        "four image edges. Choose a background color that is not close to any visible subject color, with "
+        "color-distance greater than the removal tolerance ({key_tolerance} RGB Euclidean distance). "
+        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the conceptual pixel "
+        "grid. The output image should be pixel-perfect, each cell only contains one color. {forbidden_elements}"
     )
 
 
@@ -295,19 +301,23 @@ class SpriteConfig:
     shared_palette: bool = True
     # mosaic 模式 prompt 模板（无参考图，纯文生图）。
     # 占位符：{description}/{rows}/{cols}/{frame_width}/{frame_height}/{sheet_width}/{sheet_height}/{row_block}/{green}/{key_tolerance}/{max_colors}
-    # 新增渲染尺寸占位符：{render_width}/{render_height}/{cell_render_width}/{cell_render_height}/{upscale}
+    # 新增渲染尺寸占位符：{render_width}/{render_height}/{cell_render_width}/{cell_render_height}/{upscale}/{cell_art_width}/{cell_art_height}/{anchor_text}
     # - sheet_width/sheet_height/frame_width/frame_height 表示最终 pixel-art 粒度；
     # - render_width/render_height/cell_render_width/cell_render_height 表示 API 实际渲染画布；
-    # - upscale 表示每个 pixel-art 像素应被画成多少 render pixels 的实心方块。
+    # - upscale 表示每个 pixel-art 像素应被画成多少 render pixels 的实心方块；
+    # - cell_art_width/cell_art_height = cell_render ÷ upscale，即每格真实可绘像素网格（始终与 upscale 自洽，
+    #   横排方形帧被撑成竖长单元格时不会再出现「frame_width×frame_height sprite」那种矛盾尺寸）；
+    # - anchor_text 是主体在单元格内的锚点（如 "bottom center"），配合自适应帧高使用。
     mosaic_prompt_template: str = (
         "Create a TRUE pixel-art sprite sheet for the following subject. "
         "Subject: {description}. "
         "Layout: an exact {rows}x{cols} grid of sprites, read left-to-right then top-to-bottom. "
         "Render the entire image at exactly {render_width}x{render_height} render pixels; every cell occupies {cell_render_width}x{cell_render_height} render pixels. "
-        "Each cell represents a {frame_width}x{frame_height} pixel-art sprite, so every pixel-art pixel must be drawn as a perfectly square block of {upscale}x{upscale} render pixels (no anti-aliasing inside the block). "
+        "Draw every pixel-art pixel as a perfectly square block of {upscale}x{upscale} render pixels (no anti-aliasing inside the block), so each cell is a {cell_art_width}x{cell_art_height} pixel-art grid. "
+        "Draw the subject at natural proportions, about {frame_width} pixel-art pixels wide and as large as fits, anchored to the {anchor_text} of each cell; fill every remaining pixel (especially the area above the subject) with the flat background key-color. "
         "Each row is one independent animation loop with {cols} frames, listed below:\n{row_block}\n"
-        "Character/subject consistency: keep the same identity, palette, outline thickness, scale, and proportions across every cell. "
-        "Background: use pure solid key-color {green} for ALL empty/background pixels for chroma-key removal; keep visible colors outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
+        "Character/subject consistency: keep the same identity, palette, outline thickness, scale, proportions, and footprint across every cell. "
+        "Background: use one flat solid key-color {green} for ALL empty/background pixels for chroma-key removal — the background must be perfectly uniform with NO gradient, NO vignette, NO lighting or shading, no faux 3D depth; keep visible colors outside the maximum key-color tolerance ({key_tolerance} RGB Euclidean distance) from {green}. "
         "Use no more than {max_colors} visible subject colors; background color does not count. "
         "Style: crisp pixel art, hard edges, limited palette, no painterly blending, no anti-aliased soft brush. "
         "Do not add text, watermark, UI, border, grid lines, labels, numbers, or shadows outside the subject. Do not draw extra frames outside the {rows}x{cols} grid."

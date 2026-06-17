@@ -6,7 +6,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Literal
 
-from pix.grid.schema import PixelGrid, PixelGridAxes, PixelGridCanvas, PixelGridColor
+from pix.grid.schema import PixelGrid, PixelGridCanvas, PixelGridColor
 from pix.pixelize.palette import hex_to_rgb, rgb_to_hex
 
 
@@ -297,7 +297,6 @@ def _compact_palette(
             height=original.canvas.height,
             transparent_index=transparent,
         ),
-        axes=PixelGridAxes(x=list(original.axes.x), y=list(original.axes.y)),
         palette=new_palette,
         pixels=new_pixels,
         metadata=metadata,
@@ -346,7 +345,6 @@ def _copy_grid_with_pixels(
             height=original.canvas.height,
             transparent_index=original.canvas.transparent_index,
         ),
-        axes=PixelGridAxes(x=list(original.axes.x), y=list(original.axes.y)),
         palette=[c.model_copy(deep=True) for c in original.palette],
         pixels=[list(row) for row in pixels],
         metadata=dict(original.metadata if metadata is None else metadata),

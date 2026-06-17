@@ -9,7 +9,7 @@ from typing import Iterable
 import numpy as np
 from PIL import Image
 
-from pix.grid.schema import PixelGrid, PixelGridAxes, PixelGridCanvas, PixelGridColor
+from pix.grid.schema import PixelGrid, PixelGridCanvas, PixelGridColor
 from pix.pixelize.bg_removal import remove_background
 from pix.pixelize.core import _auto_crop, _detect_grid_size
 from pix.pixelize.perfect_pixel import preprocess_generated_image
@@ -262,7 +262,6 @@ def extract_pixel_grid(
 
     return PixelGrid(
         canvas=PixelGridCanvas(width=width, height=height, transparent_index=-1),
-        axes=PixelGridAxes(x=list(range(width)), y=list(range(height))),
         palette=palette,
         pixels=pixels,
         metadata=meta,

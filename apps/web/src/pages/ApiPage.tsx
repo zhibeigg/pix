@@ -126,6 +126,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
 
 # 202 返回 JobResponse，记录 id 后轮询 /jobs/{id}`, [])
   const imageCurl = useMemo(() => String.raw`# 图生图 / 参考图重绘：先上传图片，再把返回 path 放到 input_image_path
+# asset.asset_kind 可选 item_icon / ui_component / tile_texture / game_logo，决定按哪种素材规则重绘（默认 item_icon）
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
@@ -134,6 +135,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
     "job_type": "image_to_image",
     "prompt": "把参考图重绘成 32x32 像素风游戏图标，透明背景，高对比轮廓",
     "input_image_path": "把上传接口返回的 path 填在这里",
+    "asset": { "asset_kind": "item_icon" },
     "pixelize": {
       "output_size": [32, 32],
       "colors": 16,
@@ -291,38 +293,49 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
           <Badge variant="outline">{text('Base URL', 'Base URL')}: {baseUrl}</Badge>
         </div>
 
-        <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4 lg:grid-cols-[minmax(220px,1fr)_1.8fr_auto]">
-          <label className="grid gap-1 text-sm font-medium">
-            {text('名称', 'Name')}
-            <input value={name} onChange={(event) => setName(event.target.value)} maxLength={120} placeholder={text('例如：Unity 插件 / Bot', 'e.g. Unity plugin / Bot')} className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
-          </label>
-          <div className="grid gap-2 text-sm font-medium">
-            {text('权限', 'Scopes')}
+        <div className="grid gap-5 rounded-lg border border-border bg-muted/30 p-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-1.5 text-sm font-medium">
+              {text('名称', 'Name')}
+              <input value={name} onChange={(event) => setName(event.target.value)} maxLength={120} placeholder={text('例如：Unity 插件 / Bot', 'e.g. Unity plugin / Bot')} className="h-10 rounded-md border border-input bg-background px-3 text-sm transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </label>
+            <label className="grid gap-1.5 text-sm font-medium">
+              {text('过期时间（可选）', 'Expires at (optional)')}
+              <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </label>
+          </div>
+
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium">{text('权限', 'Scopes')}</span>
+              <span className="text-xs font-medium text-muted-foreground">{text(`已选 ${selectedScopes.length}/${API_SCOPES.length}`, `${selectedScopes.length}/${API_SCOPES.length} selected`)}</span>
+            </div>
             <div className="flex flex-wrap gap-2">
               {API_SCOPES.map((scope) => {
                 const label = SCOPE_LABELS[scope]
                 const active = selectedScopes.includes(scope)
-                return <button key={scope} type="button" onClick={() => toggleScope(scope)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground'}`}>{language === 'en' ? label.en : label.zh}</button>
+                return (
+                  <button key={scope} type="button" onClick={() => toggleScope(scope)} aria-pressed={active} className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'}`}>
+                    {active && <Check className="h-3.5 w-3.5" />}
+                    {language === 'en' ? label.en : label.zh}
+                  </button>
+                )
               })}
             </div>
           </div>
-          <div className="grid content-end gap-2">
-            <label className="grid gap-1 text-sm font-medium">
-              <span className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-primary" />{text('令牌生成', 'Token generation')}</span>
-              <div className="grid gap-2 rounded-md border border-border bg-background p-2">
-                <input value={tokenCandidate} readOnly className="min-w-0 rounded border border-input bg-muted/50 px-2 py-1.5 font-mono text-[11px]" />
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" size="sm" variant="outline" onClick={() => setTokenCandidate(generateApiTokenCandidate())}><Sparkles />{text('重新生成', 'Regenerate')}</Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => void copy(tokenCandidate, 'candidate-key')}>{copied === 'candidate-key' ? <Check /> : <Clipboard />}{copied === 'candidate-key' ? text('已复制', 'Copied') : text('复制', 'Copy')}</Button>
-                </div>
-              </div>
-              <span className="text-xs font-normal text-muted-foreground">{text('类似 sub2api 的 32 字节随机令牌；点击创建后才会生效，服务端仅保存哈希。', 'A sub2api-style 32-byte random token; it becomes active only after creation and is stored as a hash.')}</span>
-            </label>
-            <label className="grid gap-1 text-sm font-medium">
-              {text('过期时间（可选）', 'Expires at (optional)')}
-              <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
-            </label>
-            <Button onClick={() => void createKey()} disabled={saving}><ShieldCheck />{saving ? text('创建中…', 'Creating…') : text('创建令牌', 'Create token')}</Button>
+
+          <div className="grid gap-2 rounded-lg border border-border bg-background p-3">
+            <span className="flex items-center gap-1.5 text-sm font-medium"><Sparkles className="h-3.5 w-3.5 text-primary" />{text('令牌生成', 'Token generation')}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <input value={tokenCandidate} readOnly className="h-9 min-w-0 flex-1 basis-64 rounded-md border border-input bg-muted/50 px-2.5 font-mono text-[11px]" />
+              <Button type="button" size="sm" variant="outline" onClick={() => setTokenCandidate(generateApiTokenCandidate())}><Sparkles />{text('重新生成', 'Regenerate')}</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => void copy(tokenCandidate, 'candidate-key')}>{copied === 'candidate-key' ? <Check /> : <Clipboard />}{copied === 'candidate-key' ? text('已复制', 'Copied') : text('复制', 'Copy')}</Button>
+            </div>
+            <span className="text-xs text-muted-foreground">{text('类似 sub2api 的 32 字节随机令牌；点击创建后才会生效，服务端仅保存哈希。', 'A sub2api-style 32-byte random token; it becomes active only after creation and is stored as a hash.')}</span>
+          </div>
+
+          <div className="flex justify-end border-t border-border pt-4">
+            <Button className="w-full sm:w-auto" onClick={() => void createKey()} disabled={saving}><ShieldCheck />{saving ? text('创建中…', 'Creating…') : text('创建令牌', 'Create token')}</Button>
           </div>
         </div>
 

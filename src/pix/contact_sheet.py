@@ -169,13 +169,13 @@ def build_sample_prompt(
     return (
         f"Create one TRUE pixel-art game asset candidate from this generation brief: {values['description']}. "
         "Follow the generation brief exactly, not a painted digital illustration. "
-        f"Canvas size must be exactly {values['width']}x{values['height']} pixels, where each pixel is one square grid cell. "
+        f"Canvas size must be exactly {values['width']}x{values['height']} pixels, where each pixel is one square cell of a conceptual pixel grid (do not draw any visible grid lines or graph paper). "
         "Use large, chunky readable pixels, limited colors, and a simple silhouette. "
         "For human characters, make sure the face is flat and no shadow. "
         "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and clean extraction. "
-        f"Use pure solid key-color {values['green']} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
-        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
-        "The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no extra frame, no labels."
+        f"Use one flat solid key-color {values['green']} for the entire background and fill it edge to edge for chroma-key removal — the background must be perfectly uniform with NO gradient, NO vignette, NO lighting or shading, and NO drawn grid lines or graph paper; keep every visible subject color outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
+        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the conceptual pixel grid. "
+        "The output image should be pixel-perfect, each cell only contains one color. No text, no watermark, no extra frame, no labels."
     )
 
 
@@ -289,13 +289,13 @@ def _fallback_prompt(**values: Any) -> str:
     return (
         f"Create a {values['rows']}x{values['cols']} contact sheet with {values['count']} distinct TRUE pixel-art game asset candidates from this generation brief: {values['description']}. "
         "In every cell, follow the generation brief exactly, not a painted digital illustration. "
-        f"Canvas size for each candidate must be exactly {values['width']}x{values['height']} pixels, where each pixel is one square grid cell. "
+        f"Canvas size for each candidate must be exactly {values['width']}x{values['height']} pixels, where each pixel is one square cell of a conceptual pixel grid (do not draw any visible grid lines or graph paper). "
         "Use large, chunky readable pixels, limited colors, and a simple silhouette. "
         "For human characters, make sure the face is flat and no shadow. "
         "The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and clean extraction. "
-        f"Use pure solid key-color {values['green']} for all empty/background cells for chroma-key removal; keep every visible subject color outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
-        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the grid. "
-        "The output image should be pixel-perfect, each grid cell only contains one color. No text, no watermark, no extra frame, no labels."
+        f"Use one flat solid key-color {values['green']} for every candidate background and all empty cells for chroma-key removal — each background must be perfectly uniform with NO gradient, NO vignette, NO lighting or shading, and NO drawn grid lines, graph paper, or visible cell borders/separators between candidates; keep every visible subject color outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
+        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the conceptual pixel grid. "
+        "The output image should be pixel-perfect, each cell only contains one color. No text, no watermark, no extra frame, no labels."
     )
 
 

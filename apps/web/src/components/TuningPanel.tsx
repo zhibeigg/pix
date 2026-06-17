@@ -106,7 +106,12 @@ export function TuningPanel({ job, action, pricing, loading, onSubmit }: { job: 
   async function submitAi(event: FormEvent) {
     event.preventDefault()
     if (!sourcePath) return
-    await onSubmit({ job_type: 'image_to_image', prompt: aiPrompt, input_image_path: sourcePath, client_request_id: crypto.randomUUID(), skip_vl: false, pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edgeStylePixelize(edgeStyle) }), grid: buildGridDesign() })
+    // 复用原作品的素材类型：参考图微调本质是“按原素材规则重绘”，不带类型会让 UI 组件 / Logo / 平铺纹理都被当成物品图标。
+    const sourceAsset = asRecord(job?.params_json?.asset)
+    const rawKind = typeof sourceAsset?.asset_kind === 'string' ? sourceAsset.asset_kind : ''
+    const assetKind = (['item_icon', 'ui_component', 'tile_texture', 'game_logo'] as const).find((kind) => kind === rawKind) ?? 'item_icon'
+    const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : 'single_prop'
+    await onSubmit({ job_type: 'image_to_image', prompt: aiPrompt, input_image_path: sourcePath, client_request_id: crypto.randomUUID(), skip_vl: false, pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edgeStylePixelize(edgeStyle) }), grid: buildGridDesign(), asset: { name: '', asset_kind: assetKind, subject_kind: subjectKind } })
   }
 
   return (
@@ -125,6 +130,7 @@ export function TuningPanel({ job, action, pricing, loading, onSubmit }: { job: 
         <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-semibold">{text('AI 微调', 'AI tuning')}</h3><p className="text-sm text-muted-foreground">{text(`消耗 ${aiPrice} 点`, `Uses ${aiPrice} credits`)}</p></div><Badge variant="outline">{text(`${aiPrice} 点`, `${aiPrice} credits`)}</Badge></div>
         {!sourcePath && <Alert variant="warning">{text('当前作品没有可用源图，暂时无法微调。', 'This work has no source image available, so tuning is unavailable for now.')}</Alert>}
         <Textarea value={aiPrompt} rows={3} onChange={(event) => setAiPrompt(event.target.value)} />
+        <p className="text-xs text-muted-foreground">{text('会按素材直出规则重绘成像素风;可在提示词里用「图1」指代原参考图,例如「把图1重绘成…」。', 'Redrawn into pixel art with the asset-output rules; in the prompt use “图1” (image 1) to refer to the source reference, e.g. “redraw 图1 as…”.')}</p>
         <Button type="submit" variant="outline" disabled={loading || !sourcePath || invalidSubAssetSize}>{text('AI 微调并入队', 'Queue AI tuning')}</Button>
       </form>
     </div>

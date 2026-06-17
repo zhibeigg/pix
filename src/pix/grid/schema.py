@@ -41,11 +41,6 @@ class PixelGridCanvas(BaseModel):
     transparent_index: int = -1
 
 
-class PixelGridAxes(BaseModel):
-    x: list[int] = Field(default_factory=list)
-    y: list[int] = Field(default_factory=list)
-
-
 class PixelGridColor(BaseModel):
     id: int = Field(ge=0, le=255)
     hex: str
@@ -61,7 +56,6 @@ class PixelGridColor(BaseModel):
 class PixelGrid(BaseModel):
     version: int = 1
     canvas: PixelGridCanvas
-    axes: PixelGridAxes = Field(default_factory=PixelGridAxes)
     palette: list[PixelGridColor] = Field(default_factory=list)
     pixels: list[list[int]]
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -127,14 +121,6 @@ class PixelGrid(BaseModel):
                 if value not in id_set:
                     raise ValueError(f"pixels[{y}][{x}] 引用了不存在的 palette id：{value}")
 
-        if not self.axes.x:
-            self.axes.x = list(range(width))
-        if not self.axes.y:
-            self.axes.y = list(range(height))
-        if len(self.axes.x) != width:
-            raise ValueError(f"axes.x 长度应为 {width}，实际为 {len(self.axes.x)}")
-        if len(self.axes.y) != height:
-            raise ValueError(f"axes.y 长度应为 {height}，实际为 {len(self.axes.y)}")
         return self
 
     def to_json_text(self, *, indent: int = 2) -> str:

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 序列帧（mosaic）新增每帧描边/羽化（可选）：复用 pixelize 的 `edge_style` / `bg_feather` 参数，在共享调色板前对每帧补透明边距后描边（描边色一并进入统一量化、不会被自适应画布裁掉）；前端解禁序列帧的「边缘处理」选项。
+- 本地像素化前端移除「尺寸选择」：输出尺寸统一按 perfectPixel 检测到的真实像素网格确定（后端 `preserve_preprocessed_size` 早已如此），前端不再展示可能误导的尺寸输入。
+- 重排像素直出 / 本地像素化后处理顺序，统一为「perfectPixel → 抠背景（唯一一道，量化前）→ 裁剪主体 → 下采样 → 限色 → 描边/羽化（量化后单独做）→ 最后定版标准尺寸」：(1) 抠背景从「前置粗抠 + 后置精抠」合并为**一道**，描边/羽化改用 `apply_transparent_edge_style` 在量化后单独处理（不再二次抠背景，避免对填满帧的主体误删）；(2) 描边场景在下采样阶段预留透明边距（`_edge_reserve_margin`），主体先缩进再居中贴回标准画布，**描边不会超出标准尺寸被裁**；(3) `meta.json` 新增 `bg_removal_passes` / `edge_margin` 标注。`pixelize()` 输出尺寸、抠图与限色结果不变，仅描边边缘与抠图道次变化。
+- 参考图微调（`image_to_image` 且会进入像素化的任务，如作品库「AI 微调」）现在复用素材直出的像素风 prompt：把上传图当参考图、按 TRUE pixel-art 重绘，修复其不向真正像素风转换的问题；提示词可用「图1」指代上传的参考图。并沿用原作品的素材类型（物品图标 / UI 组件 / Logo / 平铺纹理）重绘：作品库「AI 微调」自动带上原素材类型，外部 API 可在 `asset.asset_kind` 指定（缺省物品图标），不再一律按物品图标处理。新增 `[image_gen].image_to_image_pixel_prompt` 开关（默认开启）回退原始行为；`source_only` 的原生大图不受影响。
+
+### Removed
+
+- 移除 Pixel Grid JSON（`.grid.json`）中冗余的 `axes` 字段：其恒等于 `0..宽/高-1`、渲染器与所有逻辑从不读取，可由 `canvas` 宽高推导。旧文件仍可加载（多余字段被忽略），重新落盘时自动清除。
+
+### Fixed
+
+- 修复管理后台「概览」今日统计的时区错位：原先「今天」按 UTC 零点切分，对 UTC+8 用户而言早上 0:00–8:00（本地时间）的订单/任务会被算到「昨天」，导致「今天收到 3 笔订单却只显示 2 笔」。现按可配置的**站点时区**（新增系统设置 `site.timezone`，默认 `Asia/Shanghai` = UTC+8；无效或缺 tzdata 时回退固定 UTC+8）切分自然日，所有 `*_today` 指标统一生效。
+- 概览新增「今日新订单」指标（按 `created_at` 统计、含未支付 `pending`），与原「付费订单」（按 `paid_at`、仅 `paid`）并列，避免支付回调未到的订单完全不可见。
+- 概览改为在「概览」标签页每 30s 自动刷新，解决统计「不是实时」（此前仅进入页面或手动点「刷新」才更新）。
+- 修复序列帧（mosaic）方形帧被竖长单元格几何撑变形、交付尺寸与请求不符的问题：横排方形帧（如 64×64 的 1×8）受 API ≤3:1 约束会被撑成竖长单元格（384×1024），旧 prompt 同时声明「单元格 384×1024」+「64×64 sprite」+「6×6 方块」三者自相矛盾（64×6=384≠1024），模型只能瞎猜帧高、8 帧高度不一致。现改为按单元格真实可绘像素网格描述（新增 `cell_art_width`/`cell_art_height` = cell_render ÷ upscale 与 `anchor_text` 三个模板占位符，`build_mosaic_prompt` 增传 `anchor`），并要求主体按自然比例锚定单元格锚点、上方留白填背景键色；perfect_pixel 检测目标也改为按单元格长宽比走，不再用方形 target 触发必然的 `target_size_mismatch`（perfect_pixel 仍自动检测网格，像素输出不变）。保留「内容多高、帧就多高」的自适应帧高（站立角色仍输出 64×128 这类竖长帧），并在 `meta.json` / `sequence.json` 显式标注 `delivered_frame_size` 与 `frame_size_adapted`，让「请求 64×64 → 实际交付 64×128」不再是隐性 mismatch。同步更新 `config.py` 默认模板、`config.example.toml`、`sprite_mosaic.py` fallback。
+- 修复 Gemini 系列模型素材直出有概率背景非纯色（渐变 / 暗角 / 画出方格纸网格线）导致 chroma-key 抠图失效的问题：强化素材 prompt 背景约束（单一纯色铺满画布边到边，明确禁止渐变 / 暗角 / 光照 / 网格线 / 方格纸 / 边框），并把 “grid” 澄清为概念网格、不要画出网格线。同步更新 `config.py` 默认模板、`config.example.toml`、`asset.py` canonical 兜底，以及候选生成（`contact_sheet` / `n_sample`）与序列帧 `mosaic` 的模板和各自 `.py` 兜底（mosaic 本就禁止画网格线，仅补强背景纯色约束，不破坏 rows×cols 布局语义）；image2 本就遵守、不受影响。
+
 ## [1.86.1] - 2026-06-16
 
 ### Changed

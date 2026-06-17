@@ -26,8 +26,8 @@ from pix.cache import Cache
 from pix.config import AppConfig
 from pix.contact_sheet import parse_hex_color, resolve_key_color
 from pix.io_utils import new_run_dir, sha256_of_file
-from pix.pixelize.bg_removal import apply_pixel_bg_alpha
-from pix.pixelize.core import PixelizeParams
+from pix.pixelize.bg_removal import apply_pixel_bg_alpha, apply_transparent_edge_style
+from pix.pixelize.core import PixelizeParams, _edge_reserve_margin
 from pix.pixelize.perfect_pixel import preprocess_generated_image
 from pix.sprite import (
     SpriteFrame,
@@ -96,6 +96,8 @@ class _MosaicSettings:
     image_quality: str
     image_model: str | None
     use_reference: bool
+    edge_style: str
+    bg_feather: int
 
 
 # ---- 工具 ----
@@ -348,6 +350,75 @@ def _normalize_pixelize_size(value: Any, fallback: tuple[int, int]) -> tuple[int
         return fallback
 
 
+def _cell_detect_target_size(
+    target_size: tuple[int, int],
+    api_size_pixel: tuple[int, int] | None,
+    rows: int,
+    cols: int,
+) -> tuple[int, int]:
+    """按 API 单元格长宽比推算 perfect_pixel 的期望检测尺寸（宽度恒为请求宽度）。
+
+    横排方形帧（如 64x64 的 1x8）受 API ≤3:1 约束被撑成竖长单元格（384x1024）时，
+    用方形 target 去检测会必然触发 target_size_mismatch；改用与单元格比例一致的期望
+    高度，让检测/标注锚定真实形状。perfect_pixel 始终自动检测网格（target 仅作下游
+    提示），因此这里只影响标注、不会改变实际像素输出。
+    """
+    tw = max(1, int(target_size[0]))
+    th = max(1, int(target_size[1]))
+    if not api_size_pixel:
+        return (tw, th)
+    rw = max(1, int(api_size_pixel[0]))
+    rh = max(1, int(api_size_pixel[1]))
+    safe_rows = max(1, int(rows))
+    safe_cols = max(1, int(cols))
+    cell_w = max(1, rw // safe_cols)
+    cell_h = max(1, rh // safe_rows)
+    expected_h = max(th, int(round(tw * cell_h / cell_w)))
+    return (tw, expected_h)
+
+
+def _apply_frame_edges(
+    contents: list[Image.Image],
+    *,
+    edge_style: str,
+    feather: int,
+) -> list[Image.Image]:
+    """对每帧裁好的主体应用描边/羽化（用户选了才有，#3）。
+
+    描边前先补一圈透明边距，保证描边向外扩时不会被后续画布裁掉；hard 或 feather<=0
+    时原样返回（不改帧）。在共享调色板之前调用，让描边色一起进入统一量化。
+    """
+    strength = max(0, int(feather))
+    if edge_style not in ("feather", "outline") or strength <= 0:
+        return contents
+    margin = _edge_reserve_margin(edge_style, strength)
+    out: list[Image.Image] = []
+    for content in contents:
+        c = content.convert("RGBA")
+        canvas = Image.new("RGBA", (c.width + 2 * margin, c.height + 2 * margin), (0, 0, 0, 0))
+        canvas.alpha_composite(c, (margin, margin))
+        out.append(apply_transparent_edge_style(canvas, feather=strength, edge_style=edge_style))
+    return out
+
+
+def _frame_size_report(
+    target_size: tuple[int, int],
+    effective_size: tuple[int, int],
+) -> dict[str, Any]:
+    """请求帧尺寸 vs 实际交付帧尺寸的对比标注（自适应帧高场景）。
+
+    B 方案保留「内容多高、帧就多高」，但把 64x64 → 64x128 这种差异显式标注出来，
+    不再是隐性 mismatch，便于前端/调用方一眼看出实际交付尺寸。
+    """
+    requested = [int(target_size[0]), int(target_size[1])]
+    delivered = [int(effective_size[0]), int(effective_size[1])]
+    return {
+        "requested_frame_size": requested,
+        "delivered_frame_size": delivered,
+        "frame_size_adapted": delivered != requested,
+    }
+
+
 def _resolve_settings(cfg: AppConfig, inputs: SpriteMosaicInput, description: str) -> _MosaicSettings:
     sprite = cfg.sprite
     max_rows = max(1, int(getattr(sprite, "max_grid_rows", 8)))
@@ -405,6 +476,8 @@ def _resolve_settings(cfg: AppConfig, inputs: SpriteMosaicInput, description: st
         image_quality=image_quality,
         image_model=image_model,
         use_reference=inputs.reference_image_path is not None,
+        edge_style=str(getattr(inputs.pixelize_params, "edge_style", "hard") or "hard"),
+        bg_feather=max(0, int(getattr(inputs.pixelize_params, "bg_feather", 0) or 0)),
     )
 
 
@@ -421,6 +494,7 @@ def build_mosaic_prompt(
     sheet_pixel_size: tuple[int, int],
     frame_pixel_size: tuple[int, int],
     api_size_pixel: tuple[int, int] | None = None,
+    anchor: str = "bottom_center",
     key_color: str,
     key_tolerance: int,
     max_colors: int,
@@ -441,6 +515,12 @@ def build_mosaic_prompt(
     upscale_w = max(1, cell_render_w // max(1, int(frame_pixel_size[0])))
     upscale_h = max(1, cell_render_h // max(1, int(frame_pixel_size[1])))
     upscale = max(1, min(upscale_w, upscale_h))
+    # 单元格真实可绘像素网格：cell_render = cell_art × upscale，始终自洽。
+    # 横排方形帧（如 64×64 的 1×8）受 API ≤3:1 约束会被撑成竖长单元格
+    # （384×1024 → 64×170），此时绝不能再声明「64×64 sprite」那种矛盾尺寸。
+    cell_art_w = max(1, cell_render_w // upscale)
+    cell_art_h = max(1, cell_render_h // upscale)
+    anchor_text = (str(anchor or "").replace("_", " ").strip()) or "bottom center"
     values = {
         "description": description.strip(),
         "rows": int(rows),
@@ -456,6 +536,10 @@ def build_mosaic_prompt(
         "cell_render_width": cell_render_w,
         "cell_render_height": cell_render_h,
         "upscale": upscale,
+        # 单元格真实可绘像素网格 + 主体锚点（自适应帧高用，与 upscale 自洽）
+        "cell_art_width": cell_art_w,
+        "cell_art_height": cell_art_h,
+        "anchor_text": anchor_text,
         "row_block": _format_row_block(safe_row_prompts),
         "green": key_color,
         "key_color": key_color,
@@ -490,11 +574,15 @@ def _fallback_mosaic_prompt(**values: Any) -> str:
         f"Layout: an exact {values['rows']}x{values['cols']} grid of sprites, read left-to-right then top-to-bottom. "
         f"Render the entire image at exactly {values['render_width']}x{values['render_height']} render pixels; "
         f"every cell occupies {values['cell_render_width']}x{values['cell_render_height']} render pixels. "
-        f"Each cell represents a {values['frame_width']}x{values['frame_height']} pixel-art sprite, so every pixel-art pixel "
-        f"must be drawn as a perfectly square block of {values['upscale']}x{values['upscale']} render pixels (no anti-aliasing inside the block). "
+        f"Draw every pixel-art pixel as a perfectly square block of {values['upscale']}x{values['upscale']} render pixels "
+        f"(no anti-aliasing inside the block), so each cell is a {values['cell_art_width']}x{values['cell_art_height']} pixel-art grid. "
+        f"Draw the subject at natural proportions, about {values['frame_width']} pixel-art pixels wide and as large as fits, "
+        f"anchored to the {values['anchor_text']} of each cell; fill every remaining pixel (especially the area above the subject) "
+        "with the flat background key-color. "
         f"Each row is one independent animation loop with {values['cols']} frames, listed below:\n{values['row_block']}\n"
-        "Character/subject consistency: keep the same identity, palette, outline thickness, scale, and proportions across every cell. "
-        f"Background: use pure solid key-color {values['green']} for ALL empty/background pixels for chroma-key removal; "
+        "Character/subject consistency: keep the same identity, palette, outline thickness, scale, proportions, and footprint across every cell. "
+        f"Background: use one flat solid key-color {values['green']} for ALL empty/background pixels for chroma-key removal — "
+        "the background must be perfectly uniform with NO gradient, NO vignette, NO lighting or shading, no faux 3D depth; "
         f"keep visible colors outside the maximum key-color tolerance ({values['key_tolerance']} RGB Euclidean distance) from {values['green']}. "
         f"Use no more than {values['max_colors']} visible subject colors; background color does not count. "
         "Style: crisp pixel art, hard edges, limited palette, no painterly blending, no anti-aliased soft brush. "
@@ -859,6 +947,7 @@ def run_sprite_mosaic_pipeline(
         sheet_pixel_size=settings.sheet_pixel_size,
         frame_pixel_size=settings.target_size,
         api_size_pixel=settings.api_size_pixel,
+        anchor=settings.anchor,
         key_color=settings.key_color,
         key_tolerance=settings.key_tolerance,
         max_colors=settings.max_colors,
@@ -944,6 +1033,14 @@ def run_sprite_mosaic_pipeline(
             settings = replace(settings, rows=detected_rows, cols=detected_cols)
         notify("sprite_mosaic_split", split_meta)
         raw_dir.mkdir(parents=True, exist_ok=True)
+        # perfect_pixel 的检测目标按真实单元格长宽比走（竖长单元格不再用方形 target
+        # 触发必然的 target_size_mismatch）；perfect_pixel 仍自动检测网格，输出不变。
+        detect_target = _cell_detect_target_size(
+            settings.target_size,
+            settings.api_size_pixel,
+            settings.rows,
+            settings.cols,
+        )
         contents: list[Image.Image] = []
         bboxes: list[tuple[int, int, int, int] | None] = []
         cell_meta: list[dict[str, Any]] = []
@@ -953,7 +1050,7 @@ def run_sprite_mosaic_pipeline(
             content, bbox, meta = _extract_cell_content(
                 cfg,
                 cell,
-                target_size=settings.target_size,
+                target_size=detect_target,
                 key_rgb=key_rgb,
                 key_tolerance=settings.key_tolerance,
                 generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
@@ -969,6 +1066,14 @@ def run_sprite_mosaic_pipeline(
 
         if not any(bbox is not None for bbox in bboxes):
             raise ValueError("整张 mosaic 切图后没有任何可见主体；请检查抠色配置或 prompt")
+
+        # 5.1 每帧描边/羽化（用户选了才有）：在共享调色板前做，描边色一起进入统一量化；
+        #     描边前补透明边距，自适应尺寸随之纳入，描边不会被画布裁掉。
+        contents = _apply_frame_edges(
+            contents,
+            edge_style=settings.edge_style,
+            feather=settings.bg_feather,
+        )
 
         # 6. 共享调色板 + 贴齐画布
         max_w = max(content.width for content in contents) if contents else 1
@@ -1111,6 +1216,7 @@ def run_sprite_mosaic_pipeline(
         rows_outputs=rows_outputs,
     )
 
+    frame_report = _frame_size_report(settings.target_size, effective_size)
     meta = {
         "version": __version__,
         "input": {
@@ -1142,6 +1248,8 @@ def run_sprite_mosaic_pipeline(
             "loop": settings.loop,
             "target_frame_size": list(settings.target_size),
             "effective_frame_size": list(effective_size),
+            "delivered_frame_size": frame_report["delivered_frame_size"],
+            "frame_size_adapted": frame_report["frame_size_adapted"],
             "sheet_size": [effective_size[0] * len(frames), effective_size[1]],
             "mosaic_sheet_size": list(settings.sheet_pixel_size),
             "api_size": settings.api_size,
@@ -1249,6 +1357,7 @@ def _build_sequence_json(
         "loop": settings.loop == 0,
         "target_frame_size": {"width": settings.target_size[0], "height": settings.target_size[1]},
         "effective_frame_size": {"width": effective_size[0], "height": effective_size[1]},
+        "frame_size_adapted": _frame_size_report(settings.target_size, effective_size)["frame_size_adapted"],
         "sheet_size": {"width": sheet_size[0], "height": sheet_size[1]},
         "mosaic_sheet_size": {"width": settings.sheet_pixel_size[0], "height": settings.sheet_pixel_size[1]},
         "anchor": settings.anchor,

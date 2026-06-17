@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 import json
 import time
 from pathlib import Path
@@ -221,6 +222,54 @@ def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> Pipeli
         local_stage_context=_local_stage_context(settings),
         input_is_generated_source=input_is_generated_source,
     )
+
+
+# 参考图微调注入：声明上传的参考图即“图1”，让用户在 prompt 里写“图1 / 参考图”有明确指代。
+RAW_REFERENCE_IMAGE_ALIAS = (
+    "The uploaded reference image is also called 图1 (\"image 1\"); whenever the brief mentions "
+    "图1, 图一, or 参考图, it refers to this uploaded reference image."
+)
+
+
+def image_to_image_pipeline_input_from_job(
+    job: GenerationJob, settings: WebSettings, cfg: AppConfig
+) -> PipelineInput:
+    """参考图微调（image_to_image）：复用素材直出的像素风 prompt，把上传图当参考图重绘成像素风。
+
+    与素材直出共用 build_asset_prompt + 参考图 appendix，用户原始 prompt 作为 Subject；
+    可由 cfg.image_gen.image_to_image_pixel_prompt 关闭，关闭后回退原始 prompt 直传。
+    """
+    base = pipeline_input_from_job(job, settings)
+    user_prompt = (job.prompt or "").strip()
+    # source_only 的 image_to_image 是“原生出图”（RawImagePage 参考图→大图，跳过像素化），
+    # 不应套用像素风模板；仅对会进入像素化的参考图微调注入。
+    if not cfg.image_gen.image_to_image_pixel_prompt or not user_prompt or base.source_only:
+        return base
+
+    params = base.pixelize_params
+    # 复用原作品的素材类型：参考图微调本质是“按原素材规则重绘”，写死 item_icon 会让
+    # UI 组件 / Logo / 平铺纹理 都被当成物品图标。build_asset_prompt 内部会校验并纠正
+    # 非法 asset_kind / 不匹配的 subject_kind，缺省时回退物品图标。
+    asset = _asset_data(job)
+    asset_kind = str(asset.get("asset_kind") or "item_icon")
+    subject_kind = str(asset.get("subject_kind") or "single_prop")
+    key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, user_prompt)
+    prompt = build_asset_prompt(
+        cfg.asset.prompt_template,
+        user_prompt,
+        size=params.output_size,
+        asset_kind=asset_kind,
+        subject_kind=subject_kind,
+        key_color=key_hex,
+        key_tolerance=cfg.image_gen.green_screen_tolerance,
+        max_colors=params.colors,
+    )
+    reference_appendix = _asset_reference_prompt_appendix(asset_kind, base.image_path is not None)
+    if reference_appendix:
+        prompt = f"{prompt} {reference_appendix}"
+    prompt = f"{prompt} {RAW_REFERENCE_IMAGE_ALIAS}"
+    # prompt_guard_text 仍只审核用户原文，而不是我们注入的模板。
+    return replace(base, prompt=prompt.strip(), prompt_guard_text=user_prompt)
 
 
 def asset_pipeline_input_from_job(
@@ -532,5 +581,7 @@ def run_job_pipeline(
         return run_asset_job_pipeline(job, settings, resolved_cfg)
     if job.job_type == "sprite_sheet":
         return run_sprite_mosaic_pipeline(resolved_cfg, sprite_mosaic_input_from_job(job, settings))
+    if job.job_type == "image_to_image":
+        return run_pipeline(resolved_cfg, image_to_image_pipeline_input_from_job(job, settings, resolved_cfg))
     inputs = pipeline_input_from_job(job, settings)
     return run_pipeline(resolved_cfg, inputs)

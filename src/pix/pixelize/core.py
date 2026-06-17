@@ -11,7 +11,7 @@ from PIL import Image, ImageEnhance, ImageFilter
 
 from pix.analysis.schema import PixAnalysis
 from pix.config import PixelizeConfig
-from pix.pixelize.bg_removal import remove_background
+from pix.pixelize.bg_removal import apply_transparent_edge_style, remove_background
 from pix.pixelize.palette import (
     build_palette_image,
     hex_to_rgb,
@@ -512,6 +512,34 @@ def _apply_low_pixel_alpha_outline(image: Image.Image, *, strength: int) -> Imag
     return Image.fromarray(rgba, mode="RGBA")
 
 
+def _edge_reserve_margin(edge_style: str, feather: int) -> int:
+    """描边/羽化在标准尺寸内需预留的透明边距（px），避免描边向外扩超界被裁（#5）。
+
+    outline 向外膨胀 feather 层、且最外圈被跳过，至少留 feather+1（feather=0 时按 1 层算）；
+    feather 仅软化 alpha，留 feather；hard 不需要。
+    """
+    strength = max(0, int(feather))
+    style = edge_style if edge_style in ("hard", "feather", "outline") else "hard"
+    if style == "outline":
+        return max(1, strength) + 1
+    if style == "feather":
+        return strength
+    return 0
+
+
+def _center_on_canvas(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """把图像居中贴到 size 透明 RGBA 画布，四周透明填充（用于描边预留边距）。"""
+    img = image.convert("RGBA")
+    target = (max(1, int(size[0])), max(1, int(size[1])))
+    if img.size == target:
+        return img
+    canvas = Image.new("RGBA", target, (0, 0, 0, 0))
+    off_x = max(0, (target[0] - img.width) // 2)
+    off_y = max(0, (target[1] - img.height) // 2)
+    canvas.alpha_composite(img, (off_x, off_y))
+    return canvas
+
+
 def _quantize(
     image: Image.Image,
     palette_rgb: list[tuple[int, int, int]],
@@ -721,12 +749,27 @@ def pixelize(
             tight=tight_crop,
         )
 
-    # 4. 下采样到目标尺寸（smart/box/bicubic/lanczos/nearest）
+    # 4. 下采样到目标尺寸（smart/box/bicubic/lanczos/nearest）。
+    # 描边/羽化场景在标准尺寸内预留透明边距：主体先缩进 inner，再居中贴回标准画布，
+    # 这样量化后单独描边时有外扩空间、不会超界被裁（#5）。
     detected_grid: int | None = None
     if eff.resample == "smart" and eff.snap_to_grid:
         detected_grid = _detect_grid_size(img)
-    aspect_content_size, aspect_offset = _aspect_fit_geometry(img.size, eff.output_size)
-    down = _downsample(img, eff.output_size, mode=eff.resample, snap=eff.snap_to_grid)
+    edge_margin = _edge_reserve_margin(eff.edge_style, eff.bg_feather) if eff.remove_bg else 0
+    edge_margin = min(edge_margin, max(0, (min(eff.output_size) - 2) // 2))
+    if edge_margin > 0:
+        inner = (
+            max(1, eff.output_size[0] - 2 * edge_margin),
+            max(1, eff.output_size[1] - 2 * edge_margin),
+        )
+        aspect_content_size, aspect_offset = _aspect_fit_geometry(img.size, inner)
+        down = _center_on_canvas(
+            _downsample(img, inner, mode=eff.resample, snap=eff.snap_to_grid),
+            eff.output_size,
+        )
+    else:
+        aspect_content_size, aspect_offset = _aspect_fit_geometry(img.size, eff.output_size)
+        down = _downsample(img, eff.output_size, mode=eff.resample, snap=eff.snap_to_grid)
     # 2. 轻微增强
     down = _apply_enhancements(down, eff.saturation, eff.edge_enhance)
 
@@ -757,14 +800,14 @@ def pixelize(
     else:
         pixelized = _quantize(down, palette_rgb, eff.dither)
 
-    # 6. 可选：抠背景（在量化后做最准——背景块已经是纯色）
-    if eff.remove_bg:
-        pixelized = remove_background(
+    # 6. 描边/羽化：量化后、在最终分辨率上单独做（背景已在量化前抠过唯一一道）。
+    #    早期那道 remove_background 产出的 alpha 经量化保留下来，这里只补边缘风格，
+    #    不再二次抠背景（避免对填满帧的主体误删，详见 #6）。
+    if eff.remove_bg and eff.edge_style in ("feather", "outline"):
+        pixelized = apply_transparent_edge_style(
             pixelized,
-            tolerance=max(0, int(eff.bg_tolerance)),
             feather=max(0, int(eff.bg_feather)),
             edge_style=eff.edge_style,
-            **_bg_removal_options(cfg),
         )
     elif edge_policy.get("source_alpha") and eff.edge_style == "outline":
         pixelized = _apply_low_pixel_alpha_outline(pixelized, strength=max(1, int(eff.bg_feather)))
@@ -808,7 +851,16 @@ def pixelize(
         "requested_output_size": list(requested_output_size),
         "preserve_preprocessed_size": bool(preserve_preprocessed_size),
         "adopted_preprocessed_size": bool(adopted_preprocessed_size),
-        "preprocess_order": ["perfect_pixel", "remove_background", "auto_crop"],
+        "preprocess_order": [
+            "perfect_pixel",
+            "remove_background",
+            "auto_crop",
+            "downsample",
+            "quantize",
+            "edge_style",
+        ],
+        "bg_removal_passes": 1 if (eff.remove_bg and not skipped_remove_bg) else 0,
+        "edge_margin": int(edge_margin),
         "auto_crop_policy": "tight_after_perfect_pixel" if tight_crop else "configured_padding",
         "skipped_remove_bg": skipped_remove_bg,
         "skipped_auto_crop": skipped_auto_crop,
