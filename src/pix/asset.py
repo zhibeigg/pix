@@ -117,6 +117,7 @@ ASSET_KIND_LABELS: dict[str, str] = {
     "ui_component": "UI component",
     "tile_texture": "tileable pixel texture",
     "game_logo": "game logo",
+    "dual_grid": "dual-grid tileset",
 }
 SUBJECT_KIND_LABELS: dict[str, str] = {
     "single_prop": "single prop",

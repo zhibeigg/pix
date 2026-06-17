@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import dataclass, replace
 import json
 import time
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from PIL import Image
 
-from pix import __version__
+from pix import __version__, dual_grid
 from pix.api.image_dispatcher import clear_image_provider_history, image_provider_history
 from pix.api.image_gen import generate_image
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
@@ -416,6 +417,104 @@ def run_asset_job_pipeline(
     return result
 
 
+@dataclass(frozen=True)
+class _TileMaterial:
+    """`_generate_tile_material` 的产物：完美像素化后的纹理 + 复用所需的元信息。
+
+    `pixel_path` 即落盘的纹理图（tile_texture 用作最终产物，dual_grid 用作材质源）。
+    其余字段让调用方原样复现各自的 meta，无需重新推断或再开图。
+    """
+
+    pixel_path: Path
+    raw_path: Path
+    prompt: str
+    preprocess_meta: dict[str, Any]
+    width: int
+    height: int
+
+
+def _generate_tile_material(
+    asset_cfg: AppConfig,
+    settings: WebSettings,
+    *,
+    name: str,
+    extra_prompt: str,
+    texture_kind: str,
+    size: tuple[int, int],
+    max_colors: int,
+    generated_preprocess_method: str,
+    image_size: str,
+    image_quality: str | None,
+    image_model: str | None,
+    run_dir: Path,
+    raw_path: Path,
+    pixel_path: Path,
+) -> _TileMaterial:
+    """单张无缝纹理生成：prompt 构造 → generate_image → perfect_pixel → 落到 (w,h)。
+
+    由 `run_tile_asset_job_pipeline`（单材质）与 `run_dual_grid_asset_job_pipeline`
+    （材质 A/B 各一次）复用。**行为与原 tile pipeline 内联实现逐字一致**：同样的
+    prompt 规则、同样的 perfect_pixel 调用、同样的兜底缩放判定（`max_colors` /
+    `generated_preprocess_method` 由调用方传入已解析的请求值，而非从 cfg 再推断）。
+    调用方负责生图前的 `clear_image_provider_history()` 与 `_local_stage_context` 上锁。
+    """
+    width, height = int(size[0]), int(size[1])
+    prompt = build_asset_prompt(
+        asset_cfg.asset.prompt_template,
+        name,
+        size=(width, height),
+        extra_prompt=extra_prompt,
+        asset_kind="tile_texture",
+        subject_kind="tileable_pattern",
+        texture_kind=texture_kind,
+        max_colors=max_colors,
+    )
+    generate_image(
+        asset_cfg,
+        prompt,
+        raw_path,
+        size=image_size,
+        quality=image_quality,
+        model=image_model,
+    )
+
+    # 完美像素：让 perfectPixel 自动检测网格作为主导，target_size 仅作为提示。
+    # 用户面板上选择的"目标尺寸"被理解为"输出 ≤ 目标尺寸的最小整数倍"，避免在
+    # perfect_pixel 已经精确网格对齐的结果上再做一次破坏性的 NEAREST 缩放。
+    with Image.open(raw_path) as opened:
+        source_image = opened.convert("RGBA")
+    preprocessed = preprocess_generated_image(
+        source_image,
+        method=generated_preprocess_method or "perfect_pixel",
+        target_size=(width, height),
+    )
+    refined = preprocessed.image.convert("RGB")
+    # 仅当 perfect_pixel 完全没生效（fallback 到原图 1024+）时才需要做兜底缩放。
+    # 正常情况下 perfectPixel 输出会落在 32~256 的网格尺寸，直接采用即可——
+    # 这与 theamusing/perfectPixel webdemo 的体验一致。
+    applied = bool(preprocessed.meta.get("applied"))
+    max_safe_side = max(512, max(width, height) * 8)
+    if not applied or max(refined.size) > max_safe_side:
+        # perfect_pixel 没生效（或输出仍接近原图），退化到目标尺寸
+        final_image = (
+            refined.resize((width, height), Image.NEAREST)
+            if refined.size != (width, height)
+            else refined
+        )
+    else:
+        final_image = refined
+
+    final_image.save(pixel_path)
+    return _TileMaterial(
+        pixel_path=pixel_path,
+        raw_path=raw_path,
+        prompt=prompt,
+        preprocess_meta=preprocessed.meta,
+        width=final_image.width,
+        height=final_image.height,
+    )
+
+
 def run_tile_asset_job_pipeline(
     job: GenerationJob, settings: WebSettings, cfg: AppConfig
 ) -> PipelineResult:
@@ -441,16 +540,6 @@ def run_tile_asset_job_pipeline(
         name=name,
         extra_prompt=extra_prompt,
     )
-    prompt = build_asset_prompt(
-        asset_cfg.asset.prompt_template,
-        name,
-        size=(width, height),
-        extra_prompt=extra_prompt,
-        asset_kind="tile_texture",
-        subject_kind="tileable_pattern",
-        texture_kind=requested_texture_kind,
-        max_colors=params.colors,
-    )
 
     # 1. Prompt guard（只走本地规则；与 asset 一致）
     user_prompt = "\n".join(part for part in [name, extra_prompt] if part) or name
@@ -475,45 +564,29 @@ def run_tile_asset_job_pipeline(
     image_model = data.get("image_model") or asset_cfg.image_gen.model
 
     raw_path = run_dir / "01_source.png"
+    pixel_path = run_dir / "03_pixelized.png"
     clear_image_provider_history()
     with _local_stage_context(settings)():
-        generate_image(
+        material = _generate_tile_material(
             asset_cfg,
-            prompt,
-            raw_path,
-            size=image_size,
-            quality=image_quality,
-            model=image_model,
+            settings,
+            name=name,
+            extra_prompt=extra_prompt,
+            texture_kind=requested_texture_kind,
+            size=(width, height),
+            max_colors=params.colors,
+            generated_preprocess_method=params.generated_preprocess_method,
+            image_size=image_size,
+            image_quality=image_quality,
+            image_model=image_model,
+            run_dir=run_dir,
+            raw_path=raw_path,
+            pixel_path=pixel_path,
         )
-
-        # 2. 完美像素：让 perfectPixel 自动检测网格作为主导，target_size 仅作为提示。
-        # 用户面板上选择的"目标尺寸"被理解为"输出 ≤ 目标尺寸的最小整数倍"，避免在
-        # perfect_pixel 已经精确网格对齐的结果上再做一次破坏性的 NEAREST 缩放。
-        with Image.open(raw_path) as opened:
-            source_image = opened.convert("RGBA")
-        preprocessed = preprocess_generated_image(
-            source_image,
-            method=params.generated_preprocess_method or "perfect_pixel",
-            target_size=(width, height),
-        )
-        refined = preprocessed.image.convert("RGB")
-        # 仅当 perfect_pixel 完全没生效（fallback 到原图 1024+）时才需要做兜底缩放。
-        # 正常情况下 perfectPixel 输出会落在 32~256 的网格尺寸，直接采用即可——
-        # 这与 theamusing/perfectPixel webdemo 的体验一致。
-        applied = bool(preprocessed.meta.get("applied"))
-        max_safe_side = max(512, max(width, height) * 8)
-        if not applied or max(refined.size) > max_safe_side:
-            # perfect_pixel 没生效（或输出仍接近原图），退化到目标尺寸
-            final_image = (
-                refined.resize((width, height), Image.NEAREST)
-                if refined.size != (width, height)
-                else refined
-            )
-        else:
-            final_image = refined
-
-        pixel_path = run_dir / "03_pixelized.png"
-        final_image.save(pixel_path)
+        prompt = material.prompt
+        preprocessed_meta = material.preprocess_meta
+        with Image.open(material.pixel_path) as opened:
+            final_image = opened.convert("RGB")
 
         # 可选放大预览：preview_scale 是相对"用户预期目标尺寸"的倍数，
         # 当 perfect_pixel 自动检测到更高分辨率时，按用户预期目标尺寸预览像素总宽度反推预览倍数，
@@ -577,7 +650,7 @@ def run_tile_asset_job_pipeline(
         },
         "pixelize": {
             "perfect_pixel_only": True,
-            "preprocess": preprocessed.meta,
+            "preprocess": preprocessed_meta,
             "output_size": [final_image.width, final_image.height],
             "requested_output_size": [width, height],
         },
@@ -603,13 +676,232 @@ def run_tile_asset_job_pipeline(
     )
 
 
+# material_b 这两个值表示「透明模式」（实心 A ↔ 透明）：不生成、不采样 B。
+_DUAL_GRID_TRANSPARENT_TOKENS = {"", "transparent"}
+
+
+def _material_to_rgba_array(path: Path, size: tuple[int, int]) -> np.ndarray:
+    """把落盘材质读成 (h, w, 4) uint8，并以 NEAREST 落到单瓦片尺寸 (w, h)。"""
+    width, height = int(size[0]), int(size[1])
+    with Image.open(path) as opened:
+        rgba = opened.convert("RGBA").resize((width, height), Image.NEAREST)
+    return np.asarray(rgba, dtype=np.uint8)
+
+
+def _darkest_visible_rgb(mat: np.ndarray, fallback: tuple[int, int, int]) -> tuple[int, int, int]:
+    """取材质里 alpha>0 像素中亮度最低者的 RGB（描边缺省色）；全透明则回退 fallback。"""
+    visible = mat[mat[:, :, 3] > 0]
+    if visible.size == 0:
+        return fallback
+    rgb = visible[:, :3].astype(np.float64)
+    # Rec.601 亮度近似，取最暗一像素
+    luma = rgb @ np.array([0.299, 0.587, 0.114])
+    darkest = visible[int(np.argmin(luma)), :3]
+    return (int(darkest[0]), int(darkest[1]), int(darkest[2]))
+
+
+def run_dual_grid_asset_job_pipeline(
+    job: GenerationJob, settings: WebSettings, cfg: AppConfig
+) -> PipelineResult:
+    """dual-grid 双瓦片直出：AI 生成无缝材质 A/B → 代码确定性合成 4×4 图集 + 应用预览。
+
+    复用 `_generate_tile_material` 生成材质 A（必）与 B（透明模式跳过），再交给纯算法
+    `pix.dual_grid` 合成。无缝性由角掩码的「边不变量」构造保证（见 `pix.dual_grid`）。
+    """
+    start = time.time()
+    asset_cfg = deepcopy(cfg)
+    asset_cfg.image_gen.contact_sheet_enabled = False
+    asset_cfg.image_gen.prompt_guard_remote = False
+
+    data = job.params_json or {}
+    asset = _asset_data(job)
+    name = _asset_name(job)
+    params = asset_pixelize_params_from_json(data, asset_cfg)
+    width, height = int(params.output_size[0]), int(params.output_size[1])
+
+    material_a = str(asset.get("material_a") or "").strip()
+    material_b_raw = str(asset.get("material_b") or "").strip()
+    transparent_mode = material_b_raw.casefold() in _DUAL_GRID_TRANSPARENT_TOKENS
+    style = str(asset.get("transition_style") or "rounded")
+    requested_kind_a = str(asset.get("material_a_texture_kind") or "auto")
+    requested_kind_b = str(asset.get("material_b_texture_kind") or "auto")
+    resolved_kind_a = resolve_tile_texture_kind(requested_kind_a, name=material_a)
+    resolved_kind_b = (
+        None if transparent_mode else resolve_tile_texture_kind(requested_kind_b, name=material_b_raw)
+    )
+
+    # Prompt guard：审核整体用户文本（素材名 + 两种材质描述），与 tile pipeline 同走本地规则。
+    guard_parts = [name, material_a, "" if transparent_mode else material_b_raw]
+    user_prompt = "\n".join(part for part in guard_parts if part) or name
+    try:
+        guard = validate_user_prompt(
+            asset_cfg,
+            user_prompt,
+            allow_template_break=False,
+            max_chars=RAW_IMAGE_PROMPT_MAX_CHARS,
+        )
+    except PromptPolicyError as exc:
+        raise ValueError(str(exc)) from exc
+
+    out_root = settings.storage_root / "runs" / f"job-{job.id}"
+    run_dir = new_run_dir(out_root, seed=f"dual_grid\n{name}\n{material_a}\n{material_b_raw}")
+    materials_dir = run_dir / "materials"
+    materials_dir.mkdir(parents=True, exist_ok=True)
+    image_size = data.get("image_size") or asset_cfg.image_gen.size
+    image_quality = (
+        data.get("image_quality")
+        if _request_includes(data, "image_quality")
+        else asset_cfg.asset.image_quality
+    )
+    image_model = data.get("image_model") or asset_cfg.image_gen.model
+
+    clear_image_provider_history()
+    with _local_stage_context(settings)():
+        material_a_result = _generate_tile_material(
+            asset_cfg,
+            settings,
+            name=material_a,
+            extra_prompt="",
+            texture_kind=requested_kind_a,
+            size=(width, height),
+            max_colors=params.colors,
+            generated_preprocess_method=params.generated_preprocess_method,
+            image_size=image_size,
+            image_quality=image_quality,
+            image_model=image_model,
+            run_dir=run_dir,
+            raw_path=run_dir / "01_material_a_source.png",
+            pixel_path=materials_dir / "material_a.png",
+        )
+        material_b_result: _TileMaterial | None = None
+        if not transparent_mode:
+            material_b_result = _generate_tile_material(
+                asset_cfg,
+                settings,
+                name=material_b_raw,
+                extra_prompt="",
+                texture_kind=requested_kind_b,
+                size=(width, height),
+                max_colors=params.colors,
+                generated_preprocess_method=params.generated_preprocess_method,
+                image_size=image_size,
+                image_quality=image_quality,
+                image_model=image_model,
+                run_dir=run_dir,
+                raw_path=run_dir / "01_material_b_source.png",
+                pixel_path=materials_dir / "material_b.png",
+            )
+
+    mat_a = _material_to_rgba_array(material_a_result.pixel_path, (width, height))
+    mat_b = (
+        _material_to_rgba_array(material_b_result.pixel_path, (width, height))
+        if material_b_result is not None
+        else None
+    )
+    # 透明模式描边缺省色 = 材质 A 最暗可见色（让描边与主体融合）；A 全透明则回退深灰。
+    outline_rgb = _darkest_visible_rgb(mat_a, (32, 32, 32))
+
+    atlas, tiles, mapping = dual_grid.compose_atlas(mat_a, mat_b, style, outline_rgb)
+    seed = dual_grid.preview_seed(name, material_a, material_b_raw, style)
+    preview = dual_grid.render_preview(tiles, width, height, seed)
+
+    atlas_path = run_dir / "dual_grid_atlas.png"
+    preview_path = run_dir / "dual_grid_preview.png"
+    Image.fromarray(atlas, mode="RGBA").save(atlas_path)
+    Image.fromarray(preview, mode="RGBA").save(preview_path)
+
+    atlas_height, atlas_width = atlas.shape[:2]
+    duration = round(time.time() - start, 3)
+    material_outputs: dict[str, str] = {"material_a": "materials/material_a.png"}
+    if material_b_result is not None:
+        material_outputs["material_b"] = "materials/material_b.png"
+    meta: dict[str, Any] = {
+        "version": __version__,
+        "duration_seconds": duration,
+        "input": {
+            "prompt": material_a_result.prompt,
+            "material_a_prompt": material_a_result.prompt,
+            "material_b_prompt": material_b_result.prompt if material_b_result else None,
+            "image_path": None,
+        },
+        "prompt_guard": guard.to_metadata(),
+        "image_gen": {
+            "model": image_model,
+            "size": image_size,
+            "quality": image_quality,
+            "output_format": asset_cfg.image_gen.output_format,
+            "input_fidelity": asset_cfg.image_gen.edit_input_fidelity,
+            "used": True,
+            "mode": "dual_grid",
+            "source_only": True,
+            "provider_history": image_provider_history(),
+            "contact_sheet": None,
+        },
+        "asset": {
+            "name": name,
+            "asset_kind": "dual_grid",
+            "subject_kind": "tileable_pattern",
+            "material_a": material_a,
+            "material_b": "" if transparent_mode else material_b_raw,
+            "material_a_texture_kind": requested_kind_a,
+            "material_b_texture_kind": requested_kind_b,
+            "resolved_texture_kind_a": resolved_kind_a,
+            "resolved_texture_kind_b": resolved_kind_b,
+            "transition_style": style,
+            "transparent_mode": transparent_mode,
+            "tile_size": [width, height],
+            "atlas_size": [atlas_width, atlas_height],
+            "convention": dual_grid.CONVENTION,
+            "mapping": mapping,
+            "preview_seed": seed,
+            "shared_palette": False,
+            "colors": int(params.colors),
+            "skip_vl": True,
+            "request_fields": data.get("request_fields") or [],
+            "pixelize_fields": data.get("pixelize_fields") or [],
+            "dual_grid_pipeline": True,
+        },
+        "pixelize": {
+            "perfect_pixel_only": True,
+            "material_a_preprocess": material_a_result.preprocess_meta,
+            "material_b_preprocess": (
+                material_b_result.preprocess_meta if material_b_result else None
+            ),
+            "output_size": [width, height],
+            "requested_output_size": [width, height],
+        },
+        "outputs": {
+            "dual_grid_atlas": "dual_grid_atlas.png",
+            "dual_grid_preview": "dual_grid_preview.png",
+            "materials": material_outputs,
+        },
+    }
+    meta_path = run_dir / "meta.json"
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    return PipelineResult(
+        run_dir=run_dir,
+        source_path=material_a_result.raw_path,
+        analysis_path=None,
+        analysis=None,
+        pixel_path=atlas_path,
+        preview_path=preview_path,
+        meta_path=meta_path,
+        meta=meta,
+        grid_path=None,
+    )
+
+
 def run_job_pipeline(
     job: GenerationJob, settings: WebSettings, *, cfg: AppConfig | None = None
 ) -> PipelineResult | SpritePipelineResult:
     resolved_cfg = cfg or load_config(config_file=settings.pix_config_file)
     if job.job_type == "asset":
         asset = _asset_data(job)
-        if str(asset.get("asset_kind") or "item_icon") == "tile_texture":
+        kind = str(asset.get("asset_kind") or "item_icon")
+        if kind == "dual_grid":
+            return run_dual_grid_asset_job_pipeline(job, settings, resolved_cfg)
+        if kind == "tile_texture":
             return run_tile_asset_job_pipeline(job, settings, resolved_cfg)
         return run_asset_job_pipeline(job, settings, resolved_cfg)
     if job.job_type == "sprite_sheet":
