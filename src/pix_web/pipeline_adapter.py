@@ -15,7 +15,7 @@ from pix import __version__
 from pix.api.image_dispatcher import clear_image_provider_history, image_provider_history
 from pix.api.image_gen import generate_image
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
-from pix.asset import build_asset_prompt
+from pix.asset import build_asset_prompt, resolve_tile_texture_kind
 from pix.config import AppConfig, load_config
 from pix.contact_sheet import resolve_key_color
 from pix.io_utils import file_lock, new_run_dir
@@ -179,6 +179,13 @@ def _asset_skip_vl(data: dict[str, Any], cfg: AppConfig) -> bool:
 def _asset_reference_prompt_appendix(asset_kind: str, has_reference: bool) -> str:
     if not has_reference:
         return ""
+    if asset_kind == "tile_texture":
+        return (
+            "Use the provided reference image only as material and style inspiration for a seamless tile texture. "
+            "Do not trace, crop, upscale, or preserve a centered subject from the reference. The final image must remain "
+            "an edge-to-edge TRUE pixel-art tileable pattern: no transparent background, no padding, no border, and all "
+            "four edges must connect seamlessly when repeated."
+        )
     if asset_kind == "game_logo":
         return (
             "Use the provided reference image as logo inspiration: first reinterpret it in the same TRUE pixel-art vocabulary "
@@ -226,7 +233,7 @@ def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> Pipeli
 
 # 参考图微调注入：声明上传的参考图即“图1”，让用户在 prompt 里写“图1 / 参考图”有明确指代。
 RAW_REFERENCE_IMAGE_ALIAS = (
-    "The uploaded reference image is also called 图1 (\"image 1\"); whenever the brief mentions "
+    'The uploaded reference image is also called 图1 ("image 1"); whenever the brief mentions '
     "图1, 图一, or 参考图, it refers to this uploaded reference image."
 )
 
@@ -253,6 +260,7 @@ def image_to_image_pipeline_input_from_job(
     asset = _asset_data(job)
     asset_kind = str(asset.get("asset_kind") or "item_icon")
     subject_kind = str(asset.get("subject_kind") or "single_prop")
+    texture_kind = str(asset.get("texture_kind") or "auto")
     key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, user_prompt)
     prompt = build_asset_prompt(
         cfg.asset.prompt_template,
@@ -260,6 +268,7 @@ def image_to_image_pipeline_input_from_job(
         size=params.output_size,
         asset_kind=asset_kind,
         subject_kind=subject_kind,
+        texture_kind=texture_kind,
         key_color=key_hex,
         key_tolerance=cfg.image_gen.green_screen_tolerance,
         max_colors=params.colors,
@@ -281,6 +290,7 @@ def asset_pipeline_input_from_job(
     params = asset_pixelize_params_from_json(data, cfg)
     key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, name)
     asset_kind = str(asset.get("asset_kind") or "item_icon")
+    texture_kind = str(asset.get("texture_kind") or "auto")
     image_path = Path(job.input_image_path) if job.input_image_path else None
     prompt = build_asset_prompt(
         cfg.asset.prompt_template,
@@ -289,6 +299,7 @@ def asset_pipeline_input_from_job(
         extra_prompt=str(asset.get("extra_prompt") or ""),
         asset_kind=asset_kind,
         subject_kind=str(asset.get("subject_kind") or "single_prop"),
+        texture_kind=texture_kind,
         key_color=key_hex,
         key_tolerance=cfg.image_gen.green_screen_tolerance,
         max_colors=params.colors,
@@ -357,11 +368,23 @@ def sprite_mosaic_input_from_job(job: GenerationJob, settings: WebSettings) -> S
 def _write_asset_meta(result: PipelineResult, job: GenerationJob, inputs: PipelineInput) -> None:
     data = job.params_json or {}
     asset = _asset_data(job)
+    name = _asset_name(job)
+    extra_prompt = str(asset.get("extra_prompt") or "")
+    asset_kind = str(asset.get("asset_kind") or "item_icon")
+    requested_texture_kind = str(asset.get("texture_kind") or "auto")
+    resolved_texture_kind = (
+        resolve_tile_texture_kind(requested_texture_kind, name=name, extra_prompt=extra_prompt)
+        if asset_kind == "tile_texture"
+        else None
+    )
     result.meta["asset"] = {
-        "name": _asset_name(job),
-        "extra_prompt": str(asset.get("extra_prompt") or ""),
-        "asset_kind": str(asset.get("asset_kind") or "item_icon"),
+        "name": name,
+        "extra_prompt": extra_prompt,
+        "asset_kind": asset_kind,
         "subject_kind": str(asset.get("subject_kind") or "single_prop"),
+        "texture_kind": requested_texture_kind if asset_kind == "tile_texture" else None,
+        "requested_texture_kind": requested_texture_kind if asset_kind == "tile_texture" else None,
+        "resolved_texture_kind": resolved_texture_kind,
         "prompt": inputs.prompt,
         "grid_mode": inputs.grid.mode,
         "pixel_size": list(inputs.pixelize_params.output_size),
@@ -412,6 +435,12 @@ def run_tile_asset_job_pipeline(
     params = asset_pixelize_params_from_json(data, asset_cfg)
     width, height = int(params.output_size[0]), int(params.output_size[1])
     extra_prompt = str(asset.get("extra_prompt") or "").strip()
+    requested_texture_kind = str(asset.get("texture_kind") or "auto")
+    resolved_texture_kind = resolve_tile_texture_kind(
+        requested_texture_kind,
+        name=name,
+        extra_prompt=extra_prompt,
+    )
     prompt = build_asset_prompt(
         asset_cfg.asset.prompt_template,
         name,
@@ -419,6 +448,7 @@ def run_tile_asset_job_pipeline(
         extra_prompt=extra_prompt,
         asset_kind="tile_texture",
         subject_kind="tileable_pattern",
+        texture_kind=requested_texture_kind,
         max_colors=params.colors,
     )
 
@@ -528,6 +558,9 @@ def run_tile_asset_job_pipeline(
             "extra_prompt": extra_prompt,
             "asset_kind": "tile_texture",
             "subject_kind": "tileable_pattern",
+            "texture_kind": requested_texture_kind,
+            "requested_texture_kind": requested_texture_kind,
+            "resolved_texture_kind": resolved_texture_kind,
             "prompt": prompt,
             "grid_mode": "off",
             "pixel_size": [final_image.width, final_image.height],
@@ -582,6 +615,8 @@ def run_job_pipeline(
     if job.job_type == "sprite_sheet":
         return run_sprite_mosaic_pipeline(resolved_cfg, sprite_mosaic_input_from_job(job, settings))
     if job.job_type == "image_to_image":
-        return run_pipeline(resolved_cfg, image_to_image_pipeline_input_from_job(job, settings, resolved_cfg))
+        return run_pipeline(
+            resolved_cfg, image_to_image_pipeline_input_from_job(job, settings, resolved_cfg)
+        )
     inputs = pipeline_input_from_job(job, settings)
     return run_pipeline(resolved_cfg, inputs)

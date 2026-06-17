@@ -14,6 +14,19 @@ from PIL import Image
 IssueLevel = Literal["error", "warning"]
 AssetGenerationPolicy = Literal["extract"]
 AssetPaletteMode = Literal["auto", "ramp", "kmeans"]
+TileTextureKind = Literal[
+    "auto",
+    "generic_texture",
+    "terrain_ground",
+    "path_floor",
+    "wall_surface",
+    "wood_planks",
+    "water_liquid",
+    "foliage_canopy",
+    "roof_tile",
+    "metal_panel",
+    "fabric_carpet",
+]
 
 
 class AssetSizePolicyError(ValueError):
@@ -160,6 +173,295 @@ ASSET_PROMPT_PROFILES: dict[str, AssetPromptProfile] = {
 }
 
 
+@dataclass(frozen=True)
+class TileTexturePromptProfile:
+    label: str
+    prompt_rules: str
+    keywords: tuple[str, ...]
+
+
+TILE_TEXTURE_KIND_LABELS: dict[str, str] = {
+    "auto": "auto-detected texture type",
+    "generic_texture": "generic tileable surface texture",
+    "terrain_ground": "top-down terrain ground",
+    "path_floor": "walkable path or floor",
+    "wall_surface": "wall or rock surface",
+    "wood_planks": "wood plank or bark surface",
+    "water_liquid": "water or liquid surface",
+    "foliage_canopy": "foliage, leaf, or grass canopy",
+    "roof_tile": "roof tile or shingle surface",
+    "metal_panel": "metal panel or sci-fi floor",
+    "fabric_carpet": "fabric, carpet, or woven pattern",
+}
+
+
+TILE_TEXTURE_PROMPT_PROFILES: dict[str, TileTexturePromptProfile] = {
+    "generic_texture": TileTexturePromptProfile(
+        label=TILE_TEXTURE_KIND_LABELS["generic_texture"],
+        prompt_rules=(
+            "Texture subtype rules: make an even repeatable game-map material with balanced detail density; "
+            "avoid a single landmark, emblem, object, creature, horizon, cast shadow, or focal center that would reveal repetition."
+        ),
+        keywords=(),
+    ),
+    "terrain_ground": TileTexturePromptProfile(
+        label=TILE_TEXTURE_KIND_LABELS["terrain_ground"],
+        prompt_rules=(
+            "Texture subtype rules: top-down RPG terrain ground tile. Use organic granular variation such as small grass blades, dirt speckles, pebbles, snow grains, sand noise, or moss flecks; "
+            "keep details evenly scattered and walkable, with no centered tree, rock pile, path edge, horizon, wall face, or large object."
+        ),
+        keywords=(
+            "grass",
+            "grassland",
+            "meadow",
+            "ground",
+            "terrain",
+            "dirt",
+            "soil",
+            "mud",
+            "sand",
+            "snow",
+            "moss",
+            "pebble",
+            "gravel",
+            "草",
+            "草地",
+            "地表",
+            "地面",
+            "泥土",
+            "泥地",
+            "沙地",
+            "沙漠",
+            "雪地",
+            "苔藓",
+            "碎石",
+            "砾石",
+        ),
+    ),
+    "path_floor": TileTexturePromptProfile(
+        label=TILE_TEXTURE_KIND_LABELS["path_floor"],
+        prompt_rules=(
+            "Texture subtype rules: top-down walkable path or floor tile. Use readable repeated stones, bricks, slabs, cobbles, ceramic tiles, or indoor floor pieces; "
+            "align grout lines and cracks across opposite edges, keep perspective flat top-down, and avoid walls, doors, rugs with borders, or a centered decorative emblem."
+        ),
+        keywords=(
+            "path",
+            "road",
+            "floor",
+            "pavement",
+            "cobblestone",
+            "stone road",
+            "slab",
+            "brick floor",
+            "tile floor",
+            "tiles",
+            "plaza",
+            "路",
+            "道路",
+            "小路",
+            "石板",
+            "石板路",
+            "砖路",
+            "地砖",
+            "地板",
+            "铺路",
+            "路面",
+            "广场",
+        ),
+    ),
+    "wall_surface": TileTexturePromptProfile(
+        label=TILE_TEXTURE_KIND_LABELS["wall_surface"],
+        prompt_rules=(
+            "Texture subtype rules: vertical wall, cliff, cave, brick wall, or rock-face surface. Use front-facing courses, cracks, blocks, mortar, moss streaks, or rock strata with one consistent upper-left light direction; "
+            "do not show floor perspective, sky, windows, doors, torches, shelves, or a complete building facade."
+        ),
+        keywords=(
+            "wall",
+            "brick wall",
+            "stone wall",
+            "cliff",
+            "rock face",
+            "cave wall",
+            "castle wall",
+            "岩壁",
+            "墙",
+            "墙壁",
+            "砖墙",
+            "石墙",
+            "城墙",
+            "山壁",
+            "洞壁",
+            "峭壁",
+            "悬崖",
+        ),
+    ),
+    "wood_planks": TileTexturePromptProfile(
+        label=TILE_TEXTURE_KIND_LABELS["wood_planks"],
+        prompt_rules=(
+            "Texture subtype rules: wooden plank, timber, bark, or log surface. Use long pixelated grain bands, knots, cracks, and plank seams that continue across the left/right and top/bottom edges; "
+            "keep boards as texture strips rather than a single table, crate, sign, frame, or centered log."
+        ),
+        keywords=(
+            "wood",
+            "wooden",
+            "plank",
+            "timber",
+            "bark",
+            "log",
+            "deck",
+            "木",
+            "木板",
+            "木地板",
+            "木墙",
+            "树皮",
+            "原木",
+            "甲板",
+            "木纹",
+        ),
+    ),
+    "water_liquid": TileTexturePromptProfile(
+        label=TILE_TEXTURE_KIND_LABELS["water_liquid"],
+        prompt_rules=(
+            "Texture subtype rules: animated-ready liquid surface base tile. Use small repeating waves, ripples, foam pixels, glow streaks, bubbles, or viscous swirls that continue across all edges; "
+            "avoid shorelines, islands, boats, waterfalls, characters, and large one-off highlight shapes."
+        ),
+        keywords=(
+            "water",
+            "river",
+            "lake",
+            "sea",
+            "ocean",
+            "liquid",
+            "lava",
+            "magma",
+            "poison",
+            "slime",
+            "acid",
+            "swamp water",
+            "水",
+            "水面",
+            "河流",
+            "湖水",
+            "海水",
+            "液体",
+            "岩浆",
+            "熔岩",
+            "毒液",
+            "酸液",
+            "史莱姆",
+            "沼泽水",
+        ),
+    ),
+    "foliage_canopy": TileTexturePromptProfile(
+        label=TILE_TEXTURE_KIND_LABELS["foliage_canopy"],
+        prompt_rules=(
+            "Texture subtype rules: leafy canopy, bush, hedge, grass clump, or dense foliage overlay. Build mottled clusters of leaves and tiny branch gaps with varied greens; "
+            "keep it as a continuous coverage texture, with no centered tree trunk, flower bouquet, single plant icon, or transparent holes."
+        ),
+        keywords=(
+            "foliage",
+            "leaf",
+            "leaves",
+            "bush",
+            "hedge",
+            "canopy",
+            "shrub",
+            "ivy",
+            "vines",
+            "树叶",
+            "叶子",
+            "叶片",
+            "灌木",
+            "树冠",
+            "植被",
+            "藤蔓",
+            "爬山虎",
+            "草丛",
+            "绿篱",
+        ),
+    ),
+    "roof_tile": TileTexturePromptProfile(
+        label=TILE_TEXTURE_KIND_LABELS["roof_tile"],
+        prompt_rules=(
+            "Texture subtype rules: roof tile, shingle, thatch, or ceramic roof surface. Use repeated rows with clear overlap rhythm and aligned row offsets across edges; "
+            "avoid chimneys, skylights, roof outlines, house silhouettes, gutters, or ground/floor perspective."
+        ),
+        keywords=(
+            "roof",
+            "rooftile",
+            "roof tile",
+            "shingle",
+            "thatch",
+            "瓦",
+            "屋顶",
+            "瓦片",
+            "瓦面",
+            "琉璃瓦",
+            "茅草屋顶",
+            "屋瓦",
+        ),
+    ),
+    "metal_panel": TileTexturePromptProfile(
+        label=TILE_TEXTURE_KIND_LABELS["metal_panel"],
+        prompt_rules=(
+            "Texture subtype rules: metal panel, industrial floor, sci-fi wall, or machinery plating. Use repeated panel seams, rivets, bolts, scratches, vents, warning-stripe fragments, or subtle wear that lines up at tile edges; "
+            "avoid readable text, logos, screens, buttons as focal objects, weapons, or a single machine part."
+        ),
+        keywords=(
+            "metal",
+            "steel",
+            "iron",
+            "panel",
+            "sci-fi",
+            "scifi",
+            "industrial",
+            "machine",
+            "rivets",
+            "bolts",
+            "vent",
+            "金属",
+            "钢铁",
+            "铁板",
+            "金属板",
+            "面板",
+            "机械",
+            "科幻",
+            "工业",
+            "铆钉",
+            "螺丝",
+            "通风口",
+        ),
+    ),
+    "fabric_carpet": TileTexturePromptProfile(
+        label=TILE_TEXTURE_KIND_LABELS["fabric_carpet"],
+        prompt_rules=(
+            "Texture subtype rules: fabric, carpet, rug, tapestry, or woven decorative pattern. Use pixelated weave, thread noise, small motifs, stripes, or geometric repeats that cross every edge; "
+            "avoid outer borders, fringe, a single central medallion, readable symbols, or an object-like cloth silhouette."
+        ),
+        keywords=(
+            "fabric",
+            "cloth",
+            "carpet",
+            "rug",
+            "tapestry",
+            "woven",
+            "textile",
+            "linen",
+            "布",
+            "布料",
+            "织物",
+            "地毯",
+            "毯子",
+            "挂毯",
+            "编织",
+            "纺织",
+            "麻布",
+            "纹样",
+        ),
+    ),
+}
+
+
 def _canonical_asset_prompt(
     name: str,
     width: int,
@@ -201,16 +503,19 @@ def _canonical_tile_prompt(
     asset_kind_label: str,
     subject_kind_label: str,
     profile: AssetPromptProfile,
+    texture_profile: TileTexturePromptProfile,
 ) -> str:
     """平铺纹理专用 prompt：铺满画布、四边无缝拼接、不留透明背景。"""
     return (
         f"Create a TRUE pixel-art {asset_kind_label} (a {subject_kind_label}). "
         f"Subject / theme: {name}. "
+        f"Texture subtype: {texture_profile.label}. "
         f"Canvas size must be exactly {width}x{height} pixels, where each pixel is one square grid cell. "
         f"The pattern must completely fill the entire canvas — every pixel of the {width}x{height} canvas is part of the texture, "
         "with NO transparent areas, NO solid background border, NO vignette, NO empty padding rows around the edges. "
         f"The texture must be seamlessly tileable: the left edge must continue smoothly into the right edge, "
         "and the top edge must continue smoothly into the bottom edge, so that placing the same image side-by-side reveals no visible seam. "
+        f"{texture_profile.prompt_rules} "
         f"Use no more than {max_colors} visible colors total. "
         "Use large, chunky readable pixels, limited palette, no painterly blending, no anti-aliasing, no soft brush, no smoothing. "
         "Every pixel must be a perfect square aligned to the grid; each grid cell contains exactly one color. "
@@ -231,10 +536,45 @@ def _subject_kind_key(asset_kind: str, subject_kind: str) -> str:
     return key
 
 
+def resolve_tile_texture_kind(
+    requested: str = "auto",
+    *,
+    name: str = "",
+    extra_prompt: str = "",
+) -> str:
+    """解析平铺纹理细分类型；auto 会按主题关键词轻量推断。"""
+    key = (requested or "auto").strip()
+    if key in TILE_TEXTURE_PROMPT_PROFILES:
+        return key
+    if key and key != "auto":
+        return "generic_texture"
+
+    haystack = f"{name}\n{extra_prompt}".casefold()
+    inference_order = (
+        "wall_surface",
+        "water_liquid",
+        "roof_tile",
+        "wood_planks",
+        "metal_panel",
+        "fabric_carpet",
+        "path_floor",
+        "foliage_canopy",
+        "terrain_ground",
+    )
+    for candidate in inference_order:
+        profile = TILE_TEXTURE_PROMPT_PROFILES[candidate]
+        if any(keyword.casefold() in haystack for keyword in profile.keywords):
+            return candidate
+    return "generic_texture"
+
+
+def tile_texture_kind_label(kind: str) -> str:
+    return TILE_TEXTURE_KIND_LABELS.get(kind, TILE_TEXTURE_KIND_LABELS["generic_texture"])
+
+
 def _legacy_template_to_type_aware(template: str) -> str:
     return (
-        template
-        .replace(
+        template.replace(
             "TRUE pixel-art game asset designed for game inventory/UI use",
             "TRUE pixel-art game {asset_kind_label} designed for {asset_usage_label}",
         )
@@ -251,6 +591,7 @@ def build_asset_prompt(
     extra_prompt: str = "",
     asset_kind: str = "item_icon",
     subject_kind: str = "single_prop",
+    texture_kind: str = "auto",
     key_color: str = "#00FF00",
     key_tolerance: int = 48,
     max_colors: int = 16,
@@ -287,6 +628,12 @@ def build_asset_prompt(
     is_tile = asset_kind_key == "tile_texture"
     if is_tile:
         # 平铺纹理不复用普通 prompt 模板，用专用模板（强调"铺满+无缝"，不需要 chroma-key 占位符）
+        resolved_texture_kind = resolve_tile_texture_kind(
+            texture_kind,
+            name=name,
+            extra_prompt=extra_prompt,
+        )
+        texture_profile = TILE_TEXTURE_PROMPT_PROFILES[resolved_texture_kind]
         prompt = _canonical_tile_prompt(
             name,
             width,
@@ -295,6 +642,7 @@ def build_asset_prompt(
             asset_kind_label,
             subject_kind_label,
             profile,
+            texture_profile,
         )
     elif template_text:
         try:
@@ -366,7 +714,9 @@ def validate_asset_image(
 
     original_has_alpha = "A" in original_bands or original_has_transparency
     if require_alpha and not original_has_alpha:
-        report.issues.append(AssetValidationIssue("error", "missing_alpha", "图片不含 alpha/透明通道"))
+        report.issues.append(
+            AssetValidationIssue("error", "missing_alpha", "图片不含 alpha/透明通道")
+        )
 
     rgba = np.asarray(image, dtype=np.uint8)
     alpha = rgba[..., 3]
@@ -387,7 +737,9 @@ def validate_asset_image(
         )
 
     if require_transparency and int(alpha.min()) > 0:
-        report.issues.append(AssetValidationIssue("error", "no_transparency", "图片没有透明背景像素"))
+        report.issues.append(
+            AssetValidationIssue("error", "no_transparency", "图片没有透明背景像素")
+        )
 
     semi_transparent = int(((alpha > 0) & (alpha < 255)).sum())
     if semi_transparent > 0:
@@ -402,7 +754,9 @@ def validate_asset_image(
     mask_img = Image.fromarray(np.where(visible_mask, 255, 0).astype(np.uint8), mode="L")
     report.alpha_bbox = mask_img.getbbox()
     if report.alpha_bbox is None:
-        report.issues.append(AssetValidationIssue("error", "empty_subject", "没有检测到可见主体像素"))
+        report.issues.append(
+            AssetValidationIssue("error", "empty_subject", "没有检测到可见主体像素")
+        )
         return report
 
     width, height = report.size or image.size
@@ -411,13 +765,19 @@ def validate_asset_image(
     coverage = bbox_area / max(1, width * height)
     if coverage < min_subject_coverage:
         report.issues.append(
-            AssetValidationIssue("warning", "subject_too_small", f"主体 bbox 占比 {coverage:.1%}，可能过小")
+            AssetValidationIssue(
+                "warning", "subject_too_small", f"主体 bbox 占比 {coverage:.1%}，可能过小"
+            )
         )
     if coverage > max_subject_coverage:
         report.issues.append(
-            AssetValidationIssue("warning", "subject_too_large", f"主体 bbox 占比 {coverage:.1%}，可能过满")
+            AssetValidationIssue(
+                "warning", "subject_too_large", f"主体 bbox 占比 {coverage:.1%}，可能过满"
+            )
         )
     if left <= 0 or top <= 0 or right >= width or bottom >= height:
-        report.issues.append(AssetValidationIssue("warning", "subject_touches_edge", "主体触碰画布边缘"))
+        report.issues.append(
+            AssetValidationIssue("warning", "subject_touches_edge", "主体触碰画布边缘")
+        )
 
     return report

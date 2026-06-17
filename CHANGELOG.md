@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 平铺纹理素材新增 `asset.texture_kind` 细分：支持自动识别、通用纹理、地表/地形、道路/地砖、墙壁/岩壁、木板/树皮、水面/液体、树叶/草丛、屋顶瓦片、金属面板、布料/地毯等类型；后端会把对应像素游戏纹理规则注入 prompt，并在 `meta.json` 记录请求值与最终解析值。
+
 ### Changed
 
 - 序列帧（mosaic）新增每帧描边/羽化（可选）：复用 pixelize 的 `edge_style` / `bg_feather` 参数，在共享调色板前对每帧补透明边距后描边（描边色一并进入统一量化、不会被自适应画布裁掉）；前端解禁序列帧的「边缘处理」选项。

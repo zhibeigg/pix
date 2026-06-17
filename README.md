@@ -286,6 +286,22 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 适合场景：地砖、木板、草地、墙面、地毯等需要在游戏地图里反复平铺的纹理素材。
 
+平铺纹理还支持 `asset.texture_kind` 细分常见像素游戏纹理类型；默认值为 `auto`，后端会按主题关键词推断，最终结果会写入 `meta.json` 的 `requested_texture_kind` / `resolved_texture_kind`：
+
+| texture_kind | 类型 | Prompt 规则重点 |
+|---|---|---|
+| `auto` | 自动识别 | 根据主题和额外风格描述推断具体类型；未命中时回退通用纹理。 |
+| `generic_texture` | 通用纹理 | 均匀可重复的地图材质，避免地标、徽章、主体物、水平线和明显中心。 |
+| `terrain_ground` | 地表 / 地形 | 俯视 RPG 地表；草叶、泥点、砂砾、雪粒、苔藓等自然噪声均匀分布，避免树、石堆、墙面或道路边界。 |
+| `path_floor` | 道路 / 地砖 | 俯视可行走路面；石板、砖缝、地砖、裂缝需跨边缘对齐，避免墙、门、地毯边框或中心徽章。 |
+| `wall_surface` | 墙壁 / 岩壁 | 正面墙体或岩壁；统一左上光照、砖块/裂缝/岩层连续，避免地面透视、天空、窗门和完整建筑立面。 |
+| `wood_planks` | 木板 / 树皮 | 木纹、节疤、裂缝和木板缝连续跨边；避免桌子、箱子、牌匾、画框或单根原木主体。 |
+| `water_liquid` | 水面 / 液体 | 可做动画底帧的液体表面；小波纹、高光、泡沫、发光流线跨边连续，避免岸线、岛、船和瀑布。 |
+| `foliage_canopy` | 树叶 / 草丛 | 连续树冠、灌木或草丛覆盖层；叶团和枝隙密集分布，避免树干、花束、单株植物图标和透明洞。 |
+| `roof_tile` | 屋顶瓦片 | 瓦片、木瓦、茅草屋顶等重复行；行偏移跨边对齐，避免烟囱、天窗、屋顶轮廓或房屋剪影。 |
+| `metal_panel` | 金属面板 | 工业/科幻面板；面板缝、铆钉、螺丝、划痕、通风口跨边对齐，避免可读文字、Logo、屏幕和单个机器部件。 |
+| `fabric_carpet` | 布料 / 地毯 | 织物纹理、线迹、小纹样或几何重复跨边，避免外边框、流苏、中央大徽章、可读符号和布料物件轮廓。 |
+
 默认 sprite 模板使用 `mosaic_prompt_template` / `mosaic_reference_prompt_template`：1 次 API 调用产出 rows×cols 整张 sheet（`rows × cols ≤ 64`），prompt 中包含 `Layout by Row` 段落 + 行级动作描述 + 整图尺寸契约。后端会为 sprite mosaic 独立选择 API 渲染尺寸，而不是复用通用 `image_gen.size`；内部先按 `target_frame_size × rows×cols × 8` 估算理想渲染画布，再按 API 约束（最大边 ≤3840、16 倍数、长短边比 ≤3:1、总像素 655,360—8,294,400）缩放到合法尺寸。fallback prompt 还会显式告诉模型每个 cell 的 render pixel 尺寸、真实可绘像素网格与 pixel-art 像素块大小（`render_width/render_height/cell_render_width/cell_render_height/upscale/cell_art_width/cell_art_height/anchor_text` 占位符），并要求主体按自然比例锚定单元格指定锚点、上方留白填背景键色，减少低分辨率生成造成的 perfectPixel 检测漂移。其中 `cell_art_width/cell_art_height = cell_render ÷ upscale` 始终与块大小自洽：横排方形帧（如 64×64 的 1×8）被 API ≤3:1 约束撑成竖长单元格（384×1024）时，不会再出现「单元格尺寸 vs 帧尺寸」自相矛盾、模型瞎猜帧高的问题。竖长主体（如站立角色）按「内容多高、帧就多高」自适应输出（如 64×128），`meta.json` / `sequence.json` 用 `delivered_frame_size` / `frame_size_adapted` 显式标注实际交付帧尺寸（不再是隐性 mismatch）。提供参考图时自动套用 `mosaic_reference_prompt_template`，让每个 cell 复用同一角色设计。后端单帧后处理链路为「切分每一帧 → perfect pixel → 显式 key_rgb 的 pixel_bg 双阈值 alpha → alpha bbox 裁剪 → 共享调色板统一限色 → 每帧可选描边/羽化（复用 pixelize 的 `edge_style`/`bg_feather`，描边前补透明边距、不会被自适应画布裁掉；前端「边缘处理」选项对序列帧已解禁）」，不再复用全局 Color-to-Alpha，也不会从 cell 四角重新采样背景色，避免多行 mosaic 中主体越界 cell 边界时四角采样到主体色而抠不干净。最终保留原版 `sprite_mosaic.png` + 横向 `sprite_sheet.png`，多行模式额外输出 `sprite_sheet_grid.png` + `row_sheets/` + `previews/`，作品库预览组件读 `sprite_sheet.png + sequence.json` 逐帧播放。多动作作品在作品库卡片选中某个动作后，「下载图片」可选「当前动作图」（该行 `row_sheets/row_NN.png`）或「所有动作打包」（后端 `GET /jobs/{job_id}/sprite-actions.zip` 把每行各一张横向图打包），文件统一命名 `{作品名}_action{NN}_{动作名}.png`。切图时还会用前景投影自动检测实际网格行 / 列数，纠正模型「少画 / 多画一行一列」导致的空帧 / 错位。
 
 作品库支持「调整」编辑器：前端用 Canvas 叠加上一帧/闭环帧半透明影子，用户可拖动每帧主体、用滚轮缩放当前帧主体（绕帧中心），保存时本地重合成 alignment 版本（含 fps、每帧 offset 与 scale），不重新调用 AI，不额外扣点。序列帧作品不再提供「重新像素化」或「AI 微调」入口，避免把整张 sprite sheet 当普通单图再次处理；如需改帧位置使用「调整」，如需导出使用下载。

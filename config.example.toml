@@ -235,6 +235,7 @@ fit_min_axis_coverage = 0.7
 palette_mode    = "auto"
 # 默认模板只需要用户填写 Subject 后的主体内容；Web 可通过素材类型/主体类型选择入口参数。
 # asset_kind 支持 item_icon（物品图标）、ui_component（UI 组件）、tile_texture（平铺纹理）和 game_logo（游戏 Logo）。
+# 平铺纹理会跳过下面的普通素材模板，改用专用 tile prompt；asset.texture_kind 可选 auto/generic_texture/terrain_ground/path_floor/wall_surface/wood_planks/water_liquid/foliage_canopy/roof_tile/metal_panel/fabric_carpet，用于注入常见像素游戏纹理规则。
 # UI 组件直出会使用 image_size="auto" 生图源尺寸，目标像素尺寸仍由 pixel_size / 请求 output_size 控制。
 # {width}x{height} 随输出尺寸自动填充；{max_colors}/{colors} 使用用户实际选择的颜色上限；{key_tolerance} 仅约束背景与主体的最小色距。
 # {asset_kind_label}/{asset_usage_label}/{subject_kind_label}/{placement_context}/{forbidden_elements} 会按素材类型自动分开填充，避免同一 prompt 混写物品、UI、纹理或 Logo 语义；自定义模板不要写死 No text，Logo 文字限制请交给 {forbidden_elements}。

@@ -3,7 +3,7 @@ import { Upload } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
-import type { GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule } from '../types'
+import type { GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule, TextureKind } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -20,11 +20,26 @@ import { PixelControls } from './PixelControls'
 type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; reuseJobSeed?: { revision: number; job: GenerationJob } | null; onSubmit: (payload: JobCreateRequest) => Promise<void> }
 type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
 
+type TextureKindOption = { value: TextureKind; zh: string; en: string }
+
 const PROMPT_MAX_LENGTH = 3000
 const ROW_PROMPT_MAX_LENGTH = 600
 const MAX_GRID_AXIS = 8
 const LOGO_SIZE_OPTIONS = ['64x32', '96x48', '128x64', '192x96', '256x128']
 const UI_COMPONENT_IMAGE_SIZE = 'auto'
+const TEXTURE_KIND_OPTIONS: TextureKindOption[] = [
+  { value: 'auto', zh: '自动识别', en: 'Auto detect' },
+  { value: 'generic_texture', zh: '通用纹理', en: 'Generic texture' },
+  { value: 'terrain_ground', zh: '地表 / 地形', en: 'Terrain ground' },
+  { value: 'path_floor', zh: '道路 / 地砖', en: 'Path / floor' },
+  { value: 'wall_surface', zh: '墙壁 / 岩壁', en: 'Wall surface' },
+  { value: 'wood_planks', zh: '木板 / 树皮', en: 'Wood planks' },
+  { value: 'water_liquid', zh: '水面 / 液体', en: 'Water / liquid' },
+  { value: 'foliage_canopy', zh: '树叶 / 草丛', en: 'Foliage canopy' },
+  { value: 'roof_tile', zh: '屋顶瓦片', en: 'Roof tile' },
+  { value: 'metal_panel', zh: '金属面板', en: 'Metal panel' },
+  { value: 'fabric_carpet', zh: '布料 / 地毯', en: 'Fabric / carpet' },
+]
 
 type SpritePreset = 'horizontal' | 'four_directions' | 'character_full' | 'custom'
 
@@ -139,6 +154,10 @@ function assetKindValue(value: unknown): AssetKindChoice | null {
   return value === 'item_icon' || value === 'ui_component' || value === 'tile_texture' || value === 'game_logo' ? value : null
 }
 
+function textureKindValue(value: unknown): TextureKind | null {
+  return TEXTURE_KIND_OPTIONS.some((item) => item.value === value) ? value as TextureKind : null
+}
+
 function edgeStyleValue(value: unknown): EdgeStyleChoice | null {
   return value === 'hard' || value === 'outline' || value === 'feather' ? value : null
 }
@@ -165,6 +184,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const lastAppliedReuseRevisionRef = useRef<number | null>(null)
   const [assetName, setAssetName] = useState(() => text('冰霜之心', 'Frost Heart'))
   const [assetKind, setAssetKind] = useState<AssetKindChoice>('item_icon')
+  const [textureKind, setTextureKind] = useState<TextureKind>('auto')
   const [assetExtraPrompt, setAssetExtraPrompt] = useState('')
   const [prompt, setPrompt] = useState(() => text('一枚幻想 RPG 魔法药水图标，居中构图，轮廓清晰，透明背景', 'A fantasy RPG magic potion icon, centered composition, clear silhouette, transparent background'))
   const [inputImagePath, setInputImagePath] = useState('')
@@ -260,7 +280,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     if (jobType !== 'asset') return
     if (skipNextAssetResetRef.current) { skipNextAssetResetRef.current = false; return }
     if (assetKind === 'tile_texture') {
-      setPixelSize('32x32'); setColors(12); setRemoveBg(false); setEdgeStyle('hard')
+      setPixelSize('32x32'); setColors(12); setRemoveBg(false); setEdgeStyle('hard'); setTextureKind('auto')
       // 切到平铺纹理时清掉之前的参考图（不支持）
       setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('')
     } else if (assetKind === 'game_logo') {
@@ -282,6 +302,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     const asset = asRecord(params?.asset)
     const nextJobType = reusableWorkbenchType(job)
     const nextAssetKind = assetKindValue(asset?.asset_kind) ?? 'item_icon'
+    const nextTextureKind = textureKindValue(asset?.texture_kind) ?? 'auto'
 
     if (nextJobType !== jobType) skipNextModeResetRef.current = true
     if (nextJobType === 'asset' && nextAssetKind !== assetKind) skipNextAssetResetRef.current = true
@@ -332,6 +353,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     }
 
     setAssetKind(nextAssetKind)
+    setTextureKind(nextAssetKind === 'tile_texture' ? nextTextureKind : 'auto')
     const assetSubject = stringValue(asset?.name) || job.prompt?.trim() || ''
     setAssetName(assetSubject)
     setAssetExtraPrompt(stringValue(asset?.extra_prompt))
@@ -444,7 +466,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           skip_vl: skipVl,
           pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
           grid: buildGridDesign(),
-          asset: { name: subject, extra_prompt: assetExtra, asset_kind: assetKind, subject_kind: subjectKind, no_preview: false },
+          asset: { name: subject, extra_prompt: assetExtra, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false },
         })
         return
       }
@@ -539,6 +561,16 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               </SelectContent>
             </Select>
           </PixField>
+          {isTileAsset && (
+            <PixField label={text('纹理类型', 'Texture type')} hint={text('选择常见游戏地图纹理类型；自动识别会按主题关键词推断，并把对应规则写入 Prompt。', 'Choose a common game-map texture type. Auto detect infers from keywords and injects matching prompt rules.')}>
+              <Select value={textureKind} onValueChange={(value) => setTextureKind(value as TextureKind)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TEXTURE_KIND_OPTIONS.map((item) => <SelectItem key={item.value} value={item.value}>{text(item.zh, item.en)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </PixField>
+          )}
           <PixField label={assetNameLabel}><Input value={assetName} placeholder={assetNamePlaceholder} onChange={(e) => setAssetName(e.target.value)} /></PixField>
           <PixField label={text('额外风格描述（可选）', 'Extra style notes (optional)')}><Textarea value={assetExtraPrompt} rows={3} maxLength={PROMPT_MAX_LENGTH} placeholder={assetExtraPlaceholder} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
           {assetSupportsReference && (

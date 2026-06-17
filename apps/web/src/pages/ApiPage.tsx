@@ -124,6 +124,10 @@ curl -X POST "$PIX_API_BASE/jobs" \
     "skip_vl": true
   }'
 
+# 平铺纹理示例：把 asset 改为
+# { "name": "苔藓石板路面", "asset_kind": "tile_texture", "texture_kind": "path_floor" }
+# 并把 pixelize.remove_bg 设为 false。texture_kind 可选 auto / generic_texture / terrain_ground / path_floor / wall_surface / wood_planks / water_liquid / foliage_canopy / roof_tile / metal_panel / fabric_carpet。
+
 # 202 返回 JobResponse，记录 id 后轮询 /jobs/{id}`, [])
   const imageCurl = useMemo(() => String.raw`# 图生图 / 参考图重绘：先上传图片，再把返回 path 放到 input_image_path
 # asset.asset_kind 可选 item_icon / ui_component / tile_texture / game_logo，决定按哪种素材规则重绘（默认 item_icon）

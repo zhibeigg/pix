@@ -45,6 +45,7 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
   const assetRows = job.job_type === 'asset' ? compactRows([
     [text('素材类型', 'Asset type'), assetKindLabel(asset?.asset_kind, text)],
     [text('主体类型', 'Subject type'), subjectKindLabel(asset?.subject_kind, text)],
+    [text('纹理类型', 'Texture type'), asset?.asset_kind === 'tile_texture' ? textureKindLabel(asset?.texture_kind, text) : '—'],
   ]) : []
 
   const spriteRows = job.job_type === 'sprite_sheet' ? compactRows([
@@ -147,6 +148,7 @@ function buildUserInputSnapshot(job: GenerationJob) {
       extra_prompt: asset?.extra_prompt,
       asset_kind: asset?.asset_kind,
       subject_kind: asset?.subject_kind,
+      texture_kind: asset?.texture_kind,
     }) : undefined,
     sequence: job.job_type === 'sprite_sheet' ? stripEmpty({
       frame_count: sprite?.frame_count,
@@ -195,6 +197,21 @@ function subjectKindLabel(value: unknown, text: (zh: string, en: string) => stri
   if (value === 'single_ui') return text('单个 UI', 'Single UI')
   if (value === 'tileable_pattern') return text('无缝平铺图案', 'Seamlessly tileable pattern')
   if (value === 'logo_mark') return text('Logo 标题标识', 'Logo title mark')
+  return stringOrDash(value)
+}
+
+function textureKindLabel(value: unknown, text: (zh: string, en: string) => string): string {
+  if (value === 'auto') return text('自动识别', 'Auto detect')
+  if (value === 'generic_texture') return text('通用纹理', 'Generic texture')
+  if (value === 'terrain_ground') return text('地表 / 地形', 'Terrain ground')
+  if (value === 'path_floor') return text('道路 / 地砖', 'Path / floor')
+  if (value === 'wall_surface') return text('墙壁 / 岩壁', 'Wall surface')
+  if (value === 'wood_planks') return text('木板 / 树皮', 'Wood planks / bark')
+  if (value === 'water_liquid') return text('水面 / 液体', 'Water / liquid')
+  if (value === 'foliage_canopy') return text('树叶 / 草丛', 'Foliage canopy')
+  if (value === 'roof_tile') return text('屋顶瓦片', 'Roof tile')
+  if (value === 'metal_panel') return text('金属面板', 'Metal panel')
+  if (value === 'fabric_carpet') return text('布料 / 地毯', 'Fabric / carpet')
   return stringOrDash(value)
 }
 

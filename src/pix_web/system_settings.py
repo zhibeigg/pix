@@ -191,7 +191,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.asset.fit_mode", "贴合模式", "素材默认值", "select", "", options=("smart", "contain", "cover")),
     SettingDefinition("pix.asset.fit_padding", "贴合留白", "素材默认值", "number", ""),
     SettingDefinition("pix.asset.fit_min_axis_coverage", "主体最小覆盖率", "素材默认值", "number", ""),
-    SettingDefinition("pix.asset.prompt_template", "素材 Prompt 模板", "素材默认值", "textarea", "", "可用占位符：{width}/{height}/{name}/{max_colors}/{colors}/{key_tolerance}，也兼容 {green}/{key_color}/{size_label}/{asset_kind_label}/{asset_usage_label}/{subject_kind_label}/{placement_context}/{forbidden_elements}/{canvas_shape}；物品图标、UI 组件、平铺纹理与游戏 Logo 语义会按 asset_kind 分开，不要在同一模板写死 inventory/UI/No text，Logo 文字限制请交给 {forbidden_elements}。"),
+    SettingDefinition("pix.asset.prompt_template", "素材 Prompt 模板", "素材默认值", "textarea", "", "可用占位符：{width}/{height}/{name}/{max_colors}/{colors}/{key_tolerance}，也兼容 {green}/{key_color}/{size_label}/{asset_kind_label}/{asset_usage_label}/{subject_kind_label}/{placement_context}/{forbidden_elements}/{canvas_shape}；物品图标、UI 组件与游戏 Logo 语义会按 asset_kind 分开；平铺纹理会跳过此普通模板，改由 asset.texture_kind 注入专用规则；不要在同一模板写死 inventory/UI/No text，Logo 文字限制请交给 {forbidden_elements}。"),
     SettingDefinition("pix.sprite.frame_count", "默认帧数", "序列帧", "number", "", "用户未指定时使用；mosaic 模式下取 rows×cols。"),
     SettingDefinition("pix.sprite.max_frame_count", "最大总帧数", "序列帧", "number", "", "rows × cols 上限，默认 64（8×8）。"),
     SettingDefinition("pix.sprite.max_grid_rows", "网格最大行数", "序列帧", "number", "", "默认 8。"),

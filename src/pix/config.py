@@ -243,6 +243,7 @@ class AssetConfig:
     fit_min_axis_coverage: float = 0.7
     # Asset 直出默认使用 README 中的 TRUE pixel-art + 动态纯色背景标准模板；
     # 具体语义由 asset_kind 分流（物品图标 / UI 组件 / 平铺纹理 / 游戏 Logo）。
+    # 平铺纹理会跳过此普通模板，改用专用 tile prompt，并由 asset.texture_kind 注入细分规则。
     palette_mode: str = "auto"
     prompt_template: str = (
         "Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} "

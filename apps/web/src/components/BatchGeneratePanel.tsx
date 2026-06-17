@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import { useI18n } from '../i18n'
 import { useConfirm } from './ConfirmDialog'
-import type { CreditBalance, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule, UploadResponse } from '../types'
+import type { CreditBalance, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule, TextureKind, UploadResponse } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
 import { applyDiscount, discountPercentOff, discountZhe } from '../lib/pricing'
 import { Alert } from './ui/alert'
@@ -26,6 +26,19 @@ type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; balanc
 const PROMPT_MAX_LENGTH = 3000
 const LOGO_SIZE_OPTIONS = ['64x32', '96x48', '128x64', '192x96', '256x128']
 const UI_COMPONENT_IMAGE_SIZE = 'auto'
+const TEXTURE_KIND_VALUES: TextureKind[] = [
+  'auto',
+  'generic_texture',
+  'terrain_ground',
+  'path_floor',
+  'wall_surface',
+  'wood_planks',
+  'water_liquid',
+  'foliage_canopy',
+  'roof_tile',
+  'metal_panel',
+  'fabric_carpet',
+]
 
 function modelItems(imageModels: ImageModelsResponse): ImageModelInfo[] {
   const byId = new Map((imageModels.items ?? []).map((item) => [item.id, item]))
@@ -56,6 +69,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
   const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
   const [prompts, setPrompts] = useState(() => t('batchForm.defaults.prompts'))
   const [assetKind, setAssetKind] = useState<AssetKindChoice>('item_icon')
+  const [textureKind, setTextureKind] = useState<TextureKind>('auto')
   const [assetExtraPrompt, setAssetExtraPrompt] = useState(() => t('batchForm.defaults.assetExtraPrompt'))
   const [uploads, setUploads] = useState<BatchUpload[]>([])
   const [uploading, setUploading] = useState(false)
@@ -99,7 +113,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
   useEffect(() => {
     if (batchMode !== 'asset') return
     if (assetKind === 'tile_texture') {
-      setPixelSize('32x32'); setColors(12); setRemoveBg(false); setEdgeStyle('hard')
+      setPixelSize('32x32'); setColors(12); setRemoveBg(false); setEdgeStyle('hard'); setTextureKind('auto')
     } else if (assetKind === 'game_logo') {
       setPixelSize('128x64'); setColors(24); setRemoveBg(true); setEdgeStyle('hard')
     } else if (assetKind === 'item_icon') {
@@ -139,7 +153,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
     const grid = buildGridDesign()
     const modelOverride = imageModel !== imageModels.default ? imageModel : undefined
     let payloads: JobCreateRequest[] = []
-    if (batchMode === 'asset') payloads = lines.map((name) => ({ job_type: 'asset', prompt: name, input_image_path: null, client_request_id: crypto.randomUUID(), image_size: uiComponentImageSize, image_model: modelOverride, pixelize, grid, asset: { name, extra_prompt: assetExtraPrompt.trim(), asset_kind: assetKind, subject_kind: subjectKind, no_preview: false } }))
+    if (batchMode === 'asset') payloads = lines.map((name) => ({ job_type: 'asset', prompt: name, input_image_path: null, client_request_id: crypto.randomUUID(), image_size: uiComponentImageSize, image_model: modelOverride, pixelize, grid, asset: { name, extra_prompt: assetExtraPrompt.trim(), asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false } }))
     else payloads = uploaded.map((item) => ({ job_type: 'local_pixelize', prompt: null, input_image_path: item.upload?.path ?? null, client_request_id: crypto.randomUUID(), skip_vl: true, pixelize, grid }))
     if (payloads.length >= 10 && !(await confirm({ title: t('batchForm.title'), description: t('batchForm.confirmQueue', { count: payloads.length, total: totalPrice }), confirmText: t('common.confirm') }))) return
     await onSubmitMany(payloads, '', batchMode)
@@ -166,6 +180,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
         {batchMode === 'asset' ? <div className="grid gap-4">
           {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
             <PixField label={t('batchForm.assetKindLabel')}><Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="item_icon">{t('batchForm.assetKinds.item_icon')}</SelectItem><SelectItem value="ui_component">{t('batchForm.assetKinds.ui_component')}</SelectItem><SelectItem value="tile_texture">{t('batchForm.assetKinds.tile_texture')}</SelectItem><SelectItem value="game_logo">{t('batchForm.assetKinds.game_logo')}</SelectItem></SelectContent></Select></PixField>
+            {isTileAsset && <PixField label={t('batchForm.textureKindLabel')} hint={t('batchForm.textureKindHint')}><Select value={textureKind} onValueChange={(value) => setTextureKind(value as TextureKind)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TEXTURE_KIND_VALUES.map((value) => <SelectItem key={value} value={value}>{t(`batchForm.textureKinds.${value}`)}</SelectItem>)}</SelectContent></Select></PixField>}
             <PixField label={t('batchForm.extraStyle')}><Textarea value={assetExtraPrompt} rows={3} maxLength={PROMPT_MAX_LENGTH} placeholder={t('batchForm.extraStylePlaceholder')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
           </div>}
           <PixField label={assetSubjectsLabel}><Textarea value={prompts} rows={8} placeholder={assetSubjectPlaceholder} onChange={(e) => setPrompts(e.target.value)} /></PixField>

@@ -212,11 +212,14 @@ export type SpriteParams = {
   loop: number
 }
 
+export type TextureKind = 'auto' | 'generic_texture' | 'terrain_ground' | 'path_floor' | 'wall_surface' | 'wood_planks' | 'water_liquid' | 'foliage_canopy' | 'roof_tile' | 'metal_panel' | 'fabric_carpet'
+
 export type AssetParams = {
   name: string
   extra_prompt?: string
   asset_kind?: 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
   subject_kind?: 'single_prop' | 'single_ui' | 'tileable_pattern' | 'logo_mark'
+  texture_kind?: TextureKind
   use_vl?: boolean | null
   no_preview?: boolean
 }

@@ -431,6 +431,19 @@ class AssetParamsSchema(BaseModel):
     subject_kind: Literal["single_prop", "single_ui", "tileable_pattern", "logo_mark"] = (
         "single_prop"
     )
+    texture_kind: Literal[
+        "auto",
+        "generic_texture",
+        "terrain_ground",
+        "path_floor",
+        "wall_surface",
+        "wood_planks",
+        "water_liquid",
+        "foliage_canopy",
+        "roof_tile",
+        "metal_panel",
+        "fabric_carpet",
+    ] = "auto"
     use_vl: bool | None = None
     no_preview: bool = False
 
@@ -1228,7 +1241,7 @@ class ImageProviderUpdateRequest(BaseModel):
     display_name: str = ""
     enabled: bool = True
     base_url: str = ""
-    api_key: str = ""           # 空=保留原值（写入式更新）
+    api_key: str = ""  # 空=保留原值（写入式更新）
     clear_api_key: bool = False
     api_key_env: str = Field(default="", max_length=96)
     priority: int = 100
