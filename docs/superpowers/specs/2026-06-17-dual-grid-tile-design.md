@@ -73,7 +73,7 @@ A、B 各是一张 `output_size` 的四边无缝纹理。可选把 A、B 一起�
 
 - `asset_kind=dual_grid` 时 `material_a` 必填非空；`material_b` 始终提供，空串或 `"transparent"` 解释为透明模式（不报「缺失」错）。
 - `output_size` 仍 ≥16×16（沿用 `resolve_asset_generation_policy`），单瓦片尺寸即 output_size。
-- `transition_style` 限三枚举，越界回退默认。
+- `transition_style` 限三枚举（strict `Literal`，非法值由 schema 直接 422 拒绝，不静默回退）。
 
 ## 6. 后端 pipeline 集成
 
@@ -98,7 +98,7 @@ A、B 各是一张 `output_size` 的四边无缝纹理。可选把 A、B 一起�
 - `{run}/dual_grid_preview.png`（应用预览）
 - `{run}/materials/material_a.png`、`material_b.png`（调试 + 复用；透明模式无 B）
 - `{run}/meta.json`：`asset_kind`、`material_a/b`、解析后 texture kinds、`transition_style`、`transparent_mode`、`tile_size`、`atlas_size`、`convention`、`mapping`(bitmask→cell)、`preview_seed`、`shared_palette`。
-- 后端 `OutputResponse` 新增 `dual_grid_atlas_path/url`、`dual_grid_preview_path/url`（computed_field，类比 `sprite_*`）。
+- 后端 `JobOutputResponse`（schemas.py:509）新增 `dual_grid_atlas_path/url`、`dual_grid_preview_path/url`（computed_field，类比 `sprite_mosaic_path`）。
 
 ## 8. 错误处理 / 边界
 

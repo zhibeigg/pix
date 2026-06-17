@@ -18,7 +18,7 @@
 |---|---|---|
 | `src/pix/dual_grid.py` | 纯算法：角位编码、16 归属掩码、单瓦片合成、4×4 图集 + 映射、应用预览、种子派生 | 新建 |
 | `tests/test_dual_grid.py` | 纯算法全部单测（含核心无缝性测试） | 新建 |
-| `src/pix_web/schemas.py` | `AssetParamsSchema` 加 `dual_grid` 与字段；`OutputResponse` 加 atlas/preview computed_field | 修改 |
+| `src/pix_web/schemas.py` | `AssetParamsSchema` 加 `dual_grid` 与字段；`JobOutputResponse` 加 atlas/preview computed_field | 修改 |
 | `src/pix_web/pipeline_adapter.py` | 抽出 `_generate_tile_material()` 复用；加 `run_dual_grid_asset_job_pipeline`；`run_job_pipeline` 路由 | 修改 |
 | `src/pix/asset.py` | `dual_grid` 注册进 `ASSET_KIND_LABELS`（防 KeyError） | 修改 |
 | `tests/test_dual_grid_pipeline.py` | pipeline 端到端（mock 生图） | 新建 |
@@ -446,35 +446,45 @@ git commit -m "feat(dual-grid): AssetParamsSchema dual_grid kind + material/tran
 - Modify: `src/pix/asset.py`（`ASSET_KIND_LABELS` 加 `dual_grid`）
 - Test: `tests/test_dual_grid_pipeline.py`
 
-> **实现要点：** 把 `run_tile_asset_job_pipeline` 中「prompt 构造 → generate_image → perfect_pixel → 落到 (w,h)」抽成 `_generate_tile_material(asset_cfg, settings, *, name, extra_prompt, texture_kind, size, image_*, run_dir, tag) -> Path`，原 tile pipeline 改为调用它（保持行为不变，回归现有 tile 测试）。`run_dual_grid_asset_job_pipeline` 调它两次（A、B；透明模式跳过 B），把结果 `np.asarray(Image.open(p).convert("RGBA").resize((w,h), NEAREST))` 后交给 `compose_atlas` / `render_preview`，落盘 atlas/preview/materials/meta。透明模式 outline 缺省色 = 材质 A 最暗可见色（`mat_a` 里 alpha>0 的像素按亮度取最小）。
+> **实现要点：** 把 `run_tile_asset_job_pipeline` 中「prompt 构造 → generate_image → perfect_pixel → 落到 (w,h)」抽成 `_generate_tile_material(asset_cfg, settings, *, name, extra_prompt, texture_kind, size, image_*, run_dir, tag) -> Path`，原 tile pipeline 改为调用它（保持行为不变，回归现有 tile 测试）。`run_dual_grid_asset_job_pipeline` 调它两次（A、B；透明模式跳过 B），把结果 `np.asarray(Image.open(p).convert("RGBA").resize((w,h), NEAREST))` 后交给 `compose_atlas` / `render_preview`，落盘 atlas/preview/materials/meta。透明模式 outline 缺省色 = 材质 A 最暗可见色（`mat_a` 里 alpha>0 的像素按亮度取最小；若 A 全透明则回退 `(32,32,32)`，避免空数组 `min()`）。
 
 - [ ] **Step 1: 写失败测试（mock 生图）**
 
 ```python
 # 追加到 tests/test_dual_grid_pipeline.py
+import contextlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
+
 from PIL import Image
 
-
-def _make_job(tmp_path: Path, **asset):
-    # 用项目现有的 GenerationJob 构造方式（参考 tests/ 里 tile/asset 既有测试的 helper）
-    ...
+import pix_web.pipeline_adapter as pa
+from pix.config import AppConfig
 
 
 def test_dual_grid_pipeline_outputs(monkeypatch, tmp_path) -> None:
-    # mock generate_image：把纯色图写到 raw_path，绕过真实生图
-    import pix_web.pipeline_adapter as pa
-
+    # mock 生图：按 prompt 里材质关键词写纯色图，绕过真实 API
     def fake_generate_image(cfg, prompt, raw_path, **kw):
-        color = (10, 200, 10, 255) if "材质A" in prompt or "草" in prompt else (180, 120, 60, 255)
+        color = (10, 200, 10, 255) if "草" in prompt else (180, 120, 60, 255)
         Image.new("RGBA", (256, 256), color).save(raw_path)
-
     monkeypatch.setattr(pa, "generate_image", fake_generate_image)
+    # 本地阶段上下文在测试里用 nullcontext 占位（解耦真实生图环境）
+    monkeypatch.setattr(pa, "_local_stage_context", lambda settings: (lambda: contextlib.nullcontext()))
 
-    job = _make_job(tmp_path, asset_kind="dual_grid", name="草地泥土",
-                    material_a="草", material_b="泥土", transition_style="rounded")
-    result = pa.run_dual_grid_asset_job_pipeline(job, _settings(tmp_path), _cfg())
+    # job/settings 仿 tests/test_candidate_reprocess.py 的 SimpleNamespace 模式（无共享 helper）
+    job = SimpleNamespace(
+        id=101, job_type="asset", prompt="草地泥土双瓦片", input_image_path=None,
+        params_json={
+            "pixelize": {"output_size": [32, 32], "colors": 12},
+            "asset": {
+                "name": "草地泥土双瓦片", "asset_kind": "dual_grid",
+                "material_a": "草地", "material_b": "泥土", "transition_style": "rounded",
+            },
+        },
+    )
+    settings = SimpleNamespace(storage_root=tmp_path)
+    result = pa.run_dual_grid_asset_job_pipeline(job, settings, AppConfig())  # type: ignore[arg-type]
 
     meta = json.loads(Path(result.meta_path).read_text(encoding="utf-8"))
     assert meta["asset"]["asset_kind"] == "dual_grid"
@@ -486,7 +496,7 @@ def test_dual_grid_pipeline_outputs(monkeypatch, tmp_path) -> None:
     assert (result.run_dir / "dual_grid_preview.png").exists()
 ```
 
-> 注：`_make_job/_settings/_cfg` 复用现有 tile/asset 测试里的构造 helper（实现时先看 `tests/` 下既有 asset pipeline 测试，DRY 复用，勿新造）。
+> 注：本测试不依赖共享 helper —— job/settings 直接用 `SimpleNamespace`（仿 `tests/test_candidate_reprocess.py`），cfg 用 `AppConfig()`，生图与 `_local_stage_context` 均 monkeypatch。`tests/` 下无 `conftest.py`/共享 fixture，勿去找。若 mock 生图的纯色图经 perfect_pixel 后尺寸非 32×32，断言改读 `meta["asset"]["tile_size"]`（已如此）。
 
 - [ ] **Step 2: 运行确认失败**
 
@@ -495,13 +505,14 @@ Expected: FAIL（`run_dual_grid_asset_job_pipeline` 未定义）
 
 - [ ] **Step 3: 实现**
 
-1. `src/pix/asset.py`：`ASSET_KIND_LABELS` 加 `"dual_grid": "dual-grid tileset"`。
+1. `src/pix/asset.py`：`ASSET_KIND_LABELS` 加 `"dual_grid": "dual-grid tileset"`。（dual_grid 生成材质时复用 `tile_texture` 的 prompt profile，运行期不会查 dual_grid 的 `ASSET_PROMPT_PROFILES`/`COMPATIBLE_SUBJECT_KINDS`，故**仅注册 label** 即可，无需在那两张表加项——与 spec §5.1 的差异是有意的。）
 2. `pipeline_adapter.py`：抽 `_generate_tile_material(...)`（见上「实现要点」），原 `run_tile_asset_job_pipeline` 改调它。
 3. 新增 `run_dual_grid_asset_job_pipeline(job, settings, cfg)`：解析 `material_a/b/transition_style/material_*_texture_kind`；生成 A（必）与 B（非透明时）；`compose_atlas` + `render_preview`；落盘 `dual_grid_atlas.png` / `dual_grid_preview.png` / `materials/material_a.png`(+`material_b.png`) / `meta.json`（含 `asset_kind/material_a/material_b/transition_style/transparent_mode/tile_size/atlas_size/convention/mapping/preview_seed/resolved_texture_kind_*`），返回 `PipelineResult`（`pixel_path`=atlas、`preview_path`=preview）。
 4. `run_job_pipeline`：`asset_kind=="dual_grid"` → 新 pipeline。
 
 ```python
-# run_job_pipeline 内，tile_texture 分支旁：
+# run_job_pipeline 内：置于现有 `if job.job_type == "asset":` 块中、
+# `asset = _asset_data(job)` 之后，替换原 tile_texture 单行判断（复用已取的 asset）：
         kind = str(asset.get("asset_kind") or "item_icon")
         if kind == "dual_grid":
             return run_dual_grid_asset_job_pipeline(job, settings, resolved_cfg)
@@ -527,7 +538,7 @@ git commit -m "feat(dual-grid): backend pipeline generating A/B materials + atla
 ## Task 6: OutputResponse 暴露 atlas/preview 路径
 
 **Files:**
-- Modify: `src/pix_web/schemas.py`（`OutputResponse`，仿 `sprite_*` computed_field）
+- Modify: `src/pix_web/schemas.py`（`JobOutputResponse`，schemas.py:509，仿 `sprite_mosaic_path` computed_field）
 - Test: `tests/test_dual_grid_pipeline.py`
 
 - [ ] **Step 1: 写失败测试**
@@ -541,16 +552,24 @@ def test_output_response_exposes_dual_grid_paths(tmp_path) -> None:
     meta_path.write_text(json.dumps(meta), encoding="utf-8")
     (tmp_path / "dual_grid_atlas.png").write_bytes(b"x")
     (tmp_path / "dual_grid_preview.png").write_bytes(b"x")
-    from pix_web.schemas import OutputResponse
-    resp = OutputResponse(meta_json_path=str(meta_path))   # 按现有构造方式
+    from pix_web.schemas import JobOutputResponse
+    # JobOutputResponse 6 个必填字段（preview_path/analysis_json_path 无默认，须显式传）
+    resp = JobOutputResponse(
+        run_dir=str(tmp_path),
+        source_path=str(tmp_path / "x.png"),
+        pixelized_path=str(tmp_path / "dual_grid_atlas.png"),
+        preview_path=str(tmp_path / "dual_grid_preview.png"),
+        analysis_json_path=None,
+        meta_json_path=str(meta_path),
+    )
     assert resp.dual_grid_atlas_path and resp.dual_grid_atlas_path.endswith("dual_grid_atlas.png")
     assert resp.dual_grid_preview_path.endswith("dual_grid_preview.png")
 ```
 
-> 注：`OutputResponse` 真实构造参数以现有测试为准，实现时对齐。
+> 注：`tests/` 无现成 `JobOutputResponse` 构造可复用（grep 0 处），故上面显式传全部 6 必填字段。
 
 - [ ] **Step 2: 运行确认失败** → `dual_grid_atlas_path` 不存在
-- [ ] **Step 3: 实现**：仿 `sprite_mosaic_path`/`_url` 加四个 computed_field：`dual_grid_atlas_path/url`、`dual_grid_preview_path/url`，从 `_outputs_meta` 读 `dual_grid_atlas`/`dual_grid_preview`。
+- [ ] **Step 3: 实现**：在 `JobOutputResponse`（schemas.py:509）上仿 `sprite_mosaic_path`/`_url` 加四个 computed_field：`dual_grid_atlas_path/url`、`dual_grid_preview_path/url`，从 `_outputs_meta` 读 `dual_grid_atlas`/`dual_grid_preview`，路径用 `_resolve_meta_relative_path`。
 - [ ] **Step 4: 运行确认通过**
 - [ ] **Step 5: 提交**
 
