@@ -636,6 +636,28 @@ class JobOutputResponse(BaseModel):
 
     @computed_field
     @property
+    def dual_grid_atlas_path(self) -> str | None:
+        atlas = _outputs_meta(self.meta_json_path).get("dual_grid_atlas")
+        return _resolve_meta_relative_path(self.meta_json_path, str(atlas)) if atlas else None
+
+    @computed_field
+    @property
+    def dual_grid_atlas_url(self) -> str | None:
+        return file_url(self.dual_grid_atlas_path)
+
+    @computed_field
+    @property
+    def dual_grid_preview_path(self) -> str | None:
+        preview = _outputs_meta(self.meta_json_path).get("dual_grid_preview")
+        return _resolve_meta_relative_path(self.meta_json_path, str(preview)) if preview else None
+
+    @computed_field
+    @property
+    def dual_grid_preview_url(self) -> str | None:
+        return file_url(self.dual_grid_preview_path)
+
+    @computed_field
+    @property
     def sprite_sheet_grid_path(self) -> str | None:
         outputs = _outputs_meta(self.meta_json_path)
         grid = outputs.get("sprite_sheet_grid") or _sprite_meta(self.meta_json_path).get(

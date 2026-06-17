@@ -62,3 +62,24 @@ def test_dual_grid_pipeline_outputs(monkeypatch, tmp_path) -> None:
     w, h = meta["asset"]["tile_size"]
     assert atlas.size == (w * 4, h * 4)
     assert (result.run_dir / "dual_grid_preview.png").exists()
+
+
+def test_output_response_exposes_dual_grid_paths(tmp_path) -> None:
+    meta = {"outputs": {"dual_grid_atlas": "dual_grid_atlas.png",
+                        "dual_grid_preview": "dual_grid_preview.png"}}
+    meta_path = tmp_path / "meta.json"
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+    (tmp_path / "dual_grid_atlas.png").write_bytes(b"x")
+    (tmp_path / "dual_grid_preview.png").write_bytes(b"x")
+    from pix_web.schemas import JobOutputResponse
+    # JobOutputResponse 6 个必填字段（preview_path/analysis_json_path 无默认，须显式传）
+    resp = JobOutputResponse(
+        run_dir=str(tmp_path),
+        source_path=str(tmp_path / "x.png"),
+        pixelized_path=str(tmp_path / "dual_grid_atlas.png"),
+        preview_path=str(tmp_path / "dual_grid_preview.png"),
+        analysis_json_path=None,
+        meta_json_path=str(meta_path),
+    )
+    assert resp.dual_grid_atlas_path and resp.dual_grid_atlas_path.endswith("dual_grid_atlas.png")
+    assert resp.dual_grid_preview_path.endswith("dual_grid_preview.png")
