@@ -3,7 +3,15 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from pix.dual_grid import TL, TR, BL, BR, material_mask
+from pix.dual_grid import (
+    TL,
+    TR,
+    BL,
+    BR,
+    compose_atlas,
+    compose_tile,
+    material_mask,
+)
 
 
 def test_mask_index_0_all_b_and_15_all_a() -> None:
@@ -44,3 +52,51 @@ def test_seamless_shared_edges_match(style: str, size: tuple[int, int]) -> None:
                 assert np.array_equal(masks[a][:, -1], masks[b][:, 0]), f"H {a}->{b} {style} {size}"
             if _shares_vertical_edge(a, b):
                 assert np.array_equal(masks[a][-1, :], masks[b][0, :]), f"V {a}->{b} {style} {size}"
+
+
+def _solid(w: int, h: int, rgba: tuple[int, int, int, int]) -> np.ndarray:
+    arr = np.zeros((h, w, 4), dtype=np.uint8)
+    arr[:, :] = rgba
+    return arr
+
+
+def test_compose_tile_fills_a_and_b() -> None:
+    mat_a = _solid(32, 32, (10, 200, 10, 255))
+    mat_b = _solid(32, 32, (10, 10, 200, 255))
+    mask = material_mask(TL, 32, 32, "hard")
+    tile = compose_tile(mask, mat_a, mat_b, "hard", (0, 0, 0))
+    assert tuple(tile[0, 0]) == (10, 200, 10, 255)      # TL 象限 = A
+    assert tuple(tile[0, 31]) == (10, 10, 200, 255)     # TR 象限 = B
+
+
+def test_compose_tile_transparent_b() -> None:
+    mat_a = _solid(32, 32, (10, 200, 10, 255))
+    mask = material_mask(TL, 32, 32, "rounded")
+    tile = compose_tile(mask, mat_a, None, "rounded", (0, 0, 0))
+    assert tile[~mask, 3].max() == 0          # B 区透明
+    assert tile[mask, 3].min() == 255         # A 区不透明
+
+
+def test_compose_tile_outline_borders_a_side() -> None:
+    mat_a = _solid(32, 32, (10, 200, 10, 255))
+    mask = material_mask(TL, 32, 32, "outline")
+    tile = compose_tile(mask, mat_a, None, "outline", (0, 0, 0))
+    # 存在被描边的 A 像素（A 区内缘）
+    outlined = np.all(tile[:, :, :3] == (0, 0, 0), axis=2) & (tile[:, :, 3] == 255)
+    assert outlined.any()
+    # 描边只落在 A 区（mask 为 True 处）
+    assert not (outlined & ~mask).any()
+
+
+def test_compose_atlas_layout_and_mapping() -> None:
+    mat_a = _solid(16, 16, (10, 200, 10, 255))
+    mat_b = _solid(16, 16, (10, 10, 200, 255))
+    atlas, tiles, mapping = compose_atlas(mat_a, mat_b, "hard", (0, 0, 0))
+    assert atlas.shape == (64, 64, 4)         # 4×4 × 16
+    assert len(tiles) == 16 and len(mapping) == 16
+    for idx, entry in enumerate(mapping):
+        assert entry["bitmask"] == idx
+        r, c = entry["row"], entry["col"]
+        assert (r, c) == (idx // 4, idx % 4)
+        sub = atlas[r * 16:(r + 1) * 16, c * 16:(c + 1) * 16]
+        assert np.array_equal(sub, tiles[idx])

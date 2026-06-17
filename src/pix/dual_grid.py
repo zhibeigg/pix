@@ -43,3 +43,61 @@ def material_mask(idx: int, w: int, h: int, style: str) -> np.ndarray:
         + float(br) * u * v
     )
     return field >= 0.5
+
+
+def _a_side_border(mask: np.ndarray) -> np.ndarray:
+    """A 区内缘：mask 为 True、且 4 邻域里存在非 A 像素的位置。"""
+    non_a = ~mask
+    nb = np.zeros_like(mask)
+    nb[:-1, :] |= non_a[1:, :]
+    nb[1:, :] |= non_a[:-1, :]
+    nb[:, :-1] |= non_a[:, 1:]
+    nb[:, 1:] |= non_a[:, :-1]
+    return mask & nb
+
+
+def compose_tile(
+    mask: np.ndarray,
+    mat_a: np.ndarray,
+    mat_b: np.ndarray | None,
+    style: str,
+    outline_rgb: tuple[int, int, int],
+) -> np.ndarray:
+    """按归属掩码采样材质（本地坐标）合成单瓦片 RGBA。mat_b=None 即透明模式。"""
+    h, w = mask.shape
+    out = np.zeros((h, w, 4), dtype=np.uint8)
+    out[mask] = mat_a[mask]
+    if mat_b is not None:
+        out[~mask] = mat_b[~mask]
+    if style == "outline":
+        border = _a_side_border(mask)
+        out[border, :3] = np.array(outline_rgb, dtype=np.uint8)
+        out[border, 3] = 255
+    return out
+
+
+def compose_atlas(
+    mat_a: np.ndarray,
+    mat_b: np.ndarray | None,
+    style: str,
+    outline_rgb: tuple[int, int, int],
+) -> tuple[np.ndarray, list[np.ndarray], list[dict]]:
+    """生成 16 瓦片 + 4×4 图集 + bitmask→cell 映射表。"""
+    h, w = mat_a.shape[:2]
+    atlas = np.zeros((h * ATLAS_ROWS, w * ATLAS_COLS, 4), dtype=np.uint8)
+    tiles: list[np.ndarray] = []
+    mapping: list[dict] = []
+    for idx in range(16):
+        mask = material_mask(idx, w, h, style)
+        tile = compose_tile(mask, mat_a, mat_b, style, outline_rgb)
+        tiles.append(tile)
+        row, col = idx // ATLAS_COLS, idx % ATLAS_COLS
+        atlas[row * h:(row + 1) * h, col * w:(col + 1) * w] = tile
+        mapping.append({
+            "bitmask": idx,
+            "row": row,
+            "col": col,
+            "corners": {"tl": bool(idx & TL), "tr": bool(idx & TR),
+                        "bl": bool(idx & BL), "br": bool(idx & BR)},
+        })
+    return atlas, tiles, mapping
