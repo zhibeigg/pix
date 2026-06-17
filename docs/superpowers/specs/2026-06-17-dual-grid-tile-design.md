@@ -43,8 +43,8 @@ Pix 现有 `asset_kind=tile_texture` 只生成**单张四边无缝**纹理（左
 - `transition_style`：
   - `hard`：象限硬边（边界在 `x=mx`、`y=my`）。
   - `rounded`（默认）：在象限交界处按半径 `r = max(1, min(W,H)//4)` 做圆角，**仅改瓦片内部**；每条边最外 1px 严格遵守边不变量（近角材质 + 中点二分）。
-  - `outline`：在 `rounded` 归属基础上，对 A↔B（或 A↔透明）边界的 **A 侧**画 1px 描边色。
-- **透明模式**（material_b=transparent）：B 像素 `alpha=0`，A 像素取材质 A；`transition_style` 默认按 `outline` 处理（给孤岛边缘 1px 描边防裸边），用户仍可显式选 hard/rounded。
+  - `outline`：在 `rounded` 归属基础上，对 A↔B（或 A↔透明）边界的 **A 侧像素**（A 区内缩 1px，绝不画在 B/透明一侧——在 `alpha=0` 上色无意义）画 1px 描边色。描边色缺省取**材质 A 的最暗可见色**（让描边与主体融合）；后续可加 `dual_grid.outline_color` 配置覆盖。
+- **透明模式**（material_b=transparent）：B 像素 `alpha=0`，A 像素取材质 A；`transition_style` 缺省按 `outline` 处理（即上面的「A 区内缩 1px 描边」给孤岛边缘防裸边），用户仍可显式选 hard/rounded。
 
 ### 4.3 材质对齐（可选共享调色板）
 
@@ -59,17 +59,19 @@ A、B 各是一张 `output_size` 的四边无缝纹理。可选把 A、B 一起�
 
 | 字段 | 类型 | 默认 | 含义 |
 |---|---|---|---|
-| `material_a` | str | 必填 | 材质 A 描述（主体地形，如「草地」） |
-| `material_b` | str | 必填 | 材质 B 描述；`"transparent"`/空 = 透明模式 |
-| `material_a_texture_kind` | TileTextureKind | `auto` | A 的纹理细分（复用现有） |
+| `material_a` | str | 必填非空 | 材质 A 描述（主体地形，如「草地」） |
+| `material_b` | str | 始终提供 | 材质 B 描述；空串 / `"transparent"` 即透明模式（非「缺失」，校验不报错） |
+| `material_a_texture_kind` | TileTextureKind | `auto` | A 的纹理细分（复用现有枚举） |
 | `material_b_texture_kind` | TileTextureKind | `auto` | B 的纹理细分 |
 | `transition_style` | `"rounded"\|"hard"\|"outline"` | `rounded` | A/B 交界画法 |
+
+> 注：dual_grid 使用上面两个 `material_*_texture_kind` 字段；`AssetParams` 现有的**单数** `texture_kind` 在 dual_grid 下忽略（该字段仅 tile_texture 使用）。
 
 - `name` 作为整体素材名（文件名/展示）。`pixelize.output_size` = 单瓦片尺寸；`pixelize.colors` 沿用限色。
 
 ### 5.2 校验
 
-- `asset_kind=dual_grid` 时 `material_a` 必填非空、`material_b` 必填（可为 `transparent`）。
+- `asset_kind=dual_grid` 时 `material_a` 必填非空；`material_b` 始终提供，空串或 `"transparent"` 解释为透明模式（不报「缺失」错）。
 - `output_size` 仍 ≥16×16（沿用 `resolve_asset_generation_policy`），单瓦片尺寸即 output_size。
 - `transition_style` 限三枚举，越界回退默认。
 
@@ -86,7 +88,7 @@ A、B 各是一张 `output_size` 的四边无缝纹理。可选把 A、B 一起�
   3. 透明模式跳过 B，否则同法生成 B；
   4. （可选）共享调色板对齐 A/B；
   5. `compose_atlas(...)` → 16 瓦片 + 4×4 图集；
-  6. `render_preview(...)` → 预览图（默认 8×8 世界格随机种子，种子写入 meta 以可复现）；
+  6. `render_preview(...)` → 预览图：种子**确定性派生自** `name + material_a + material_b + transition_style` 的哈希（同参数同预览，可复现、测试稳定），8×8 世界格，种子写入 meta；
   7. 落盘 atlas、preview、materials、meta。
 - 路由：`pipeline_adapter` 现有 dispatch（约 613 行）按 `asset_kind=="dual_grid"` 进入新 pipeline；其余 asset_kind 不变。
 
