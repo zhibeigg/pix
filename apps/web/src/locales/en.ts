@@ -282,7 +282,7 @@ export const en = {
       sharedPrompt: 'Keep the subject and convert it into a clear pixel-game icon style',
     },
     assetKindLabel: 'Asset type',
-    assetKinds: { item_icon: 'Item icon', ui_component: 'UI component', tile_texture: 'Tileable texture', game_logo: 'Game logo' },
+    assetKinds: { item_icon: 'Item icon', ui_component: 'UI component', tile_texture: 'Tileable texture', game_logo: 'Game logo', dual_grid: 'Dual-grid tileset' },
     textureKindLabel: 'Texture type',
     textureKindHint: 'Common game-map texture subtype; matching rules are injected into the prompt.',
     textureKinds: {

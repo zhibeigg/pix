@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 像素资产新增「双瓦片」（`asset_kind=dual_grid`）类型：一次任务产出一套可无缝拼接的过渡瓦片，表达两种地形 A/B 的交界（草地↔泥土、草地↔水/空等），地图引擎按经典 dual-grid 规则即可自动平滑过渡。
+  - 后端先复用 `tile_texture` 生图链路生成两张四边无缝材质 A、B，再用 16 个角掩码（`TL=bit0/TR=bit1/BL=bit2/BR=bit3`、`A=1/B=0`）**确定性合成** 16 张瓦片拼成 4×4 图集（`pix-dualgrid-v1` 约定，`idx = row*4 + col`）；无缝性由「边不变量」构造保证，而非交给模型直出整张图集。
+  - `asset` 新增字段：`material_a`（必填非空）、`material_b`（空串或 `"transparent"` 即透明模式）、`material_a_texture_kind` / `material_b_texture_kind`（复用 `texture_kind` 枚举，默认 `auto`）、`transition_style`（`rounded`（默认）/ `hard` / `outline`，所有模式默认 `rounded`，透明模式想给孤岛加 1px 防裸边描边时显式传 `outline`）。`pixelize.output_size` 为单张瓦片尺寸，图集为其 4×4 排布。
+  - 产物：`dual_grid_atlas.png`（4×4 图集）、`dual_grid_preview.png`（确定性种子的应用预览）、`materials/material_a.png`(+`material_b.png`) 与含 `convention` / `mapping`（bitmask→cell 表）/ `preview_seed` 的 `meta.json`；`JobOutputResponse` 新增 `dual_grid_atlas_path/url`、`dual_grid_preview_path/url`。详见 `docs/dual-grid-rules.md`。
 - 平铺纹理素材新增 `asset.texture_kind` 细分：支持自动识别、通用纹理、地表/地形、道路/地砖、墙壁/岩壁、木板/树皮、水面/液体、树叶/草丛、屋顶瓦片、金属面板、布料/地毯等类型；后端会把对应像素游戏纹理规则注入 prompt，并在 `meta.json` 记录请求值与最终解析值。
 
 ### Changed

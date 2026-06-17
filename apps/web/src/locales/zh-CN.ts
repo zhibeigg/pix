@@ -282,7 +282,7 @@ export const zhCN = {
       sharedPrompt: '保留主体，统一改造成清晰的像素游戏图标风格',
     },
     assetKindLabel: '素材类型',
-    assetKinds: { item_icon: '物品图标', ui_component: 'UI 组件', tile_texture: '平铺纹理', game_logo: '游戏 Logo' },
+    assetKinds: { item_icon: '物品图标', ui_component: 'UI 组件', tile_texture: '平铺纹理', game_logo: '游戏 Logo', dual_grid: '双瓦片' },
     textureKindLabel: '纹理类型',
     textureKindHint: '按常见游戏地图纹理细分，系统会把对应规则写入 Prompt。',
     textureKinds: {

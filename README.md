@@ -302,6 +302,36 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 | `metal_panel` | 金属面板 | 工业/科幻面板；面板缝、铆钉、螺丝、划痕、通风口跨边对齐，避免可读文字、Logo、屏幕和单个机器部件。 |
 | `fabric_carpet` | 布料 / 地毯 | 织物纹理、线迹、小纹样或几何重复跨边，避免外边框、流苏、中央大徽章、可读符号和布料物件轮廓。 |
 
+### 双瓦片（dual_grid）
+
+素材类型选择「双瓦片」（`asset_kind=dual_grid`）时，一次任务产出一**套**可无缝拼接的过渡瓦片，表达两种地形 A/B 的交界（草地↔泥土、草地↔水/空等），地图引擎按经典 dual-grid 规则即可自动平滑过渡。后端先用 `tile_texture` 生图链路生成两张四边无缝材质 A、B，再用 16 个角掩码**确定性合成** 16 张瓦片拼成 4×4 图集 —— 无缝性由「边不变量」构造保证，而非交给模型直出整张图集。
+
+字段写在 `asset` 块里：
+
+- `material_a`（str，必填非空）：材质 A 描述（主体地形）。
+- `material_b`（str，始终提供）：材质 B 描述；空串或 `"transparent"` 即**透明模式**（B 区透明，做地块孤岛 / 边缘），不报「缺失」错。
+- `material_a_texture_kind` / `material_b_texture_kind`（默认 `auto`）：A / B 的纹理细分，复用上表 `tile_texture` 的 `texture_kind` 枚举；`asset` 现有的单数 `texture_kind` 在 dual_grid 下忽略。
+- `transition_style`（`rounded` | `hard` | `outline`，默认 `rounded`）：A/B 交界画法。`rounded` 圆角过渡（最地道）、`hard` 象限硬边、`outline` 在 A 侧内缩 1px 描边（描边色取材质 A 最暗可见色）。**默认在所有模式下都为 `rounded`（含透明模式）；透明模式想给孤岛加 1px 防裸边描边时显式传 `outline`。**
+- `pixelize.output_size` = **单张瓦片**尺寸，图集为其 4×4 排布（`4W × 4H`）；`pixelize.colors` 限色作用于材质。
+
+JSON 示例：
+
+```json
+{
+  "job_type": "asset",
+  "asset": {
+    "name": "草地泥土过渡",
+    "asset_kind": "dual_grid",
+    "material_a": "草地",
+    "material_b": "泥土",
+    "transition_style": "rounded"
+  },
+  "pixelize": { "output_size": [32, 32], "colors": 12 }
+}
+```
+
+图集采用 `pix-dualgrid-v1` 约定：4×4 行优先排布，角位 `TL=bit0, TR=bit1, BL=bit2, BR=bit3`、地形 `A=1/B=0`、`idx = row*4 + col`。产物为 `dual_grid_atlas.png`（4×4 图集）、`dual_grid_preview.png`（确定性种子的应用预览）、`materials/material_a.png`(+`material_b.png`) 与含 `convention` / `mapping`（bitmask→cell 表）/ `preview_seed` 的 `meta.json`；外部 API 的 `JobOutputResponse` 额外暴露 `dual_grid_atlas_path/url`、`dual_grid_preview_path/url`。详细字段、bitmask→cell 映射表与引擎用法见 [`docs/dual-grid-rules.md`](docs/dual-grid-rules.md)。
+
 默认 sprite 模板使用 `mosaic_prompt_template` / `mosaic_reference_prompt_template`：1 次 API 调用产出 rows×cols 整张 sheet（`rows × cols ≤ 64`），prompt 中包含 `Layout by Row` 段落 + 行级动作描述 + 整图尺寸契约。后端会为 sprite mosaic 独立选择 API 渲染尺寸，而不是复用通用 `image_gen.size`；内部先按 `target_frame_size × rows×cols × 8` 估算理想渲染画布，再按 API 约束（最大边 ≤3840、16 倍数、长短边比 ≤3:1、总像素 655,360—8,294,400）缩放到合法尺寸。fallback prompt 还会显式告诉模型每个 cell 的 render pixel 尺寸、真实可绘像素网格与 pixel-art 像素块大小（`render_width/render_height/cell_render_width/cell_render_height/upscale/cell_art_width/cell_art_height/anchor_text` 占位符），并要求主体按自然比例锚定单元格指定锚点、上方留白填背景键色，减少低分辨率生成造成的 perfectPixel 检测漂移。其中 `cell_art_width/cell_art_height = cell_render ÷ upscale` 始终与块大小自洽：横排方形帧（如 64×64 的 1×8）被 API ≤3:1 约束撑成竖长单元格（384×1024）时，不会再出现「单元格尺寸 vs 帧尺寸」自相矛盾、模型瞎猜帧高的问题。竖长主体（如站立角色）按「内容多高、帧就多高」自适应输出（如 64×128），`meta.json` / `sequence.json` 用 `delivered_frame_size` / `frame_size_adapted` 显式标注实际交付帧尺寸（不再是隐性 mismatch）。提供参考图时自动套用 `mosaic_reference_prompt_template`，让每个 cell 复用同一角色设计。后端单帧后处理链路为「切分每一帧 → perfect pixel → 显式 key_rgb 的 pixel_bg 双阈值 alpha → alpha bbox 裁剪 → 共享调色板统一限色 → 每帧可选描边/羽化（复用 pixelize 的 `edge_style`/`bg_feather`，描边前补透明边距、不会被自适应画布裁掉；前端「边缘处理」选项对序列帧已解禁）」，不再复用全局 Color-to-Alpha，也不会从 cell 四角重新采样背景色，避免多行 mosaic 中主体越界 cell 边界时四角采样到主体色而抠不干净。最终保留原版 `sprite_mosaic.png` + 横向 `sprite_sheet.png`，多行模式额外输出 `sprite_sheet_grid.png` + `row_sheets/` + `previews/`，作品库预览组件读 `sprite_sheet.png + sequence.json` 逐帧播放。多动作作品在作品库卡片选中某个动作后，「下载图片」可选「当前动作图」（该行 `row_sheets/row_NN.png`）或「所有动作打包」（后端 `GET /jobs/{job_id}/sprite-actions.zip` 把每行各一张横向图打包），文件统一命名 `{作品名}_action{NN}_{动作名}.png`。切图时还会用前景投影自动检测实际网格行 / 列数，纠正模型「少画 / 多画一行一列」导致的空帧 / 错位。
 
 作品库支持「调整」编辑器：前端用 Canvas 叠加上一帧/闭环帧半透明影子，用户可拖动每帧主体、用滚轮缩放当前帧主体（绕帧中心），保存时本地重合成 alignment 版本（含 fps、每帧 offset 与 scale），不重新调用 AI，不额外扣点。序列帧作品不再提供「重新像素化」或「AI 微调」入口，避免把整张 sprite sheet 当普通单图再次处理；如需改帧位置使用「调整」，如需导出使用下载。

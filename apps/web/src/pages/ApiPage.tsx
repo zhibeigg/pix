@@ -128,9 +128,16 @@ curl -X POST "$PIX_API_BASE/jobs" \
 # { "name": "苔藓石板路面", "asset_kind": "tile_texture", "texture_kind": "path_floor" }
 # 并把 pixelize.remove_bg 设为 false。texture_kind 可选 auto / generic_texture / terrain_ground / path_floor / wall_surface / wood_planks / water_liquid / foliage_canopy / roof_tile / metal_panel / fabric_carpet。
 
+# 双瓦片示例：把 asset 改为
+# { "name": "草地泥土过渡", "asset_kind": "dual_grid", "material_a": "草地", "material_b": "泥土", "transition_style": "rounded" }
+# 一次产出 16 张可无缝拼接的 4×4 过渡瓦片图集 + 应用预览 + meta（含 bitmask→cell 映射）。
+# material_a 必填；material_b 空串或 "transparent" 即透明模式。material_a_texture_kind / material_b_texture_kind 复用上面的 texture_kind 枚举（默认 auto）。
+# transition_style 可选 rounded（默认）/ hard / outline；pixelize.output_size 是单张瓦片尺寸，图集为其 4×4 排布。
+# 输出读 JobOutput 的 dual_grid_atlas_path/url 与 dual_grid_preview_path/url。
+
 # 202 返回 JobResponse，记录 id 后轮询 /jobs/{id}`, [])
   const imageCurl = useMemo(() => String.raw`# 图生图 / 参考图重绘：先上传图片，再把返回 path 放到 input_image_path
-# asset.asset_kind 可选 item_icon / ui_component / tile_texture / game_logo，决定按哪种素材规则重绘（默认 item_icon）
+# asset.asset_kind 可选 item_icon / ui_component / tile_texture / game_logo / dual_grid，决定按哪种素材规则重绘（默认 item_icon）
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \

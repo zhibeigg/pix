@@ -189,6 +189,7 @@ function assetKindLabel(value: unknown, text: (zh: string, en: string) => string
   if (value === 'ui_component') return text('UI 组件', 'UI component')
   if (value === 'tile_texture') return text('平铺纹理', 'Tileable texture')
   if (value === 'game_logo') return text('游戏 Logo', 'Game logo')
+  if (value === 'dual_grid') return text('双瓦片', 'Dual-grid tileset')
   return stringOrDash(value)
 }
 
