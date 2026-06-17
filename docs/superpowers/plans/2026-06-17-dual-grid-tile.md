@@ -535,7 +535,7 @@ git commit -m "feat(dual-grid): backend pipeline generating A/B materials + atla
 
 ---
 
-## Task 6: OutputResponse 暴露 atlas/preview 路径
+## Task 6: JobOutputResponse 暴露 atlas/preview 路径
 
 **Files:**
 - Modify: `src/pix_web/schemas.py`（`JobOutputResponse`，schemas.py:509，仿 `sprite_mosaic_path` computed_field）
@@ -575,7 +575,7 @@ def test_output_response_exposes_dual_grid_paths(tmp_path) -> None:
 
 ```bash
 git add src/pix_web/schemas.py tests/test_dual_grid_pipeline.py
-git commit -m "feat(dual-grid): expose atlas/preview paths on OutputResponse"
+git commit -m "feat(dual-grid): expose atlas/preview paths on JobOutputResponse"
 ```
 
 ---
