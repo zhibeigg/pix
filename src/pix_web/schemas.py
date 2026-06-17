@@ -427,7 +427,9 @@ class SpriteParamsSchema(BaseModel):
 class AssetParamsSchema(BaseModel):
     name: str = Field(default="", max_length=160)
     extra_prompt: str = Field(default="", max_length=3000)
-    asset_kind: Literal["item_icon", "ui_component", "tile_texture", "game_logo"] = "item_icon"
+    asset_kind: Literal[
+        "item_icon", "ui_component", "tile_texture", "game_logo", "dual_grid"
+    ] = "item_icon"
     subject_kind: Literal["single_prop", "single_ui", "tileable_pattern", "logo_mark"] = (
         "single_prop"
     )
@@ -446,11 +448,19 @@ class AssetParamsSchema(BaseModel):
     ] = "auto"
     use_vl: bool | None = None
     no_preview: bool = False
+    # dual_grid 专用：双瓦片两种材质 A/B 与过渡风格（material_b 为空串 = 透明模式）
+    material_a: str = Field(default="", max_length=160)
+    material_b: str = Field(default="", max_length=160)
+    material_a_texture_kind: str = "auto"
+    material_b_texture_kind: str = "auto"
+    transition_style: Literal["rounded", "hard", "outline"] = "rounded"
 
     @model_validator(mode="after")
     def _normalize_subject_kind(self) -> "AssetParamsSchema":
         # 让 subject_kind 与 asset_kind 强一致：tile_texture → tileable_pattern；ui_component → single_ui；game_logo → logo_mark；其它 → single_prop
         if self.asset_kind == "tile_texture" and self.subject_kind != "tileable_pattern":
+            object.__setattr__(self, "subject_kind", "tileable_pattern")
+        elif self.asset_kind == "dual_grid" and self.subject_kind != "tileable_pattern":
             object.__setattr__(self, "subject_kind", "tileable_pattern")
         elif self.asset_kind == "ui_component" and self.subject_kind != "single_ui":
             object.__setattr__(self, "subject_kind", "single_ui")
