@@ -796,11 +796,19 @@ def _projection_splits(projection: np.ndarray, total: int, segments: int) -> np.
 
 
 def _detect_grid_count(projection: np.ndarray, total: int, hint: int) -> int:
-    """从 1D 前景投影检测实际分段数；不可靠时回退 hint。
+    """从 1D 前景投影检测实际分段数；策略是「优先凑满请求帧数 + 不足才回退」。
 
-    纠正「模型没严格按 rows×cols 画」导致的切分错位：例如请求 cols=8 但实际只画了 7 列，
-    按 8 等分会把某个 cell 切在列间隙上变成空帧。这里数「显著低谷带」推断真实行/列数，
-    仅在与 hint 偏差不大（≤ max(1, hint/3)）时采纳，避免误伤正常作品（参数正确或主体填满）。
+    数 hint 间的「真实间隙」（投影落到近空的连续列段）：
+    - 真实间隙 ≥ hint-1（像素足够切出 hint 段）→ 直接返回 hint，尊重用户请求的帧数。
+      这也顺带处理「模型多画了一两列」：仍按请求帧数切，不被多余间隙带偏。
+    - 真实间隙明显不足（模型确实少画，如请求 8 列只画了 7）→ 回退到检测值，避免把
+      某个 cell 切在列间隙上变空帧；仅在与 hint 偏差 ≤ max(1, hint/3) 时采纳，防止
+      异常检测把正常作品带偏。
+
+    关键：间隙按「深度」判定（投影落到峰值 6% 以下即视为间隙），只用很小的宽度下限滤掉
+    1~数像素的边缘抗锯齿噪点，**不再用 (span/hint)·0.18 那种大宽度阈值**——剧烈摇晃帧
+    里相邻主体靠得很近时，真实间隙可能只有几十像素，旧阈值会把它漏掉，导致 8 帧被误判成
+    7 帧、两个主体被并进同一格（铃铛动画「一帧两个铃铛」的根因）。
     """
     safe_hint = max(1, int(hint))
     proj = np.asarray(projection, dtype=np.float64)
@@ -815,7 +823,8 @@ def _detect_grid_count(projection: np.ndarray, total: int, hint: int) -> int:
     start = int(np.argmax(content_line))
     end = proj.size - int(np.argmax(content_line[::-1]))
     span = max(1, end - start)
-    min_gap = max(2, int(round((span / safe_hint) * 0.18)))
+    # 只滤掉边缘抗锯齿造成的几像素浅缝；真实主体间隙（即便窄到几十像素）必须计入。
+    min_gap = max(4, int(round((span / safe_hint) * 0.05)))
     valley = proj <= peak * 0.06
     gaps = 0
     i = start
@@ -830,6 +839,10 @@ def _detect_grid_count(projection: np.ndarray, total: int, hint: int) -> int:
         else:
             i += 1
     detected = gaps + 1
+    # 像素足够切出 hint 段（真实间隙 ≥ hint-1）→ 凑满请求帧数。
+    if detected >= safe_hint:
+        return safe_hint
+    # 间隙不足：模型可能少画。仅在偏差不大时回退到检测值（保留空帧护栏）。
     if detected >= 1 and abs(detected - safe_hint) <= max(1, round(safe_hint / 3)):
         return int(detected)
     return safe_hint
