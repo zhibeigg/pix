@@ -196,6 +196,8 @@ class PixelizeConfig:
     bg_feather: int = 0
     # 边缘风格：hard | feather | outline。bg_feather 表示对应强度。
     edge_style: str = "hard"
+    # 背景移除算法：pixel_bg（像素硬抠）| color_to_alpha（高清软 alpha）
+    bg_removal_algorithm: str = "pixel_bg"
     # 自动裁剪主体，再缩小到目标像素尺寸
     auto_crop: bool = False
     crop_padding: float = 0.12
@@ -223,7 +225,7 @@ class AssetConfig:
     bg_tolerance: int = 26
     bg_feather: int = 0
     edge_style: str = "hard"
-    bg_removal_algorithm: str = "pixel_bg"  # pixel_bg 双阈值连通域 + 二值 alpha；旧值运行时兼容
+    bg_removal_algorithm: str = "pixel_bg"  # pixel_bg=像素硬抠；color_to_alpha=高清软 alpha；旧值运行时兼容
     color_to_alpha_shape: str = "sphere"  # sphere | cube
     color_to_alpha_transparency: int = 48
     color_to_alpha_opacity: int = 255

@@ -17,6 +17,7 @@ DEFAULT_PRICES: dict[str, int] = {
     # sprite_sheet 表示“序列帧单帧基础价”，总价 = frame_count × 该基础价。
     "sprite_sheet": 5,
     "local_pixelize": 0,
+    "local_bg_remove": 0,
     "repixelize": 0,
 }
 

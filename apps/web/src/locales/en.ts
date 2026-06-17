@@ -93,6 +93,7 @@ export const en = {
       image_to_image: 'Image to image',
       sprite_sheet: 'Sprite sequence',
       local_pixelize: 'Local pixelize',
+      local_bg_remove: 'Local background removal',
       repixelize: 'Repixelize',
       raw_image: 'Raw images',
       mixed: 'Mixed batch',

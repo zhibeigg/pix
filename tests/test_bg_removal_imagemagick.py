@@ -8,6 +8,7 @@ from PIL import Image
 from pix.contact_sheet import remove_green_screen
 from pix.pixelize.bg_removal import (
     RemovalConfig,
+    apply_color_to_alpha,
     apply_imagemagick_fuzz_floodfill_alpha,
     remove_background,
     remove_background_with_result,
@@ -148,14 +149,40 @@ class PixelBgBackgroundRemovalTests(unittest.TestCase):
         self.assertEqual(res.confidence, "low")
         self.assertTrue(np.array_equal(out, arr))
 
-    def test_legacy_color_to_alpha_option_is_compatible(self) -> None:
-        image = Image.new("RGBA", (5, 5), (255, 255, 255, 255))
-        image.putpixel((2, 2), (0, 0, 0, 255))
+    def test_color_to_alpha_produces_soft_alpha(self) -> None:
+        image = Image.new("RGBA", (3, 1), (255, 255, 255, 255))
+        image.putpixel((1, 0), (240, 240, 240, 255))
+        image.putpixel((2, 0), (0, 0, 0, 255))
 
-        out = remove_background(image, tolerance=0, bg_removal_algorithm="color_to_alpha")
+        out = apply_color_to_alpha(
+            image,
+            key_rgb=(255, 255, 255),
+            transparency_threshold=4,
+            opacity_threshold=80,
+        )
         alpha = np.asarray(out)[..., 3]
 
         self.assertEqual(int(alpha[0, 0]), 0)
+        self.assertGreater(int(alpha[0, 1]), 0)
+        self.assertLess(int(alpha[0, 1]), 255)
+        self.assertEqual(int(alpha[0, 2]), 255)
+
+    def test_color_to_alpha_option_uses_hd_soft_alpha(self) -> None:
+        image = Image.new("RGBA", (5, 5), (255, 255, 255, 255))
+        image.putpixel((1, 2), (240, 240, 240, 255))
+        image.putpixel((2, 2), (0, 0, 0, 255))
+
+        out = remove_background(
+            image,
+            bg_removal_algorithm="color_to_alpha",
+            color_to_alpha_transparency=4,
+            color_to_alpha_opacity=80,
+        )
+        alpha = np.asarray(out)[..., 3]
+
+        self.assertEqual(int(alpha[0, 0]), 0)
+        self.assertGreater(int(alpha[2, 1]), 0)
+        self.assertLess(int(alpha[2, 1]), 255)
         self.assertEqual(int(alpha[2, 2]), 255)
 
 

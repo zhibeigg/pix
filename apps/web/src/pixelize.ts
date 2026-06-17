@@ -1,6 +1,7 @@
 import type { GenerationJob, GridDesignParams, PixelizeParams } from './types'
 
 export type EdgeStyleChoice = 'hard' | 'feather' | 'outline'
+export type BgRemovalAlgorithmChoice = 'pixel_bg' | 'color_to_alpha'
 
 export function normalizeEdgeStyle(value: unknown): EdgeStyleChoice {
   return value === 'feather' || value === 'outline' ? value : 'hard'
@@ -26,6 +27,7 @@ export const defaultPixelize: PixelizeParams = {
   bg_tolerance: 12,
   bg_feather: 0,
   edge_style: 'hard',
+  bg_removal_algorithm: 'pixel_bg',
   auto_crop: false,
   crop_padding: 0.12,
   crop_square: true,

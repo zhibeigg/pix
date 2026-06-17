@@ -153,7 +153,7 @@ export type ReferralSummary = {
   settlements: ReferralSettlement[]
 }
 
-export type JobType = 'asset' | 'text_to_image' | 'image_to_image' | 'local_pixelize' | 'repixelize' | 'sprite_sheet'
+export type JobType = 'asset' | 'text_to_image' | 'image_to_image' | 'local_pixelize' | 'local_bg_remove' | 'repixelize' | 'sprite_sheet'
 
 export type ImageModelInfo = {
   id: string
@@ -189,6 +189,7 @@ export type PixelizeParams = {
   bg_tolerance: number
   bg_feather: number
   edge_style: string
+  bg_removal_algorithm?: 'pixel_bg' | 'color_to_alpha' | string
   auto_crop: boolean
   crop_padding: number
   crop_square: boolean

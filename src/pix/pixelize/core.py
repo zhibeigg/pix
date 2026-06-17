@@ -39,17 +39,28 @@ GeneratedPreprocessMode = Literal["legacy", "none", "perfect_pixel"]
 LOW_PIXEL_OUTLINE_MAX_AXIS = 32
 
 
-def _bg_removal_options(cfg) -> dict:
+def _bg_removal_options(cfg, params: "PixelizeParams | None" = None) -> dict:
     asset = getattr(cfg, "asset", None)
-    if asset is None:
-        return {}
-    return {
-        "bg_removal_algorithm": getattr(asset, "bg_removal_algorithm", "pixel_bg"),
-        "color_to_alpha_shape": getattr(asset, "color_to_alpha_shape", "sphere"),
-        "color_to_alpha_transparency": getattr(asset, "color_to_alpha_transparency", 48),
-        "color_to_alpha_opacity": getattr(asset, "color_to_alpha_opacity", 255),
-        "color_to_alpha_interpolation": getattr(asset, "color_to_alpha_interpolation", "linear"),
+    options = {
+        "bg_removal_algorithm": "pixel_bg",
+        "color_to_alpha_shape": "sphere",
+        "color_to_alpha_transparency": 48,
+        "color_to_alpha_opacity": 255,
+        "color_to_alpha_interpolation": "linear",
     }
+    if asset is not None:
+        options.update(
+            {
+                "bg_removal_algorithm": getattr(asset, "bg_removal_algorithm", "pixel_bg"),
+                "color_to_alpha_shape": getattr(asset, "color_to_alpha_shape", "sphere"),
+                "color_to_alpha_transparency": getattr(asset, "color_to_alpha_transparency", 48),
+                "color_to_alpha_opacity": getattr(asset, "color_to_alpha_opacity", 255),
+                "color_to_alpha_interpolation": getattr(asset, "color_to_alpha_interpolation", "linear"),
+            }
+        )
+    if params is not None and getattr(params, "bg_removal_algorithm", ""):
+        options["bg_removal_algorithm"] = getattr(params, "bg_removal_algorithm")
+    return options
 
 
 @dataclass
@@ -67,6 +78,7 @@ class PixelizeParams:
     bg_tolerance: int = 12
     bg_feather: int = 0
     edge_style: EdgeStyle = "hard"
+    bg_removal_algorithm: str = "pixel_bg"
     auto_crop: bool = False
     crop_padding: float = 0.12
     crop_square: bool = True
@@ -90,6 +102,7 @@ class PixelizeParams:
             bg_tolerance=getattr(cfg, "bg_tolerance", 12),
             bg_feather=getattr(cfg, "bg_feather", 0),
             edge_style=getattr(cfg, "edge_style", "hard"),
+            bg_removal_algorithm=getattr(cfg, "bg_removal_algorithm", "pixel_bg"),
             auto_crop=getattr(cfg, "auto_crop", False),
             crop_padding=getattr(cfg, "crop_padding", 0.12),
             crop_square=getattr(cfg, "crop_square", True),
@@ -139,6 +152,7 @@ def _effective_params(
         bg_tolerance=params.bg_tolerance,
         bg_feather=params.bg_feather,
         edge_style=params.edge_style,
+        bg_removal_algorithm=params.bg_removal_algorithm,
         auto_crop=params.auto_crop,
         crop_padding=params.crop_padding,
         crop_square=params.crop_square,
@@ -734,7 +748,7 @@ def pixelize(
             tolerance=max(0, int(eff.bg_tolerance)),
             feather=0,
             keep_border_bleed=True,
-            **_bg_removal_options(cfg),
+            **_bg_removal_options(cfg, eff),
         )
 
     # 3. 可选主体裁剪：在 perfectPixel 对齐后的像素网格上贴边裁剪主体。
@@ -836,6 +850,7 @@ def pixelize(
             "bg_tolerance": eff.bg_tolerance,
             "bg_feather": eff.bg_feather,
             "edge_style": eff.edge_style,
+            "bg_removal_algorithm": eff.bg_removal_algorithm,
             "auto_crop": eff.auto_crop,
             "crop_padding": eff.crop_padding,
             "crop_square": eff.crop_square,

@@ -21,6 +21,7 @@ from pix.config import AppConfig, load_config
 from pix.contact_sheet import resolve_key_color
 from pix.io_utils import file_lock, new_run_dir
 from pix.pipeline import GridDesignInput, PipelineInput, PipelineResult, run_pipeline
+from pix.pixelize.bg_removal import remove_background
 from pix.pixelize.core import PixelizeParams
 from pix.pixelize.perfect_pixel import preprocess_generated_image
 from pix.sprite import SpritePipelineResult
@@ -102,6 +103,7 @@ def pixelize_params_from_json(data: dict[str, Any]) -> PixelizeParams:
         bg_tolerance=int(pix.get("bg_tolerance", 12)),
         bg_feather=int(pix.get("bg_feather", 0)),
         edge_style=str(pix.get("edge_style", "hard")),  # type: ignore[arg-type]
+        bg_removal_algorithm=str(pix.get("bg_removal_algorithm", "pixel_bg")),
         auto_crop=bool(pix.get("auto_crop", False)),
         crop_padding=float(pix.get("crop_padding", 0.12)),
         crop_square=bool(pix.get("crop_square", True)),
@@ -131,6 +133,9 @@ def asset_pixelize_params_from_json(data: dict[str, Any], cfg: AppConfig) -> Pix
         bg_tolerance=int(_value_from_json(data, "bg_tolerance", cfg.asset.bg_tolerance)),
         bg_feather=int(_value_from_json(data, "bg_feather", cfg.asset.bg_feather)),
         edge_style=str(_value_from_json(data, "edge_style", cfg.asset.edge_style)),  # type: ignore[arg-type]
+        bg_removal_algorithm=str(
+            _value_from_json(data, "bg_removal_algorithm", cfg.asset.bg_removal_algorithm)
+        ),
         auto_crop=bool(_value_from_json(data, "auto_crop", cfg.asset.auto_crop)),
         crop_padding=float(_value_from_json(data, "crop_padding", cfg.asset.crop_padding)),
         crop_square=bool(_value_from_json(data, "crop_square", cfg.asset.crop_square)),
@@ -154,6 +159,30 @@ def asset_grid_design_from_json(data: dict[str, Any], cfg: AppConfig) -> GridDes
     if _request_includes(data, "grid"):
         return grid_design_from_json(data)
     return GridDesignInput(mode="extract" if cfg.asset.grid_mode else "off")
+
+
+def bg_removal_options_from_params(cfg: AppConfig, params: PixelizeParams) -> dict[str, Any]:
+    asset = getattr(cfg, "asset", None)
+    options: dict[str, Any] = {
+        "bg_removal_algorithm": "pixel_bg",
+        "color_to_alpha_shape": "sphere",
+        "color_to_alpha_transparency": 48,
+        "color_to_alpha_opacity": 255,
+        "color_to_alpha_interpolation": "linear",
+    }
+    if asset is not None:
+        options.update(
+            {
+                "bg_removal_algorithm": getattr(asset, "bg_removal_algorithm", "pixel_bg"),
+                "color_to_alpha_shape": getattr(asset, "color_to_alpha_shape", "sphere"),
+                "color_to_alpha_transparency": getattr(asset, "color_to_alpha_transparency", 48),
+                "color_to_alpha_opacity": getattr(asset, "color_to_alpha_opacity", 255),
+                "color_to_alpha_interpolation": getattr(asset, "color_to_alpha_interpolation", "linear"),
+            }
+        )
+    if params.bg_removal_algorithm:
+        options["bg_removal_algorithm"] = params.bg_removal_algorithm
+    return options
 
 
 def _asset_data(job: GenerationJob) -> dict[str, Any]:
@@ -894,6 +923,84 @@ def run_dual_grid_asset_job_pipeline(
     )
 
 
+def run_local_bg_remove_job_pipeline(
+    job: GenerationJob, settings: WebSettings, cfg: AppConfig
+) -> PipelineResult:
+    """本地去背景：不调用 AI、不像素化，按选择算法直接输出透明 PNG。"""
+    start = time.time()
+    data = job.params_json or {}
+    params = pixelize_params_from_json(data)
+    if not job.input_image_path:
+        raise ValueError("本地去背景需要输入图片")
+    input_path = Path(job.input_image_path)
+    if not input_path.exists():
+        raise ValueError("输入图片不存在")
+
+    out_root = settings.storage_root / "runs" / f"job-{job.id}"
+    run_dir = new_run_dir(out_root, seed=str(input_path))
+    source_path = run_dir / "01_source.png"
+    output_path = run_dir / "02_background_removed.png"
+    meta_path = run_dir / "meta.json"
+
+    with _local_stage_context(settings)():
+        with Image.open(input_path) as opened:
+            source = opened.convert("RGBA")
+        original_size = [int(source.width), int(source.height)]
+        source.save(source_path)
+        output = remove_background(
+            source,
+            tolerance=max(0, int(params.bg_tolerance)),
+            feather=max(0, int(params.bg_feather)),
+            edge_style=params.edge_style,
+            keep_border_bleed=True,
+            **bg_removal_options_from_params(cfg, params),
+        )
+        output.save(output_path)
+        output_size = [int(output.width), int(output.height)]
+
+    duration = round(time.time() - start, 3)
+    meta: dict[str, Any] = {
+        "version": __version__,
+        "duration_seconds": duration,
+        "input": {"prompt": None, "image_path": str(input_path)},
+        "image_gen": {"used": False, "mode": "local_bg_remove", "source_only": True},
+        "pixelize": {
+            "mode": "local_bg_remove",
+            "effective_params": {
+                "output_size": output_size,
+                "requested_output_size": list(params.output_size),
+                "colors": params.colors,
+                "remove_bg": True,
+                "bg_tolerance": params.bg_tolerance,
+                "bg_feather": params.bg_feather,
+                "edge_style": params.edge_style,
+                "bg_removal_algorithm": params.bg_removal_algorithm,
+            },
+            "bg_removal_algorithm": params.bg_removal_algorithm,
+            "original_size": original_size,
+            "output_size": output_size,
+        },
+        "outputs": {
+            "source": source_path.name,
+            "background_removed": output_path.name,
+            "pixelized": output_path.name,
+        },
+    }
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    return PipelineResult(
+        run_dir=run_dir,
+        source_path=source_path,
+        analysis_path=None,
+        analysis=None,
+        pixel_path=output_path,
+        preview_path=None,
+        meta_path=meta_path,
+        meta=meta,
+        grid_path=None,
+    )
+
+
+
 def run_job_pipeline(
     job: GenerationJob, settings: WebSettings, *, cfg: AppConfig | None = None
 ) -> PipelineResult | SpritePipelineResult:
@@ -908,6 +1015,8 @@ def run_job_pipeline(
         return run_asset_job_pipeline(job, settings, resolved_cfg)
     if job.job_type == "sprite_sheet":
         return run_sprite_mosaic_pipeline(resolved_cfg, sprite_mosaic_input_from_job(job, settings))
+    if job.job_type == "local_bg_remove":
+        return run_local_bg_remove_job_pipeline(job, settings, resolved_cfg)
     if job.job_type == "image_to_image":
         return run_pipeline(
             resolved_cfg, image_to_image_pipeline_input_from_job(job, settings, resolved_cfg)

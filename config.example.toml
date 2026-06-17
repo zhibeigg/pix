@@ -167,10 +167,12 @@ saturation     = 1.0
 resample       = "smart"
 # smart 模式下是否探测输入的像素格并吸附到整数倍
 snap_to_grid   = true
-# 自动抠背景：参考 pixel_bg，边框中位数 key 色 + 双阈值连通域变透明，保存为 PNG 带 alpha
+# 自动抠背景：保存为 PNG 带 alpha；算法可选 pixel_bg（像素硬抠）或 color_to_alpha（高清软边）
 remove_bg      = false
-# 背景容差：26 对应参考项目默认 t_core=60 / t_grow=120；更低值会收紧阈值
+# 背景容差：pixel_bg 下 26 对应参考项目默认 t_core=60 / t_grow=120；更低值会收紧阈值
 bg_tolerance   = 12
+# 背景移除算法：pixel_bg=像素直出同款双阈值连通域；color_to_alpha=高清 Color-to-Alpha 软 alpha
+bg_removal_algorithm = "pixel_bg"
 # 边缘风格：hard=不额外处理，feather=alpha 羽化，outline=外侧描边（三者互斥）
 # 低像素透明素材会尊重用户/配置选择，不再自动强制改用 outline。
 edge_style     = "hard"
@@ -203,9 +205,9 @@ image_quality  = "low"
 skip_vl        = true
 remove_bg      = true
 bg_tolerance   = 26
-# 背景移除算法：默认使用 pixel_bg 双阈值连通域 + 二值 alpha；会清理主体内部封闭 key 背景。
-bg_removal_algorithm = "pixel_bg" # pixel_bg（旧值 imagemagick_fuzz_floodfill_alpha/color_to_alpha/auto 等会兼容到同一路径）
-# 旧 Color-to-Alpha 参数保留兼容历史配置；默认背景移除不再使用全局 Color-to-Alpha。
+# 背景移除算法：pixel_bg=像素直出同款双阈值连通域 + 二值 alpha；color_to_alpha=高清 Color-to-Alpha 软 alpha。
+bg_removal_algorithm = "pixel_bg"
+# Color-to-Alpha 参数仅在 bg_removal_algorithm="color_to_alpha" 时使用。
 color_to_alpha_shape = "sphere" # sphere | cube
 color_to_alpha_transparency = 48
 color_to_alpha_opacity = 255

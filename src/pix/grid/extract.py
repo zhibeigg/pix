@@ -15,17 +15,28 @@ from pix.pixelize.core import _auto_crop, _detect_grid_size
 from pix.pixelize.perfect_pixel import preprocess_generated_image
 
 
-def _bg_removal_options(cfg) -> dict:
+def _bg_removal_options(cfg, bg_removal_algorithm: str | None = None) -> dict:
     asset = getattr(cfg, "asset", None)
-    if asset is None:
-        return {}
-    return {
-        "bg_removal_algorithm": getattr(asset, "bg_removal_algorithm", "pixel_bg"),
-        "color_to_alpha_shape": getattr(asset, "color_to_alpha_shape", "sphere"),
-        "color_to_alpha_transparency": getattr(asset, "color_to_alpha_transparency", 48),
-        "color_to_alpha_opacity": getattr(asset, "color_to_alpha_opacity", 255),
-        "color_to_alpha_interpolation": getattr(asset, "color_to_alpha_interpolation", "linear"),
+    options = {
+        "bg_removal_algorithm": "pixel_bg",
+        "color_to_alpha_shape": "sphere",
+        "color_to_alpha_transparency": 48,
+        "color_to_alpha_opacity": 255,
+        "color_to_alpha_interpolation": "linear",
     }
+    if asset is not None:
+        options.update(
+            {
+                "bg_removal_algorithm": getattr(asset, "bg_removal_algorithm", "pixel_bg"),
+                "color_to_alpha_shape": getattr(asset, "color_to_alpha_shape", "sphere"),
+                "color_to_alpha_transparency": getattr(asset, "color_to_alpha_transparency", 48),
+                "color_to_alpha_opacity": getattr(asset, "color_to_alpha_opacity", 255),
+                "color_to_alpha_interpolation": getattr(asset, "color_to_alpha_interpolation", "linear"),
+            }
+        )
+    if bg_removal_algorithm:
+        options["bg_removal_algorithm"] = bg_removal_algorithm
+    return options
 
 
 @dataclass(frozen=True)
@@ -37,6 +48,7 @@ class GridExtractParams:
     crop_square: bool = True
     remove_bg: bool = True
     bg_tolerance: int = 26
+    bg_removal_algorithm: str = "pixel_bg"
     alpha_threshold: int = 8
     sample_ratio: float = 0.62
 
@@ -151,6 +163,7 @@ def extract_pixel_grid(
     crop_square: bool = True,
     remove_bg: bool = True,
     bg_tolerance: int = 26,
+    bg_removal_algorithm: str = "pixel_bg",
     alpha_threshold: int = 8,
     sample_ratio: float = 0.62,
     metadata: dict | None = None,
@@ -171,6 +184,7 @@ def extract_pixel_grid(
         crop_square=crop_square,
         remove_bg=remove_bg,
         bg_tolerance=bg_tolerance,
+        bg_removal_algorithm=bg_removal_algorithm,
         alpha_threshold=alpha_threshold,
         sample_ratio=sample_ratio,
     )
@@ -194,7 +208,7 @@ def extract_pixel_grid(
             tolerance=max(0, int(params.bg_tolerance)),
             feather=0,
             keep_border_bleed=True,
-            **_bg_removal_options(cfg),
+            **_bg_removal_options(cfg, params.bg_removal_algorithm),
         )
     else:
         image = image.convert("RGBA")
@@ -254,6 +268,7 @@ def extract_pixel_grid(
         "max_colors": params.max_colors,
         "remove_bg": params.remove_bg,
         "bg_tolerance": params.bg_tolerance,
+        "bg_removal_algorithm": params.bg_removal_algorithm,
         "sample_ratio": params.sample_ratio,
         "sampled_transparent_ratio": sampled_transparent_ratio,
     }

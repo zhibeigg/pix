@@ -4,7 +4,7 @@ import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule, TextureKind } from '../types'
-import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
+import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type BgRemovalAlgorithmChoice, type EdgeStyleChoice } from '../pixelize'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
@@ -162,12 +162,17 @@ function edgeStyleValue(value: unknown): EdgeStyleChoice | null {
   return value === 'hard' || value === 'outline' || value === 'feather' ? value : null
 }
 
+function bgRemovalAlgorithmValue(value: unknown): BgRemovalAlgorithmChoice {
+  return value === 'color_to_alpha' ? 'color_to_alpha' : 'pixel_bg'
+}
+
 function rowPromptValues(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => stringValue(item)) : []
 }
 
 function reusableWorkbenchType(job: GenerationJob): JobType {
   if (job.job_type === 'sprite_sheet') return 'sprite_sheet'
+  if (job.job_type === 'local_bg_remove') return 'local_bg_remove'
   if (job.job_type === 'local_pixelize' || job.job_type === 'repixelize') return 'local_pixelize'
   return 'asset'
 }
@@ -200,6 +205,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [colors, setColors] = useState(8)
   const [removeBg, setRemoveBg] = useState(true)
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyleChoice>('hard')
+  const [bgRemovalAlgorithm, setBgRemovalAlgorithm] = useState<BgRemovalAlgorithmChoice>('pixel_bg')
   const [skipVl, setSkipVl] = useState(false)
   // 序列帧专用状态（仅 mosaic 单图模式）
   const [spritePreset, setSpritePreset] = useState<SpritePreset>('horizontal')
@@ -215,6 +221,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const isAsset = jobType === 'asset'
   const isSprite = jobType === 'sprite_sheet'
   const isLocalPixelize = jobType === 'local_pixelize'
+  const isLocalBgRemove = jobType === 'local_bg_remove'
   const isTileAsset = isAsset && assetKind === 'tile_texture'
   const isLogoAsset = isAsset && assetKind === 'game_logo'
   // 平铺纹理不走参考图模式；普通素材参考图仍保留 asset job_type，以便继续使用素材直出 prompt。
@@ -259,7 +266,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     || (isAsset && !assetName.trim())
     || (isSprite && !prompt.trim())
     || ((hasAssetReference || (isSprite && !!refImagePath)) && !selectedModelSupportsI2I)
-    || (isLocalPixelize && !inputImagePath.trim())
+    || ((isLocalPixelize || isLocalBgRemove) && !inputImagePath.trim())
 
   useEffect(() => {
     if (!availableImageModels.some((item) => item.id === imageModel)) {
@@ -270,9 +277,10 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   // 模式切换时重置默认参数；作品复用会一次性回填旧参数，跳过对应的自动默认值覆盖。
   useEffect(() => {
     if (skipNextModeResetRef.current) { skipNextModeResetRef.current = false; return }
-    if (jobType === 'asset') { setPixelSize('16x16'); setColors(8); setRemoveBg(true); setEdgeStyle('hard') }
+    if (jobType === 'asset') { setPixelSize('16x16'); setColors(8); setRemoveBg(true); setEdgeStyle('hard'); setBgRemovalAlgorithm('pixel_bg') }
     else if (jobType === 'sprite_sheet') { setPixelSize('64x64'); setColors(16); setRemoveBg(false); setFps(8); setSpritePreset('horizontal'); setRows(1); setCols(8); setRowPrompts(['']) }
-    else { setPixelSize('128x128'); setColors(16); setRemoveBg(true) }
+    else if (jobType === 'local_bg_remove') { setPixelSize('128x128'); setColors(16); setRemoveBg(true); setEdgeStyle('hard'); setBgRemovalAlgorithm('color_to_alpha') }
+    else { setPixelSize('128x128'); setColors(16); setRemoveBg(true); setBgRemovalAlgorithm('pixel_bg') }
   }, [jobType])
 
   // asset_kind 切换时重置常用默认：平铺纹理铺满画布；Logo 走宽幅透明 PNG，不额外描边。
@@ -320,6 +328,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     if (reusedRemoveBg !== null) setRemoveBg(reusedRemoveBg)
     const reusedEdgeStyle = edgeStyleValue(pixelize?.edge_style)
     if (reusedEdgeStyle) setEdgeStyle(reusedEdgeStyle)
+    setBgRemovalAlgorithm(bgRemovalAlgorithmValue(pixelize?.bg_removal_algorithm))
     setSkipVl(Boolean(params?.skip_vl))
 
     if (nextJobType === 'sprite_sheet') {
@@ -343,7 +352,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       return
     }
 
-    if (nextJobType === 'local_pixelize') {
+    if (nextJobType === 'local_pixelize' || nextJobType === 'local_bg_remove') {
       setInputImagePath(job.input_image_path ?? '')
       setUploadUrl(signedFileUrl(job.input_image_url ?? undefined))
       setUploadMessage(job.input_image_path ? text('已复用原任务的输入图片。', 'Reused the original input image.') : '')
@@ -509,6 +518,18 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       })
       return
     }
+    if (isLocalBgRemove) {
+      await onSubmit({
+        job_type: 'local_bg_remove',
+        prompt: null,
+        input_image_path: inputImagePath,
+        client_request_id: crypto.randomUUID(),
+        skip_vl: true,
+        pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: true, bg_removal_algorithm: bgRemovalAlgorithm, ...edge }),
+        grid: { mode: 'off' },
+      })
+      return
+    }
     // 本地像素化：上传图 + 像素化参数
     await onSubmit({
       job_type: jobType,
@@ -533,6 +554,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                 <SelectItem value="asset">{text('游戏素材直出', 'Game asset output')}</SelectItem>
                 <SelectItem value="sprite_sheet">{text('序列帧', 'Sprite sequence')}</SelectItem>
                 <SelectItem value="local_pixelize">{text('本地像素化', 'Local pixelize')}</SelectItem>
+                <SelectItem value="local_bg_remove">{text('本地去背景', 'Local background removal')}</SelectItem>
               </SelectContent>
             </Select>
           </PixField>
@@ -676,16 +698,28 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           </div>
         )}
 
-        {isLocalPixelize && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传图片', 'Upload image')} onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} loading={uploading} label={uploading ? text('上传中…', 'Uploading…') : text('等待上传预览', 'Waiting for upload preview')} /></div>}
+        {(isLocalPixelize || isLocalBgRemove) && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传图片', 'Upload image')} onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} loading={uploading} label={uploading ? text('上传中…', 'Uploading…') : text('等待上传预览', 'Waiting for upload preview')} /></div>}
 
-        <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || (!isSprite && !removeBg)} sizeHidden={isLocalPixelize} />
+        {isLocalBgRemove && (
+          <PixField label={text('去背景算法', 'Background removal algorithm')} hint={text('像素适合纯色 key 背景与像素直出；高清使用 Color-to-Alpha，保留抗锯齿软边。', 'Pixel is best for solid key backgrounds and pixel output; HD uses Color-to-Alpha to preserve anti-aliased edges.')}>
+            <Select value={bgRemovalAlgorithm} onValueChange={(value) => setBgRemovalAlgorithm(bgRemovalAlgorithmValue(value))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pixel_bg">{text('像素', 'Pixel')}</SelectItem>
+                <SelectItem value="color_to_alpha">{text('高清', 'HD')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </PixField>
+        )}
 
-        <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={isTileAsset ? false : removeBg} disabled={isSprite || isTileAsset} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{text('透明背景', 'Transparent background')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={isSprite || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? text('素材直出默认视觉理解策略', 'Default vision policy for asset output') : text('跳过参考图理解', 'Skip reference understanding')}</label></div>
+        {!isLocalBgRemove && <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || (!isSprite && !removeBg)} sizeHidden={isLocalPixelize} />}
+
+        {!isLocalBgRemove && <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={isTileAsset ? false : removeBg} disabled={isSprite || isTileAsset} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{text('透明背景', 'Transparent background')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={isSprite || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? text('素材直出默认视觉理解策略', 'Default vision policy for asset output') : text('跳过参考图理解', 'Skip reference understanding')}</label></div>}
 
         {invalidSubAssetSize && <Alert variant="destructive">{text('素材最低支持 16×16。', 'Minimum asset size is 16×16.')}</Alert>}
         {invalidGrid && <Alert variant="destructive">{text('序列帧每行/每列最多 8。', 'Sprite sequence rows and cols are capped at 8.')}</Alert>}
         {missingRowPrompts && <Alert variant="destructive">{text('多行序列帧需要为每一行填写动作描述。', 'Multi-row sequences require an action description for each row.')}</Alert>}
-        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : isLogoAsset && hasAssetReference ? text('参考图生成 Logo', 'Generate logo from reference') : isLogoAsset ? text('生成游戏 Logo', 'Generate game logo') : hasAssetReference ? text('参考图重绘', 'Redraw from reference') : text('生成游戏素材', 'Generate game asset')) : text('生成单张素材', 'Generate single asset')}</Button>
+        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : isLogoAsset && hasAssetReference ? text('参考图生成 Logo', 'Generate logo from reference') : isLogoAsset ? text('生成游戏 Logo', 'Generate game logo') : hasAssetReference ? text('参考图重绘', 'Redraw from reference') : text('生成游戏素材', 'Generate game asset')) : isLocalBgRemove ? text('去除背景', 'Remove background') : text('生成单张素材', 'Generate single asset')}</Button>
       </form>
     </PixPanel>
   )

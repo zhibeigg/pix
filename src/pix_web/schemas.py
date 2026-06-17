@@ -15,7 +15,13 @@ from PIL import Image
 from pix_web.storage import file_url
 
 JobType = Literal[
-    "asset", "text_to_image", "image_to_image", "local_pixelize", "repixelize", "sprite_sheet"
+    "asset",
+    "text_to_image",
+    "image_to_image",
+    "local_pixelize",
+    "local_bg_remove",
+    "repixelize",
+    "sprite_sheet",
 ]
 
 
@@ -353,6 +359,14 @@ class PixelizeParamsSchema(BaseModel):
     bg_tolerance: int = Field(default=12, ge=0, le=128)
     bg_feather: int = Field(default=0, ge=0, le=8)
     edge_style: Literal["hard", "feather", "outline"] = "hard"
+    bg_removal_algorithm: Literal[
+        "pixel_bg",
+        "color_to_alpha",
+        "auto",
+        "imagemagick_fuzz_floodfill_alpha",
+        "flood_fill",
+        "hybrid",
+    ] = "pixel_bg"
     auto_crop: bool = False
     crop_padding: float = Field(default=0.12, ge=0.0, le=1.0)
     crop_square: bool = True

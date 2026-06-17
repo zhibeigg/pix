@@ -25,7 +25,7 @@ from pix_web.system_settings import (
 )
 
 AI_JOB_TYPES = {"asset", "text_to_image", "image_to_image", "sprite_sheet"}
-IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "repixelize"}
+IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "local_bg_remove", "repixelize"}
 RAW_IMAGE_PROMPT_MAX_LENGTH = RAW_IMAGE_PROMPT_MAX_CHARS
 
 

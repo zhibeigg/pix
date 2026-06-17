@@ -174,7 +174,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.asset.bg_tolerance", "背景容差", "素材默认值", "number", ""),
     SettingDefinition("pix.asset.bg_feather", "边缘强度", "素材默认值", "number", "feather=羽化半径；outline=描边宽度；hard=不额外处理。"),
     SettingDefinition("pix.asset.edge_style", "默认边缘处理", "素材默认值", "select", "hard=不需要；feather=羽化边缘；outline=描边。", options=("hard", "feather", "outline")),
-    SettingDefinition("pix.asset.bg_removal_algorithm", "背景移除算法", "素材默认值", "select", "默认使用 pixel_bg 双阈值连通域 + 二值 alpha；会清理主体内部封闭 key 背景。", options=("pixel_bg", "imagemagick_fuzz_floodfill_alpha", "color_to_alpha", "auto", "flood_fill", "hybrid")),
+    SettingDefinition("pix.asset.bg_removal_algorithm", "背景移除算法", "素材默认值", "select", "pixel_bg=像素直出同款双阈值连通域 + 二值 alpha；color_to_alpha=高清 Color-to-Alpha 软 alpha；旧值自动兼容到像素算法。", options=("pixel_bg", "color_to_alpha")),
     SettingDefinition("pix.asset.color_to_alpha_shape", "Color-to-Alpha 距离", "素材默认值", "select", "sphere=欧氏距离；cube=最大通道差。", options=("sphere", "cube")),
     SettingDefinition("pix.asset.color_to_alpha_transparency", "CTA 透明阈值", "素材默认值", "number", "小于等于该距离的 key 色转全透明。"),
     SettingDefinition("pix.asset.color_to_alpha_opacity", "CTA 不透明阈值", "素材默认值", "number", "大于等于该距离的颜色保持不透明。"),

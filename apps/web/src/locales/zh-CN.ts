@@ -93,6 +93,7 @@ export const zhCN = {
       image_to_image: '参考图微调',
       sprite_sheet: '序列帧',
       local_pixelize: '本地像素化',
+      local_bg_remove: '本地去背景',
       repixelize: '重新像素化',
       raw_image: '原始生图',
       mixed: '混合批次',

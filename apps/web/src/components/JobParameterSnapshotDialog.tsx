@@ -17,6 +17,7 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
   const sprite = asRecord(params?.sprite)
   const asset = asRecord(params?.asset)
   const isRawImage = job.job_type === 'text_to_image' && params?.source_only === true
+  const isLocalBgRemove = job.job_type === 'local_bg_remove'
   const userInputSnapshot = useMemo(() => buildUserInputSnapshot(job), [job])
 
   const promptRows = compactRows([
@@ -33,12 +34,15 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
     [text('质量', 'Quality'), stringOrDash(params?.image_quality)],
   ]) : []
 
-  const pixelRows = !isRawImage ? compactRows([
+  const pixelRows = !isRawImage ? compactRows(isLocalBgRemove ? [
+    [text('去背景算法', 'Background removal algorithm'), bgRemovalAlgorithmLabel(pixelize?.bg_removal_algorithm, text)],
+  ] : [
     [job.job_type === 'sprite_sheet' ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size'), pairLabel(pixelize?.output_size)],
     [text('颜色数', 'Color count'), stringOrDash(pixelize?.colors)],
     ...(job.job_type === 'sprite_sheet' ? [] : [
       [text('透明背景', 'Transparent background'), yesNo(pixelize?.remove_bg, text)],
       [text('边缘处理', 'Edge treatment'), edgeStyleLabel(pixelize?.edge_style, text)],
+      [text('去背景算法', 'Background removal algorithm'), bgRemovalAlgorithmLabel(pixelize?.bg_removal_algorithm, text)],
     ] as Array<[string, string]>),
   ]) : []
 
@@ -99,7 +103,7 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
             </SnapshotSection>
 
             {rawRows.length > 0 && <SnapshotSection title={text('原生生图设置', 'Raw image settings')}><KeyValueGrid rows={rawRows} /></SnapshotSection>}
-            {pixelRows.length > 0 && <SnapshotSection title={text('像素设置', 'Pixel settings')}><KeyValueGrid rows={pixelRows} /></SnapshotSection>}
+            {pixelRows.length > 0 && <SnapshotSection title={isLocalBgRemove ? text('去背景设置', 'Background removal settings') : text('像素设置', 'Pixel settings')}><KeyValueGrid rows={pixelRows} /></SnapshotSection>}
             {assetRows.length > 0 && <SnapshotSection title={text('素材设置', 'Asset settings')}><KeyValueGrid rows={assetRows} /></SnapshotSection>}
             {spriteRows.length > 0 && <SnapshotSection title={text('序列帧设置', 'Sequence settings')}><KeyValueGrid rows={spriteRows} /></SnapshotSection>}
           </div>
@@ -141,7 +145,8 @@ function buildUserInputSnapshot(job: GenerationJob) {
       output_size: pixelize?.output_size,
       colors: pixelize?.colors,
       remove_bg: job.job_type === 'sprite_sheet' ? undefined : pixelize?.remove_bg,
-      edge_style: job.job_type === 'sprite_sheet' ? undefined : pixelize?.edge_style,
+      edge_style: job.job_type === 'sprite_sheet' || job.job_type === 'local_bg_remove' ? undefined : pixelize?.edge_style,
+      bg_removal_algorithm: job.job_type === 'sprite_sheet' ? undefined : pixelize?.bg_removal_algorithm,
     }) : undefined,
     asset: job.job_type === 'asset' ? stripEmpty({
       name: asset?.name,
@@ -181,6 +186,12 @@ function edgeStyleLabel(value: unknown, text: (zh: string, en: string) => string
   if (value === 'outline') return text('描边', 'Outline')
   if (value === 'feather') return text('羽化边缘', 'Feather edge')
   if (value === 'hard') return text('不需要', 'None')
+  return stringOrDash(value)
+}
+
+function bgRemovalAlgorithmLabel(value: unknown, text: (zh: string, en: string) => string): string {
+  if (value === 'color_to_alpha') return text('高清（Color-to-Alpha）', 'HD (Color-to-Alpha)')
+  if (value === 'pixel_bg' || value === 'auto' || value === 'imagemagick_fuzz_floodfill_alpha' || value === 'flood_fill' || value === 'hybrid') return text('像素（pixel_bg）', 'Pixel (pixel_bg)')
   return stringOrDash(value)
 }
 

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 新增「本地去背景」（`job_type=local_bg_remove`）：上传图片后可在前端选择「像素」或「高清」算法，前者复用当前像素直出的 `pixel_bg` 双阈值连通域 + 二值 alpha，后者使用 `color_to_alpha` 软 alpha 保留高清抗锯齿边；任务不调用 AI、不做像素化，输出透明 PNG 走 `pixelized` 下载通道。
 - 像素资产新增「双瓦片」（`asset_kind=dual_grid`）类型：一次任务产出一套可无缝拼接的过渡瓦片，表达两种地形 A/B 的交界（草地↔泥土、草地↔水/空等），地图引擎按经典 dual-grid 规则即可自动平滑过渡。
   - 后端先复用 `tile_texture` 生图链路生成两张四边无缝材质 A、B，再用 16 个角掩码（`TL=bit0/TR=bit1/BL=bit2/BR=bit3`、`A=1/B=0`）**确定性合成** 16 张瓦片拼成 4×4 图集（`pix-dualgrid-v1` 约定，`idx = row*4 + col`）；无缝性由「边不变量」构造保证，而非交给模型直出整张图集。
   - `asset` 新增字段：`material_a`（必填非空）、`material_b`（空串或 `"transparent"` 即透明模式）、`material_a_texture_kind` / `material_b_texture_kind`（复用 `texture_kind` 枚举，默认 `auto`）、`transition_style`（`rounded`（默认）/ `hard` / `outline`，所有模式默认 `rounded`，透明模式想给孤岛加 1px 防裸边描边时显式传 `outline`）。`pixelize.output_size` 为单张瓦片尺寸，图集为其 4×4 排布。
@@ -17,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `bg_removal_algorithm="color_to_alpha"` 不再兼容到像素硬抠路径，而是执行真正的 Color-to-Alpha 软抠；旧 `auto` / `imagemagick_fuzz_floodfill_alpha` / `flood_fill` / `hybrid` 仍兼容到 `pixel_bg`。
 - 序列帧（mosaic）新增每帧描边/羽化（可选）：复用 pixelize 的 `edge_style` / `bg_feather` 参数，在共享调色板前对每帧补透明边距后描边（描边色一并进入统一量化、不会被自适应画布裁掉）；前端解禁序列帧的「边缘处理」选项。
 - 本地像素化前端移除「尺寸选择」：输出尺寸统一按 perfectPixel 检测到的真实像素网格确定（后端 `preserve_preprocessed_size` 早已如此），前端不再展示可能误导的尺寸输入。
 - 重排像素直出 / 本地像素化后处理顺序，统一为「perfectPixel → 抠背景（唯一一道，量化前）→ 裁剪主体 → 下采样 → 限色 → 描边/羽化（量化后单独做）→ 最后定版标准尺寸」：(1) 抠背景从「前置粗抠 + 后置精抠」合并为**一道**，描边/羽化改用 `apply_transparent_edge_style` 在量化后单独处理（不再二次抠背景，避免对填满帧的主体误删）；(2) 描边场景在下采样阶段预留透明边距（`_edge_reserve_margin`），主体先缩进再居中贴回标准画布，**描边不会超出标准尺寸被裁**；(3) `meta.json` 新增 `bg_removal_passes` / `edge_margin` 标注。`pixelize()` 输出尺寸、抠图与限色结果不变，仅描边边缘与抠图道次变化。

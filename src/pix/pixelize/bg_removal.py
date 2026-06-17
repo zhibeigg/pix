@@ -1050,19 +1050,36 @@ def apply_color_to_alpha(
     protect_non_key_tinted: bool = True,
     min_key_chroma: float = 24.0,
 ) -> Image.Image:
-    """兼容旧 Color-to-Alpha 入口，实际统一走 pixel_bg 双阈值连通域方法。"""
-    _ = (
-        opacity_threshold,
-        shape,
-        interpolation,
-        protect_non_key_tinted,
-        min_key_chroma,
-    )
-    return apply_pixel_bg_alpha(
-        image,
-        key_rgb=key_rgb,
-        tolerance=max(0, int(transparency_threshold)),
-    )
+    """按 GIMP/Imagemagick Color-to-Alpha 思路把指定背景色转成透明。"""
+    rgba = np.asarray(image.convert("RGBA")).copy()
+    rgb = rgba[..., :3].astype(np.float32)
+    key = np.asarray(key_rgb, dtype=np.float32)
+    transparent_t = max(0.0, float(transparency_threshold))
+    opaque_t = max(transparent_t + 1.0, float(opacity_threshold))
+
+    distance = _color_distance(rgb, key, shape)
+    alpha_factor = np.clip((distance - transparent_t) / max(1.0, opaque_t - transparent_t), 0.0, 1.0)
+    alpha_factor = np.clip(_interpolate_alpha(alpha_factor, interpolation), 0.0, 1.0)
+
+    apply_mask = np.ones(distance.shape, dtype=bool)
+    if protect_non_key_tinted and _looks_like_chroma_key(key):
+        key_tinted = _key_tinted_mask(rgb, key, min_chroma=float(min_key_chroma))
+        # 纯 key 色始终转透明；过渡区只处理明显带 key 色相的像素，避免误伤主体内的暖色/冷色细节。
+        apply_mask = key_tinted | (distance <= transparent_t)
+
+    old_alpha = rgba[..., 3].astype(np.float32) / 255.0
+    new_alpha = np.where(apply_mask, old_alpha * alpha_factor, old_alpha)
+
+    changed = apply_mask & (new_alpha < old_alpha - (1.0 / 255.0))
+    safe_alpha = np.maximum(new_alpha, 1.0 / 255.0)
+    decontaminated = (rgb - key * (1.0 - safe_alpha[..., None])) / safe_alpha[..., None]
+    rgba[changed, :3] = np.clip(decontaminated[changed], 0, 255).astype(np.uint8)
+    rgba[..., 3] = np.clip(np.rint(new_alpha * 255.0), 0, 255).astype(np.uint8)
+
+    transparent = rgba[..., 3] == 0
+    if transparent.any():
+        rgba[transparent, :3] = 0
+    return Image.fromarray(rgba, mode="RGBA")
 
 
 def apply_key_color_soft_matte(
@@ -1233,25 +1250,41 @@ def remove_background(
     color_to_alpha_opacity: int = 255,
     color_to_alpha_interpolation: str = "linear",
 ) -> Image.Image:
-    """去背景入口：统一使用参考项目 pixel_bg 算法。
+    """去背景入口，支持像素硬抠与高清 Color-to-Alpha 两种本地算法。
 
-    流程为：边框中位数探测背景色 → 双阈值连通域区域生长 → key 色去溢色 → 二值 alpha。
-    旧的 `bg_removal_algorithm` / Color-to-Alpha 配置仅保留兼容，不再改变实现路径。
+    - pixel_bg / auto / 旧 imagemagick 名称：边框中位数 key 色 + 双阈值连通域 + 二值 alpha。
+    - color_to_alpha：边框中位数 key 色 + 距离软 alpha，保留抗锯齿边缘。
     """
-    _ = (
-        keep_border_bleed,
-        bg_removal_algorithm,
-        color_to_alpha_shape,
-        color_to_alpha_transparency,
-        color_to_alpha_opacity,
-        color_to_alpha_interpolation,
-    )
-    config = _config_from_legacy_tolerance(
-        tolerance,
-        remove_enclosed_background=True,
-        enforce_uniformity_guard=True,
-    )
-    out = remove_background_with_result(image, config).image
+    _ = keep_border_bleed
+    algorithm = (bg_removal_algorithm or "auto").strip().lower().replace("-", "_")
+    if algorithm in {"high", "hd", "color_to_alpha", "color_to_alpha_hd"}:
+        rgba = image.convert("RGBA")
+        arr = np.asarray(rgba).copy()
+        if _border_transparency_ratio(arr) >= 0.05:
+            transparent = arr[..., 3] == 0
+            if transparent.any():
+                arr[transparent, :3] = 0
+            out = Image.fromarray(arr, mode="RGBA")
+        else:
+            bg, _variance = detect_background_color(arr[..., :3], border_width=2)
+            key_rgb = tuple(int(round(float(channel))) for channel in bg[:3])
+            out = apply_color_to_alpha(
+                rgba,
+                key_rgb=key_rgb,
+                transparency_threshold=max(0, int(color_to_alpha_transparency)),
+                opacity_threshold=max(1, int(color_to_alpha_opacity)),
+                shape=color_to_alpha_shape,
+                interpolation=color_to_alpha_interpolation,
+            )
+    else:
+        # 旧值 flood_fill / hybrid / imagemagick_fuzz_floodfill_alpha / auto 都保持像素直出算法语义。
+        config = _config_from_legacy_tolerance(
+            tolerance,
+            remove_enclosed_background=True,
+            enforce_uniformity_guard=True,
+        )
+        out = remove_background_with_result(image, config).image
+
     style = edge_style if edge_style in ("hard", "feather", "outline") else "hard"
     strength = max(0, int(feather))
     if style in {"feather", "outline"} and strength > 0:

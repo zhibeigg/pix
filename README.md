@@ -135,7 +135,7 @@ npm run build
 4. 默认 `skip_vl = true`，不走普通 VL 分析。
 5. Pixel Grid extract：
    - `perfect_pixel` 网格对齐，并保存 `02_perfect_pixel_preprocess.png`；
-   - `remove_background` 去背景；默认使用参考项目 `pixel_bg` 方法：边框中位数探测 key 色，按 `t_core/t_grow` 双阈值连通域生长生成背景 mask，去 key 色溢色并输出硬边二值 alpha；
+   - `remove_background` 去背景；默认使用参考项目 `pixel_bg` 方法：边框中位数探测 key 色，按 `t_core/t_grow` 双阈值连通域生长生成背景 mask，去 key 色溢色并输出硬边二值 alpha；也可选择 `color_to_alpha`，按背景 key 色距离生成软 alpha，适合高清原图保留抗锯齿边；
    - 序列帧任务（mosaic 单图模式）：1 次 API 调用直接产出 rows×cols 网格 sprite sheet（rows/cols 各最大 8）。后端会先按 rows×cols 与目标帧尺寸自动计算适合的 API 渲染分辨率（不再继承通用 `image_gen.size=1024x1024`；例如 4×8、64×64 会渲染到 3072×1536，4×8、48×64 会渲染到 3072×2048，满足最大边 ≤3840、16 倍数、长短边比 ≤3:1、总像素 ≤8.3M 等约束），让每个像素艺术像素至少占 8×8 / 6×6 渲染像素。生成后按格切图（基于前景投影找最佳切分线，避免主体溢出邻列）+ 复用 `perfectPixel` + 显式 key 色的 pixel_bg 双阈值 alpha + 共享调色板等成熟后处理流程，最终输出横向 `sprite_sheet.png`（兼容预览）+ 原版 `sprite_mosaic.png`（保留 rows×cols 排版可下载）+ `sequence.json`。多行 mosaic（rows>1）会额外输出 `sprite_sheet_grid.png`（rows×cols 二维网格预览）以及 `row_sheets/row_NN.png` + `previews/row_NN.gif`（每行一张横向 sheet + 一个独立动画 GIF），让 4×8 行走表这种「每行一个动作」的素材直接拿到 4 个独立动画。提供「角色参考图」时切换到 `edit_image`，让每个 cell 复用同一角色设计。作品库可打开「调整」编辑器：逐帧拖动主体、滚轮缩放、查看上一帧半透明影子并实时预览，保存时仅本地重合成（含 fps 与每帧 offset/scale），不重新生图也不额外扣点；
    - `auto_crop` / tight bbox 贴主体裁剪；
    - `transparent_canvas_pad` 补到预设尺寸档；
@@ -143,6 +143,8 @@ npm run build
    - 渲染最终 PNG 与 `.grid.json`。
 
 > 参考图微调（`job_type=image_to_image` 且会进入像素化的任务，如作品库「AI 微调」）现在与素材直出共用同一套像素风 prompt：复用 `build_asset_prompt` + 参考图 appendix，把上传图当参考图、按 TRUE pixel-art 重绘（不再把用户原文直接发给模型），并声明上传图即「图1」，用户可在提示词用「图1」指代参考图（如「把图1重绘成像素风戏台」）。作品库「AI 微调」会沿用原作品的素材类型（物品图标 / UI 组件 / Logo / 平铺纹理）重绘，外部 API 也可在 `asset.asset_kind` 指定，缺省按物品图标处理。可用 `[image_gen].image_to_image_pixel_prompt = false` 回退原始 prompt 直传；`source_only` 的原生大图（参考图直出 1024 大图）不受影响。
+>
+> `job_type=local_bg_remove` 提供纯本地去背景，不调用 AI、不做像素化。`pixelize.bg_removal_algorithm="pixel_bg"` 对应前端「像素」算法（与像素直出当前抠色一致），`"color_to_alpha"` 对应「高清」算法（Color-to-Alpha 软边）。输出仍通过 `pixelized` 下载通道返回透明 PNG。
 
 ## 管理后台运营能力
 
@@ -164,7 +166,7 @@ npm run build
 
 可分配的 scope：
 
-- `jobs:create`：创建素材直出、文生图、图生图、本地重处理、重新像素化、序列帧等任务；
+- `jobs:create`：创建素材直出、文生图、图生图、本地像素化、本地去背景、重新像素化、序列帧等任务；
 - `jobs:read`：查询自己的任务列表与任务详情；
 - `files:read`：下载自己的任务输出或序列帧动作 zip；
 - `uploads:create`：上传参考图 / 输入图，供后续任务 payload 使用。
@@ -188,10 +190,21 @@ curl -X POST "https://example.com/api/external/v1/jobs" \
 curl "https://example.com/api/external/v1/jobs/{job_id}" \
   -H "Authorization: Bearer pix_live_xxx"
 
-# 上传参考图
+# 上传参考图 / 本地输入图
 curl -X POST "https://example.com/api/external/v1/uploads" \
   -H "Authorization: Bearer pix_live_xxx" \
   -F "file=@reference.png"
+
+# 创建本地去背景任务（algorithm: pixel_bg=像素；color_to_alpha=高清）
+curl -X POST "https://example.com/api/external/v1/jobs" \
+  -H "Authorization: Bearer pix_live_xxx" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: bg-remove-001" \
+  -d '{
+    "job_type": "local_bg_remove",
+    "input_image_path": "把上传接口返回的 path 填在这里",
+    "pixelize": {"remove_bg": true, "bg_removal_algorithm": "color_to_alpha"}
+  }'
 
 # 下载任务输出（kind 可用 final、source、sprite_sheet、sprite_mosaic、grid 等）
 curl -L "https://example.com/api/external/v1/jobs/{job_id}/outputs/final" \
@@ -210,7 +223,7 @@ Pix 现在通过 logical model → provider candidates 的方式调用生图上�
 
 OpenAI Images 兼容模型走 `/v1/images/generations` / `/v1/images/edits` 或 `image_input` payload；Midjourney、Kling 这类异步协议会提交任务后轮询查询端点；胜算云（`shengsuanyun` 协议）用 OpenAI gpt-image 兼容请求体走异步任务流程（`POST /api/v1/tasks/generations` 提交、`GET /api/v1/tasks/generations/{id}` 轮询，图生图复用同端点仅多传 `image` 字段，结果只返回图片 URL）；Ideogram/FAL 使用各自专用路径。默认优先要求返回 `b64_json` 并直接落盘；如果上游只返回临时 `url`，才作为兼容兜底下载。为控制上游成本，素材任务默认关闭多候选图；仅在后台或配置显式开启 `image_gen.contact_sheet_enabled` 时，才会按 `n_sample_count` 发起多候选请求。
 
-候选 VL 评分未显式配置 `candidate_vl_ranking_model` 时固定使用 `claude-opus-4-8`，评分时直接以 multipart 文件上传候选图片给模型，不再把候选图编码成 chat `image_url` / 网格占位结构。`local_pixelize` 本地重处理会整体按生成图源图处理：重新走 perfect pixel、去背景、裁切等后处理，并在 perfect pixel 成功时采用自动检测出的真实像素尺寸，而不是强制沿用原任务的固定目标尺寸；前端本地像素化已移除尺寸选择器，统一按检测到的真实像素网格输出。
+候选 VL 评分未显式配置 `candidate_vl_ranking_model` 时固定使用 `claude-opus-4-8`，评分时直接以 multipart 文件上传候选图片给模型，不再把候选图编码成 chat `image_url` / 网格占位结构。`local_pixelize` 本地重处理会整体按生成图源图处理：重新走 perfect pixel、去背景、裁切等后处理，并在 perfect pixel 成功时采用自动检测出的真实像素尺寸，而不是强制沿用原任务的固定目标尺寸；前端本地像素化已移除尺寸选择器，统一按检测到的真实像素网格输出。`local_bg_remove` 则只做本地去背景，前端可在「像素 / 高清」间切换算法，分别映射到 `pixel_bg` 与 `color_to_alpha`。
 
 模型能力会控制兼容参数：例如 `image2`（上游 `gpt-image-2`）当前不发送 `input_fidelity`，只有模型配置 `extra.supports_input_fidelity = true`（或内置判定支持）时图生图请求才会附带该字段，避免上游返回 `invalid_input_fidelity_model`。Crazyrouter 模型发现结果会继续经过 allowlist 过滤，只暴露 `image2` 与两个 Gemini Image Preview 模型；Doubao、Qwen、Midjourney、Ideogram、FAL、Kling 等模型不会再出现在生图下拉候选中。
 

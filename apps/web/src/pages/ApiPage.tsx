@@ -97,7 +97,7 @@ curl "$PIX_API_BASE/balance" \
 
 curl "$PIX_API_BASE/models" \
   -H "Authorization: Bearer $PIX_API_KEY"`, [])
-  const uploadCurl = useMemo(() => String.raw`# 上传参考图，返回的 path 可作为后续 input_image_path
+  const uploadCurl = useMemo(() => String.raw`# 上传参考图 / 本地输入图，返回的 path 可作为后续 input_image_path
 curl -X POST "$PIX_API_BASE/uploads/images" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -F "file=@reference.png"
@@ -154,6 +154,21 @@ curl -X POST "$PIX_API_BASE/jobs" \
     },
     "image_model": "image2"
   }'`, [])
+  const bgRemoveCurl = useMemo(() => String.raw`# 本地去背景：不调用 AI；algorithm 可选 pixel_bg（像素）或 color_to_alpha（高清）
+curl -X POST "$PIX_API_BASE/jobs" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: demo-bg-remove-001" \
+  -d '{
+    "job_type": "local_bg_remove",
+    "input_image_path": "把上传接口返回的 path 填在这里",
+    "pixelize": {
+      "remove_bg": true,
+      "bg_removal_algorithm": "color_to_alpha"
+    }
+  }'
+
+# 成功后通过 outputs/pixelized 下载透明 PNG。`, [])
   const spriteCurl = useMemo(() => String.raw`# 创建序列帧任务：rows 表示动作行，cols 表示每行动画帧数
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
@@ -394,9 +409,10 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
         <CodeBlock title={text('3. 上传参考图（可选）', '3. Upload a reference image (optional)')} description={text('上传返回的 path 可以写入 input_image_path，用于图生图或角色参考图。', 'The returned path can be used as input_image_path for image-to-image jobs or character references.')} code={uploadCurl} copied={copied} onCopy={(code) => void copy(code, 'upload')} copyKey="upload" />
         <CodeBlock title={text('4. 创建素材直出任务', '4. Create an asset job')} description={text('适合游戏图标、道具、UI 小物件等单图素材；创建成功返回 202 和任务 id。', 'Best for icons, props, UI items, and other single-image assets; returns 202 with a job id.')} code={assetCurl} copied={copied} onCopy={(code) => void copy(code, 'asset')} copyKey="asset" />
         <CodeBlock title={text('5. 创建图生图 / 参考图重绘任务', '5. Create an image-to-image job')} description={text('先上传图片，再把上传结果 path 放到 input_image_path。', 'Upload an image first, then pass the returned path as input_image_path.')} code={imageCurl} copied={copied} onCopy={(code) => void copy(code, 'image')} copyKey="image" />
-        <CodeBlock title={text('6. 创建序列帧任务', '6. Create a sprite-sheet job')} description={text('用于角色行走、攻击、待机等动画；rows × cols 决定动作行和帧数。', 'Use this for walk, attack, idle, and other animations; rows × cols controls action rows and frame count.')} code={spriteCurl} copied={copied} onCopy={(code) => void copy(code, 'sprite')} copyKey="sprite" />
-        <CodeBlock title={text('7. 轮询任务和分页列表', '7. Poll jobs and list pages')} description={text('任务状态通常为 pending / running / succeeded / failed；成功后再下载输出。', 'Job status is usually pending / running / succeeded / failed; download outputs after success.')} code={pollCurl} copied={copied} onCopy={(code) => void copy(code, 'poll')} copyKey="poll" />
-        <CodeBlock title={text('8. 下载输出文件', '8. Download output files')} description={text('下载接口需要 files:read 权限；文件不存在或任务未完成时会返回 404 / 409。', 'Download endpoints require files:read; unavailable files or unfinished jobs return 404 / 409.')} code={downloadCurl} copied={copied} onCopy={(code) => void copy(code, 'download')} copyKey="download" />
+        <CodeBlock title={text('6. 创建本地去背景任务', '6. Create a local background-removal job')} description={text('先上传图片，再选择 pixel_bg（像素）或 color_to_alpha（高清）算法；不调用 AI。', 'Upload an image first, then choose pixel_bg (pixel) or color_to_alpha (HD); no AI call is made.')} code={bgRemoveCurl} copied={copied} onCopy={(code) => void copy(code, 'bg-remove')} copyKey="bg-remove" />
+        <CodeBlock title={text('7. 创建序列帧任务', '7. Create a sprite-sheet job')} description={text('用于角色行走、攻击、待机等动画；rows × cols 决定动作行和帧数。', 'Use this for walk, attack, idle, and other animations; rows × cols controls action rows and frame count.')} code={spriteCurl} copied={copied} onCopy={(code) => void copy(code, 'sprite')} copyKey="sprite" />
+        <CodeBlock title={text('8. 轮询任务和分页列表', '8. Poll jobs and list pages')} description={text('任务状态通常为 pending / running / succeeded / failed；成功后再下载输出。', 'Job status is usually pending / running / succeeded / failed; download outputs after success.')} code={pollCurl} copied={copied} onCopy={(code) => void copy(code, 'poll')} copyKey="poll" />
+        <CodeBlock title={text('9. 下载输出文件', '9. Download output files')} description={text('下载接口需要 files:read 权限；文件不存在或任务未完成时会返回 404 / 409。', 'Download endpoints require files:read; unavailable files or unfinished jobs return 404 / 409.')} code={downloadCurl} copied={copied} onCopy={(code) => void copy(code, 'download')} copyKey="download" />
       </section>
     </div>
   )
