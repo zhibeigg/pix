@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 from typing import Literal
 
 import numpy as np
@@ -101,3 +102,25 @@ def compose_atlas(
                         "bl": bool(idx & BL), "br": bool(idx & BR)},
         })
     return atlas, tiles, mapping
+
+
+def preview_seed(name: str, material_a: str, material_b: str, style: str) -> int:
+    """从参数确定性派生 32-bit 预览种子（同参数同预览，测试稳定）。"""
+    raw = f"{name}\n{material_a}\n{material_b}\n{style}".encode("utf-8")
+    return int.from_bytes(hashlib.sha256(raw).digest()[:4], "big")
+
+
+def render_preview(
+    tiles: list[np.ndarray], w: int, h: int, seed: int, cells: int = 8
+) -> np.ndarray:
+    """随机 cells×cells 世界格 → (cells-1)×(cells-1) 显示瓦片，验证无缝拼接。"""
+    rng = np.random.default_rng(int(seed))
+    world = rng.integers(0, 2, size=(cells, cells))
+    disp = max(1, cells - 1)
+    out = np.zeros((disp * h, disp * w, 4), dtype=np.uint8)
+    for i in range(disp):
+        for j in range(disp):
+            idx = (int(world[i, j]) * TL | int(world[i, j + 1]) * TR
+                   | int(world[i + 1, j]) * BL | int(world[i + 1, j + 1]) * BR)
+            out[i * h:(i + 1) * h, j * w:(j + 1) * w] = tiles[idx]
+    return out

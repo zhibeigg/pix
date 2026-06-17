@@ -11,6 +11,8 @@ from pix.dual_grid import (
     compose_atlas,
     compose_tile,
     material_mask,
+    preview_seed,
+    render_preview,
 )
 
 
@@ -100,3 +102,19 @@ def test_compose_atlas_layout_and_mapping() -> None:
         assert (r, c) == (idx // 4, idx % 4)
         sub = atlas[r * 16:(r + 1) * 16, c * 16:(c + 1) * 16]
         assert np.array_equal(sub, tiles[idx])
+
+
+def test_render_preview_size_and_determinism() -> None:
+    mat_a = _solid(16, 16, (10, 200, 10, 255))
+    mat_b = _solid(16, 16, (10, 10, 200, 255))
+    _atlas, tiles, _ = compose_atlas(mat_a, mat_b, "hard", (0, 0, 0))
+    seed = preview_seed("草地泥土", "草地", "泥土", "rounded")
+    p1 = render_preview(tiles, 16, 16, seed, cells=8)
+    p2 = render_preview(tiles, 16, 16, seed, cells=8)
+    assert p1.shape == (7 * 16, 7 * 16, 4)   # (cells-1) × tile
+    assert np.array_equal(p1, p2)            # 同种子可复现
+
+
+def test_preview_seed_is_deterministic() -> None:
+    assert preview_seed("n", "a", "b", "rounded") == preview_seed("n", "a", "b", "rounded")
+    assert preview_seed("n", "a", "b", "rounded") != preview_seed("n", "a", "b", "hard")
