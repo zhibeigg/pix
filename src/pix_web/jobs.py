@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session, selectinload
 
 from pix.api.prompt_guard import RAW_IMAGE_PROMPT_MAX_CHARS
 from pix.asset import AssetSizePolicyError, resolve_asset_generation_policy
+from pix.config import AppConfig, load_config
+from pix_web.config import WebSettings
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, reserve_credits
 from pix_web.job_observability import record_policy_event
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
@@ -21,12 +23,69 @@ from pix_web.system_settings import (
     PricingDiscount,
     enforce_generation_limits,
     enforce_prompt_policy,
+    load_managed_pix_config,
     load_pricing_discount,
+    managed_pix_overrides_from_db,
 )
 
 AI_JOB_TYPES = {"asset", "text_to_image", "image_to_image", "sprite_sheet"}
 IMAGE_JOB_TYPES = {"image_to_image", "local_pixelize", "local_bg_remove", "repixelize"}
-RAW_IMAGE_PROMPT_MAX_LENGTH = RAW_IMAGE_PROMPT_MAX_CHARS
+
+
+def _positive_limit(value: object, fallback: int) -> int:
+    try:
+        return max(1, int(value))
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _effective_pix_config(db: Session, settings: WebSettings | None = None) -> AppConfig:
+    if settings is not None:
+        return load_managed_pix_config(db, settings)
+    return load_config(overrides=managed_pix_overrides_from_db(db))
+
+
+def _raw_image_prompt_limit(cfg: AppConfig | None) -> int:
+    if cfg is None:
+        return RAW_IMAGE_PROMPT_MAX_CHARS
+    return _positive_limit(cfg.image_gen.prompt_guard_max_chars, RAW_IMAGE_PROMPT_MAX_CHARS)
+
+
+def _asset_subject_limit(cfg: AppConfig) -> int:
+    return _positive_limit(cfg.asset.subject_max_chars, 160)
+
+
+def _asset_extra_prompt_limit(cfg: AppConfig) -> int:
+    return _positive_limit(cfg.asset.extra_prompt_max_chars, RAW_IMAGE_PROMPT_MAX_CHARS)
+
+
+def _sprite_subject_limit(cfg: AppConfig) -> int:
+    return _positive_limit(cfg.sprite.subject_max_chars, RAW_IMAGE_PROMPT_MAX_CHARS)
+
+
+def _sprite_row_prompt_limit(cfg: AppConfig) -> int:
+    return _positive_limit(cfg.sprite.row_prompt_max_chars, 600)
+
+
+def _dedupe_prompt_parts(parts: list[str | None]) -> list[str]:
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for part in parts:
+        clean = (part or "").strip()
+        if not clean or clean in seen:
+            continue
+        seen.add(clean)
+        deduped.append(clean)
+    return deduped
+
+
+def _enforce_text_max_chars(label: str, value: str | None, max_chars: int) -> None:
+    text = (value or "").strip()
+    if len(text) > max_chars:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{label}最多支持 {max_chars} 字",
+        )
 
 
 def _asset_name(req: JobCreateRequest) -> str:
@@ -41,26 +100,39 @@ def _job_prompt_for_record(req: JobCreateRequest) -> str | None:
 
 def _prompt_policy_text(req: JobCreateRequest) -> str | None:
     if req.job_type == "asset":
-        parts = [req.asset.name, req.asset.extra_prompt, req.prompt or ""]
-        text = "\n".join(part.strip() for part in parts if part and part.strip())
-        return text or None
+        parts = _dedupe_prompt_parts([
+            req.asset.name,
+            req.asset.extra_prompt,
+            req.prompt or "",
+            req.asset.material_a,
+            req.asset.material_b,
+        ])
+        return "\n".join(parts) or None
+    if req.job_type == "sprite_sheet":
+        parts = _dedupe_prompt_parts([req.prompt or "", *req.sprite.row_prompts])
+        return "\n".join(parts) or None
     return req.prompt
 
 
-def _prompt_policy_max_chars(req: JobCreateRequest) -> int | None:
+def _prompt_policy_max_chars(req: JobCreateRequest, cfg: AppConfig) -> int | None:
+    if req.job_type == "asset":
+        return (_asset_subject_limit(cfg) * 4) + _asset_extra_prompt_limit(cfg)
+    if req.job_type == "sprite_sheet":
+        rows = max(1, min(8, req.sprite.rows))
+        return _sprite_subject_limit(cfg) + (_sprite_row_prompt_limit(cfg) * rows)
     if req.job_type in AI_JOB_TYPES:
-        return RAW_IMAGE_PROMPT_MAX_LENGTH
+        return _raw_image_prompt_limit(cfg)
     return None
 
 
-def _enforce_request_prompt_policy(db: Session, user: User, req: JobCreateRequest) -> None:
+def _enforce_request_prompt_policy(db: Session, user: User, req: JobCreateRequest, cfg: AppConfig) -> None:
     prompt_text = _prompt_policy_text(req)
     try:
         enforce_prompt_policy(
             db,
             prompt_text,
             allow_template_break=req.source_only or req.job_type == "sprite_sheet",
-            max_chars=_prompt_policy_max_chars(req),
+            max_chars=_prompt_policy_max_chars(req, cfg),
         )
     except HTTPException as exc:
         if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
@@ -79,8 +151,24 @@ def _enforce_request_prompt_policy(db: Session, user: User, req: JobCreateReques
         raise
 
 
-def validate_job_request(req: JobCreateRequest) -> None:
+def validate_job_request(req: JobCreateRequest, cfg: AppConfig | None = None) -> None:
     prompt = (req.prompt or "").strip()
+    if cfg is not None:
+        if req.job_type == "asset":
+            subject_limit = _asset_subject_limit(cfg)
+            extra_prompt_limit = _asset_extra_prompt_limit(cfg)
+            _enforce_text_max_chars("素材主体", _asset_name(req), subject_limit)
+            _enforce_text_max_chars("额外风格描述", req.asset.extra_prompt, extra_prompt_limit)
+            if req.asset.asset_kind == "dual_grid":
+                _enforce_text_max_chars("材质 A 描述", req.asset.material_a, subject_limit)
+                _enforce_text_max_chars("材质 B 描述", req.asset.material_b, subject_limit)
+        elif req.job_type == "sprite_sheet":
+            _enforce_text_max_chars("序列帧主体描述", prompt, _sprite_subject_limit(cfg))
+            row_limit = _sprite_row_prompt_limit(cfg)
+            for index, row_prompt in enumerate(req.sprite.row_prompts, start=1):
+                _enforce_text_max_chars(f"第 {index} 行动作描述", row_prompt, row_limit)
+        elif req.job_type in {"text_to_image", "image_to_image"}:
+            _enforce_text_max_chars("原始生图 prompt", prompt, _raw_image_prompt_limit(cfg))
     try:
         resolve_asset_generation_policy(tuple(req.pixelize.output_size))
     except AssetSizePolicyError as exc:
@@ -97,14 +185,15 @@ def validate_job_request(req: JobCreateRequest) -> None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="文生图任务需要 prompt"
         )
+    raw_prompt_limit = _raw_image_prompt_limit(cfg)
     if (
         req.job_type == "text_to_image"
         and req.source_only
-        and len(prompt) > RAW_IMAGE_PROMPT_MAX_LENGTH
+        and len(prompt) > raw_prompt_limit
     ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"原生生图 prompt 最多支持 {RAW_IMAGE_PROMPT_MAX_LENGTH} 字",
+            detail=f"原生生图 prompt 最多支持 {raw_prompt_limit} 字",
         )
     if req.job_type == "image_to_image" and not prompt:
         raise HTTPException(
@@ -255,8 +344,9 @@ def create_job_in_transaction(
     *,
     reserve: bool = True,
     batch: GenerationBatch | None = None,
+    cfg: AppConfig | None = None,
 ) -> GenerationJob:
-    validate_job_request(req)
+    validate_job_request(req, cfg)
     client_request_id = req.client_request_id.strip()
     existing = _existing_job(db, user, client_request_id)
     if existing is not None:
@@ -286,13 +376,20 @@ def create_job_in_transaction(
     return job
 
 
-def create_job(db: Session, user: User, req: JobCreateRequest) -> GenerationJob:
+def create_job(
+    db: Session,
+    user: User,
+    req: JobCreateRequest,
+    settings: WebSettings | None = None,
+) -> GenerationJob:
+    cfg = _effective_pix_config(db, settings)
     request_id = req.client_request_id.strip()
     if _existing_job(db, user, request_id) is None:
-        _enforce_request_prompt_policy(db, user, req)
+        validate_job_request(req, cfg)
+        _enforce_request_prompt_policy(db, user, req, cfg)
         enforce_generation_limits(db, user, new_jobs=1)
     try:
-        job = create_job_in_transaction(db, user, req)
+        job = create_job_in_transaction(db, user, req, cfg=cfg)
     except InsufficientCreditsError as exc:
         raise insufficient_credits_http() from exc
     db.commit()
@@ -318,7 +415,9 @@ def create_jobs_batch(
     *,
     batch_name: str = "",
     mode: str = "mixed",
+    settings: WebSettings | None = None,
 ) -> tuple[list[GenerationJob], int, GenerationBatch | None]:
+    cfg = _effective_pix_config(db, settings)
     if not reqs:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="批量任务不能为空"
@@ -329,7 +428,7 @@ def create_jobs_batch(
     seen_request_ids: set[str] = set()
     existing_by_index: dict[int, GenerationJob] = {}
     for index, req in enumerate(reqs):
-        validate_job_request(req)
+        validate_job_request(req, cfg)
         request_id = req.client_request_id.strip()
         if request_id:
             if request_id in seen_request_ids:
@@ -343,7 +442,7 @@ def create_jobs_batch(
             existing_by_index[index] = existing
             prices.append(0)
             continue
-        _enforce_request_prompt_policy(db, user, req)
+        _enforce_request_prompt_policy(db, user, req, cfg)
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price
@@ -373,7 +472,7 @@ def create_jobs_batch(
             if existing is not None:
                 jobs.append(existing)
                 continue
-            job = create_job_in_transaction(db, user, req, reserve=False, batch=batch)
+            job = create_job_in_transaction(db, user, req, reserve=False, batch=batch, cfg=cfg)
             reserve_credits(db, user, job, price)
             jobs.append(job)
     except InsufficientCreditsError as exc:
@@ -413,7 +512,13 @@ def _request_from_failed_job(job: GenerationJob) -> JobCreateRequest:
     )
 
 
-def retry_failed_job(db: Session, user: User, job_id: int) -> GenerationJob:
+def retry_failed_job(
+    db: Session,
+    user: User,
+    job_id: int,
+    settings: WebSettings | None = None,
+) -> GenerationJob:
+    cfg = _effective_pix_config(db, settings)
     failed_job = db.scalar(
         select(GenerationJob)
         .options(selectinload(GenerationJob.batch))
@@ -425,8 +530,8 @@ def retry_failed_job(db: Session, user: User, job_id: int) -> GenerationJob:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只有失败任务可以重试")
 
     req = _request_from_failed_job(failed_job)
-    validate_job_request(req)
-    _enforce_request_prompt_policy(db, user, req)
+    validate_job_request(req, cfg)
+    _enforce_request_prompt_policy(db, user, req, cfg)
     enforce_generation_limits(db, user, new_jobs=1)
     price = _price_for_request(db, req)
 
@@ -436,7 +541,7 @@ def retry_failed_job(db: Session, user: User, job_id: int) -> GenerationJob:
         raise insufficient_credits_http()
 
     try:
-        job = create_job_in_transaction(db, user, req, reserve=False, batch=failed_job.batch)
+        job = create_job_in_transaction(db, user, req, reserve=False, batch=failed_job.batch, cfg=cfg)
         reserve_credits(db, user, job, price)
     except InsufficientCreditsError as exc:
         db.rollback()
@@ -454,8 +559,12 @@ def retry_failed_job(db: Session, user: User, job_id: int) -> GenerationJob:
 
 
 def retry_failed_jobs_in_batch(
-    db: Session, user: User, batch_id: int
+    db: Session,
+    user: User,
+    batch_id: int,
+    settings: WebSettings | None = None,
 ) -> tuple[list[GenerationJob], int, GenerationBatch]:
+    cfg = _effective_pix_config(db, settings)
     batch = db.scalar(
         select(GenerationBatch)
         .options(selectinload(GenerationBatch.jobs))
@@ -472,8 +581,8 @@ def retry_failed_jobs_in_batch(
     total_price = 0
     prices: list[int] = []
     for req in reqs:
-        validate_job_request(req)
-        _enforce_request_prompt_policy(db, user, req)
+        validate_job_request(req, cfg)
+        _enforce_request_prompt_policy(db, user, req, cfg)
         price = _price_for_request(db, req)
         prices.append(price)
         total_price += price
@@ -488,7 +597,7 @@ def retry_failed_jobs_in_batch(
     jobs: list[GenerationJob] = []
     try:
         for req, price in zip(reqs, prices, strict=True):
-            job = create_job_in_transaction(db, user, req, reserve=False, batch=batch)
+            job = create_job_in_transaction(db, user, req, reserve=False, batch=batch, cfg=cfg)
             reserve_credits(db, user, job, price)
             jobs.append(job)
     except InsufficientCreditsError as exc:

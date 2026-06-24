@@ -6,6 +6,7 @@ import { useI18n } from '../i18n'
 import { useConfirm } from './ConfirmDialog'
 import type { CreditBalance, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule, TextureKind, UploadResponse } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
+import { promptLimitsFromModels } from '../lib/promptLimits'
 import { applyDiscount, discountPercentOff, discountZhe } from '../lib/pricing'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
@@ -23,7 +24,6 @@ type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_log
 type BatchUpload = { id: string; status: 'uploading' | 'uploaded' | 'failed'; error?: string; upload?: UploadResponse }
 type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; balance: CreditBalance | null; loading: boolean; token: string; imageModels: ImageModelsResponse; onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void> }
 
-const PROMPT_MAX_LENGTH = 3000
 const LOGO_SIZE_OPTIONS = ['64x32', '96x48', '128x64', '192x96', '256x128']
 const UI_COMPONENT_IMAGE_SIZE = 'auto'
 const TEXTURE_KIND_VALUES: TextureKind[] = [
@@ -66,6 +66,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
   const confirm = useConfirm()
   const [batchMode, setBatchMode] = useState<BatchMode>('asset')
   const [imageModel, setImageModel] = useState(imageModels.default)
+  const promptLimits = useMemo(() => promptLimitsFromModels(imageModels), [imageModels])
   const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
   const [prompts, setPrompts] = useState(() => t('batchForm.defaults.prompts'))
   const [assetKind, setAssetKind] = useState<AssetKindChoice>('item_icon')
@@ -80,6 +81,10 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
   const [skipVl, setSkipVl] = useState(false)
 
   const lines = useMemo(() => prompts.split('\n').map((line) => line.trim()).filter(Boolean), [prompts])
+  const assetSubjectMaxLength = promptLimits.asset_subject_max_chars
+  const assetExtraPromptMaxLength = promptLimits.asset_extra_prompt_max_chars
+  const overlongSubject = lines.find((line) => line.length > assetSubjectMaxLength) ?? ''
+  const assetExtraPromptTooLong = assetExtraPrompt.length > assetExtraPromptMaxLength
   const uploaded = uploads.filter((item) => item.status === 'uploaded' && item.upload)
   const unitPrice = pricing.find((item) => item.key === batchMode)?.price_credits ?? 0
   const discountedUnit = applyDiscount(unitPrice, discount)
@@ -148,6 +153,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
 
   async function submit(event: FormEvent) {
     event.preventDefault()
+    if (overlongSubject || assetExtraPromptTooLong) return
     const edge = edgeStylePixelize(edgeStyle)
     const pixelize = isAsset ? buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }) : buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge })
     const grid = buildGridDesign()
@@ -181,15 +187,17 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
           {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
             <PixField label={t('batchForm.assetKindLabel')}><Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="item_icon">{t('batchForm.assetKinds.item_icon')}</SelectItem><SelectItem value="ui_component">{t('batchForm.assetKinds.ui_component')}</SelectItem><SelectItem value="tile_texture">{t('batchForm.assetKinds.tile_texture')}</SelectItem><SelectItem value="game_logo">{t('batchForm.assetKinds.game_logo')}</SelectItem></SelectContent></Select></PixField>
             {isTileAsset && <PixField label={t('batchForm.textureKindLabel')} hint={t('batchForm.textureKindHint')}><Select value={textureKind} onValueChange={(value) => setTextureKind(value as TextureKind)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TEXTURE_KIND_VALUES.map((value) => <SelectItem key={value} value={value}>{t(`batchForm.textureKinds.${value}`)}</SelectItem>)}</SelectContent></Select></PixField>}
-            <PixField label={t('batchForm.extraStyle')}><Textarea value={assetExtraPrompt} rows={3} maxLength={PROMPT_MAX_LENGTH} placeholder={t('batchForm.extraStylePlaceholder')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
+            <PixField label={t('batchForm.extraStyle')} hint={text(`${assetExtraPrompt.length}/${assetExtraPromptMaxLength} 字`, `${assetExtraPrompt.length}/${assetExtraPromptMaxLength} characters`)}><Textarea value={assetExtraPrompt} rows={3} maxLength={assetExtraPromptMaxLength} placeholder={t('batchForm.extraStylePlaceholder')} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
           </div>}
-          <PixField label={assetSubjectsLabel}><Textarea value={prompts} rows={8} placeholder={assetSubjectPlaceholder} onChange={(e) => setPrompts(e.target.value)} /></PixField>
+          <PixField label={assetSubjectsLabel} hint={text(`每行最多 ${assetSubjectMaxLength} 字。`, `Up to ${assetSubjectMaxLength} characters per line.`)}><Textarea value={prompts} rows={8} placeholder={assetSubjectPlaceholder} onChange={(e) => setPrompts(e.target.value)} /></PixField>
         </div> : <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? t('batchForm.uploading') : t('batchForm.uploadImages')}<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={t('batchForm.uploadImages')} onChange={(e) => void uploadFiles(e.currentTarget.files)} /></label></Button><UploadList uploads={uploads} /></div>}
         <PixelControls pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || !removeBg} />
         <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={isTileAsset ? false : removeBg} disabled={isTileAsset} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{t('batchForm.transparentBackground')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize' || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? t('batchForm.defaultVisionPolicy') : t('batchForm.skipReference')}</label></div>
         {invalidSubAssetSize && <Alert variant="destructive">{t('batchForm.minSize')}</Alert>}
+        {overlongSubject && <Alert variant="destructive">{text(`存在超过 ${assetSubjectMaxLength} 字的主体描述：${overlongSubject.slice(0, 32)}…`, `One subject exceeds ${assetSubjectMaxLength} characters: ${overlongSubject.slice(0, 32)}…`)}</Alert>}
+        {assetExtraPromptTooLong && <Alert variant="destructive">{text(`额外风格描述最多 ${assetExtraPromptMaxLength} 字。`, `Extra style notes max ${assetExtraPromptMaxLength} characters.`)}</Alert>}
         {insufficientCredits && <Button type="button" variant="outline" onClick={() => { window.location.hash = '/billing' }}>{t('batchForm.insufficient')}</Button>}
-        <Button type="submit" size="lg" disabled={loading || uploading || taskCount === 0 || insufficientCredits || invalidSubAssetSize}>{loading ? t('batchForm.submitting') : t('batchForm.submit', { count: taskCount })}</Button>
+        <Button type="submit" size="lg" disabled={loading || uploading || taskCount === 0 || insufficientCredits || invalidSubAssetSize || Boolean(overlongSubject) || assetExtraPromptTooLong}>{loading ? t('batchForm.submitting') : t('batchForm.submit', { count: taskCount })}</Button>
       </form>
     </PixPanel>
   )

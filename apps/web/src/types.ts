@@ -169,10 +169,20 @@ export type ImageModelInfo = {
   default_quality?: string
 }
 
+export type PromptLimits = {
+  prompt_max_chars: number
+  raw_image_prompt_max_chars: number
+  asset_subject_max_chars: number
+  asset_extra_prompt_max_chars: number
+  sprite_subject_max_chars: number
+  sprite_row_prompt_max_chars: number
+}
+
 export type ImageModelsResponse = {
   default: string
   models: string[]
   items?: ImageModelInfo[]
+  limits?: PromptLimits
 }
 
 export type PixelizeParams = {
@@ -214,15 +224,21 @@ export type SpriteParams = {
 }
 
 export type TextureKind = 'auto' | 'generic_texture' | 'terrain_ground' | 'path_floor' | 'wall_surface' | 'wood_planks' | 'water_liquid' | 'foliage_canopy' | 'roof_tile' | 'metal_panel' | 'fabric_carpet'
+export type DualGridTransitionStyle = 'rounded' | 'hard' | 'outline'
 
 export type AssetParams = {
   name: string
   extra_prompt?: string
-  asset_kind?: 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
+  asset_kind?: 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo' | 'dual_grid'
   subject_kind?: 'single_prop' | 'single_ui' | 'tileable_pattern' | 'logo_mark'
   texture_kind?: TextureKind
   use_vl?: boolean | null
   no_preview?: boolean
+  material_a?: string
+  material_b?: string
+  material_a_texture_kind?: TextureKind
+  material_b_texture_kind?: TextureKind
+  transition_style?: DualGridTransitionStyle
 }
 
 export type SequenceFrameAlignment = {
@@ -353,6 +369,10 @@ export type JobOutput = {
   pixelized_size?: [number, number] | null
   preview_path: string | null
   preview_url: string | null
+  dual_grid_atlas_path?: string | null
+  dual_grid_atlas_url?: string | null
+  dual_grid_preview_path?: string | null
+  dual_grid_preview_url?: string | null
   analysis_json_path: string | null
   meta_json_path: string
   grid_json_path: string | null

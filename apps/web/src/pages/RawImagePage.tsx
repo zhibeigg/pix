@@ -1,7 +1,9 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { RefreshCw, Upload } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
+import { computeRawReuse, isRawImageJob } from '../lib/jobReuse'
+import { promptLimitsFromModels } from '../lib/promptLimits'
 import { useI18n } from '../i18n'
 import { defaultPixelize, summarizePrompt } from '../pixelize'
 import { applyDiscount } from '../lib/pricing'
@@ -28,6 +30,7 @@ type Props = {
   token: string
   imageModels: ImageModelsResponse
   selectedJobId: number | null
+  reuseSeed?: { revision: number; job: GenerationJob } | null
   onSelectJob: (jobId: number) => void
   onCreateJob: (payload: JobCreateRequest) => Promise<void>
   onRefresh: () => void | Promise<void>
@@ -35,7 +38,6 @@ type Props = {
 
 const imageSizes = ['1024x1024', '1536x1024', '1024x1536', '2048x1024', '1024x2048', 'auto']
 const qualityOptions = ['auto', 'low', 'medium', 'high']
-const RAW_IMAGE_PROMPT_MAX_LENGTH = 3000
 
 function modelItems(imageModels: ImageModelsResponse): ImageModelInfo[] {
   const byId = new Map((imageModels.items ?? []).map((item) => [item.id, item]))
@@ -61,9 +63,11 @@ function modelOptionLabel(model: ImageModelInfo) {
   return providers > 1 ? `${model.label || model.id} · ${providers} providers` : (model.label || model.id)
 }
 
-export function RawImagePage({ pricing, discount, balance, jobs, loading, token, imageModels, selectedJobId, onSelectJob, onCreateJob, onRefresh }: Props) {
+export function RawImagePage({ pricing, discount, balance, jobs, loading, token, imageModels, selectedJobId, reuseSeed, onSelectJob, onCreateJob, onRefresh }: Props) {
   const { text } = useI18n()
   const [model, setModel] = useState(imageModels.default || 'image2')
+  const promptLimits = useMemo(() => promptLimitsFromModels(imageModels), [imageModels])
+  const rawImagePromptMaxLength = promptLimits.raw_image_prompt_max_chars
   const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
   const selectedModelInfo = useMemo(() => availableImageModels.find((item) => item.id === model), [availableImageModels, model])
   const modelSizes = selectedModelInfo?.sizes?.length ? selectedModelInfo.sizes : imageSizes
@@ -76,13 +80,14 @@ export function RawImagePage({ pricing, discount, balance, jobs, loading, token,
   const [refImageUrl, setRefImageUrl] = useState('')
   const [refUploading, setRefUploading] = useState(false)
   const [refMessage, setRefMessage] = useState('')
+  const lastAppliedRawReuseRevisionRef = useRef<number | null>(null)
   const rawJobs = useMemo(() => jobs.filter(isRawImageJob).sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at))), [jobs])
   const selectedJob = rawJobs.find((job) => job.id === selectedJobId) ?? rawJobs[0] ?? null
   const hasReference = !!refImagePath
   const billingKey = hasReference ? 'image_to_image' : 'text_to_image'
   const price = pricing.find((item) => item.key === billingKey)?.price_credits ?? 0
   const discountedPrice = applyDiscount(price, discount)
-  const promptTooLong = prompt.length > RAW_IMAGE_PROMPT_MAX_LENGTH
+  const promptTooLong = prompt.length > rawImagePromptMaxLength
   const insufficientCredits = typeof balance?.available_credits === 'number' && balance.available_credits < discountedPrice
   const isSelectedActive = selectedJob?.status === 'pending' || selectedJob?.status === 'running'
   const mainImageUrl = isSelectedActive ? null : rawSourceUrl(selectedJob)
@@ -103,6 +108,24 @@ export function RawImagePage({ pricing, discount, balance, jobs, loading, token,
   useEffect(() => {
     if (!modelQualities.includes(quality)) setQuality(modelQualities[0] ?? 'auto')
   }, [modelQualities, quality])
+
+  // 复用原始生图作品：把提示词 / 模型 / 尺寸 / 质量 / 参考图回填到本面板（每个 revision 仅应用一次）。
+  useEffect(() => {
+    if (!reuseSeed || lastAppliedRawReuseRevisionRef.current === reuseSeed.revision) return
+    lastAppliedRawReuseRevisionRef.current = reuseSeed.revision
+    const job = reuseSeed.job
+    const reuse = computeRawReuse(job, {
+      availableModelIds: availableImageModels.map((item) => item.id),
+      defaultModel: imageModels.default || 'image2',
+    })
+    setPrompt(reuse.prompt)
+    setModel(reuse.model)
+    setImageSize(reuse.imageSize)
+    setQuality(reuse.quality)
+    setRefImagePath(reuse.referenceImagePath)
+    setRefImageUrl(signedFileUrl(job.input_image_url ?? undefined))
+    setRefMessage(reuse.referenceImagePath ? text('已复用原任务的参考图。', 'Reused the original reference image.') : '')
+  }, [availableImageModels, imageModels.default, reuseSeed, text])
 
   async function uploadReferenceFile(file: File | undefined) {
     if (!file) return
@@ -175,7 +198,7 @@ export function RawImagePage({ pricing, discount, balance, jobs, loading, token,
         </div>
       </PixPanel>
 
-      <PixPanel><div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_190px]"><div className="grid gap-2"><Textarea value={prompt} rows={5} required maxLength={RAW_IMAGE_PROMPT_MAX_LENGTH} onChange={(event) => setPrompt(event.target.value)} placeholder={text('描述你要生成的图片：主体、风格、构图、颜色、用途。', 'Describe the image: subject, style, composition, colors, and intended use.')} /><div className="flex justify-end text-xs text-muted-foreground">{prompt.length}/{RAW_IMAGE_PROMPT_MAX_LENGTH}</div></div><div className="grid content-between gap-3"><Badge variant="outline">{imageSize} · {quality} · {hasReference ? text('图生图', 'image-to-image') : text('1 张', '1 image')}</Badge>{promptTooLong && <Badge variant="danger">{text('提示词最多 3000 字', 'Prompt max 3000 characters')}</Badge>}<Button type="submit" size="lg" disabled={loading || !prompt.trim() || promptTooLong || insufficientCredits || (hasReference && !modelSupportsI2I)}>{loading ? text('提交中…', 'Submitting…') : hasReference ? text('图生图微调', 'Generate (image-to-image)') : text('生成单图', 'Generate image')}</Button></div></div></PixPanel>
+      <PixPanel><div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_190px]"><div className="grid gap-2"><Textarea value={prompt} rows={5} required maxLength={rawImagePromptMaxLength} onChange={(event) => setPrompt(event.target.value)} placeholder={text('描述你要生成的图片：主体、风格、构图、颜色、用途。', 'Describe the image: subject, style, composition, colors, and intended use.')} /><div className="flex justify-end text-xs text-muted-foreground">{prompt.length}/{rawImagePromptMaxLength}</div></div><div className="grid content-between gap-3"><Badge variant="outline">{imageSize} · {quality} · {hasReference ? text('图生图', 'image-to-image') : text('1 张', '1 image')}</Badge>{promptTooLong && <Badge variant="danger">{text(`提示词最多 ${rawImagePromptMaxLength} 字`, `Prompt max ${rawImagePromptMaxLength} characters`)}</Badge>}<Button type="submit" size="lg" disabled={loading || !prompt.trim() || promptTooLong || insufficientCredits || (hasReference && !modelSupportsI2I)}>{loading ? text('提交中…', 'Submitting…') : hasReference ? text('图生图微调', 'Generate (image-to-image)') : text('生成单图', 'Generate image')}</Button></div></div></PixPanel>
     </form>
   )
 }
@@ -211,16 +234,6 @@ function buildRawPayload({ prompt, imageSize, quality, model, referenceImagePath
     pixelize: { ...defaultPixelize, preview_scale: 0, remove_bg: false, auto_crop: false },
     grid: { mode: 'off' },
   }
-}
-
-function isRawImageJob(job: GenerationJob) {
-  const grid = job.params_json?.grid
-  const gridMode = typeof grid === 'object' && grid !== null && 'mode' in grid ? (grid as { mode?: unknown }).mode : null
-  // 文生图原始图：source_only=true 或 (skip_vl + grid=off)
-  if (job.job_type === 'text_to_image' && (job.params_json?.source_only === true || (job.params_json?.skip_vl === true && gridMode === 'off'))) return true
-  // 图生图原始图：source_only=true（与「调音 / AI 微调」走 image_to_image 但不带 source_only 的任务区分）
-  if (job.job_type === 'image_to_image' && job.params_json?.source_only === true) return true
-  return false
 }
 
 function firstOutput(job: GenerationJob | null | undefined) { return Array.isArray(job?.outputs) ? job.outputs[0] : undefined }

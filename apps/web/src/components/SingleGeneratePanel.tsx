@@ -5,6 +5,8 @@ import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule, TextureKind } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type BgRemovalAlgorithmChoice, type EdgeStyleChoice } from '../pixelize'
+import { assetKindDefaults, jobTypeDefaults, mergeReusedPixelize, parseAssetKind, reusableWorkbenchType, type AssetKindChoice, type DualGridTransitionStyle } from '../lib/jobReuse'
+import { promptLimitsFromModels } from '../lib/promptLimits'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
@@ -18,14 +20,12 @@ import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
 
 type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; reuseJobSeed?: { revision: number; job: GenerationJob } | null; onSubmit: (payload: JobCreateRequest) => Promise<void> }
-type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
 
 type TextureKindOption = { value: TextureKind; zh: string; en: string }
 
-const PROMPT_MAX_LENGTH = 3000
-const ROW_PROMPT_MAX_LENGTH = 600
 const MAX_GRID_AXIS = 8
 const LOGO_SIZE_OPTIONS = ['64x32', '96x48', '128x64', '192x96', '256x128']
+const DUAL_GRID_SIZE_OPTIONS = ['16x16', '24x24', '32x32', '48x48', '64x64', '96x96']
 const UI_COMPONENT_IMAGE_SIZE = 'auto'
 const TEXTURE_KIND_OPTIONS: TextureKindOption[] = [
   { value: 'auto', zh: '自动识别', en: 'Auto detect' },
@@ -150,8 +150,22 @@ function pixelSizeValue(value: unknown): string | null {
   return width && height ? `${Math.round(width)}x${Math.round(height)}` : null
 }
 
-function assetKindValue(value: unknown): AssetKindChoice | null {
-  return value === 'item_icon' || value === 'ui_component' || value === 'tile_texture' || value === 'game_logo' ? value : null
+function assetKindLabel(value: AssetKindChoice, text: (zh: string, en: string) => string): string {
+  if (value === 'ui_component') return text('UI 组件', 'UI component')
+  if (value === 'tile_texture') return text('平铺纹理', 'Tileable texture')
+  if (value === 'game_logo') return text('游戏 Logo', 'Game logo')
+  if (value === 'dual_grid') return text('双瓦片', 'Dual-grid tileset')
+  return text('物品图标', 'Item icon')
+}
+
+function transitionStyleValue(value: unknown): DualGridTransitionStyle {
+  return value === 'hard' || value === 'outline' ? value : 'rounded'
+}
+
+function transitionStyleLabel(value: DualGridTransitionStyle, text: (zh: string, en: string) => string): string {
+  if (value === 'hard') return text('硬边过渡', 'Hard edge')
+  if (value === 'outline') return text('描边过渡', 'Outline')
+  return text('圆滑过渡', 'Rounded')
 }
 
 function textureKindValue(value: unknown): TextureKind | null {
@@ -170,26 +184,26 @@ function rowPromptValues(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => stringValue(item)) : []
 }
 
-function reusableWorkbenchType(job: GenerationJob): JobType {
-  if (job.job_type === 'sprite_sheet') return 'sprite_sheet'
-  if (job.job_type === 'local_bg_remove') return 'local_bg_remove'
-  if (job.job_type === 'local_pixelize' || job.job_type === 'repixelize') return 'local_pixelize'
-  return 'asset'
-}
-
 export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, reuseJobSeed, onSubmit }: Props) {
   const { text } = useI18n()
   const [jobType, setJobType] = useState<JobType>('asset')
   const [imageModel, setImageModel] = useState(imageModels.default)
+  const promptLimits = useMemo(() => promptLimitsFromModels(imageModels), [imageModels])
   const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
   const selectedModelInfo = useMemo(() => availableImageModels.find((item) => item.id === imageModel), [availableImageModels, imageModel])
   const selectedModelSupportsI2I = supportsImageToImage(selectedModelInfo)
-  const skipNextModeResetRef = useRef(false)
-  const skipNextAssetResetRef = useRef(false)
   const lastAppliedReuseRevisionRef = useRef<number | null>(null)
+  // 复用时缓存原作品完整 pixelize，提交时与界面字段合并，避免丢失界面未暴露的高级参数。
+  const reusedPixelizeRef = useRef<Record<string, unknown> | null>(null)
+  const [reuseModelMissing, setReuseModelMissing] = useState(false)
   const [assetName, setAssetName] = useState(() => text('冰霜之心', 'Frost Heart'))
   const [assetKind, setAssetKind] = useState<AssetKindChoice>('item_icon')
   const [textureKind, setTextureKind] = useState<TextureKind>('auto')
+  const [dualMaterialA, setDualMaterialA] = useState(() => text('草地', 'Grass'))
+  const [dualMaterialB, setDualMaterialB] = useState(() => text('泥土', 'Dirt'))
+  const [dualMaterialATextureKind, setDualMaterialATextureKind] = useState<TextureKind>('auto')
+  const [dualMaterialBTextureKind, setDualMaterialBTextureKind] = useState<TextureKind>('auto')
+  const [dualTransitionStyle, setDualTransitionStyle] = useState<DualGridTransitionStyle>('rounded')
   const [assetExtraPrompt, setAssetExtraPrompt] = useState('')
   const [prompt, setPrompt] = useState(() => text('一枚幻想 RPG 魔法药水图标，居中构图，轮廓清晰，透明背景', 'A fantasy RPG magic potion icon, centered composition, clear silhouette, transparent background'))
   const [inputImagePath, setInputImagePath] = useState('')
@@ -222,9 +236,12 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const isSprite = jobType === 'sprite_sheet'
   const isLocalPixelize = jobType === 'local_pixelize'
   const isLocalBgRemove = jobType === 'local_bg_remove'
+  const showsImageModel = !isLocalPixelize && !isLocalBgRemove
   const isTileAsset = isAsset && assetKind === 'tile_texture'
   const isLogoAsset = isAsset && assetKind === 'game_logo'
-  // 平铺纹理不走参考图模式；普通素材参考图仍保留 asset job_type，以便继续使用素材直出 prompt。
+  const isDualGridAsset = isAsset && assetKind === 'dual_grid'
+  const dualMaterialBTransparent = dualMaterialB.trim() === '' || dualMaterialB.trim().toLocaleLowerCase() === 'transparent'
+  // 平铺纹理 / 双瓦片不走参考图模式；普通素材参考图仍保留 asset job_type，以便继续使用素材直出 prompt。
   const assetSupportsReference = isAsset && (assetKind === 'item_icon' || assetKind === 'ui_component' || assetKind === 'game_logo')
   const hasAssetReference = assetSupportsReference && !!assetRefPath
   const basePrice = useMemo(() => {
@@ -239,19 +256,33 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const price = isSprite ? basePrice * billingUnits : basePrice
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
-  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : 'single_prop'
+  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : (assetKind === 'tile_texture' || assetKind === 'dual_grid') ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : 'single_prop'
   const uiComponentImageSize = assetKind === 'ui_component' ? UI_COMPONENT_IMAGE_SIZE : undefined
-  const assetNameLabel = isLogoAsset ? text('Logo 标题 / 品牌名', 'Logo title / brand name') : isTileAsset ? text('纹理主题 / 题材', 'Texture theme') : text('主体', 'Subject')
+  const assetSubjectMaxLength = promptLimits.asset_subject_max_chars
+  const assetExtraPromptMaxLength = promptLimits.asset_extra_prompt_max_chars
+  const spriteSubjectMaxLength = promptLimits.sprite_subject_max_chars
+  const spriteRowPromptMaxLength = promptLimits.sprite_row_prompt_max_chars
+  const assetNameTooLong = isAsset && assetName.trim().length > assetSubjectMaxLength
+  const assetExtraPromptTooLong = isAsset && assetExtraPrompt.length > assetExtraPromptMaxLength
+  const dualMaterialATooLong = isDualGridAsset && dualMaterialA.trim().length > assetSubjectMaxLength
+  const dualMaterialBTooLong = isDualGridAsset && dualMaterialB.trim().length > assetSubjectMaxLength
+  const spriteSubjectTooLong = prompt.length > spriteSubjectMaxLength
+  const rowPromptTooLong = isSprite && ensureRowPromptsLength(rowPrompts, safeRows).some((value) => value.length > spriteRowPromptMaxLength)
+  const assetNameLabel = isLogoAsset ? text('Logo 标题 / 品牌名', 'Logo title / brand name') : isDualGridAsset ? text('图集名称（可选）', 'Atlas name (optional)') : isTileAsset ? text('纹理主题 / 题材', 'Texture theme') : text('主体', 'Subject')
   const assetNamePlaceholder = isLogoAsset
     ? text('例如：星尘纪元、PIX FORGE、龙焰', 'e.g. Starfall Age, PIX FORGE, Dragonflame')
-    : isTileAsset
-      ? text('例如：苔藓砖石路面、木板地、像素草地', 'e.g. mossy cobblestone, wood planks, grass field')
-      : text('例如：冰霜之心', 'e.g. Frost Heart')
+    : isDualGridAsset
+      ? text('例如：草地泥土过渡；留空会按 A/B 材质自动命名', 'e.g. Grass dirt transition; leave blank to name from A/B materials')
+      : isTileAsset
+        ? text('例如：苔藓砖石路面、木板地、像素草地', 'e.g. mossy cobblestone, wood planks, grass field')
+        : text('例如：冰霜之心', 'e.g. Frost Heart')
   const assetExtraPlaceholder = isLogoAsset
     ? text('可补充字体气质、徽章形状、配色、题材氛围。文字只会使用上方标题。', 'Optional: lettering mood, emblem shape, palette, genre atmosphere. Text should only use the title above.')
-    : isTileAsset
-      ? text('可补充配色、细节密度、年代感等。无需提"无缝平铺"，模板已内置。', 'Optional: palette, detail density, era. "Seamless / tileable" is already enforced by template.')
-      : text('可留空；如需补充材质、颜色或题材风格再填写。', 'Optional; add material, color, or theme notes if needed.')
+    : isDualGridAsset
+      ? text('双瓦片主要由材质 A / B 控制；这里可补充整体题材、年代感或像素风格。', 'Dual-grid is driven by material A/B; add overall theme, era, or pixel-art style notes here.')
+      : isTileAsset
+        ? text('可补充配色、细节密度、年代感等。无需提"无缝平铺"，模板已内置。', 'Optional: palette, detail density, era. "Seamless / tileable" is already enforced by template.')
+        : text('可留空；如需补充材质、颜色或题材风格再填写。', 'Optional; add material, color, or theme notes if needed.')
   const assetReferenceHint = isLogoAsset
     ? text('提供后会保留参考图的徽章轮廓、主色调和字形气质，但最终文字只使用上方 Logo 标题。', 'When provided, it preserves the reference emblem silhouette, main color mood, and lettering attitude, while final text only uses the logo title above.')
     : text('提供后会先把参考图理解为像素风参考，再按素材直出 Prompt 重绘；不是简单处理上传图。留空走默认文生图素材直出。', 'When provided, the reference is first interpreted as pixel-art inspiration, then redrawn with the asset-output prompt. It is not merely processed as the uploaded image. Leave empty for text-to-image asset output.')
@@ -263,7 +294,12 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const submitBlocked = invalidSubAssetSize
     || invalidGrid
     || missingRowPrompts
-    || (isAsset && !assetName.trim())
+    || assetNameTooLong
+    || assetExtraPromptTooLong
+    || (isDualGridAsset && (dualMaterialATooLong || dualMaterialBTooLong))
+    || (isSprite && (spriteSubjectTooLong || rowPromptTooLong))
+    || (isAsset && !isDualGridAsset && !assetName.trim())
+    || (isDualGridAsset && !dualMaterialA.trim())
     || (isSprite && !prompt.trim())
     || ((hasAssetReference || (isSprite && !!refImagePath)) && !selectedModelSupportsI2I)
     || ((isLocalPixelize || isLocalBgRemove) && !inputImagePath.trim())
@@ -274,31 +310,42 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     }
   }, [availableImageModels, imageModel, imageModels.default])
 
-  // 模式切换时重置默认参数；作品复用会一次性回填旧参数，跳过对应的自动默认值覆盖。
-  useEffect(() => {
-    if (skipNextModeResetRef.current) { skipNextModeResetRef.current = false; return }
-    if (jobType === 'asset') { setPixelSize('16x16'); setColors(8); setRemoveBg(true); setEdgeStyle('hard'); setBgRemovalAlgorithm('pixel_bg') }
-    else if (jobType === 'sprite_sheet') { setPixelSize('64x64'); setColors(16); setRemoveBg(false); setFps(8); setSpritePreset('horizontal'); setRows(1); setCols(8); setRowPrompts(['']) }
-    else if (jobType === 'local_bg_remove') { setPixelSize('128x128'); setColors(16); setRemoveBg(true); setEdgeStyle('hard'); setBgRemovalAlgorithm('color_to_alpha') }
-    else { setPixelSize('128x128'); setColors(16); setRemoveBg(true); setBgRemovalAlgorithm('pixel_bg') }
-  }, [jobType])
+  // 默认值在「用户手动切换模式/素材类型」时应用（取代原先依赖 effect 时序 + skip-ref 的脆弱机制，
+  // 该机制在 React StrictMode 下会被双调用提前消费 skip-ref，导致复用回填的参数被默认值覆盖）。
+  function applyAssetKindDefaults(kind: AssetKindChoice) {
+    const d = assetKindDefaults(kind)
+    setPixelSize(d.pixelSize); setColors(d.colors); setRemoveBg(d.removeBg); setEdgeStyle(d.edgeStyle)
+    if (d.textureKind !== undefined) setTextureKind(d.textureKind)
+    if (d.dualMaterialATextureKind !== undefined) setDualMaterialATextureKind(d.dualMaterialATextureKind)
+    if (d.dualMaterialBTextureKind !== undefined) setDualMaterialBTextureKind(d.dualMaterialBTextureKind)
+    if (d.dualTransitionStyle !== undefined) setDualTransitionStyle(d.dualTransitionStyle)
+    if (d.clearAssetRef) { setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('') }
+  }
 
-  // asset_kind 切换时重置常用默认：平铺纹理铺满画布；Logo 走宽幅透明 PNG，不额外描边。
-  useEffect(() => {
-    if (jobType !== 'asset') return
-    if (skipNextAssetResetRef.current) { skipNextAssetResetRef.current = false; return }
-    if (assetKind === 'tile_texture') {
-      setPixelSize('32x32'); setColors(12); setRemoveBg(false); setEdgeStyle('hard'); setTextureKind('auto')
-      // 切到平铺纹理时清掉之前的参考图（不支持）
-      setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('')
-    } else if (assetKind === 'game_logo') {
-      setPixelSize('128x64'); setColors(24); setRemoveBg(true); setEdgeStyle('hard')
-    } else if (assetKind === 'item_icon') {
-      setPixelSize('16x16'); setColors(8); setRemoveBg(true); setEdgeStyle('hard')
-    } else if (assetKind === 'ui_component') {
-      setPixelSize('32x32'); setColors(12); setRemoveBg(true); setEdgeStyle('outline')
+  function selectAssetKind(kind: AssetKindChoice) {
+    reusedPixelizeRef.current = null
+    setReuseModelMissing(false)
+    setAssetKind(kind)
+    applyAssetKindDefaults(kind)
+  }
+
+  function selectJobType(next: JobType) {
+    reusedPixelizeRef.current = null
+    setReuseModelMissing(false)
+    setJobType(next)
+    if (next === 'asset') { applyAssetKindDefaults(assetKind); return }
+    const d = jobTypeDefaults(next)
+    setPixelSize(d.pixelSize); setColors(d.colors); setRemoveBg(d.removeBg)
+    if (d.edgeStyle !== undefined) setEdgeStyle(d.edgeStyle)
+    if (d.bgRemovalAlgorithm !== undefined) setBgRemovalAlgorithm(d.bgRemovalAlgorithm)
+    if (next === 'sprite_sheet') {
+      if (d.fps !== undefined) setFps(d.fps)
+      if (d.rows !== undefined) setRows(d.rows)
+      if (d.cols !== undefined) setCols(d.cols)
+      if (d.spritePreset !== undefined) setSpritePreset(d.spritePreset)
+      if (d.rowPrompts !== undefined) setRowPrompts(d.rowPrompts)
     }
-  }, [assetKind, jobType])
+  }
 
   useEffect(() => {
     if (!reuseJobSeed || lastAppliedReuseRevisionRef.current === reuseJobSeed.revision) return
@@ -309,16 +356,19 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     const sprite = asRecord(params?.sprite)
     const asset = asRecord(params?.asset)
     const nextJobType = reusableWorkbenchType(job)
-    const nextAssetKind = assetKindValue(asset?.asset_kind) ?? 'item_icon'
+    const nextAssetKind = parseAssetKind(asset?.asset_kind) ?? 'item_icon'
     const nextTextureKind = textureKindValue(asset?.texture_kind) ?? 'auto'
+    const nextDualMaterialATextureKind = textureKindValue(asset?.material_a_texture_kind) ?? 'auto'
+    const nextDualMaterialBTextureKind = textureKindValue(asset?.material_b_texture_kind) ?? 'auto'
 
-    if (nextJobType !== jobType) skipNextModeResetRef.current = true
-    if (nextJobType === 'asset' && nextAssetKind !== assetKind) skipNextAssetResetRef.current = true
+    // 直接回填，不再依赖 reset 副作用 / skip-ref；缓存原 pixelize 供提交时合并界面未暴露的高级参数。
+    reusedPixelizeRef.current = pixelize
     setJobType(nextJobType)
 
     const model = stringValue(params?.image_model)
-    if (model && availableImageModels.some((item) => item.id === model)) setImageModel(model)
-    else if (!model) setImageModel(imageModels.default || availableImageModels[0]?.id || 'image2')
+    if (model && availableImageModels.some((item) => item.id === model)) { setImageModel(model); setReuseModelMissing(false) }
+    else if (model) setReuseModelMissing(true)
+    else { setImageModel(imageModels.default || availableImageModels[0]?.id || 'image2'); setReuseModelMissing(false) }
 
     const reusedPixelSize = pixelSizeValue(pixelize?.output_size)
     if (reusedPixelSize) setPixelSize(reusedPixelSize)
@@ -363,6 +413,11 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
     setAssetKind(nextAssetKind)
     setTextureKind(nextAssetKind === 'tile_texture' ? nextTextureKind : 'auto')
+    setDualMaterialA(stringValue(asset?.material_a))
+    setDualMaterialB(stringValue(asset?.material_b))
+    setDualMaterialATextureKind(nextDualMaterialATextureKind)
+    setDualMaterialBTextureKind(nextDualMaterialBTextureKind)
+    setDualTransitionStyle(transitionStyleValue(asset?.transition_style))
     const assetSubject = stringValue(asset?.name) || job.prompt?.trim() || ''
     setAssetName(assetSubject)
     setAssetExtraPrompt(stringValue(asset?.extra_prompt))
@@ -373,7 +428,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     setAssetRefMessage(referencePath ? text('已复用原任务的参考图。', 'Reused the original reference image.') : '')
     setRefImagePath(''); setRefImageUrl(''); setRefUploadMessage('')
     setInputImagePath(''); setUploadUrl(''); setUploadMessage('')
-  }, [availableImageModels, assetKind, imageModels.default, jobType, reuseJobSeed, text])
+  }, [availableImageModels, imageModels.default, reuseJobSeed, text])
 
   // 应用预设
   function applyPreset(preset: SpritePreset) {
@@ -462,7 +517,13 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     const modelOverride = imageModel !== imageModels.default ? imageModel : undefined
     if (isAsset) {
       const assetExtra = assetExtraPrompt.trim()
-      const subject = assetName.trim()
+      const materialA = dualMaterialA.trim()
+      const materialB = dualMaterialB.trim()
+      const generatedDualName = dualMaterialBTransparent
+        ? text(`${materialA}透明过渡`, `${materialA} transparent transition`)
+        : text(`${materialA}${materialB}过渡`, `${materialA} ${materialB} transition`)
+      const subject = isDualGridAsset ? (assetName.trim() || generatedDualName) : assetName.trim()
+      const assetPixelize = buildAssetPixelize(mergeReusedPixelize(reusedPixelizeRef.current, { output_size: parsedPixelSize, colors, remove_bg: isDualGridAsset ? false : removeBg, ...edge }))
       // 素材 + 参考图仍提交 asset，让后端使用素材直出 prompt 模板；参考图只作为重绘依据。
       if (hasAssetReference) {
         await onSubmit({
@@ -473,7 +534,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           image_size: uiComponentImageSize,
           image_model: modelOverride,
           skip_vl: skipVl,
-          pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
+          pixelize: assetPixelize,
           grid: buildGridDesign(),
           asset: { name: subject, extra_prompt: assetExtra, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false },
         })
@@ -486,9 +547,11 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         client_request_id: crypto.randomUUID(),
         image_size: uiComponentImageSize,
         image_model: modelOverride,
-        pixelize: buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
+        pixelize: assetPixelize,
         grid: buildGridDesign(),
-        asset: { name: subject, extra_prompt: assetExtra, asset_kind: assetKind, subject_kind: subjectKind, no_preview: false },
+        asset: isDualGridAsset
+          ? { name: subject, extra_prompt: assetExtra, asset_kind: 'dual_grid', subject_kind: 'tileable_pattern', material_a: materialA, material_b: materialB, material_a_texture_kind: dualMaterialATextureKind, material_b_texture_kind: dualMaterialBTextureKind, transition_style: dualTransitionStyle, no_preview: false }
+          : { name: subject, extra_prompt: assetExtra, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false },
       })
       return
     }
@@ -502,7 +565,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         client_request_id: crypto.randomUUID(),
         image_model: modelOverride,
         skip_vl: false,
-        pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: false, ...edge }),
+        pixelize: buildPixelize(mergeReusedPixelize(reusedPixelizeRef.current, { output_size: parsedPixelSize, colors, remove_bg: false, ...edge })),
         grid: buildGridDesign(),
         sprite: {
           rows: safeRows,
@@ -525,7 +588,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         input_image_path: inputImagePath,
         client_request_id: crypto.randomUUID(),
         skip_vl: true,
-        pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: true, bg_removal_algorithm: bgRemovalAlgorithm, ...edge }),
+        pixelize: buildPixelize(mergeReusedPixelize(reusedPixelizeRef.current, { output_size: parsedPixelSize, colors, remove_bg: true, bg_removal_algorithm: bgRemovalAlgorithm, ...edge })),
         grid: { mode: 'off' },
       })
       return
@@ -536,9 +599,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       prompt: null,
       input_image_path: inputImagePath,
       client_request_id: crypto.randomUUID(),
-      image_model: modelOverride,
       skip_vl: skipVl,
-      pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }),
+      pixelize: buildPixelize(mergeReusedPixelize(reusedPixelizeRef.current, { output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge })),
       grid: buildGridDesign(),
     })
   }
@@ -548,7 +610,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       <form className="grid gap-5" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
           <PixField label={text('模式', 'Mode')}>
-            <Select value={jobType} onValueChange={(value) => setJobType(value as JobType)}>
+            <Select value={jobType} onValueChange={(value) => selectJobType(value as JobType)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="asset">{text('游戏素材直出', 'Game asset output')}</SelectItem>
@@ -558,31 +620,36 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               </SelectContent>
             </Select>
           </PixField>
-          <PixField label={text('生图模型', 'Image model')}>
-            <Select value={imageModel} onValueChange={setImageModel}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {availableImageModels.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{modelOptionLabel(m)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </PixField>
+          {showsImageModel && (
+            <PixField label={text('生图模型', 'Image model')}>
+              <Select value={imageModel} onValueChange={(value) => { setImageModel(value); setReuseModelMissing(false) }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {availableImageModels.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{modelOptionLabel(m)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </PixField>
+          )}
         </div>
         {!selectedModelSupportsI2I && (hasAssetReference || (isSprite && refImagePath)) && <Alert variant="warning">{text('当前模型不支持参考图 / 图生图，请切换支持 image-to-image 的模型或移除参考图。', 'The selected model does not support reference images / image-to-image. Switch to a model with image-to-image support or remove the reference.')}</Alert>}
+        {showsImageModel && reuseModelMissing && <Alert variant="warning">{text('复用作品使用的生图模型当前不可用，已改用默认模型，可手动重新选择。', 'The image model used by the reused job is no longer available; the default model is used instead — pick one manually if needed.')}</Alert>}
 
         {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
           <PixField label={text('素材类型', 'Asset type')}>
-            <Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Select value={assetKind} onValueChange={(value) => selectAssetKind(parseAssetKind(value) ?? 'item_icon')}>
+              <SelectTrigger><SelectValue>{assetKindLabel(assetKind, text)}</SelectValue></SelectTrigger>
               <SelectContent>
                 <SelectItem value="item_icon">{text('物品图标', 'Item icon')}</SelectItem>
                 <SelectItem value="ui_component">{text('UI 组件', 'UI component')}</SelectItem>
                 <SelectItem value="tile_texture">{text('平铺纹理', 'Tileable texture')}</SelectItem>
                 <SelectItem value="game_logo">{text('游戏 Logo', 'Game logo')}</SelectItem>
+                <SelectItem value="dual_grid">{text('双瓦片', 'Dual-grid tileset')}</SelectItem>
               </SelectContent>
             </Select>
           </PixField>
+          {isDualGridAsset && <Alert variant="info">{text('一次生成 4×4 / 16 张过渡瓦片图集：先生成材质 A、B，再按 dual-grid 角掩码合成。B 留空或填 transparent 会生成透明边缘。', 'Generates a 4×4 / 16-tile transition atlas: material A and B are generated first, then composed with dual-grid corner masks. Leave B empty or use transparent for transparent edges.')}</Alert>}
           {isTileAsset && (
             <PixField label={text('纹理类型', 'Texture type')} hint={text('选择常见游戏地图纹理类型；自动识别会按主题关键词推断，并把对应规则写入 Prompt。', 'Choose a common game-map texture type. Auto detect infers from keywords and injects matching prompt rules.')}>
               <Select value={textureKind} onValueChange={(value) => setTextureKind(value as TextureKind)}>
@@ -593,8 +660,44 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               </Select>
             </PixField>
           )}
-          <PixField label={assetNameLabel}><Input value={assetName} placeholder={assetNamePlaceholder} onChange={(e) => setAssetName(e.target.value)} /></PixField>
-          <PixField label={text('额外风格描述（可选）', 'Extra style notes (optional)')}><Textarea value={assetExtraPrompt} rows={3} maxLength={PROMPT_MAX_LENGTH} placeholder={assetExtraPlaceholder} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>
+          {isDualGridAsset && (
+            <div className="grid gap-4 rounded-lg border border-border bg-background/45 p-3 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <PixField label={text('材质 A（主体地形）', 'Material A (primary terrain)')} hint={text('必填，例如草地、雪地、石砖。', 'Required, e.g. grass, snow, stone brick.')}>
+                  <Input value={dualMaterialA} maxLength={assetSubjectMaxLength} placeholder={text('例如：草地', 'e.g. Grass')} onChange={(event) => setDualMaterialA(event.target.value)} />
+                </PixField>
+                <PixField label={text('A 纹理类型', 'A texture type')}>
+                  <Select value={dualMaterialATextureKind} onValueChange={(value) => setDualMaterialATextureKind(value as TextureKind)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{TEXTURE_KIND_OPTIONS.map((item) => <SelectItem key={`a-${item.value}`} value={item.value}>{text(item.zh, item.en)}</SelectItem>)}</SelectContent>
+                  </Select>
+                </PixField>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <PixField label={text('材质 B / 透明', 'Material B / transparent')} hint={text('填泥土、水面等；留空或填 transparent 表示透明边缘。', 'Use dirt, water, etc.; leave empty or enter transparent for transparent edges.')}>
+                  <Input value={dualMaterialB} maxLength={assetSubjectMaxLength} placeholder={text('例如：泥土；留空 = 透明', 'e.g. Dirt; empty = transparent')} onChange={(event) => setDualMaterialB(event.target.value)} />
+                </PixField>
+                <PixField label={text('B 纹理类型', 'B texture type')} hint={dualMaterialBTransparent ? text('透明模式会跳过材质 B 生成。', 'Transparent mode skips material B generation.') : undefined}>
+                  <Select value={dualMaterialBTextureKind} onValueChange={(value) => setDualMaterialBTextureKind(value as TextureKind)} disabled={dualMaterialBTransparent}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{TEXTURE_KIND_OPTIONS.map((item) => <SelectItem key={`b-${item.value}`} value={item.value}>{text(item.zh, item.en)}</SelectItem>)}</SelectContent>
+                  </Select>
+                </PixField>
+              </div>
+              <PixField label={text('过渡风格', 'Transition style')} hint={text('圆滑适合自然地形；硬边适合机械/地砖；描边适合透明孤岛边缘。', 'Rounded fits natural terrain; hard fits mechanical/floor tiles; outline helps transparent island edges.')}>
+                <Select value={dualTransitionStyle} onValueChange={(value) => setDualTransitionStyle(transitionStyleValue(value))}>
+                  <SelectTrigger><SelectValue>{transitionStyleLabel(dualTransitionStyle, text)}</SelectValue></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="rounded">{text('圆滑过渡', 'Rounded')}</SelectItem>
+                    <SelectItem value="hard">{text('硬边过渡', 'Hard edge')}</SelectItem>
+                    <SelectItem value="outline">{text('描边过渡', 'Outline')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </PixField>
+            </div>
+          )}
+          <PixField label={assetNameLabel} hint={text(`最多 ${assetSubjectMaxLength} 字`, `Max ${assetSubjectMaxLength} characters`)}><Input value={assetName} maxLength={assetSubjectMaxLength} placeholder={assetNamePlaceholder} onChange={(e) => setAssetName(e.target.value)} /></PixField>
+          {!isDualGridAsset && <PixField label={text('额外风格描述（可选）', 'Extra style notes (optional)')} hint={text(`${assetExtraPrompt.length}/${assetExtraPromptMaxLength} 字`, `${assetExtraPrompt.length}/${assetExtraPromptMaxLength} characters`)}><Textarea value={assetExtraPrompt} rows={3} maxLength={assetExtraPromptMaxLength} placeholder={assetExtraPlaceholder} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>}
           {assetSupportsReference && (
             <PixField label={text('参考图（可选）', 'Reference image (optional)')} hint={assetReferenceHint}>
               <div className="grid gap-3">
@@ -617,7 +720,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           {hasAssetReference && <Alert variant="info">{assetReferenceAttachedMessage}</Alert>}
         </div>}
 
-        {isSprite && <PixField label={text('主体 / 角色描述', 'Subject / character brief')} hint={text('描述角色身份、服装、配色与风格；逐行动作下面单独写。', 'Describe identity, costume, palette and style. Per-row actions go below.')}><Textarea value={prompt} rows={4} maxLength={PROMPT_MAX_LENGTH} onChange={(e) => setPrompt(e.target.value)} /></PixField>}
+        {isSprite && <PixField label={text('主体 / 角色描述', 'Subject / character brief')} hint={text(`描述角色身份、服装、配色与风格；逐行动作下面单独写。${prompt.length}/${spriteSubjectMaxLength} 字`, `Describe identity, costume, palette and style. Per-row actions go below. ${prompt.length}/${spriteSubjectMaxLength} characters`)}><Textarea value={prompt} rows={4} maxLength={spriteSubjectMaxLength} onChange={(e) => setPrompt(e.target.value)} /></PixField>}
 
         {isSprite && (
           <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
@@ -667,11 +770,11 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               <div className="grid gap-3 rounded-lg border border-border bg-background/40 p-3">
                 <div className="text-xs text-muted-foreground">{text(`为每一行写一段动作描述（共 ${safeRows} 行，每行 ${safeCols} 帧）`, `Describe the action for each row (${safeRows} rows × ${safeCols} frames)`)}</div>
                 {Array.from({ length: safeRows }, (_, index) => (
-                  <PixField key={`row-${index}`} label={text(`第 ${index + 1} 行动作`, `Row ${index + 1} action`)}>
+                  <PixField key={`row-${index}`} label={text(`第 ${index + 1} 行动作`, `Row ${index + 1} action`)} hint={text(`${(rowPrompts[index] ?? '').length}/${spriteRowPromptMaxLength} 字`, `${(rowPrompts[index] ?? '').length}/${spriteRowPromptMaxLength} characters`)}>
                     <Textarea
                       value={rowPrompts[index] ?? ''}
                       rows={2}
-                      maxLength={ROW_PROMPT_MAX_LENGTH}
+                      maxLength={spriteRowPromptMaxLength}
                       placeholder={text('例如：朝东行走的 8 帧循环', 'e.g. 8-frame walk cycle facing east')}
                       onChange={(e) => updateRowPrompt(index, e.target.value)}
                     />
@@ -681,11 +784,11 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
             )}
 
             {safeRows === 1 && (
-              <PixField label={text('动作描述（可选，留空使用主体描述）', 'Action description (optional)')}>
+              <PixField label={text('动作描述（可选，留空使用主体描述）', 'Action description (optional)')} hint={text(`${(rowPrompts[0] ?? '').length}/${spriteRowPromptMaxLength} 字`, `${(rowPrompts[0] ?? '').length}/${spriteRowPromptMaxLength} characters`)}>
                 <Textarea
                   value={rowPrompts[0] ?? ''}
                   rows={2}
-                  maxLength={ROW_PROMPT_MAX_LENGTH}
+                  maxLength={spriteRowPromptMaxLength}
                   placeholder={text('例如：火焰法师挥杖释放火球的 8 帧动作', 'e.g. 8-frame fire mage casting a fireball')}
                   onChange={(e) => updateRowPrompt(0, e.target.value)}
                 />
@@ -712,14 +815,19 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           </PixField>
         )}
 
-        {!isLocalBgRemove && <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || (!isSprite && !removeBg)} sizeHidden={isLocalPixelize} />}
+        {!isLocalBgRemove && <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : isDualGridAsset ? text('单张瓦片尺寸', 'Single tile size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : isDualGridAsset ? DUAL_GRID_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || isDualGridAsset || (!isSprite && !removeBg)} sizeHidden={isLocalPixelize} />}
 
-        {!isLocalBgRemove && <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={isTileAsset ? false : removeBg} disabled={isSprite || isTileAsset} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{text('透明背景', 'Transparent background')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={isSprite || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? text('素材直出默认视觉理解策略', 'Default vision policy for asset output') : text('跳过参考图理解', 'Skip reference understanding')}</label></div>}
+        {!isLocalBgRemove && <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={(isTileAsset || isDualGridAsset) ? false : removeBg} disabled={isSprite || isTileAsset || isDualGridAsset} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{text('透明背景', 'Transparent background')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={isSprite || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? text('素材直出默认视觉理解策略', 'Default vision policy for asset output') : text('跳过参考图理解', 'Skip reference understanding')}</label></div>}
 
         {invalidSubAssetSize && <Alert variant="destructive">{text('素材最低支持 16×16。', 'Minimum asset size is 16×16.')}</Alert>}
+        {assetNameTooLong && <Alert variant="destructive">{text(`主体最多 ${assetSubjectMaxLength} 字。`, `Subject max ${assetSubjectMaxLength} characters.`)}</Alert>}
+        {assetExtraPromptTooLong && <Alert variant="destructive">{text(`额外风格描述最多 ${assetExtraPromptMaxLength} 字。`, `Extra style notes max ${assetExtraPromptMaxLength} characters.`)}</Alert>}
+        {(dualMaterialATooLong || dualMaterialBTooLong) && <Alert variant="destructive">{text(`双瓦片材质描述最多 ${assetSubjectMaxLength} 字。`, `Dual-grid material descriptions max ${assetSubjectMaxLength} characters.`)}</Alert>}
+        {isSprite && spriteSubjectTooLong && <Alert variant="destructive">{text(`序列帧主体描述最多 ${spriteSubjectMaxLength} 字。`, `Sprite subject max ${spriteSubjectMaxLength} characters.`)}</Alert>}
+        {rowPromptTooLong && <Alert variant="destructive">{text(`逐行动作描述最多 ${spriteRowPromptMaxLength} 字。`, `Row action descriptions max ${spriteRowPromptMaxLength} characters.`)}</Alert>}
         {invalidGrid && <Alert variant="destructive">{text('序列帧每行/每列最多 8。', 'Sprite sequence rows and cols are capped at 8.')}</Alert>}
         {missingRowPrompts && <Alert variant="destructive">{text('多行序列帧需要为每一行填写动作描述。', 'Multi-row sequences require an action description for each row.')}</Alert>}
-        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : isLogoAsset && hasAssetReference ? text('参考图生成 Logo', 'Generate logo from reference') : isLogoAsset ? text('生成游戏 Logo', 'Generate game logo') : hasAssetReference ? text('参考图重绘', 'Redraw from reference') : text('生成游戏素材', 'Generate game asset')) : isLocalBgRemove ? text('去除背景', 'Remove background') : text('生成单张素材', 'Generate single asset')}</Button>
+        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isDualGridAsset ? text('生成双瓦片图集', 'Generate dual-grid atlas') : isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : isLogoAsset && hasAssetReference ? text('参考图生成 Logo', 'Generate logo from reference') : isLogoAsset ? text('生成游戏 Logo', 'Generate game logo') : hasAssetReference ? text('参考图重绘', 'Redraw from reference') : text('生成游戏素材', 'Generate game asset')) : isLocalBgRemove ? text('去除背景', 'Remove background') : text('生成单张素材', 'Generate single asset')}</Button>
       </form>
     </PixPanel>
   )

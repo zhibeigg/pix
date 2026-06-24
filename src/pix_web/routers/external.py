@@ -171,7 +171,7 @@ def external_create_job(
 ) -> dict:
     if not req.client_request_id and idempotency_key:
         req = req.model_copy(update={"client_request_id": _external_client_request_id(idempotency_key)})
-    job = create_job(db, principal.user, req)
+    job = create_job(db, principal.user, req, settings)
     if job.status == "pending":
         enqueue_jobs(settings, [job.id])
     return public_job_response(job)

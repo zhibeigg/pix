@@ -11,7 +11,7 @@ from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits, ensure_credit_account
 from pix_web.external_api_keys import create_external_api_key, hash_api_key
 from pix_web.main import create_app
-from pix_web.models import ExternalApiKey, GenerationJob, User
+from pix_web.models import ExternalApiKey, GenerationJob, SystemSetting, User
 from pix_web.security import create_access_token
 
 
@@ -146,6 +146,21 @@ class ExternalApiTests(unittest.TestCase):
 
         response = self.client.get(f"/external/v1/jobs/{other_job.id}", headers={"Authorization": f"Bearer {raw}"})
         self.assertEqual(response.status_code, 404, response.text)
+
+    def test_external_job_create_uses_configured_asset_subject_limit(self) -> None:
+        self.db.add(SystemSetting(key="pix.asset.subject_max_chars", value="3"))
+        self.db.commit()
+        raw = self._create_key()
+        payload = self._asset_payload()
+        payload["asset"]["name"] = "abcd"
+
+        settings_response = self.client.get("/settings/image-models")
+        self.assertEqual(settings_response.status_code, 200, settings_response.text)
+        self.assertEqual(settings_response.json()["limits"]["asset_subject_max_chars"], 3)
+
+        response = self.client.post("/external/v1/jobs", headers={"Authorization": f"Bearer {raw}"}, json=payload)
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertIn("素材主体最多支持 3 字", response.text)
 
 
 if __name__ == "__main__":

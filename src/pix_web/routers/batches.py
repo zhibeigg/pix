@@ -182,7 +182,7 @@ def retry_failed_jobs(
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> JobBatchCreateResponse:
-    jobs, total_price, batch = retry_failed_jobs_in_batch(db, user, batch_id)
+    jobs, total_price, batch = retry_failed_jobs_in_batch(db, user, batch_id, settings)
     enqueue_jobs(settings, [job.id for job in jobs if job.status == "pending"])
     return JobBatchCreateResponse(jobs=jobs, total_price_credits=total_price, batch_id=batch.id)
 

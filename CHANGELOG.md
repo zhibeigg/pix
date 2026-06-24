@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 新增配置化描述长度限制：后台「素材默认值」/「序列帧」可调整 `pix.asset.subject_max_chars`、`pix.asset.extra_prompt_max_chars`、`pix.sprite.subject_max_chars`、`pix.sprite.row_prompt_max_chars`；后端任务创建、批量创建、外部 API、失败重试与 Worker 二次审核统一使用运行时配置，`/settings/image-models` 与 `/external/v1/models` 在 `limits` 中返回当前上限，前端表单显示计数和超限提示。
 - 新增「本地去背景」（`job_type=local_bg_remove`）：上传图片后可在前端选择「像素」或「高清」算法，前者复用当前像素直出的 `pixel_bg` 双阈值连通域 + 二值 alpha，后者使用 `color_to_alpha` 软 alpha 保留高清抗锯齿边；任务不调用 AI、不做像素化，输出透明 PNG 走 `pixelized` 下载通道。
 - 像素资产新增「双瓦片」（`asset_kind=dual_grid`）类型：一次任务产出一套可无缝拼接的过渡瓦片，表达两种地形 A/B 的交界（草地↔泥土、草地↔水/空等），地图引擎按经典 dual-grid 规则即可自动平滑过渡。
   - 后端先复用 `tile_texture` 生图链路生成两张四边无缝材质 A、B，再用 16 个角掩码（`TL=bit0/TR=bit1/BL=bit2/BR=bit3`、`A=1/B=0`）**确定性合成** 16 张瓦片拼成 4×4 图集（`pix-dualgrid-v1` 约定，`idx = row*4 + col`）；无缝性由「边不变量」构造保证，而非交给模型直出整张图集。
   - `asset` 新增字段：`material_a`（必填非空）、`material_b`（空串或 `"transparent"` 即透明模式）、`material_a_texture_kind` / `material_b_texture_kind`（复用 `texture_kind` 枚举，默认 `auto`）、`transition_style`（`rounded`（默认）/ `hard` / `outline`，所有模式默认 `rounded`，透明模式想给孤岛加 1px 防裸边描边时显式传 `outline`）。`pixelize.output_size` 为单张瓦片尺寸，图集为其 4×4 排布。
   - 产物：`dual_grid_atlas.png`（4×4 图集）、`dual_grid_preview.png`（确定性种子的应用预览）、`materials/material_a.png`(+`material_b.png`) 与含 `convention` / `mapping`（bitmask→cell 表）/ `preview_seed` 的 `meta.json`；`JobOutputResponse` 新增 `dual_grid_atlas_path/url`、`dual_grid_preview_path/url`。详见 `docs/dual-grid-rules.md`。
+  - 前端「单张试做 → 游戏素材直出」开放「双瓦片」素材类型，可填写材质 A/B、A/B 纹理类型和过渡风格；作品库下载项新增 4×4 图集与应用预览。
 - 平铺纹理素材新增 `asset.texture_kind` 细分：支持自动识别、通用纹理、地表/地形、道路/地砖、墙壁/岩壁、木板/树皮、水面/液体、树叶/草丛、屋顶瓦片、金属面板、布料/地毯等类型；后端会把对应像素游戏纹理规则注入 prompt，并在 `meta.json` 记录请求值与最终解析值。
 
 ### Changed
@@ -30,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- 修复作品库点击「复用」旧 Logo 作品时，工作台「素材类型」下拉为空的问题：复用回填现在会把历史参数里的本地化/别名素材类型（如「游戏 Logo」）归一为 `game_logo`，并显式渲染当前素材类型标签，避免 Select 找不到枚举项时显示空白。
+- 修复作品库「复用」原始生图作品（文生图 / 图生图原图，`source_only` 或 `skip_vl`+`grid=off`）被错误塞进「素材直出」工作台、且模型 / 图片尺寸 / 质量 / 参考图全部丢失的问题：复用现按作品类型分流——原始生图回填到「原始生图」面板（提示词、模型、尺寸、质量、参考图路径），其余仍进单图工作台。
+- 修复复用「素材直出」作品时，回填的像素尺寸 / 颜色数 / 纹理类型 / 双瓦片材质类型与过渡风格被「素材类型默认值」覆盖的问题（React StrictMode 下稳定复现）。根因：旧实现用 `skipNextAssetResetRef` 等「跳过下一次重置」的副作用竞态，StrictMode 的 effect 双调用会提前消费 skip 标志，使真正的状态变更提交时重置副作用照常执行而冲掉回填值。现移除该竞态：默认值仅在用户手动切换模式 / 素材类型时套用，复用直接确定性回填，不再依赖 effect 时序。
+- 复用作品重新提交时保留原作品完整像素参数（`dither` / `preset` / `saturation` / `auto_crop` / `palette_mode` 等界面未暴露字段及 `bg_removal_algorithm`）：以原 `pixelize` 为底、界面可编辑字段覆盖在上，不再被默认值冲掉。
+- 复用作品所用生图模型当前不可用时给出提示并回退默认模型（此前为静默回退）。
 - 修复序列帧（mosaic）切图把「正确画出的 N 帧」误判成「N-1 帧」、导致某一格出现两个主体的问题（如铃铛动画「一帧两个铃铛」）。根因：列数自动检测 `_detect_grid_count` 用「绝对宽度阈值」`(span/cols)·0.18`（约 47px）判定相邻精灵间隙——剧烈摇晃/Q 弹动画里相邻帧主体靠得很近、真实间隙只有几十像素（实测 46px）时会被漏数一条，8 列被误判成 7 列、相邻两个主体被并进同一格。现改为按间隙「深度」判定（投影落到峰值 6% 以下的连续列段即视为真实间隙），仅用很小的宽度下限滤掉边缘抗锯齿浅缝；并显式实现「真实间隙 ≥ cols-1 就凑满请求帧数、不足才回退检测值」策略：列数现在与行数一致（行数早已只尊重用户请求、不被前景投影改写），同时保留「模型确实少画时回退、避免把 cell 切在间隙上变空帧」的护栏（偏差 ≤ ⅓ 才采纳）。
 - 修复管理后台「任务操作」里失败任务的「诊断详情」展开卡顿：展开时不再完整格式化大型 `error_diagnostics_json`，改为下一帧懒渲染轻量摘要；完整诊断只在点击「复制完整诊断 JSON」时按需序列化。
 - 修复管理后台「概览」今日统计的时区错位：原先「今天」按 UTC 零点切分，对 UTC+8 用户而言早上 0:00–8:00（本地时间）的订单/任务会被算到「昨天」，导致「今天收到 3 笔订单却只显示 2 笔」。现按可配置的**站点时区**（新增系统设置 `site.timezone`，默认 `Asia/Shanghai` = UTC+8；无效或缺 tzdata 时回退固定 UTC+8）切分自然日，所有 `*_today` 指标统一生效。

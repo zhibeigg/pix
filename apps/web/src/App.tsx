@@ -22,6 +22,7 @@ const PacksPage = lazy(() => import('./pages/PacksPage').then((m) => ({ default:
 const RawImagePage = lazy(() => import('./pages/RawImagePage').then((m) => ({ default: m.RawImagePage })))
 const RewardsPage = lazy(() => import('./pages/RewardsPage').then((m) => ({ default: m.RewardsPage })))
 import { buildGridDesign, defaultPixelize } from './pixelize'
+import { isRawImageJob } from './lib/jobReuse'
 import { useI18n } from './i18n'
 import { useToast } from './hooks/useToast'
 import { useHashRoute } from './hooks/useHashRoute'
@@ -99,6 +100,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [setupLoading, setSetupLoading] = useState(true)
   const [mode, setMode] = useState<WorkMode>('single')
   const [reuseJobSeed, setReuseJobSeed] = useState<ReuseJobSeed | null>(null)
+  const [rawReuseSeed, setRawReuseSeed] = useState<ReuseJobSeed | null>(null)
   const [selectedPackId, setSelectedPackId] = useState<number | null>(null)
   const [selectedPackJobs, setSelectedPackJobs] = useState<GenerationJob[]>([])
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
@@ -215,8 +217,17 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const selectJobById = useCallback((job: GenerationJob) => { setSelectedJobId(job.id) }, [])
   const reuseJobInWorkbench = useCallback((job: GenerationJob) => {
     reuseRevisionRef.current += 1
-    setReuseJobSeed({ revision: reuseRevisionRef.current, job })
+    const revision = reuseRevisionRef.current
     setSelectedJobId(job.id)
+    // 原始生图 / 图生图原图：回填到原始生图面板，而不是塞进素材直出工作台。
+    if (isRawImageJob(job)) {
+      setRawReuseSeed({ revision, job })
+      setSelectedRawJobId(job.id)
+      navigate('raw-image')
+      setMessage(text(`已复用任务 #${job.id} 的原始生图参数。`, `Reused raw-image parameters from job #${job.id}.`), 'success')
+      return
+    }
+    setReuseJobSeed({ revision, job })
     setMode('single')
     navigate('workspace')
     setMessage(text(`已复用任务 #${job.id} 的提示词和参数。`, `Reused prompt and parameters from job #${job.id}.`), 'success')
@@ -431,6 +442,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setSelectedJobId(null)
     setSelectedRawJobId(null)
     setReuseJobSeed(null)
+    setRawReuseSeed(null)
     setRetryingJobId(null)
     setMessage(text('已退出', 'Signed out'))
   }
@@ -819,7 +831,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
         >
           <Suspense fallback={<div className="grid min-h-[calc(100vh-160px)] place-items-center px-4 text-sm text-muted-foreground">{t('app.checkingSetup')}</div>}>
             {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} reuseJobSeed={reuseJobSeed} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
-            {page === 'raw-image' && <RawImagePage pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} selectedJobId={selectedRawJobId} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
+            {page === 'raw-image' && <RawImagePage pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} selectedJobId={selectedRawJobId} reuseSeed={rawReuseSeed} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
             {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onSaveSequenceAlignment={saveSequenceAlignment} />}
             {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}

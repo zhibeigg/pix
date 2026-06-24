@@ -136,7 +136,7 @@ def create(
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> dict:
-    job = create_job(db, user, req)
+    job = create_job(db, user, req, settings)
     enqueue_jobs(settings, [job.id])
     return public_job_response(job)
 
@@ -148,7 +148,14 @@ def create_batch(
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> JobBatchCreateResponse:
-    jobs, total_price, batch = create_jobs_batch(db, user, req.jobs, batch_name=req.batch_name, mode=req.mode)
+    jobs, total_price, batch = create_jobs_batch(
+        db,
+        user,
+        req.jobs,
+        batch_name=req.batch_name,
+        mode=req.mode,
+        settings=settings,
+    )
     enqueue_jobs(settings, [job.id for job in jobs if job.status == "pending"])
     return JobBatchCreateResponse(
         jobs=[JobResponse.model_validate(public_job_response(job)) for job in jobs],
@@ -231,7 +238,7 @@ def retry_job(
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> dict:
-    job = retry_failed_job(db, user, job_id)
+    job = retry_failed_job(db, user, job_id, settings)
     enqueue_jobs(settings, [job.id])
     return public_job_response(job)
 

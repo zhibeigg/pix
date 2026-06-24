@@ -20,7 +20,7 @@ import { JobParameterSnapshotDialog } from './JobParameterSnapshotDialog'
 const SpriteSequenceAlignmentEditor = lazy(() => import('./SpriteSequenceAlignmentEditor').then((m) => ({ default: m.SpriteSequenceAlignmentEditor })))
 
 type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; galleryQuota?: GalleryQuota | null; showRetentionQuota?: boolean; onExpandGalleryQuota?: () => void; onSelect: (job: GenerationJob) => void; onReuseJob?: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; onActiveActionChange?: (action: SpriteRowAction | null) => void; renderJobBadges?: (job: GenerationJob) => ReactNode; draggableSucceeded?: boolean }
-type DownloadKind = 'source' | 'pixelized' | 'sprite_gif' | 'sprite_sheet' | 'sprite_mosaic' | 'sequence_json' | 'contact_sheet' | 'sprite_action_current' | 'sprite_actions_zip'
+type DownloadKind = 'source' | 'pixelized' | 'dual_grid_atlas' | 'dual_grid_preview' | 'sprite_gif' | 'sprite_sheet' | 'sprite_mosaic' | 'sequence_json' | 'contact_sheet' | 'sprite_action_current' | 'sprite_actions_zip'
 type DownloadOption = { id: DownloadKind; label: string; description: string; path: string; url: string; filename: string }
 
 export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, galleryQuota = null, showRetentionQuota = true, onExpandGalleryQuota, onSelect, onReuseJob, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, onActiveActionChange, renderJobBadges, draggableSucceeded = false }: GalleryGridProps) {
@@ -61,7 +61,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onReuseJob,
   const [savingAlignment, setSavingAlignment] = useState(false)
   const isActive = isActiveJob(job)
   const actionPreviewUrl = selectedAction ? signedFileUrl(selectedAction.gifUrl || selectedAction.sheetUrl || undefined) : null
-  const previewUrl = isActive ? null : actionPreviewUrl ?? (output ? signedFileUrl(output.pixelized_url || output.preview_url || output.source_url || undefined) : signedFileUrl(job.input_image_url))
+  const previewUrl = isActive ? null : actionPreviewUrl ?? (output ? signedFileUrl(output.dual_grid_preview_url || output.pixelized_url || output.preview_url || output.source_url || undefined) : signedFileUrl(job.input_image_url))
   const spriteSheetUrl = isActive || selectedAction ? null : signedFileUrl(output?.sprite_sheet_url || undefined)
   const spriteFrames = selectedAction ? [] : (output?.sprite_frames ?? [])
   const spriteFps = spriteFpsFromJob(job)
@@ -316,11 +316,16 @@ function actionLabelFromPhase(phase: string, rowIndex: number, t: (key: string, 
 
 function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: string, options?: Record<string, unknown>) => string, rowActions: SpriteRowAction[], selectedAction: SpriteRowAction | undefined): DownloadOption[] {
   const isSpriteOutput = job.job_type === 'sprite_sheet' || output.sprite_frames.length > 0 || Boolean(output.sprite_sheet_url || output.sprite_mosaic_url || output.sequence_json_url)
+  const isDualGridOutput = Boolean(output.dual_grid_atlas_url || output.dual_grid_preview_url)
   const specs: Array<{ id: DownloadKind; label: string; description: string; path?: string | null; url?: string | null; fallback: string }> = isSpriteOutput ? [
     { id: 'sprite_gif', label: t('downloads.spriteGif'), description: t('downloads.spriteGifDescription'), path: output.sprite_gif_path, url: output.sprite_gif_url, fallback: 'sprite.gif' },
     { id: 'sprite_sheet', label: t('downloads.spriteSheet'), description: t('downloads.spriteSheetDescription'), path: output.sprite_sheet_path || output.pixelized_path, url: output.sprite_sheet_url || output.pixelized_url, fallback: 'sprite-sheet.png' },
     { id: 'sprite_mosaic', label: t('downloads.spriteMosaic'), description: t('downloads.spriteMosaicDescription'), path: output.sprite_mosaic_path || output.source_path, url: output.sprite_mosaic_url || output.source_url, fallback: 'sprite-mosaic.png' },
     { id: 'sequence_json', label: t('downloads.sequenceJson'), description: t('downloads.sequenceJsonDescription'), path: output.sequence_json_path, url: output.sequence_json_url, fallback: 'sequence.json' },
+  ] : isDualGridOutput ? [
+    { id: 'dual_grid_atlas', label: t('downloads.dualGridAtlas'), description: t('downloads.dualGridAtlasDescription'), path: output.dual_grid_atlas_path || output.pixelized_path, url: output.dual_grid_atlas_url || output.pixelized_url, fallback: 'dual_grid_atlas.png' },
+    { id: 'dual_grid_preview', label: t('downloads.dualGridPreview'), description: t('downloads.dualGridPreviewDescription'), path: output.dual_grid_preview_path || output.preview_path, url: output.dual_grid_preview_url || output.preview_url, fallback: 'dual_grid_preview.png' },
+    { id: 'source', label: t('downloads.source'), description: t('downloads.sourceDescription'), path: output.source_path, url: output.source_url, fallback: '01_source.png' },
   ] : [
     { id: 'source', label: t('downloads.source'), description: t('downloads.sourceDescription'), path: output.source_path, url: output.source_url, fallback: '01_source.png' },
     { id: 'pixelized', label: t('downloads.pixelized'), description: t('downloads.pixelizedDescription'), path: output.pixelized_path, url: output.pixelized_url, fallback: '03_pixelized.png' },

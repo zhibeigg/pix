@@ -439,8 +439,10 @@ class SpriteParamsSchema(BaseModel):
 
 
 class AssetParamsSchema(BaseModel):
-    name: str = Field(default="", max_length=160)
-    extra_prompt: str = Field(default="", max_length=3000)
+    # 真实业务上限来自当前 Pix 配置（asset.subject_max_chars / extra_prompt_max_chars）；
+    # 这里仅保留足够宽松的安全硬上限，避免在读取运行时配置前被 Pydantic 固定拦截。
+    name: str = Field(default="", max_length=20000)
+    extra_prompt: str = Field(default="", max_length=20000)
     asset_kind: Literal[
         "item_icon", "ui_component", "tile_texture", "game_logo", "dual_grid"
     ] = "item_icon"
@@ -463,8 +465,8 @@ class AssetParamsSchema(BaseModel):
     use_vl: bool | None = None
     no_preview: bool = False
     # dual_grid 专用：双瓦片两种材质 A/B 与过渡风格（material_b 为空串 = 透明模式）
-    material_a: str = Field(default="", max_length=160)
-    material_b: str = Field(default="", max_length=160)
+    material_a: str = Field(default="", max_length=20000)
+    material_b: str = Field(default="", max_length=20000)
     material_a_texture_kind: str = "auto"
     material_b_texture_kind: str = "auto"
     transition_style: Literal["rounded", "hard", "outline"] = "rounded"

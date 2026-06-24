@@ -35,6 +35,30 @@ _LOCAL_STAGE_LOCK_POLL_SECONDS = 0.1
 _UI_COMPONENT_IMAGE_SIZE = "auto"
 
 
+def _positive_limit(value: object, fallback: int) -> int:
+    try:
+        return max(1, int(value))
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _raw_prompt_guard_max_chars(cfg: AppConfig | None) -> int | None:
+    if cfg is None:
+        return None
+    return _positive_limit(cfg.image_gen.prompt_guard_max_chars, RAW_IMAGE_PROMPT_MAX_CHARS)
+
+
+def _asset_prompt_guard_max_chars(cfg: AppConfig) -> int:
+    return _positive_limit(cfg.asset.subject_max_chars, 160) + _positive_limit(
+        cfg.asset.extra_prompt_max_chars,
+        RAW_IMAGE_PROMPT_MAX_CHARS,
+    )
+
+
+def _dual_grid_prompt_guard_max_chars(cfg: AppConfig) -> int:
+    return _positive_limit(cfg.asset.subject_max_chars, 160) * 3
+
+
 def _local_stage_context(settings: WebSettings):
     lock_path = settings.storage_root / ".locks" / "local-pipeline.lock"
     return lambda: file_lock(
@@ -234,7 +258,9 @@ def _asset_reference_prompt_appendix(asset_kind: str, has_reference: bool) -> st
     )
 
 
-def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> PipelineInput:
+def pipeline_input_from_job(
+    job: GenerationJob, settings: WebSettings, cfg: AppConfig | None = None
+) -> PipelineInput:
     data = job.params_json or {}
     image_path = Path(job.input_image_path) if job.input_image_path else None
     out_root = settings.storage_root / "runs" / f"job-{job.id}"
@@ -244,6 +270,7 @@ def pipeline_input_from_job(job: GenerationJob, settings: WebSettings) -> Pipeli
 
     return PipelineInput(
         prompt=job.prompt,
+        prompt_guard_max_chars=_raw_prompt_guard_max_chars(cfg),
         image_path=image_path,
         image_size=data.get("image_size"),
         image_quality=data.get("image_quality"),
@@ -276,7 +303,7 @@ def image_to_image_pipeline_input_from_job(
     与素材直出共用 build_asset_prompt + 参考图 appendix，用户原始 prompt 作为 Subject；
     可由 cfg.image_gen.image_to_image_pixel_prompt 关闭，关闭后回退原始 prompt 直传。
     """
-    base = pipeline_input_from_job(job, settings)
+    base = pipeline_input_from_job(job, settings, cfg)
     user_prompt = (job.prompt or "").strip()
     # source_only 的 image_to_image 是“原生出图”（RawImagePage 参考图→大图，跳过像素化），
     # 不应套用像素风模板；仅对会进入像素化的参考图微调注入。
@@ -347,6 +374,7 @@ def asset_pipeline_input_from_job(
     return PipelineInput(
         prompt=prompt,
         prompt_guard_text=prompt_guard_text,
+        prompt_guard_max_chars=_asset_prompt_guard_max_chars(cfg),
         image_path=image_path,
         image_size=_asset_image_size(data, cfg),
         image_quality=image_quality,
@@ -575,7 +603,7 @@ def run_tile_asset_job_pipeline(
             asset_cfg,
             user_prompt,
             allow_template_break=False,
-            max_chars=RAW_IMAGE_PROMPT_MAX_CHARS,
+            max_chars=_asset_prompt_guard_max_chars(asset_cfg),
         )
     except PromptPolicyError as exc:
         raise ValueError(str(exc)) from exc
@@ -763,7 +791,7 @@ def run_dual_grid_asset_job_pipeline(
             asset_cfg,
             user_prompt,
             allow_template_break=False,
-            max_chars=RAW_IMAGE_PROMPT_MAX_CHARS,
+            max_chars=_dual_grid_prompt_guard_max_chars(asset_cfg),
         )
     except PromptPolicyError as exc:
         raise ValueError(str(exc)) from exc
@@ -1021,5 +1049,5 @@ def run_job_pipeline(
         return run_pipeline(
             resolved_cfg, image_to_image_pipeline_input_from_job(job, settings, resolved_cfg)
         )
-    inputs = pipeline_input_from_job(job, settings)
+    inputs = pipeline_input_from_job(job, settings, resolved_cfg)
     return run_pipeline(resolved_cfg, inputs)

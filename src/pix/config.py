@@ -247,6 +247,9 @@ class AssetConfig:
     # 具体语义由 asset_kind 分流（物品图标 / UI 组件 / 平铺纹理 / 游戏 Logo）。
     # 平铺纹理会跳过此普通模板，改用专用 tile prompt，并由 asset.texture_kind 注入细分规则。
     palette_mode: str = "auto"
+    # Web/API 输入长度上限；运行时可通过后台「素材默认值」或 config.toml 覆盖。
+    subject_max_chars: int = 160
+    extra_prompt_max_chars: int = 3000
     prompt_template: str = (
         "Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} "
         "designed for {asset_usage_label}, not a painted digital illustration. Subject: {name}. "
@@ -296,6 +299,9 @@ class SpriteConfig:
     gif_export: bool = False
     frame_size_step: int = 16
     anchor: str = "bottom_center"
+    # Web/API 输入长度上限；运行时可通过后台「序列帧」或 config.toml 覆盖。
+    subject_max_chars: int = 3000
+    row_prompt_max_chars: int = 600
     green_screen_color: str = "auto"
     green_screen_tolerance: int = 48
     bg_tolerance: int = 26

@@ -183,6 +183,8 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.asset.crop_padding", "裁剪留白", "素材默认值", "number", ""),
     SettingDefinition("pix.asset.crop_square", "裁剪为正方形", "素材默认值", "boolean", ""),
     SettingDefinition("pix.asset.palette_mode", "调色板模式", "素材默认值", "select", "auto=经典 K-means/旧效果；ramp=VL 按色相阶梯设计 + Lab 最近色量化。", options=("auto", "ramp", "kmeans")),
+    SettingDefinition("pix.asset.subject_max_chars", "主体最大字符数", "素材默认值", "number", "", "素材主体 / Logo 标题 / 纹理主题 / 双瓦片材质描述的最大字符数，前端表单、外部 API 与后端校验共用。"),
+    SettingDefinition("pix.asset.extra_prompt_max_chars", "额外风格最大字符数", "素材默认值", "number", "", "素材额外风格描述的最大字符数，前端表单、外部 API 与后端校验共用。"),
     SettingDefinition("pix.asset.grid_mode", "默认输出 Pixel Grid", "素材默认值", "boolean", ""),
     SettingDefinition("pix.asset.grid_cleanup", "Grid 清理噪点", "素材默认值", "boolean", ""),
     SettingDefinition("pix.asset.grid_outline", "Grid 轮廓后处理", "素材默认值", "boolean", ""),
@@ -203,6 +205,8 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.sprite.gif_export", "兼容 GIF 导出", "序列帧", "boolean", "默认关闭；作品库优先播放 sprite_sheet.png + sequence.json。"),
     SettingDefinition("pix.sprite.frame_size_step", "有效尺寸取整步长", "序列帧", "number", "默认 16 像素。"),
     SettingDefinition("pix.sprite.anchor", "帧锚点", "序列帧", "select", "默认 bottom_center。", options=("bottom_center", "center")),
+    SettingDefinition("pix.sprite.subject_max_chars", "主体最大字符数", "序列帧", "number", "", "序列帧主体 / 角色描述的最大字符数，前端表单、外部 API 与后端校验共用。"),
+    SettingDefinition("pix.sprite.row_prompt_max_chars", "逐行动作最大字符数", "序列帧", "number", "", "序列帧每行动作描述的最大字符数，前端表单、外部 API 与后端校验共用。"),
     SettingDefinition("pix.sprite.green_screen_color", "序列帧抠色背景", "序列帧", "string", ""),
     SettingDefinition("pix.sprite.green_screen_tolerance", "序列帧抠色容差", "序列帧", "number", ""),
     SettingDefinition("pix.sprite.crop_padding", "裁剪留白（兼容）", "序列帧", "number", "保留给旧配置兼容；新流程按透明内容包围盒与有效单帧尺寸补齐。"),
@@ -423,6 +427,8 @@ def _normalize_value(definition: SettingDefinition, value: str) -> str:
             if rate < 0.0 or rate > 1.0:
                 raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="折扣倍率应在 0~1 之间")
             return str(rate)
+        if definition.key.endswith("_max_chars") or definition.key == PROMPT_GUARD_MAX_CHARS_SETTING:
+            return str(max(1, int(number)))
         if isinstance(number, float):
             return str(number)
         return str(max(0, number))

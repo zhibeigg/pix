@@ -60,6 +60,8 @@ class PipelineInput:
     prompt: str | None = None
     # 可选：仅用于 prompt guard 的用户原始输入；为空时审核 prompt 本身。
     prompt_guard_text: str | None = None
+    # 可选：覆盖 prompt guard 的长度上限，供 Web/API 的可配置描述限制传入。
+    prompt_guard_max_chars: int | None = None
     image_path: Path | None = None
     # 生图参数
     image_size: str | None = None
@@ -113,12 +115,13 @@ def _prepare_prompt(
     if inputs.prompt is None:
         return None, None
     guard_text = inputs.prompt_guard_text if inputs.prompt_guard_text is not None else inputs.prompt
+    prompt_guard_max_chars = inputs.prompt_guard_max_chars or RAW_IMAGE_PROMPT_MAX_CHARS
     try:
         guard = validate_user_prompt(
             cfg,
             guard_text,
             allow_template_break=inputs.source_only,
-            max_chars=RAW_IMAGE_PROMPT_MAX_CHARS,
+            max_chars=prompt_guard_max_chars,
         )
     except PromptPolicyError as exc:
         notify("prompt_guard_rejected", exc.result.to_metadata())

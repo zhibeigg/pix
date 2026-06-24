@@ -115,6 +115,10 @@ npm run build
 
 更多配置见 `.env.example`、`.env.production.example` 和 `config.example.toml`。
 
+### 输入长度限制配置
+
+后台「素材默认值」和「序列帧」现支持调整 Web 表单与外部 API 共用的描述长度限制：`pix.asset.subject_max_chars`、`pix.asset.extra_prompt_max_chars`、`pix.sprite.subject_max_chars`、`pix.sprite.row_prompt_max_chars`。同名字段也可写入 `config.toml` 的 `[asset]` / `[sprite]` 段。公开接口 `GET /settings/image-models` 与外部 API `GET /external/v1/models` 会在 `limits` 中返回当前生效值，前端据此显示字数计数、超限提示并禁用提交；后端创建任务、批量创建和失败重试也会按同一配置二次校验。
+
 > 老部署注意：后台「模型与 API」已移除旧 Packy / Gemini / VL 密钥入口，供应商密钥统一迁移到「上游供应商」。升级前请阅读 [`docs/deployment/legacy-provider-settings-migration.md`](docs/deployment/legacy-provider-settings-migration.md)。
 
 ## 系统公告与邮件通知
@@ -317,7 +321,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ### 双瓦片（dual_grid）
 
-素材类型选择「双瓦片」（`asset_kind=dual_grid`）时，一次任务产出一**套**可无缝拼接的过渡瓦片，表达两种地形 A/B 的交界（草地↔泥土、草地↔水/空等），地图引擎按经典 dual-grid 规则即可自动平滑过渡。后端先用 `tile_texture` 生图链路生成两张四边无缝材质 A、B，再用 16 个角掩码**确定性合成** 16 张瓦片拼成 4×4 图集 —— 无缝性由「边不变量」构造保证，而非交给模型直出整张图集。
+素材类型选择「双瓦片」（`asset_kind=dual_grid`）时，一次任务产出一**套**可无缝拼接的过渡瓦片，表达两种地形 A/B 的交界（草地↔泥土、草地↔水/空等），地图引擎按经典 dual-grid 规则即可自动平滑过渡。Web 前端入口位于「单张试做 → 游戏素材直出 → 素材类型：双瓦片」，可填写材质 A/B、A/B 纹理类型和过渡风格。后端先用 `tile_texture` 生图链路生成两张四边无缝材质 A、B，再用 16 个角掩码**确定性合成** 16 张瓦片拼成 4×4 图集 —— 无缝性由「边不变量」构造保证，而非交给模型直出整张图集。
 
 字段写在 `asset` 块里：
 

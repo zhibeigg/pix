@@ -107,6 +107,20 @@ def _noop(_step: str, _payload: dict) -> None:
     pass
 
 
+def _positive_limit(value: object, fallback: int) -> int:
+    try:
+        return max(1, int(value))
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _prompt_guard_max_chars(cfg: AppConfig, rows: int) -> int:
+    safe_rows = max(1, min(_positive_limit(cfg.sprite.max_grid_rows, 8), int(rows or 1)))
+    return _positive_limit(cfg.sprite.subject_max_chars, RAW_IMAGE_PROMPT_MAX_CHARS) + (
+        _positive_limit(cfg.sprite.row_prompt_max_chars, 600) * safe_rows
+    )
+
+
 def _local_stage(factory: LocalStageContext | None) -> ContextManager[None]:
     return factory() if factory is not None else nullcontext()
 
@@ -938,7 +952,7 @@ def run_sprite_mosaic_pipeline(
             cfg,
             guard_text,
             allow_template_break=True,
-            max_chars=RAW_IMAGE_PROMPT_MAX_CHARS,
+            max_chars=_prompt_guard_max_chars(cfg, inputs.rows),
         )
     except PromptPolicyError as exc:
         notify("prompt_guard_rejected", exc.result.to_metadata())

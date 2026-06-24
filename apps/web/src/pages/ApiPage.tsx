@@ -96,7 +96,12 @@ curl "$PIX_API_BASE/balance" \
   -H "Authorization: Bearer $PIX_API_KEY"
 
 curl "$PIX_API_BASE/models" \
-  -H "Authorization: Bearer $PIX_API_KEY"`, [])
+  -H "Authorization: Bearer $PIX_API_KEY"
+
+# models 响应包含 limits，可在客户端表单校验前读取：
+# limits.asset_subject_max_chars / asset_extra_prompt_max_chars
+# limits.sprite_subject_max_chars / sprite_row_prompt_max_chars
+# limits.raw_image_prompt_max_chars`, [])
   const uploadCurl = useMemo(() => String.raw`# 上传参考图 / 本地输入图，返回的 path 可作为后续 input_image_path
 curl -X POST "$PIX_API_BASE/uploads/images" \
   -H "Authorization: Bearer $PIX_API_KEY" \

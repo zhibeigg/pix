@@ -50,6 +50,11 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
     [text('素材类型', 'Asset type'), assetKindLabel(asset?.asset_kind, text)],
     [text('主体类型', 'Subject type'), subjectKindLabel(asset?.subject_kind, text)],
     [text('纹理类型', 'Texture type'), asset?.asset_kind === 'tile_texture' ? textureKindLabel(asset?.texture_kind, text) : '—'],
+    [text('材质 A', 'Material A'), asset?.asset_kind === 'dual_grid' ? stringOrDash(asset?.material_a) : '—'],
+    [text('材质 B', 'Material B'), asset?.asset_kind === 'dual_grid' ? dualMaterialBLabel(asset?.material_b, text) : '—'],
+    [text('A 纹理类型', 'A texture type'), asset?.asset_kind === 'dual_grid' ? textureKindLabel(asset?.material_a_texture_kind, text) : '—'],
+    [text('B 纹理类型', 'B texture type'), asset?.asset_kind === 'dual_grid' ? textureKindLabel(asset?.material_b_texture_kind, text) : '—'],
+    [text('过渡风格', 'Transition style'), asset?.asset_kind === 'dual_grid' ? transitionStyleLabel(asset?.transition_style, text) : '—'],
   ]) : []
 
   const spriteRows = job.job_type === 'sprite_sheet' ? compactRows([
@@ -154,6 +159,11 @@ function buildUserInputSnapshot(job: GenerationJob) {
       asset_kind: asset?.asset_kind,
       subject_kind: asset?.subject_kind,
       texture_kind: asset?.texture_kind,
+      material_a: asset?.material_a,
+      material_b: asset?.material_b,
+      material_a_texture_kind: asset?.material_a_texture_kind,
+      material_b_texture_kind: asset?.material_b_texture_kind,
+      transition_style: asset?.transition_style,
     }) : undefined,
     sequence: job.job_type === 'sprite_sheet' ? stripEmpty({
       frame_count: sprite?.frame_count,
@@ -204,11 +214,24 @@ function assetKindLabel(value: unknown, text: (zh: string, en: string) => string
   return stringOrDash(value)
 }
 
+function dualMaterialBLabel(value: unknown, text: (zh: string, en: string) => string): string {
+  const raw = typeof value === 'string' ? value.trim() : ''
+  if (!raw || raw.toLocaleLowerCase() === 'transparent') return text('透明', 'Transparent')
+  return raw
+}
+
 function subjectKindLabel(value: unknown, text: (zh: string, en: string) => string): string {
   if (value === 'single_prop') return text('单个物件', 'Single prop')
   if (value === 'single_ui') return text('单个 UI', 'Single UI')
   if (value === 'tileable_pattern') return text('无缝平铺图案', 'Seamlessly tileable pattern')
   if (value === 'logo_mark') return text('Logo 标题标识', 'Logo title mark')
+  return stringOrDash(value)
+}
+
+function transitionStyleLabel(value: unknown, text: (zh: string, en: string) => string): string {
+  if (value === 'hard') return text('硬边过渡', 'Hard edge')
+  if (value === 'outline') return text('描边过渡', 'Outline')
+  if (value === 'rounded') return text('圆滑过渡', 'Rounded')
   return stringOrDash(value)
 }
 

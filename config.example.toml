@@ -235,6 +235,9 @@ fit_min_axis_coverage = 0.7
 # Asset 直出默认使用经典 auto/K-means 调色，贴近早期单图素材效果；可手动改为 ramp。
 # 可选：auto | ramp | kmeans。
 palette_mode    = "auto"
+# Web/API 输入长度限制：主体包括物品名、Logo 标题、纹理主题、双瓦片材质 A/B。
+subject_max_chars = 160
+extra_prompt_max_chars = 3000
 # 默认模板只需要用户填写 Subject 后的主体内容；Web 可通过素材类型/主体类型选择入口参数。
 # asset_kind 支持 item_icon（物品图标）、ui_component（UI 组件）、tile_texture（平铺纹理）、game_logo（游戏 Logo）和 dual_grid（双瓦片）。
 # 平铺纹理会跳过下面的普通素材模板，改用专用 tile prompt；asset.texture_kind 可选 auto/generic_texture/terrain_ground/path_floor/wall_surface/wood_planks/water_liquid/foliage_canopy/roof_tile/metal_panel/fabric_carpet，用于注入常见像素游戏纹理规则。
@@ -270,6 +273,9 @@ loop           = 0
 gif_export     = false
 frame_size_step = 16
 anchor         = "bottom_center"
+# Web/API 输入长度限制：主体/角色描述与每行动作描述分开校验。
+subject_max_chars = 3000
+row_prompt_max_chars = 600
 # auto 会按 prompt 动态选择不易撞色的纯色背景，也可固定为 HEX
 green_screen_color = "auto"
 green_screen_tolerance = 48

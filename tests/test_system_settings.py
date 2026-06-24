@@ -20,3 +20,12 @@ def test_provider_runtime_strategy_settings_remain_visible() -> None:
     assert "pix.api.trust_env_proxies" in keys
     assert "pix.api.proxy" in keys
     assert "pix.image_gen.model" in keys
+
+
+def test_prompt_length_limit_settings_are_visible() -> None:
+    keys = {item.key for item in SETTING_DEFINITIONS}
+
+    assert "pix.asset.subject_max_chars" in keys
+    assert "pix.asset.extra_prompt_max_chars" in keys
+    assert "pix.sprite.subject_max_chars" in keys
+    assert "pix.sprite.row_prompt_max_chars" in keys

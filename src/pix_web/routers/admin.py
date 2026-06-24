@@ -157,7 +157,7 @@ def retry_admin_job(
     owner = db.get(User, failed_job.user_id)
     if owner is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务用户不存在")
-    job = retry_failed_job(db, owner, job_id)
+    job = retry_failed_job(db, owner, job_id, settings)
     enqueue_jobs(settings, [job.id])
     return job
 

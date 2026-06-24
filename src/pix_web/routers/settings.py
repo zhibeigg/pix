@@ -29,10 +29,20 @@ class ImageModelInfoResponse(BaseModel):
     default_quality: str = "auto"
 
 
+class PromptLimitsResponse(BaseModel):
+    prompt_max_chars: int = 3000
+    raw_image_prompt_max_chars: int = 3000
+    asset_subject_max_chars: int = 160
+    asset_extra_prompt_max_chars: int = 3000
+    sprite_subject_max_chars: int = 3000
+    sprite_row_prompt_max_chars: int = 600
+
+
 class ImageModelsResponse(BaseModel):
     default: str
     models: list[str] = Field(default_factory=list)
     items: list[ImageModelInfoResponse] = Field(default_factory=list)
+    limits: PromptLimitsResponse = Field(default_factory=PromptLimitsResponse)
 
 
 @router.get("/image-models", response_model=ImageModelsResponse)
@@ -56,4 +66,12 @@ def available_image_models(
         default=default_model,
         models=model_ids,
         items=[ImageModelInfoResponse(**item.to_dict()) for item in infos],
+        limits=PromptLimitsResponse(
+            prompt_max_chars=max(1, int(cfg.image_gen.prompt_guard_max_chars)),
+            raw_image_prompt_max_chars=max(1, int(cfg.image_gen.prompt_guard_max_chars)),
+            asset_subject_max_chars=max(1, int(cfg.asset.subject_max_chars)),
+            asset_extra_prompt_max_chars=max(1, int(cfg.asset.extra_prompt_max_chars)),
+            sprite_subject_max_chars=max(1, int(cfg.sprite.subject_max_chars)),
+            sprite_row_prompt_max_chars=max(1, int(cfg.sprite.row_prompt_max_chars)),
+        ),
     )
