@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import { App } from './App'
 import { ConfirmProvider } from './components/ConfirmDialog'
@@ -43,6 +43,30 @@ function PixThemeRoot() {
     root.dataset.theme = effectiveThemeMode
     root.classList.toggle('dark', effectiveThemeMode === 'dark')
   }, [effectiveThemeMode])
+
+  // 悬浮预览切换时短暂开启全局色彩渐变窗口（首帧挂载不触发，避免加载即过渡）。
+  const animTimer = useRef<number | undefined>(undefined)
+  const firstAnim = useRef(true)
+  useEffect(() => {
+    if (firstAnim.current) { firstAnim.current = false; return }
+    const root = document.documentElement
+    root.setAttribute('data-pix-anim', '')
+    window.clearTimeout(animTimer.current)
+    animTimer.current = window.setTimeout(() => root.removeAttribute('data-pix-anim'), 360)
+    return () => window.clearTimeout(animTimer.current)
+  }, [effectiveThemeMode, effectiveLanguage])
+
+  // 语言变化时额外给整页一个轻微淡入（文字内容会替换，淡入比硬切更顺滑）。
+  const langTimer = useRef<number | undefined>(undefined)
+  const firstLang = useRef(true)
+  useEffect(() => {
+    if (firstLang.current) { firstLang.current = false; return }
+    const root = document.documentElement
+    root.setAttribute('data-pix-lang-anim', '')
+    window.clearTimeout(langTimer.current)
+    langTimer.current = window.setTimeout(() => root.removeAttribute('data-pix-lang-anim'), 360)
+    return () => window.clearTimeout(langTimer.current)
+  }, [effectiveLanguage])
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)')

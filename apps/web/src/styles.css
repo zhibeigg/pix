@@ -278,6 +278,27 @@
   scrollbar-color: hsl(var(--border)) transparent;
 }
 
+/* 主题/语言悬浮预览：仅在切换的短暂窗口给 <html data-pix-anim> 时启用全局色彩渐变，
+   平时不挂全局 transition，避免干扰按钮等自身的微交互过渡。 */
+html[data-pix-anim] *,
+html[data-pix-anim] *::before,
+html[data-pix-anim] *::after {
+  transition: background-color var(--motion-base) var(--ease-out-quart),
+    border-color var(--motion-base) var(--ease-out-quart),
+    color var(--motion-base) var(--ease-out-quart),
+    fill var(--motion-base) var(--ease-out-quart),
+    box-shadow var(--motion-base) var(--ease-out-quart) !important;
+}
+/* 语言预览：整页内容轻微淡入，避免文字硬切跳变。 */
+@keyframes pix-content-fade { from { opacity: .5; } to { opacity: 1; } }
+html[data-pix-lang-anim] #root { animation: pix-content-fade var(--motion-base) var(--ease-out-quart); }
+@media (prefers-reduced-motion: reduce) {
+  html[data-pix-anim] *,
+  html[data-pix-anim] *::before,
+  html[data-pix-anim] *::after { transition: none !important; }
+  html[data-pix-lang-anim] #root { animation: none; }
+}
+
 html,
 body,
 #root {
