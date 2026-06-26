@@ -3,8 +3,8 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme {
-  --font-sans: "Notion Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
-  --font-serif: "Notion Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
+  --font-sans: "Inter Tight Variable", "Inter Tight", "Inter", "Noto Sans SC", "PingFang SC", "HarmonyOS Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  --font-serif: "Inter Tight Variable", "Inter Tight", "Inter", "Noto Sans SC", "PingFang SC", "HarmonyOS Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei UI", sans-serif;
   --font-mono: "Maple Mono NF CN", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 
   --color-background: hsl(var(--background));
@@ -30,10 +30,10 @@
   --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 20px;
-  --radius-3xl: 24px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
+  --radius-3xl: 18px;
 
   --motion-instant: 90ms;
   --motion-fast: 140ms;
@@ -60,49 +60,50 @@
 :root,
 [data-theme="light"] {
   color-scheme: light;
-  --background: 0 0% 100%;
-  --foreground: 0 0% 10%;
+  /* Studio · 冷石墨中性 + Iris 紫品牌（替换暖 cream/parchment 暖派） */
+  --background: 220 22% 99%;
+  --foreground: 222 18% 11%;
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 10%;
+  --card-foreground: 222 18% 11%;
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 10%;
-  --primary: 248 62% 55%;
-  --primary-pressed: 248 55% 45%;
-  --primary-deep: 250 57% 38%;
+  --popover-foreground: 222 18% 11%;
+  --primary: 248 84% 64%;
+  --primary-pressed: 248 68% 52%;
+  --primary-deep: 250 60% 43%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 30 10% 96%;
-  --secondary-foreground: 0 0% 10%;
-  --muted: 60 9% 98%;
-  --muted-foreground: 47 5% 30%;
-  --accent: 208 74% 92%;
-  --accent-foreground: 0 0% 10%;
-  --destructive: 0 74% 54%;
+  --secondary: 220 16% 96%;
+  --secondary-foreground: 222 18% 11%;
+  --muted: 220 18% 97%;
+  --muted-foreground: 220 9% 42%;
+  --accent: 248 60% 95%;
+  --accent-foreground: 248 50% 32%;
+  --destructive: 0 72% 55%;
   --destructive-foreground: 0 0% 100%;
-  --border: 40 10% 89%;
-  --input: 34 9% 76%;
-  --ring: 248 62% 55%;
+  --border: 220 16% 90%;
+  --input: 220 13% 82%;
+  --ring: 248 84% 64%;
 
-  --pix-cream: 49 53% 94%;
-  --pix-parchment: 30 10% 96%;
-  --pix-ink: 0 0% 10%;
-  --pix-charcoal: 45 8% 20%;
-  --pix-slate: 47 5% 30%;
-  --pix-steel: 43 3% 38%;
-  --pix-stone: 42 7% 62%;
-  --pix-muted: 42 7% 71%;
-  --pix-text-subtle: 42 6% 45%;
-  --pix-amber: 48 87% 80%;
-  --pix-mint: 137 52% 90%;
-  --pix-sky: 208 74% 92%;
-  --pix-lavender: 258 43% 92%;
-  --pix-rose: 335 85% 94%;
-  --pix-peach: 28 100% 92%;
-  --pix-yellow: 49 93% 92%;
-  --pix-gray: 30 12% 93%;
-  --pix-navy: 223 66% 11%;
-  --pix-navy-deep: 223 67% 8%;
-  --pix-navy-mid: 223 52% 21%;
-  --pix-brand-purple: 260 87% 60%;
+  --pix-cream: 220 24% 98%;
+  --pix-parchment: 220 16% 96%;
+  --pix-ink: 222 18% 11%;
+  --pix-charcoal: 220 14% 20%;
+  --pix-slate: 220 10% 32%;
+  --pix-steel: 220 8% 44%;
+  --pix-stone: 220 8% 62%;
+  --pix-muted: 220 12% 72%;
+  --pix-text-subtle: 220 8% 46%;
+  --pix-amber: 41 92% 76%;
+  --pix-mint: 152 46% 88%;
+  --pix-sky: 213 70% 91%;
+  --pix-lavender: 248 52% 93%;
+  --pix-rose: 338 72% 93%;
+  --pix-peach: 30 88% 90%;
+  --pix-yellow: 46 88% 90%;
+  --pix-gray: 220 14% 94%;
+  --pix-navy: 222 13% 10%;
+  --pix-navy-deep: 222 16% 7%;
+  --pix-navy-mid: 222 11% 18%;
+  --pix-brand-purple: 248 84% 66%;
   --pix-brand-purple-300: 269 78% 84%;
   --pix-brand-purple-800: 269 51% 23%;
   --pix-brand-orange: 25 100% 43%;
@@ -116,14 +117,14 @@
   --pix-link-blue: 208 100% 44%;
   --pix-link-blue-pressed: 208 100% 34%;
 
-  --pix-paper: 48 35% 96%;
-  --pix-paper-soft: 30 18% 93%;
-  --pix-paper-muted: 42 22% 88%;
-  --pix-paper-border: 38 14% 80%;
-  --pix-paper-ink: 0 0% 10%;
-  --pix-paper-charcoal: 45 8% 20%;
-  --pix-paper-slate: 47 5% 30%;
-  --pix-paper-steel: 43 3% 38%;
+  --pix-paper: 220 22% 98%;
+  --pix-paper-soft: 220 18% 95%;
+  --pix-paper-muted: 220 15% 90%;
+  --pix-paper-border: 220 13% 84%;
+  --pix-paper-ink: 222 18% 11%;
+  --pix-paper-charcoal: 220 14% 20%;
+  --pix-paper-slate: 220 10% 32%;
+  --pix-paper-steel: 220 8% 44%;
 
   --ledger-surface: var(--card);
   --ledger-surface-header: var(--pix-paper-soft);
@@ -184,55 +185,56 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --background: 223 67% 8%;
-  --foreground: 0 0% 100%;
-  --card: 223 66% 11%;
-  --card-foreground: 0 0% 100%;
-  --popover: 223 66% 11%;
-  --popover-foreground: 0 0% 100%;
-  --primary: 248 62% 55%;
-  --primary-pressed: 248 55% 45%;
-  --primary-deep: 250 57% 38%;
+  /* Studio · 冷石墨暗色（替换 navy 223° 蓝调） */
+  --background: 222 12% 5%;
+  --foreground: 220 14% 96%;
+  --card: 222 11% 9%;
+  --card-foreground: 220 14% 96%;
+  --popover: 222 11% 10%;
+  --popover-foreground: 220 14% 96%;
+  --primary: 248 88% 70%;
+  --primary-pressed: 248 70% 58%;
+  --primary-deep: 250 60% 48%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 223 52% 21%;
-  --secondary-foreground: 0 0% 100%;
-  --muted: 223 52% 21%;
-  --muted-foreground: 42 7% 63%;
-  --accent: 223 52% 21%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 0 74% 54%;
+  --secondary: 222 10% 16%;
+  --secondary-foreground: 220 14% 96%;
+  --muted: 222 9% 15%;
+  --muted-foreground: 220 8% 64%;
+  --accent: 222 10% 17%;
+  --accent-foreground: 220 14% 96%;
+  --destructive: 0 72% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border: 223 52% 21%;
-  --input: 223 52% 21%;
-  --ring: 269 78% 84%;
+  --border: 222 9% 19%;
+  --input: 222 9% 23%;
+  --ring: 248 90% 76%;
 
-  --pix-dark-canvas: 223 67% 8%;
-  --pix-dark-band: 223 66% 11%;
-  --pix-dark-band-soft: 223 52% 15%;
-  --pix-dark-card: 223 48% 12%;
-  --pix-dark-card-raised: 223 42% 16%;
-  --pix-dark-hairline: 223 36% 25%;
-  --pix-dark-on: 42 36% 96%;
-  --pix-dark-muted: 42 7% 68%;
-  --pix-text-subtle: 42 8% 68%;
+  --pix-dark-canvas: 222 12% 5%;
+  --pix-dark-band: 222 11% 9%;
+  --pix-dark-band-soft: 222 10% 13%;
+  --pix-dark-card: 222 11% 9%;
+  --pix-dark-card-raised: 222 10% 14%;
+  --pix-dark-hairline: 222 9% 22%;
+  --pix-dark-on: 220 14% 96%;
+  --pix-dark-muted: 220 8% 64%;
+  --pix-text-subtle: 220 8% 66%;
 
-  --pix-paper: 223 38% 16%;
-  --pix-paper-soft: 223 34% 12%;
-  --pix-paper-muted: 223 28% 20%;
-  --pix-paper-border: 223 24% 32%;
-  --pix-paper-ink: 42 36% 96%;
-  --pix-paper-charcoal: 42 18% 86%;
-  --pix-paper-slate: 42 9% 70%;
-  --pix-paper-steel: 42 7% 63%;
+  --pix-paper: 222 11% 11%;
+  --pix-paper-soft: 222 12% 8%;
+  --pix-paper-muted: 222 9% 18%;
+  --pix-paper-border: 222 8% 26%;
+  --pix-paper-ink: 220 14% 96%;
+  --pix-paper-charcoal: 220 10% 84%;
+  --pix-paper-slate: 220 8% 70%;
+  --pix-paper-steel: 220 7% 62%;
 
   --ledger-surface: var(--pix-navy-deep);
   --ledger-surface-header: var(--pix-navy-deep);
-  --ledger-surface-row: 223 60% 10%;
-  --ledger-surface-row-hover: 223 45% 16%;
-  --ledger-line: 223 36% 25%;
-  --ledger-text: 42 36% 96%;
-  --ledger-text-soft: 42 15% 78%;
-  --ledger-text-faint: 42 7% 62%;
+  --ledger-surface-row: 222 11% 8%;
+  --ledger-surface-row-hover: 222 10% 15%;
+  --ledger-line: 222 9% 22%;
+  --ledger-text: 220 14% 96%;
+  --ledger-text-soft: 220 9% 78%;
+  --ledger-text-faint: 220 8% 62%;
   --ledger-shadow: 0 24px 80px -44px hsl(0 0% 0% / .9);
   --ledger-pill-blue-bg: 204 94% 56% / .12;
   --ledger-pill-blue-fg: 204 100% 90%;
@@ -274,6 +276,27 @@
   border-color: hsl(var(--border));
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border)) transparent;
+}
+
+/* 主题/语言悬浮预览：仅在切换的短暂窗口给 <html data-pix-anim> 时启用全局色彩渐变，
+   平时不挂全局 transition，避免干扰按钮等自身的微交互过渡。 */
+html[data-pix-anim] *,
+html[data-pix-anim] *::before,
+html[data-pix-anim] *::after {
+  transition: background-color var(--motion-base) var(--ease-out-quart),
+    border-color var(--motion-base) var(--ease-out-quart),
+    color var(--motion-base) var(--ease-out-quart),
+    fill var(--motion-base) var(--ease-out-quart),
+    box-shadow var(--motion-base) var(--ease-out-quart) !important;
+}
+/* 语言预览：整页内容轻微淡入，避免文字硬切跳变。 */
+@keyframes pix-content-fade { from { opacity: .5; } to { opacity: 1; } }
+html[data-pix-lang-anim] #root { animation: pix-content-fade var(--motion-base) var(--ease-out-quart); }
+@media (prefers-reduced-motion: reduce) {
+  html[data-pix-anim] *,
+  html[data-pix-anim] *::before,
+  html[data-pix-anim] *::after { transition: none !important; }
+  html[data-pix-lang-anim] #root { animation: none; }
 }
 
 html,

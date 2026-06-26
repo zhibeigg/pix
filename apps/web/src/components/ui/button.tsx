@@ -8,13 +8,13 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground pix-shadow-hairline hover:bg-[hsl(var(--primary-pressed))] active:bg-[hsl(var(--primary-pressed))]',
-        destructive: 'bg-destructive text-destructive-foreground pix-shadow-hairline hover:bg-destructive/90',
-        outline: 'border border-[hsl(var(--input))] bg-transparent text-foreground hover:bg-secondary',
-        secondary: 'border border-border bg-secondary text-secondary-foreground hover:bg-[hsl(var(--pix-gray))]',
+        default: 'bg-primary bg-[linear-gradient(180deg,hsl(var(--primary)/.92),hsl(var(--primary)))] text-primary-foreground shadow-[inset_0_1px_0_hsl(var(--primary-foreground)/.22),0_10px_22px_-14px_hsl(var(--primary)/.8)] hover:bg-[linear-gradient(180deg,hsl(var(--primary)/.98),hsl(var(--primary-pressed)))] hover:shadow-[inset_0_1px_0_hsl(var(--primary-foreground)/.26),0_16px_32px_-14px_hsl(var(--primary)/.95)] active:bg-[hsl(var(--primary-pressed))] active:shadow-[inset_0_1px_2px_hsl(var(--primary-deep)/.45)]',
+        destructive: 'bg-destructive bg-[linear-gradient(180deg,hsl(var(--destructive)/.94),hsl(var(--destructive)))] text-destructive-foreground shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_10px_22px_-14px_hsl(var(--destructive)/.7)] hover:brightness-[1.05] hover:shadow-[inset_0_1px_0_rgba(255,255,255,.2),0_15px_30px_-14px_hsl(var(--destructive)/.85)] active:brightness-95',
+        outline: 'border border-[hsl(var(--input))] bg-transparent text-foreground hover:border-[hsl(var(--primary)/.5)] hover:bg-[hsl(var(--primary)/.06)] hover:text-[hsl(var(--primary-deep))] dark:hover:text-foreground',
+        secondary: 'border border-border bg-secondary text-secondary-foreground hover:border-[hsl(var(--input))] hover:bg-muted',
         ghost: 'bg-transparent text-foreground hover:bg-secondary',
         link: 'h-auto rounded-sm px-0 text-[hsl(var(--pix-link-blue))] underline-offset-4 hover:underline',
-        soft: 'border border-border bg-secondary text-secondary-foreground hover:bg-[hsl(var(--pix-gray))]',
+        soft: 'border border-border bg-secondary text-secondary-foreground hover:border-[hsl(var(--input))] hover:bg-muted',
       },
       size: {
         default: 'h-10 px-[18px] py-2.5',

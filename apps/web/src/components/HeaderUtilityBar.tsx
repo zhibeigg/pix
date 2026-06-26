@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Bell, Check, Languages, Megaphone, Monitor, Moon, Plus, Sun } from 'lucide-react'
 import { api } from '../api'
@@ -6,6 +6,7 @@ import type { PixLanguage, PixThemeMode, PixThemePreference } from '../theme'
 import type { AnnouncementItem } from '../types'
 import { useI18n } from '../i18n'
 import { cn } from '../lib/utils'
+import { setPreviewLanguage, setPreviewTheme } from '../lib/uiPreview'
 import { Button } from './ui/button'
 import { Dialog, DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogPortal, DialogTitle, DialogTrigger } from './ui/dialog'
 
@@ -221,8 +222,25 @@ function AnnouncementButton({ open, autoOpen, onOpenChange }: { open: boolean; a
   )
 }
 
+/** 悬浮预览去抖：短暂停顿（默认 200ms）后才触发整页预览，移开/点击立即清除并取消待触发。 */
+function useDelayedPreview<T>(apply: (value: T | null) => void, delay = 200) {
+  const timer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+  const schedule = (value: T) => {
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => apply(value), delay)
+  }
+  const clear = () => {
+    window.clearTimeout(timer.current)
+    apply(null)
+  }
+  return { schedule, clear }
+}
+
 function ThemeHoverMenu({ open, preference, resolvedMode, systemMode, onChange, onOpenChange }: { open: boolean; preference: PixThemePreference; resolvedMode: PixThemeMode; systemMode: PixThemeMode; onChange: (preference: PixThemePreference) => void; onOpenChange: (open: boolean) => void }) {
   const { t } = useI18n()
+  const preview = useDelayedPreview(setPreviewTheme)
+  useEffect(() => { if (!open) preview.clear() }, [open, preview])
   const TriggerIcon = preference === 'system' ? Monitor : resolvedMode === 'dark' ? Moon : Sun
   return (
     <HoverMenu
@@ -234,7 +252,7 @@ function ThemeHoverMenu({ open, preference, resolvedMode, systemMode, onChange, 
         </button>
       )}
     >
-      <div role="radiogroup" aria-label={t('utility.theme.groupLabel')} className="w-48 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground pix-shadow-overlay">
+      <div role="radiogroup" aria-label={t('utility.theme.groupLabel')} onMouseLeave={() => preview.clear()} className="w-48 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground pix-shadow-overlay">
         {themeOptions.map((option) => {
           const Icon = option.icon
           const active = preference === option.value
@@ -242,10 +260,11 @@ function ThemeHoverMenu({ open, preference, resolvedMode, systemMode, onChange, 
             <button
               key={option.value}
               type="button"
-              onClick={() => { onChange(option.value); onOpenChange(false) }}
+              onMouseEnter={() => preview.schedule(option.value === 'system' ? systemMode : option.value)}
+              onClick={() => { preview.clear(); onChange(option.value); onOpenChange(false) }}
               role="radio"
               aria-checked={active}
-              className={cn('flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left text-popover-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/7', active && 'bg-[hsl(var(--pix-sky))] text-[hsl(var(--pix-link-blue))] dark:bg-white/7 dark:text-white dark:ring-1 dark:ring-white/12')}
+              className={cn('flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left text-popover-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/7', active && 'bg-[hsl(var(--primary)/.12)] text-[hsl(var(--primary))] ring-1 ring-[hsl(var(--primary)/.3)] dark:bg-[hsl(var(--primary)/.18)] dark:text-foreground dark:ring-[hsl(var(--primary)/.4)]')}
             >
               <Icon className="mt-0.5 h-4 w-4 shrink-0" />
               <span className="min-w-0">
@@ -263,6 +282,8 @@ function ThemeHoverMenu({ open, preference, resolvedMode, systemMode, onChange, 
 
 function LanguageHoverMenu({ open, language, onChange, onOpenChange }: { open: boolean; language: PixLanguage; onChange: (language: PixLanguage) => void; onOpenChange: (open: boolean) => void }) {
   const { t } = useI18n()
+  const preview = useDelayedPreview(setPreviewLanguage)
+  useEffect(() => { if (!open) preview.clear() }, [open, preview])
   return (
     <HoverMenu
       open={open}
@@ -273,15 +294,16 @@ function LanguageHoverMenu({ open, language, onChange, onOpenChange }: { open: b
         </button>
       )}
     >
-      <div role="radiogroup" aria-label={t('utility.language.groupLabel')} className="w-36 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground pix-shadow-overlay">
+      <div role="radiogroup" aria-label={t('utility.language.groupLabel')} onMouseLeave={() => preview.clear()} className="w-36 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground pix-shadow-overlay">
         {languageOptions.map((option) => (
           <button
             key={option.value}
             type="button"
-            onClick={() => { onChange(option.value); onOpenChange(false) }}
+            onMouseEnter={() => preview.schedule(option.value)}
+            onClick={() => { preview.clear(); onChange(option.value); onOpenChange(false) }}
             role="radio"
             aria-checked={language === option.value}
-            className={cn('flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/7', language === option.value && 'bg-[hsl(var(--pix-sky))] text-[hsl(var(--pix-link-blue))] dark:bg-white/7 dark:text-white dark:ring-1 dark:ring-white/12')}
+            className={cn('flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/7', language === option.value && 'bg-[hsl(var(--primary)/.12)] text-[hsl(var(--primary))] ring-1 ring-[hsl(var(--primary)/.3)] dark:bg-[hsl(var(--primary)/.18)] dark:text-foreground dark:ring-[hsl(var(--primary)/.4)]')}
           >
             <span className="flex min-w-0 items-center gap-2 whitespace-nowrap"><span className="shrink-0 text-base leading-none">{option.flag}</span><span className="truncate">{t(option.labelKey)}</span></span>
             {language === option.value && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}

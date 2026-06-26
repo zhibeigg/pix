@@ -4,15 +4,6 @@ import type { CreditBalance, User } from '../types'
 import { PixMetric } from './pix/PixMetric'
 import { Button } from './ui/button'
 
-const heroDots = [
-  'left-[7%] top-[18%] bg-[hsl(var(--pix-peach))]',
-  'left-[16%] top-[44%] bg-[hsl(var(--pix-rose))]',
-  'left-[28%] bottom-[18%] bg-[hsl(var(--pix-lavender))]',
-  'right-[24%] top-[16%] bg-[hsl(var(--pix-yellow))]',
-  'right-[12%] top-[42%] bg-[hsl(var(--pix-mint))]',
-  'right-[8%] bottom-[20%] bg-[hsl(var(--pix-sky))]',
-]
-
 type AppHeroProps = {
   user: User | null
   balance: CreditBalance | null
@@ -31,14 +22,14 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
       <div className="relative z-10 mx-auto grid max-w-7xl gap-10">
         <div className="mx-auto max-w-5xl text-center">
           <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-[hsl(var(--pix-steel))] pix-shadow-hairline dark:border-white/15 dark:bg-white/10 dark:text-white/75 dark:shadow-none">
-            <span className="h-2 w-2 rounded-[3px] bg-primary dark:bg-[hsl(var(--pix-amber))]" />
+            <span className="h-2 w-2 rounded-full bg-[hsl(var(--tone-success-line))] shadow-[0_0_8px_hsl(var(--tone-success-line))]" />
             {text('给游戏开发者的 AI 像素素材工具', 'AI pixel asset tool for game developers')}
           </div>
           <h1 className="mt-6 text-[40px] font-semibold leading-[1.05] tracking-[-1.4px] text-[hsl(var(--pix-ink))] md:text-[64px] md:tracking-[-2px] xl:text-[80px] dark:text-white">
             {text('10–30 分钟，', '10–30 minutes to')}<br className="hidden md:block" />{text('做出可进游戏的像素素材', 'game-ready pixel assets')}
           </h1>
           <p className="mx-auto mt-5 max-w-3xl text-lg leading-[1.55] text-[hsl(var(--pix-slate))] dark:text-white/70">
-            {text('输入道具、角色、技能特效或 UI 描述，批量生成统一尺寸、透明背景、可导出的像素 PNG 和精灵帧。它解决美术排期慢、反复切图抠图、尺寸色板不统一、素材难归档的问题；早期原型通常可把 1–3 天打样压到 10–30 分钟，每批少花数百到数千元沟通与外包成本。', 'Describe items, characters, VFX, or UI, then batch-generate consistent, transparent, export-ready pixel PNGs and sprite frames. It removes slow art queues, repeated cutout/export work, inconsistent sizes and palettes, and messy asset handoff; early prototypes can usually shrink 1–3 days of mockup work to 10–30 minutes and reduce hundreds to thousands in coordination or outsourcing costs.')}
+            {text('输入一句描述，批量产出统一尺寸、透明背景、可直接导出的像素 PNG 与精灵帧。把 1–3 天的美术打样，压缩成一次生成。', 'Describe it once — batch-generate consistent, transparent, export-ready pixel PNGs and sprite frames. Compress 1–3 days of art mockups into a single run.')}
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button size="lg" asChild><a href={user ? '#/workspace' : '#auth-panel'}>{text('开始生成素材', 'Start generating assets')}</a></Button>
@@ -65,19 +56,10 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
 function HeroSurfaceDecor() {
   return (
     <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-x-0 top-0 h-72 bg-[linear-gradient(180deg,hsl(var(--secondary)),transparent)] dark:hidden" />
-      <div className="absolute left-1/2 top-16 h-[520px] w-[920px] -translate-x-1/2 rounded-full bg-[hsl(var(--pix-cream))] opacity-70 blur-3xl dark:hidden" />
-      <div className="absolute inset-0 hidden bg-[radial-gradient(circle_at_50%_-20%,hsl(var(--pix-navy-mid)/.72),transparent_48%)] dark:block" />
-      <div className="absolute inset-x-0 bottom-0 hidden h-44 bg-[linear-gradient(0deg,hsl(var(--pix-navy-deep)/.58),transparent)] dark:block" />
-      {heroDots.map((style) => <span key={style} className={`absolute h-5 w-5 rounded-[6px] border border-white/70 shadow-[0_10px_24px_rgba(15,15,15,0.10)] dark:border-white/12 dark:shadow-[0_10px_24px_rgba(0,0,0,0.18)] ${style}`} />)}
-      <svg className="absolute -left-20 top-20 h-64 w-64 text-[hsl(var(--pix-navy))]/10 dark:text-white/12" viewBox="0 0 240 240" fill="none">
-        <path d="M18 120C62 38 160 34 210 92C256 146 190 220 112 204C48 190-6 164 18 120Z" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M44 80C92 128 132 150 206 140M58 154C104 106 142 78 196 76M70 196C84 126 100 72 124 24" stroke="currentColor" strokeWidth="1" />
-      </svg>
-      <svg className="absolute -right-12 top-24 h-72 w-72 rotate-12 text-[hsl(var(--pix-navy))]/10 dark:text-white/10" viewBox="0 0 260 260" fill="none">
-        <path d="M40 42L218 70L184 222L58 194L40 42Z" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M62 84L206 104M66 126L198 144M70 168L190 184M102 52L88 202M154 62L138 212" stroke="currentColor" strokeWidth="1" />
-      </svg>
+      {/* Iris 辉光 */}
+      <div className="absolute left-1/2 top-[-14%] h-[560px] w-[1120px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,hsl(var(--primary)/.16),transparent)] blur-2xl dark:bg-[radial-gradient(closest-side,hsl(var(--primary)/.34),transparent)]" />
+      {/* 细网格纹理（顶部渐隐遮罩） */}
+      <div className="absolute inset-0 bg-[linear-gradient(hsl(var(--foreground)/.05)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--foreground)/.05)_1px,transparent_1px)] bg-[size:42px_42px] [mask-image:radial-gradient(720px_400px_at_50%_-4%,#000,transparent_72%)] dark:bg-[linear-gradient(rgba(255,255,255,.055)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.055)_1px,transparent_1px)]" />
     </div>
   )
 }
