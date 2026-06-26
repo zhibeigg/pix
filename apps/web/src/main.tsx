@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { App } from './App'
 import { ConfirmProvider } from './components/ConfirmDialog'
 import { I18nProvider } from './i18n'
+import '@fontsource-variable/inter-tight/wght.css'
 import './styles.css'
 import type { PixLanguage, PixThemeMode, PixThemePreference } from './theme'
 
