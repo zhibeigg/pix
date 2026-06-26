@@ -17,6 +17,15 @@
 - 不改后端 API 契约、计费逻辑、点数规则、权限模型。
 - 不做无关重构（仅在为本目标服务时做有针对性的清理）。
 
+### 前端"禁改清单"（出图数据流，位于 apps/web 之内但严禁触碰其逻辑/数值）
+保护判据从"不碰后端 `src/`"修正为 **"不碰任何 generate / params / pixelize 数据流文件的逻辑与数值，只允许改其渲染样式"**。明确禁改：
+- `apps/web/src/pixelize.ts` — `defaultPixelize` / `defaultAssetPixelize` / `edgeStylePixelize` / `normalizeEdgeStyle` / `buildPixelize` 等出图参数（output_size / colors / dither / edge_style / bg_removal / crop…），一个数值都不动。
+- `apps/web/src/types.ts` 中生成/参数相关类型（`PixelizeParams`、`GridDesignParams`、Job 参数等）。
+- `apps/web/src/api.ts` 的请求体构造与字段。
+- `homepage*Examples.ts` 中作为生成示例的参数数据。
+- `jobReuse.ts`（复用链参数逻辑）。
+> 允许：仅调整上述功能所对应 UI 组件（如生成面板、PixelControls、TuningPanel）的**视觉样式与文案**，不改其传给后端的参数值。
+
 ### 允许
 - 优化交互逻辑、精简文案、调整 UI 结构、引入新库（字体、图标补充等）。
 - **大胆更换品牌主色与字体**（用户已授权）；保留 Pix Forge logo、中文优先、暗色模式。
@@ -60,12 +69,14 @@
 现有 token 体系高度抽象：`apps/web/src/styles.css` 以 HSL CSS 变量定义，并有多层语义别名（`--ledger-*`、`--data-*`、`--tone-*`、`--pix-shadow-*`），组件通过别名消费。**因此改造主要改变量值与少量别名，而非每个消费点。**
 
 关键文件：
-- `apps/web/src/styles.css` — `:root` / `[data-theme=dark]` 变量主战场。
-- `apps/web/src/design/tokens.ts`、`status.ts` — JS 侧 token（tint/focusRing/tone）。
-- `apps/web/src/theme.ts`、`i18n` / locales — 主题与文案。
-- `apps/web/src/components/ui/*` — 基础组件（button/card/input/badge/...）。
-- 落地页：`AppHero.tsx`、`LandingSections.tsx`、Header（`App.tsx`）、`SiteFooter`。
-- 工作区：`SingleGeneratePanel`、`BatchGeneratePanel`、`GalleryGrid`、`AssetPackPanel`、`WorkspacePage` 等。
+- `apps/web/src/styles.css` —
+  - `@theme` 块（顶部）：`--font-sans/serif/mono` 字体栈、`--radius-*` 圆角梯度、`--motion-*`/`--ease-*`。**phase 1 必改**。
+  - `:root` / `[data-theme=dark]`：颜色变量主战场（中性色 navy/cream → 冷石墨、`--primary` → Iris、各 `--pix-*` / `--ledger-*` / `--tone-*` / `--pix-shadow-*` 调参）。
+- `apps/web/src/design/tokens.ts`（`tint` 暖色别名表）、`apps/web/src/theme.ts`（`pixBrand` 暖色别名表，引用 `--pix-cream/amber/mint/...`）—— **phase 1 必改散点**，否则换肤后暖色残留。`status.ts` 的 tone 映射随语义色调整。
+- 字体自托管：新增 `apps/web/public/fonts/`（或 `src/styles` 内 `@font-face`），`package.json` 视情况新增字体/图标依赖；`index.html` 加关键字重 preload。
+- `apps/web/src/components/ui/*` — 基础组件（button/card/input/textarea/badge/select/tabs/...）。
+- 落地页：`AppHero.tsx`、`LandingSections.tsx`、Header 与 footer（均在 `App.tsx` 内联，配合 `HeaderUtilityBar.tsx`、`AccountMenu.tsx`）。
+- 工作区：`SingleGeneratePanel`、`BatchGeneratePanel`、`GalleryGrid`、`AssetPackPanel`、`WorkspacePage` 与 `WorkspaceShell`（定义于 `App.tsx`）等 —— **仅改样式/文案，不改出图参数**。
 - 其余：`BillingPage`、`RewardsPage`、`ApiPage`、`AdminPanel`、`AppOverlays`（弹窗/Toast）。
 
 ## 4. 分阶段交付
@@ -85,11 +96,18 @@
 - 功能不变性自检：生成流程、参数快照、复用链、计费展示数值不变（只换皮）。
 - 可访问性：对比度 ≥ WCAG AA；focus-visible 环保留；reduced-motion 生效。
 
+### phase 1 出口判据（可执行）
+- grep 断言：全站不再存在对暖色 token 的**直接内联消费**——
+  `--pix-cream | --pix-parchment | --pix-amber | --pix-mint | --pix-sky | --pix-lavender | --pix-rose | --pix-peach` 的 `bg-[hsl(var(--...))]` 用法应归零或改走语义别名；`tint`/`pixBrand` 别名表中的旧暖 key 必须改为新中性/语义值（保留 key 名可，但其值不得再产出暖米黄/pastel）。
+- 字体断言：运行时无新增对 `fonts.googleapis.com` 的请求（字体已自托管）。
+- `package.json` 若新增依赖，`npm --prefix apps/web run build` 后产物体积无异常膨胀（关注字体子集化）。
+- 出图保护断言：`git diff` 不包含"禁改清单"文件的逻辑/数值改动（仅允许其对应 UI 组件的样式变更）。
+
 ## 6. 风险与缓解
 - **风险**：大面积换肤可能漏改散点内联色（`bg-[hsl(var(--pix-...))]`）导致暖色残留。
   **缓解**：phase 1 后全站 grep 审查 `--pix-cream/parchment/amber/mint/sky/lavender/rose/peach` 等暖 token 的直接消费点，逐一归并。
 - **风险**：字体自托管体积/加载。**缓解**：子集化 + `font-display:swap` + 预加载关键字重。
-- **风险**：误伤出图相关代码。**缓解**：严格限定只改表现层文件；不触碰 `src/`（Python 后端）与 pixelize/算法相关逻辑。
+- **风险**：误伤出图相关代码（含前端 `pixelize.ts` 等出图数据流文件）。**缓解**：遵守 §1"前端禁改清单"，只改表现层样式/文案；不触碰 `src/`（Python 后端）与前端出图参数/类型/请求构造；以 §5 出图保护断言把关。
 
 ## 7. 开放问题
 - 字体最终授权与自托管来源（Inter Tight / Noto Sans SC 均为开源，可自托管）。
