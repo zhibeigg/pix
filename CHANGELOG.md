@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 全站「Studio」设计语言升级（纯表现层，不改任何出图算法 / prompt / 参数）：中性色由暖 cream/parchment 与 navy 蓝调统一改为冷石墨（明暗双主题），品牌主色改为 Iris 紫 `#6D5EF8`，自托管 Inter Tight 可变字体（latin 子集，无运行时 Google Fonts），收紧圆角梯度；主按钮改 Iris 渐变 + 内高光 + glow，Tabs 改主题自适应反相胶囊，落地页 Hero 去 Notion 便签点/网状涂鸦改细网格 + Iris 辉光并精简文案，API 文档代码块改终端卡片（mac 点 + 石墨底 + 等宽）。
 
+- 序列帧（mosaic）出图质量优化，三处协同改善「动作不连贯 / 切割对齐 / 单帧抖动」（不改生成模型，也不改抠色与像素化核心参数）：
+  - **Prompt**：`mosaic_prompt_template` 默认模板新增「逐帧均匀渐进 + 无缝循环」指令（把每行 N 帧约束为一段连续动作的等间隔关键帧、相邻帧等量小增量、末帧自然接回首帧），并要求「每格四周留背景 gutter、主体不得触碰/跨越格线、各帧尺寸与落脚点一致」；`config.example.toml` 与代码内 fallback 同步。
+  - **切割**：`_split_sheet_to_cells` 的切线由「搜索窗口内前景最少的单点」改为「最宽空白柱(gutter)的中心」（新增 `_widest_gap_center`），主体移动/抖动时切线落在两帧留白之间、不再啃到主体；主体填满无 gutter 时回退原前景最少点逻辑。
+  - **对齐**：帧贴齐画布的水平对齐由「bbox 中心」改为「不透明像素质心」，单帧伸出的手臂 / 武器 / 裙摆不再把身体带偏，减少播放时的横向抖动。
 - `bg_removal_algorithm="color_to_alpha"` 不再兼容到像素硬抠路径，而是执行真正的 Color-to-Alpha 软抠；旧 `auto` / `imagemagick_fuzz_floodfill_alpha` / `flood_fill` / `hybrid` 仍兼容到 `pixel_bg`。
 - 序列帧（mosaic）新增每帧描边/羽化（可选）：复用 pixelize 的 `edge_style` / `bg_feather` 参数，在共享调色板前对每帧补透明边距后描边（描边色一并进入统一量化、不会被自适应画布裁掉）；前端解禁序列帧的「边缘处理」选项。
 - 本地像素化前端移除「尺寸选择」：输出尺寸统一按 perfectPixel 检测到的真实像素网格确定（后端 `preserve_preprocessed_size` 早已如此），前端不再展示可能误导的尺寸输入。

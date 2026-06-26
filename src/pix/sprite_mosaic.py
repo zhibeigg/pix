@@ -590,10 +590,17 @@ def _fallback_mosaic_prompt(**values: Any) -> str:
         f"every cell occupies {values['cell_render_width']}x{values['cell_render_height']} render pixels. "
         f"Draw every pixel-art pixel as a perfectly square block of {values['upscale']}x{values['upscale']} render pixels "
         f"(no anti-aliasing inside the block), so each cell is a {values['cell_art_width']}x{values['cell_art_height']} pixel-art grid. "
-        f"Draw the subject at natural proportions, about {values['frame_width']} pixel-art pixels wide and as large as fits, "
-        f"anchored to the {values['anchor_text']} of each cell; fill every remaining pixel (especially the area above the subject) "
-        "with the flat background key-color. "
+        f"Draw the subject at natural proportions, about {values['frame_width']} pixel-art pixels wide and as large as fits "
+        "WHILE leaving a clear, uniform empty margin of background on all four sides of every cell, so the subject NEVER touches "
+        f"or crosses a cell boundary (cells stay separated by clean background gutters); anchor the subject to the {values['anchor_text']} "
+        "of each cell and keep its size and ground footprint identical across all cells; fill every remaining pixel (especially the "
+        "area above the subject) with the flat background key-color. "
         f"Each row is one independent animation loop with {values['cols']} frames, listed below:\n{values['row_block']}\n"
+        f"Within each row, treat the {values['cols']} frames as equally-spaced keyframes of ONE continuous motion read strictly "
+        f"left-to-right: frame 1 is the starting pose, frame {values['cols']} the final pose, and every consecutive frame advances "
+        "the motion by the SAME small, even increment — no large jumps between adjacent frames, no duplicated or identical frames, "
+        "no frames out of order. The motion must loop seamlessly so the last frame leads naturally back into the first; keep limb "
+        "arcs, weight shift, timing, and ground contact smooth and physically plausible. "
         "Character/subject consistency: keep the same identity, palette, outline thickness, scale, proportions, and footprint across every cell. "
         f"Background: use one flat solid key-color {values['green']} for ALL empty/background pixels for chroma-key removal — "
         "the background must be perfectly uniform with NO gradient, NO vignette, NO lighting or shading, no faux 3D depth. "
@@ -803,14 +810,48 @@ def _projection_splits(projection: np.ndarray, total: int, segments: int) -> np.
             splits.append(int(round(ideal)))
             continue
         window = proj[lo:hi]
-        min_val = int(window.min())
-        # 取窗口内所有最小值索引中，距离 ideal 最近的那个
-        candidate_indices = np.flatnonzero(window == min_val) + lo
-        # 转 float 以避免有符号差
-        best = int(candidate_indices[np.abs(candidate_indices - ideal).argmin()])
+        # 优先：窗口内最宽的「空白柱」(gutter，prompt 要求每格四周留背景边距) 的中心。
+        # gutter 中心比「前景最少点」更稳——主体移动/抖动时单点最小值可能贴着主体边缘，
+        # 而留白带中心始终落在两帧之间，切线不会啃到主体。
+        best = _widest_gap_center(window, lo, fg_threshold, ideal)
+        if best is None:
+            # 回退：窗口内前景最少处，取距 ideal 最近的（主体填满无 gutter 时，如剧烈摇晃帧）。
+            min_val = int(window.min())
+            candidate_indices = np.flatnonzero(window == min_val) + lo
+            best = int(candidate_indices[np.abs(candidate_indices - ideal).argmin()])
         splits.append(max(splits[-1] + 1, best))
     splits.append(int(total))
     return np.asarray(splits, dtype=np.int64)
+
+
+def _widest_gap_center(window: np.ndarray, offset: int, fg_threshold: int, ideal: float) -> int | None:
+    """在 1D 投影窗口里找最宽的近空白连续段（≤ fg_threshold），返回其中心的全局坐标。
+
+    并列最宽时取中心更靠近 ``ideal`` 的那段；最宽段不足 2 像素时返回 None（无明显
+    gutter，交回调用方走「前景最少点」回退）。
+    """
+    empty = np.asarray(window) <= int(fg_threshold)
+    if not empty.any():
+        return None
+    best_len = 0
+    best_center: float | None = None
+    n = int(empty.size)
+    j = 0
+    while j < n:
+        if not empty[j]:
+            j += 1
+            continue
+        k = j
+        while k < n and empty[k]:
+            k += 1
+        run_len = k - j
+        center = offset + (j + k - 1) / 2.0
+        if run_len > best_len or (run_len == best_len and (best_center is None or abs(center - ideal) < abs(best_center - ideal))):
+            best_len, best_center = run_len, center
+        j = k
+    if best_center is None or best_len < 2:
+        return None
+    return int(round(best_center))
 
 
 def _detect_grid_count(projection: np.ndarray, total: int, hint: int) -> int:

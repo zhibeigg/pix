@@ -98,7 +98,16 @@ def _visible_bbox(image: Image.Image, threshold: int = 8) -> tuple[int, int, int
 def _paste_content_to_canvas(content: Image.Image, *, size: tuple[int, int], anchor: str) -> Image.Image:
     canvas = Image.new("RGBA", size, (0, 0, 0, 0))
     frame = content.convert("RGBA")
+    # 水平对齐用「不透明像素质心」而非 bbox 中心：单帧伸出的手臂 / 武器 / 裙摆会撑宽
+    # bbox 并把 bbox 中心带偏，导致逐帧居中后身体左右抖动；质心对几个外伸像素几乎不敏感，
+    # 因此各帧主体重心能稳定对齐。无可见像素时退回 bbox 居中。夹取保证不出画布。
     x = max(0, (size[0] - frame.width) // 2)
+    alpha = np.asarray(frame)[..., 3]
+    xs = np.where(alpha > 8)[1]
+    if xs.size:
+        centroid_x = float(xs.mean())
+        x = int(round(size[0] / 2.0 - centroid_x))
+        x = max(0, min(x, size[0] - frame.width))
     anchor_key = (anchor or "bottom_center").strip().lower()
     if anchor_key in {"center", "middle", "center_center"}:
         y = max(0, (size[1] - frame.height) // 2)
