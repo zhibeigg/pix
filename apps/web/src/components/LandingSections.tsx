@@ -27,7 +27,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
   const { text } = useI18n()
   return (
     <>
-      <SectionFrame id="examples" eyebrow={text('范例图鉴', 'Sample atlas')} title={text('按资产类型与生成模型浏览：物品图标 + 实测样例 + 平铺纹理 + 序列帧', 'Browse by asset type and model: item icons + tested samples + tileable textures + sprite sheets')} description={text('物品图标按尺寸 / 大类 / 风格筛选 608 张全流程重生成 PNG；实测样例展示本地真实上游生成的 Logo 与 24×24 技能书，并标注 image2 / Gemini 模型；平铺纹理与序列帧分别展示专用 pipeline 的结果。', 'Item icons cover 608 regenerated PNGs filtered by size / category / theme. Tested samples show real local upstream Logo and 24×24 skill-book runs with image2 / Gemini model labels. Tile textures and sprite sheets show their dedicated pipelines.')}>
+      <SectionFrame id="examples" eyebrow={text('范例图鉴', 'Sample atlas')} title={text('按资产类型浏览真实产出', 'Browse real output by asset type')} description={text('物品图标、实测样例、平铺纹理、序列帧——全部由本工具真实生成；图标可按尺寸 / 大类 / 风格筛选。', 'Item icons, tested samples, tile textures, and sprite sheets — all really generated here. Icons filter by size / category / theme.')}>
         <ExampleAtlas />
       </SectionFrame>
 

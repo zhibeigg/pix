@@ -6,6 +6,7 @@ import type { PixLanguage, PixThemeMode, PixThemePreference } from '../theme'
 import type { AnnouncementItem } from '../types'
 import { useI18n } from '../i18n'
 import { cn } from '../lib/utils'
+import { setPreviewLanguage, setPreviewTheme } from '../lib/uiPreview'
 import { Button } from './ui/button'
 import { Dialog, DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogPortal, DialogTitle, DialogTrigger } from './ui/dialog'
 
@@ -223,6 +224,7 @@ function AnnouncementButton({ open, autoOpen, onOpenChange }: { open: boolean; a
 
 function ThemeHoverMenu({ open, preference, resolvedMode, systemMode, onChange, onOpenChange }: { open: boolean; preference: PixThemePreference; resolvedMode: PixThemeMode; systemMode: PixThemeMode; onChange: (preference: PixThemePreference) => void; onOpenChange: (open: boolean) => void }) {
   const { t } = useI18n()
+  useEffect(() => { if (!open) setPreviewTheme(null) }, [open])
   const TriggerIcon = preference === 'system' ? Monitor : resolvedMode === 'dark' ? Moon : Sun
   return (
     <HoverMenu
@@ -234,7 +236,7 @@ function ThemeHoverMenu({ open, preference, resolvedMode, systemMode, onChange, 
         </button>
       )}
     >
-      <div role="radiogroup" aria-label={t('utility.theme.groupLabel')} className="w-48 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground pix-shadow-overlay">
+      <div role="radiogroup" aria-label={t('utility.theme.groupLabel')} onMouseLeave={() => setPreviewTheme(null)} className="w-48 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground pix-shadow-overlay">
         {themeOptions.map((option) => {
           const Icon = option.icon
           const active = preference === option.value
@@ -242,10 +244,11 @@ function ThemeHoverMenu({ open, preference, resolvedMode, systemMode, onChange, 
             <button
               key={option.value}
               type="button"
-              onClick={() => { onChange(option.value); onOpenChange(false) }}
+              onMouseEnter={() => setPreviewTheme(option.value === 'system' ? systemMode : option.value)}
+              onClick={() => { setPreviewTheme(null); onChange(option.value); onOpenChange(false) }}
               role="radio"
               aria-checked={active}
-              className={cn('flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left text-popover-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/7', active && 'bg-[hsl(var(--pix-sky))] text-[hsl(var(--pix-link-blue))] dark:bg-white/7 dark:text-white dark:ring-1 dark:ring-white/12')}
+              className={cn('flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left text-popover-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/7', active && 'bg-[hsl(var(--primary)/.12)] text-[hsl(var(--primary))] ring-1 ring-[hsl(var(--primary)/.3)] dark:bg-[hsl(var(--primary)/.18)] dark:text-foreground dark:ring-[hsl(var(--primary)/.4)]')}
             >
               <Icon className="mt-0.5 h-4 w-4 shrink-0" />
               <span className="min-w-0">
@@ -263,6 +266,7 @@ function ThemeHoverMenu({ open, preference, resolvedMode, systemMode, onChange, 
 
 function LanguageHoverMenu({ open, language, onChange, onOpenChange }: { open: boolean; language: PixLanguage; onChange: (language: PixLanguage) => void; onOpenChange: (open: boolean) => void }) {
   const { t } = useI18n()
+  useEffect(() => { if (!open) setPreviewLanguage(null) }, [open])
   return (
     <HoverMenu
       open={open}
@@ -273,15 +277,16 @@ function LanguageHoverMenu({ open, language, onChange, onOpenChange }: { open: b
         </button>
       )}
     >
-      <div role="radiogroup" aria-label={t('utility.language.groupLabel')} className="w-36 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground pix-shadow-overlay">
+      <div role="radiogroup" aria-label={t('utility.language.groupLabel')} onMouseLeave={() => setPreviewLanguage(null)} className="w-36 rounded-lg border border-border bg-popover p-1.5 text-popover-foreground pix-shadow-overlay">
         {languageOptions.map((option) => (
           <button
             key={option.value}
             type="button"
-            onClick={() => { onChange(option.value); onOpenChange(false) }}
+            onMouseEnter={() => setPreviewLanguage(option.value)}
+            onClick={() => { setPreviewLanguage(null); onChange(option.value); onOpenChange(false) }}
             role="radio"
             aria-checked={language === option.value}
-            className={cn('flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/7', language === option.value && 'bg-[hsl(var(--pix-sky))] text-[hsl(var(--pix-link-blue))] dark:bg-white/7 dark:text-white dark:ring-1 dark:ring-white/12')}
+            className={cn('flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/7', language === option.value && 'bg-[hsl(var(--primary)/.12)] text-[hsl(var(--primary))] ring-1 ring-[hsl(var(--primary)/.3)] dark:bg-[hsl(var(--primary)/.18)] dark:text-foreground dark:ring-[hsl(var(--primary)/.4)]')}
           >
             <span className="flex min-w-0 items-center gap-2 whitespace-nowrap"><span className="shrink-0 text-base leading-none">{option.flag}</span><span className="truncate">{t(option.labelKey)}</span></span>
             {language === option.value && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
