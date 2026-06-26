@@ -435,15 +435,20 @@ function ApiDocNote({ title, body }: { title: string; body: string }) {
 function CodeBlock({ title, description, code, copied, copyKey, onCopy }: { title: string; description?: string; code: string; copied: string; copyKey: string; onCopy: (code: string) => void }) {
   const { text } = useI18n()
   return (
-    <div className="overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-white text-[hsl(var(--pix-ink))] shadow-sm dark:border-white/10 dark:bg-black/35 dark:text-white">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-sky))]/55 px-4 py-2.5 text-sm dark:border-white/10 dark:bg-white/7">
-        <div className="min-w-0">
-          <span className="font-semibold">{title}</span>
-          {description && <p className="mt-1 text-xs leading-5 text-muted-foreground dark:text-white/60">{description}</p>}
+    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm dark:border-white/10">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border bg-secondary px-4 py-2.5 text-sm dark:border-white/10 dark:bg-white/5">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className="mt-1 hidden shrink-0 gap-1.5 sm:flex" aria-hidden="true">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" /><span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" /><span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+          </span>
+          <div className="min-w-0">
+            <span className="font-semibold text-foreground">{title}</span>
+            {description && <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>}
+          </div>
         </div>
-        <Button type="button" size="sm" variant="outline" className="bg-white/80 dark:bg-white/10" onClick={() => onCopy(code)}>{copied === copyKey ? <Check /> : <Clipboard />}{copied === copyKey ? text('已复制', 'Copied') : text('复制', 'Copy')}</Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => onCopy(code)}>{copied === copyKey ? <Check /> : <Clipboard />}{copied === copyKey ? text('已复制', 'Copied') : text('复制', 'Copy')}</Button>
       </div>
-      <pre className="overflow-x-auto bg-[hsl(var(--pix-paper))] p-4 text-xs leading-6 text-[hsl(var(--pix-charcoal))] dark:bg-black/25 dark:text-white/88"><code>{code}</code></pre>
+      <pre className="overflow-x-auto bg-[hsl(222_16%_8%)] p-4 font-mono text-xs leading-6 text-[hsl(220_16%_86%)]"><code>{code}</code></pre>
     </div>
   )
 }
