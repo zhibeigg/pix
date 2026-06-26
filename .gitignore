@@ -38,7 +38,9 @@ out/
 .pix_cache/
 web_outputs/
 .tmp/
+tmp/
 pix_web.db
+pix_web.db.bak*
 .coverage
 htmlcov/
 
