@@ -17,8 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 产物：`dual_grid_atlas.png`（4×4 图集）、`dual_grid_preview.png`（确定性种子的应用预览）、`materials/material_a.png`(+`material_b.png`) 与含 `convention` / `mapping`（bitmask→cell 表）/ `preview_seed` 的 `meta.json`；`JobOutputResponse` 新增 `dual_grid_atlas_path/url`、`dual_grid_preview_path/url`。详见 `docs/dual-grid-rules.md`。
   - 前端「单张试做 → 游戏素材直出」开放「双瓦片」素材类型，可填写材质 A/B、A/B 纹理类型和过渡风格；作品库下载项新增 4×4 图集与应用预览。
 - 平铺纹理素材新增 `asset.texture_kind` 细分：支持自动识别、通用纹理、地表/地形、道路/地砖、墙壁/岩壁、木板/树皮、水面/液体、树叶/草丛、屋顶瓦片、金属面板、布料/地毯等类型；后端会把对应像素游戏纹理规则注入 prompt，并在 `meta.json` 记录请求值与最终解析值。
+- 主题 / 语言切换菜单支持「悬浮整页实时预览」：悬浮某个选项短暂停顿（~200ms）后，整页以渐变过渡预览该主题 / 语言效果，移开即还原、点击才真正生效；预览态不写偏好、不落 `localStorage`，并尊重 `prefers-reduced-motion`。
 
 ### Changed
+
+- 全站「Studio」设计语言升级（纯表现层，不改任何出图算法 / prompt / 参数）：中性色由暖 cream/parchment 与 navy 蓝调统一改为冷石墨（明暗双主题），品牌主色改为 Iris 紫 `#6D5EF8`，自托管 Inter Tight 可变字体（latin 子集，无运行时 Google Fonts），收紧圆角梯度；主按钮改 Iris 渐变 + 内高光 + glow，Tabs 改主题自适应反相胶囊，落地页 Hero 去 Notion 便签点/网状涂鸦改细网格 + Iris 辉光并精简文案，API 文档代码块改终端卡片（mac 点 + 石墨底 + 等宽）。
 
 - `bg_removal_algorithm="color_to_alpha"` 不再兼容到像素硬抠路径，而是执行真正的 Color-to-Alpha 软抠；旧 `auto` / `imagemagick_fuzz_floodfill_alpha` / `flood_fill` / `hybrid` 仍兼容到 `pixel_bg`。
 - 序列帧（mosaic）新增每帧描边/羽化（可选）：复用 pixelize 的 `edge_style` / `bg_feather` 参数，在共享调色板前对每帧补透明边距后描边（描边色一并进入统一量化、不会被自适应画布裁掉）；前端解禁序列帧的「边缘处理」选项。
