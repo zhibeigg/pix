@@ -333,8 +333,9 @@ def _price_for_request(db: Session, req: JobCreateRequest, cfg: AppConfig | None
 
 # ---- 尺寸重试计费 ----
 
-# 适用尺寸重试的任务类型（单张产出的 AI 生图）。
-SIZE_RETRY_JOB_TYPES = {"text_to_image", "image_to_image", "asset"}
+# 尺寸重试只适用于素材生产：按 perfectPixel + 2 的幂透明填充后的成品像素尺寸判定。
+# t2i/i2i 原始生图是 source_only 大图、跳过像素化，无成品像素尺寸可比对，故排除。
+SIZE_RETRY_JOB_TYPES = {"asset"}
 _UI_COMPONENT_IMAGE_SIZE = "auto"
 _SIZE_RE = re.compile(r"^(\d+)x(\d+)$")
 
@@ -361,19 +362,18 @@ class SizeRetryPlan:
 
 
 def _expected_size_for_request(req: JobCreateRequest, cfg: AppConfig) -> tuple[int, int] | None:
-    """解析该请求发给 AI 的画布尺寸；无法确定具体 WxH（auto / UI 组件）时返回 None。"""
-    image_size = (req.image_size or "").strip()
-    if not image_size and req.job_type == "asset":
-        if str(req.asset.asset_kind or "") == "ui_component":
-            image_size = _UI_COMPONENT_IMAGE_SIZE
-        else:
-            image_size = (cfg.image_gen.size or "").strip()
-    if not image_size:
-        image_size = (cfg.image_gen.size or "").strip()
-    match = _SIZE_RE.match(image_size)
-    if not match:
+    """目标成品像素尺寸 = 用户在像素尺寸里选的 output_size（尺寸重试要把填充后成品对齐到它）。
+
+    仅对会走 perfectPixel + 透明填充的主体类 asset 任务有意义；尺寸非法时返回 None。
+    """
+    try:
+        w, h = req.pixelize.output_size
+        w, h = int(w), int(h)
+    except (TypeError, ValueError):
         return None
-    return int(match.group(1)), int(match.group(2))
+    if w < 1 or h < 1:
+        return None
+    return (w, h)
 
 
 def _multi_candidate_enabled(cfg: AppConfig) -> bool:
@@ -394,6 +394,9 @@ def _size_retry_plan(
     if not req.size_retry_enabled or not getattr(cfg.image_gen, "size_retry_enabled", True):
         return SizeRetryPlan()
     if req.job_type not in SIZE_RETRY_JOB_TYPES:
+        return SizeRetryPlan()
+    if req.job_type == "asset" and req.asset.asset_kind in {"tile_texture", "dual_grid"}:
+        # 无缝纹理/双瓦片不能透明补边，尺寸重试仅适用于主体透明类素材生产。
         return SizeRetryPlan()
     # source_only 的原生大图、多候选模式不适用（asset 运行时强制单图，故仅对非 asset 判断多候选）。
     if req.job_type != "asset" and _multi_candidate_enabled(cfg):

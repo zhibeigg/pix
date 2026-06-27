@@ -18,10 +18,13 @@ from pix.api.image_gen import (
     parse_size,
 )
 from pix.config import AppConfig
+from pix.pipeline import PipelineResult
+from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits, reserve_credits, settle_partial_reserved
 from pix_web.jobs import _size_retry_plan, create_job_in_transaction
 from pix_web.models import Base, CreditAccount, GenerationJob, SystemSetting, User
-from pix_web.schemas import JobCreateRequest
+from pix_web.pipeline_adapter import run_asset_job_pipeline
+from pix_web.schemas import AssetParamsSchema, JobCreateRequest, JobOutputResponse, PixelizeParamsSchema
 from pix_web.system_settings import load_pricing_discount
 
 
@@ -192,8 +195,11 @@ class SizeRetryPlanTests(_DbTestCase):
         self.cfg = AppConfig()
 
     def _req(self, **kw) -> JobCreateRequest:
+        # 尺寸重试现仅对 asset 任务生效，目标尺寸 = pixelize.output_size（应为 2 的幂）。
         base = dict(
-            job_type="text_to_image", prompt="hello", image_size="1024x1024",
+            job_type="asset",
+            asset=AssetParamsSchema(name="frost"),
+            pixelize=PixelizeParamsSchema(output_size=(64, 64)),
             size_retry_enabled=True, size_retry_mode="attempts", size_retry_max_attempts=5,
         )
         base.update(kw)
@@ -231,18 +237,34 @@ class SizeRetryPlanTests(_DbTestCase):
         plan = _size_retry_plan(self.db, req, self.cfg, discount)
         assert plan.max_attempts == self.cfg.image_gen.size_retry_max_attempts_limit  # 8
 
-    def test_plan_disabled_for_auto_size(self) -> None:
+    def test_plan_disabled_for_invalid_size(self) -> None:
         discount = load_pricing_discount(self.db)
-        req = self._req(image_size="auto")
+        req = self._req(pixelize=PixelizeParamsSchema(output_size=(0, 0)))
         plan = _size_retry_plan(self.db, req, self.cfg, discount)
         assert plan.enabled is False
 
     def test_plan_disabled_for_sprite(self) -> None:
         discount = load_pricing_discount(self.db)
         req = JobCreateRequest(
-            job_type="sprite_sheet", prompt="run", image_size="1024x1024",
+            job_type="sprite_sheet", prompt="run",
             size_retry_enabled=True,
         )
+        plan = _size_retry_plan(self.db, req, self.cfg, discount)
+        assert plan.enabled is False
+
+    def test_plan_disabled_for_text_to_image(self) -> None:
+        # t2i 是 source_only 原生大图，跳过像素化，已从尺寸重试排除
+        discount = load_pricing_discount(self.db)
+        req = JobCreateRequest(
+            job_type="text_to_image", prompt="hi", image_size="1024x1024",
+            size_retry_enabled=True,
+        )
+        plan = _size_retry_plan(self.db, req, self.cfg, discount)
+        assert plan.enabled is False
+
+    def test_plan_disabled_for_tile_texture(self) -> None:
+        discount = load_pricing_discount(self.db)
+        req = self._req(asset=AssetParamsSchema(name="grass", asset_kind="tile_texture"))
         plan = _size_retry_plan(self.db, req, self.cfg, discount)
         assert plan.enabled is False
 
@@ -260,7 +282,9 @@ class SizeRetryJobCreationTests(_DbTestCase):
 
     def test_create_job_reserves_worst_case(self) -> None:
         req = JobCreateRequest(
-            job_type="text_to_image", prompt="hi", image_size="1024x1024",
+            job_type="asset",
+            asset=AssetParamsSchema(name="frost"),
+            pixelize=PixelizeParamsSchema(output_size=(64, 64)),
             size_retry_enabled=True, size_retry_max_attempts=5,
         )
         job = create_job_in_transaction(self.db, self.user, req, cfg=self.cfg)
@@ -270,6 +294,96 @@ class SizeRetryJobCreationTests(_DbTestCase):
         assert self._available() == 940
         assert job.params_json["size_retry"]["per_attempt"] == 12
         assert job.params_json["size_retry"]["max_attempts"] == 5
+
+
+class AssetPipelineSizeRetryCandidateTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.cfg = AppConfig()
+        self.settings = WebSettings(storage_root=self.root / "web")
+        self.job = GenerationJob(
+            id=77,
+            user_id=1,
+            job_type="asset",
+            prompt="frost gem",
+            params_json={
+                "asset": {"name": "frost gem", "asset_kind": "item_icon"},
+                "pixelize": {"output_size": [64, 64]},
+                "size_retry": {"enabled": True, "max_attempts": 3},
+            },
+        )
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _result(self, index: int, size: tuple[int, int]) -> PipelineResult:
+        run_dir = self.root / f"attempt-{index}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        source = run_dir / "01_source.png"
+        pixelized = run_dir / "03_pixelized.png"
+        preview = run_dir / "04_preview.png"
+        meta_path = run_dir / "meta.json"
+        Image.new("RGBA", (16, 16), (20, 30, 40, 255)).save(source)
+        Image.new("RGBA", size, (20, 30, 40, 255)).save(pixelized)
+        Image.new("RGBA", (size[0] * 2, size[1] * 2), (20, 30, 40, 255)).save(preview)
+        meta = {
+            "image_gen": {"used": True},
+            "pixelize": {"pad_to_power_of_two": {"final_size": list(size)}},
+            "outputs": {"source": source.name, "pixelized": pixelized.name, "preview": preview.name},
+        }
+        meta_path.write_text("{}", encoding="utf-8")
+        return PipelineResult(
+            run_dir=run_dir,
+            source_path=source,
+            analysis_path=None,
+            analysis=None,
+            pixel_path=pixelized,
+            preview_path=preview,
+            meta_path=meta_path,
+            meta=meta,
+            grid_path=None,
+        )
+
+    def test_all_attempts_are_recorded_and_exposed_as_candidates(self) -> None:
+        attempts = [self._result(1, (128, 128)), self._result(2, (128, 128)), self._result(3, (64, 64))]
+        with mock.patch("pix_web.pipeline_adapter.run_pipeline", side_effect=attempts):
+            result = run_asset_job_pipeline(self.job, self.settings, self.cfg)
+
+        retry = result.meta["image_gen"]["size_retry"]
+        assert retry["actual_attempts"] == 3
+        assert retry["matched"] is True
+        assert [item["final_size"] for item in retry["attempts"]] == [[128, 128], [128, 128], [64, 64]]
+        assert [item["matched"] for item in retry["attempts"]] == [False, False, True]
+        assert [item["selected"] for item in retry["attempts"]] == [False, False, True]
+
+        response = JobOutputResponse(
+            run_dir=str(result.run_dir),
+            source_path=str(result.source_path),
+            pixelized_path=str(result.pixel_path),
+            preview_path=str(result.preview_path),
+            analysis_json_path=None,
+            meta_json_path=str(result.meta_path),
+        )
+        candidates = response.candidates
+        assert len(candidates) == 3
+        assert candidates[0]["candidate_kind"] == "size_retry_attempt"
+        assert candidates[0]["final_size"] == [128, 128]
+        assert candidates[2]["matched"] is True
+        assert candidates[2]["selected"] is True
+        assert candidates[2]["path"] == str(attempts[2].pixel_path)
+
+    def test_exhausted_attempts_are_still_all_recorded(self) -> None:
+        self.job.params_json["size_retry"]["max_attempts"] = 2
+        attempts = [self._result(1, (128, 128)), self._result(2, (256, 256))]
+        with mock.patch("pix_web.pipeline_adapter.run_pipeline", side_effect=attempts):
+            result = run_asset_job_pipeline(self.job, self.settings, self.cfg)
+
+        retry = result.meta["image_gen"]["size_retry"]
+        assert retry["actual_attempts"] == 2
+        assert retry["matched"] is False
+        assert [item["final_size"] for item in retry["attempts"]] == [[128, 128], [256, 256]]
+        assert [item["selected"] for item in retry["attempts"]] == [False, True]
 
 
 if __name__ == "__main__":

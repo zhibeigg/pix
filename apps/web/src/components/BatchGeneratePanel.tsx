@@ -18,6 +18,7 @@ import { PixField } from './pix/PixField'
 import { PixPanel } from './pix/PixPanel'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
+import { SizeRetryControls, DEFAULT_SIZE_RETRY, type SizeRetryState } from './SizeRetryControls'
 
 type BatchMode = 'asset' | 'local_pixelize'
 type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
@@ -78,6 +79,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
   const [removeBg, setRemoveBg] = useState(true)
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyleChoice>('outline')
   const [skipVl, setSkipVl] = useState(false)
+  const [sizeRetry, setSizeRetry] = useState<SizeRetryState>(DEFAULT_SIZE_RETRY)
 
   const lines = useMemo(() => prompts.split('\n').map((line) => line.trim()).filter(Boolean), [prompts])
   const assetSubjectMaxLength = promptLimits.asset_subject_max_chars
@@ -156,7 +158,15 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
     const grid = buildGridDesign()
     const modelOverride = imageModel !== imageModels.default ? imageModel : undefined
     let payloads: JobCreateRequest[] = []
-    if (batchMode === 'asset') payloads = lines.map((name) => ({ job_type: 'asset', prompt: name, input_image_path: null, client_request_id: crypto.randomUUID(), image_size: uiComponentImageSize, image_model: modelOverride, pixelize, grid, asset: { name, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false } }))
+    const sizeRetryFields = sizeRetry.enabled
+      ? {
+          size_retry_enabled: true,
+          size_retry_mode: sizeRetry.mode,
+          size_retry_max_attempts: sizeRetry.maxAttempts,
+          size_retry_max_credits: sizeRetry.maxCredits,
+        }
+      : {}
+    if (batchMode === 'asset') payloads = lines.map((name) => ({ job_type: 'asset', prompt: name, input_image_path: null, client_request_id: crypto.randomUUID(), image_size: uiComponentImageSize, image_model: modelOverride, ...sizeRetryFields, pixelize, grid, asset: { name, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false } }))
     else payloads = uploaded.map((item) => ({ job_type: 'local_pixelize', prompt: null, input_image_path: item.upload?.path ?? null, client_request_id: crypto.randomUUID(), skip_vl: true, pixelize, grid }))
     if (payloads.length >= 10 && !(await confirm({ title: t('batchForm.title'), description: t('batchForm.confirmQueue', { count: payloads.length, total: totalPrice }), confirmText: t('common.confirm') }))) return
     await onSubmitMany(payloads, '', batchMode)
@@ -188,6 +198,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
           <PixField label={assetSubjectsLabel} hint={text(`每行最多 ${assetSubjectMaxLength} 字。`, `Up to ${assetSubjectMaxLength} characters per line.`)}><Textarea value={prompts} rows={8} placeholder={assetSubjectPlaceholder} onChange={(e) => setPrompts(e.target.value)} /></PixField>
         </div> : <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? t('batchForm.uploading') : t('batchForm.uploadImages')}<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={t('batchForm.uploadImages')} onChange={(e) => void uploadFiles(e.currentTarget.files)} /></label></Button><UploadList uploads={uploads} /></div>}
         <PixelControls pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || !removeBg} />
+        {isAsset && !isTileAsset && !isLogoAsset && <SizeRetryControls value={sizeRetry} onChange={setSizeRetry} basePrice={unitPrice} discount={discount} imageSize={pixelSize} />}
         <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={isTileAsset ? false : removeBg} disabled={isTileAsset} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{t('batchForm.transparentBackground')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize' || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? t('batchForm.defaultVisionPolicy') : t('batchForm.skipReference')}</label></div>
         {invalidSubAssetSize && <Alert variant="destructive">{t('batchForm.minSize')}</Alert>}
         {overlongSubject && <Alert variant="destructive">{text(`存在超过 ${assetSubjectMaxLength} 字的主体描述：${overlongSubject.slice(0, 32)}…`, `One subject exceeds ${assetSubjectMaxLength} characters: ${overlongSubject.slice(0, 32)}…`)}</Alert>}

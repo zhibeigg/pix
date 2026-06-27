@@ -554,6 +554,39 @@ def _center_on_canvas(image: Image.Image, size: tuple[int, int]) -> Image.Image:
     return canvas
 
 
+def next_power_of_two(value: int) -> int:
+    """返回 >= value 的最小 2 的幂（至少 1）。如 158→256, 64→64, 60→64。"""
+    n = max(1, int(value))
+    if n & (n - 1) == 0:
+        return n
+    power = 1
+    while power < n:
+        power <<= 1
+    return power
+
+
+def pad_to_power_of_two(
+    image: Image.Image,
+    *,
+    target: tuple[int, int] | None = None,
+) -> tuple[Image.Image, tuple[int, int]]:
+    """把图像居中填充透明像素到「最近的 ≥ 当前尺寸的 2 的幂」标准尺寸（无损，不缩放）。
+
+    宽高各自向上取 2 的幂。若传入 ``target``（用户目标尺寸，本身应为 2 的幂），
+    则在「2 的幂结果」与「target」之间取更大的边，确保不会把内容裁掉、且尽量贴近目标。
+    返回 (填充后图像, 最终尺寸)。
+    """
+    w, h = image.size
+    pad_w = next_power_of_two(w)
+    pad_h = next_power_of_two(h)
+    if target is not None:
+        # 目标更大时按目标定版（居中透明填充到目标）；目标更小则用 2 的幂结果（不裁内容）。
+        pad_w = max(pad_w, int(target[0]))
+        pad_h = max(pad_h, int(target[1]))
+    final_size = (pad_w, pad_h)
+    return _center_on_canvas(image, final_size), final_size
+
+
 def _quantize(
     image: Image.Image,
     palette_rgb: list[tuple[int, int, int]],

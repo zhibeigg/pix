@@ -51,7 +51,7 @@ from pix.grid.render import render_pixel_grid
 from pix.grid.schema import PixelGrid, save_grid
 from pix.io_utils import new_run_dir, sha256_of_file
 from pix.pixelize.bg_removal import apply_transparent_edge_style
-from pix.pixelize.core import PixelizeParams, pixelize
+from pix.pixelize.core import PixelizeParams, pixelize, pad_to_power_of_two
 
 
 ProgressCb = Callable[[str, dict], None]
@@ -93,11 +93,14 @@ class PipelineInput:
     local_stage_context: LocalStageContext | None = None
     # 本地图片是否应按 AI 生成源图处理；用于 local_pixelize 复用完整生成图后处理链路。
     input_is_generated_source: bool = False
-    # 尺寸重试：开启后单图生成会重复请求，直到实际像素尺寸匹配 image_size 或达到上限。
-    # 仅在单图模式（非多候选）且 image_size 可解析为 WxH 时生效。
+    # 尺寸重试执行计划：Web/pipeline adapter 层按像素化 + 2 的幂填充后的成品尺寸判定，
+    # 核心生图层不再按 AI 原始画布尺寸自行重试。
     size_retry_enabled: bool = False
     # 换算后的最大尝试次数（Web 层把"按点数"上限折算成次数后传入；核心层只认次数）。
     size_retry_max_attempts: int = 1
+    # 成品收尾：把像素化结果居中透明填充到最近的 2 的幂标准尺寸（无损，不缩放）。
+    # None 时回退到 cfg.pixelize.pad_to_power_of_two。
+    pad_to_power_of_two: bool | None = None
 
 
 @dataclass
@@ -639,6 +642,35 @@ def _run_grid_pixelize(
     return pixel_img, preview_img, pix_meta, grid_path
 
 
+def _apply_pad_to_power_of_two(
+    pixel_img: "Image.Image",
+    cfg: AppConfig,
+    inputs: PipelineInput,
+) -> tuple["Image.Image", dict | None]:
+    """成品收尾：把像素化结果居中透明填充到最近的 2 的幂标准尺寸（无损，不缩放）。
+
+    开关优先级：inputs.pad_to_power_of_two（None 时回退 cfg.pixelize.pad_to_power_of_two）。
+    填充目标在「宽高各自向上取 2 的幂」与「用户目标 output_size」之间取更大边，
+    保证不裁内容、且尽量贴近用户目标尺寸。返回 (填充后图, meta 或 None)。
+    """
+    enabled = (
+        inputs.pad_to_power_of_two
+        if inputs.pad_to_power_of_two is not None
+        else bool(getattr(cfg.pixelize, "pad_to_power_of_two", True))
+    )
+    if not enabled:
+        return pixel_img, None
+    original = (pixel_img.width, pixel_img.height)
+    target = tuple(inputs.pixelize_params.output_size) if inputs.pixelize_params else None
+    padded, final_size = pad_to_power_of_two(pixel_img, target=target)
+    return padded, {
+        "applied": final_size != original,
+        "original_size": list(original),
+        "final_size": list(final_size),
+        "target": list(target) if target else None,
+    }
+
+
 def run_pipeline(
     cfg: AppConfig,
     inputs: PipelineInput,
@@ -682,16 +714,10 @@ def run_pipeline(
     # 尺寸重试只在单图模式（非多候选）且 image_size 可解析为具体 WxH 时生效。
     # 多候选/宽高比类 Provider 无法保证精确像素，构造为 None（不重试）。
     def _single_size_retry() -> SizeRetryConfig | None:
-        if not inputs.size_retry_enabled or candidate_mode_name != "single":
-            return None
-        expected = parse_size(inputs.image_size or cfg.image_gen.size)
-        if expected is None:
-            return None
-        return SizeRetryConfig(
-            enabled=True,
-            max_attempts=max(1, inputs.size_retry_max_attempts),
-            expected_size=expected,
-        )
+        # 尺寸重试已上移到 Web 层（adapter 按填充后成品尺寸判定、整条 pipeline 重跑），
+        # 这里不再在生图 API 层做"按 AI 画布尺寸"的内部重试循环，避免双重重试。
+        # 返回 None：单次生图（prompt 里的尺寸指令仍由 image_gen 注入，倾向出正确尺寸）。
+        return None
 
     # 暂存最近一次单图生成的尺寸重试结果，最终写入 meta["image_gen"]["size_retry"]。
     size_retry_outcome_holder: dict[str, dict] = {}
@@ -1137,6 +1163,9 @@ def run_pipeline(
                 preserve_preprocessed_size=inputs.input_is_generated_source,
                 preprocess_output_path=preprocess_path,
             )
+            pixel_img, pad_meta = _apply_pad_to_power_of_two(pixel_img, cfg, inputs)
+            if pad_meta:
+                pix_meta["pad_to_power_of_two"] = pad_meta
             pixel_img.save(pixel_path)
             if preview_img is not None:
                 preview_path = run_dir / "04_pixelized_preview.png"

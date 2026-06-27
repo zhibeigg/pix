@@ -289,13 +289,15 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ### 尺寸重试（size-match retry）
 
-生图时可选开启「尺寸重试」：开启后会反复重新生成，直到 AI 实际返回的像素尺寸与请求尺寸（`image_size`，如 `1024x1024`）完全一致，或达到停止条件为止。适用文生图 / 图生图 / 素材直出（含平铺纹理、双瓦片，单张产出）；序列帧与本地处理不适用。
+生产工作台的主体类素材直出（物品图标 / UI 组件 / Logo 等，平铺纹理与双瓦片除外）可选开启「尺寸重试」：每次尝试都会先按正常素材流程生成源图，再由 perfectPixel 检测真实像素网格，最后把像素成品**透明居中填充到最近的 2 的幂尺寸**（32 / 64 / 128 / 256 …）。尺寸重试比较的是这个填充后的最终 PNG 尺寸与用户在像素参数中选择的 `pixelize.output_size`，不再比较 AI 原始画布尺寸；原始生图页（`source_only=true`）不提供尺寸重试。
 
 - 停止条件二选一：`size_retry_mode=attempts`（最大尝试次数，含首次，上限 `[image_gen].size_retry_max_attempts_limit`，默认 8）或 `size_retry_mode=credits`（最大点数预算，后端按单次单价折算成次数）。
-- 计费：开启时每次尝试按标准价 **6 折**（`[image_gen].size_retry_discount_rate`，默认 0.6）计费，并与全局促销折扣「取更优价」；下单按「单价 × 最大次数」预扣，任务成功后按**实际尝试次数**结算并退还差额。重试耗尽仍未匹配时交付最后一张图并按实际次数扣费。
-- 自动失效（静默按普通任务计费，不打 6 折）：请求尺寸为 `auto` / 非具体 `WxH`、命中仅按宽高比出图的 Provider（Midjourney / Ideogram / Kling）、处于多候选模式、或命中缓存。
-- **尺寸约束 prompt 工程**：当 `image_size` 为具体 `WxH` 时，后端会自动把强制输出尺寸的指令（绝对像素 + 宽高比 + 画幅方向 + `no padding/border/crop/letterbox` 等负面约束，用「output image file resolution」措辞以免与像素风格的「pixel grid」语义冲突）追加到生图 prompt，提升模型一次出对尺寸的概率；尺寸重试时还会把上一次的错误尺寸写进 prompt 并逐次加重语气（`[STRICT RETRY]` → `[CRITICAL SIZE RETRY #N]`）。该行为对所有有明确尺寸的生图生效，可用 `[image_gen].size_directive_enabled = false` 回退。
-- 外部 API：`JobCreateRequest` 新增 `size_retry_enabled` / `size_retry_mode` / `size_retry_max_attempts` / `size_retry_max_credits`；`JobOutputResponse.size_retry` 返回实际尝试次数、是否命中和期望/实际尺寸。
+- 交付与选择：所有尝试都会保留独立产物并写入 `image_gen.size_retry.attempts`，API 同时在 `JobOutputResponse.candidates` 暴露为可选候选。命中目标时交付第一张命中的尝试；耗尽仍未命中时交付最后一次尝试，但前端会展示全部尝试，用户可从作品库/队列中采用任意一次结果重新进入本地像素化流程。
+- 计费：开启时每次尝试按标准价 **6 折**（`[image_gen].size_retry_discount_rate`，默认 0.6）计费，并与全局促销折扣「取更优价」；下单按「单价 × 最大次数」预扣，任务成功后按**实际尝试次数**结算并退还差额。用户最终选择哪张候选不改变已发生尝试次数的计费。
+- 成品填充：`[pixelize].pad_to_power_of_two = true`（默认）会在不缩放像素图的前提下透明填充到最近 2 的幂尺寸，并在 `pixelize.pad_to_power_of_two` 记录原始尺寸、最终尺寸与 offset。关闭该配置会禁用自动 2 幂填充，也会让尺寸重试更难命中目标。
+- 自动失效（静默按普通任务计费，不打 6 折）：任务不是主体类素材生产流程、属于平铺纹理/双瓦片、处于多候选模式，或目标像素尺寸非法；前端会提示目标尺寸建议使用 2 的幂尺寸，以便与自动填充后的标准成品尺寸匹配。
+- **尺寸约束 prompt 工程**：当 `image_size` 为具体 `WxH` 时，后端仍会把强制输出尺寸的指令（绝对像素 + 宽高比 + 画幅方向 + `no padding/border/crop/letterbox` 等负面约束，用「output image file resolution」措辞以免与像素风格的「pixel grid」语义冲突）追加到生图 prompt，提升模型一次出对源图尺寸的概率。该行为对所有有明确尺寸的生图生效，可用 `[image_gen].size_directive_enabled = false` 回退。
+- 外部 API：`JobCreateRequest` 使用 `size_retry_enabled` / `size_retry_mode` / `size_retry_max_attempts` / `size_retry_max_credits`；`JobOutputResponse.size_retry` 返回实际尝试次数、是否命中、目标/最终尺寸和 attempts 明细，`JobOutputResponse.candidates` 会包含每次尝试的可访问图片 URL。
 
 ### 游戏 Logo（game_logo）
 

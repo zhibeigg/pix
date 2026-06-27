@@ -51,8 +51,32 @@ function JobCard({ job, onCandidatePixelize }: { job: GenerationJob; onCandidate
 
 function CandidateStrip({ job, output, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
   const { t } = useI18n()
-  if (!output.candidates?.length) return null
-  return <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 md:grid-cols-8">{output.candidates.slice(0, 12).map((candidate) => <div key={candidate.path} className="rounded-lg border border-border bg-muted/35 p-1.5 text-center" title={candidate.reason ?? undefined}><img src={signedFileUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={t('queue.candidate', { index: candidate.index })} className="mx-auto h-14 w-14 object-contain [image-rendering:pixelated]" /><p className="mt-1 text-[11px] text-muted-foreground">{candidate.rank ? `#${candidate.rank}` : t('queue.candidate', { index: candidate.index })}</p>{onCandidatePixelize && <Button size="sm" variant="ghost" className="mt-1 h-6 text-[11px]" onClick={() => onCandidatePixelize(job, candidate)}>{t('queue.retune')}</Button>}</div>)}</div>
+  const candidates = output.candidates ?? []
+  if (!candidates.length) return null
+  return <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 md:grid-cols-8">{candidates.map((candidate) => <div key={`${candidate.candidate_kind ?? 'candidate'}-${candidate.path}`} className={`rounded-lg border bg-muted/35 p-1.5 text-center ${candidate.selected ? 'border-primary ring-1 ring-primary/30' : 'border-border'}`} title={candidateTooltip(candidate, t)}><img src={signedFileUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={candidateLabel(candidate, t)} className="mx-auto h-14 w-14 object-contain [image-rendering:pixelated]" /><p className="mt-1 text-[11px] text-muted-foreground">{candidateLabel(candidate, t)}</p>{candidate.candidate_kind === 'size_retry_attempt' && <div className="mt-1 flex flex-wrap justify-center gap-1">{candidate.matched && <Badge variant="success">{t('queue.sizeRetryMatched')}</Badge>}{candidate.selected && <Badge variant="outline">{t('queue.delivered')}</Badge>}</div>}{onCandidatePixelize && <Button size="sm" variant="ghost" className="mt-1 h-6 text-[11px]" onClick={() => onCandidatePixelize(job, candidate)}>{candidate.candidate_kind === 'size_retry_attempt' ? t('queue.chooseCandidate') : t('queue.retune')}</Button>}</div>)}</div>
+}
+
+function candidateLabel(candidate: ContactSheetCandidate, t: (key: string, options?: Record<string, unknown>) => string) {
+  if (candidate.candidate_kind === 'size_retry_attempt') {
+    const index = candidate.attempt ?? candidate.index
+    const size = formatCandidateSize(candidate.final_size)
+    return size ? t('queue.sizeRetryAttemptWithSize', { index, size }) : t('queue.sizeRetryAttempt', { index })
+  }
+  return candidate.rank ? `#${candidate.rank}` : t('queue.candidate', { index: candidate.index })
+}
+
+function candidateTooltip(candidate: ContactSheetCandidate, t: (key: string, options?: Record<string, unknown>) => string) {
+  if (candidate.reason) return candidate.reason
+  if (candidate.candidate_kind === 'size_retry_attempt') {
+    const target = formatCandidateSize(candidate.target_size)
+    const finalSize = formatCandidateSize(candidate.final_size)
+    if (target && finalSize) return t('queue.sizeRetryTooltip', { target, finalSize })
+  }
+  return undefined
+}
+
+function formatCandidateSize(size?: [number, number] | null) {
+  return size ? `${size[0]}×${size[1]}` : ''
 }
 
 function spriteFpsFromJob(job: GenerationJob) {

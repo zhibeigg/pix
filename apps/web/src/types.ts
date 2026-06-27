@@ -324,20 +324,28 @@ export type GridOutputStatus = {
 }
 
 export type ContactSheetCandidate = {
+  candidate_kind?: 'contact_sheet' | 'size_retry_attempt' | string
   index: number
+  attempt?: number | null
   row: number
   col: number
   path: string
   url: string | null
+  source_path?: string | null
+  source_url?: string | null
   bbox?: [number, number, number, number] | null
   score?: number | null
   rank?: number | null
   reason?: string | null
   selected?: boolean
+  matched?: boolean
+  final_size?: [number, number] | null
+  target_size?: [number, number] | null
   pixelized_path?: string | null
   pixelized_url?: string | null
   preview_path?: string | null
   preview_url?: string | null
+  meta_json_path?: string | null
 }
 
 export type SpriteRowOutput = {
@@ -394,6 +402,9 @@ export type SizeRetryResult = {
   matched: boolean
   expected_size: [number, number] | null
   actual_size: [number, number] | null
+  target_size?: [number, number] | null
+  final_size?: [number, number] | null
+  attempts?: ContactSheetCandidate[]
   aspect_ratio_protocol?: boolean
 }
 

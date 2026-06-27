@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.95.5] - 2026-06-27
+
+### Added
+
+- 素材生产尺寸重试改为保留每一次尝试的完整产物：最终 `image_gen.size_retry.attempts` 会记录每次尝试的源图、像素成品、预览图、最终尺寸、是否命中与当前交付项；`JobOutputResponse.candidates` 也会暴露这些尝试，前端作品库/队列可逐个预览并采用任意一次结果。
+- 新增像素成品透明填充到最近 2 的幂尺寸：`[pixelize].pad_to_power_of_two = true` 默认开启，像素化后不缩放主体，只把 perfectPixel 检测出的真实像素图居中补透明边到 32/64/128/256…，并在 meta 记录原始尺寸、最终尺寸和偏移。
+
+### Changed
+
+- 尺寸重试从原始生图层迁移到主体类素材生产 pipeline（平铺纹理/双瓦片除外）：原始生图页移除尺寸重试入口；单图/批量素材生产面板新增尺寸重试控件。重试判定现在比较「perfectPixel + 2 的幂透明填充后的成品 PNG 尺寸」与用户选择的目标像素尺寸，而不是 AI 原始画布尺寸。
+- 素材直出后处理改为尊重 perfectPixel 检测出的真实像素尺寸，不再先强制缩放回 `pixelize.output_size`；尺寸不匹配时按成品尺寸重新生图/像素化尝试。计费仍按实际尝试次数结算，用户最终选择哪张候选不改变已发生尝试次数。
+
+## [1.94.5] - 2026-06-27
+
 ### Fixed
 
 - 修复「尊重 AI 像素尺寸」路径（local_pixelize / 生成图复用）主体被二次揉糊的问题：当 perfectPixel 已把图对齐到检测出的真实像素网格、且输出尺寸采用该检测结果（`adopted_preprocessed_size=True`）时，`smart` 下采样会在已对齐的图上**再次检测网格并聚合**（如检测到 grid=2，把 158px 砍成 79px 再拉回 158px），把对齐好的边框重新插值揉糊、变细变形。修复后此场景下采样 1:1 直通，不再做多余的二次网格聚合，真正尊重 perfectPixel 的像素网格。仅影响源尺寸==目标尺寸且无描边边距的生成图后处理路径，其它显式指定 `output_size` 的缩放路径不变。

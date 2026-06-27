@@ -116,6 +116,11 @@ def _asset_image_size(data: dict[str, Any], cfg: AppConfig) -> str:
 
 
 def _size_retry_enabled_from_job(data: dict[str, Any]) -> bool:
+    asset = data.get("asset") or {}
+    asset_kind = str(asset.get("asset_kind") or "") if isinstance(asset, dict) else ""
+    if asset_kind in {"tile_texture", "dual_grid"}:
+        # 平铺纹理/双瓦片依赖无缝边界，不能透明补边；避免外部 API 误触旧的 AI 画布尺寸重试。
+        return False
     retry = data.get("size_retry")
     return bool(retry.get("enabled")) if isinstance(retry, dict) else False
 
@@ -430,6 +435,9 @@ def asset_pipeline_input_from_job(
         use_cache=True,
         refresh_cache=False,
         local_stage_context=_local_stage_context(settings),
+        # 素材直出尊重 perfectPixel 检测出的真实像素网格（不强制缩放回 output_size），
+        # 再由 pipeline 填充到 2 的幂标准尺寸，避免把 AI 细节缩糊。
+        input_is_generated_source=True,
         size_retry_enabled=_size_retry_enabled_from_job(data),
         size_retry_max_attempts=_size_retry_max_attempts_from_job(data),
     )
@@ -507,6 +515,48 @@ def _write_asset_meta(result: PipelineResult, job: GenerationJob, inputs: Pipeli
     )
 
 
+def _final_pixel_size_from_result(result: PipelineResult) -> tuple[int, int] | None:
+    """从 pipeline 结果 meta 读填充后的成品像素尺寸。"""
+    pm = (result.meta or {}).get("pixelize") or {}
+    pad = pm.get("pad_to_power_of_two") or {}
+    fs = pad.get("final_size")
+    if isinstance(fs, (list, tuple)) and len(fs) == 2:
+        return (int(fs[0]), int(fs[1]))
+    eff = pm.get("effective_params") or {}
+    os_ = eff.get("output_size")
+    if isinstance(os_, (list, tuple)) and len(os_) == 2:
+        return (int(os_[0]), int(os_[1]))
+    try:
+        with Image.open(result.pixel_path) as opened:
+            return (int(opened.width), int(opened.height))
+    except Exception:  # noqa: BLE001 - meta 兜底失败时不影响任务成功
+        return None
+
+
+def _size_retry_attempt_record(
+    *,
+    attempt: int,
+    result: PipelineResult,
+    target: tuple[int, int],
+) -> dict[str, Any]:
+    """记录一次尺寸重试尝试，供最终 meta/API 展示为可选候选。"""
+    final_size = _final_pixel_size_from_result(result)
+    matched = final_size == target
+    return {
+        "index": attempt,
+        "attempt": attempt,
+        "path": str(result.pixel_path),
+        "source_path": str(result.source_path),
+        "pixelized_path": str(result.pixel_path),
+        "preview_path": str(result.preview_path) if result.preview_path else None,
+        "meta_json_path": str(result.meta_path),
+        "final_size": list(final_size) if final_size else None,
+        "target_size": list(target),
+        "matched": matched,
+        "selected": False,
+    }
+
+
 def run_asset_job_pipeline(
     job: GenerationJob, settings: WebSettings, cfg: AppConfig
 ) -> PipelineResult:
@@ -514,7 +564,39 @@ def run_asset_job_pipeline(
     asset_cfg.image_gen.contact_sheet_enabled = False
     asset_cfg.image_gen.prompt_guard_remote = False
     inputs = asset_pipeline_input_from_job(job, settings, asset_cfg)
-    result = run_pipeline(asset_cfg, inputs)
+
+    target = tuple(inputs.pixelize_params.output_size)
+    # 尺寸重试：填充后的成品标准尺寸 ≠ 用户目标时，刷新缓存重走生图，直到命中或耗尽次数。
+    # 每次尝试的 run_dir 都保留，并在最终 meta 里暴露为候选，供用户自行选择。
+    max_attempts = max(1, inputs.size_retry_max_attempts) if inputs.size_retry_enabled else 1
+    result: PipelineResult | None = None
+    attempt_records: list[dict[str, Any]] = []
+    matched = False
+    for attempt in range(1, max_attempts + 1):
+        attempt_inputs = replace(inputs, refresh_cache=(attempt > 1)) if attempt > 1 else inputs
+        result = run_pipeline(asset_cfg, attempt_inputs)
+        record = _size_retry_attempt_record(attempt=attempt, result=result, target=target)
+        attempt_records.append(record)
+        if max_attempts == 1 or record["matched"]:
+            matched = bool(record["matched"])
+            break
+    assert result is not None
+    if inputs.size_retry_enabled:
+        selected_index = len(attempt_records)
+        for record in attempt_records:
+            record["selected"] = int(record["attempt"] or 0) == selected_index
+        final_size = _final_pixel_size_from_result(result)
+        result.meta.setdefault("image_gen", {})["size_retry"] = {
+            "enabled": True,
+            "max_attempts": max_attempts,
+            "actual_attempts": len(attempt_records),
+            "matched": matched,
+            "expected_size": list(target),
+            "actual_size": list(final_size) if final_size else None,
+            "target_size": list(target),
+            "final_size": list(final_size) if final_size else None,
+            "attempts": attempt_records,
+        }
     _write_asset_meta(result, job, inputs)
     return result
 

@@ -642,41 +642,95 @@ class JobOutputResponse(BaseModel):
     @computed_field
     @property
     def candidates(self) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
+
         contact_sheet = _contact_sheet_meta(self.meta_json_path)
         raw_candidates = contact_sheet.get("candidates")
-        if not isinstance(raw_candidates, list):
-            return []
-        result: list[dict[str, Any]] = []
-        for item in raw_candidates:
-            if not isinstance(item, dict):
-                continue
-            path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("path") or ""))
-            if not path:
-                continue
-            pixelized_path = _resolve_meta_relative_path(
-                self.meta_json_path, str(item.get("pixelized_path") or "")
-            )
-            preview_path = _resolve_meta_relative_path(
-                self.meta_json_path, str(item.get("preview_path") or "")
-            )
-            result.append(
-                {
-                    "index": item.get("index"),
-                    "row": item.get("row"),
-                    "col": item.get("col"),
-                    "path": path,
-                    "url": file_url(path),
-                    "bbox": item.get("bbox"),
-                    "score": item.get("score"),
-                    "rank": item.get("rank"),
-                    "reason": item.get("reason"),
-                    "selected": bool(item.get("selected")),
-                    "pixelized_path": pixelized_path,
-                    "pixelized_url": file_url(pixelized_path),
-                    "preview_path": preview_path,
-                    "preview_url": file_url(preview_path),
-                }
-            )
+        if isinstance(raw_candidates, list):
+            for item in raw_candidates:
+                if not isinstance(item, dict):
+                    continue
+                path = _resolve_meta_relative_path(self.meta_json_path, str(item.get("path") or ""))
+                if not path:
+                    continue
+                pixelized_path = _resolve_meta_relative_path(
+                    self.meta_json_path, str(item.get("pixelized_path") or "")
+                )
+                preview_path = _resolve_meta_relative_path(
+                    self.meta_json_path, str(item.get("preview_path") or "")
+                )
+                result.append(
+                    {
+                        "candidate_kind": "contact_sheet",
+                        "index": item.get("index"),
+                        "row": item.get("row"),
+                        "col": item.get("col"),
+                        "path": path,
+                        "url": file_url(path),
+                        "bbox": item.get("bbox"),
+                        "score": item.get("score"),
+                        "rank": item.get("rank"),
+                        "reason": item.get("reason"),
+                        "selected": bool(item.get("selected")),
+                        "pixelized_path": pixelized_path,
+                        "pixelized_url": file_url(pixelized_path),
+                        "preview_path": preview_path,
+                        "preview_url": file_url(preview_path),
+                    }
+                )
+
+        # 尺寸重试不是 contact sheet，但交互上同样是一组可选结果；复用 candidates 字段
+        # 可以让作品库/队列沿用现有缩略图与“重调/采用”入口，同时不改变 DB 的单输出结构。
+        size_retry = _size_retry_meta(self.meta_json_path)
+        raw_attempts = size_retry.get("attempts")
+        if isinstance(raw_attempts, list):
+            for item in raw_attempts:
+                if not isinstance(item, dict):
+                    continue
+                path_value = item.get("path") or item.get("pixelized_path") or item.get("source_path")
+                path = _resolve_meta_relative_path(self.meta_json_path, str(path_value or ""))
+                if not path:
+                    continue
+                pixelized_path = _resolve_meta_relative_path(
+                    self.meta_json_path, str(item.get("pixelized_path") or path_value or "")
+                )
+                preview_path = _resolve_meta_relative_path(
+                    self.meta_json_path, str(item.get("preview_path") or "")
+                )
+                source_path = _resolve_meta_relative_path(
+                    self.meta_json_path, str(item.get("source_path") or "")
+                )
+                final_size = _as_size_pair(item.get("final_size") or item.get("actual_size"))
+                target_size = _as_size_pair(item.get("target_size") or item.get("expected_size"))
+                attempt = item.get("attempt") or item.get("index")
+                result.append(
+                    {
+                        "candidate_kind": "size_retry_attempt",
+                        "index": attempt,
+                        "attempt": attempt,
+                        "row": 0,
+                        "col": max(0, int(attempt or 1) - 1),
+                        "path": pixelized_path or path,
+                        "url": file_url(pixelized_path or path),
+                        "source_path": source_path,
+                        "source_url": file_url(source_path),
+                        "bbox": None,
+                        "score": 1.0 if bool(item.get("matched")) else None,
+                        "rank": attempt,
+                        "reason": item.get("reason"),
+                        "selected": bool(item.get("selected")),
+                        "matched": bool(item.get("matched")),
+                        "final_size": final_size,
+                        "target_size": target_size,
+                        "pixelized_path": pixelized_path or path,
+                        "pixelized_url": file_url(pixelized_path or path),
+                        "preview_path": preview_path,
+                        "preview_url": file_url(preview_path),
+                        "meta_json_path": _resolve_meta_relative_path(
+                            self.meta_json_path, str(item.get("meta_json_path") or "")
+                        ),
+                    }
+                )
         return result
 
     @computed_field

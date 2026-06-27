@@ -18,6 +18,7 @@ import { PixField } from './pix/PixField'
 import { PixPanel } from './pix/PixPanel'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
+import { SizeRetryControls, DEFAULT_SIZE_RETRY, type SizeRetryState } from './SizeRetryControls'
 
 type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; reuseJobSeed?: { revision: number; job: GenerationJob } | null; onSubmit: (payload: JobCreateRequest) => Promise<void> }
 
@@ -220,6 +221,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyleChoice>('hard')
   const [bgRemovalAlgorithm, setBgRemovalAlgorithm] = useState<BgRemovalAlgorithmChoice>('pixel_bg')
   const [skipVl, setSkipVl] = useState(false)
+  const [sizeRetry, setSizeRetry] = useState<SizeRetryState>(DEFAULT_SIZE_RETRY)
   // 序列帧专用状态（仅 mosaic 单图模式）
   const [spritePreset, setSpritePreset] = useState<SpritePreset>('horizontal')
   const [rows, setRows] = useState(1)
@@ -504,6 +506,14 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     // 仅在用户选了非默认模型时传 image_model，避免覆盖后端配置
     const modelOverride = imageModel !== imageModels.default ? imageModel : undefined
     if (isAsset) {
+      const sizeRetryFields = sizeRetry.enabled
+        ? {
+            size_retry_enabled: true,
+            size_retry_mode: sizeRetry.mode,
+            size_retry_max_attempts: sizeRetry.maxAttempts,
+            size_retry_max_credits: sizeRetry.maxCredits,
+          }
+        : {}
       const materialA = dualMaterialA.trim()
       const materialB = dualMaterialB.trim()
       const generatedDualName = dualMaterialBTransparent
@@ -521,6 +531,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           image_size: uiComponentImageSize,
           image_model: modelOverride,
           skip_vl: skipVl,
+          ...sizeRetryFields,
           pixelize: assetPixelize,
           grid: buildGridDesign(),
           asset: { name: subject, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false },
@@ -534,6 +545,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         client_request_id: crypto.randomUUID(),
         image_size: uiComponentImageSize,
         image_model: modelOverride,
+        ...sizeRetryFields,
         pixelize: assetPixelize,
         grid: buildGridDesign(),
         asset: isDualGridAsset
@@ -802,6 +814,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         )}
 
         {!isLocalBgRemove && <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : isDualGridAsset ? text('单张瓦片尺寸', 'Single tile size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : isDualGridAsset ? DUAL_GRID_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || isDualGridAsset || (!isSprite && !removeBg)} sizeHidden={isLocalPixelize} />}
+
+        {isAsset && !isDualGridAsset && !isTileAsset && <SizeRetryControls value={sizeRetry} onChange={setSizeRetry} basePrice={price} discount={discount} imageSize={pixelSize} />}
 
         {!isLocalBgRemove && <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={(isTileAsset || isDualGridAsset) ? false : removeBg} disabled={isSprite || isTileAsset || isDualGridAsset} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{text('透明背景', 'Transparent background')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={isSprite || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? text('素材直出默认视觉理解策略', 'Default vision policy for asset output') : text('跳过参考图理解', 'Skip reference understanding')}</label></div>}
 

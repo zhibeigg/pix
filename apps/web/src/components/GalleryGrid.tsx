@@ -264,8 +264,32 @@ function jobStatusLabel(job: GenerationJob, t: (key: string, options?: Record<st
 
 function CandidateMiniGrid({ job, output, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
   const { t } = useI18n()
-  if (!output.candidates?.length) return null
-  return <div className="grid grid-cols-3 gap-2">{output.candidates.slice(0, 9).map((candidate) => <button type="button" key={candidate.path} className="min-h-[44px] rounded-lg border border-border bg-muted/35 p-2 text-xs dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]" onClick={(event) => { event.stopPropagation(); void onCandidatePixelize?.(job, candidate) }} title={candidate.reason ?? undefined}><img src={signedFileUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={t('gallery.candidate', { index: candidate.index })} className="mx-auto aspect-square w-full object-contain [image-rendering:pixelated]" /><span>{candidate.rank ? `#${candidate.rank}` : t('gallery.candidate', { index: candidate.index })}</span></button>)}</div>
+  const candidates = output.candidates ?? []
+  if (!candidates.length) return null
+  return <div className="grid grid-cols-3 gap-2">{candidates.map((candidate) => <button type="button" key={`${candidate.candidate_kind ?? 'candidate'}-${candidate.path}`} className={`min-h-[44px] rounded-lg border bg-muted/35 p-2 text-xs transition hover:border-primary/45 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))] ${candidate.selected ? 'border-primary ring-1 ring-primary/30' : 'border-border'}`} onClick={(event) => { event.stopPropagation(); void onCandidatePixelize?.(job, candidate) }} title={candidateTooltip(candidate, t)}><img src={signedFileUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={candidateLabel(candidate, t)} className="mx-auto aspect-square w-full object-contain [image-rendering:pixelated]" /><span className="mt-1 block">{candidateLabel(candidate, t)}</span>{candidate.candidate_kind === 'size_retry_attempt' && <span className="mt-1 flex flex-wrap justify-center gap-1">{candidate.matched && <Badge variant="success">{t('gallery.sizeRetryMatched')}</Badge>}{candidate.selected && <Badge variant="outline">{t('gallery.delivered')}</Badge>}</span>}</button>)}</div>
+}
+
+function candidateLabel(candidate: ContactSheetCandidate, t: (key: string, options?: Record<string, unknown>) => string) {
+  if (candidate.candidate_kind === 'size_retry_attempt') {
+    const index = candidate.attempt ?? candidate.index
+    const size = formatCandidateSize(candidate.final_size)
+    return size ? t('gallery.sizeRetryAttemptWithSize', { index, size }) : t('gallery.sizeRetryAttempt', { index })
+  }
+  return candidate.rank ? `#${candidate.rank}` : t('gallery.candidate', { index: candidate.index })
+}
+
+function candidateTooltip(candidate: ContactSheetCandidate, t: (key: string, options?: Record<string, unknown>) => string) {
+  if (candidate.reason) return candidate.reason
+  if (candidate.candidate_kind === 'size_retry_attempt') {
+    const target = formatCandidateSize(candidate.target_size)
+    const finalSize = formatCandidateSize(candidate.final_size)
+    if (target && finalSize) return t('gallery.sizeRetryTooltip', { target, finalSize })
+  }
+  return undefined
+}
+
+function formatCandidateSize(size?: [number, number] | null) {
+  return size ? `${size[0]}×${size[1]}` : ''
 }
 
 export type SpriteRowAction = { rowIndex: number; frameIndices: number[]; label: string; title: string; gifUrl: string | null; sheetUrl: string | null }

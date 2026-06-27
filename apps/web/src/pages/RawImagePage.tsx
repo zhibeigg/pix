@@ -15,7 +15,6 @@ import { Input } from '../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Textarea } from '../components/ui/textarea'
 import { Alert } from '../components/ui/alert'
-import { SizeRetryControls, DEFAULT_SIZE_RETRY, type SizeRetryState } from '../components/SizeRetryControls'
 import { PixField } from '../components/pix/PixField'
 import { PixPanel } from '../components/pix/PixPanel'
 import { PixPreviewFrame } from '../components/pix/PixPreviewFrame'
@@ -76,7 +75,6 @@ export function RawImagePage({ pricing, discount, balance, jobs, loading, token,
   const modelSupportsI2I = supportsOperation(selectedModelInfo, 'image_to_image')
   const [imageSize, setImageSize] = useState('1024x1024')
   const [quality, setQuality] = useState('auto')
-  const [sizeRetry, setSizeRetry] = useState<SizeRetryState>(DEFAULT_SIZE_RETRY)
   const [prompt, setPrompt] = useState(() => text('生成一张 1024×1024 方形应用图标风格的奇幻 RPG 治疗药水，深翡翠背景，轮廓清晰，电影感光照。', 'Create one polished 1024x1024 square app icon artwork for a fantasy RPG healing potion, deep emerald background, crisp silhouette, cinematic lighting.'))
   const [refImagePath, setRefImagePath] = useState('')
   const [refImageUrl, setRefImageUrl] = useState('')
@@ -148,7 +146,7 @@ export function RawImagePage({ pricing, discount, balance, jobs, loading, token,
     event.preventDefault()
     const basePrompt = prompt.trim()
     if (!basePrompt || insufficientCredits || (hasReference && !modelSupportsI2I)) return
-    await onCreateJob(buildRawPayload({ prompt: basePrompt, imageSize, quality, model, referenceImagePath: refImagePath || null, sizeRetry }))
+    await onCreateJob(buildRawPayload({ prompt: basePrompt, imageSize, quality, model, referenceImagePath: refImagePath || null }))
   }
 
   return (
@@ -200,29 +198,12 @@ export function RawImagePage({ pricing, discount, balance, jobs, loading, token,
         </div>
       </PixPanel>
 
-      <PixPanel><div className="grid gap-4">
-        <SizeRetryControls
-          value={sizeRetry}
-          onChange={setSizeRetry}
-          basePrice={price}
-          discount={discount}
-          imageSize={imageSize}
-        />
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_190px]"><div className="grid gap-2"><Textarea value={prompt} rows={5} required maxLength={rawImagePromptMaxLength} onChange={(event) => setPrompt(event.target.value)} placeholder={text('描述你要生成的图片：主体、风格、构图、颜色、用途。', 'Describe the image: subject, style, composition, colors, and intended use.')} /><div className="flex justify-end text-xs text-muted-foreground">{prompt.length}/{rawImagePromptMaxLength}</div></div><div className="grid content-between gap-3"><Badge variant="outline">{imageSize} · {quality} · {hasReference ? text('图生图', 'image-to-image') : text('1 张', '1 image')}</Badge>{promptTooLong && <Badge variant="danger">{text(`提示词最多 ${rawImagePromptMaxLength} 字`, `Prompt max ${rawImagePromptMaxLength} characters`)}</Badge>}<Button type="submit" size="lg" disabled={loading || !prompt.trim() || promptTooLong || insufficientCredits || (hasReference && !modelSupportsI2I)}>{loading ? text('提交中…', 'Submitting…') : hasReference ? text('图生图微调', 'Generate (image-to-image)') : text('生成单图', 'Generate image')}</Button></div></div>
-      </div></PixPanel>
+      <PixPanel><div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_190px]"><div className="grid gap-2"><Textarea value={prompt} rows={5} required maxLength={rawImagePromptMaxLength} onChange={(event) => setPrompt(event.target.value)} placeholder={text('描述你要生成的图片：主体、风格、构图、颜色、用途。', 'Describe the image: subject, style, composition, colors, and intended use.')} /><div className="flex justify-end text-xs text-muted-foreground">{prompt.length}/{rawImagePromptMaxLength}</div></div><div className="grid content-between gap-3"><Badge variant="outline">{imageSize} · {quality} · {hasReference ? text('图生图', 'image-to-image') : text('1 张', '1 image')}</Badge>{promptTooLong && <Badge variant="danger">{text(`提示词最多 ${rawImagePromptMaxLength} 字`, `Prompt max ${rawImagePromptMaxLength} characters`)}</Badge>}<Button type="submit" size="lg" disabled={loading || !prompt.trim() || promptTooLong || insufficientCredits || (hasReference && !modelSupportsI2I)}>{loading ? text('提交中…', 'Submitting…') : hasReference ? text('图生图微调', 'Generate (image-to-image)') : text('生成单图', 'Generate image')}</Button></div></div></PixPanel>
     </form>
   )
 }
 
-function buildRawPayload({ prompt, imageSize, quality, model, referenceImagePath, sizeRetry }: { prompt: string; imageSize: string; quality: string; model: string; referenceImagePath: string | null; sizeRetry: SizeRetryState }): JobCreateRequest {
-  const sizeRetryFields = sizeRetry.enabled
-    ? {
-        size_retry_enabled: true,
-        size_retry_mode: sizeRetry.mode,
-        size_retry_max_attempts: sizeRetry.maxAttempts,
-        size_retry_max_credits: sizeRetry.maxCredits,
-      }
-    : {}
+function buildRawPayload({ prompt, imageSize, quality, model, referenceImagePath }: { prompt: string; imageSize: string; quality: string; model: string; referenceImagePath: string | null }): JobCreateRequest {
   if (referenceImagePath) {
     // 参考图存在时走 image_to_image。后端会调 /v1/images/edits 单次出图，
     // source_only=true 让 pipeline 跳过候选 / VL / 像素化后处理，仅落原图。
@@ -236,7 +217,6 @@ function buildRawPayload({ prompt, imageSize, quality, model, referenceImagePath
       image_model: model,
       skip_vl: true,
       source_only: true,
-      ...sizeRetryFields,
       pixelize: { ...defaultPixelize, preview_scale: 0, remove_bg: false, auto_crop: false },
       grid: { mode: 'off' },
     }
@@ -251,7 +231,6 @@ function buildRawPayload({ prompt, imageSize, quality, model, referenceImagePath
     image_model: model,
     skip_vl: true,
     source_only: true,
-    ...sizeRetryFields,
     pixelize: { ...defaultPixelize, preview_scale: 0, remove_bg: false, auto_crop: false },
     grid: { mode: 'off' },
   }

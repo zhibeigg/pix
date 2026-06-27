@@ -167,7 +167,7 @@ class ImageGenConfig:
         "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the conceptual pixel grid. "
         "The output image should be pixel-perfect, each cell only contains one color. No text, no watermark, no extra frame, no labels."
     )
-    # 尺寸重试：允许用户在生图时开启，反复重新生成直到实际像素尺寸匹配请求尺寸或达到上限。
+    # 尺寸重试：生产工作台主体类素材直出可选开启，按 perfectPixel + 2 的幂透明填充后的成品像素尺寸判定。
     # size_retry_discount_rate —— 开启尺寸重试时每次尝试的计费倍率（0.6 = 6 折），与全局促销折扣取更优价。
     # size_retry_max_attempts_limit —— 单任务最大尝试次数硬上限（前端/后端共同夹取）。
     size_retry_enabled: bool = True
@@ -217,6 +217,10 @@ class PixelizeConfig:
     # AI 生图/图生图结果的第一步网格对齐预处理；本地上传默认不启用。
     # perfect_pixel | legacy | none
     generated_preprocess_method: str = "perfect_pixel"
+    # 成品收尾：把 perfectPixel 检测出的真实像素尺寸（如 158x156）居中透明填充到最近的
+    # 2 的幂标准尺寸（如 256x256），让成品统一对齐 32/64/128/256 等标准尺寸（无损、不缩放）。
+    # 仅对走主像素化路径且非平铺/序列帧的任务生效；关闭则保留 perfectPixel 原始尺寸。
+    pad_to_power_of_two: bool = True
 
 
 @dataclass

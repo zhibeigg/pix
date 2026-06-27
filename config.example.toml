@@ -139,8 +139,8 @@ n_sample_prompt_variations = [
     "slight variation in silhouette pose.",
 ]
 n_sample_prompt_template = "Create one TRUE pixel-art game asset candidate from this generation brief: {description}. Follow the generation brief exactly, not a painted digital illustration. Canvas size must be exactly {width}x{height} pixels, where each pixel is one square cell of a conceptual pixel grid (do not draw any visible grid lines or graph paper). Use large, chunky readable pixels, limited colors, and a simple silhouette. For human characters, make sure the face is flat and no shadow. The subject must be centered with clear empty pixel rows around all edges for safe sprite padding and clean extraction. Use one flat solid key-color {green} for the entire background and fill it edge to edge for chroma-key removal — the background must be perfectly uniform with NO gradient, NO vignette, NO lighting or shading, and NO drawn grid lines or graph paper. First decide the subject's full palette, THEN keep {green} as the background only if it MAXIMIZES the MINIMUM RGB Euclidean distance to EVERY visible subject color; otherwise shift the whole design so no subject color comes near {green}, strongly preferring saturated subject hues opposite/complementary to {green}. This minimum distance must be far greater than the key-color tolerance ({key_tolerance} RGB Euclidean distance), targeting at least 150 RGB Euclidean distance, so the background never blends with any subject color. No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the conceptual pixel grid. The output image should be pixel-perfect, each cell only contains one color. No text, no watermark, no extra frame, no labels."
-# 尺寸重试：用户生图时可选开启，反复重新生成直到 AI 实际返回的像素尺寸与请求尺寸一致，或达到上限。
-# 仅适用文生图 / 图生图 / 素材直出（单张产出）；序列帧与本地处理不受影响。
+# 尺寸重试：生产工作台主体类素材直出可选开启，按 perfectPixel + 2 的幂透明填充后的成品像素尺寸判定。
+# 平铺纹理/双瓦片、原始生图、序列帧与本地处理不受影响；每次尝试都会保留为候选，计费按实际尝试次数结算。
 size_retry_enabled = true            # 总开关；关闭后前端尺寸重试开关不再生效
 size_retry_discount_rate = 0.6       # 开启时每次尝试按标准价 6 折计费，与全局促销折扣取更优价
 size_retry_max_attempts_limit = 8    # 单任务最大尝试次数硬上限（含首次），前后端共同夹取
@@ -198,6 +198,9 @@ palette_mode   = "auto"
 # AI 生图/图生图源图进入像素化前的首步网格对齐预处理；本地上传 pixelize 默认不启用。
 # perfect_pixel=使用内置 perfectPixel 风格 FFT+Sobel 网格采样；legacy/none=旧流程。
 generated_preprocess_method = "perfect_pixel"
+# 成品收尾：把 perfectPixel 检测出的真实像素尺寸（如 158x156）居中透明填充到最近的 2 的幂标准尺寸
+# （如 256x256），让成品统一对齐 32/64/128/256；仅对主像素化路径且非平铺/序列帧的任务生效，无损不缩放。
+pad_to_power_of_two = true
 
 [asset]
 # 网站素材直出 asset 任务的默认值。

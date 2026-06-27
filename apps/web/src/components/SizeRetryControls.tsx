@@ -25,7 +25,7 @@ type Props = {
   /** 标准单价（基础价），用于预估每次尝试折后价与最多消耗。 */
   basePrice: number
   discount?: PricingDiscount | null
-  /** 当前请求的尺寸（如 1024x1024）；为 auto / 空时该功能不可用。 */
+  /** 目标像素尺寸（如 64x64）；非 2 的幂方形尺寸时该功能不可用。 */
   imageSize?: string | null
   /** 重试每次尝试的计费倍率（6 折 = 0.6）。 */
   retryRate?: number
@@ -33,21 +33,34 @@ type Props = {
   maxAttemptsLimit?: number
 }
 
-function isConcreteSize(size: string | null | undefined): boolean {
-  return !!size && /^\d+x\d+$/.test(size.trim())
+function isPowerOfTwo(n: number): boolean {
+  return n >= 1 && (n & (n - 1)) === 0
+}
+
+/** 目标尺寸需为「2 的幂方形尺寸」（如 32/64/128/256）才支持尺寸重试。 */
+function isRetriableTarget(size: string | null | undefined): boolean {
+  const m = (size || '').trim().match(/^(\d+)x(\d+)$/)
+  if (!m) return false
+  const w = Number(m[1])
+  const h = Number(m[2])
+  return w === h && isPowerOfTwo(w)
+}
+
+function targetTooSmall(size: string | null | undefined): boolean {
+  const m = (size || '').trim().match(/^(\d+)x(\d+)$/)
+  if (!m) return false
+  return Number(m[1]) <= 32
 }
 
 export function SizeRetryControls({ value, onChange, basePrice, discount, imageSize, retryRate = 0.6, maxAttemptsLimit = 8 }: Props) {
   const { text } = useI18n()
-  const supported = isConcreteSize(imageSize)
+  const supported = isRetriableTarget(imageSize)
+  const tooSmall = supported && targetTooSmall(imageSize)
   const perAttempt = sizeRetryAttemptPrice(basePrice, retryRate, discount)
   const percentOff = Math.round((1 - retryRate) * 100)
 
   const update = (patch: Partial<SizeRetryState>) => onChange({ ...value, ...patch })
 
-  const maxSpend = value.mode === 'attempts'
-    ? perAttempt * Math.max(1, value.maxAttempts)
-    : Math.max(perAttempt, value.maxCredits)
   const estimatedAttempts = value.mode === 'credits' && perAttempt > 0
     ? Math.max(1, Math.min(maxAttemptsLimit, Math.floor(Math.max(0, value.maxCredits) / perAttempt)))
     : Math.max(1, Math.min(maxAttemptsLimit, value.maxAttempts))
@@ -69,14 +82,22 @@ export function SizeRetryControls({ value, onChange, basePrice, discount, imageS
           <span className="text-xs text-muted-foreground">
             {supported
               ? text(
-                  '开启后会反复重新生成，直到实际尺寸与请求尺寸一致，或达到停止条件。每次尝试按标准价 6 折计费（与全局折扣取更优），按实际尝试次数结算。',
-                  'Regenerates until the actual size matches the requested size or a stop condition is hit. Each attempt is billed at 60% of standard price (or better with global discount), settled by actual attempts.',
+                  '成品会先按 perfectPixel 真实像素网格输出、再填充到最近的标准尺寸；若填充后仍不等于目标像素尺寸，则重新生图重试，直到命中或达到停止条件。每次尝试按标准价 6 折计费（与全局折扣取更优），按实际尝试次数结算。',
+                  'The result keeps perfectPixel\'s real grid then pads to the nearest standard size; if the padded size still differs from the target, it regenerates and retries until matched or a stop condition is hit. Each attempt is billed at 60% (or better with global discount), settled by actual attempts.',
                 )
               : text(
-                  '当前尺寸为自适应/自动，无法精确匹配，尺寸重试不可用。',
-                  'Current size is adaptive/auto and cannot be matched exactly, so size-match retry is unavailable.',
+                  '尺寸重试要求目标像素尺寸为 2 的幂方形（如 32 / 64 / 128 / 256）。当前目标尺寸不满足，功能不可用。',
+                  'Size-match retry requires a power-of-two square target (e.g. 32 / 64 / 128 / 256). Current target does not qualify, so it is unavailable.',
                 )}
           </span>
+          {tooSmall && (
+            <span className="text-xs text-amber-600">
+              {text(
+                '提示：目标尺寸越小，越难一次命中（AI 出图的真实像素网格往往偏大），可能需要多次重试或提高目标尺寸。',
+                'Note: smaller targets are harder to hit (AI grids tend to be larger); expect more retries or raise the target size.',
+              )}
+            </span>
+          )}
         </div>
       </label>
 
