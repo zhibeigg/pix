@@ -144,6 +144,9 @@ n_sample_prompt_template = "Create one TRUE pixel-art game asset candidate from 
 size_retry_enabled = true            # 总开关；关闭后前端尺寸重试开关不再生效
 size_retry_discount_rate = 0.6       # 开启时每次尝试按标准价 6 折计费，与全局促销折扣取更优价
 size_retry_max_attempts_limit = 8    # 单任务最大尝试次数硬上限（含首次），前后端共同夹取
+# 尺寸约束 prompt 注入：image_size 为具体 WxH 时，自动把强制输出尺寸的指令（绝对像素+宽高比+方向+负面约束）
+# 追加到生图 prompt，提升模型按指定尺寸出图概率；尺寸重试时还会把上次错误尺寸写进 prompt 并逐次加重语气。
+size_directive_enabled = true
 
 [vision]
 # Packy 支持的视觉模型，示例：claude-opus-4-8 / claude-sonnet-4-5 / gemini-2.5-pro / gpt-4o 等

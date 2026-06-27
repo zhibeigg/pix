@@ -294,6 +294,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 - 停止条件二选一：`size_retry_mode=attempts`（最大尝试次数，含首次，上限 `[image_gen].size_retry_max_attempts_limit`，默认 8）或 `size_retry_mode=credits`（最大点数预算，后端按单次单价折算成次数）。
 - 计费：开启时每次尝试按标准价 **6 折**（`[image_gen].size_retry_discount_rate`，默认 0.6）计费，并与全局促销折扣「取更优价」；下单按「单价 × 最大次数」预扣，任务成功后按**实际尝试次数**结算并退还差额。重试耗尽仍未匹配时交付最后一张图并按实际次数扣费。
 - 自动失效（静默按普通任务计费，不打 6 折）：请求尺寸为 `auto` / 非具体 `WxH`、命中仅按宽高比出图的 Provider（Midjourney / Ideogram / Kling）、处于多候选模式、或命中缓存。
+- **尺寸约束 prompt 工程**：当 `image_size` 为具体 `WxH` 时，后端会自动把强制输出尺寸的指令（绝对像素 + 宽高比 + 画幅方向 + `no padding/border/crop/letterbox` 等负面约束，用「output image file resolution」措辞以免与像素风格的「pixel grid」语义冲突）追加到生图 prompt，提升模型一次出对尺寸的概率；尺寸重试时还会把上一次的错误尺寸写进 prompt 并逐次加重语气（`[STRICT RETRY]` → `[CRITICAL SIZE RETRY #N]`）。该行为对所有有明确尺寸的生图生效，可用 `[image_gen].size_directive_enabled = false` 回退。
 - 外部 API：`JobCreateRequest` 新增 `size_retry_enabled` / `size_retry_mode` / `size_retry_max_attempts` / `size_retry_max_credits`；`JobOutputResponse.size_retry` 返回实际尝试次数、是否命中和期望/实际尺寸。
 
 ### 游戏 Logo（game_logo）

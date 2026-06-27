@@ -173,6 +173,10 @@ class ImageGenConfig:
     size_retry_enabled: bool = True
     size_retry_discount_rate: float = 0.6
     size_retry_max_attempts_limit: int = 8
+    # 尺寸约束 prompt 注入：当 image_size 为具体 WxH 时，自动把强制输出尺寸的指令
+    # （绝对像素+宽高比+方向+负面约束）追加到生图 prompt，提升模型按指定尺寸出图的概率；
+    # 尺寸重试时还会把上一次的错误尺寸写进 prompt 并逐次加重语气。关闭可回退旧行为。
+    size_directive_enabled: bool = True
 
 
 @dataclass

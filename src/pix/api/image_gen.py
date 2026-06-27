@@ -112,6 +112,84 @@ def _read_image_size(path: Path) -> tuple[int, int] | None:
         return None
 
 
+def _aspect_ratio_label(w: int, h: int) -> str:
+    """把 (w, h) 化简成 'W:H' 宽高比标签（如 1536x1024 → 3:2）。"""
+    from math import gcd
+
+    g = gcd(max(1, w), max(1, h)) or 1
+    return f"{w // g}:{h // g}"
+
+
+def _orientation_label(w: int, h: int) -> str:
+    if w == h:
+        return "square"
+    if w > h:
+        return "landscape (wider than tall)"
+    return "portrait (taller than wide)"
+
+
+def build_size_directive(
+    expected: tuple[int, int],
+    *,
+    attempt: int = 1,
+    last_wrong: tuple[int, int] | None = None,
+) -> str:
+    """构建强制输出尺寸的 prompt 指令片段。
+
+    用「final output image file resolution」措辞（而非 canvas），与像素风 prompt 里
+    的「pixel grid / canvas cell」语义正交，避免素材直出场景两个尺寸互相干扰。
+
+    - 基础版（attempt=1 或无 last_wrong）：绝对像素 + 宽高比 + 方向 + 负面约束。
+    - 升级版（attempt>=2 且有 last_wrong）：前置纠错句，语气随次数加重。
+    """
+    w, h = int(expected[0]), int(expected[1])
+    ratio = _aspect_ratio_label(w, h)
+    orientation = _orientation_label(w, h)
+    base = (
+        f"[OUTPUT SIZE] The final output image file resolution MUST be exactly {w}x{h} pixels "
+        f"— aspect ratio {ratio}, {orientation}. Compose and render the whole scene to completely "
+        f"fill this {w}x{h} frame. Do NOT add any padding, margins, borders, frames, or "
+        f"letterbox/pillarbox bars; do NOT crop, stretch, upscale, downscale, or output any other "
+        f"resolution. The delivered PNG dimensions must read exactly {w}x{h}."
+    )
+    if attempt >= 2 and last_wrong is not None:
+        ww, wh = int(last_wrong[0]), int(last_wrong[1])
+        if attempt == 2:
+            prefix = (
+                f"[STRICT RETRY] The previous attempt was REJECTED because it produced the wrong "
+                f"size {ww}x{wh}. This time you MUST output exactly {w}x{h} pixels."
+            )
+        else:
+            prefix = (
+                f"[CRITICAL SIZE RETRY #{attempt}] PREVIOUS ATTEMPTS RETURNED THE WRONG SIZE "
+                f"{ww}x{wh}. THE ONLY ACCEPTABLE OUTPUT IS EXACTLY {w}x{h} PIXELS. ANY OTHER "
+                f"DIMENSION WILL BE DISCARDED."
+            )
+        return f"{prefix}\n{base}"
+    return base
+
+
+def _apply_size_directive(
+    prompt: str,
+    size: str | None,
+    cfg: AppConfig,
+    *,
+    attempt: int = 1,
+    last_wrong: tuple[int, int] | None = None,
+) -> str:
+    """在满足条件时把尺寸指令追加到 prompt 末尾；否则原样返回。
+
+    条件：全局开关开启 + size 可解析为具体 WxH（auto/非法不注入）。
+    """
+    if not getattr(cfg.image_gen, "size_directive_enabled", True):
+        return prompt
+    expected = parse_size(size)
+    if expected is None:
+        return prompt
+    directive = build_size_directive(expected, attempt=attempt, last_wrong=last_wrong)
+    return f"{prompt}\n\n{directive}" if prompt else directive
+
+
 def _run_sample_batch(make_one: Callable[[int], Path], n: int) -> list[Path]:
     """并发执行 n 张候选生成，保持返回顺序与 index 一致。
 
@@ -285,7 +363,7 @@ def _dispatch_and_write(
 
 
 def _generate_with_size_retry(
-    attempt_once: Callable[[], tuple[Path, str]],
+    attempt_once: Callable[[int, tuple[int, int] | None], tuple[Path, str]],
     *,
     size_retry: SizeRetryConfig | None,
 ) -> Path:
@@ -295,10 +373,14 @@ def _generate_with_size_retry(
     - 启用：重复生成直到实际尺寸匹配期望，或达到 max_attempts；命中宽高比类
       Provider 协议（无法保证绝对像素）时第一次后即停止。
     全程不 sleep，避免阻塞 worker 线程。
+
+    ``attempt_once(attempt, last_wrong)`` 回调接收当前尝试序号（从 1 起）与上一次
+    的错误尺寸（仅当上次出图尺寸存在且 ≠ 期望时传入，否则 None），便于按尝试逐次
+    升级 prompt 里的尺寸指令。
     """
     config = size_retry or SizeRetryConfig()
     if not config.active:
-        path, protocol = attempt_once()
+        path, protocol = attempt_once(1, None)
         _record_size_retry_outcome(
             SizeRetryOutcome(
                 enabled=config.enabled,
@@ -321,7 +403,9 @@ def _generate_with_size_retry(
     aspect_ratio_protocol = False
     for attempt in range(1, max_attempts + 1):
         attempts = attempt
-        last_path, protocol = attempt_once()
+        # 仅当上一次出图尺寸存在且与期望不一致时，作为 last_wrong 注入纠错指令。
+        last_wrong = last_size if (last_size is not None and last_size != expected) else None
+        last_path, protocol = attempt_once(attempt, last_wrong)
         last_size = _read_image_size(last_path)
         if protocol in ASPECT_RATIO_PROTOCOLS:
             # 宽高比类 Provider 无法保证绝对像素，重试无意义，第一次后即停。
@@ -371,11 +455,14 @@ def generate_image(
     _size = size or cfg.image_gen.size
     validate_size(_size, model=_model)
 
-    def _attempt() -> tuple[Path, str]:
+    def _attempt(attempt: int, last_wrong: tuple[int, int] | None) -> tuple[Path, str]:
+        attempt_prompt = _apply_size_directive(
+            prompt, _size, cfg, attempt=attempt, last_wrong=last_wrong
+        )
         return _dispatch_and_write(
             cfg,
             operation=TEXT_TO_IMAGE,
-            prompt=prompt,
+            prompt=attempt_prompt,
             model=model,
             size=_size,
             quality=quality or cfg.image_gen.quality,
@@ -407,11 +494,14 @@ def edit_image(
     validate_size(_size, model=_model)
     image_path = Path(image_path)
 
-    def _attempt() -> tuple[Path, str]:
+    def _attempt(attempt: int, last_wrong: tuple[int, int] | None) -> tuple[Path, str]:
+        attempt_prompt = _apply_size_directive(
+            prompt, _size, cfg, attempt=attempt, last_wrong=last_wrong
+        )
         return _dispatch_and_write(
             cfg,
             operation=IMAGE_TO_IMAGE,
-            prompt=prompt,
+            prompt=attempt_prompt,
             model=model,
             size=_size,
             quality=quality or cfg.image_gen.quality,
@@ -456,6 +546,7 @@ def generate_images_batch(
 
     def _make_one(index: int) -> Path:
         variant_prompt = _with_prompt_variation(prompt, variations, index - 1)
+        variant_prompt = _apply_size_directive(variant_prompt, _size, cfg)
         result = dispatch_image_request(
             cfg,
             operation=TEXT_TO_IMAGE,
@@ -505,6 +596,7 @@ def edit_images_batch(
 
     def _make_one(index: int) -> Path:
         variant_prompt = _with_prompt_variation(prompt, variations, index - 1)
+        variant_prompt = _apply_size_directive(variant_prompt, _size, cfg)
         result = dispatch_image_request(
             cfg,
             operation=IMAGE_TO_IMAGE,
