@@ -92,9 +92,10 @@ if [ "$SKIP_PACKAGE" = false ]; then
     [ -f "$REPO_ROOT/$f" ] && cp "$REPO_ROOT/$f" "$STAGING/pix-deploy/"
   done
 
-  # 数据库迁移
+  # 数据库迁移（排除 __pycache__ 编译缓存）
   if [ -d "$REPO_ROOT/migrations" ]; then
     cp -r "$REPO_ROOT/migrations" "$STAGING/pix-deploy/"
+    find "$STAGING/pix-deploy/migrations" -name '__pycache__' -type d -prune -exec rm -rf {} +
   fi
 
   # 像素化预设资源
