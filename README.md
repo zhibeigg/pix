@@ -287,6 +287,15 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 - 源图尺寸交给 Provider / 模型自动选择，避免复杂 UI 边框、面板或多空位布局被固定正方形源图过度裁切或留白。
 - 默认开启透明背景并使用 `edge_style=outline`，方便把 UI 边框或面板叠到游戏界面中。
 
+### 尺寸重试（size-match retry）
+
+生图时可选开启「尺寸重试」：开启后会反复重新生成，直到 AI 实际返回的像素尺寸与请求尺寸（`image_size`，如 `1024x1024`）完全一致，或达到停止条件为止。适用文生图 / 图生图 / 素材直出（含平铺纹理、双瓦片，单张产出）；序列帧与本地处理不适用。
+
+- 停止条件二选一：`size_retry_mode=attempts`（最大尝试次数，含首次，上限 `[image_gen].size_retry_max_attempts_limit`，默认 8）或 `size_retry_mode=credits`（最大点数预算，后端按单次单价折算成次数）。
+- 计费：开启时每次尝试按标准价 **6 折**（`[image_gen].size_retry_discount_rate`，默认 0.6）计费，并与全局促销折扣「取更优价」；下单按「单价 × 最大次数」预扣，任务成功后按**实际尝试次数**结算并退还差额。重试耗尽仍未匹配时交付最后一张图并按实际次数扣费。
+- 自动失效（静默按普通任务计费，不打 6 折）：请求尺寸为 `auto` / 非具体 `WxH`、命中仅按宽高比出图的 Provider（Midjourney / Ideogram / Kling）、处于多候选模式、或命中缓存。
+- 外部 API：`JobCreateRequest` 新增 `size_retry_enabled` / `size_retry_mode` / `size_retry_max_attempts` / `size_retry_max_credits`；`JobOutputResponse.size_retry` 返回实际尝试次数、是否命中和期望/实际尺寸。
+
 ### 游戏 Logo（game_logo）
 
 素材类型选择「游戏 Logo」时，仍走普通素材直出链路，输出适合标题页、主菜单、启动页或 HUD 品牌区使用的透明 PNG：

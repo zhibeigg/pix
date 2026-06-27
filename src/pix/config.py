@@ -167,6 +167,12 @@ class ImageGenConfig:
         "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the conceptual pixel grid. "
         "The output image should be pixel-perfect, each cell only contains one color. No text, no watermark, no extra frame, no labels."
     )
+    # 尺寸重试：允许用户在生图时开启，反复重新生成直到实际像素尺寸匹配请求尺寸或达到上限。
+    # size_retry_discount_rate —— 开启尺寸重试时每次尝试的计费倍率（0.6 = 6 折），与全局促销折扣取更优价。
+    # size_retry_max_attempts_limit —— 单任务最大尝试次数硬上限（前端/后端共同夹取）。
+    size_retry_enabled: bool = True
+    size_retry_discount_rate: float = 0.6
+    size_retry_max_attempts_limit: int = 8
 
 
 @dataclass

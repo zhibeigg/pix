@@ -19,7 +19,15 @@ from pix.api.candidate_ranker import (
     rank_candidates,
 )
 from pix.api.image_dispatcher import clear_image_provider_history, image_provider_history
-from pix.api.image_gen import edit_image, edit_images_batch, generate_image, generate_images_batch
+from pix.api.image_gen import (
+    SizeRetryConfig,
+    edit_image,
+    edit_images_batch,
+    generate_image,
+    generate_images_batch,
+    last_size_retry_outcome,
+    parse_size,
+)
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
 from pix.api.vision import VisionParseError, analyze_image
 from pix.cache import Cache
@@ -85,6 +93,11 @@ class PipelineInput:
     local_stage_context: LocalStageContext | None = None
     # 本地图片是否应按 AI 生成源图处理；用于 local_pixelize 复用完整生成图后处理链路。
     input_is_generated_source: bool = False
+    # 尺寸重试：开启后单图生成会重复请求，直到实际像素尺寸匹配 image_size 或达到上限。
+    # 仅在单图模式（非多候选）且 image_size 可解析为 WxH 时生效。
+    size_retry_enabled: bool = False
+    # 换算后的最大尝试次数（Web 层把"按点数"上限折算成次数后传入；核心层只认次数）。
+    size_retry_max_attempts: int = 1
 
 
 @dataclass
@@ -666,6 +679,28 @@ def run_pipeline(
     use_sheet_overall = (not inputs.source_only) and contact_sheet_enabled(cfg, has_prompt=True)
     candidate_mode_name = candidate_mode(cfg) if use_sheet_overall else "single"
 
+    # 尺寸重试只在单图模式（非多候选）且 image_size 可解析为具体 WxH 时生效。
+    # 多候选/宽高比类 Provider 无法保证精确像素，构造为 None（不重试）。
+    def _single_size_retry() -> SizeRetryConfig | None:
+        if not inputs.size_retry_enabled or candidate_mode_name != "single":
+            return None
+        expected = parse_size(inputs.image_size or cfg.image_gen.size)
+        if expected is None:
+            return None
+        return SizeRetryConfig(
+            enabled=True,
+            max_attempts=max(1, inputs.size_retry_max_attempts),
+            expected_size=expected,
+        )
+
+    # 暂存最近一次单图生成的尺寸重试结果，最终写入 meta["image_gen"]["size_retry"]。
+    size_retry_outcome_holder: dict[str, dict] = {}
+
+    def _capture_size_retry_outcome() -> None:
+        outcome = last_size_retry_outcome()
+        if outcome is not None and outcome.enabled:
+            size_retry_outcome_holder["size_retry"] = outcome.to_metadata()
+
     def _job_material_prompt_fields(*, user_prompt: str, effective_prompt: str) -> dict:
         if not use_sheet_overall:
             return {"prompt": effective_prompt}
@@ -815,7 +850,9 @@ def run_pipeline(
                     size=inputs.image_size,
                     quality=inputs.image_quality,
                     model=inputs.image_model,
+                    size_retry=_single_size_retry(),
                 )
+                _capture_size_retry_outcome()
                 cache.store_copy("imageedit", material, "png", generated_path)
                 if use_sheet:
                     contact_sheet_meta = _postprocess_contact_sheet(
@@ -905,7 +942,9 @@ def run_pipeline(
                     size=inputs.image_size,
                     quality=inputs.image_quality,
                     model=inputs.image_model,
+                    size_retry=_single_size_retry(),
                 )
+                _capture_size_retry_outcome()
                 cache.store_copy("imagegen", material, "png", generated_path)
                 if use_sheet:
                     contact_sheet_meta = _postprocess_contact_sheet(
@@ -948,6 +987,7 @@ def run_pipeline(
                 "source_only": True,
                 "provider_history": image_provider_history(),
                 "contact_sheet": None,
+                **size_retry_outcome_holder,
             },
             "vision": {
                 "model": inputs.vl_model or cfg.vision.model,
@@ -1142,6 +1182,7 @@ def run_pipeline(
             "mode": source_mode,
             "provider_history": image_provider_history(),
             "contact_sheet": contact_sheet_meta,
+            **size_retry_outcome_holder,
         },
         "vision": {
             "model": inputs.vl_model or cfg.vision.model,

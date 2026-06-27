@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from pix.api.image_dispatcher import image_provider_history
 from pix_web.config import WebSettings, load_web_settings
-from pix_web.credits import consume_reserved, refund_reserved
+from pix_web.credits import consume_reserved, refund_reserved, settle_partial_reserved
 from pix_web.db import init_db, make_engine, make_session_factory
 from pix_web.job_observability import (
     apply_failure_info,
@@ -78,6 +78,45 @@ def _write_meta_with_diagnostics(meta_path: object, result_meta: dict) -> None:
         return
 
 
+def _size_retry_actual_attempts(result_meta: dict) -> int | None:
+    """从结果 meta 提取尺寸重试实际尝试次数；未启用 / 缓存命中（无 size_retry 块）返回 None。"""
+    image_gen = result_meta.get("image_gen")
+    if not isinstance(image_gen, dict):
+        return None
+    size_retry = image_gen.get("size_retry")
+    if not isinstance(size_retry, dict) or not size_retry.get("enabled"):
+        return None
+    try:
+        return max(1, int(size_retry.get("actual_attempts") or 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _settle_credits_on_success(db: Session, job: GenerationJob, result_meta: dict) -> None:
+    """任务成功后结算预扣点数。
+
+    启用尺寸重试时按实际尝试次数结算（实扣 per_attempt × actual_attempts，退还其余）；
+    否则（普通任务 / 缓存命中无 size_retry meta）全额确认消费。
+    """
+    actual_attempts = _size_retry_actual_attempts(result_meta)
+    params = job.params_json or {}
+    retry_cfg = params.get("size_retry") if isinstance(params, dict) else None
+    if actual_attempts is not None and isinstance(retry_cfg, dict):
+        try:
+            per_attempt = max(0, int(retry_cfg.get("per_attempt") or 0))
+        except (TypeError, ValueError):
+            per_attempt = 0
+        if per_attempt > 0:
+            settle_partial_reserved(
+                db,
+                job,
+                consume_amount=per_attempt * actual_attempts,
+                note=f"尺寸重试成功，实际尝试 {actual_attempts} 次，单次 {per_attempt} 点",
+            )
+            return
+    consume_reserved(db, job)
+
+
 def process_job(db: Session, job: GenerationJob, settings: WebSettings) -> GenerationJob:
     try:
         cfg = load_managed_pix_config(db, settings)
@@ -105,7 +144,7 @@ def process_job(db: Session, job: GenerationJob, settings: WebSettings) -> Gener
         job.status = "succeeded"
         job.finished_at = utcnow()
         job.provider = _provider_from_history(image_provider_history())
-        consume_reserved(db, job)
+        _settle_credits_on_success(db, job, result.meta)
         db.commit()
         prune_user_photos(db, job.user_id, settings)
         db.commit()

@@ -26,6 +26,9 @@ JobType = Literal[
     "sprite_sheet",
 ]
 
+# 尺寸重试最大尝试次数硬上限（请求层兜底；实际上限以系统配置 image_gen.size_retry_max_attempts_limit 为准）。
+SIZE_RETRY_MAX_ATTEMPTS_LIMIT = 20
+
 
 @lru_cache(maxsize=4096)
 def _load_meta_json_cached(path: str, _mtime_ns: int, _size: int) -> dict[str, Any]:
@@ -74,6 +77,14 @@ def _contact_sheet_meta(path: str | None) -> dict[str, Any]:
 def _sprite_meta(path: str | None) -> dict[str, Any]:
     sprite = _load_meta_json(path).get("sprite")
     return sprite if isinstance(sprite, dict) else {}
+
+
+def _size_retry_meta(path: str | None) -> dict[str, Any]:
+    image_gen = _load_meta_json(path).get("image_gen")
+    if not isinstance(image_gen, dict):
+        return {}
+    size_retry = image_gen.get("size_retry")
+    return size_retry if isinstance(size_retry, dict) else {}
 
 
 def _outputs_meta(path: str | None) -> dict[str, Any]:
@@ -527,6 +538,14 @@ class JobCreateRequest(BaseModel):
     vl_model: str | None = None
     skip_vl: bool = False
     source_only: bool = False
+    # 尺寸重试：开启后反复重新生成，直到实际像素尺寸匹配 image_size 或达到上限；
+    # 每次尝试按标准价 6 折计费（与全局折扣取更优）。stop_mode 二选一：
+    #   attempts —— 用 size_retry_max_attempts 作为最大尝试次数停止条件
+    #   credits  —— 用 size_retry_max_credits 作为最大点数预算（后端折算成次数）
+    size_retry_enabled: bool = False
+    size_retry_mode: Literal["attempts", "credits"] = "attempts"
+    size_retry_max_attempts: int = Field(default=3, ge=1, le=SIZE_RETRY_MAX_ATTEMPTS_LIMIT)
+    size_retry_max_credits: int = Field(default=0, ge=0, le=100000)
     pixelize: PixelizeParamsSchema = Field(default_factory=PixelizeParamsSchema)
     grid: GridDesignSchema = Field(default_factory=GridDesignSchema)
     sprite: SpriteParamsSchema = Field(default_factory=SpriteParamsSchema)
@@ -599,6 +618,15 @@ class JobOutputResponse(BaseModel):
     def grid_readability(self) -> dict[str, Any] | None:
         readability = _grid_meta_from_output_meta(self.meta_json_path).get("readability")
         return readability if isinstance(readability, dict) else None
+
+    @computed_field
+    @property
+    def size_retry(self) -> dict[str, Any] | None:
+        """尺寸重试结果（未启用时为 None）。供前端展示实际尝试次数与是否命中。"""
+        meta = _size_retry_meta(self.meta_json_path)
+        if not meta or not meta.get("enabled"):
+            return None
+        return meta
 
     @computed_field
     @property

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 新增「尺寸重试」（Size-match retry）：生图时可选开启，开启后反复重新生成，直到 AI 实际返回的像素尺寸与请求尺寸（`image_size`，如 `1024x1024`）完全一致，或达到停止条件为止。
+  - 适用范围：文生图 / 图生图 / 素材直出（含 `tile_texture`、`dual_grid`，单张产出）；序列帧与本地处理（`local_*` / `repixelize`）不适用。
+  - 停止条件二选一：`size_retry_mode=attempts`（最大尝试次数，含首次）或 `size_retry_mode=credits`（最大点数预算，后端按单次单价折算成次数）。
+  - 计费：开启时每次尝试按标准价 **6 折** 计费，并与全局促销折扣「取更优价」；下单按最坏情况（单价 × 最大次数）预扣，任务成功后按**实际尝试次数**结算并退还差额（新增 `credits.settle_partial_reserved`）。重试耗尽仍未匹配时交付最后一张图并按实际次数扣费；缓存命中不触发重试、按普通 1 次计费。
+  - 自动失效（静默降级为普通任务）：请求尺寸为 `auto` / 非具体 `WxH`、命中仅按宽高比出图的 Provider（midjourney / ideogram / kling）、或处于多候选模式。
+  - `JobCreateRequest` 新增 `size_retry_enabled` / `size_retry_mode` / `size_retry_max_attempts` / `size_retry_max_credits`；`JobOutputResponse` 新增 `size_retry`（实际尝试次数、是否命中、期望/实际尺寸）。meta 写入 `image_gen.size_retry`。
+  - 新增配置 `[image_gen].size_retry_enabled` / `size_retry_discount_rate`（默认 0.6）/ `size_retry_max_attempts_limit`（默认 8），后台「模型与 API」可调；前端原始生图页新增开关、模式单选与价格预估。
+
 - 新增配置化描述长度限制：后台「素材默认值」/「序列帧」可调整 `pix.asset.subject_max_chars`、`pix.asset.extra_prompt_max_chars`、`pix.sprite.subject_max_chars`、`pix.sprite.row_prompt_max_chars`；后端任务创建、批量创建、外部 API、失败重试与 Worker 二次审核统一使用运行时配置，`/settings/image-models` 与 `/external/v1/models` 在 `limits` 中返回当前上限，前端表单显示计数和超限提示。
 - 新增「本地去背景」（`job_type=local_bg_remove`）：上传图片后可在前端选择「像素」或「高清」算法，前者复用当前像素直出的 `pixel_bg` 双阈值连通域 + 二值 alpha，后者使用 `color_to_alpha` 软 alpha 保留高清抗锯齿边；任务不调用 AI、不做像素化，输出透明 PNG 走 `pixelized` 下载通道。
 - 像素资产新增「双瓦片」（`asset_kind=dual_grid`）类型：一次任务产出一套可无缝拼接的过渡瓦片，表达两种地形 A/B 的交界（草地↔泥土、草地↔水/空等），地图引擎按经典 dual-grid 规则即可自动平滑过渡。

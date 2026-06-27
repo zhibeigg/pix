@@ -14,7 +14,12 @@ from PIL import Image
 
 from pix import __version__, dual_grid
 from pix.api.image_dispatcher import clear_image_provider_history, image_provider_history
-from pix.api.image_gen import generate_image
+from pix.api.image_gen import (
+    SizeRetryConfig,
+    generate_image,
+    last_size_retry_outcome,
+    parse_size,
+)
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
 from pix.asset import build_asset_prompt, resolve_tile_texture_kind
 from pix.config import AppConfig, load_config
@@ -108,6 +113,42 @@ def _asset_image_size(data: dict[str, Any], cfg: AppConfig) -> str:
     if isinstance(asset, dict) and str(asset.get("asset_kind") or "") == "ui_component":
         return _UI_COMPONENT_IMAGE_SIZE
     return cfg.image_gen.size
+
+
+def _size_retry_enabled_from_job(data: dict[str, Any]) -> bool:
+    retry = data.get("size_retry")
+    return bool(retry.get("enabled")) if isinstance(retry, dict) else False
+
+
+def _size_retry_max_attempts_from_job(data: dict[str, Any]) -> int:
+    retry = data.get("size_retry")
+    if not isinstance(retry, dict):
+        return 1
+    try:
+        return max(1, int(retry.get("max_attempts") or 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _merge_size_retry(*metas: dict[str, Any] | None) -> dict[str, Any] | None:
+    """合并多次材质生成（如 dual_grid 的 A/B）的尺寸重试结果。
+
+    actual_attempts / max_attempts 累加；matched 取「全部命中」；任一命中宽高比类协议则标注。
+    用于 worker 按总尝试次数结算计费。
+    """
+    present = [m for m in metas if isinstance(m, dict) and m.get("enabled")]
+    if not present:
+        return None
+    return {
+        "enabled": True,
+        "max_attempts": sum(int(m.get("max_attempts") or 1) for m in present),
+        "actual_attempts": sum(int(m.get("actual_attempts") or 1) for m in present),
+        "matched": all(bool(m.get("matched")) for m in present),
+        "expected_size": present[0].get("expected_size"),
+        "actual_size": present[-1].get("actual_size"),
+        "aspect_ratio_protocol": any(bool(m.get("aspect_ratio_protocol")) for m in present),
+        "materials": present,
+    }
 
 
 def pixelize_params_from_json(data: dict[str, Any]) -> PixelizeParams:
@@ -285,6 +326,8 @@ def pipeline_input_from_job(
         refresh_cache=False,
         local_stage_context=_local_stage_context(settings),
         input_is_generated_source=input_is_generated_source,
+        size_retry_enabled=_size_retry_enabled_from_job(data),
+        size_retry_max_attempts=_size_retry_max_attempts_from_job(data),
     )
 
 
@@ -387,6 +430,8 @@ def asset_pipeline_input_from_job(
         use_cache=True,
         refresh_cache=False,
         local_stage_context=_local_stage_context(settings),
+        size_retry_enabled=_size_retry_enabled_from_job(data),
+        size_retry_max_attempts=_size_retry_max_attempts_from_job(data),
     )
 
 
@@ -488,6 +533,7 @@ class _TileMaterial:
     preprocess_meta: dict[str, Any]
     width: int
     height: int
+    size_retry: dict[str, Any] | None = None
 
 
 def _generate_tile_material(
@@ -504,6 +550,8 @@ def _generate_tile_material(
     image_model: str | None,
     raw_path: Path,
     pixel_path: Path,
+    size_retry_enabled: bool = False,
+    size_retry_max_attempts: int = 1,
 ) -> _TileMaterial:
     """单张无缝纹理生成：prompt 构造 → generate_image → perfect_pixel → 落到 (w,h)。
 
@@ -524,6 +572,16 @@ def _generate_tile_material(
         texture_kind=texture_kind,
         max_colors=max_colors,
     )
+    expected = parse_size(image_size)
+    size_retry = (
+        SizeRetryConfig(
+            enabled=True,
+            max_attempts=max(1, size_retry_max_attempts),
+            expected_size=expected,
+        )
+        if size_retry_enabled and expected is not None
+        else None
+    )
     generate_image(
         asset_cfg,
         prompt,
@@ -531,7 +589,10 @@ def _generate_tile_material(
         size=image_size,
         quality=image_quality,
         model=image_model,
+        size_retry=size_retry,
     )
+    outcome = last_size_retry_outcome()
+    size_retry_meta = outcome.to_metadata() if outcome is not None and outcome.enabled else None
 
     # 完美像素：让 perfectPixel 自动检测网格作为主导，target_size 仅作为提示。
     # 用户面板上选择的"目标尺寸"被理解为"输出 ≤ 目标尺寸的最小整数倍"，避免在
@@ -567,6 +628,7 @@ def _generate_tile_material(
         preprocess_meta=preprocessed.meta,
         width=final_image.width,
         height=final_image.height,
+        size_retry=size_retry_meta,
     )
 
 
@@ -635,6 +697,8 @@ def run_tile_asset_job_pipeline(
             image_model=image_model,
             raw_path=raw_path,
             pixel_path=pixel_path,
+            size_retry_enabled=_size_retry_enabled_from_job(data),
+            size_retry_max_attempts=_size_retry_max_attempts_from_job(data),
         )
         prompt = material.prompt
         preprocessed_meta = material.preprocess_meta
@@ -678,6 +742,7 @@ def run_tile_asset_job_pipeline(
             "source_only": True,
             "provider_history": image_provider_history(),
             "contact_sheet": None,
+            **({"size_retry": material.size_retry} if material.size_retry else {}),
         },
         "asset": {
             "name": name,
@@ -823,6 +888,8 @@ def run_dual_grid_asset_job_pipeline(
             image_model=image_model,
             raw_path=run_dir / "01_material_a_source.png",
             pixel_path=materials_dir / "material_a.png",
+            size_retry_enabled=_size_retry_enabled_from_job(data),
+            size_retry_max_attempts=_size_retry_max_attempts_from_job(data),
         )
         material_b_result: _TileMaterial | None = None
         if not transparent_mode:
@@ -839,7 +906,15 @@ def run_dual_grid_asset_job_pipeline(
                 image_model=image_model,
                 raw_path=run_dir / "01_material_b_source.png",
                 pixel_path=materials_dir / "material_b.png",
+                size_retry_enabled=_size_retry_enabled_from_job(data),
+                size_retry_max_attempts=_size_retry_max_attempts_from_job(data),
             )
+
+    # 合并 A/B 两次材质生成的尺寸重试结果，供 meta 与 worker 计费结算使用。
+    dual_grid_size_retry = _merge_size_retry(
+        material_a_result.size_retry,
+        material_b_result.size_retry if material_b_result else None,
+    )
 
     # `_material_to_rgba_array` 以 NEAREST 强制把每张材质落到 (width, height)，
     # 这正是 spec §8「A、B 理论上都 = output_size」的执行点：两数组形状由此对齐。
@@ -894,6 +969,7 @@ def run_dual_grid_asset_job_pipeline(
             "source_only": True,
             "provider_history": image_provider_history(),
             "contact_sheet": None,
+            **({"size_retry": dual_grid_size_retry} if dual_grid_size_retry else {}),
         },
         "asset": {
             "name": name,

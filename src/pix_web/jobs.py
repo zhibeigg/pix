@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
@@ -234,7 +236,12 @@ def validate_job_request(req: JobCreateRequest, cfg: AppConfig | None = None) ->
             )
 
 
-def params_json_from_request(req: JobCreateRequest, *, billing: dict | None = None) -> dict:
+def params_json_from_request(
+    req: JobCreateRequest,
+    *,
+    billing: dict | None = None,
+    size_retry: SizeRetryPlan | None = None,
+) -> dict:
     data = {
         "image_size": req.image_size,
         "image_quality": req.image_quality,
@@ -249,6 +256,15 @@ def params_json_from_request(req: JobCreateRequest, *, billing: dict | None = No
         "sprite": req.sprite.model_dump(mode="json"),
         "asset": req.asset.model_dump(mode="json"),
     }
+    if size_retry is not None and size_retry.enabled:
+        data["size_retry"] = {
+            "enabled": True,
+            "mode": size_retry.mode,
+            "per_attempt": size_retry.per_attempt,
+            "max_attempts": size_retry.max_attempts,
+            "base_price": size_retry.base_price,
+            "expected_size": list(size_retry.expected_size) if size_retry.expected_size else None,
+        }
     if billing is not None:
         data["billing"] = billing
     return data
@@ -298,10 +314,121 @@ def _original_price_for_request(db: Session, req: JobCreateRequest) -> int:
     return base_price
 
 
-def _price_for_request(db: Session, req: JobCreateRequest) -> int:
-    """对外的实扣价：原价经全局折扣后的折后价。"""
+def _price_for_request(db: Session, req: JobCreateRequest, cfg: AppConfig | None = None) -> int:
+    """对外的实扣价（即下单预扣额）：原价经全局折扣后的折后价。
+
+    启用尺寸重试时返回预扣总额（per_attempt × max_attempts），与
+    create_job_in_transaction 的冻结逻辑保持一致，确保批量/重试路径的
+    余额校验与实际冻结额相符。
+    """
     original = _original_price_for_request(db, req)
-    return apply_discount(original, load_pricing_discount(db).rate)
+    discount = load_pricing_discount(db)
+    price = apply_discount(original, discount.rate)
+    effective_cfg = cfg if cfg is not None else _effective_pix_config(db)
+    plan = _size_retry_plan(db, req, effective_cfg, discount)
+    if plan.enabled:
+        return plan.reserve_total
+    return price
+
+
+# ---- 尺寸重试计费 ----
+
+# 适用尺寸重试的任务类型（单张产出的 AI 生图）。
+SIZE_RETRY_JOB_TYPES = {"text_to_image", "image_to_image", "asset"}
+_UI_COMPONENT_IMAGE_SIZE = "auto"
+_SIZE_RE = re.compile(r"^(\d+)x(\d+)$")
+
+
+@dataclass(frozen=True)
+class SizeRetryPlan:
+    """尺寸重试的计费与执行计划。
+
+    enabled=False 时其余字段无意义，调用方按普通任务计费。
+    enabled=True 时：reserve_total = per_attempt × max_attempts（下单冻结最坏情况），
+    worker 成功后按实际尝试次数 settle，退还差额。
+    """
+
+    enabled: bool = False
+    per_attempt: int = 0
+    max_attempts: int = 1
+    mode: str = "attempts"
+    expected_size: tuple[int, int] | None = None
+    base_price: int = 0
+
+    @property
+    def reserve_total(self) -> int:
+        return max(0, self.per_attempt * self.max_attempts)
+
+
+def _expected_size_for_request(req: JobCreateRequest, cfg: AppConfig) -> tuple[int, int] | None:
+    """解析该请求发给 AI 的画布尺寸；无法确定具体 WxH（auto / UI 组件）时返回 None。"""
+    image_size = (req.image_size or "").strip()
+    if not image_size and req.job_type == "asset":
+        if str(req.asset.asset_kind or "") == "ui_component":
+            image_size = _UI_COMPONENT_IMAGE_SIZE
+        else:
+            image_size = (cfg.image_gen.size or "").strip()
+    if not image_size:
+        image_size = (cfg.image_gen.size or "").strip()
+    match = _SIZE_RE.match(image_size)
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _multi_candidate_enabled(cfg: AppConfig) -> bool:
+    """是否处于多候选模式（此时尺寸重试不适用）。asset 任务运行时强制单图，不在此判断。"""
+    try:
+        return bool(cfg.image_gen.contact_sheet_enabled) and int(cfg.image_gen.n_sample_count) > 1
+    except (TypeError, ValueError):
+        return False
+
+
+def _size_retry_plan(
+    db: Session,
+    req: JobCreateRequest,
+    cfg: AppConfig,
+    discount: PricingDiscount,
+) -> SizeRetryPlan:
+    """计算尺寸重试计费计划；不满足启用条件时返回 disabled 计划。"""
+    if not req.size_retry_enabled or not getattr(cfg.image_gen, "size_retry_enabled", True):
+        return SizeRetryPlan()
+    if req.job_type not in SIZE_RETRY_JOB_TYPES:
+        return SizeRetryPlan()
+    # source_only 的原生大图、多候选模式不适用（asset 运行时强制单图，故仅对非 asset 判断多候选）。
+    if req.job_type != "asset" and _multi_candidate_enabled(cfg):
+        return SizeRetryPlan()
+    expected = _expected_size_for_request(req, cfg)
+    if expected is None:
+        return SizeRetryPlan()
+
+    base_price = _base_price_for_request(db, req)
+    if base_price <= 0:
+        # 免费任务无需重试计费；按普通免费任务处理。
+        return SizeRetryPlan()
+
+    retry_rate = float(getattr(cfg.image_gen, "size_retry_discount_rate", 0.6) or 0.6)
+    # 取更优价：尺寸重试 6 折与全局促销折扣中更低的单价。
+    per_attempt = apply_discount(base_price, retry_rate)
+    if discount.active:
+        per_attempt = min(per_attempt, apply_discount(base_price, discount.rate))
+
+    limit = max(1, int(getattr(cfg.image_gen, "size_retry_max_attempts_limit", 8) or 8))
+    if req.size_retry_mode == "credits":
+        budget = max(0, int(req.size_retry_max_credits))
+        max_attempts = budget // per_attempt if per_attempt > 0 else 0
+        max_attempts = max(1, min(limit, max_attempts))
+    else:
+        max_attempts = max(1, min(limit, int(req.size_retry_max_attempts)))
+
+    return SizeRetryPlan(
+        enabled=True,
+        per_attempt=per_attempt,
+        max_attempts=max_attempts,
+        mode=req.size_retry_mode,
+        expected_size=expected,
+        base_price=base_price,
+    )
 
 
 def _billing_snapshot_for_request(
@@ -311,9 +438,11 @@ def _billing_snapshot_for_request(
     original_total: int,
     discounted_total: int,
     discount: PricingDiscount,
+    size_retry: SizeRetryPlan | None = None,
 ) -> dict | None:
     is_sprite = req.job_type == "sprite_sheet"
-    if not is_sprite and not discount.active:
+    has_size_retry = size_retry is not None and size_retry.enabled
+    if not is_sprite and not discount.active and not has_size_retry:
         return None
     snapshot: dict = {}
     if is_sprite:
@@ -334,6 +463,18 @@ def _billing_snapshot_for_request(
     snapshot["total_points"] = discounted_total
     if discount.active:
         snapshot["discount"] = {"rate": discount.rate, "label": discount.label}
+    if has_size_retry:
+        assert size_retry is not None
+        snapshot["size_retry"] = {
+            "enabled": True,
+            "mode": size_retry.mode,
+            "base_price": size_retry.base_price,
+            "per_attempt": size_retry.per_attempt,
+            "max_attempts": size_retry.max_attempts,
+            "reserved_total": size_retry.reserve_total,
+            "expected_size": list(size_retry.expected_size) if size_retry.expected_size else None,
+            "billing_note": "reserve per_attempt*max_attempts; settle by actual attempts",
+        }
     return snapshot
 
 
@@ -355,8 +496,20 @@ def create_job_in_transaction(
     original_price = _original_price_for_request(db, req)
     discount = load_pricing_discount(db)
     price = apply_discount(original_price, discount.rate)
+
+    effective_cfg = cfg if cfg is not None else _effective_pix_config(db)
+    size_retry = _size_retry_plan(db, req, effective_cfg, discount)
+    if size_retry.enabled:
+        # 下单冻结最坏情况点数（per_attempt × max_attempts）；worker 成功后按实际尝试结算退差额。
+        price = size_retry.reserve_total
+
     billing = _billing_snapshot_for_request(
-        db, req, original_total=original_price, discounted_total=price, discount=discount
+        db,
+        req,
+        original_total=original_price,
+        discounted_total=price,
+        discount=discount,
+        size_retry=size_retry,
     )
     job = GenerationJob(
         user_id=user.id,
@@ -366,7 +519,7 @@ def create_job_in_transaction(
         status="pending",
         prompt=_job_prompt_for_record(req),
         input_image_path=req.input_image_path,
-        params_json=params_json_from_request(req, billing=billing),
+        params_json=params_json_from_request(req, billing=billing, size_retry=size_retry),
         price_credits=price,
     )
     db.add(job)
@@ -443,7 +596,7 @@ def create_jobs_batch(
             prices.append(0)
             continue
         _enforce_request_prompt_policy(db, user, req, cfg)
-        price = _price_for_request(db, req)
+        price = _price_for_request(db, req, cfg)
         prices.append(price)
         total_price += price
 
@@ -494,6 +647,11 @@ def create_jobs_batch(
 
 def _request_from_failed_job(job: GenerationJob) -> JobCreateRequest:
     params = job.params_json or {}
+    retry = params.get("size_retry") or {}
+    retry_enabled = bool(retry.get("enabled")) if isinstance(retry, dict) else False
+    # 重试沿用原任务已折算好的最大尝试次数，统一按 attempts 模式重算计费（避免
+    # credits 模式因 max_credits 未持久化而被重算成 1 次）。
+    retry_max_attempts = int(retry.get("max_attempts") or 3) if isinstance(retry, dict) else 3
     return JobCreateRequest(
         job_type=job.job_type,
         prompt=job.prompt,
@@ -505,6 +663,9 @@ def _request_from_failed_job(job: GenerationJob) -> JobCreateRequest:
         vl_model=params.get("vl_model"),
         skip_vl=bool(params.get("skip_vl", False)),
         source_only=bool(params.get("source_only", False)),
+        size_retry_enabled=retry_enabled,
+        size_retry_mode="attempts",
+        size_retry_max_attempts=max(1, retry_max_attempts),
         pixelize=PixelizeParamsSchema.model_validate(params.get("pixelize") or {}),
         grid=params.get("grid") or {},
         sprite=SpriteParamsSchema.model_validate(params.get("sprite") or {}),
@@ -533,7 +694,7 @@ def retry_failed_job(
     validate_job_request(req, cfg)
     _enforce_request_prompt_policy(db, user, req, cfg)
     enforce_generation_limits(db, user, new_jobs=1)
-    price = _price_for_request(db, req)
+    price = _price_for_request(db, req, cfg)
 
     account = db.scalar(select(CreditAccount).where(CreditAccount.user_id == user.id))
     available = account.available_credits if account is not None else 0
@@ -583,7 +744,7 @@ def retry_failed_jobs_in_batch(
     for req in reqs:
         validate_job_request(req, cfg)
         _enforce_request_prompt_policy(db, user, req, cfg)
-        price = _price_for_request(db, req)
+        price = _price_for_request(db, req, cfg)
         prices.append(price)
         total_price += price
 

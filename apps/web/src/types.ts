@@ -269,6 +269,8 @@ export type SpriteFrameOutput = {
   bbox?: [number, number, number, number] | null
 }
 
+export type SizeRetryMode = 'attempts' | 'credits'
+
 export type JobCreateRequest = {
   job_type: JobType
   prompt?: string | null
@@ -280,6 +282,10 @@ export type JobCreateRequest = {
   vl_model?: string | null
   skip_vl?: boolean
   source_only?: boolean
+  size_retry_enabled?: boolean
+  size_retry_mode?: SizeRetryMode
+  size_retry_max_attempts?: number
+  size_retry_max_credits?: number
   pixelize: PixelizeParams
   grid?: GridDesignParams
   sprite?: SpriteParams
@@ -378,6 +384,17 @@ export type JobOutput = {
   grid_json_path: string | null
   grid_status: GridOutputStatus | null
   grid_readability: GridReadabilityReport | null
+  size_retry?: SizeRetryResult | null
+}
+
+export type SizeRetryResult = {
+  enabled: boolean
+  max_attempts: number
+  actual_attempts: number
+  matched: boolean
+  expected_size: [number, number] | null
+  actual_size: [number, number] | null
+  aspect_ratio_protocol?: boolean
 }
 
 export type JobBatchCreateResponse = {

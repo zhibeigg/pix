@@ -137,6 +137,16 @@ curl -X POST "$PIX_API_BASE/jobs" \
 # { "name": "草地泥土过渡", "asset_kind": "dual_grid", "material_a": "草地", "material_b": "泥土", "transition_style": "rounded" }
 # 一次产出 16 张可无缝拼接的 4×4 过渡瓦片图集 + 应用预览 + meta（含 bitmask→cell 映射）。
 # material_a 必填；material_b 空串或 "transparent" 即透明模式。material_a_texture_kind / material_b_texture_kind 复用上面的 texture_kind 枚举（默认 auto）。
+
+# 尺寸重试示例：在请求体加入以下字段，反复重新生成直到实际尺寸匹配 image_size 或达到上限。
+# 适用 text_to_image / image_to_image / asset；image_size 必须为具体 WxH（非 auto）。
+# {
+#   "size_retry_enabled": true,
+#   "size_retry_mode": "attempts",        // attempts=按最大次数 | credits=按最大点数预算
+#   "size_retry_max_attempts": 5,          // attempts 模式：含首次，受 size_retry_max_attempts_limit 上限夹取
+#   "size_retry_max_credits": 0            // credits 模式：最大点数预算，后端按单次 6 折单价折算成次数
+# }
+# 计费：每次尝试按标准价 6 折（与全局折扣取更优），按实际尝试次数结算；响应 outputs[].size_retry 返回实际尝试次数与是否命中。
 # transition_style 可选 rounded（默认）/ hard / outline；pixelize.output_size 是单张瓦片尺寸，图集为其 4×4 排布。
 # 输出读 JobOutput 的 dual_grid_atlas_path/url 与 dual_grid_preview_path/url。
 
