@@ -771,7 +771,13 @@ def pixelize(
         detected_grid = _detect_grid_size(img)
     edge_margin = _edge_reserve_margin(eff.edge_style, eff.bg_feather) if eff.remove_bg else 0
     edge_margin = min(edge_margin, max(0, (min(eff.output_size) - 2) // 2))
-    if edge_margin > 0:
+    if adopted_preprocessed_size and tuple(img.size) == tuple(eff.output_size) and edge_margin == 0:
+        # perfectPixel 已经把图对齐到真实像素网格、且输出尺寸就采用了它的检测结果，
+        # 此时再走 smart 下采样会二次检测网格并聚合（如 grid=2 把 158 砍成 79 再拉回），
+        # 把对齐好的边框重新揉糊。这里 1:1 直通，尊重 perfectPixel 的像素网格，不再缩放。
+        aspect_content_size, aspect_offset = (img.size, (0, 0))
+        down = img
+    elif edge_margin > 0:
         inner = (
             max(1, eff.output_size[0] - 2 * edge_margin),
             max(1, eff.output_size[1] - 2 * edge_margin),

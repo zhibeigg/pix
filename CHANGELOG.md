@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- 修复「尊重 AI 像素尺寸」路径（local_pixelize / 生成图复用）主体被二次揉糊的问题：当 perfectPixel 已把图对齐到检测出的真实像素网格、且输出尺寸采用该检测结果（`adopted_preprocessed_size=True`）时，`smart` 下采样会在已对齐的图上**再次检测网格并聚合**（如检测到 grid=2，把 158px 砍成 79px 再拉回 158px），把对齐好的边框重新插值揉糊、变细变形。修复后此场景下采样 1:1 直通，不再做多余的二次网格聚合，真正尊重 perfectPixel 的像素网格。仅影响源尺寸==目标尺寸且无描边边距的生成图后处理路径，其它显式指定 `output_size` 的缩放路径不变。
+
 ### Changed
 
 - 简化素材直出表单：移除「额外风格描述」输入框，单张试做与批量生成均只保留一个主体/提示词输入框，降低使用心智负担。后端 `asset.extra_prompt` 字段与 `pix.asset.extra_prompt_max_chars` 限制仍保留，历史作品参数展示、作品复用回填与外部 API 不受影响（外部 API 仍可传 `extra_prompt`）。
