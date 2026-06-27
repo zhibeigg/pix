@@ -39,6 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- 修复访问后台/作品库可使整个 API 卡死、登录用户接口 500、作品库预览裂图的连锁故障（根因：SQLAlchemy 连接池耗尽 `QueuePool limit of size 5 overflow 10 reached`）。三处协同修复：
+  - **连接池**：`make_engine` 此前对 PostgreSQL 未配置连接池，吃默认 `pool_size=5 + max_overflow=10`（峰值仅 15 条）。现显式配置并启用 `pool_pre_ping`（防服务端空闲断连），新增可调环境变量 `PIX_WEB_DB_POOL_SIZE`（默认 10）/`PIX_WEB_DB_MAX_OVERFLOW`（默认 20）/`PIX_WEB_DB_POOL_TIMEOUT`（默认 30s）/`PIX_WEB_DB_POOL_RECYCLE`（默认 1800s）；API 与 Worker 均生效（SQLite 忽略）。
+  - **慢序列化长期持有连接（治本）**：`JobOutputResponse` 的 29 个 `@computed_field` 在序列化时对同一 `meta.json` 反复 `read_text` 无缓存重复读盘（`GET /jobs`、`GET /admin/jobs?limit=500` 单请求上万次同步磁盘 IO），而 `get_db` 的 session 持有到响应序列化结束 → 每个请求长时间占住一条连接，几个并发即耗尽池。现给 `_load_meta_json` 与 `_image_pixel_size` 加 `(路径, mtime, size)` 感知缓存，单请求读盘从上万次降为一次解析 + 若干次 `os.stat`，连接持有时间从秒级降到毫秒级。
+  - **崩溃护栏**：`_load_meta_json` 的异常捕获由 `(OSError, json.JSONDecodeError)` 扩为 `(OSError, ValueError)`，覆盖非法 UTF-8 旧 meta 文件触发的 `UnicodeDecodeError`，避免单个坏文件让整份列表序列化 500。新增 `tests/test_db_pool_and_meta_cache.py` 锁定连接池配置与 meta 鲁棒读取/缓存。
+- 修复序列帧「所有动作打包（zip）」等下载在后端返回错误（401 鉴权失效 / 409 无动作图）时，把 JSON 错误体直接当成 `.zip`/`.png` 落盘导致「压缩包无法解压」的问题：作品库下载改为先 `fetch` 校验 `response.ok` 再用 blob 保存，失败时解析后端 `detail` 弹出本地化提示而非保存损坏文件（新增 `downloads.failed` 文案）。
+- 优化生图速度：上游 HTTP 客户端读超时由 `read=None`（无限）改为有限上限（默认 600s），避免 Provider 连上后挂起/慢速吐数据时无限阻塞、长期占住 Worker 槽位与连接；n-sample 多候选（`n_sample_count>1`）的文生图/图生图由逐张串行请求改为并发出图（上限 4，`n=1` 时行为不变），墙钟时间从 N× 降为约 1×。
 - 修复作品库点击「复用」旧 Logo 作品时，工作台「素材类型」下拉为空的问题：复用回填现在会把历史参数里的本地化/别名素材类型（如「游戏 Logo」）归一为 `game_logo`，并显式渲染当前素材类型标签，避免 Select 找不到枚举项时显示空白。
 - 修复作品库「复用」原始生图作品（文生图 / 图生图原图，`source_only` 或 `skip_vl`+`grid=off`）被错误塞进「素材直出」工作台、且模型 / 图片尺寸 / 质量 / 参考图全部丢失的问题：复用现按作品类型分流——原始生图回填到「原始生图」面板（提示词、模型、尺寸、质量、参考图路径），其余仍进单图工作台。
 - 修复复用「素材直出」作品时，回填的像素尺寸 / 颜色数 / 纹理类型 / 双瓦片材质类型与过渡风格被「素材类型默认值」覆盖的问题（React StrictMode 下稳定复现）。根因：旧实现用 `skipNextAssetResetRef` 等「跳过下一次重置」的副作用竞态，StrictMode 的 effect 双调用会提前消费 skip 标志，使真正的状态变更提交时重置副作用照常执行而冲掉回填值。现移除该竞态：默认值仅在用户手动切换模式 / 素材类型时套用，复用直接确定性回填，不再依赖 effect 时序。

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from pix.api.http_client import ProviderError
 from pix.api.image_dispatcher import dispatch_image_request
@@ -23,6 +24,22 @@ _RATIO_LIMIT = 3.0
 # Packy gpt-image-2 Images API 文档约束：n 仅支持 1；stream / partial_images 不支持。
 _ONE_IMAGE_N = 1
 _IMAGE_RESPONSE_FORMAT = "b64_json"
+# n-sample 多候选并发上限：每张候选是一次独立上游请求，并发出图而非串行，
+# 同时限流避免打爆 Provider。n=1（默认）时不开线程，行为与串行完全一致。
+_MAX_PARALLEL_SAMPLES = 4
+
+
+def _run_sample_batch(make_one: Callable[[int], Path], n: int) -> list[Path]:
+    """并发执行 n 张候选生成，保持返回顺序与 index 一致。
+
+    单张失败时（与原串行实现一致）向外抛出首个异常。executor.map 按提交顺序
+    产出结果，因此 paths[i] 始终对应 index=i+1。
+    """
+    if n <= 1:
+        return [make_one(1)]
+    max_workers = min(n, _MAX_PARALLEL_SAMPLES)
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="pix-sample") as executor:
+        return list(executor.map(make_one, range(1, n + 1)))
 
 
 def validate_size(size: str, *, model: str | None = None) -> None:
@@ -259,8 +276,8 @@ def generate_images_batch(
     validate_size(_size, model=_model)
 
     variations = [v for v in (prompt_variations or []) if v.strip()]
-    paths: list[Path] = []
-    for index in range(1, n + 1):
+
+    def _make_one(index: int) -> Path:
         variant_prompt = _with_prompt_variation(prompt, variations, index - 1)
         result = dispatch_image_request(
             cfg,
@@ -272,17 +289,16 @@ def generate_images_batch(
             output_format=output_format or cfg.image_gen.output_format,
         )
         name = filename_template.format(index=index)
-        paths.append(
-            _write_entry(
-                (result.image.url, result.image.b64_json),
-                dest_dir / name,
-                timeout=cfg.api.timeout,
-                trust_env=cfg.api.trust_env_proxies,
-                proxy=cfg.api.proxy,
-                max_retries=cfg.api.max_retries,
-            )
+        return _write_entry(
+            (result.image.url, result.image.b64_json),
+            dest_dir / name,
+            timeout=cfg.api.timeout,
+            trust_env=cfg.api.trust_env_proxies,
+            proxy=cfg.api.proxy,
+            max_retries=cfg.api.max_retries,
         )
-    return paths
+
+    return _run_sample_batch(_make_one, n)
 
 
 def edit_images_batch(
@@ -309,8 +325,8 @@ def edit_images_batch(
     image_path = Path(image_path)
 
     variations = [v for v in (prompt_variations or []) if v.strip()]
-    paths: list[Path] = []
-    for index in range(1, n + 1):
+
+    def _make_one(index: int) -> Path:
         variant_prompt = _with_prompt_variation(prompt, variations, index - 1)
         result = dispatch_image_request(
             cfg,
@@ -324,14 +340,13 @@ def edit_images_batch(
             image_path=image_path,
         )
         name = filename_template.format(index=index)
-        paths.append(
-            _write_entry(
-                (result.image.url, result.image.b64_json),
-                dest_dir / name,
-                timeout=cfg.api.timeout,
-                trust_env=cfg.api.trust_env_proxies,
-                proxy=cfg.api.proxy,
-                max_retries=cfg.api.max_retries,
-            )
+        return _write_entry(
+            (result.image.url, result.image.b64_json),
+            dest_dir / name,
+            timeout=cfg.api.timeout,
+            trust_env=cfg.api.trust_env_proxies,
+            proxy=cfg.api.proxy,
+            max_retries=cfg.api.max_retries,
         )
-    return paths
+
+    return _run_sample_batch(_make_one, n)

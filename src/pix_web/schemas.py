@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
@@ -25,15 +27,32 @@ JobType = Literal[
 ]
 
 
+@lru_cache(maxsize=4096)
+def _load_meta_json_cached(path: str, _mtime_ns: int, _size: int) -> dict[str, Any]:
+    """按 (路径, mtime, 大小) 缓存解析结果。
+
+    单次响应序列化里同一 meta.json 会被 20~30 个 computed_field 反复读取；
+    缓存把每个 output 的上万次磁盘读盘降为一次解析 + 若干次 os.stat，避免
+    序列化阶段长时间占用 DB 连接（连接池耗尽根因之一）。捕获范围用 ValueError
+    覆盖 JSONDecodeError 与 UnicodeDecodeError（非法编码的旧 meta 文件），
+    防止单个坏文件让整份列表序列化失败。
+    """
+    try:
+        raw = Path(path).read_text(encoding="utf-8")
+        data = json.loads(raw)
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def _load_meta_json(path: str | None) -> dict[str, Any]:
     if not path:
         return {}
     try:
-        raw = Path(path).read_text(encoding="utf-8")
-        data = json.loads(raw)
-    except (OSError, json.JSONDecodeError):
+        stat = os.stat(path)
+    except OSError:
         return {}
-    return data if isinstance(data, dict) else {}
+    return _load_meta_json_cached(path, stat.st_mtime_ns, stat.st_size)
 
 
 def _grid_meta_from_output_meta(path: str | None) -> dict[str, Any]:
@@ -93,14 +112,24 @@ def _meta_pixelized_size(path: str | None) -> list[int] | None:
     return None
 
 
+@lru_cache(maxsize=4096)
+def _image_pixel_size_cached(path: str, _mtime_ns: int, _size: int) -> tuple[int, int] | None:
+    try:
+        with Image.open(path) as opened:
+            return (int(opened.width), int(opened.height))
+    except Exception:  # noqa: BLE001 - API 响应不能因为旧文件缺失/损坏失败
+        return None
+
+
 def _image_pixel_size(path: str | None) -> list[int] | None:
     if not path:
         return None
     try:
-        with Image.open(path) as opened:
-            return [int(opened.width), int(opened.height)]
-    except Exception:  # noqa: BLE001 - API 响应不能因为旧文件缺失/损坏失败
+        stat = os.stat(path)
+    except OSError:
         return None
+    size = _image_pixel_size_cached(path, stat.st_mtime_ns, stat.st_size)
+    return [size[0], size[1]] if size else None
 
 
 def _resolve_meta_relative_path(meta_json_path: str | None, value: str | None) -> str | None:

@@ -553,5 +553,6 @@ export const en = {
     currentActionDescription: 'Download the horizontal sheet of the currently selected action row only.',
     allActions: 'All actions (zip)',
     allActionsDescription: 'Pack one horizontal sheet per action into a zip.',
+    failed: 'Download failed: {{reason}}',
   },
 } as const

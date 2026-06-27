@@ -234,7 +234,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     settings = load_web_settings()
-    engine = make_engine(settings.database_url)
+    engine = make_engine(settings.database_url, **settings.engine_pool_kwargs())
     init_db(engine, create_schema=settings.auto_create_db)
     session_factory = make_session_factory(engine)
     with session_factory() as db:

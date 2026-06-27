@@ -136,7 +136,9 @@ class ProviderHttpClient:
         last_exc: Exception | None = None
         timeout_config = httpx.Timeout(
             connect=min(60.0, self.timeout),
-            read=None,
+            # 有限读超时：避免上游连上后挂起/慢速吐数据时无限阻塞，长期占住 worker 槽位
+            # 与 DB 连接。以 self.timeout（默认 600s）为单次读上限，足够大图响应。
+            read=self.timeout,
             write=min(120.0, self.timeout),
             pool=self.timeout,
         )

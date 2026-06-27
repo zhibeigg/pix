@@ -94,6 +94,10 @@ npm run build
 | `PACKY_VL_API_KEY` | 视觉模型旧变量，老部署兼容 / 首次导入用，可与 `PACKY_API_KEY` 共用。 |
 | `PACKY_BASE_URL` | Packy 旧 Base URL，老部署兼容 / 首次导入用，默认 `https://www.packyapi.com`。 |
 | `PIX_WEB_DATABASE_URL` | 后端数据库连接。开发可用 SQLite，生产建议 PostgreSQL。 |
+| `PIX_WEB_DB_POOL_SIZE` | PostgreSQL 连接池常驻连接数，默认 10（SQLite 忽略）。 |
+| `PIX_WEB_DB_MAX_OVERFLOW` | 连接池允许的临时溢出连接数，默认 20；峰值连接上限 = size + overflow。 |
+| `PIX_WEB_DB_POOL_TIMEOUT` | 取连接的最大等待秒数，默认 30；超时即报错而非无限堆积。 |
+| `PIX_WEB_DB_POOL_RECYCLE` | 连接最大存活秒数，默认 1800，超过即回收，配合 pre_ping 防服务端空闲断连。 |
 | `PIX_WEB_JWT_SECRET` | 登录 token 签名密钥，生产必须替换为长随机值。 |
 | `PIX_WEB_STORAGE_ROOT` | 用户上传、生成结果和任务文件根目录，默认 `web_outputs`。 |
 | `PIX_WEB_QUEUE_BACKEND` | `database` 或 `rq`。生产推荐 `rq`。 |

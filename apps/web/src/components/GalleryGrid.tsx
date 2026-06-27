@@ -212,11 +212,18 @@ function DownloadDialog({ job, options }: { job: GenerationJob; options: Downloa
     setSelected((current) => checked ? Array.from(new Set([...current, id])) : current.filter((item) => item !== id))
   }
 
-  function downloadSelected() {
-    for (const option of selectedOptions) {
-      downloadImage(option.url, option.filename)
-    }
+  async function downloadSelected() {
     setOpen(false)
+    for (const option of selectedOptions) {
+      try {
+        await downloadFile(option.url, option.filename)
+      } catch (error) {
+        // 关键：打包/鉴权失败时后端返回的是 JSON 错误体，绝不能当作 .zip/.png 落盘，
+        // 否则用户拿到的“压缩包”无法解压。校验失败时提示而非保存损坏文件。
+        const reason = error instanceof Error ? error.message : String(error)
+        window.alert(t('downloads.failed', { reason }))
+      }
+    }
   }
 
   return (
@@ -368,14 +375,37 @@ function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: st
   return options
 }
 
-function downloadImage(url: string, filename: string) {
+async function downloadFile(url: string, filename: string) {
+  // token 已包含在 url 查询串里（signedFileUrl / spriteActionsZipUrl），无需额外 header。
+  let response: Response
+  try {
+    response = await fetch(url)
+  } catch (error) {
+    throw new Error(error instanceof Error ? error.message : '网络错误')
+  }
+  if (!response.ok) {
+    // 读取后端错误体（通常是 {"detail": "..."}），抛出明确原因，避免把它当成文件保存。
+    let detail = `HTTP ${response.status}`
+    try {
+      const text = await response.text()
+      const parsed = JSON.parse(text)
+      if (parsed && typeof parsed.detail === 'string') detail = parsed.detail
+      else if (text.trim()) detail = text.slice(0, 200)
+    } catch {
+      /* 非 JSON 错误体，沿用状态码 */
+    }
+    throw new Error(detail)
+  }
+  const blob = await response.blob()
+  const objectUrl = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
-  anchor.href = url
+  anchor.href = objectUrl
   anchor.download = filename
   anchor.rel = 'noopener'
   document.body.appendChild(anchor)
   anchor.click()
   anchor.remove()
+  URL.revokeObjectURL(objectUrl)
 }
 
 function downloadFileName(job: GenerationJob, path: string) {

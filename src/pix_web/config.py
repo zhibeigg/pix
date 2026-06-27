@@ -17,6 +17,10 @@ except ImportError:  # pragma: no cover
 @dataclass(frozen=True)
 class WebSettings:
     database_url: str = "sqlite:///pix_web.db"
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
+    db_pool_timeout: float = 30.0
+    db_pool_recycle: int = 1800
     jwt_secret: str = "pix-web-dev-secret-change-me"
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 60 * 24 * 7
@@ -71,9 +75,22 @@ class WebSettings:
     turnstile_ip_window_seconds: int = 3600
     turnstile_ip_max_without_challenge: int = 5
 
+    def engine_pool_kwargs(self) -> dict[str, Any]:
+        """SQLAlchemy 连接池参数（SQLite 会在 make_engine 内忽略）。"""
+        return {
+            "pool_size": self.db_pool_size,
+            "max_overflow": self.db_max_overflow,
+            "pool_timeout": self.db_pool_timeout,
+            "pool_recycle": self.db_pool_recycle,
+        }
+
 
 _DEFAULTS = {
     "PIX_WEB_DATABASE_URL": WebSettings.database_url,
+    "PIX_WEB_DB_POOL_SIZE": str(WebSettings.db_pool_size),
+    "PIX_WEB_DB_MAX_OVERFLOW": str(WebSettings.db_max_overflow),
+    "PIX_WEB_DB_POOL_TIMEOUT": str(WebSettings.db_pool_timeout),
+    "PIX_WEB_DB_POOL_RECYCLE": str(WebSettings.db_pool_recycle),
     "PIX_WEB_JWT_SECRET": WebSettings.jwt_secret,
     "PIX_WEB_STORAGE_ROOT": str(WebSettings.storage_root),
     "PIX_WEB_MAX_UPLOAD_BYTES": str(WebSettings.max_upload_bytes),
@@ -137,6 +154,13 @@ def load_web_settings() -> WebSettings:
         else:
             load_dotenv()
     database_url = os.getenv("PIX_WEB_DATABASE_URL", _DEFAULTS["PIX_WEB_DATABASE_URL"])
+    db_pool_size = _env_int("PIX_WEB_DB_POOL_SIZE", WebSettings.db_pool_size, 1)
+    db_max_overflow = _env_int("PIX_WEB_DB_MAX_OVERFLOW", WebSettings.db_max_overflow, 0)
+    db_pool_recycle = _env_int("PIX_WEB_DB_POOL_RECYCLE", WebSettings.db_pool_recycle, -1)
+    try:
+        db_pool_timeout = max(1.0, float(os.getenv("PIX_WEB_DB_POOL_TIMEOUT", str(WebSettings.db_pool_timeout))))
+    except ValueError:
+        db_pool_timeout = WebSettings.db_pool_timeout
     jwt_secret = os.getenv("PIX_WEB_JWT_SECRET", _DEFAULTS["PIX_WEB_JWT_SECRET"])
     storage_root = Path(os.getenv("PIX_WEB_STORAGE_ROOT", _DEFAULTS["PIX_WEB_STORAGE_ROOT"]))
     pix_config_raw = os.getenv("PIX_WEB_PIX_CONFIG")
@@ -180,6 +204,10 @@ def load_web_settings() -> WebSettings:
         max_upload_bytes = WebSettings.max_upload_bytes
     return WebSettings(
         database_url=database_url,
+        db_pool_size=db_pool_size,
+        db_max_overflow=db_max_overflow,
+        db_pool_timeout=db_pool_timeout,
+        db_pool_recycle=db_pool_recycle,
         jwt_secret=jwt_secret,
         storage_root=storage_root,
         max_upload_bytes=max_upload_bytes,

@@ -553,5 +553,6 @@ export const zhCN = {
     currentActionDescription: '仅下载当前选中动作这一行的横向序列帧图。',
     allActions: '所有动作打包',
     allActionsDescription: '把每个动作各一张横向图打包成 zip 下载。',
+    failed: '下载失败：{{reason}}',
   },
 } as const
