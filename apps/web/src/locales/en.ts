@@ -279,7 +279,6 @@ export const en = {
     types: { asset: 'Batch game assets', text_to_image: 'Batch text to image', image_to_image: 'Batch image to image', local_pixelize: 'Batch local pixelize' },
     defaults: {
       prompts: 'Frost Heart\nBloodspirit jade\nPurple marrow iron\nFragrant bone mushroom\nRaw jade stone',
-      assetExtraPrompt: '',
       sharedPrompt: 'Keep the subject and convert it into a clear pixel-game icon style',
     },
     assetKindLabel: 'Asset type',
@@ -299,8 +298,6 @@ export const en = {
       metal_panel: 'Metal panel',
       fabric_carpet: 'Fabric / carpet',
     },
-    extraStyle: 'Shared extra style notes (optional)',
-    extraStylePlaceholder: 'Optional; add shared material, color, or theme notes if needed.',
     assetNames: 'Subjects (one per line)',
     assetSubjects: 'Subjects (one per line)',
     assetSubjectPlaceholder: 'Frost Heart\nBronze Button\nMagic Border',

@@ -279,7 +279,6 @@ export const zhCN = {
     types: { asset: '批量游戏素材直出', text_to_image: '批量文生图', image_to_image: '批量图生图', local_pixelize: '批量本地像素化' },
     defaults: {
       prompts: '冰霜之心\n血气灵玉\n紫髓铁\n幽香腐骨菇\n玉石原石',
-      assetExtraPrompt: '',
       sharedPrompt: '保留主体，统一改造成清晰的像素游戏图标风格',
     },
     assetKindLabel: '素材类型',
@@ -299,8 +298,6 @@ export const zhCN = {
       metal_panel: '金属面板',
       fabric_carpet: '布料 / 地毯',
     },
-    extraStyle: '统一额外风格描述（可选）',
-    extraStylePlaceholder: '可留空；如需批量补充材质、颜色或题材风格再填写。',
     assetNames: '主体（每行一个）',
     assetSubjects: '主体（每行一个）',
     assetSubjectPlaceholder: '冰霜之心\n青铜按钮\n魔法边框',

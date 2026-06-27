@@ -204,7 +204,6 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [dualMaterialATextureKind, setDualMaterialATextureKind] = useState<TextureKind>('auto')
   const [dualMaterialBTextureKind, setDualMaterialBTextureKind] = useState<TextureKind>('auto')
   const [dualTransitionStyle, setDualTransitionStyle] = useState<DualGridTransitionStyle>('rounded')
-  const [assetExtraPrompt, setAssetExtraPrompt] = useState('')
   const [prompt, setPrompt] = useState(() => text('一枚幻想 RPG 魔法药水图标，居中构图，轮廓清晰，透明背景', 'A fantasy RPG magic potion icon, centered composition, clear silhouette, transparent background'))
   const [inputImagePath, setInputImagePath] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -259,11 +258,9 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const subjectKind = assetKind === 'ui_component' ? 'single_ui' : (assetKind === 'tile_texture' || assetKind === 'dual_grid') ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : 'single_prop'
   const uiComponentImageSize = assetKind === 'ui_component' ? UI_COMPONENT_IMAGE_SIZE : undefined
   const assetSubjectMaxLength = promptLimits.asset_subject_max_chars
-  const assetExtraPromptMaxLength = promptLimits.asset_extra_prompt_max_chars
   const spriteSubjectMaxLength = promptLimits.sprite_subject_max_chars
   const spriteRowPromptMaxLength = promptLimits.sprite_row_prompt_max_chars
   const assetNameTooLong = isAsset && assetName.trim().length > assetSubjectMaxLength
-  const assetExtraPromptTooLong = isAsset && assetExtraPrompt.length > assetExtraPromptMaxLength
   const dualMaterialATooLong = isDualGridAsset && dualMaterialA.trim().length > assetSubjectMaxLength
   const dualMaterialBTooLong = isDualGridAsset && dualMaterialB.trim().length > assetSubjectMaxLength
   const spriteSubjectTooLong = prompt.length > spriteSubjectMaxLength
@@ -276,13 +273,6 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       : isTileAsset
         ? text('例如：苔藓砖石路面、木板地、像素草地', 'e.g. mossy cobblestone, wood planks, grass field')
         : text('例如：冰霜之心', 'e.g. Frost Heart')
-  const assetExtraPlaceholder = isLogoAsset
-    ? text('可补充字体气质、徽章形状、配色、题材氛围。文字只会使用上方标题。', 'Optional: lettering mood, emblem shape, palette, genre atmosphere. Text should only use the title above.')
-    : isDualGridAsset
-      ? text('双瓦片主要由材质 A / B 控制；这里可补充整体题材、年代感或像素风格。', 'Dual-grid is driven by material A/B; add overall theme, era, or pixel-art style notes here.')
-      : isTileAsset
-        ? text('可补充配色、细节密度、年代感等。无需提"无缝平铺"，模板已内置。', 'Optional: palette, detail density, era. "Seamless / tileable" is already enforced by template.')
-        : text('可留空；如需补充材质、颜色或题材风格再填写。', 'Optional; add material, color, or theme notes if needed.')
   const assetReferenceHint = isLogoAsset
     ? text('提供后会保留参考图的徽章轮廓、主色调和字形气质，但最终文字只使用上方 Logo 标题。', 'When provided, it preserves the reference emblem silhouette, main color mood, and lettering attitude, while final text only uses the logo title above.')
     : text('提供后会先把参考图理解为像素风参考，再按素材直出 Prompt 重绘；不是简单处理上传图。留空走默认文生图素材直出。', 'When provided, the reference is first interpreted as pixel-art inspiration, then redrawn with the asset-output prompt. It is not merely processed as the uploaded image. Leave empty for text-to-image asset output.')
@@ -295,7 +285,6 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     || invalidGrid
     || missingRowPrompts
     || assetNameTooLong
-    || assetExtraPromptTooLong
     || (isDualGridAsset && (dualMaterialATooLong || dualMaterialBTooLong))
     || (isSprite && (spriteSubjectTooLong || rowPromptTooLong))
     || (isAsset && !isDualGridAsset && !assetName.trim())
@@ -420,7 +409,6 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     setDualTransitionStyle(transitionStyleValue(asset?.transition_style))
     const assetSubject = stringValue(asset?.name) || job.prompt?.trim() || ''
     setAssetName(assetSubject)
-    setAssetExtraPrompt(stringValue(asset?.extra_prompt))
     setPrompt(job.prompt?.trim() || assetSubject)
     const referencePath = job.input_image_path ?? ''
     setAssetRefPath(referencePath)
@@ -516,7 +504,6 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     // 仅在用户选了非默认模型时传 image_model，避免覆盖后端配置
     const modelOverride = imageModel !== imageModels.default ? imageModel : undefined
     if (isAsset) {
-      const assetExtra = assetExtraPrompt.trim()
       const materialA = dualMaterialA.trim()
       const materialB = dualMaterialB.trim()
       const generatedDualName = dualMaterialBTransparent
@@ -536,7 +523,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           skip_vl: skipVl,
           pixelize: assetPixelize,
           grid: buildGridDesign(),
-          asset: { name: subject, extra_prompt: assetExtra, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false },
+          asset: { name: subject, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false },
         })
         return
       }
@@ -550,8 +537,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         pixelize: assetPixelize,
         grid: buildGridDesign(),
         asset: isDualGridAsset
-          ? { name: subject, extra_prompt: assetExtra, asset_kind: 'dual_grid', subject_kind: 'tileable_pattern', material_a: materialA, material_b: materialB, material_a_texture_kind: dualMaterialATextureKind, material_b_texture_kind: dualMaterialBTextureKind, transition_style: dualTransitionStyle, no_preview: false }
-          : { name: subject, extra_prompt: assetExtra, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false },
+          ? { name: subject, asset_kind: 'dual_grid', subject_kind: 'tileable_pattern', material_a: materialA, material_b: materialB, material_a_texture_kind: dualMaterialATextureKind, material_b_texture_kind: dualMaterialBTextureKind, transition_style: dualTransitionStyle, no_preview: false }
+          : { name: subject, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false },
       })
       return
     }
@@ -697,7 +684,6 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
             </div>
           )}
           <PixField label={assetNameLabel} hint={text(`最多 ${assetSubjectMaxLength} 字`, `Max ${assetSubjectMaxLength} characters`)}><Input value={assetName} maxLength={assetSubjectMaxLength} placeholder={assetNamePlaceholder} onChange={(e) => setAssetName(e.target.value)} /></PixField>
-          {!isDualGridAsset && <PixField label={text('额外风格描述（可选）', 'Extra style notes (optional)')} hint={text(`${assetExtraPrompt.length}/${assetExtraPromptMaxLength} 字`, `${assetExtraPrompt.length}/${assetExtraPromptMaxLength} characters`)}><Textarea value={assetExtraPrompt} rows={3} maxLength={assetExtraPromptMaxLength} placeholder={assetExtraPlaceholder} onChange={(e) => setAssetExtraPrompt(e.target.value)} /></PixField>}
           {assetSupportsReference && (
             <PixField label={text('参考图（可选）', 'Reference image (optional)')} hint={assetReferenceHint}>
               <div className="grid gap-3">
@@ -821,7 +807,6 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
         {invalidSubAssetSize && <Alert variant="destructive">{text('素材最低支持 16×16。', 'Minimum asset size is 16×16.')}</Alert>}
         {assetNameTooLong && <Alert variant="destructive">{text(`主体最多 ${assetSubjectMaxLength} 字。`, `Subject max ${assetSubjectMaxLength} characters.`)}</Alert>}
-        {assetExtraPromptTooLong && <Alert variant="destructive">{text(`额外风格描述最多 ${assetExtraPromptMaxLength} 字。`, `Extra style notes max ${assetExtraPromptMaxLength} characters.`)}</Alert>}
         {(dualMaterialATooLong || dualMaterialBTooLong) && <Alert variant="destructive">{text(`双瓦片材质描述最多 ${assetSubjectMaxLength} 字。`, `Dual-grid material descriptions max ${assetSubjectMaxLength} characters.`)}</Alert>}
         {isSprite && spriteSubjectTooLong && <Alert variant="destructive">{text(`序列帧主体描述最多 ${spriteSubjectMaxLength} 字。`, `Sprite subject max ${spriteSubjectMaxLength} characters.`)}</Alert>}
         {rowPromptTooLong && <Alert variant="destructive">{text(`逐行动作描述最多 ${spriteRowPromptMaxLength} 字。`, `Row action descriptions max ${spriteRowPromptMaxLength} characters.`)}</Alert>}

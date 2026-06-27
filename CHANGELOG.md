@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 简化素材直出表单：移除「额外风格描述」输入框，单张试做与批量生成均只保留一个主体/提示词输入框，降低使用心智负担。后端 `asset.extra_prompt` 字段与 `pix.asset.extra_prompt_max_chars` 限制仍保留，历史作品参数展示、作品复用回填与外部 API 不受影响（外部 API 仍可传 `extra_prompt`）。
 - 尺寸约束 Prompt 工程强化：当 `image_size` 为具体 `WxH` 时，生图前自动把强制输出尺寸的指令（绝对像素 + 宽高比 + 画幅方向 + `no padding/border/crop/letterbox` 负面约束）追加到 prompt 末尾，显著提升模型一次按指定尺寸出图的概率。措辞用「output image file resolution」而非「canvas」，与像素风 prompt 的「pixel grid / canvas cell」语义正交，避免素材直出场景（AI 画布 1024 vs 像素网格 32）双尺寸互相干扰。
   - 尺寸重试时逐次升级：把上一次的实际错误尺寸写进 prompt（`[STRICT RETRY] previous wrong size ...` → 第 3 次起 `[CRITICAL SIZE RETRY #N] ... WILL BE DISCARDED` 全大写加重）。
   - 覆盖文生图 / 图生图 / 素材直出 / n-sample 多候选（多候选只注入基础版、不逐次升级）；`auto` / 非具体尺寸不注入。
