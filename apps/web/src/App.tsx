@@ -678,6 +678,16 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setDeleteConfirm({ kind: 'job', job })
   }
 
+  async function deleteJobs(targetJobs: GenerationJob[]) {
+    if (!token) return
+    const deletableJobs = targetJobs.filter((job) => !['pending', 'running'].includes(job.status))
+    if (deletableJobs.length === 0) {
+      setMessage(text('请选择可删除的已完成作品。', 'Select completed works that can be deleted.'), 'info')
+      return
+    }
+    setDeleteConfirm({ kind: 'jobs', jobs: deletableJobs })
+  }
+
   async function confirmDelete() {
     if (!token || !deleteConfirm) return
     const target = deleteConfirm
@@ -693,6 +703,14 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
         }
         await refreshCore(token)
         setMessage(text('素材包已删除', 'Pack deleted'))
+      } else if (target.kind === 'jobs') {
+        const result = await api.deleteJobs(token, target.jobs.map((job) => job.id))
+        const deletedIds = new Set(result.job_ids)
+        if (selectedJobId !== null && deletedIds.has(selectedJobId)) setSelectedJobId(null)
+        if (selectedRawJobId !== null && deletedIds.has(selectedRawJobId)) setSelectedRawJobId(null)
+        setSelectedPackJobs((current) => current.filter((item) => !deletedIds.has(item.id)))
+        await refreshCore(token)
+        setMessage(text(`已删除 ${result.deleted_count} 个作品`, `${result.deleted_count} works deleted`))
       } else {
         await api.deleteJob(token, target.job.id)
         if (selectedJobId === target.job.id) setSelectedJobId(null)
@@ -832,7 +850,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           <Suspense fallback={<div className="grid min-h-[calc(100vh-160px)] place-items-center px-4 text-sm text-muted-foreground">{t('app.checkingSetup')}</div>}>
             {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} reuseJobSeed={reuseJobSeed} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'raw-image' && <RawImagePage pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} selectedJobId={selectedRawJobId} reuseSeed={rawReuseSeed} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
-            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onSaveSequenceAlignment={saveSequenceAlignment} />}
+            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onDeleteJobs={deleteJobs} onSaveSequenceAlignment={saveSequenceAlignment} />}
             {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
             {page === 'rewards' && <RewardsPage token={token} onRefresh={refreshCurrent} />}

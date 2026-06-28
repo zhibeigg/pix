@@ -44,29 +44,65 @@ def effective_gallery_limit(db: Session, user_id: int) -> int:
 
 
 def delete_user_job(db: Session, user_id: int, job_id: int, settings: WebSettings) -> None:
+    """手动删除用户单个作品，清理输出文件、素材包引用和流水关联。"""
+    delete_user_jobs(db, user_id, [job_id], settings)
 
-    """手动删除用户作品，清理输出文件、素材包引用和流水关联。"""
-    job = db.scalar(
-        select(GenerationJob)
-        .options(selectinload(GenerationJob.outputs))
-        .where(GenerationJob.id == job_id, GenerationJob.user_id == user_id)
+
+def delete_user_jobs(db: Session, user_id: int, job_ids: list[int], settings: WebSettings) -> list[int]:
+    """批量删除用户作品；校验失败时整体回滚，不做部分删除。"""
+    ordered_ids = _unique_positive_job_ids(job_ids)
+    if not ordered_ids:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="请选择要删除的作品")
+
+    jobs = list(
+        db.scalars(
+            select(GenerationJob)
+            .options(selectinload(GenerationJob.outputs))
+            .where(GenerationJob.id.in_(ordered_ids), GenerationJob.user_id == user_id)
+        ).unique()
     )
-    if job is None:
+    jobs_by_id = {job.id: job for job in jobs}
+    missing_ids = [job_id for job_id in ordered_ids if job_id not in jobs_by_id]
+    if missing_ids:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="作品不存在")
-    if job.status in ACTIVE_JOB_STATUSES:
+
+    active_ids = [job.id for job in jobs if job.status in ACTIVE_JOB_STATUSES]
+    if active_ids:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="生产中的作品暂不能删除")
 
-    run_dirs = [output.run_dir for output in job.outputs if output.run_dir]
-    db.execute(update(CreditTransaction).where(CreditTransaction.job_id == job.id).values(job_id=None))
-    for item in db.scalars(select(AssetPackItem).where(AssetPackItem.job_id == job.id)):
+    run_dirs = [
+        output.run_dir
+        for job_id in ordered_ids
+        for output in jobs_by_id[job_id].outputs
+        if output.run_dir
+    ]
+    db.execute(update(CreditTransaction).where(CreditTransaction.job_id.in_(ordered_ids)).values(job_id=None))
+    for item in db.scalars(select(AssetPackItem).where(AssetPackItem.job_id.in_(ordered_ids))):
         db.delete(item)
-    for output in list(job.outputs):
-        db.delete(output)
-    db.delete(job)
+    for job_id in ordered_ids:
+        job = jobs_by_id[job_id]
+        for output in list(job.outputs):
+            db.delete(output)
+        db.delete(job)
     db.flush()
 
     for raw_dir in run_dirs:
         _remove_safe_run_dir(raw_dir, settings.storage_root)
+    return ordered_ids
+
+
+def _unique_positive_job_ids(job_ids: list[int]) -> list[int]:
+    result: list[int] = []
+    seen: set[int] = set()
+    for raw_id in job_ids:
+        job_id = int(raw_id)
+        if job_id <= 0:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="作品 ID 必须为正整数")
+        if job_id in seen:
+            continue
+        seen.add(job_id)
+        result.append(job_id)
+    return result
 
 
 def prune_user_photos(db: Session, user_id: int, settings: WebSettings, *, keep: int | None = None) -> int:

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.96.8] - 2026-06-28
+
+### Added
+
+- 作品库新增批量操作模式：可进入多选、跨页选择已完成作品并一次性批量删除；后端新增原子化批量删除接口，统一清理输出文件、素材包引用和点数流水关联，遇到不存在或生产中的作品会整体失败避免部分删除。
+
 ## [1.95.8] - 2026-06-28
 
 ### Fixed

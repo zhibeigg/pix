@@ -414,6 +414,12 @@ export type JobBatchCreateResponse = {
   batch_id: number | null
 }
 
+export type JobBulkDeleteResponse = {
+  deleted: boolean
+  deleted_count: number
+  job_ids: number[]
+}
+
 export type GenerationBatch = {
   id: number
   name: string

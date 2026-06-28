@@ -15,34 +15,46 @@ export type ToastVariant = 'success' | 'info' | 'error'
 export type AppToastState = { id: number; message: string; variant: ToastVariant }
 export type PackExpandConfirmState = { price: number; currentCount: number; currentLimit: number; nextLimit: number; availableCredits: number | null }
 export type GalleryExpandConfirmState = { price: number; currentCount: number; currentLimit: number; nextLimit: number; slots: number; availableCredits: number | null }
-export type DeleteConfirmState = { kind: 'job'; job: GenerationJob } | { kind: 'pack'; pack: AssetPack }
+export type DeleteConfirmState = { kind: 'job'; job: GenerationJob } | { kind: 'jobs'; jobs: GenerationJob[] } | { kind: 'pack'; pack: AssetPack }
 
 /* ── DeleteConfirmDialog ───────────────────────────────── */
 
 export function DeleteConfirmDialog({ state, loading, onCancel, onConfirm }: { state: DeleteConfirmState | null; loading: boolean; onCancel: () => void; onConfirm: () => void }) {
   const { t } = useI18n()
+  const bulkWorkIds = state?.kind === 'jobs' ? state.jobs.map((job) => `#${job.id}`) : []
+  const bulkWorkSummary = bulkWorkIds.length > 8 ? `${bulkWorkIds.slice(0, 8).join(', ')} +${bulkWorkIds.length - 8}` : bulkWorkIds.join(', ')
   const title = state?.kind === 'job'
     ? t('confirmDelete.workTitle', { id: state.job.id })
-    : state?.kind === 'pack'
-      ? t('confirmDelete.packTitle')
-      : ''
+    : state?.kind === 'jobs'
+      ? t('confirmDelete.worksTitle', { count: state.jobs.length })
+      : state?.kind === 'pack'
+        ? t('confirmDelete.packTitle')
+        : ''
   const description = state?.kind === 'job'
     ? t('confirmDelete.workDescription')
-    : state?.kind === 'pack'
-      ? t('confirmDelete.packDescription', { name: state.pack.name })
-      : ''
+    : state?.kind === 'jobs'
+      ? t('confirmDelete.worksDescription', { count: state.jobs.length })
+      : state?.kind === 'pack'
+        ? t('confirmDelete.packDescription', { name: state.pack.name })
+        : ''
   const impactItems = state?.kind === 'job'
     ? [
         t('confirmDelete.workMeta', { id: state.job.id }),
         t('confirmDelete.outputMeta'),
         t('confirmDelete.irreversible'),
       ]
-    : state?.kind === 'pack'
+    : state?.kind === 'jobs'
       ? [
-          t('confirmDelete.packMeta', { name: state.pack.name }),
+          t('confirmDelete.worksMeta', { count: state.jobs.length, ids: bulkWorkSummary }),
+          t('confirmDelete.outputMeta'),
           t('confirmDelete.irreversible'),
         ]
-      : []
+      : state?.kind === 'pack'
+        ? [
+            t('confirmDelete.packMeta', { name: state.pack.name }),
+            t('confirmDelete.irreversible'),
+          ]
+        : []
 
   return (
     <Dialog open={Boolean(state)} onOpenChange={(open) => { if (!open && !loading) onCancel() }}>

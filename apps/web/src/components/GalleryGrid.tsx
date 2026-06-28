@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState, type DragEvent, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { CopyPlus, Crosshair, Download, FileDown, PackagePlus, RotateCcw, Trash2, X } from 'lucide-react'
 import { fileName, signedFileUrl, spriteActionsZipUrl } from '../fileUrls'
@@ -19,13 +19,15 @@ import { JobParameterSnapshotDialog } from './JobParameterSnapshotDialog'
 
 const SpriteSequenceAlignmentEditor = lazy(() => import('./SpriteSequenceAlignmentEditor').then((m) => ({ default: m.SpriteSequenceAlignmentEditor })))
 
-type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; galleryQuota?: GalleryQuota | null; showRetentionQuota?: boolean; onExpandGalleryQuota?: () => void; onSelect: (job: GenerationJob) => void; onReuseJob?: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; onActiveActionChange?: (action: SpriteRowAction | null) => void; renderJobBadges?: (job: GenerationJob) => ReactNode; draggableSucceeded?: boolean }
+type GalleryGridProps = { jobs: GenerationJob[]; selectedJobId: number | null; subtitle?: string; retryingJobId?: number | null; galleryQuota?: GalleryQuota | null; showRetentionQuota?: boolean; onExpandGalleryQuota?: () => void; onSelect: (job: GenerationJob) => void; onReuseJob?: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onDeleteJobs?: (jobs: GenerationJob[]) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; onActiveActionChange?: (action: SpriteRowAction | null) => void; renderJobBadges?: (job: GenerationJob) => ReactNode; draggableSucceeded?: boolean }
 type DownloadKind = 'source' | 'pixelized' | 'dual_grid_atlas' | 'dual_grid_preview' | 'sprite_gif' | 'sprite_sheet' | 'sprite_mosaic' | 'sequence_json' | 'contact_sheet' | 'sprite_action_current' | 'sprite_actions_zip'
 type DownloadOption = { id: DownloadKind; label: string; description: string; path: string; url: string; filename: string }
 
-export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, galleryQuota = null, showRetentionQuota = true, onExpandGalleryQuota, onSelect, onReuseJob, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, onActiveActionChange, renderJobBadges, draggableSucceeded = false }: GalleryGridProps) {
+export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = null, galleryQuota = null, showRetentionQuota = true, onExpandGalleryQuota, onSelect, onReuseJob, onCandidatePixelize, onRetryJob, onDeleteJob, onDeleteJobs, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, onActiveActionChange, renderJobBadges, draggableSucceeded = false }: GalleryGridProps) {
   const { t } = useI18n()
   const [page, setPage] = useState(1)
+  const [bulkMode, setBulkMode] = useState(false)
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<number[]>([])
   const pageSize = 48
   const ordered = useMemo(() => [...jobs].sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at))), [jobs])
   const galleryLimit = galleryQuota?.retained_limit ?? 10
@@ -35,12 +37,58 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
   const totalPages = Math.max(1, Math.ceil(ordered.length / pageSize))
   const safePage = Math.min(page, totalPages)
   const visible = ordered.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const deletableJobsById = useMemo(() => new Map(ordered.filter(isBulkDeletableJob).map((job) => [job.id, job])), [ordered])
+  const selectedBulkJobs = useMemo(() => bulkSelectedIds.map((id) => deletableJobsById.get(id)).filter((job): job is GenerationJob => Boolean(job)), [bulkSelectedIds, deletableJobsById])
+  const visibleDeletableJobs = visible.filter(isBulkDeletableJob)
+  const allVisibleSelected = visibleDeletableJobs.length > 0 && visibleDeletableJobs.every((job) => bulkSelectedIds.includes(job.id))
+  const hasBulkActions = Boolean(onDeleteJobs)
+
+  useEffect(() => {
+    setBulkSelectedIds((current) => current.filter((id) => deletableJobsById.has(id)))
+  }, [deletableJobsById])
+
+  function enterBulkMode() {
+    setBulkMode(true)
+    onActiveActionChange?.(null)
+  }
+
+  function exitBulkMode() {
+    setBulkMode(false)
+    setBulkSelectedIds([])
+  }
+
+  function toggleBulkJob(job: GenerationJob, checked?: boolean) {
+    if (!isBulkDeletableJob(job)) return
+    setBulkSelectedIds((current) => {
+      const selected = current.includes(job.id)
+      const nextChecked = checked ?? !selected
+      if (nextChecked && !selected) return [...current, job.id]
+      if (!nextChecked && selected) return current.filter((id) => id !== job.id)
+      return current
+    })
+  }
+
+  function selectVisibleJobs() {
+    const ids = visibleDeletableJobs.map((job) => job.id)
+    setBulkSelectedIds((current) => Array.from(new Set([...current, ...ids])))
+  }
+
+  function clearBulkSelection() {
+    setBulkSelectedIds([])
+  }
+
+  function deleteSelectedJobs() {
+    if (!onDeleteJobs || selectedBulkJobs.length === 0) return
+    void onDeleteJobs(selectedBulkJobs)
+  }
+
+  const panelAction = <div className="flex flex-wrap items-center gap-2"><Badge variant="info">{t('gallery.itemCount', { count: ordered.length })}</Badge>{showRetentionQuota && <Badge variant={galleryUsed >= galleryLimit ? 'warning' : 'outline'}>{t('gallery.retentionQuota', { used: galleryUsed, limit: galleryLimit })}</Badge>}<Badge variant="outline">{t('gallery.page', { page: safePage, total: totalPages })}</Badge>{bulkMode && <Badge variant="secondary">{t('gallery.bulkSelected', { count: selectedBulkJobs.length })}</Badge>}{showRetentionQuota && onExpandGalleryQuota && <Button type="button" size="sm" variant="outline" onClick={onExpandGalleryQuota}>{t('gallery.expandQuotaButton', { price: expandPrice, slots: expandSlots })}</Button>}{hasBulkActions && !bulkMode && <Button type="button" size="sm" variant="outline" disabled={ordered.length === 0} onClick={enterBulkMode}>{t('gallery.bulkSelect')}</Button>}{hasBulkActions && bulkMode && <><Button type="button" size="sm" variant="outline" disabled={visibleDeletableJobs.length === 0 || allVisibleSelected} onClick={selectVisibleJobs}>{t('gallery.bulkSelectPage')}</Button><Button type="button" size="sm" variant="outline" disabled={selectedBulkJobs.length === 0} onClick={clearBulkSelection}>{t('gallery.bulkClear')}</Button><Button type="button" size="sm" variant="destructive" disabled={selectedBulkJobs.length === 0} onClick={deleteSelectedJobs}><Trash2 />{t('gallery.bulkDelete')}</Button><Button type="button" size="sm" variant="ghost" onClick={exitBulkMode}>{t('gallery.bulkExit')}</Button></>}</div>
 
   return (
-    <PixPanel eyebrow={t('gallery.eyebrow')} title={t('gallery.title')} description={subtitle} action={<div className="flex flex-wrap items-center gap-2"><Badge variant="info">{t('gallery.itemCount', { count: ordered.length })}</Badge>{showRetentionQuota && <Badge variant={galleryUsed >= galleryLimit ? 'warning' : 'outline'}>{t('gallery.retentionQuota', { used: galleryUsed, limit: galleryLimit })}</Badge>}<Badge variant="outline">{t('gallery.page', { page: safePage, total: totalPages })}</Badge>{showRetentionQuota && onExpandGalleryQuota && <Button type="button" size="sm" variant="outline" onClick={onExpandGalleryQuota}>{t('gallery.expandQuotaButton', { price: expandPrice, slots: expandSlots })}</Button>}</div>}>
+    <PixPanel eyebrow={t('gallery.eyebrow')} title={t('gallery.title')} description={subtitle} action={panelAction}>
       {ordered.length === 0 ? <div className="rounded-lg border border-dashed border-border bg-muted/45 p-8 text-center text-muted-foreground">{t('gallery.empty')}</div> : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-          {visible.map((job) => <GalleryCard key={job.id} job={job} selected={selectedJobId === job.id} retrying={retryingJobId === job.id} draggable={draggableSucceeded && job.status === 'succeeded'} onSelect={onSelect} onReuseJob={onReuseJob} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} onDeleteJob={onDeleteJob} onSaveToPack={onSaveToPack} onRemoveFromPack={onRemoveFromPack} onSaveSequenceAlignment={onSaveSequenceAlignment} onActiveActionChange={onActiveActionChange} renderJobBadges={renderJobBadges} />)}
+          {visible.map((job) => <GalleryCard key={job.id} job={job} selected={selectedJobId === job.id} bulkMode={bulkMode} bulkSelected={bulkSelectedIds.includes(job.id)} bulkDisabled={!isBulkDeletableJob(job)} retrying={retryingJobId === job.id} draggable={!bulkMode && draggableSucceeded && job.status === 'succeeded'} onSelect={onSelect} onBulkToggle={toggleBulkJob} onReuseJob={onReuseJob} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} onDeleteJob={onDeleteJob} onSaveToPack={onSaveToPack} onRemoveFromPack={onRemoveFromPack} onSaveSequenceAlignment={onSaveSequenceAlignment} onActiveActionChange={onActiveActionChange} renderJobBadges={renderJobBadges} />)}
         </div>
       )}
       {ordered.length > pageSize && <div className="mt-5 flex justify-center gap-2"><Button type="button" variant="outline" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>{t('gallery.previous')}</Button><Button type="button" variant="outline" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>{t('gallery.next')}</Button></div>}
@@ -48,7 +96,11 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
   )
 }
 
-function GalleryCard({ job, selected, retrying, draggable, onSelect, onReuseJob, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, onActiveActionChange, renderJobBadges }: { job: GenerationJob; selected: boolean; retrying: boolean; draggable: boolean; onSelect: (job: GenerationJob) => void; onReuseJob?: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; onActiveActionChange?: (action: SpriteRowAction | null) => void; renderJobBadges?: (job: GenerationJob) => ReactNode }) {
+function isBulkDeletableJob(job: GenerationJob) {
+  return !['pending', 'running'].includes(job.status)
+}
+
+function GalleryCard({ job, selected, bulkMode, bulkSelected, bulkDisabled, retrying, draggable, onSelect, onBulkToggle, onReuseJob, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, onActiveActionChange, renderJobBadges }: { job: GenerationJob; selected: boolean; bulkMode: boolean; bulkSelected: boolean; bulkDisabled: boolean; retrying: boolean; draggable: boolean; onSelect: (job: GenerationJob) => void; onBulkToggle: (job: GenerationJob, checked?: boolean) => void; onReuseJob?: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; onActiveActionChange?: (action: SpriteRowAction | null) => void; renderJobBadges?: (job: GenerationJob) => ReactNode }) {
   const { language, t } = useI18n()
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
   const rowActions = useMemo(() => output ? spriteRowActions(output, t, language) : [], [output, t, language])
@@ -77,6 +129,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onReuseJob,
   const displayName = jobDisplayName(job, t)
   const summary = jobDisplaySummary(job, displayName, t)
   const previewLabel = isActive ? jobStatusLabel(job, t) : selectedAction ? selectedAction.label : displayedSizeRetryCandidate ? candidateLabel(displayedSizeRetryCandidate, t) : job.status === 'succeeded' ? 'PIX' : t('gallery.waitingOutput')
+  const detailsVisible = selected && !bulkMode
   function startDrag(event: DragEvent<HTMLElement>) {
     if (!draggable) return
     event.dataTransfer.effectAllowed = 'copy'
@@ -98,21 +151,27 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onReuseJob,
   return (
     <article
       tabIndex={0}
-      aria-expanded={selected}
+      aria-expanded={bulkMode ? undefined : selected}
+      aria-selected={bulkMode ? bulkSelected : undefined}
+      aria-disabled={bulkMode && bulkDisabled ? true : undefined}
       draggable={draggable}
       onDragStart={startDrag}
-      onClick={() => { onSelect(job); onActiveActionChange?.(selectedAction ?? null) }}
+      onClick={() => { if (bulkMode) { onBulkToggle(job); return } onSelect(job); onActiveActionChange?.(selectedAction ?? null) }}
       onKeyDown={(event) => {
         if (event.currentTarget !== event.target) return
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
+          if (bulkMode) {
+            onBulkToggle(job)
+            return
+          }
           onSelect(job)
           onActiveActionChange?.(selectedAction ?? null)
         }
       }}
-      className={`cursor-pointer overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/55 hover:pix-shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[hsl(var(--pix-dark-card))] ${isActive ? 'pix-work-card-loading' : ''} ${selected ? 'border-primary pix-shadow-raised ring-2 ring-primary/15' : job.status === 'failed' ? 'border-destructive/40' : 'border-border dark:border-[hsl(var(--pix-dark-hairline))]'}`}
+      className={`overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/55 hover:pix-shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[hsl(var(--pix-dark-card))] ${bulkMode && bulkDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} ${isActive ? 'pix-work-card-loading' : ''} ${bulkMode ? (bulkSelected ? 'border-primary bg-primary/5 pix-shadow-raised ring-2 ring-primary/20' : 'border-border dark:border-[hsl(var(--pix-dark-hairline))]') : selected ? 'border-primary pix-shadow-raised ring-2 ring-primary/15' : job.status === 'failed' ? 'border-destructive/40' : 'border-border dark:border-[hsl(var(--pix-dark-hairline))]'}`}
     >
-      <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={spriteFrames} fps={spriteFps} fallbackUrl={previewUrl} loading={isActive} label={previewLabel} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" imageClassName="absolute inset-0 h-full max-h-none w-full p-0 bg-contain" trim ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div></SpriteSequencePreview>
+      <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={spriteFrames} fps={spriteFps} fallbackUrl={previewUrl} loading={isActive} label={previewLabel} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" imageClassName="absolute inset-0 h-full max-h-none w-full p-0 bg-contain" trim ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div>{bulkMode && <div className="absolute left-2 top-2 rounded-lg border border-border bg-card/92 p-1.5 shadow-sm backdrop-blur dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised)/.92)]" onClick={(event) => event.stopPropagation()}><Checkbox checked={bulkSelected} disabled={bulkDisabled} aria-label={t('gallery.bulkToggleWork', { id: job.id })} onCheckedChange={(checked) => onBulkToggle(job, checked === true)} /></div>}</SpriteSequencePreview>
       <div className="grid gap-2.5 p-3">
         <div className="grid gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -123,18 +182,18 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onReuseJob,
             {sizeTag && <Badge variant="outline" className={pixelSizeBadgeClass(sizeTag.size)} title={sizeTag.title}>{sizeTag.label}</Badge>}
           </div>
           {rowActions.length > 1 && <div className="flex flex-wrap gap-1.5" aria-label={t('gallery.actionTags')}>
-            {rowActions.map((action, index) => <button key={`${job.id}-action-${action.rowIndex}`} type="button" title={action.title} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${index === safeSelectedActionIndex ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-muted/45 text-muted-foreground hover:border-primary/45 hover:text-foreground dark:border-[hsl(var(--pix-dark-hairline))]'}`} onClick={(event) => { event.stopPropagation(); setSelectedActionIndex(index); if (selected) onActiveActionChange?.(action) }}>{action.label}</button>)}
+            {rowActions.map((action, index) => <button key={`${job.id}-action-${action.rowIndex}`} type="button" title={action.title} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${index === safeSelectedActionIndex ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-muted/45 text-muted-foreground hover:border-primary/45 hover:text-foreground dark:border-[hsl(var(--pix-dark-hairline))]'}`} onClick={(event) => { event.stopPropagation(); setSelectedActionIndex(index); if (detailsVisible) onActiveActionChange?.(action) }}>{action.label}</button>)}
           </div>}
           <div>
             <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{displayName}</h3>
             <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{summary}</p>
           </div>
         </div>
-        {selected && <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{t('common.points', { count: job.price_credits })}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge>{job.batch_name && <Badge variant="outline">{job.batch_name}</Badge>}<QuickParameterBadges job={job} output={output} /></div>}
-        {selected && job.status === 'failed' && <JobErrorSummary error={job.error_message} compact />}
-        {selected && output && <CandidateMiniGrid job={job} output={output} displayedSizeRetryCandidateKey={displayedSizeRetryCandidateKey} onSizeRetrySelect={(candidate) => setSelectedSizeRetryCandidateKey(candidateKey(candidate))} onCandidatePixelize={onCandidatePixelize} />}
+        {detailsVisible && <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{t('common.points', { count: job.price_credits })}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge>{job.batch_name && <Badge variant="outline">{job.batch_name}</Badge>}<QuickParameterBadges job={job} output={output} /></div>}
+        {detailsVisible && job.status === 'failed' && <JobErrorSummary error={job.error_message} compact />}
+        {detailsVisible && output && <CandidateMiniGrid job={job} output={output} displayedSizeRetryCandidateKey={displayedSizeRetryCandidateKey} onSizeRetrySelect={(candidate) => setSelectedSizeRetryCandidateKey(candidateKey(candidate))} onCandidatePixelize={onCandidatePixelize} />}
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant={selected ? 'default' : 'outline'} onClick={(event) => { event.stopPropagation(); onSelect(job) }}>{selected ? t('gallery.expanded') : t('gallery.details')}</Button>
+          <Button size="sm" variant={detailsVisible ? 'default' : 'outline'} onClick={(event) => { event.stopPropagation(); onSelect(job) }}>{detailsVisible ? t('gallery.expanded') : t('gallery.details')}</Button>
           {onReuseJob && <Button size="sm" variant="outline" title={t('gallery.reuseTitle')} onClick={(event) => { event.stopPropagation(); onReuseJob(job) }}><CopyPlus />{t('gallery.reuse')}</Button>}
           {output && <JobParameterSnapshotDialog job={job} output={output} />}
           {!output && <JobParameterSnapshotDialog job={job} />}

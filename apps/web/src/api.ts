@@ -20,6 +20,7 @@ import type {
   GenerationJob,
   ImageModelsResponse,
   JobBatchCreateResponse,
+  JobBulkDeleteResponse,
   JobCreateRequest,
   BootstrapAdminResponse,
   EmailTestResponse,
@@ -274,6 +275,9 @@ export const api = {
   },
   deleteJob(token: string, jobId: number) {
     return request<{ deleted: boolean }>(`/jobs/${jobId}`, { method: 'DELETE' }, token)
+  },
+  deleteJobs(token: string, jobIds: number[]) {
+    return request<JobBulkDeleteResponse>('/jobs/bulk-delete', { method: 'POST', body: JSON.stringify({ job_ids: jobIds }) }, token)
   },
   createJobsBatch(token: string, payloads: JobCreateRequest[], batchName = '', mode = 'mixed') {
     return request<JobBatchCreateResponse>('/jobs/batch', { method: 'POST', body: JSON.stringify({ jobs: payloads, batch_name: batchName, mode }) }, token)

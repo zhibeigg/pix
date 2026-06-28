@@ -558,6 +558,25 @@ class JobBatchCreateRequest(BaseModel):
     mode: str = Field(default="mixed", max_length=32)
 
 
+class JobBulkDeleteRequest(BaseModel):
+    job_ids: list[int] = Field(min_length=1, max_length=200)
+
+    @field_validator("job_ids")
+    @classmethod
+    def _normalize_job_ids(cls, value: list[int]) -> list[int]:
+        normalized: list[int] = []
+        seen: set[int] = set()
+        for raw_id in value:
+            job_id = int(raw_id)
+            if job_id <= 0:
+                raise ValueError("作品 ID 必须为正整数")
+            if job_id in seen:
+                continue
+            seen.add(job_id)
+            normalized.append(job_id)
+        return normalized
+
+
 class SequenceFrameAlignmentSchema(BaseModel):
     index: int = Field(ge=1, le=128)
     offset_x: int = Field(default=0, ge=-4096, le=4096)
@@ -996,6 +1015,12 @@ class JobBatchCreateResponse(BaseModel):
     jobs: list[JobResponse]
     total_price_credits: int
     batch_id: int | None = None
+
+
+class JobBulkDeleteResponse(BaseModel):
+    deleted: bool = True
+    deleted_count: int
+    job_ids: list[int]
 
 
 class GenerationBatchResponse(BaseModel):

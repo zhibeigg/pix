@@ -17,8 +17,8 @@ from pix_web.credits import InsufficientCreditsError, insufficient_credits_http,
 from pix_web.jobs import create_job, create_jobs_batch, retry_failed_job
 from pix_web.models import GenerationJob, User
 from pix_web.queue import enqueue_jobs
-from pix_web.retention import GALLERY_EXPAND_PRICE_CREDITS, GALLERY_EXPAND_SLOTS, delete_user_job, effective_gallery_limit, get_or_create_gallery_quota, prune_user_photos, retained_photo_count
-from pix_web.schemas import GalleryQuotaResponse, JobBatchCreateRequest, JobBatchCreateResponse, JobCreateRequest, JobResponse, SequenceAlignmentRequest, public_job_response
+from pix_web.retention import GALLERY_EXPAND_PRICE_CREDITS, GALLERY_EXPAND_SLOTS, delete_user_job, delete_user_jobs, effective_gallery_limit, get_or_create_gallery_quota, prune_user_photos, retained_photo_count
+from pix_web.schemas import GalleryQuotaResponse, JobBatchCreateRequest, JobBatchCreateResponse, JobBulkDeleteRequest, JobBulkDeleteResponse, JobCreateRequest, JobResponse, SequenceAlignmentRequest, public_job_response
 from pix_web.sequence_alignment import apply_sequence_alignment
 from pix_web.routers.files import _file_user
 from pix_web.security import get_current_user, get_db, get_settings
@@ -162,6 +162,18 @@ def create_batch(
         total_price_credits=total_price,
         batch_id=batch.id if batch else None,
     )
+
+
+@router.post("/bulk-delete", response_model=JobBulkDeleteResponse)
+def bulk_delete_jobs(
+    req: JobBulkDeleteRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> JobBulkDeleteResponse:
+    deleted_ids = delete_user_jobs(db, user.id, req.job_ids, settings)
+    db.commit()
+    return JobBulkDeleteResponse(deleted=True, deleted_count=len(deleted_ids), job_ids=deleted_ids)
 
 
 @router.get("", response_model=list[JobResponse])
