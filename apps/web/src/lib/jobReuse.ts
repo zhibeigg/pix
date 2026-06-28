@@ -1,4 +1,4 @@
-import type { GenerationJob, JobType, PixelizeParams, TextureKind } from '../types'
+import type { GenerationJob, JobType, PixelizeParams, SizeRetryMode, TextureKind } from '../types'
 import type { BgRemovalAlgorithmChoice, EdgeStyleChoice } from '../pixelize'
 
 export type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo' | 'dual_grid'
@@ -12,16 +12,68 @@ function stringValue(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
+function numberValue(value: unknown): number | null {
+  const next = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
+  return Number.isFinite(next) ? next : null
+}
+
 /** 把任务里存的 asset_kind（含历史/本地化写法）归一到当前可选的素材类型。 */
 export function parseAssetKind(value: unknown): AssetKindChoice | null {
   const raw = stringValue(value).trim()
   const normalized = raw.toLocaleLowerCase().replace(/[\s\-/]+/g, '_')
-  if (normalized === 'item_icon' || normalized === 'itemicon' || raw === '物品图标') return 'item_icon'
-  if (normalized === 'ui_component' || normalized === 'uicomponent' || raw === 'UI 组件' || raw === '界面组件') return 'ui_component'
-  if (normalized === 'tile_texture' || normalized === 'tileable_texture' || normalized === 'tileabletexture' || raw === '平铺纹理' || raw === '无缝纹理') return 'tile_texture'
+  if (normalized === 'item_icon' || normalized === 'itemicon' || normalized === 'item' || normalized === 'icon' || raw === '物品图标') return 'item_icon'
+  if (normalized === 'ui_component' || normalized === 'uicomponent' || normalized === 'ui' || raw === 'UI 组件' || raw === '界面组件') return 'ui_component'
+  if (normalized === 'tile_texture' || normalized === 'tileable_texture' || normalized === 'tileabletexture' || normalized === 'tile' || normalized === 'texture' || raw === '平铺纹理' || raw === '无缝纹理') return 'tile_texture'
   if (normalized === 'game_logo' || normalized === 'gamelogo' || normalized === 'logo' || normalized === 'logo_mark' || normalized === '游戏_logo' || raw === '游戏 Logo' || raw === '游戏Logo') return 'game_logo'
-  if (normalized === 'dual_grid' || normalized === 'dualgrid' || normalized === 'dual_grid_tileset' || raw === '双瓦片' || raw === '过渡瓦片') return 'dual_grid'
+  if (normalized === 'dual_grid' || normalized === 'dualgrid' || normalized === 'dual_grid_tileset' || normalized === 'tileset' || raw === '双瓦片' || raw === '过渡瓦片') return 'dual_grid'
   return null
+}
+
+/**
+ * 复用作品时解析素材类型。部分历史任务虽然 `asset_kind` 缺省为 item_icon，
+ * 但仍保存了 subject_kind / texture_kind / material_* 等更具体字段；这里用这些字段兜底，
+ * 避免点击「复用」后素材类型被错误回填成物品图标。
+ */
+export function resolveReusableAssetKind(asset: unknown): AssetKindChoice | null {
+  const data = asRecord(asset)
+  if (!data) return null
+  const materialA = stringValue(data.material_a).trim()
+  if (materialA) return 'dual_grid'
+
+  const direct = parseAssetKind(data.asset_kind)
+  if (direct && direct !== 'item_icon') return direct
+
+  const subjectKind = stringValue(data.subject_kind).trim().toLocaleLowerCase()
+  if (subjectKind === 'single_ui') return 'ui_component'
+  if (subjectKind === 'logo_mark') return 'game_logo'
+  if (subjectKind === 'tileable_pattern') return 'tile_texture'
+
+  const textureKind = stringValue(data.texture_kind).trim()
+  if (textureKind && textureKind !== 'auto') return 'tile_texture'
+  return direct ?? 'item_icon'
+}
+
+export type ReuseSizeRetryState = {
+  enabled: boolean
+  mode: SizeRetryMode
+  maxAttempts: number
+  maxCredits: number
+}
+
+export function sizeRetryStateFromJob(job: GenerationJob): ReuseSizeRetryState {
+  const params = asRecord(job.params_json) ?? {}
+  const retry = asRecord(params.size_retry)
+  if (!retry || retry.enabled !== true) return { enabled: false, mode: 'attempts', maxAttempts: 3, maxCredits: 0 }
+  const mode: SizeRetryMode = retry.mode === 'credits' ? 'credits' : 'attempts'
+  const maxAttempts = Math.max(1, Math.round(numberValue(retry.max_attempts) ?? 3))
+  const explicitMaxCredits = numberValue(params.size_retry_max_credits) ?? numberValue(retry.max_credits)
+  const perAttempt = Math.max(0, Math.round(numberValue(retry.per_attempt) ?? 0))
+  return {
+    enabled: true,
+    mode,
+    maxAttempts,
+    maxCredits: Math.max(0, Math.round(explicitMaxCredits ?? (mode === 'credits' ? perAttempt * maxAttempts : 0))),
+  }
 }
 
 export type AssetKindDefaults = {

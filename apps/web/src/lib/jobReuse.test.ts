@@ -7,7 +7,9 @@ import {
   jobTypeDefaults,
   mergeReusedPixelize,
   parseAssetKind,
+  resolveReusableAssetKind,
   reusableWorkbenchType,
+  sizeRetryStateFromJob,
 } from './jobReuse'
 
 function makeJob(partial: Partial<GenerationJob> & { params_json?: Record<string, unknown> }): GenerationJob {
@@ -60,6 +62,25 @@ describe('parseAssetKind', () => {
   })
 })
 
+describe('resolveReusableAssetKind', () => {
+  test('uses explicit canonical asset_kind when present', () => {
+    expect(resolveReusableAssetKind({ asset_kind: 'game_logo', subject_kind: 'single_prop' })).toBe('game_logo')
+    expect(resolveReusableAssetKind({ asset_kind: 'tile_texture' })).toBe('tile_texture')
+  })
+
+  test('recovers legacy asset type from subject/material fields when asset_kind stayed default', () => {
+    expect(resolveReusableAssetKind({ asset_kind: 'item_icon', subject_kind: 'single_ui' })).toBe('ui_component')
+    expect(resolveReusableAssetKind({ asset_kind: 'item_icon', subject_kind: 'logo_mark' })).toBe('game_logo')
+    expect(resolveReusableAssetKind({ asset_kind: 'item_icon', subject_kind: 'tileable_pattern' })).toBe('tile_texture')
+    expect(resolveReusableAssetKind({ asset_kind: 'item_icon', material_a: '草地', material_b: '泥土' })).toBe('dual_grid')
+  })
+
+  test('falls back to item icon for empty/default asset data', () => {
+    expect(resolveReusableAssetKind({})).toBe('item_icon')
+    expect(resolveReusableAssetKind(null)).toBeNull()
+  })
+})
+
 describe('assetKindDefaults', () => {
   test('tile_texture fills the canvas and drops transparent bg', () => {
     expect(assetKindDefaults('tile_texture')).toMatchObject({ pixelSize: '32x32', colors: 12, removeBg: false, edgeStyle: 'hard', clearAssetRef: true })
@@ -103,6 +124,27 @@ describe('mergeReusedPixelize', () => {
   test('returns just the overrides when there is no reused pixelize', () => {
     expect(mergeReusedPixelize(null, { output_size: [16, 16], colors: 8 })).toEqual({ output_size: [16, 16], colors: 8 })
     expect(mergeReusedPixelize(undefined, { colors: 8 })).toEqual({ colors: 8 })
+  })
+})
+
+describe('sizeRetryStateFromJob', () => {
+  test('returns disabled defaults when the job has no size retry metadata', () => {
+    expect(sizeRetryStateFromJob(makeJob({ params_json: {} }))).toEqual({ enabled: false, mode: 'attempts', maxAttempts: 3, maxCredits: 0 })
+  })
+
+  test('restores attempts mode from saved retry plan', () => {
+    const job = makeJob({ params_json: { size_retry: { enabled: true, mode: 'attempts', max_attempts: 5, per_attempt: 4 } } })
+    expect(sizeRetryStateFromJob(job)).toEqual({ enabled: true, mode: 'attempts', maxAttempts: 5, maxCredits: 0 })
+  })
+
+  test('restores credits mode and estimates legacy max credits when only per_attempt is saved', () => {
+    const job = makeJob({ params_json: { size_retry: { enabled: true, mode: 'credits', max_attempts: 4, per_attempt: 6 } } })
+    expect(sizeRetryStateFromJob(job)).toEqual({ enabled: true, mode: 'credits', maxAttempts: 4, maxCredits: 24 })
+  })
+
+  test('uses explicit max credits saved by newer jobs', () => {
+    const job = makeJob({ params_json: { size_retry_max_credits: 80, size_retry: { enabled: true, mode: 'credits', max_attempts: 8, per_attempt: 6 } } })
+    expect(sizeRetryStateFromJob(job).maxCredits).toBe(80)
   })
 })
 

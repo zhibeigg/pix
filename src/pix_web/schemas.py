@@ -679,8 +679,8 @@ class JobOutputResponse(BaseModel):
                     }
                 )
 
-        # 尺寸重试不是 contact sheet，但交互上同样是一组可选结果；复用 candidates 字段
-        # 可以让作品库/队列沿用现有缩略图与“重调/采用”入口，同时不改变 DB 的单输出结构。
+        # 尺寸重试不是 contact sheet，但交互上同样是一组可选结果；复用 candidates 字段。
+        # 前端对尺寸重试尝试做纯展示切换（预览/下载），普通 contact sheet 候选才进入本地像素化。
         size_retry = _size_retry_meta(self.meta_json_path)
         raw_attempts = size_retry.get("attempts")
         if isinstance(raw_attempts, list):

@@ -53,22 +53,30 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onReuseJob,
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
   const rowActions = useMemo(() => output ? spriteRowActions(output, t, language) : [], [output, t, language])
   const [selectedActionIndex, setSelectedActionIndex] = useState(0)
+  const [selectedSizeRetryCandidateKey, setSelectedSizeRetryCandidateKey] = useState<string | null>(null)
   const safeSelectedActionIndex = rowActions.length > 0 ? Math.min(selectedActionIndex, rowActions.length - 1) : 0
   const selectedAction = rowActions[safeSelectedActionIndex]
-  const downloadOptions = useMemo(() => output ? buildDownloadOptions(job, output, t, rowActions, selectedAction) : [], [job, output, t, rowActions, selectedAction])
+  const sizeRetryCandidates = output?.candidates?.filter(isSizeRetryCandidate) ?? []
+  const defaultSizeRetryCandidate = sizeRetryCandidates.find((candidate) => candidate.selected) ?? null
+  const selectedSizeRetryCandidate = selectedSizeRetryCandidateKey ? sizeRetryCandidates.find((candidate) => candidateKey(candidate) === selectedSizeRetryCandidateKey) ?? null : null
+  const displayedSizeRetryCandidate = selectedSizeRetryCandidate ?? defaultSizeRetryCandidate
+  const displayedSizeRetryCandidateKey = displayedSizeRetryCandidate ? candidateKey(displayedSizeRetryCandidate) : null
+  const downloadOptions = useMemo(() => output ? buildDownloadOptions(job, output, t, rowActions, selectedAction, displayedSizeRetryCandidate) : [], [job, output, t, rowActions, selectedAction, displayedSizeRetryCandidate])
   const alignmentOutput = useMemo(() => output ? actionScopedOutput(output, selectedAction) : undefined, [output, selectedAction])
   const [alignmentOpen, setAlignmentOpen] = useState(false)
   const [savingAlignment, setSavingAlignment] = useState(false)
   const isActive = isActiveJob(job)
   const actionPreviewUrl = selectedAction ? signedFileUrl(selectedAction.gifUrl || selectedAction.sheetUrl || undefined) : null
-  const previewUrl = isActive ? null : actionPreviewUrl ?? (output ? signedFileUrl(output.dual_grid_preview_url || output.pixelized_url || output.preview_url || output.source_url || undefined) : signedFileUrl(job.input_image_url))
-  const spriteSheetUrl = isActive || selectedAction ? null : signedFileUrl(output?.sprite_sheet_url || undefined)
-  const spriteFrames = selectedAction ? [] : (output?.sprite_frames ?? [])
+  const sizeRetryPreviewUrl = displayedSizeRetryCandidate ? signedFileUrl(displayedSizeRetryCandidate.preview_url ?? displayedSizeRetryCandidate.pixelized_url ?? displayedSizeRetryCandidate.url ?? undefined) : null
+  const previewUrl = isActive ? null : actionPreviewUrl || sizeRetryPreviewUrl || (output ? signedFileUrl(output.dual_grid_preview_url || output.pixelized_url || output.preview_url || output.source_url || undefined) : signedFileUrl(job.input_image_url))
+  const spriteSheetUrl = isActive || selectedAction || displayedSizeRetryCandidate ? null : signedFileUrl(output?.sprite_sheet_url || undefined)
+  const spriteFrames = selectedAction || displayedSizeRetryCandidate ? [] : (output?.sprite_frames ?? [])
   const spriteFps = spriteFpsFromJob(job)
   const typeLabel = jobTypeLabel(job.job_type, language)
-  const sizeTag = jobPixelSizeTag(job, output)
+  const sizeTag = sizeRetryPixelSizeTag(displayedSizeRetryCandidate) ?? jobPixelSizeTag(job, output)
   const displayName = jobDisplayName(job, t)
   const summary = jobDisplaySummary(job, displayName, t)
+  const previewLabel = isActive ? jobStatusLabel(job, t) : selectedAction ? selectedAction.label : displayedSizeRetryCandidate ? candidateLabel(displayedSizeRetryCandidate, t) : job.status === 'succeeded' ? 'PIX' : t('gallery.waitingOutput')
   function startDrag(event: DragEvent<HTMLElement>) {
     if (!draggable) return
     event.dataTransfer.effectAllowed = 'copy'
@@ -104,7 +112,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onReuseJob,
       }}
       className={`cursor-pointer overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/55 hover:pix-shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[hsl(var(--pix-dark-card))] ${isActive ? 'pix-work-card-loading' : ''} ${selected ? 'border-primary pix-shadow-raised ring-2 ring-primary/15' : job.status === 'failed' ? 'border-destructive/40' : 'border-border dark:border-[hsl(var(--pix-dark-hairline))]'}`}
     >
-      <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={spriteFrames} fps={spriteFps} fallbackUrl={previewUrl} loading={isActive} label={isActive ? jobStatusLabel(job, t) : selectedAction ? selectedAction.label : job.status === 'succeeded' ? 'PIX' : t('gallery.waitingOutput')} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" imageClassName="absolute inset-0 h-full max-h-none w-full p-0 bg-contain" trim ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div></SpriteSequencePreview>
+      <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={spriteFrames} fps={spriteFps} fallbackUrl={previewUrl} loading={isActive} label={previewLabel} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" imageClassName="absolute inset-0 h-full max-h-none w-full p-0 bg-contain" trim ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div></SpriteSequencePreview>
       <div className="grid gap-2.5 p-3">
         <div className="grid gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -124,7 +132,7 @@ function GalleryCard({ job, selected, retrying, draggable, onSelect, onReuseJob,
         </div>
         {selected && <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{t('common.points', { count: job.price_credits })}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge>{job.batch_name && <Badge variant="outline">{job.batch_name}</Badge>}<QuickParameterBadges job={job} output={output} /></div>}
         {selected && job.status === 'failed' && <JobErrorSummary error={job.error_message} compact />}
-        {selected && output && <CandidateMiniGrid job={job} output={output} onCandidatePixelize={onCandidatePixelize} />}
+        {selected && output && <CandidateMiniGrid job={job} output={output} displayedSizeRetryCandidateKey={displayedSizeRetryCandidateKey} onSizeRetrySelect={(candidate) => setSelectedSizeRetryCandidateKey(candidateKey(candidate))} onCandidatePixelize={onCandidatePixelize} />}
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant={selected ? 'default' : 'outline'} onClick={(event) => { event.stopPropagation(); onSelect(job) }}>{selected ? t('gallery.expanded') : t('gallery.details')}</Button>
           {onReuseJob && <Button size="sm" variant="outline" title={t('gallery.reuseTitle')} onClick={(event) => { event.stopPropagation(); onReuseJob(job) }}><CopyPlus />{t('gallery.reuse')}</Button>}
@@ -262,15 +270,52 @@ function jobStatusLabel(job: GenerationJob, t: (key: string, options?: Record<st
   return job.status === 'pending' ? t('jobs.status.pending') : job.status === 'running' ? t('jobs.status.running') : t('gallery.waitingOutput')
 }
 
-function CandidateMiniGrid({ job, output, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
+function CandidateMiniGrid({ job, output, displayedSizeRetryCandidateKey, onSizeRetrySelect, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; displayedSizeRetryCandidateKey?: string | null; onSizeRetrySelect?: (candidate: ContactSheetCandidate) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
   const { t } = useI18n()
   const candidates = output.candidates ?? []
   if (!candidates.length) return null
-  return <div className="grid grid-cols-3 gap-2">{candidates.map((candidate) => <button type="button" key={`${candidate.candidate_kind ?? 'candidate'}-${candidate.path}`} className={`min-h-[44px] rounded-lg border bg-muted/35 p-2 text-xs transition hover:border-primary/45 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))] ${candidate.selected ? 'border-primary ring-1 ring-primary/30' : 'border-border'}`} onClick={(event) => { event.stopPropagation(); void onCandidatePixelize?.(job, candidate) }} title={candidateTooltip(candidate, t)}><img src={signedFileUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={candidateLabel(candidate, t)} className="mx-auto aspect-square w-full object-contain [image-rendering:pixelated]" /><span className="mt-1 block">{candidateLabel(candidate, t)}</span>{candidate.candidate_kind === 'size_retry_attempt' && <span className="mt-1 flex flex-wrap justify-center gap-1">{candidate.matched && <Badge variant="success">{t('gallery.sizeRetryMatched')}</Badge>}{candidate.selected && <Badge variant="outline">{t('gallery.delivered')}</Badge>}</span>}</button>)}</div>
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {candidates.map((candidate) => {
+        const sizeRetry = isSizeRetryCandidate(candidate)
+        const displayed = sizeRetry && displayedSizeRetryCandidateKey === candidateKey(candidate)
+        const highlighted = sizeRetry ? displayed || (!displayedSizeRetryCandidateKey && candidate.selected) : candidate.selected
+        return (
+          <button
+            type="button"
+            key={`${candidate.candidate_kind ?? 'candidate'}-${candidate.path}`}
+            aria-pressed={sizeRetry ? highlighted : undefined}
+            className={`min-h-[44px] rounded-lg border bg-muted/35 p-2 text-xs transition hover:border-primary/45 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))] ${highlighted ? 'border-primary ring-1 ring-primary/30' : 'border-border'}`}
+            onClick={(event) => {
+              event.stopPropagation()
+              if (sizeRetry) {
+                onSizeRetrySelect?.(candidate)
+                return
+              }
+              void onCandidatePixelize?.(job, candidate)
+            }}
+            title={candidateTooltip(candidate, t)}
+          >
+            <img src={signedFileUrl(candidate.preview_url ?? candidate.pixelized_url ?? candidate.url ?? undefined)} alt={candidateLabel(candidate, t)} className="mx-auto aspect-square w-full object-contain [image-rendering:pixelated]" />
+            <span className="mt-1 block">{candidateLabel(candidate, t)}</span>
+            {sizeRetry && <span className="mt-1 flex flex-wrap justify-center gap-1">{candidate.matched && <Badge variant="success">{t('gallery.sizeRetryMatched')}</Badge>}{candidate.selected && <Badge variant="outline">{t('gallery.delivered')}</Badge>}{displayed && !candidate.selected && <Badge variant="outline">{t('gallery.displaying')}</Badge>}</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function isSizeRetryCandidate(candidate: ContactSheetCandidate) {
+  return candidate.candidate_kind === 'size_retry_attempt'
+}
+
+function candidateKey(candidate: ContactSheetCandidate) {
+  return `${candidate.candidate_kind ?? 'candidate'}-${candidate.path || candidate.pixelized_path || candidate.preview_path || candidate.index}`
 }
 
 function candidateLabel(candidate: ContactSheetCandidate, t: (key: string, options?: Record<string, unknown>) => string) {
-  if (candidate.candidate_kind === 'size_retry_attempt') {
+  if (isSizeRetryCandidate(candidate)) {
     const index = candidate.attempt ?? candidate.index
     const size = formatCandidateSize(candidate.final_size)
     return size ? t('gallery.sizeRetryAttemptWithSize', { index, size }) : t('gallery.sizeRetryAttempt', { index })
@@ -280,7 +325,7 @@ function candidateLabel(candidate: ContactSheetCandidate, t: (key: string, optio
 
 function candidateTooltip(candidate: ContactSheetCandidate, t: (key: string, options?: Record<string, unknown>) => string) {
   if (candidate.reason) return candidate.reason
-  if (candidate.candidate_kind === 'size_retry_attempt') {
+  if (isSizeRetryCandidate(candidate)) {
     const target = formatCandidateSize(candidate.target_size)
     const finalSize = formatCandidateSize(candidate.final_size)
     if (target && finalSize) return t('gallery.sizeRetryTooltip', { target, finalSize })
@@ -345,22 +390,38 @@ function actionLabelFromPhase(phase: string, rowIndex: number, t: (key: string, 
   return t('gallery.actionFallback', { index: rowIndex + 1 })
 }
 
-function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: string, options?: Record<string, unknown>) => string, rowActions: SpriteRowAction[], selectedAction: SpriteRowAction | undefined): DownloadOption[] {
-  const isSpriteOutput = job.job_type === 'sprite_sheet' || output.sprite_frames.length > 0 || Boolean(output.sprite_sheet_url || output.sprite_mosaic_url || output.sequence_json_url)
-  const isDualGridOutput = Boolean(output.dual_grid_atlas_url || output.dual_grid_preview_url)
+function outputWithSizeRetryCandidate(output: JobOutput, candidate: ContactSheetCandidate): JobOutput {
+  const pixelizedUrl = candidate.pixelized_url ?? candidate.url ?? output.pixelized_url
+  const pixelizedPath = candidate.pixelized_path || candidate.path || output.pixelized_path
+  return {
+    ...output,
+    source_path: candidate.source_path || output.source_path,
+    source_url: candidate.source_url ?? output.source_url,
+    pixelized_path: pixelizedPath,
+    pixelized_url: pixelizedUrl,
+    pixelized_size: candidate.final_size ?? output.pixelized_size,
+    preview_path: candidate.preview_path ?? output.preview_path,
+    preview_url: candidate.preview_url ?? pixelizedUrl ?? output.preview_url,
+  }
+}
+
+function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: string, options?: Record<string, unknown>) => string, rowActions: SpriteRowAction[], selectedAction: SpriteRowAction | undefined, displayedSizeRetryCandidate?: ContactSheetCandidate | null): DownloadOption[] {
+  const downloadOutput = displayedSizeRetryCandidate ? outputWithSizeRetryCandidate(output, displayedSizeRetryCandidate) : output
+  const isSpriteOutput = job.job_type === 'sprite_sheet' || downloadOutput.sprite_frames.length > 0 || Boolean(downloadOutput.sprite_sheet_url || downloadOutput.sprite_mosaic_url || downloadOutput.sequence_json_url)
+  const isDualGridOutput = Boolean(downloadOutput.dual_grid_atlas_url || downloadOutput.dual_grid_preview_url)
   const specs: Array<{ id: DownloadKind; label: string; description: string; path?: string | null; url?: string | null; fallback: string }> = isSpriteOutput ? [
-    { id: 'sprite_gif', label: t('downloads.spriteGif'), description: t('downloads.spriteGifDescription'), path: output.sprite_gif_path, url: output.sprite_gif_url, fallback: 'sprite.gif' },
-    { id: 'sprite_sheet', label: t('downloads.spriteSheet'), description: t('downloads.spriteSheetDescription'), path: output.sprite_sheet_path || output.pixelized_path, url: output.sprite_sheet_url || output.pixelized_url, fallback: 'sprite-sheet.png' },
-    { id: 'sprite_mosaic', label: t('downloads.spriteMosaic'), description: t('downloads.spriteMosaicDescription'), path: output.sprite_mosaic_path || output.source_path, url: output.sprite_mosaic_url || output.source_url, fallback: 'sprite-mosaic.png' },
-    { id: 'sequence_json', label: t('downloads.sequenceJson'), description: t('downloads.sequenceJsonDescription'), path: output.sequence_json_path, url: output.sequence_json_url, fallback: 'sequence.json' },
+    { id: 'sprite_gif', label: t('downloads.spriteGif'), description: t('downloads.spriteGifDescription'), path: downloadOutput.sprite_gif_path, url: downloadOutput.sprite_gif_url, fallback: 'sprite.gif' },
+    { id: 'sprite_sheet', label: t('downloads.spriteSheet'), description: t('downloads.spriteSheetDescription'), path: downloadOutput.sprite_sheet_path || downloadOutput.pixelized_path, url: downloadOutput.sprite_sheet_url || downloadOutput.pixelized_url, fallback: 'sprite-sheet.png' },
+    { id: 'sprite_mosaic', label: t('downloads.spriteMosaic'), description: t('downloads.spriteMosaicDescription'), path: downloadOutput.sprite_mosaic_path || downloadOutput.source_path, url: downloadOutput.sprite_mosaic_url || downloadOutput.source_url, fallback: 'sprite-mosaic.png' },
+    { id: 'sequence_json', label: t('downloads.sequenceJson'), description: t('downloads.sequenceJsonDescription'), path: downloadOutput.sequence_json_path, url: downloadOutput.sequence_json_url, fallback: 'sequence.json' },
   ] : isDualGridOutput ? [
-    { id: 'dual_grid_atlas', label: t('downloads.dualGridAtlas'), description: t('downloads.dualGridAtlasDescription'), path: output.dual_grid_atlas_path || output.pixelized_path, url: output.dual_grid_atlas_url || output.pixelized_url, fallback: 'dual_grid_atlas.png' },
-    { id: 'dual_grid_preview', label: t('downloads.dualGridPreview'), description: t('downloads.dualGridPreviewDescription'), path: output.dual_grid_preview_path || output.preview_path, url: output.dual_grid_preview_url || output.preview_url, fallback: 'dual_grid_preview.png' },
-    { id: 'source', label: t('downloads.source'), description: t('downloads.sourceDescription'), path: output.source_path, url: output.source_url, fallback: '01_source.png' },
+    { id: 'dual_grid_atlas', label: t('downloads.dualGridAtlas'), description: t('downloads.dualGridAtlasDescription'), path: downloadOutput.dual_grid_atlas_path || downloadOutput.pixelized_path, url: downloadOutput.dual_grid_atlas_url || downloadOutput.pixelized_url, fallback: 'dual_grid_atlas.png' },
+    { id: 'dual_grid_preview', label: t('downloads.dualGridPreview'), description: t('downloads.dualGridPreviewDescription'), path: downloadOutput.dual_grid_preview_path || downloadOutput.preview_path, url: downloadOutput.dual_grid_preview_url || downloadOutput.preview_url, fallback: 'dual_grid_preview.png' },
+    { id: 'source', label: t('downloads.source'), description: t('downloads.sourceDescription'), path: downloadOutput.source_path, url: downloadOutput.source_url, fallback: '01_source.png' },
   ] : [
-    { id: 'source', label: t('downloads.source'), description: t('downloads.sourceDescription'), path: output.source_path, url: output.source_url, fallback: '01_source.png' },
-    { id: 'pixelized', label: t('downloads.pixelized'), description: t('downloads.pixelizedDescription'), path: output.pixelized_path, url: output.pixelized_url, fallback: '03_pixelized.png' },
-    { id: 'contact_sheet', label: t('downloads.contactSheet'), description: t('downloads.contactSheetDescription'), path: output.contact_sheet_path, url: output.contact_sheet_url, fallback: 'contact-sheet.png' },
+    { id: 'source', label: t('downloads.source'), description: t('downloads.sourceDescription'), path: downloadOutput.source_path, url: downloadOutput.source_url, fallback: '01_source.png' },
+    { id: 'pixelized', label: t('downloads.pixelized'), description: t('downloads.pixelizedDescription'), path: downloadOutput.pixelized_path, url: downloadOutput.pixelized_url, fallback: '03_pixelized.png' },
+    { id: 'contact_sheet', label: t('downloads.contactSheet'), description: t('downloads.contactSheetDescription'), path: downloadOutput.contact_sheet_path, url: downloadOutput.contact_sheet_url, fallback: 'contact-sheet.png' },
   ]
   const seen = new Set<string>()
   const options = specs.flatMap((spec) => {
@@ -466,6 +527,17 @@ function jobDisplaySummary(job: GenerationJob, displayName: string, t: (key: str
   if (extraPrompt) return clampText(extraPrompt, 96)
   const summary = jobInputSummary(job, t('gallery.noInputSummary'))
   return summary === displayName ? t('gallery.expandHint') : summary
+}
+
+function sizeRetryPixelSizeTag(candidate?: ContactSheetCandidate | null): { size: [number, number]; label: string; title: string } | null {
+  const size = asNumberPair(candidate?.final_size)
+  if (!size) return null
+  const [width, height] = size
+  return {
+    size,
+    label: width === height ? `${width}x` : `${width}×${height}`,
+    title: `当前显示尺寸重试尝试：${width}×${height}`,
+  }
 }
 
 function jobPixelSizeTag(job: GenerationJob, output?: JobOutput): { size: [number, number]; label: string; title: string } | null {

@@ -520,6 +520,7 @@ export const zhCN = {
     expandHint: '点击卡片展开查看生成结果。',
     candidate: '候选 {{index}}',
     delivered: '已交付',
+    displaying: '已显示',
     sizeRetryAttempt: '尝试 {{index}}',
     sizeRetryAttemptWithSize: '尝试 {{index}} · {{size}}',
     sizeRetryMatched: '命中',

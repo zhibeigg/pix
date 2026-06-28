@@ -520,6 +520,7 @@ export const en = {
     expandHint: 'Click the card to expand generated results.',
     candidate: 'Candidate {{index}}',
     delivered: 'Delivered',
+    displaying: 'Displayed',
     sizeRetryAttempt: 'Try {{index}}',
     sizeRetryAttemptWithSize: 'Try {{index}} · {{size}}',
     sizeRetryMatched: 'Matched',

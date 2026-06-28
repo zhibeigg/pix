@@ -5,7 +5,7 @@ import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule, TextureKind } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type BgRemovalAlgorithmChoice, type EdgeStyleChoice } from '../pixelize'
-import { assetKindDefaults, jobTypeDefaults, mergeReusedPixelize, parseAssetKind, reusableWorkbenchType, type AssetKindChoice, type DualGridTransitionStyle } from '../lib/jobReuse'
+import { assetKindDefaults, jobTypeDefaults, mergeReusedPixelize, parseAssetKind, resolveReusableAssetKind, reusableWorkbenchType, sizeRetryStateFromJob, type AssetKindChoice, type DualGridTransitionStyle } from '../lib/jobReuse'
 import { promptLimitsFromModels } from '../lib/promptLimits'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -316,6 +316,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   function selectAssetKind(kind: AssetKindChoice) {
     reusedPixelizeRef.current = null
     setReuseModelMissing(false)
+    setSizeRetry(DEFAULT_SIZE_RETRY)
     setAssetKind(kind)
     applyAssetKindDefaults(kind)
   }
@@ -323,6 +324,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   function selectJobType(next: JobType) {
     reusedPixelizeRef.current = null
     setReuseModelMissing(false)
+    setSizeRetry(DEFAULT_SIZE_RETRY)
     setJobType(next)
     if (next === 'asset') { applyAssetKindDefaults(assetKind); return }
     const d = jobTypeDefaults(next)
@@ -347,7 +349,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     const sprite = asRecord(params?.sprite)
     const asset = asRecord(params?.asset)
     const nextJobType = reusableWorkbenchType(job)
-    const nextAssetKind = parseAssetKind(asset?.asset_kind) ?? 'item_icon'
+    const nextAssetKind = resolveReusableAssetKind(asset) ?? 'item_icon'
     const nextTextureKind = textureKindValue(asset?.texture_kind) ?? 'auto'
     const nextDualMaterialATextureKind = textureKindValue(asset?.material_a_texture_kind) ?? 'auto'
     const nextDualMaterialBTextureKind = textureKindValue(asset?.material_b_texture_kind) ?? 'auto'
@@ -371,6 +373,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     if (reusedEdgeStyle) setEdgeStyle(reusedEdgeStyle)
     setBgRemovalAlgorithm(bgRemovalAlgorithmValue(pixelize?.bg_removal_algorithm))
     setSkipVl(Boolean(params?.skip_vl))
+    setSizeRetry(sizeRetryStateFromJob(job) as SizeRetryState)
 
     if (nextJobType === 'sprite_sheet') {
       const nextRows = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(numberValue(sprite?.rows) ?? 1)))
@@ -695,7 +698,13 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               </PixField>
             </div>
           )}
-          <PixField label={assetNameLabel} hint={text(`最多 ${assetSubjectMaxLength} 字`, `Max ${assetSubjectMaxLength} characters`)}><Input value={assetName} maxLength={assetSubjectMaxLength} placeholder={assetNamePlaceholder} onChange={(e) => setAssetName(e.target.value)} /></PixField>
+          <PixField label={assetNameLabel} hint={text(`最多 ${assetSubjectMaxLength} 字`, `Max ${assetSubjectMaxLength} characters`)}>
+            {isLogoAsset ? (
+              <Input value={assetName} maxLength={assetSubjectMaxLength} placeholder={assetNamePlaceholder} onChange={(e) => setAssetName(e.target.value)} />
+            ) : (
+              <Textarea value={assetName} rows={3} maxLength={assetSubjectMaxLength} placeholder={assetNamePlaceholder} onChange={(e) => setAssetName(e.target.value)} />
+            )}
+          </PixField>
           {assetSupportsReference && (
             <PixField label={text('参考图（可选）', 'Reference image (optional)')} hint={assetReferenceHint}>
               <div className="grid gap-3">

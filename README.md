@@ -292,7 +292,7 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 生产工作台的主体类素材直出（物品图标 / UI 组件 / Logo 等，平铺纹理与双瓦片除外）可选开启「尺寸重试」：每次尝试都会先按正常素材流程生成源图，再由 perfectPixel 检测真实像素网格，最后把像素成品**透明居中填充到最近的 2 的幂尺寸**（32 / 64 / 128 / 256 …）。尺寸重试比较的是这个填充后的最终 PNG 尺寸与用户在像素参数中选择的 `pixelize.output_size`，不再比较 AI 原始画布尺寸；原始生图页（`source_only=true`）不提供尺寸重试。
 
 - 停止条件二选一：`size_retry_mode=attempts`（最大尝试次数，含首次，上限 `[image_gen].size_retry_max_attempts_limit`，默认 8）或 `size_retry_mode=credits`（最大点数预算，后端按单次单价折算成次数）。
-- 交付与选择：所有尝试都会保留独立产物并写入 `image_gen.size_retry.attempts`，API 同时在 `JobOutputResponse.candidates` 暴露为可选候选。命中目标时交付第一张命中的尝试；耗尽仍未命中时交付最后一次尝试，但前端会展示全部尝试，用户可从作品库/队列中采用任意一次结果重新进入本地像素化流程。
+- 交付与选择：所有尝试都会保留独立产物并写入 `image_gen.size_retry.attempts`，API 同时在 `JobOutputResponse.candidates` 暴露为可选候选。命中目标时交付第一张命中的尝试；耗尽仍未命中时交付最后一次尝试。作品库中点击任意尺寸重试尝试会直接切换当前卡片预览与下载目标，不再重新创建本地像素化任务；普通多候选图仍可按原流程进入本地像素化。
 - 计费：开启时每次尝试按标准价 **6 折**（`[image_gen].size_retry_discount_rate`，默认 0.6）计费，并与全局促销折扣「取更优价」；下单按「单价 × 最大次数」预扣，任务成功后按**实际尝试次数**结算并退还差额。用户最终选择哪张候选不改变已发生尝试次数的计费。
 - 成品填充：`[pixelize].pad_to_power_of_two = true`（默认）会在不缩放像素图的前提下透明填充到最近 2 的幂尺寸，并在 `pixelize.pad_to_power_of_two` 记录原始尺寸、最终尺寸与 offset。关闭该配置会禁用自动 2 幂填充，也会让尺寸重试更难命中目标。
 - 自动失效（静默按普通任务计费，不打 6 折）：任务不是主体类素材生产流程、属于平铺纹理/双瓦片、处于多候选模式，或目标像素尺寸非法；前端会提示目标尺寸建议使用 2 的幂尺寸，以便与自动填充后的标准成品尺寸匹配。

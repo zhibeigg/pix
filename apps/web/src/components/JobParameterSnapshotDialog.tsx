@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { Clipboard, Settings2, X } from 'lucide-react'
+import { Clipboard, ExternalLink, Settings2, X } from 'lucide-react'
+import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import { jobTypeLabel } from '../labels'
 import type { GenerationJob, JobOutput } from '../types'
@@ -19,14 +20,15 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
   const isRawImage = job.job_type === 'text_to_image' && params?.source_only === true
   const isLocalBgRemove = job.job_type === 'local_bg_remove'
   const userInputSnapshot = useMemo(() => buildUserInputSnapshot(job), [job])
+  const inputImageUrl = signedFileUrl(job.input_image_url ?? undefined)
 
   const promptRows = compactRows([
     [text('模式', 'Mode'), jobTypeLabel(job.job_type, language)],
     [text('提示词', 'Prompt'), job.prompt?.trim() || '—'],
-    [text('输入图片', 'Input image'), job.input_image_path ? text('已上传图片', 'Uploaded image') : '—'],
+    [text('输入图片', 'Input image'), job.input_image_path ? <InputImagePreview url={inputImageUrl} label={text('已上传图片', 'Uploaded image')} openLabel={text('查看原图', 'Open original')} /> : '—'],
     [text('素材主体', 'Asset subject'), stringOrDash(asset?.name)],
     [text('额外风格描述', 'Extra style notes'), stringOrDash(asset?.extra_prompt)],
-  ])
+  ] as SnapshotRow[])
 
   const rawRows = isRawImage ? compactRows([
     [text('模型', 'Model'), stringOrDash(params?.image_model)],
@@ -123,12 +125,27 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
   )
 }
 
+type SnapshotRow = [string, ReactNode]
+
 function SnapshotSection({ title, children }: { title: string; children: ReactNode }) {
   return <section className="grid gap-3 rounded-xl border border-border bg-card p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]"><h3 className="text-sm font-bold">{title}</h3>{children}</section>
 }
 
-function KeyValueGrid({ rows, multilineKeys }: { rows: Array<[string, string]>; multilineKeys?: Set<string> }) {
+function KeyValueGrid({ rows, multilineKeys }: { rows: SnapshotRow[]; multilineKeys?: Set<string> }) {
   return <dl className="grid gap-2 text-sm">{rows.map(([key, value]) => <div key={key} className="grid gap-1 rounded-lg bg-muted/32 p-2.5 sm:grid-cols-[150px_minmax(0,1fr)] dark:bg-[hsl(var(--pix-dark-band-soft))]"><dt className="text-xs font-semibold text-muted-foreground">{key}</dt><dd className={`min-w-0 break-words font-medium ${multilineKeys?.has(key) ? 'whitespace-pre-wrap leading-6' : ''}`}>{value}</dd></div>)}</dl>
+}
+
+function InputImagePreview({ url, label, openLabel }: { url: string; label: string; openLabel: string }) {
+  if (!url) return <span>{label}</span>
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full items-center gap-3 rounded-lg border border-border bg-card/70 p-2 pr-3 transition hover:border-primary/50 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
+      <img src={url} alt={label} className="h-16 w-16 shrink-0 rounded-md border border-border bg-muted object-contain [image-rendering:pixelated] dark:border-[hsl(var(--pix-dark-hairline))]" />
+      <span className="min-w-0">
+        <span className="block truncate">{label}</span>
+        <span className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary"><ExternalLink className="h-3.5 w-3.5" />{openLabel}</span>
+      </span>
+    </a>
+  )
 }
 
 function buildUserInputSnapshot(job: GenerationJob) {
@@ -250,7 +267,7 @@ function textureKindLabel(value: unknown, text: (zh: string, en: string) => stri
   return stringOrDash(value)
 }
 
-function compactRows(rows: Array<[string, string]>): Array<[string, string]> {
+function compactRows(rows: SnapshotRow[]): SnapshotRow[] {
   return rows.filter(([, value]) => value !== '—')
 }
 
