@@ -57,8 +57,7 @@ function modelItems(imageModels: ImageModelsResponse): ImageModelInfo[] {
 }
 
 function modelOptionLabel(model: ImageModelInfo) {
-  const providers = model.provider_count || model.providers.length
-  return providers > 1 ? `${model.label || model.id} · ${providers} providers` : (model.label || model.id)
+  return model.label || model.id
 }
 
 export function BatchGeneratePanel({ pricing, discount, balance, loading, token, imageModels, onSubmitMany }: Props) {

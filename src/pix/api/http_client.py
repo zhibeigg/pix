@@ -102,6 +102,8 @@ class ProviderHttpClient:
             "Authorization": f"Bearer {self.api_key}",
             "Accept": "*/*",
             **self.extra_headers,
+            "Cache-Control": "no-cache, no-store, max-age=0",
+            "Pragma": "no-cache",
         }
         if content_type:
             headers["Content-Type"] = content_type

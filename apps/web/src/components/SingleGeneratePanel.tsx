@@ -123,8 +123,7 @@ function supportsImageToImage(model: ImageModelInfo | undefined) {
 }
 
 function modelOptionLabel(model: ImageModelInfo) {
-  const providers = model.provider_count || model.providers.length
-  return providers > 1 ? `${model.label || model.id} · ${providers} providers` : (model.label || model.id)
+  return model.label || model.id
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -210,9 +209,11 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
   const [uploadUrl, setUploadUrl] = useState('')
+  const [uploadFilePreview, setUploadFilePreview] = useState<File | null>(null)
   // 素材直出可选参考图
   const [assetRefPath, setAssetRefPath] = useState('')
   const [assetRefUrl, setAssetRefUrl] = useState('')
+  const [assetRefFile, setAssetRefFile] = useState<File | null>(null)
   const [assetRefUploading, setAssetRefUploading] = useState(false)
   const [assetRefMessage, setAssetRefMessage] = useState('')
   const [pixelSize, setPixelSize] = useState('16x16')
@@ -230,6 +231,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [fps, setFps] = useState(8)
   const [refImagePath, setRefImagePath] = useState('')
   const [refImageUrl, setRefImageUrl] = useState('')
+  const [refImageFile, setRefImageFile] = useState<File | null>(null)
   const [refUploading, setRefUploading] = useState(false)
   const [refUploadMessage, setRefUploadMessage] = useState('')
 
@@ -275,12 +277,6 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       : isTileAsset
         ? text('例如：苔藓砖石路面、木板地、像素草地', 'e.g. mossy cobblestone, wood planks, grass field')
         : text('例如：冰霜之心', 'e.g. Frost Heart')
-  const assetReferenceHint = isLogoAsset
-    ? text('提供后会保留参考图的徽章轮廓、主色调和字形气质，但最终文字只使用上方 Logo 标题。', 'When provided, it preserves the reference emblem silhouette, main color mood, and lettering attitude, while final text only uses the logo title above.')
-    : text('提供后会先把参考图理解为像素风参考，再按素材直出 Prompt 重绘；不是简单处理上传图。留空走默认文生图素材直出。', 'When provided, the reference is first interpreted as pixel-art inspiration, then redrawn with the asset-output prompt. It is not merely processed as the uploaded image. Leave empty for text-to-image asset output.')
-  const assetReferenceAttachedMessage = isLogoAsset
-    ? text('已附带参考图：将保留参考图的 Logo 轮廓、主色调和字形气质，并按上方标题生成。', 'With a reference image attached, the logo keeps the reference silhouette, color mood, and lettering attitude while using the title above.')
-    : text('已附带参考图：将按素材直出规则重绘为像素风，参考图只作为构图、轮廓和配色灵感。', 'With a reference image attached, the job redraws it as pixel art using asset-output rules; the reference only guides composition, silhouette, and color mood.')
   const invalidGrid = isSprite && (safeRows < 1 || safeCols < 1 || safeRows > MAX_GRID_AXIS || safeCols > MAX_GRID_AXIS)
   const missingRowPrompts = isSprite && safeRows >= 2 && rowPrompts.slice(0, safeRows).some((value) => !value.trim())
   const submitBlocked = invalidSubAssetSize
@@ -388,20 +384,22 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       setSpritePreset('custom')
       const referencePath = stringValue(sprite?.reference_image_path)
       setRefImagePath(referencePath)
-      setRefImageUrl('')
-      setRefUploadMessage(referencePath ? text('已复用原任务的参考图路径。', 'Reused the original job reference image path.') : '')
-      setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('')
-      setInputImagePath(''); setUploadUrl(''); setUploadMessage('')
+      setRefImageFile(null)
+      setRefImageUrl(signedFileUrl(job.input_image_url ?? undefined, token, true))
+      setRefUploadMessage('')
+      setAssetRefPath(''); setAssetRefFile(null); setAssetRefUrl(''); setAssetRefMessage('')
+      setInputImagePath(''); setUploadFilePreview(null); setUploadUrl(''); setUploadMessage('')
       setRemoveBg(false)
       return
     }
 
     if (nextJobType === 'local_pixelize' || nextJobType === 'local_bg_remove') {
       setInputImagePath(job.input_image_path ?? '')
-      setUploadUrl(signedFileUrl(job.input_image_url ?? undefined))
+      setUploadFilePreview(null)
+      setUploadUrl(signedFileUrl(job.input_image_url ?? undefined, token, true))
       setUploadMessage(job.input_image_path ? text('已复用原任务的输入图片。', 'Reused the original input image.') : '')
-      setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('')
-      setRefImagePath(''); setRefImageUrl(''); setRefUploadMessage('')
+      setAssetRefPath(''); setAssetRefFile(null); setAssetRefUrl(''); setAssetRefMessage('')
+      setRefImagePath(''); setRefImageFile(null); setRefImageUrl(''); setRefUploadMessage('')
       return
     }
 
@@ -417,11 +415,12 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     setPrompt(job.prompt?.trim() || assetSubject)
     const referencePath = job.input_image_path ?? ''
     setAssetRefPath(referencePath)
-    setAssetRefUrl(signedFileUrl(job.input_image_url ?? undefined))
-    setAssetRefMessage(referencePath ? text('已复用原任务的参考图。', 'Reused the original reference image.') : '')
-    setRefImagePath(''); setRefImageUrl(''); setRefUploadMessage('')
-    setInputImagePath(''); setUploadUrl(''); setUploadMessage('')
-  }, [availableImageModels, imageModels.default, reuseJobSeed, text])
+    setAssetRefFile(null)
+    setAssetRefUrl(signedFileUrl(job.input_image_url ?? undefined, token, true))
+    setAssetRefMessage('')
+    setRefImagePath(''); setRefImageFile(null); setRefImageUrl(''); setRefUploadMessage('')
+    setInputImagePath(''); setUploadFilePreview(null); setUploadUrl(''); setUploadMessage('')
+  }, [availableImageModels, imageModels.default, reuseJobSeed, text, token])
 
   // 应用预设
   function applyPreset(preset: SpritePreset) {
@@ -460,46 +459,55 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
   async function uploadFile(file: File | undefined) {
     if (!file) return
+    setInputImagePath('')
+    setUploadUrl('')
+    setUploadFilePreview(file)
     setUploading(true); setUploadMessage(text('上传中…', 'Uploading…'))
     try {
       const uploaded = await api.uploadImage(token, file)
-      setInputImagePath(uploaded.path); setUploadUrl(signedFileUrl(uploaded.url)); setUploadMessage(text('图片已上传，可继续提交任务。', 'Image uploaded. You can submit the job now.'))
+      setInputImagePath(uploaded.path); setUploadMessage(text('图片已上传，可继续提交任务。', 'Image uploaded. You can submit the job now.'))
     } catch (error) {
+      setUploadFilePreview(null)
       setUploadMessage(error instanceof Error ? error.message : text('上传失败', 'Upload failed'))
     } finally { setUploading(false) }
   }
 
   async function uploadReferenceFile(file: File | undefined) {
     if (!file) return
-    setRefUploading(true); setRefUploadMessage(text('上传参考图…', 'Uploading reference…'))
+    setRefImagePath('')
+    setRefImageUrl('')
+    setRefImageFile(file)
+    setRefUploading(true); setRefUploadMessage('')
     try {
       const uploaded = await api.uploadImage(token, file)
-      setRefImagePath(uploaded.path); setRefImageUrl(signedFileUrl(uploaded.url)); setRefUploadMessage(text('参考图已就绪，将以图生图模式保留角色设计。', 'Reference ready. Image-to-image mode will preserve the character design.'))
+      setRefImagePath(uploaded.path); setRefUploadMessage('')
     } catch (error) {
+      setRefImageFile(null)
       setRefUploadMessage(error instanceof Error ? error.message : text('参考图上传失败', 'Reference upload failed'))
     } finally { setRefUploading(false) }
   }
 
   function clearReference() {
-    setRefImagePath(''); setRefImageUrl(''); setRefUploadMessage('')
+    setRefImagePath(''); setRefImageUrl(''); setRefImageFile(null); setRefUploadMessage('')
   }
 
   async function uploadAssetReferenceFile(file: File | undefined) {
     if (!file) return
-    setAssetRefUploading(true); setAssetRefMessage(text('上传参考图…', 'Uploading reference…'))
+    setAssetRefPath('')
+    setAssetRefUrl('')
+    setAssetRefFile(file)
+    setAssetRefUploading(true); setAssetRefMessage('')
     try {
       const uploaded = await api.uploadImage(token, file)
-      const readyMessage = isLogoAsset
-        ? text('参考图已就绪，提交后将保留其 Logo 气质并按上方标题生成。', 'Reference ready. The logo will keep its visual attitude while using the title above.')
-        : text('参考图已就绪，提交后将按素材直出规则重绘为像素风。', 'Reference ready. The job will redraw it as pixel art using the asset-output rules.')
-      setAssetRefPath(uploaded.path); setAssetRefUrl(signedFileUrl(uploaded.url)); setAssetRefMessage(readyMessage)
+      setAssetRefPath(uploaded.path); setAssetRefMessage('')
     } catch (error) {
+      setAssetRefFile(null)
       setAssetRefMessage(error instanceof Error ? error.message : text('参考图上传失败', 'Reference upload failed'))
     } finally { setAssetRefUploading(false) }
   }
 
   function clearAssetReference() {
-    setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('')
+    setAssetRefPath(''); setAssetRefUrl(''); setAssetRefFile(null); setAssetRefMessage('')
   }
 
   async function submit(event: FormEvent) {
@@ -706,7 +714,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
             )}
           </PixField>
           {assetSupportsReference && (
-            <PixField label={text('参考图（可选）', 'Reference image (optional)')} hint={assetReferenceHint}>
+            <PixField label={text('参考图（可选）', 'Reference image (optional)')}>
               <div className="grid gap-3">
                 <Button type="button" variant="outline" asChild>
                   <label className="cursor-pointer">
@@ -714,24 +722,23 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                     <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传参考图', 'Upload reference')} onChange={(event) => void uploadAssetReferenceFile(event.currentTarget.files?.[0])} />
                   </label>
                 </Button>
-                {assetRefMessage && <Alert variant={assetRefMessage.includes('失败') || assetRefMessage.toLowerCase().includes('failed') ? 'destructive' : 'info'}>{assetRefMessage}</Alert>}
-                {assetRefPath && (
+                {assetRefMessage && <Alert variant="destructive">{assetRefMessage}</Alert>}
+                {(assetRefUrl || assetRefFile) && (
                   <div className="grid gap-2">
-                    <PixPreviewFrame url={assetRefUrl} loading={assetRefUploading} label={text('参考图预览', 'Reference preview')} />
+                    <PixPreviewFrame url={assetRefUrl} file={assetRefFile} label={text('参考图预览', 'Reference preview')} />
                     <Button type="button" variant="ghost" size="sm" onClick={clearAssetReference}>{text('移除参考图', 'Remove reference')}</Button>
                   </div>
                 )}
               </div>
             </PixField>
           )}
-          {hasAssetReference && <Alert variant="info">{assetReferenceAttachedMessage}</Alert>}
         </div>}
 
         {isSprite && <PixField label={text('主体 / 角色描述', 'Subject / character brief')} hint={text(`描述角色身份、服装、配色与风格；逐行动作下面单独写。${prompt.length}/${spriteSubjectMaxLength} 字`, `Describe identity, costume, palette and style. Per-row actions go below. ${prompt.length}/${spriteSubjectMaxLength} characters`)}><Textarea value={prompt} rows={4} maxLength={spriteSubjectMaxLength} onChange={(e) => setPrompt(e.target.value)} /></PixField>}
 
         {isSprite && (
           <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
-            <PixField label={text('参考角色立绘（可选）', 'Reference character art (optional)')} hint={text('提供后将使用图生图，让每个单元格保留同一角色设计。', 'Image-to-image keeps the same character design across all cells.')}>
+            <PixField label={text('参考角色立绘（可选）', 'Reference character art (optional)')}>
               <div className="grid gap-3">
                 <Button type="button" variant="outline" asChild>
                   <label className="cursor-pointer">
@@ -739,10 +746,10 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                     <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传参考图', 'Upload reference')} onChange={(event) => void uploadReferenceFile(event.currentTarget.files?.[0])} />
                   </label>
                 </Button>
-                {refUploadMessage && <Alert variant={refUploadMessage.includes('失败') || refUploadMessage.toLowerCase().includes('failed') ? 'destructive' : 'info'}>{refUploadMessage}</Alert>}
-                {refImagePath && (
+                {refUploadMessage && <Alert variant="destructive">{refUploadMessage}</Alert>}
+                {(refImageUrl || refImageFile) && (
                   <div className="grid gap-2">
-                    <PixPreviewFrame url={refImageUrl} loading={refUploading} label={text('参考角色预览', 'Reference preview')} />
+                    <PixPreviewFrame url={refImageUrl} file={refImageFile} label={text('参考角色预览', 'Reference preview')} />
                     <Button type="button" variant="ghost" size="sm" onClick={clearReference}>{text('移除参考图', 'Remove reference')}</Button>
                   </div>
                 )}
@@ -808,7 +815,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           </div>
         )}
 
-        {(isLocalPixelize || isLocalBgRemove) && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传图片', 'Upload image')} onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} loading={uploading} label={uploading ? text('上传中…', 'Uploading…') : text('等待上传预览', 'Waiting for upload preview')} /></div>}
+        {(isLocalPixelize || isLocalBgRemove) && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传图片', 'Upload image')} onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} file={uploadFilePreview} loading={uploading && !uploadFilePreview && !uploadUrl} label={uploading && !uploadFilePreview && !uploadUrl ? text('上传中…', 'Uploading…') : text('等待上传预览', 'Waiting for upload preview')} /></div>}
 
         {isLocalBgRemove && (
           <PixField label={text('去背景算法', 'Background removal algorithm')} hint={text('像素适合纯色 key 背景与像素直出；高清使用 Color-to-Alpha，保留抗锯齿软边。', 'Pixel is best for solid key backgrounds and pixel output; HD uses Color-to-Alpha to preserve anti-aliased edges.')}>

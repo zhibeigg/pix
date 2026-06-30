@@ -1,12 +1,18 @@
 import { API_BASE, TOKEN_KEY } from './api'
 
-export function signedFileUrl(url?: string | null) {
+export function signedFileUrl(url?: string | null, tokenOverride?: string | null, noCache = false) {
   if (!url) return ''
-  if (!url.startsWith('/files')) return url
-  const token = localStorage.getItem(TOKEN_KEY)
+  if (!url.startsWith('/files')) return noCache ? appendNoCache(url) : url
+  const token = tokenOverride ?? localStorage.getItem(TOKEN_KEY)
   const separator = url.includes('?') ? '&' : '?'
   const withToken = token ? `${url}${separator}token=${encodeURIComponent(token)}` : url
-  return `${API_BASE}${withToken.startsWith('/') ? withToken : `/${withToken}`}`
+  const withCachePolicy = noCache ? appendNoCache(withToken) : withToken
+  return `${API_BASE}${withCachePolicy.startsWith('/') ? withCachePolicy : `/${withCachePolicy}`}`
+}
+
+function appendNoCache(url: string) {
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}_=${Date.now()}`
 }
 
 export function publicApiUrl(url?: string | null) {
