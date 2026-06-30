@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.97.13] - 2026-06-30
+
+### Fixed
+
+- 精简「尺寸重试」前端说明文案，突出自动重试匹配目标尺寸和计费规则，移除实现细节描述。
+
 ## [1.97.12] - 2026-06-30
 
 ### Added

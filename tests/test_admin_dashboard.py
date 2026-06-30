@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from pix_web.dashboard import admin_dashboard
-from pix_web.models import Base, CreditTransaction, GenerationJob, PaymentOrder, UploadEvent, User
+from pix_web.models import Base, CreditTransaction, GenerationJob, PaymentOrder, SystemSetting, UploadEvent, User
 
 
 def _today_start() -> datetime:
@@ -26,7 +26,7 @@ def test_admin_dashboard_uses_paid_orders_for_today_recharge_and_counts_active_u
         job_user = User(email="job@example.com", password_hash="x", created_at=yesterday)
         upload_user = User(email="upload@example.com", password_hash="x", created_at=yesterday)
         old_user = User(email="old@example.com", password_hash="x", created_at=yesterday)
-        db.add_all([new_user, job_user, upload_user, old_user])
+        db.add_all([new_user, job_user, upload_user, old_user, SystemSetting(key="site.timezone", value="UTC")])
         db.commit()
 
         # 注册赠送与人工 recharge 都不应计入后台「今日充值」。

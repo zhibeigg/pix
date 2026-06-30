@@ -82,8 +82,8 @@ export function SizeRetryControls({ value, onChange, basePrice, discount, imageS
           <span className="text-xs text-muted-foreground">
             {supported
               ? text(
-                  '成品会先按 perfectPixel 真实像素网格输出、再填充到最近的标准尺寸；若填充后仍不等于目标像素尺寸，则重新生图重试，直到命中或达到停止条件。每次尝试按标准价 6 折计费（与全局折扣取更优），按实际尝试次数结算。',
-                  'The result keeps perfectPixel\'s real grid then pads to the nearest standard size; if the padded size still differs from the target, it regenerates and retries until matched or a stop condition is hit. Each attempt is billed at 60% (or better with global discount), settled by actual attempts.',
+                  '开启后会自动多试几次，尽量让成品匹配你选择的像素尺寸。每次尝试按标准价 6 折计费（与全局折扣取更优），按实际尝试次数结算。',
+                  'When enabled, Pix will retry a few times to better match your selected pixel size. Each attempt is billed at 60% (or better with global discount), settled by actual attempts.',
                 )
               : text(
                   '尺寸重试要求目标像素尺寸为 2 的幂方形（如 32 / 64 / 128 / 256）。当前目标尺寸不满足，功能不可用。',
@@ -93,8 +93,8 @@ export function SizeRetryControls({ value, onChange, basePrice, discount, imageS
           {tooSmall && (
             <span className="text-xs text-amber-600">
               {text(
-                '提示：目标尺寸越小，越难一次命中（AI 出图的真实像素网格往往偏大），可能需要多次重试或提高目标尺寸。',
-                'Note: smaller targets are harder to hit (AI grids tend to be larger); expect more retries or raise the target size.',
+                '提示：目标尺寸较小时可能更难命中，可增加重试次数或提高目标尺寸。',
+                'Note: smaller targets can be harder to match. Increase retries or choose a larger target size.',
               )}
             </span>
           )}
