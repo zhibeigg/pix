@@ -951,6 +951,50 @@ class JobOutputResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class JobShareSummary(BaseModel):
+    id: int
+    status: str
+    like_count: int = 0
+    download_count: int = 0
+    reward_credits: int = 0
+    published_at: datetime | None = None
+
+
+class SharedDownloadOptionResponse(BaseModel):
+    kind: str
+    label: str
+    description: str = ""
+    url: str
+    filename: str
+
+
+class SharedWorkResponse(BaseModel):
+    id: int
+    job_id: int | None
+    user_id: int
+    status: str
+    title: str
+    asset_kind: str
+    preview_url: str
+    parameter_snapshot: dict[str, Any] = Field(default_factory=dict)
+    download_options: list[SharedDownloadOptionResponse] = Field(default_factory=list)
+    like_count: int = 0
+    download_count: int = 0
+    reward_credits: int = 0
+    liked_by_me: bool = False
+    owned_by_me: bool = False
+    published_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class SharedWorkListResponse(BaseModel):
+    items: list[SharedWorkResponse]
+    total: int
+    limit: int
+    offset: int
+
+
 class JobResponse(BaseModel):
     id: int
     user_id: int
@@ -984,6 +1028,7 @@ class JobResponse(BaseModel):
     started_at: datetime | None
     finished_at: datetime | None
     outputs: list[JobOutputResponse] = []
+    share: JobShareSummary | None = None
 
     model_config = {"from_attributes": True}
 
@@ -1008,6 +1053,15 @@ def safe_user_job_error(job: Any) -> str:
 def public_job_response(job: Any) -> dict[str, Any]:
     data = JobResponse.model_validate(job).model_dump(mode="python")
     data["error_message"] = safe_user_job_error(job)
+    shared = getattr(job, "shared_work", None)
+    data["share"] = None if shared is None else {
+        "id": shared.id,
+        "status": shared.status,
+        "like_count": shared.like_count,
+        "download_count": shared.download_count,
+        "reward_credits": shared.reward_credits,
+        "published_at": shared.published_at,
+    }
     return data
 
 

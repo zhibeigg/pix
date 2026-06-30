@@ -9,6 +9,12 @@ export function signedFileUrl(url?: string | null) {
   return `${API_BASE}${withToken.startsWith('/') ? withToken : `/${withToken}`}`
 }
 
+export function publicApiUrl(url?: string | null) {
+  if (!url) return ''
+  if (/^https?:\/\//i.test(url)) return url
+  return `${API_BASE}${url.startsWith('/') ? url : `/${url}`}`
+}
+
 export function fileName(path: string) {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? path
 }

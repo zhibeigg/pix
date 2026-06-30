@@ -1,21 +1,23 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react'
-import { Check, ChevronLeft, ChevronRight, Copy, Download, Pause, Play } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Copy, Download, Heart, Pause, Play, Settings2 } from 'lucide-react'
+import { publicApiUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import { homepageExampleIconSizes, homepageExampleItemIcons, getHomepageIconsForExample, type HomepageExampleItemIcon } from '../homepageIconExamples'
 import { homepageExampleCategories, homepageExamples, getHomepageExampleItemSubject, getHomepageExampleItemSubjectPrompt, getHomepageExampleLabel, type HomepageExample } from '../homepageExamples'
 import { homepageTextureExamples, homepageTextureCategoriesInUse, getHomepageTextureLabel, type HomepageTextureExample, type HomepageTextureCategory } from '../homepageTextureExamples'
 import { homepageSpriteExamples, homepageSpriteCategoriesInUse, getHomepageSpriteLabel, type HomepageSpriteExample, type HomepageSpriteCategory } from '../homepageSpriteExamples'
 import { homepageShowcaseExamples, homepageShowcaseKindsInUse, homepageShowcaseModelLabels, homepageShowcaseModelsInUse, getHomepageShowcaseLabel, type HomepageShowcaseExample, type HomepageShowcaseKind, type HomepageShowcaseModel } from '../homepageShowcaseExamples'
+import type { SharedWork, User } from '../types'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 
 const homepageExampleById = new Map(homepageExamples.map((example) => [example.id, example]))
 
-type LandingSectionsProps = { authSlot: ReactNode }
+type LandingSectionsProps = { authSlot: ReactNode; sharedWorks?: SharedWork[]; user?: User | null; onToggleSharedWorkLike?: (work: SharedWork) => void | Promise<void> }
 type IconSizeFilter = 'all' | string
 type CategoryFilter = 'all' | string
 type ThemeFilter = 'all' | string
-type AssetTypeTab = 'item_icon' | 'showcase' | 'tile_texture' | 'sprite_sheet'
+type AssetTypeTab = 'item_icon' | 'showcase' | 'tile_texture' | 'sprite_sheet' | 'shared'
 type ItemContextMenuHandler = (icon: HomepageExampleItemIcon, event: MouseEvent<HTMLElement>) => void
 type ExampleItemActionTarget = {
   icon: HomepageExampleItemIcon
@@ -23,12 +25,12 @@ type ExampleItemActionTarget = {
   y: number
 }
 
-export function LandingSections({ authSlot }: LandingSectionsProps) {
+export function LandingSections({ authSlot, sharedWorks = [], user = null, onToggleSharedWorkLike }: LandingSectionsProps) {
   const { text } = useI18n()
   return (
     <>
-      <SectionFrame id="examples" eyebrow={text('范例图鉴', 'Sample atlas')} title={text('按资产类型浏览真实产出', 'Browse real output by asset type')} description={text('物品图标、实测样例、平铺纹理、序列帧——全部由本工具真实生成；图标可按尺寸 / 大类 / 风格筛选。', 'Item icons, tested samples, tile textures, and sprite sheets — all really generated here. Icons filter by size / category / theme.')}>
-        <ExampleAtlas />
+      <SectionFrame id="examples" eyebrow={text('范例图鉴', 'Sample atlas')} title={text('按资产类型浏览真实产出', 'Browse real output by asset type')} description={text('物品图标、用户分享、实测样例、平铺纹理、序列帧——全部由本工具真实生成；图标可按尺寸 / 大类 / 风格筛选。', 'Item icons, user shares, tested samples, tile textures, and sprite sheets — all really generated here. Icons filter by size / category / theme.')}>
+        <ExampleAtlas sharedWorks={sharedWorks} user={user} onToggleSharedWorkLike={onToggleSharedWorkLike} />
       </SectionFrame>
 
       <AuthSection authSlot={authSlot} />
@@ -36,7 +38,7 @@ export function LandingSections({ authSlot }: LandingSectionsProps) {
   )
 }
 
-function ExampleAtlas() {
+function ExampleAtlas({ sharedWorks, user, onToggleSharedWorkLike }: { sharedWorks: SharedWork[]; user: User | null; onToggleSharedWorkLike?: (work: SharedWork) => void | Promise<void> }) {
   const { text } = useI18n()
   const [assetType, setAssetType] = useState<AssetTypeTab>('item_icon')
   return (
@@ -44,12 +46,13 @@ function ExampleAtlas() {
       <div role="tablist" aria-label={text('资产类型', 'Asset type')} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2 dark:bg-[hsl(var(--pix-dark-card))]">
         <span className="px-2 text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{text('资产类型', 'Asset type')}</span>
         <AssetTypeChip active={assetType === 'item_icon'} onClick={() => setAssetType('item_icon')}>{text('物品图标', 'Item icons')}<span className="ml-2 opacity-60">{homepageExampleItemIcons.length}</span></AssetTypeChip>
+        <AssetTypeChip active={assetType === 'shared'} onClick={() => setAssetType('shared')}>{text('用户分享', 'User shares')}<span className="ml-2 opacity-60">{sharedWorks.length}</span></AssetTypeChip>
         <AssetTypeChip active={assetType === 'showcase'} onClick={() => setAssetType('showcase')}>{text('实测样例', 'Tested samples')}<span className="ml-2 opacity-60">{homepageShowcaseExamples.length}</span></AssetTypeChip>
         <AssetTypeChip active={assetType === 'tile_texture'} onClick={() => setAssetType('tile_texture')}>{text('平铺纹理', 'Tile textures')}<span className="ml-2 opacity-60">{homepageTextureExamples.length}</span></AssetTypeChip>
         <AssetTypeChip active={assetType === 'sprite_sheet'} onClick={() => setAssetType('sprite_sheet')}>{text('序列帧', 'Sprite sheets')}<span className="ml-2 opacity-60">{homepageSpriteExamples.length}</span></AssetTypeChip>
       </div>
 
-      {assetType === 'item_icon' ? <IconAtlas /> : assetType === 'showcase' ? <ShowcaseAtlas /> : assetType === 'tile_texture' ? <TextureAtlas /> : <SpriteAtlas />}
+      {assetType === 'item_icon' ? <IconAtlas /> : assetType === 'shared' ? <SharedWorksAtlas works={sharedWorks} user={user} onToggleLike={onToggleSharedWorkLike} /> : assetType === 'showcase' ? <ShowcaseAtlas /> : assetType === 'tile_texture' ? <TextureAtlas /> : <SpriteAtlas />}
     </div>
   )
 }
@@ -60,6 +63,7 @@ function AssetTypeChip({ active, onClick, children }: { active: boolean; onClick
 
 const ICON_PAGE_SIZE = 24
 const SHOWCASE_PAGE_SIZE = 12
+const SHARE_PAGE_SIZE = 12
 const TEXTURE_PAGE_SIZE = 9
 const SPRITE_PAGE_SIZE = 6
 
@@ -264,6 +268,146 @@ const ExampleIconCard = memo(function ExampleIconCard({ icon, example, onItemCon
     </article>
   )
 })
+
+function SharedWorksAtlas({ works, user, onToggleLike }: { works: SharedWork[]; user: User | null; onToggleLike?: (work: SharedWork) => void | Promise<void> }) {
+  const { text } = useI18n()
+  const ordered = useMemo(() => [...works].sort((a, b) => (b.like_count - a.like_count) || (Number(new Date(b.published_at || b.created_at)) - Number(new Date(a.published_at || a.created_at))) || (b.id - a.id)), [works])
+  const shareGridRef = useRef<HTMLDivElement>(null)
+  const pagedShares = usePagedList(ordered, SHARE_PAGE_SIZE)
+  return (
+    <div className="grid gap-6">
+      <div className="rounded-lg border border-border bg-[hsl(var(--pix-cream))] p-6 text-[hsl(var(--pix-charcoal))] pix-shadow-raised dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white md:p-8">
+        <div className="grid items-start gap-6 lg:grid-cols-[.86fr_1.14fr]">
+          <div>
+            <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('社区作品', 'Community works')}</Badge>
+            <h3 className="mt-5 text-3xl font-semibold md:text-5xl">{text('社区正在复用的像素作品', 'Pixel works the community is reusing')}</h3>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('用户公开的生成结果会按点赞数排序展示。你可以直接下载可用产物，也能查看安全的生成参数快照作为下一次创作起点。', 'User-published outputs are sorted by likes. Download usable files directly, or inspect safe generation parameters as a starting point for your next work.')}</p>
+          </div>
+          <div className="grid gap-3 rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/60 p-4 dark:border-white/10 dark:bg-white/7">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <AtlasStat label={text('公开作品', 'Shared works')} value={ordered.length} />
+              <AtlasStat label={text('总点赞', 'Total likes')} value={ordered.reduce((sum, item) => sum + item.like_count, 0)} />
+              <AtlasStat label={text('可下载', 'Downloadable')} value={ordered.filter((item) => item.download_options.length > 0).length} />
+            </div>
+            <p className="text-xs leading-5 text-[hsl(var(--pix-steel))] dark:text-white/58">{user ? text('登录状态下可点赞；公开自己的作品可回到作品库下架。', 'You can like while signed in; unpublish your own works from the gallery.') : text('登录后可以给喜欢的作品点赞。', 'Sign in to like shared works.')}</p>
+          </div>
+        </div>
+      </div>
+
+      {ordered.length > 0 ? (
+        <div className="grid gap-5">
+          <div ref={shareGridRef} className="grid grid-cols-1 gap-4 scroll-mt-24 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {pagedShares.pageItems.map((work) => <SharedWorkCard key={work.id} work={work} user={user} onToggleLike={onToggleLike} />)}
+          </div>
+          <AtlasPager paged={pagedShares} scrollTargetRef={shareGridRef} />
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
+          <p className="text-base font-semibold text-foreground">{text('还没有公开作品', 'No shared works yet')}</p>
+          <p className="mt-2 text-sm">{text('生成完成后在作品库点击「公开分享」，让你的作品成为首页样例。', 'After generation, click “Publish” in the gallery to make your work a homepage sample.')}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const SharedWorkCard = memo(function SharedWorkCard({ work, user, onToggleLike }: { work: SharedWork; user: User | null; onToggleLike?: (work: SharedWork) => void | Promise<void> }) {
+  const { text } = useI18n()
+  const [paramsOpen, setParamsOpen] = useState(false)
+  const previewUrl = publicApiUrl(work.preview_url)
+  const primaryDownload = work.download_options[0]
+  const summary = sharedSnapshotSummary(work.parameter_snapshot)
+  return (
+    <article className="overflow-hidden rounded-lg border border-border bg-card transition hover:-translate-y-0.5 hover:border-primary/55 hover:shadow-[0_10px_24px_-18px_rgba(15,15,15,0.45)] dark:bg-[hsl(var(--pix-dark-card))]">
+      <a href={previewUrl} target="_blank" rel="noreferrer" className="block" title={text(`打开 ${work.title} 预览`, `Open preview for ${work.title}`)}>
+        <div className="pix-checkerboard grid aspect-square place-items-center overflow-hidden border-b border-border bg-card p-4 dark:bg-[hsl(var(--pix-dark-band))]">
+          <img src={previewUrl} alt={work.title} loading="lazy" decoding="async" draggable={false} className="h-full w-full object-contain [image-rendering:pixelated]" />
+        </div>
+      </a>
+      <div className="grid gap-3 p-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="secondary">{sharedAssetKindLabel(work.asset_kind, text)}</Badge>
+            {work.reward_credits > 0 && <Badge variant="outline">+{work.reward_credits}</Badge>}
+          </div>
+          <h4 className="mt-2 line-clamp-2 text-base font-semibold leading-snug">{work.title}</h4>
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{summary || text('公开参数可查看，下载文件可直接使用。', 'Public parameters are viewable, and downloads are ready to use.')}</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {sharedSnapshotChips(work.parameter_snapshot).map((chip) => <Badge key={chip} variant="outline">{chip}</Badge>)}
+          <Badge variant="outline">{text(`${work.download_count} 次下载`, `${work.download_count} downloads`)}</Badge>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant={work.liked_by_me ? 'default' : 'outline'} onClick={() => { void onToggleLike?.(work) }} title={user ? undefined : text('登录后点赞', 'Sign in to like')}><Heart className={work.liked_by_me ? 'fill-current' : ''} />{work.like_count}</Button>
+          {primaryDownload && <Button type="button" size="sm" variant="outline" onClick={() => downloadSharedOption(primaryDownload.url, primaryDownload.filename)}><Download />{text('下载', 'Download')}</Button>}
+          <Button type="button" size="sm" variant="ghost" onClick={() => setParamsOpen((open) => !open)}><Settings2 />{paramsOpen ? text('收起参数', 'Hide params') : text('参数', 'Params')}</Button>
+        </div>
+        {paramsOpen && <SharedParameterPanel snapshot={work.parameter_snapshot} />}
+      </div>
+    </article>
+  )
+})
+
+function SharedParameterPanel({ snapshot }: { snapshot: Record<string, unknown> }) {
+  const { text } = useI18n()
+  const rows = flattenSnapshotRows(snapshot)
+  return <div className="grid gap-2 rounded-lg border border-border bg-muted/35 p-3 text-xs dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]"><p className="font-semibold text-foreground">{text('公开生成参数', 'Public generation parameters')}</p>{rows.length > 0 ? <dl className="grid gap-1.5">{rows.map(([key, value]) => <div key={key} className="grid gap-1 rounded-md bg-card/70 p-2 sm:grid-cols-[116px_minmax(0,1fr)] dark:bg-black/12"><dt className="font-semibold text-muted-foreground">{key}</dt><dd className="min-w-0 break-words text-foreground">{value}</dd></div>)}</dl> : <p className="text-muted-foreground">{text('没有可展示参数。', 'No displayable parameters.')}</p>}</div>
+}
+
+function sharedSnapshotSummary(snapshot: Record<string, unknown>) {
+  const asset = asSharedRecord(snapshot.asset)
+  const prompt = typeof snapshot.prompt === 'string' ? snapshot.prompt : ''
+  const extra = typeof asset.extra_prompt === 'string' ? asset.extra_prompt : ''
+  return extra || prompt
+}
+
+function sharedSnapshotChips(snapshot: Record<string, unknown>) {
+  const pixel = asSharedRecord(snapshot.pixel)
+  const raw = asSharedRecord(snapshot.raw_image)
+  const sequence = asSharedRecord(snapshot.sequence)
+  const chips: string[] = []
+  const outputSize = pixel.output_size
+  if (Array.isArray(outputSize) && outputSize.length === 2) chips.push(`${outputSize[0]}×${outputSize[1]}`)
+  if (pixel.colors) chips.push(`${pixel.colors} 色`)
+  if (raw.model) chips.push(String(raw.model))
+  if (sequence.frame_count) chips.push(`${sequence.frame_count} 帧`)
+  if (sequence.fps) chips.push(`${sequence.fps} FPS`)
+  return chips.slice(0, 5)
+}
+
+function flattenSnapshotRows(value: unknown, prefix = ''): Array<[string, string]> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+  return Object.entries(value as Record<string, unknown>).flatMap(([key, raw]) => {
+    const label = prefix ? `${prefix}.${key}` : key
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) return flattenSnapshotRows(raw, label)
+    if (raw === null || raw === undefined || raw === '') return []
+    return [[label, Array.isArray(raw) ? raw.join(', ') : String(raw)]]
+  })
+}
+
+function asSharedRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function sharedAssetKindLabel(value: string, text: (zh: string, en: string) => string) {
+  if (value === 'item_icon') return text('物品图标', 'Item icon')
+  if (value === 'ui_component') return text('UI 组件', 'UI component')
+  if (value === 'tile_texture') return text('平铺纹理', 'Tile texture')
+  if (value === 'game_logo') return text('游戏 Logo', 'Game logo')
+  if (value === 'dual_grid') return text('双瓦片', 'Dual-grid')
+  if (value === 'sprite_sheet') return text('序列帧', 'Sprite')
+  return value || text('作品', 'Work')
+}
+
+function downloadSharedOption(url: string, filename: string) {
+  const anchor = document.createElement('a')
+  anchor.href = publicApiUrl(url)
+  anchor.download = filename
+  anchor.rel = 'noopener'
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+}
 
 type ShowcaseKindFilter = 'all' | HomepageShowcaseKind
 

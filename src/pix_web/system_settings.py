@@ -75,6 +75,13 @@ class ReferralSettings:
 
 
 @dataclass(frozen=True)
+class ShareSettings:
+    reward_enabled: bool
+    reward_credits: int
+    daily_reward_limit: int
+
+
+@dataclass(frozen=True)
 class PricingDiscount:
     enabled: bool
     rate: float
@@ -105,6 +112,9 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("referral.enabled", "邀请奖励开关", "邀请奖励", "boolean", "true", "关闭后不再绑定新邀请或生成新返佣。"),
     SettingDefinition("referral.commission_rate_bps", "返佣比例 bps", "邀请奖励", "number", "1000", "1000 = 10%；按好友实际支付金额计算。"),
     SettingDefinition("referral.pending_days", "待到账天数", "邀请奖励", "number", "30", "好友充值后返佣进入待到账，达到天数后转为可用收益。"),
+    SettingDefinition("share.reward_enabled", "公开分享奖励开关", "作品分享", "boolean", "true", "开启后，用户首次公开一个成功作品时返还点数。"),
+    SettingDefinition("share.reward_credits", "公开分享奖励点数", "作品分享", "number", "1", "每个作品首次公开时返还的点数；0 表示只公开不返还。"),
+    SettingDefinition("share.daily_reward_limit", "每日分享奖励次数", "作品分享", "number", "0", "每用户每天最多获得多少次公开分享奖励；0 表示不限制。"),
     SettingDefinition("site.timezone", "站点时区", "支付与站点", "string", "Asia/Shanghai", "统计「今日」数据用的业务时区（IANA 名，如 Asia/Shanghai = UTC+8）；概览的今日订单/任务/用户按它切分自然日。无效或缺 tzdata 时按 UTC+8 处理。"),
     SettingDefinition("pricing.discount_enabled", "折扣总开关", "价格折扣", "boolean", "false", "开启后所有生成任务按折扣倍率扣点；作品库 / 素材包扩容不受影响。"),
     SettingDefinition("pricing.discount_rate", "折扣倍率", "价格折扣", "number", "1.0", "0~1，例如 0.8 = 8 折；0 = 限免；1 = 不打折。向下取整，原价>0 的任务折后保底 1 点。"),
@@ -253,6 +263,9 @@ DEFAULT_SYSTEM_SETTINGS: dict[str, str] = {
         "referral.enabled",
         "referral.commission_rate_bps",
         "referral.pending_days",
+        "share.reward_enabled",
+        "share.reward_credits",
+        "share.daily_reward_limit",
         "pricing.discount_enabled",
         "pricing.discount_rate",
         "pricing.discount_label",
@@ -545,6 +558,21 @@ def load_referral_settings(db: Session) -> ReferralSettings:
         pending_days=_parse_positive_int(
             values.get("referral.pending_days", DEFAULT_SYSTEM_SETTINGS["referral.pending_days"]),
             int(DEFAULT_SYSTEM_SETTINGS["referral.pending_days"]),
+        ),
+    )
+
+
+def load_share_settings(db: Session) -> ShareSettings:
+    values = _stored_values(db)
+    return ShareSettings(
+        reward_enabled=_parse_bool(values.get("share.reward_enabled", DEFAULT_SYSTEM_SETTINGS["share.reward_enabled"])),
+        reward_credits=_parse_positive_int(
+            values.get("share.reward_credits", DEFAULT_SYSTEM_SETTINGS["share.reward_credits"]),
+            int(DEFAULT_SYSTEM_SETTINGS["share.reward_credits"]),
+        ),
+        daily_reward_limit=_parse_positive_int(
+            values.get("share.daily_reward_limit", DEFAULT_SYSTEM_SETTINGS["share.daily_reward_limit"]),
+            int(DEFAULT_SYSTEM_SETTINGS["share.daily_reward_limit"]),
         ),
     )
 

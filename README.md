@@ -49,7 +49,7 @@ npm install
 npm run dev
 ```
 
-主页「范例图鉴」包含物品图标、真实上游实测样例、平铺纹理和序列帧四个展示区。实测样例会展示本地真实流程生成的 Logo / 技能书结果，并在卡片和筛选器中标注使用的生成模型（如 `image2`、`gemini-3.1-flash-image-preview`），静态图片位于 `apps/web/public/homepage-examples/showcase/`。
+主页「范例图鉴」包含物品图标、用户公开分享、真实上游实测样例、平铺纹理和序列帧五个展示区。用户在作品库公开成功作品后会进入「用户分享」tab，按点赞数排序展示；其他用户可直接下载公开产物、点赞并查看安全的生成参数快照。实测样例会展示本地真实流程生成的 Logo / 技能书结果，并在卡片和筛选器中标注使用的生成模型（如 `image2`、`gemini-3.1-flash-image-preview`），静态图片位于 `apps/web/public/homepage-examples/showcase/`。
 
 前端构建：
 
@@ -122,6 +122,22 @@ npm run build
 ### 输入长度限制配置
 
 后台「素材默认值」和「序列帧」现支持调整 Web 表单与外部 API 共用的描述长度限制：`pix.asset.subject_max_chars`、`pix.asset.extra_prompt_max_chars`、`pix.sprite.subject_max_chars`、`pix.sprite.row_prompt_max_chars`。同名字段也可写入 `config.toml` 的 `[asset]` / `[sprite]` 段。公开接口 `GET /settings/image-models` 与外部 API `GET /external/v1/models` 会在 `limits` 中返回当前生效值，前端据此显示字数计数、超限提示并禁用提交；后端创建任务、批量创建和失败重试也会按同一配置二次校验。
+
+### 公开分享作品
+
+作品库中的成功作品可点击「公开分享 +1 点」加入首页「用户分享」池。公开时后端会固化安全参数快照和下载清单，只展示用户可填写/选择的参数（提示词、素材类型、像素尺寸、颜色数、序列帧 FPS 等），不会公开邮箱、内部 `run_dir`、诊断信息、系统 prompt 或密钥。公开作品默认不会被普通作品库容量清理；用户手动删除作品时会同步将分享记录标记为 `deleted`，避免首页残留失效链接。
+
+分享奖励由后台「作品分享」系统设置管理：`share.reward_enabled` 控制是否奖励，`share.reward_credits` 控制每个作品首次公开返还点数（默认 1），`share.daily_reward_limit` 控制每用户每日最多获得多少次分享奖励（0 表示不限制）。同一作品反复下架/重新公开不会重复返还。
+
+公开分享 API：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/shares?limit=48&offset=0&asset_kind=item_icon` | 匿名可访问的公开作品列表，默认按点赞数、发布时间排序；带 Bearer token 时返回 `liked_by_me`。 |
+| `POST` | `/shares/jobs/{job_id}/publish` | 当前用户公开自己的成功作品，首次公开按设置返还点数。 |
+| `POST` | `/shares/{share_id}/unpublish` | 作者或管理员下架分享作品。 |
+| `POST` / `DELETE` | `/shares/{share_id}/like` | 登录用户点赞 / 取消点赞，后端幂等维护 `like_count`。 |
+| `GET` | `/shares/{share_id}/download/{kind}` | 根据公开时固化的下载清单下载文件，不暴露任意 `/files?path=`。 |
 
 > 老部署注意：后台「模型与 API」已移除旧 Packy / Gemini / VL 密钥入口，供应商密钥统一迁移到「上游供应商」。升级前请阅读 [`docs/deployment/legacy-provider-settings-migration.md`](docs/deployment/legacy-provider-settings-migration.md)。
 

@@ -10,7 +10,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.config import WebSettings
-from pix_web.models import AssetPackItem, CreditTransaction, GalleryQuota, GenerationJob, GenerationOutput
+from pix_web.models import AssetPackItem, CreditTransaction, GalleryQuota, GenerationJob, GenerationOutput, SharedWork
 
 MAX_RETAINED_PHOTOS_PER_USER = 10
 GALLERY_EXPAND_PRICE_CREDITS = 60
@@ -79,6 +79,9 @@ def delete_user_jobs(db: Session, user_id: int, job_ids: list[int], settings: We
     db.execute(update(CreditTransaction).where(CreditTransaction.job_id.in_(ordered_ids)).values(job_id=None))
     for item in db.scalars(select(AssetPackItem).where(AssetPackItem.job_id.in_(ordered_ids))):
         db.delete(item)
+    for share in db.scalars(select(SharedWork).where(SharedWork.job_id.in_(ordered_ids))):
+        share.status = "deleted"
+        share.job_id = None
     for job_id in ordered_ids:
         job = jobs_by_id[job_id]
         for output in list(job.outputs):
@@ -136,6 +139,11 @@ def prune_user_photos(db: Session, user_id: int, settings: WebSettings, *, keep:
 
 def _successful_jobs_with_outputs(db: Session, user_id: int) -> list[GenerationJob]:
     packed_job_ids = select(AssetPackItem.job_id).where(AssetPackItem.user_id == user_id)
+    shared_job_ids = select(SharedWork.job_id).where(
+        SharedWork.user_id == user_id,
+        SharedWork.status == "active",
+        SharedWork.job_id.is_not(None),
+    )
     stmt = (
         select(GenerationJob)
         .join(GenerationOutput)
@@ -144,6 +152,7 @@ def _successful_jobs_with_outputs(db: Session, user_id: int) -> list[GenerationJ
             GenerationJob.user_id == user_id,
             GenerationJob.status == "succeeded",
             ~GenerationJob.id.in_(packed_job_ids),
+            ~GenerationJob.id.in_(shared_job_ids),
         )
         .order_by(
             GenerationJob.finished_at.desc(),

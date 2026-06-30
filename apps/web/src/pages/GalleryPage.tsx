@@ -22,16 +22,18 @@ interface GalleryPageProps {
   onDeleteJob: (job: GenerationJob) => Promise<void>
   onDeleteJobs: (jobs: GenerationJob[]) => Promise<void>
   onSaveSequenceAlignment: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>
+  onPublishShare: (job: GenerationJob) => Promise<void>
+  onUnpublishShare: (job: GenerationJob) => Promise<void>
 }
 
-export const GalleryPage = React.memo(function GalleryPage({ jobs, selectedJob, selectedJobId, pricing, loading, retryingJobId, galleryQuota, onExpandGalleryQuota, onSelectJob, onReuseJob, onCandidatePixelize, onCreateJob, onRetryJob, onDeleteJob, onDeleteJobs, onSaveSequenceAlignment }: GalleryPageProps) {
+export const GalleryPage = React.memo(function GalleryPage({ jobs, selectedJob, selectedJobId, pricing, loading, retryingJobId, galleryQuota, onExpandGalleryQuota, onSelectJob, onReuseJob, onCandidatePixelize, onCreateJob, onRetryJob, onDeleteJob, onDeleteJobs, onSaveSequenceAlignment, onPublishShare, onUnpublishShare }: GalleryPageProps) {
   const { t } = useI18n()
   const [activeAction, setActiveAction] = React.useState<SpriteRowAction | null>(null)
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
       <div className="grid min-w-0 gap-6">
         <PageHeader eyebrow={t('pages.gallery.eyebrow')} title={t('pages.gallery.title')} description={t('pages.gallery.description')} />
-        <GalleryGrid jobs={jobs} subtitle={t('pages.gallery.allWorks')} selectedJobId={selectedJobId} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={onExpandGalleryQuota} onSelect={onSelectJob} onReuseJob={onReuseJob} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} onDeleteJob={onDeleteJob} onDeleteJobs={onDeleteJobs} onSaveSequenceAlignment={onSaveSequenceAlignment} onActiveActionChange={setActiveAction} />
+        <GalleryGrid jobs={jobs} subtitle={t('pages.gallery.allWorks')} selectedJobId={selectedJobId} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={onExpandGalleryQuota} onSelect={onSelectJob} onReuseJob={onReuseJob} onCandidatePixelize={onCandidatePixelize} onRetryJob={onRetryJob} onDeleteJob={onDeleteJob} onDeleteJobs={onDeleteJobs} onSaveSequenceAlignment={onSaveSequenceAlignment} onActiveActionChange={setActiveAction} onPublishShare={onPublishShare} onUnpublishShare={onUnpublishShare} />
       </div>
       <TuningPanel job={selectedJob} action={activeAction} pricing={pricing} loading={loading} onSubmit={onCreateJob} />
     </div>

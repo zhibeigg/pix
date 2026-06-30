@@ -75,6 +75,23 @@ def recharge_credits(db: Session, user: User, amount: int, note: str = "") -> Cr
     )
 
 
+def reward_share_credits(db: Session, user: User, amount: int, *, job_id: int | None = None, note: str = "") -> CreditTransaction | None:
+    if amount <= 0:
+        return None
+    account = ensure_credit_account(db, user)
+    account.available_credits += amount
+    account.total_recharged += amount
+    return add_transaction(
+        db,
+        user_id=user.id,
+        type="share_reward",
+        amount=amount,
+        balance_after=account.available_credits,
+        job_id=job_id,
+        note=note or "公开分享作品奖励",
+    )
+
+
 def spend_credits(db: Session, user: User, amount: int, note: str = "") -> CreditTransaction:
     if amount <= 0:
         raise ValueError("消费点数必须大于 0")

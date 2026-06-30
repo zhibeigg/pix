@@ -462,6 +462,50 @@ export type GalleryQuota = {
   expand_slots: number
 }
 
+export type JobShareSummary = {
+  id: number
+  status: string
+  like_count: number
+  download_count: number
+  reward_credits: number
+  published_at: string | null
+}
+
+export type SharedDownloadOption = {
+  kind: string
+  label: string
+  description: string
+  url: string
+  filename: string
+}
+
+export type SharedWork = {
+  id: number
+  job_id: number | null
+  user_id: number
+  status: string
+  title: string
+  asset_kind: string
+  preview_url: string
+  parameter_snapshot: Record<string, unknown>
+  download_options: SharedDownloadOption[]
+  like_count: number
+  download_count: number
+  reward_credits: number
+  liked_by_me: boolean
+  owned_by_me: boolean
+  published_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type SharedWorkListResponse = {
+  items: SharedWork[]
+  total: number
+  limit: number
+  offset: number
+}
+
 export type GenerationJob = {
   id: number
   user_id: number
@@ -487,6 +531,7 @@ export type GenerationJob = {
   started_at: string | null
   finished_at: string | null
   outputs: JobOutput[]
+  share?: JobShareSummary | null
 }
 
 export type UploadResponse = {

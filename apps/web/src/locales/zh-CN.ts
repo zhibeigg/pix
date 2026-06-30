@@ -488,6 +488,13 @@ export const zhCN = {
     billing: { eyebrow: '点数', title: '点数中心', description: '充值、订单、流水。' },
     admin: { eyebrow: '后台', title: '管理后台', description: '快速查看全站任务作品，并管理运营、点数与价格配置。' },
   },
+  share: {
+    galleryBadge: '已公开 · {{count}} 赞',
+    hiddenBadge: '已下架分享',
+    publishButton: '公开分享 +1 点',
+    publishedButton: '已公开 · {{count}} 赞',
+    unpublishTitle: '点击下架公开分享',
+  },
   gallery: {
     title: '作品网格',
     eyebrow: '作品库',

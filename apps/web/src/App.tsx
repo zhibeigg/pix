@@ -30,7 +30,7 @@ import { useReferralCode, LEGACY_REFERRAL_CODE_KEY } from './hooks/useReferralCo
 import { useBillingActions } from './hooks/useBillingActions'
 import { useAdminActions } from './hooks/useAdminActions'
 import { applyPageSeo } from './lib/seo'
-import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GalleryQuota, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingDiscount, PricingRule, SequenceAlignmentRequest, SetupStatus, SystemSetting, User } from './types'
+import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GalleryQuota, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingDiscount, PricingRule, SequenceAlignmentRequest, SetupStatus, SharedWork, SystemSetting, User } from './types'
 
 type AppProps = {
   themeMode: PixThemeMode
@@ -77,6 +77,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [orders, setOrders] = useState<PaymentOrder[]>([])
   const [checkout, setCheckout] = useState<PaymentCheckout | null>(null)
   const [jobs, setJobs] = useState<GenerationJob[]>([])
+  const [sharedWorks, setSharedWorks] = useState<SharedWork[]>([])
   const [packs, setPacks] = useState<AssetPack[]>([])
   const [packQuota, setPackQuota] = useState<AssetPackQuota | null>(null)
   const [galleryQuota, setGalleryQuota] = useState<GalleryQuota | null>(null)
@@ -165,7 +166,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
-    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextGalleryQuota, nextPacks, nextPackQuota, nextPricing, nextImageModels, nextDiscount] = await Promise.all([
+    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextGalleryQuota, nextSharedWorks, nextPacks, nextPackQuota, nextPricing, nextImageModels, nextDiscount] = await Promise.all([
       api.me(activeToken),
       api.balance(activeToken),
       api.transactions(activeToken),
@@ -174,6 +175,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       api.orders(activeToken),
       api.jobs(activeToken),
       api.galleryQuota(activeToken),
+      api.sharedWorks(activeToken, { limit: 48 }).then((result) => result.items).catch(() => []),
       api.packs(activeToken),
       api.packQuota(activeToken),
       api.pricing(activeToken),
@@ -189,6 +191,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     notifyJobCompletions(nextJobs)
     setJobs(nextJobs)
     setGalleryQuota(nextGalleryQuota)
+    setSharedWorks(nextSharedWorks)
     setPacks(nextPacks)
     setPackQuota(nextPackQuota)
     setPricing(nextPricing)
@@ -214,6 +217,10 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   }, [notifyJobCompletions, selectedPackId, token])
 
   const refreshCurrent = useCallback(() => { void refreshCore() }, [refreshCore])
+  const refreshSharedWorks = useCallback(async (activeToken = token) => {
+    const result = await api.sharedWorks(activeToken || null, { limit: 48 })
+    setSharedWorks(result.items)
+  }, [token])
   const selectJobById = useCallback((job: GenerationJob) => { setSelectedJobId(job.id) }, [])
   const reuseJobInWorkbench = useCallback((job: GenerationJob) => {
     reuseRevisionRef.current += 1
@@ -245,6 +252,11 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   useEffect(() => {
     refreshSetupStatus().catch(showError)
   }, [refreshSetupStatus, showError])
+
+  useEffect(() => {
+    if (token) return
+    refreshSharedWorks('').catch(showError)
+  }, [refreshSharedWorks, showError, token])
 
   useEffect(() => {
     if (!token) return
@@ -673,6 +685,61 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
+  async function publishJobShare(job: GenerationJob) {
+    if (!token) return
+    const approved = await confirm({
+      eyebrow: text('公开分享', 'Public share'),
+      title: text('公开这个作品？', 'Share this work publicly?'),
+      description: text('公开后，其他用户可以在首页看到该作品、下载产物并查看可复用参数。首次公开会按站点规则返还点数。', 'After publishing, other users can see it on the homepage, download outputs, and view reusable parameters. First publish returns credits according to site rules.'),
+      impactItems: [
+        text('不会公开你的邮箱或账号信息', 'Your email or account details are not exposed'),
+        text('只展示安全的生成参数快照', 'Only a safe generation-parameter snapshot is shown'),
+        text('下架后不再出现在首页', 'You can unpublish it from the homepage later'),
+      ],
+      confirmText: text('公开分享', 'Publish'),
+    })
+    if (!approved) return
+    setBusy(true)
+    setMessage('')
+    try {
+      const share = await api.publishJobShare(token, job.id)
+      await refreshCore(token)
+      setMessage(share.reward_credits > 0 ? text(`已公开到首页分享区，返还 ${share.reward_credits} 点。`, `Published to the homepage share pool and returned ${share.reward_credits} credits.`) : text('已公开到首页分享区。', 'Published to the homepage share pool.'), 'success')
+    } catch (error) {
+      showError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function unpublishJobShare(job: GenerationJob) {
+    if (!token || !job.share) return
+    setBusy(true)
+    setMessage('')
+    try {
+      await api.unpublishShare(token, job.share.id)
+      await refreshCore(token)
+      setMessage(text('分享作品已下架', 'Shared work unpublished'), 'success')
+    } catch (error) {
+      showError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function toggleSharedWorkLike(work: SharedWork) {
+    if (!token) {
+      setMessage(text('登录后可以点赞分享作品。', 'Sign in to like shared works.'), 'info')
+      return
+    }
+    try {
+      const next = work.liked_by_me ? await api.unlikeShare(token, work.id) : await api.likeShare(token, work.id)
+      setSharedWorks((current) => current.map((item) => (item.id === next.id ? next : item)))
+    } catch (error) {
+      showError(error)
+    }
+  }
+
   async function deleteJob(job: GenerationJob) {
     if (!token) return
     setDeleteConfirm({ kind: 'job', job })
@@ -850,7 +917,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           <Suspense fallback={<div className="grid min-h-[calc(100vh-160px)] place-items-center px-4 text-sm text-muted-foreground">{t('app.checkingSetup')}</div>}>
             {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} reuseJobSeed={reuseJobSeed} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'raw-image' && <RawImagePage pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} selectedJobId={selectedRawJobId} reuseSeed={rawReuseSeed} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
-            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onDeleteJobs={deleteJobs} onSaveSequenceAlignment={saveSequenceAlignment} />}
+            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onDeleteJobs={deleteJobs} onSaveSequenceAlignment={saveSequenceAlignment} onPublishShare={publishJobShare} onUnpublishShare={unpublishJobShare} />}
             {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
             {page === 'rewards' && <RewardsPage token={token} onRefresh={refreshCurrent} />}
@@ -861,7 +928,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       ) : (
         <div>
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={packs.length} />
-          <LandingSections authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onRequestResetCode={requestResetCode} onResetPassword={resetAndLogin} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} referralCode={referralCode} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} turnstileEnabled={setupStatus?.turnstile_enabled ?? false} turnstileSiteKey={setupStatus?.turnstile_site_key ?? ''} />} />
+          <LandingSections sharedWorks={sharedWorks} user={user} onToggleSharedWorkLike={toggleSharedWorkLike} authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onRequestResetCode={requestResetCode} onResetPassword={resetAndLogin} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} referralCode={referralCode} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} turnstileEnabled={setupStatus?.turnstile_enabled ?? false} turnstileSiteKey={setupStatus?.turnstile_site_key ?? ''} />} />
           <SiteFooter />
         </div>
       )}

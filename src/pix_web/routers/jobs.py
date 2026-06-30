@@ -187,7 +187,7 @@ def list_jobs(
         db.commit()
     stmt = (
         select(GenerationJob)
-        .options(selectinload(GenerationJob.outputs))
+        .options(selectinload(GenerationJob.outputs), selectinload(GenerationJob.shared_work))
         .where(GenerationJob.user_id == user.id)
         .order_by(GenerationJob.created_at.desc())
         .limit(max(1, min(200, limit)))

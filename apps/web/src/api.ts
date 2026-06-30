@@ -36,6 +36,8 @@ import type {
   RechargeRequest,
   SystemSetting,
   SetupStatus,
+  SharedWork,
+  SharedWorkListResponse,
   TokenResponse,
   UploadResponse,
   User,
@@ -290,6 +292,26 @@ export const api = {
   },
   expandGalleryQuota(token: string) {
     return request<GalleryQuota>('/jobs/gallery-quota/expand', { method: 'POST' }, token)
+  },
+  sharedWorks(token?: string | null, params: { limit?: number; offset?: number; assetKind?: string } = {}) {
+    const search = new URLSearchParams()
+    if (params.limit) search.set('limit', String(params.limit))
+    if (params.offset) search.set('offset', String(params.offset))
+    if (params.assetKind) search.set('asset_kind', params.assetKind)
+    const query = search.toString()
+    return request<SharedWorkListResponse>(`/shares${query ? `?${query}` : ''}`, {}, token)
+  },
+  publishJobShare(token: string, jobId: number) {
+    return request<SharedWork>(`/shares/jobs/${jobId}/publish`, { method: 'POST' }, token)
+  },
+  unpublishShare(token: string, shareId: number) {
+    return request<SharedWork>(`/shares/${shareId}/unpublish`, { method: 'POST' }, token)
+  },
+  likeShare(token: string, shareId: number) {
+    return request<SharedWork>(`/shares/${shareId}/like`, { method: 'POST' }, token)
+  },
+  unlikeShare(token: string, shareId: number) {
+    return request<SharedWork>(`/shares/${shareId}/like`, { method: 'DELETE' }, token)
   },
   batches(token: string) {
     return request<GenerationBatch[]>('/batches?limit=50', {}, token)

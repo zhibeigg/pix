@@ -488,6 +488,13 @@ export const en = {
     billing: { eyebrow: 'Credits', title: 'Billing center', description: 'Top-ups, orders, and credit history.' },
     admin: { eyebrow: 'Admin', title: 'Admin console', description: 'Quickly inspect all task works, plus operations, credits, and pricing configuration.' },
   },
+  share: {
+    galleryBadge: 'Shared · {{count}} likes',
+    hiddenBadge: 'Share hidden',
+    publishButton: 'Publish +1 credit',
+    publishedButton: 'Shared · {{count}} likes',
+    unpublishTitle: 'Click to unpublish this shared work',
+  },
   gallery: {
     title: 'Work grid',
     eyebrow: 'Gallery',
