@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.98.13] - 2026-06-30
+
+### Added
+
+- 新增项目风格档案（Style Profile）：单张素材、批量素材和序列帧可填写项目/世界观、配色、线条、光照、视角与避免元素；后端统一编译为 prompt 补充段，注入素材、tile、dual-grid 与 sprite mosaic 生图链路，同时保留现有像素尺寸、背景、无缝瓦片和序列帧硬约束。
+- 新增 `/jobs/prompt-preview` 服务端 Prompt 预览接口和前端预览弹窗：提交前可查看真实合成后的正向 Prompt、已应用风格规则并复制文本；预览不创建任务、不扣点。
+- 生成参数快照现在展示并可复制任务创建时使用的项目风格档案，方便历史复用和公开分享追溯。
+
 ## [1.97.13] - 2026-06-30
 
 ### Fixed

@@ -1,6 +1,6 @@
 # 平铺纹理 Prompt 细分规则
 
-Pix 的 `asset_kind=tile_texture` 用于生成像素游戏地图里可重复铺开的纹理。它不使用普通「主体居中 + 透明背景」素材模板，而是始终使用专用平铺纹理 prompt：铺满画布、四边无缝、非透明背景、像素硬边、限制颜色数。
+Pix 的 `asset_kind=tile_texture` 用于生成像素游戏地图里可重复铺开的纹理。它不使用普通「主体居中 + 透明背景」素材模板，而是始终使用专用平铺纹理 prompt：铺满画布、四边无缝、非透明背景、像素硬边、限制颜色数。可选 `style_profile` 会作为项目统一风格补充追加到专用 prompt 后面，不会替换四边无缝、铺满画布和非透明背景等硬约束。
 
 ## API 字段
 
@@ -12,6 +12,11 @@ Pix 的 `asset_kind=tile_texture` 用于生成像素游戏地图里可重复铺�
     "asset_kind": "tile_texture",
     "subject_kind": "tileable_pattern",
     "texture_kind": "path_floor"
+  },
+  "style_profile": {
+    "project_name": "Crystal Dungeon",
+    "palette": "cyan, violet, deep navy",
+    "avoid_elements": "modern objects, text, watermark"
   },
   "pixelize": {
     "output_size": [32, 32],

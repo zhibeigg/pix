@@ -418,6 +418,24 @@ class GridDesignSchema(BaseModel):
     mode: Literal["off", "extract"] = "off"
 
 
+class StyleProfileSchema(BaseModel):
+    """项目级风格档案，作为用户可控的 prompt 补充约束。"""
+
+    project_name: str = Field(default="", max_length=80)
+    palette: str = Field(default="", max_length=120)
+    line_style: str = Field(default="", max_length=120)
+    lighting: str = Field(default="", max_length=120)
+    view_rule: str = Field(default="", max_length=120)
+    avoid_elements: str = Field(default="", max_length=200)
+
+
+class PromptPreviewResponse(BaseModel):
+    mode: str
+    positive_prompt: str
+    applied_style_profile: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class SpriteParamsSchema(BaseModel):
     """序列帧任务参数（mosaic 单图模式）。
 
@@ -548,6 +566,7 @@ class JobCreateRequest(BaseModel):
     size_retry_max_credits: int = Field(default=0, ge=0, le=100000)
     pixelize: PixelizeParamsSchema = Field(default_factory=PixelizeParamsSchema)
     grid: GridDesignSchema = Field(default_factory=GridDesignSchema)
+    style_profile: StyleProfileSchema = Field(default_factory=StyleProfileSchema)
     sprite: SpriteParamsSchema = Field(default_factory=SpriteParamsSchema)
     asset: AssetParamsSchema = Field(default_factory=AssetParamsSchema)
 

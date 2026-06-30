@@ -3,7 +3,7 @@ import { Upload } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
-import type { GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule, TextureKind } from '../types'
+import type { GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule, StyleProfile, TextureKind } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type BgRemovalAlgorithmChoice, type EdgeStyleChoice } from '../pixelize'
 import { assetKindDefaults, jobTypeDefaults, mergeReusedPixelize, parseAssetKind, resolveReusableAssetKind, reusableWorkbenchType, sizeRetryStateFromJob, type AssetKindChoice, type DualGridTransitionStyle } from '../lib/jobReuse'
 import { promptLimitsFromModels } from '../lib/promptLimits'
@@ -18,7 +18,9 @@ import { PixField } from './pix/PixField'
 import { PixPanel } from './pix/PixPanel'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
+import { PromptPreviewDialog } from './PromptPreviewDialog'
 import { SizeRetryControls, DEFAULT_SIZE_RETRY, type SizeRetryState } from './SizeRetryControls'
+import { StyleProfileControls, compactStyleProfile } from './StyleProfileControls'
 
 type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; reuseJobSeed?: { revision: number; job: GenerationJob } | null; onSubmit: (payload: JobCreateRequest) => Promise<void> }
 
@@ -184,6 +186,19 @@ function rowPromptValues(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => stringValue(item)) : []
 }
 
+function styleProfileValue(value: unknown): StyleProfile {
+  const record = asRecord(value)
+  if (!record) return {}
+  return {
+    project_name: stringValue(record.project_name),
+    palette: stringValue(record.palette),
+    line_style: stringValue(record.line_style),
+    lighting: stringValue(record.lighting),
+    view_rule: stringValue(record.view_rule),
+    avoid_elements: stringValue(record.avoid_elements),
+  }
+}
+
 export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, reuseJobSeed, onSubmit }: Props) {
   const { text } = useI18n()
   const [jobType, setJobType] = useState<JobType>('asset')
@@ -223,6 +238,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [bgRemovalAlgorithm, setBgRemovalAlgorithm] = useState<BgRemovalAlgorithmChoice>('pixel_bg')
   const [skipVl, setSkipVl] = useState(false)
   const [sizeRetry, setSizeRetry] = useState<SizeRetryState>(DEFAULT_SIZE_RETRY)
+  const [styleProfile, setStyleProfile] = useState<StyleProfile>({})
   // 序列帧专用状态（仅 mosaic 单图模式）
   const [spritePreset, setSpritePreset] = useState<SpritePreset>('horizontal')
   const [rows, setRows] = useState(1)
@@ -370,6 +386,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     setBgRemovalAlgorithm(bgRemovalAlgorithmValue(pixelize?.bg_removal_algorithm))
     setSkipVl(Boolean(params?.skip_vl))
     setSizeRetry(sizeRetryStateFromJob(job) as SizeRetryState)
+    setStyleProfile(styleProfileValue(params?.style_profile))
 
     if (nextJobType === 'sprite_sheet') {
       const nextRows = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(numberValue(sprite?.rows) ?? 1)))
@@ -510,12 +527,13 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     setAssetRefPath(''); setAssetRefUrl(''); setAssetRefFile(null); setAssetRefMessage('')
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    if (submitBlocked) return
+  function buildCurrentPayload(clientRequestId: string = crypto.randomUUID()): JobCreateRequest | null {
+    if (submitBlocked) return null
     const edge = edgeStylePixelize(edgeStyle)
-    // 仅在用户选了非默认模型时传 image_model，避免覆盖后端配置
     const modelOverride = imageModel !== imageModels.default ? imageModel : undefined
+    const styleProfilePayload = compactStyleProfile(styleProfile)
+    const styleProfileFields = styleProfilePayload ? { style_profile: styleProfilePayload } : {}
+
     if (isAsset) {
       const sizeRetryFields = sizeRetry.enabled
         ? {
@@ -532,49 +550,50 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         : text(`${materialA}${materialB}过渡`, `${materialA} ${materialB} transition`)
       const subject = isDualGridAsset ? (assetName.trim() || generatedDualName) : assetName.trim()
       const assetPixelize = buildAssetPixelize(mergeReusedPixelize(reusedPixelizeRef.current, { output_size: parsedPixelSize, colors, remove_bg: isDualGridAsset ? false : removeBg, ...edge }))
-      // 素材 + 参考图仍提交 asset，让后端使用素材直出 prompt 模板；参考图只作为重绘依据。
       if (hasAssetReference) {
-        await onSubmit({
+        return {
           job_type: 'asset',
           prompt: subject,
           input_image_path: assetRefPath,
-          client_request_id: crypto.randomUUID(),
+          client_request_id: clientRequestId,
           image_size: uiComponentImageSize,
           image_model: modelOverride,
           skip_vl: skipVl,
           ...sizeRetryFields,
+          ...styleProfileFields,
           pixelize: assetPixelize,
           grid: buildGridDesign(),
           asset: { name: subject, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false },
-        })
-        return
+        }
       }
-      await onSubmit({
+      return {
         job_type: 'asset',
         prompt: subject,
         input_image_path: null,
-        client_request_id: crypto.randomUUID(),
+        client_request_id: clientRequestId,
         image_size: uiComponentImageSize,
         image_model: modelOverride,
         ...sizeRetryFields,
+        ...styleProfileFields,
         pixelize: assetPixelize,
         grid: buildGridDesign(),
         asset: isDualGridAsset
           ? { name: subject, asset_kind: 'dual_grid', subject_kind: 'tileable_pattern', material_a: materialA, material_b: materialB, material_a_texture_kind: dualMaterialATextureKind, material_b_texture_kind: dualMaterialBTextureKind, transition_style: dualTransitionStyle, no_preview: false }
           : { name: subject, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false },
-      })
-      return
+      }
     }
+
     if (isSprite) {
       const safeFps = Math.max(1, Math.min(60, Math.round(fps || 8)))
       const cleanRowPrompts = ensureRowPromptsLength(rowPrompts, safeRows).map((value) => value.trim())
-      await onSubmit({
+      return {
         job_type: 'sprite_sheet',
         prompt: prompt.trim(),
         input_image_path: null,
-        client_request_id: crypto.randomUUID(),
+        client_request_id: clientRequestId,
         image_model: modelOverride,
         skip_vl: false,
+        ...styleProfileFields,
         pixelize: buildPixelize(mergeReusedPixelize(reusedPixelizeRef.current, { output_size: parsedPixelSize, colors, remove_bg: false, ...edge })),
         grid: buildGridDesign(),
         sprite: {
@@ -588,31 +607,37 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           duration_ms: Math.max(20, Math.round(1000 / safeFps)),
           loop: 0,
         },
-      })
-      return
+      }
     }
+
     if (isLocalBgRemove) {
-      await onSubmit({
+      return {
         job_type: 'local_bg_remove',
         prompt: null,
         input_image_path: inputImagePath,
-        client_request_id: crypto.randomUUID(),
+        client_request_id: clientRequestId,
         skip_vl: true,
         pixelize: buildPixelize(mergeReusedPixelize(reusedPixelizeRef.current, { output_size: parsedPixelSize, colors, remove_bg: true, bg_removal_algorithm: bgRemovalAlgorithm, ...edge })),
         grid: { mode: 'off' },
-      })
-      return
+      }
     }
-    // 本地像素化：上传图 + 像素化参数
-    await onSubmit({
+
+    return {
       job_type: jobType,
       prompt: null,
       input_image_path: inputImagePath,
-      client_request_id: crypto.randomUUID(),
+      client_request_id: clientRequestId,
       skip_vl: skipVl,
       pixelize: buildPixelize(mergeReusedPixelize(reusedPixelizeRef.current, { output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge })),
       grid: buildGridDesign(),
-    })
+    }
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    const payload = buildCurrentPayload()
+    if (!payload) return
+    await onSubmit(payload)
   }
 
   return (
@@ -815,6 +840,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           </div>
         )}
 
+        {(isAsset || isSprite) && <StyleProfileControls value={styleProfile} onChange={setStyleProfile} />}
+
         {(isLocalPixelize || isLocalBgRemove) && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传图片', 'Upload image')} onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} file={uploadFilePreview} loading={uploading && !uploadFilePreview && !uploadUrl} label={uploading && !uploadFilePreview && !uploadUrl ? text('上传中…', 'Uploading…') : text('等待上传预览', 'Waiting for upload preview')} /></div>}
 
         {isLocalBgRemove && (
@@ -842,7 +869,10 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         {rowPromptTooLong && <Alert variant="destructive">{text(`逐行动作描述最多 ${spriteRowPromptMaxLength} 字。`, `Row action descriptions max ${spriteRowPromptMaxLength} characters.`)}</Alert>}
         {invalidGrid && <Alert variant="destructive">{text('序列帧每行/每列最多 8。', 'Sprite sequence rows and cols are capped at 8.')}</Alert>}
         {missingRowPrompts && <Alert variant="destructive">{text('多行序列帧需要为每一行填写动作描述。', 'Multi-row sequences require an action description for each row.')}</Alert>}
-        <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isDualGridAsset ? text('生成双瓦片图集', 'Generate dual-grid atlas') : isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : isLogoAsset && hasAssetReference ? text('参考图生成 Logo', 'Generate logo from reference') : isLogoAsset ? text('生成游戏 Logo', 'Generate game logo') : hasAssetReference ? text('参考图重绘', 'Redraw from reference') : text('生成游戏素材', 'Generate game asset')) : isLocalBgRemove ? text('去除背景', 'Remove background') : text('生成单张素材', 'Generate single asset')}</Button>
+        <div className="flex flex-wrap items-center gap-3">
+          {(isAsset || isSprite) && <PromptPreviewDialog token={token} buildPayload={() => buildCurrentPayload('prompt-preview')} disabled={submitBlocked} />}
+          <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isDualGridAsset ? text('生成双瓦片图集', 'Generate dual-grid atlas') : isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : isLogoAsset && hasAssetReference ? text('参考图生成 Logo', 'Generate logo from reference') : isLogoAsset ? text('生成游戏 Logo', 'Generate game logo') : hasAssetReference ? text('参考图重绘', 'Redraw from reference') : text('生成游戏素材', 'Generate game asset')) : isLocalBgRemove ? text('去除背景', 'Remove background') : text('生成单张素材', 'Generate single asset')}</Button>
+        </div>
       </form>
     </PixPanel>
   )

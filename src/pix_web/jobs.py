@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 from pix.api.prompt_guard import RAW_IMAGE_PROMPT_MAX_CHARS
 from pix.asset import AssetSizePolicyError, resolve_asset_generation_policy
 from pix.config import AppConfig, load_config
+from pix.prompt_style import STYLE_PROFILE_POLICY_MAX_CHARS, style_profile_policy_text
 from pix_web.config import WebSettings
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, reserve_credits
 from pix_web.job_observability import record_policy_event
@@ -101,6 +102,7 @@ def _job_prompt_for_record(req: JobCreateRequest) -> str | None:
 
 
 def _prompt_policy_text(req: JobCreateRequest) -> str | None:
+    style_text = style_profile_policy_text(req.style_profile)
     if req.job_type == "asset":
         parts = _dedupe_prompt_parts([
             req.asset.name,
@@ -108,22 +110,26 @@ def _prompt_policy_text(req: JobCreateRequest) -> str | None:
             req.prompt or "",
             req.asset.material_a,
             req.asset.material_b,
+            style_text,
         ])
         return "\n".join(parts) or None
     if req.job_type == "sprite_sheet":
-        parts = _dedupe_prompt_parts([req.prompt or "", *req.sprite.row_prompts])
+        parts = _dedupe_prompt_parts([req.prompt or "", *req.sprite.row_prompts, style_text])
+        return "\n".join(parts) or None
+    if req.job_type in {"text_to_image", "image_to_image"}:
+        parts = _dedupe_prompt_parts([req.prompt or "", style_text])
         return "\n".join(parts) or None
     return req.prompt
 
 
 def _prompt_policy_max_chars(req: JobCreateRequest, cfg: AppConfig) -> int | None:
     if req.job_type == "asset":
-        return (_asset_subject_limit(cfg) * 4) + _asset_extra_prompt_limit(cfg)
+        return (_asset_subject_limit(cfg) * 4) + _asset_extra_prompt_limit(cfg) + STYLE_PROFILE_POLICY_MAX_CHARS
     if req.job_type == "sprite_sheet":
         rows = max(1, min(8, req.sprite.rows))
-        return _sprite_subject_limit(cfg) + (_sprite_row_prompt_limit(cfg) * rows)
+        return _sprite_subject_limit(cfg) + (_sprite_row_prompt_limit(cfg) * rows) + STYLE_PROFILE_POLICY_MAX_CHARS
     if req.job_type in AI_JOB_TYPES:
-        return _raw_image_prompt_limit(cfg)
+        return _raw_image_prompt_limit(cfg) + STYLE_PROFILE_POLICY_MAX_CHARS
     return None
 
 
@@ -256,6 +262,7 @@ def params_json_from_request(
         "pixelize": req.pixelize.model_dump(mode="json"),
         "pixelize_fields": sorted(req.pixelize.model_fields_set),
         "grid": req.grid.model_dump(mode="json"),
+        "style_profile": req.style_profile.model_dump(mode="json"),
         "sprite": req.sprite.model_dump(mode="json"),
         "asset": req.asset.model_dump(mode="json"),
     }

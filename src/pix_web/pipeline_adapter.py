@@ -29,6 +29,7 @@ from pix.pipeline import GridDesignInput, PipelineInput, PipelineResult, run_pip
 from pix.pixelize.bg_removal import remove_background
 from pix.pixelize.core import PixelizeParams
 from pix.pixelize.perfect_pixel import preprocess_generated_image
+from pix.prompt_style import STYLE_PROFILE_POLICY_MAX_CHARS, compile_style_profile, style_profile_policy_text
 from pix.sprite import SpritePipelineResult
 from pix.sprite_mosaic import SpriteMosaicInput, run_sprite_mosaic_pipeline
 from pix_web.config import WebSettings
@@ -54,14 +55,15 @@ def _raw_prompt_guard_max_chars(cfg: AppConfig | None) -> int | None:
 
 
 def _asset_prompt_guard_max_chars(cfg: AppConfig) -> int:
-    return _positive_limit(cfg.asset.subject_max_chars, 160) + _positive_limit(
-        cfg.asset.extra_prompt_max_chars,
-        RAW_IMAGE_PROMPT_MAX_CHARS,
+    return (
+        _positive_limit(cfg.asset.subject_max_chars, 160)
+        + _positive_limit(cfg.asset.extra_prompt_max_chars, RAW_IMAGE_PROMPT_MAX_CHARS)
+        + STYLE_PROFILE_POLICY_MAX_CHARS
     )
 
 
 def _dual_grid_prompt_guard_max_chars(cfg: AppConfig) -> int:
-    return _positive_limit(cfg.asset.subject_max_chars, 160) * 3
+    return (_positive_limit(cfg.asset.subject_max_chars, 160) * 3) + STYLE_PROFILE_POLICY_MAX_CHARS
 
 
 def _local_stage_context(settings: WebSettings):
@@ -261,6 +263,12 @@ def _asset_data(job: GenerationJob) -> dict[str, Any]:
     return asset if isinstance(asset, dict) else {}
 
 
+def _style_profile_data(job: GenerationJob) -> dict[str, Any]:
+    data = job.params_json or {}
+    style_profile = data.get("style_profile") or {}
+    return style_profile if isinstance(style_profile, dict) else {}
+
+
 def _asset_name(job: GenerationJob) -> str:
     asset = _asset_data(job)
     return str(asset.get("name") or job.prompt or "").strip()
@@ -377,13 +385,16 @@ def image_to_image_pipeline_input_from_job(
         key_color=key_hex,
         key_tolerance=cfg.image_gen.green_screen_tolerance,
         max_colors=params.colors,
+        style_profile=_style_profile_data(job),
     )
     reference_appendix = _asset_reference_prompt_appendix(asset_kind, base.image_path is not None)
     if reference_appendix:
         prompt = f"{prompt} {reference_appendix}"
     prompt = f"{prompt} {RAW_REFERENCE_IMAGE_ALIAS}"
-    # prompt_guard_text 仍只审核用户原文，而不是我们注入的模板。
-    return replace(base, prompt=prompt.strip(), prompt_guard_text=user_prompt)
+    # prompt_guard_text 仍只审核用户原文与用户可控风格档案，而不是我们注入的模板。
+    style_text = style_profile_policy_text(_style_profile_data(job))
+    guard_text = "\n".join(part for part in [user_prompt, style_text] if part)
+    return replace(base, prompt=prompt.strip(), prompt_guard_text=guard_text)
 
 
 def asset_pipeline_input_from_job(
@@ -408,6 +419,7 @@ def asset_pipeline_input_from_job(
         key_color=key_hex,
         key_tolerance=cfg.image_gen.green_screen_tolerance,
         max_colors=params.colors,
+        style_profile=_style_profile_data(job),
     )
     reference_appendix = _asset_reference_prompt_appendix(asset_kind, image_path is not None)
     if reference_appendix:
@@ -417,7 +429,11 @@ def asset_pipeline_input_from_job(
         if _request_includes(data, "image_quality")
         else cfg.asset.image_quality
     )
-    user_prompt_parts = [name, str(asset.get("extra_prompt") or "").strip()]
+    user_prompt_parts = [
+        name,
+        str(asset.get("extra_prompt") or "").strip(),
+        style_profile_policy_text(_style_profile_data(job)),
+    ]
     prompt_guard_text = "\n".join(part for part in user_prompt_parts if part)
     return PipelineInput(
         prompt=prompt,
@@ -472,6 +488,7 @@ def sprite_mosaic_input_from_job(job: GenerationJob, settings: WebSettings) -> S
         gif_export=bool(sprite.get("gif_export", False)),
         key_tolerance=sprite.get("key_tolerance"),
         billing=data.get("billing") if isinstance(data.get("billing"), dict) else None,
+        style_profile=_style_profile_data(job),
         local_stage_context=_local_stage_context(settings),
     )
 
@@ -488,6 +505,7 @@ def _write_asset_meta(result: PipelineResult, job: GenerationJob, inputs: Pipeli
         if asset_kind == "tile_texture"
         else None
     )
+    compiled_style = compile_style_profile(_style_profile_data(job))
     result.meta["asset"] = {
         "name": name,
         "extra_prompt": extra_prompt,
@@ -507,6 +525,8 @@ def _write_asset_meta(result: PipelineResult, job: GenerationJob, inputs: Pipeli
         "no_preview": bool(asset.get("no_preview", False)),
         "reference_image_path": str(inputs.image_path) if inputs.image_path else None,
         "reference_mode": "image_edit" if inputs.image_path else None,
+        "style_profile": compiled_style.data,
+        "applied_style_profile": compiled_style.applied_rules,
         "request_fields": data.get("request_fields") or [],
         "pixelize_fields": data.get("pixelize_fields") or [],
     }
@@ -634,6 +654,7 @@ def _generate_tile_material(
     pixel_path: Path,
     size_retry_enabled: bool = False,
     size_retry_max_attempts: int = 1,
+    style_profile: dict[str, Any] | None = None,
 ) -> _TileMaterial:
     """单张无缝纹理生成：prompt 构造 → generate_image → perfect_pixel → 落到 (w,h)。
 
@@ -653,6 +674,7 @@ def _generate_tile_material(
         subject_kind="tileable_pattern",
         texture_kind=texture_kind,
         max_colors=max_colors,
+        style_profile=style_profile,
     )
     expected = parse_size(image_size)
     size_retry = (
@@ -741,7 +763,8 @@ def run_tile_asset_job_pipeline(
     )
 
     # 1. Prompt guard（只走本地规则；与 asset 一致）
-    user_prompt = "\n".join(part for part in [name, extra_prompt] if part) or name
+    style_text = style_profile_policy_text(_style_profile_data(job))
+    user_prompt = "\n".join(part for part in [name, extra_prompt, style_text] if part) or name
     try:
         guard = validate_user_prompt(
             asset_cfg,
@@ -781,6 +804,7 @@ def run_tile_asset_job_pipeline(
             pixel_path=pixel_path,
             size_retry_enabled=_size_retry_enabled_from_job(data),
             size_retry_max_attempts=_size_retry_max_attempts_from_job(data),
+            style_profile=_style_profile_data(job),
         )
         prompt = material.prompt
         preprocessed_meta = material.preprocess_meta
@@ -804,6 +828,7 @@ def run_tile_asset_job_pipeline(
             preview.save(preview_path)
 
     duration = round(time.time() - start, 3)
+    compiled_style = compile_style_profile(_style_profile_data(job))
     meta: dict[str, Any] = {
         "version": __version__,
         "duration_seconds": duration,
@@ -811,6 +836,8 @@ def run_tile_asset_job_pipeline(
             "prompt": prompt,
             "effective_prompt": prompt,
             "image_path": None,
+            "style_profile": compiled_style.data,
+            "applied_style_profile": compiled_style.applied_rules,
         },
         "prompt_guard": guard.to_metadata(),
         "image_gen": {
@@ -844,6 +871,8 @@ def run_tile_asset_job_pipeline(
             "preview_scale": preview_scale,
             "skip_vl": True,
             "no_preview": preview_scale == 0,
+            "style_profile": compiled_style.data,
+            "applied_style_profile": compiled_style.applied_rules,
             "request_fields": data.get("request_fields") or [],
             "pixelize_fields": data.get("pixelize_fields") or [],
             "tile_pipeline": True,
@@ -931,7 +960,8 @@ def run_dual_grid_asset_job_pipeline(
     )
 
     # Prompt guard：审核整体用户文本（素材名 + 两种材质描述），与 tile pipeline 同走本地规则。
-    guard_parts = [name, material_a, "" if transparent_mode else material_b_raw]
+    style_text = style_profile_policy_text(_style_profile_data(job))
+    guard_parts = [name, material_a, "" if transparent_mode else material_b_raw, style_text]
     user_prompt = "\n".join(part for part in guard_parts if part) or name
     try:
         guard = validate_user_prompt(
@@ -972,6 +1002,7 @@ def run_dual_grid_asset_job_pipeline(
             pixel_path=materials_dir / "material_a.png",
             size_retry_enabled=_size_retry_enabled_from_job(data),
             size_retry_max_attempts=_size_retry_max_attempts_from_job(data),
+            style_profile=_style_profile_data(job),
         )
         material_b_result: _TileMaterial | None = None
         if not transparent_mode:
@@ -990,6 +1021,7 @@ def run_dual_grid_asset_job_pipeline(
                 pixel_path=materials_dir / "material_b.png",
                 size_retry_enabled=_size_retry_enabled_from_job(data),
                 size_retry_max_attempts=_size_retry_max_attempts_from_job(data),
+                style_profile=_style_profile_data(job),
             )
 
     # 合并 A/B 两次材质生成的尺寸重试结果，供 meta 与 worker 计费结算使用。
@@ -1027,6 +1059,7 @@ def run_dual_grid_asset_job_pipeline(
 
     atlas_height, atlas_width = atlas.shape[:2]
     duration = round(time.time() - start, 3)
+    compiled_style = compile_style_profile(_style_profile_data(job))
     material_outputs: dict[str, str] = {"material_a": "materials/material_a.png"}
     if material_b_result is not None:
         material_outputs["material_b"] = "materials/material_b.png"
@@ -1038,6 +1071,8 @@ def run_dual_grid_asset_job_pipeline(
             "material_a_prompt": material_a_result.prompt,
             "material_b_prompt": material_b_result.prompt if material_b_result else None,
             "image_path": None,
+            "style_profile": compiled_style.data,
+            "applied_style_profile": compiled_style.applied_rules,
         },
         "prompt_guard": guard.to_metadata(),
         "image_gen": {
@@ -1074,6 +1109,8 @@ def run_dual_grid_asset_job_pipeline(
             "shared_palette": False,
             "colors": int(params.colors),
             "skip_vl": True,
+            "style_profile": compiled_style.data,
+            "applied_style_profile": compiled_style.applied_rules,
             "request_fields": data.get("request_fields") or [],
             "pixelize_fields": data.get("pixelize_fields") or [],
             "dual_grid_pipeline": True,

@@ -5,10 +5,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Mapping
 
 import numpy as np
 from PIL import Image
+
+from pix.prompt_style import compile_style_profile
 
 
 IssueLevel = Literal["error", "warning"]
@@ -600,6 +602,7 @@ def build_asset_prompt(
     key_color: str = "#00FF00",
     key_tolerance: int = 48,
     max_colors: int = 16,
+    style_profile: Mapping[str, object] | None = None,
 ) -> str:
     """按游戏素材模板生成最终生图 prompt。"""
     width, height = size
@@ -674,6 +677,9 @@ def build_asset_prompt(
             subject_kind_label,
             profile,
         )
+    style_prompt = compile_style_profile(style_profile).prompt
+    if style_prompt:
+        prompt = f"{prompt.strip()} {style_prompt}"
     if extra_prompt.strip():
         prompt = f"{prompt.strip()} {extra_prompt.strip()}"
     return prompt.strip()

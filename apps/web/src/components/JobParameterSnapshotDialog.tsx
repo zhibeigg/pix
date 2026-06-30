@@ -17,6 +17,7 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
   const pixelize = asRecord(params?.pixelize)
   const sprite = asRecord(params?.sprite)
   const asset = asRecord(params?.asset)
+  const styleProfile = asRecord(params?.style_profile)
   const isRawImage = job.job_type === 'text_to_image' && params?.source_only === true
   const isLocalBgRemove = job.job_type === 'local_bg_remove'
   const userInputSnapshot = useMemo(() => buildUserInputSnapshot(job), [job])
@@ -47,6 +48,15 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
       [text('去背景算法', 'Background removal algorithm'), bgRemovalAlgorithmLabel(pixelize?.bg_removal_algorithm, text)],
     ] as Array<[string, string]>),
   ]) : []
+
+  const styleRows = compactRows([
+    [text('项目 / 世界观', 'Project / world'), stringOrDash(styleProfile?.project_name)],
+    [text('配色方案', 'Color palette'), stringOrDash(styleProfile?.palette)],
+    [text('线条风格', 'Line style'), stringOrDash(styleProfile?.line_style)],
+    [text('光照规则', 'Lighting rule'), stringOrDash(styleProfile?.lighting)],
+    [text('视角规则', 'View rule'), stringOrDash(styleProfile?.view_rule)],
+    [text('避免元素', 'Avoid elements'), stringOrDash(styleProfile?.avoid_elements)],
+  ] as SnapshotRow[])
 
   const assetRows = job.job_type === 'asset' ? compactRows([
     [text('素材类型', 'Asset type'), assetKindLabel(asset?.asset_kind, text)],
@@ -111,6 +121,7 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
 
             {rawRows.length > 0 && <SnapshotSection title={text('原生生图设置', 'Raw image settings')}><KeyValueGrid rows={rawRows} /></SnapshotSection>}
             {pixelRows.length > 0 && <SnapshotSection title={isLocalBgRemove ? text('去背景设置', 'Background removal settings') : text('像素设置', 'Pixel settings')}><KeyValueGrid rows={pixelRows} /></SnapshotSection>}
+            {styleRows.length > 0 && <SnapshotSection title={text('项目风格档案', 'Project style profile')}><KeyValueGrid rows={styleRows} multilineKeys={new Set([text('避免元素', 'Avoid elements')])} /></SnapshotSection>}
             {assetRows.length > 0 && <SnapshotSection title={text('素材设置', 'Asset settings')}><KeyValueGrid rows={assetRows} /></SnapshotSection>}
             {spriteRows.length > 0 && <SnapshotSection title={text('序列帧设置', 'Sequence settings')}><KeyValueGrid rows={spriteRows} /></SnapshotSection>}
           </div>
@@ -153,11 +164,20 @@ function buildUserInputSnapshot(job: GenerationJob) {
   const pixelize = asRecord(params?.pixelize)
   const sprite = asRecord(params?.sprite)
   const asset = asRecord(params?.asset)
+  const styleProfile = asRecord(params?.style_profile)
   const isRawImage = job.job_type === 'text_to_image' && params?.source_only === true
   return stripEmpty({
     mode: job.job_type,
     prompt: job.prompt?.trim() || undefined,
     input_image: job.input_image_path ? 'uploaded' : undefined,
+    style_profile: stripEmpty({
+      project_name: styleProfile?.project_name,
+      palette: styleProfile?.palette,
+      line_style: styleProfile?.line_style,
+      lighting: styleProfile?.lighting,
+      view_rule: styleProfile?.view_rule,
+      avoid_elements: styleProfile?.avoid_elements,
+    }),
     raw_image: isRawImage ? stripEmpty({
       model: params?.image_model,
       image_size: params?.image_size,

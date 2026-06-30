@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import { useI18n } from '../i18n'
 import { useConfirm } from './ConfirmDialog'
-import type { CreditBalance, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule, TextureKind, UploadResponse } from '../types'
+import type { CreditBalance, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule, StyleProfile, TextureKind, UploadResponse } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
 import { promptLimitsFromModels } from '../lib/promptLimits'
 import { applyDiscount, discountPercentOff, discountZhe } from '../lib/pricing'
@@ -18,7 +18,9 @@ import { PixField } from './pix/PixField'
 import { PixPanel } from './pix/PixPanel'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
 import { PixelControls } from './PixelControls'
+import { PromptPreviewDialog } from './PromptPreviewDialog'
 import { SizeRetryControls, DEFAULT_SIZE_RETRY, type SizeRetryState } from './SizeRetryControls'
+import { StyleProfileControls, compactStyleProfile } from './StyleProfileControls'
 
 type BatchMode = 'asset' | 'local_pixelize'
 type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
@@ -79,6 +81,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyleChoice>('outline')
   const [skipVl, setSkipVl] = useState(false)
   const [sizeRetry, setSizeRetry] = useState<SizeRetryState>(DEFAULT_SIZE_RETRY)
+  const [styleProfile, setStyleProfile] = useState<StyleProfile>({})
 
   const lines = useMemo(() => prompts.split('\n').map((line) => line.trim()).filter(Boolean), [prompts])
   const assetSubjectMaxLength = promptLimits.asset_subject_max_chars
@@ -149,14 +152,13 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
     setUploading(false)
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    if (overlongSubject) return
+  function buildAssetPayload(name: string, clientRequestId: string = crypto.randomUUID()): JobCreateRequest {
     const edge = edgeStylePixelize(edgeStyle)
-    const pixelize = isAsset ? buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }) : buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge })
+    const pixelize = buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge })
     const grid = buildGridDesign()
     const modelOverride = imageModel !== imageModels.default ? imageModel : undefined
-    let payloads: JobCreateRequest[] = []
+    const styleProfilePayload = compactStyleProfile(styleProfile)
+    const styleProfileFields = styleProfilePayload ? { style_profile: styleProfilePayload } : {}
     const sizeRetryFields = sizeRetry.enabled
       ? {
           size_retry_enabled: true,
@@ -165,7 +167,23 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
           size_retry_max_credits: sizeRetry.maxCredits,
         }
       : {}
-    if (batchMode === 'asset') payloads = lines.map((name) => ({ job_type: 'asset', prompt: name, input_image_path: null, client_request_id: crypto.randomUUID(), image_size: uiComponentImageSize, image_model: modelOverride, ...sizeRetryFields, pixelize, grid, asset: { name, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false } }))
+    return { job_type: 'asset', prompt: name, input_image_path: null, client_request_id: clientRequestId, image_size: uiComponentImageSize, image_model: modelOverride, ...sizeRetryFields, ...styleProfileFields, pixelize, grid, asset: { name, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false } }
+  }
+
+  function buildBatchPreviewPayload(): JobCreateRequest | null {
+    if (!isAsset || overlongSubject || invalidSubAssetSize) return null
+    const name = lines[0] || (isLogoAsset ? t('batchForm.logoSubjectPlaceholder') : isTileAsset ? t('batchForm.textureSubjectPlaceholder') : t('batchForm.assetSubjectPlaceholder'))
+    return buildAssetPayload(name, 'prompt-preview')
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (overlongSubject) return
+    const edge = edgeStylePixelize(edgeStyle)
+    const pixelize = isAsset ? buildAssetPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge }) : buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edge })
+    const grid = buildGridDesign()
+    let payloads: JobCreateRequest[] = []
+    if (batchMode === 'asset') payloads = lines.map((name) => buildAssetPayload(name))
     else payloads = uploaded.map((item) => ({ job_type: 'local_pixelize', prompt: null, input_image_path: item.upload?.path ?? null, client_request_id: crypto.randomUUID(), skip_vl: true, pixelize, grid }))
     if (payloads.length >= 10 && !(await confirm({ title: t('batchForm.title'), description: t('batchForm.confirmQueue', { count: payloads.length, total: totalPrice }), confirmText: t('common.confirm') }))) return
     await onSubmitMany(payloads, '', batchMode)
@@ -195,6 +213,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
             {isTileAsset && <PixField label={t('batchForm.textureKindLabel')} hint={t('batchForm.textureKindHint')}><Select value={textureKind} onValueChange={(value) => setTextureKind(value as TextureKind)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TEXTURE_KIND_VALUES.map((value) => <SelectItem key={value} value={value}>{t(`batchForm.textureKinds.${value}`)}</SelectItem>)}</SelectContent></Select></PixField>}
           </div>}
           <PixField label={assetSubjectsLabel} hint={text(`每行最多 ${assetSubjectMaxLength} 字。`, `Up to ${assetSubjectMaxLength} characters per line.`)}><Textarea value={prompts} rows={8} placeholder={assetSubjectPlaceholder} onChange={(e) => setPrompts(e.target.value)} /></PixField>
+          <StyleProfileControls value={styleProfile} onChange={setStyleProfile} />
         </div> : <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? t('batchForm.uploading') : t('batchForm.uploadImages')}<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={t('batchForm.uploadImages')} onChange={(e) => void uploadFiles(e.currentTarget.files)} /></label></Button><UploadList uploads={uploads} /></div>}
         <PixelControls pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || !removeBg} />
         {isAsset && !isTileAsset && !isLogoAsset && <SizeRetryControls value={sizeRetry} onChange={setSizeRetry} basePrice={unitPrice} discount={discount} imageSize={pixelSize} />}
@@ -202,7 +221,10 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
         {invalidSubAssetSize && <Alert variant="destructive">{t('batchForm.minSize')}</Alert>}
         {overlongSubject && <Alert variant="destructive">{text(`存在超过 ${assetSubjectMaxLength} 字的主体描述：${overlongSubject.slice(0, 32)}…`, `One subject exceeds ${assetSubjectMaxLength} characters: ${overlongSubject.slice(0, 32)}…`)}</Alert>}
         {insufficientCredits && <Button type="button" variant="outline" onClick={() => { window.location.hash = '/billing' }}>{t('batchForm.insufficient')}</Button>}
-        <Button type="submit" size="lg" disabled={loading || uploading || taskCount === 0 || insufficientCredits || invalidSubAssetSize || Boolean(overlongSubject)}>{loading ? t('batchForm.submitting') : t('batchForm.submit', { count: taskCount })}</Button>
+        <div className="flex flex-wrap items-center gap-3">
+          {isAsset && <PromptPreviewDialog token={token} buildPayload={buildBatchPreviewPayload} disabled={invalidSubAssetSize || Boolean(overlongSubject)} label={text('预览示例 Prompt', 'Preview sample prompt')} />}
+          <Button type="submit" size="lg" disabled={loading || uploading || taskCount === 0 || insufficientCredits || invalidSubAssetSize || Boolean(overlongSubject)}>{loading ? t('batchForm.submitting') : t('batchForm.submit', { count: taskCount })}</Button>
+        </div>
       </form>
     </PixPanel>
   )

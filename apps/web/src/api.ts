@@ -28,6 +28,7 @@ import type {
   PaymentOrder,
   PricingRule,
   PricingDiscount,
+  PromptPreviewResponse,
   PublicAnnouncement,
   ReferralSettlement,
   ReferralSummary,
@@ -268,6 +269,9 @@ export const api = {
   },
   createJob(token: string, payload: JobCreateRequest) {
     return request<GenerationJob>('/jobs', { method: 'POST', body: JSON.stringify(payload) }, token)
+  },
+  promptPreview(token: string, payload: JobCreateRequest) {
+    return request<PromptPreviewResponse>('/jobs/prompt-preview', { method: 'POST', body: JSON.stringify(payload) }, token)
   },
   retryJob(token: string, jobId: number) {
     return request<GenerationJob>(`/jobs/${jobId}/retry`, { method: 'POST' }, token)

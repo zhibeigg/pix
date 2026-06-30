@@ -1,6 +1,6 @@
 # 双瓦片（dual-grid）素材直出规则
 
-Pix 的 `asset_kind=dual_grid` 用于一次性产出一**套**可无缝拼接的过渡瓦片，表达像素地图里两种地形 A/B 的交界（草地↔泥土、草地↔水/空等）。它在内部先用 `tile_texture` 的生图链路生成两张四边无缝材质 A、B，再用 16 个角掩码**确定性合成** 16 张瓦片，拼成一张 4×4 图集；地图引擎按 dual-grid 规则即可自动平滑过渡。
+Pix 的 `asset_kind=dual_grid` 用于一次性产出一**套**可无缝拼接的过渡瓦片，表达像素地图里两种地形 A/B 的交界（草地↔泥土、草地↔水/空等）。它在内部先用 `tile_texture` 的生图链路生成两张四边无缝材质 A、B，再用 16 个角掩码**确定性合成** 16 张瓦片，拼成一张 4×4 图集；地图引擎按 dual-grid 规则即可自动平滑过渡。可选 `style_profile` 会同时注入材质 A/B 的内部生图 prompt，用于统一项目配色、线条和光照，但不会改变四边无缝材质与 dual-grid 合成规则。
 
 与 `tile_texture`（单张铺满地面的无缝纹理）不同，dual_grid 解决的是「两种材质如何互相过渡」。
 
@@ -30,6 +30,11 @@ dual_grid 字段写在 `asset` 块里：
     "material_a_texture_kind": "terrain_ground",
     "material_b_texture_kind": "terrain_ground",
     "transition_style": "rounded"
+  },
+  "style_profile": {
+    "project_name": "Crystal Dungeon",
+    "palette": "cyan, violet, deep navy",
+    "line_style": "thin bright outline"
   },
   "pixelize": {
     "output_size": [32, 32],

@@ -14,7 +14,7 @@ import json
 from contextlib import nullcontext
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Callable, ContextManager
+from typing import Any, Callable, ContextManager, Mapping
 
 import numpy as np
 from PIL import Image
@@ -29,6 +29,7 @@ from pix.io_utils import new_run_dir, sha256_of_file
 from pix.pixelize.bg_removal import apply_pixel_bg_alpha, apply_transparent_edge_style
 from pix.pixelize.core import PixelizeParams, _edge_reserve_margin
 from pix.pixelize.perfect_pixel import preprocess_generated_image
+from pix.prompt_style import STYLE_PROFILE_POLICY_MAX_CHARS, compile_style_profile, style_profile_policy_text
 from pix.sprite import (
     SpriteFrame,
     SpritePipelineResult,
@@ -72,6 +73,7 @@ class SpriteMosaicInput:
     gif_export: bool | None = None
     key_tolerance: int | None = None
     billing: dict[str, Any] | None = None
+    style_profile: Mapping[str, object] | None = None
     local_stage_context: LocalStageContext | None = None
 
 
@@ -116,8 +118,10 @@ def _positive_limit(value: object, fallback: int) -> int:
 
 def _prompt_guard_max_chars(cfg: AppConfig, rows: int) -> int:
     safe_rows = max(1, min(_positive_limit(cfg.sprite.max_grid_rows, 8), int(rows or 1)))
-    return _positive_limit(cfg.sprite.subject_max_chars, RAW_IMAGE_PROMPT_MAX_CHARS) + (
-        _positive_limit(cfg.sprite.row_prompt_max_chars, 600) * safe_rows
+    return (
+        _positive_limit(cfg.sprite.subject_max_chars, RAW_IMAGE_PROMPT_MAX_CHARS)
+        + (_positive_limit(cfg.sprite.row_prompt_max_chars, 600) * safe_rows)
+        + STYLE_PROFILE_POLICY_MAX_CHARS
     )
 
 
@@ -513,6 +517,7 @@ def build_mosaic_prompt(
     key_tolerance: int,
     max_colors: int,
     use_reference: bool,
+    style_profile: Mapping[str, object] | None = None,
 ) -> str:
     """组装单图 sprite sheet 的 prompt。"""
     sprite_cfg = cfg.sprite
@@ -569,6 +574,10 @@ def build_mosaic_prompt(
             base_prompt = ""
     if not base_prompt:
         base_prompt = _fallback_mosaic_prompt(**values)
+
+    style_prompt = compile_style_profile(style_profile).prompt
+    if style_prompt:
+        base_prompt = f"{base_prompt.strip()} {style_prompt}"
 
     if not use_reference:
         return base_prompt
@@ -991,7 +1000,8 @@ def run_sprite_mosaic_pipeline(
 
     # 1. 审核（含主体描述 + 行描述合并文本）
     row_prompts_raw = list(inputs.row_prompts or [])
-    guard_text = "\n".join([inputs.prompt, *(p for p in row_prompts_raw if p)]).strip()
+    style_text = style_profile_policy_text(inputs.style_profile)
+    guard_text = "\n".join([inputs.prompt, *(p for p in row_prompts_raw if p), style_text]).strip()
     try:
         guard = validate_user_prompt(
             cfg,
@@ -1024,7 +1034,9 @@ def run_sprite_mosaic_pipeline(
         key_tolerance=settings.key_tolerance,
         max_colors=settings.max_colors,
         use_reference=settings.use_reference,
+        style_profile=inputs.style_profile,
     )
+    compiled_style = compile_style_profile(inputs.style_profile)
 
     # 3. 写 debug 文件（提交前先写一份基础信息，pipeline 失败时仍可读到）
     debug_path = run_dir / "00_input.txt"
@@ -1055,6 +1067,7 @@ def run_sprite_mosaic_pipeline(
         "prompt": effective_prompt,
         "user_prompt": inputs.prompt,
         "row_prompts": safe_row_prompts,
+        "style_profile": compiled_style.data,
         "rows": settings.rows,
         "cols": settings.cols,
         "frame_size": list(settings.target_size),
@@ -1294,6 +1307,8 @@ def run_sprite_mosaic_pipeline(
         "input": {
             "prompt": inputs.prompt,
             "row_prompts": safe_row_prompts,
+            "style_profile": compiled_style.data,
+            "applied_style_profile": compiled_style.applied_rules,
             "effective_prompt": effective_prompt,
         },
         "prompt_guard": prompt_guard_meta,
@@ -1347,6 +1362,8 @@ def run_sprite_mosaic_pipeline(
             "row_previews_dir": _rel(row_previews_dir, run_dir) if row_previews_dir.exists() else None,
             "sequence": sequence,
             "billing": inputs.billing or None,
+            "style_profile": compiled_style.data,
+            "applied_style_profile": compiled_style.applied_rules,
             "use_reference": settings.use_reference,
         },
         "cache": {"enabled": cache.enabled, "refresh": inputs.refresh_cache},

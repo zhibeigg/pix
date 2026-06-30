@@ -188,6 +188,8 @@ npm run build
 
 普通用户登录后可在网站「API」页面创建、停用或删除长期 API Key，并查看详细调用文档与 `curl` 示例。页面内置类似 sub2api 的令牌生成器：先在浏览器生成 `pix_live_` + 32 字节随机 hex 的候选令牌，提交创建后才生效；后端会校验格式与唯一性，数据库只保存 hash 与 prefix。API Key 明文只在创建成功时展示一次；列表页只展示名称、prefix、scope、创建时间、最后使用时间和撤销时间。外部程序使用 `Authorization: Bearer <api_key>` 调用 `/external/v1/...`，任务仍归属该 key 对应用户，并复用现有任务创建、扣点预留、队列入队、作品权限和文件下载逻辑。API 页面已覆盖认证、账号 / 余额 / 模型查询、上传参考图、素材直出、图生图、序列帧、轮询分页和下载输出等接入步骤。
 
+`JobCreateRequest` 可选 `style_profile` 项目风格档案：`project_name`、`palette`、`line_style`、`lighting`、`view_rule`、`avoid_elements`。这些字段会由后端统一编译为 prompt 补充约束，用于素材直出、平铺纹理、双瓦片和序列帧；它不会替换像素尺寸、纯色背景、无缝瓦片或序列帧布局等硬约束。站内用户还可调用 `POST /jobs/prompt-preview` 在扣点前查看真实合成后的 prompt（外部 API 创建任务仍走 `/external/v1/jobs`）。
+
 可分配的 scope：
 
 - `jobs:create`：创建素材直出、文生图、图生图、本地像素化、本地去背景、重新像素化、序列帧等任务；
@@ -206,6 +208,12 @@ curl -X POST "https://example.com/api/external/v1/jobs" \
   -d '{
     "job_type": "asset",
     "asset": {"name": "blue magic sword", "asset_kind": "item_icon"},
+    "style_profile": {
+      "project_name": "Crystal Dungeon",
+      "palette": "cyan, violet, deep navy",
+      "line_style": "thin bright outline",
+      "avoid_elements": "modern guns, watermark, text"
+    },
     "pixelize": {"output_size": [32, 32], "colors": 8, "remove_bg": true},
     "skip_vl": true
   }'

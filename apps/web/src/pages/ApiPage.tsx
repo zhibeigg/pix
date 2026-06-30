@@ -120,6 +120,12 @@ curl -X POST "$PIX_API_BASE/jobs" \
       "name": "蓝色魔法剑",
       "asset_kind": "item_icon"
     },
+    "style_profile": {
+      "project_name": "水晶地牢",
+      "palette": "青色、紫罗兰、深海军蓝",
+      "line_style": "细亮描边",
+      "avoid_elements": "现代枪械、水印、文字"
+    },
     "pixelize": {
       "output_size": [32, 32],
       "colors": 16,
@@ -150,6 +156,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
 # transition_style 可选 rounded（默认）/ hard / outline；pixelize.output_size 是单张瓦片尺寸，图集为其 4×4 排布。
 # 输出读 JobOutput 的 dual_grid_atlas_path/url 与 dual_grid_preview_path/url。
 
+# style_profile 可选：project_name / palette / line_style / lighting / view_rule / avoid_elements 会作为项目统一风格补充进入 prompt。
 # 202 返回 JobResponse，记录 id 后轮询 /jobs/{id}`, [])
   const imageCurl = useMemo(() => String.raw`# 图生图 / 参考图重绘：先上传图片，再把返回 path 放到 input_image_path
 # asset.asset_kind 可选 item_icon / ui_component / tile_texture / game_logo / dual_grid，决定按哪种素材规则重绘（默认 item_icon）

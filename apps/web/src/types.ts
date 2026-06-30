@@ -226,6 +226,15 @@ export type SpriteParams = {
 export type TextureKind = 'auto' | 'generic_texture' | 'terrain_ground' | 'path_floor' | 'wall_surface' | 'wood_planks' | 'water_liquid' | 'foliage_canopy' | 'roof_tile' | 'metal_panel' | 'fabric_carpet'
 export type DualGridTransitionStyle = 'rounded' | 'hard' | 'outline'
 
+export type StyleProfile = {
+  project_name?: string
+  palette?: string
+  line_style?: string
+  lighting?: string
+  view_rule?: string
+  avoid_elements?: string
+}
+
 export type AssetParams = {
   name: string
   extra_prompt?: string
@@ -288,8 +297,16 @@ export type JobCreateRequest = {
   size_retry_max_credits?: number
   pixelize: PixelizeParams
   grid?: GridDesignParams
+  style_profile?: StyleProfile
   sprite?: SpriteParams
   asset?: AssetParams
+}
+
+export type PromptPreviewResponse = {
+  mode: string
+  positive_prompt: string
+  applied_style_profile: string[]
+  warnings?: string[]
 }
 
 export type GridReadabilityIssue = {

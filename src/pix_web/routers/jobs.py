@@ -14,14 +14,16 @@ from sqlalchemy.orm import Session, selectinload
 
 from pix_web.config import WebSettings
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, spend_credits
-from pix_web.jobs import create_job, create_jobs_batch, retry_failed_job
+from pix_web.jobs import create_job, create_jobs_batch, retry_failed_job, validate_job_request
 from pix_web.models import GenerationJob, User
+from pix_web.prompt_preview import build_prompt_preview
 from pix_web.queue import enqueue_jobs
 from pix_web.retention import GALLERY_EXPAND_PRICE_CREDITS, GALLERY_EXPAND_SLOTS, delete_user_job, delete_user_jobs, effective_gallery_limit, get_or_create_gallery_quota, prune_user_photos, retained_photo_count
-from pix_web.schemas import GalleryQuotaResponse, JobBatchCreateRequest, JobBatchCreateResponse, JobBulkDeleteRequest, JobBulkDeleteResponse, JobCreateRequest, JobResponse, SequenceAlignmentRequest, public_job_response
+from pix_web.schemas import GalleryQuotaResponse, JobBatchCreateRequest, JobBatchCreateResponse, JobBulkDeleteRequest, JobBulkDeleteResponse, JobCreateRequest, JobResponse, PromptPreviewResponse, SequenceAlignmentRequest, public_job_response
 from pix_web.sequence_alignment import apply_sequence_alignment
 from pix_web.routers.files import _file_user
 from pix_web.security import get_current_user, get_db, get_settings
+from pix_web.system_settings import load_managed_pix_config
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -139,6 +141,19 @@ def create(
     job = create_job(db, user, req, settings)
     enqueue_jobs(settings, [job.id])
     return public_job_response(job)
+
+
+@router.post("/prompt-preview", response_model=PromptPreviewResponse)
+def prompt_preview(
+    req: JobCreateRequest,
+    _user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> PromptPreviewResponse:
+    cfg = load_managed_pix_config(db, settings)
+    if req.job_type not in {"local_pixelize", "local_bg_remove", "repixelize"}:
+        validate_job_request(req, cfg)
+    return build_prompt_preview(req, cfg)
 
 
 @router.post("/batch", response_model=JobBatchCreateResponse)
