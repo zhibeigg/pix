@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.99.13] - 2026-06-30
+
+### Added
+
+- 新增 `sprite_sheet` 的 `sprite.mode = "video_bridge"` 首尾帧视频补间模式：生成首/尾关键帧后调用火山方舟 Ark / Seedance 首尾帧图生视频异步任务，完成后下载视频并抽帧，输出兼容现有 sprite sheet、帧目录、GIF、`sequence.json` 与 metadata。
+- 新增 `waiting` 任务状态和 worker/RQ 重捞机制：Ark 视频任务生成期间不长时间占用 worker；到达 `next_poll_at` 后自动继续轮询，管理员可取消或标记失败并退款。
+- 前端序列帧面板、任务状态徽标、API 文档页、系统设置、示例配置和设计文档同步支持视频补间。
+
 ## [1.98.13] - 2026-06-30
 
 ### Added

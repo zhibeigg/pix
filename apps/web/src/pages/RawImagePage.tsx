@@ -88,7 +88,7 @@ export function RawImagePage({ pricing, discount, balance, jobs, loading, token,
   const discountedPrice = applyDiscount(price, discount)
   const promptTooLong = prompt.length > rawImagePromptMaxLength
   const insufficientCredits = typeof balance?.available_credits === 'number' && balance.available_credits < discountedPrice
-  const isSelectedActive = selectedJob?.status === 'pending' || selectedJob?.status === 'running'
+  const isSelectedActive = selectedJob?.status === 'pending' || selectedJob?.status === 'running' || selectedJob?.status === 'waiting'
   const mainImageUrl = isSelectedActive ? null : rawSourceUrl(selectedJob)
   const failedError = selectedJob?.status === 'failed' ? summarizeJobError(selectedJob.error_message, text) : null
   const mainImageLabel = failedError?.title ?? text('原始单图', 'Raw single image')
@@ -245,4 +245,4 @@ function buildRawPayload({ prompt, imageSize, quality, model, referenceImagePath
 function firstOutput(job: GenerationJob | null | undefined) { return Array.isArray(job?.outputs) ? job.outputs[0] : undefined }
 function rawSourceUrl(job: GenerationJob | null | undefined) { return signedFileUrl(firstOutput(job)?.source_url) || null }
 function buildThumbs(rawJobs: GenerationJob[], selectedJobId: number | null) { const thumbs: Array<{ key: string; job: GenerationJob; url: string; label: string; selected: boolean }> = []; for (const job of rawJobs) { const url = rawSourceUrl(job); if (url) thumbs.push({ key: `job-${job.id}`, job, url, label: `任务 #${job.id}`, selected: job.id === selectedJobId }) } return thumbs }
-function rawStateLabel(job: GenerationJob, text: (zh: string, en: string) => string) { if (job.status === 'failed') return summarizeJobError(job.error_message, text).title; if (job.status === 'running' || job.status === 'pending') return text('正在生成单张原图', 'Generating one source image'); return text('暂未拿到源图链接', 'No source image link yet') }
+function rawStateLabel(job: GenerationJob, text: (zh: string, en: string) => string) { if (job.status === 'failed') return summarizeJobError(job.error_message, text).title; if (job.status === 'running' || job.status === 'pending' || job.status === 'waiting') return text('正在生成单张原图', 'Generating one source image'); return text('暂未拿到源图链接', 'No source image link yet') }

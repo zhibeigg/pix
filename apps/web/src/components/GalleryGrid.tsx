@@ -97,7 +97,7 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
 }
 
 function isBulkDeletableJob(job: GenerationJob) {
-  return !['pending', 'running'].includes(job.status)
+  return !['pending', 'running', 'waiting'].includes(job.status)
 }
 
 function GalleryCard({ job, selected, bulkMode, bulkSelected, bulkDisabled, retrying, draggable, onSelect, onBulkToggle, onReuseJob, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, onPublishShare, onUnpublishShare, onActiveActionChange, renderJobBadges }: { job: GenerationJob; selected: boolean; bulkMode: boolean; bulkSelected: boolean; bulkDisabled: boolean; retrying: boolean; draggable: boolean; onSelect: (job: GenerationJob) => void; onBulkToggle: (job: GenerationJob, checked?: boolean) => void; onReuseJob?: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; onPublishShare?: (job: GenerationJob) => void | Promise<void>; onUnpublishShare?: (job: GenerationJob) => void | Promise<void>; onActiveActionChange?: (action: SpriteRowAction | null) => void; renderJobBadges?: (job: GenerationJob) => ReactNode }) {
@@ -242,7 +242,7 @@ function GalleryCard({ job, selected, bulkMode, bulkSelected, bulkDisabled, retr
           {onRemoveFromPack && <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); void onRemoveFromPack(job) }}><X />{t('packs.removeWork')}</Button>}
           {job.status === 'failed' && onRetryJob && <Button size="sm" variant="destructive" disabled={retrying} onClick={(event) => { event.stopPropagation(); void onRetryJob(job) }}><RotateCcw />{retrying ? t('gallery.retrying') : t('gallery.retry')}</Button>}
           {downloadOptions.length > 0 && <DownloadDialog job={job} options={downloadOptions} />}
-          {onDeleteJob && !['pending', 'running'].includes(job.status) && <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); void onDeleteJob(job) }}><Trash2 />{t('gallery.delete')}</Button>}
+          {onDeleteJob && !['pending', 'running', 'waiting'].includes(job.status) && <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); void onDeleteJob(job) }}><Trash2 />{t('gallery.delete')}</Button>}
         </div>
       </div>
     </article>
@@ -263,6 +263,7 @@ function QuickParameterBadges({ job, output }: { job: GenerationJob; output?: Jo
   if (Number.isFinite(colors) && colors > 0) chips.push(`${Math.round(colors)} 色`)
   if (model) chips.push(model)
   if (job.job_type === 'sprite_sheet') {
+    if (sprite?.mode === 'video_bridge') chips.push('视频补间')
     const frameCount = Number(sprite?.frame_count)
     const fps = Number(sprite?.fps)
     if (Number.isFinite(frameCount) && frameCount > 0) chips.push(`${Math.round(frameCount)} 帧`)
@@ -326,11 +327,11 @@ function DownloadDialog({ job, options }: { job: GenerationJob; options: Downloa
 }
 
 function isActiveJob(job: GenerationJob) {
-  return job.status === 'pending' || job.status === 'running'
+  return job.status === 'pending' || job.status === 'running' || job.status === 'waiting'
 }
 
 function jobStatusLabel(job: GenerationJob, t: (key: string, options?: Record<string, unknown>) => string) {
-  return job.status === 'pending' ? t('jobs.status.pending') : job.status === 'running' ? t('jobs.status.running') : t('gallery.waitingOutput')
+  return job.status === 'pending' ? t('jobs.status.pending') : job.status === 'running' ? t('jobs.status.running') : job.status === 'waiting' ? t('jobs.status.waiting') : t('gallery.waitingOutput')
 }
 
 function CandidateMiniGrid({ job, output, displayedSizeRetryCandidateKey, onSizeRetrySelect, onCandidatePixelize }: { job: GenerationJob; output: JobOutput; displayedSizeRetryCandidateKey?: string | null; onSizeRetrySelect?: (candidate: ContactSheetCandidate) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {

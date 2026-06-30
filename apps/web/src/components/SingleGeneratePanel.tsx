@@ -45,6 +45,7 @@ const TEXTURE_KIND_OPTIONS: TextureKindOption[] = [
 ]
 
 type SpritePreset = 'horizontal' | 'four_directions' | 'character_full' | 'custom'
+type SpriteMode = 'mosaic' | 'video_bridge'
 
 type PresetSpec = {
   rows: number
@@ -239,11 +240,13 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [skipVl, setSkipVl] = useState(false)
   const [sizeRetry, setSizeRetry] = useState<SizeRetryState>(DEFAULT_SIZE_RETRY)
   const [styleProfile, setStyleProfile] = useState<StyleProfile>({})
-  // 序列帧专用状态（仅 mosaic 单图模式）
+  // 序列帧专用状态（mosaic / 首尾帧视频补间）
+  const [spriteMode, setSpriteMode] = useState<SpriteMode>('mosaic')
   const [spritePreset, setSpritePreset] = useState<SpritePreset>('horizontal')
   const [rows, setRows] = useState(1)
   const [cols, setCols] = useState(8)
   const [rowPrompts, setRowPrompts] = useState<string[]>([''])
+  const [videoActionPrompt, setVideoActionPrompt] = useState('')
   const [fps, setFps] = useState(8)
   const [refImagePath, setRefImagePath] = useState('')
   const [refImageUrl, setRefImageUrl] = useState('')
@@ -253,6 +256,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
   const isAsset = jobType === 'asset'
   const isSprite = jobType === 'sprite_sheet'
+  const isSpriteVideoBridge = isSprite && spriteMode === 'video_bridge'
   const isLocalPixelize = jobType === 'local_pixelize'
   const isLocalBgRemove = jobType === 'local_bg_remove'
   const showsImageModel = !isLocalPixelize && !isLocalBgRemove
@@ -284,7 +288,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const dualMaterialATooLong = isDualGridAsset && dualMaterialA.trim().length > assetSubjectMaxLength
   const dualMaterialBTooLong = isDualGridAsset && dualMaterialB.trim().length > assetSubjectMaxLength
   const spriteSubjectTooLong = prompt.length > spriteSubjectMaxLength
-  const rowPromptTooLong = isSprite && ensureRowPromptsLength(rowPrompts, safeRows).some((value) => value.length > spriteRowPromptMaxLength)
+  const rowPromptTooLong = isSprite && (ensureRowPromptsLength(rowPrompts, safeRows).some((value) => value.length > spriteRowPromptMaxLength) || videoActionPrompt.length > spriteRowPromptMaxLength)
   const assetNameLabel = isLogoAsset ? text('Logo 标题 / 品牌名', 'Logo title / brand name') : isDualGridAsset ? text('图集名称（可选）', 'Atlas name (optional)') : isTileAsset ? text('纹理主题 / 题材', 'Texture theme') : text('主体', 'Subject')
   const assetNamePlaceholder = isLogoAsset
     ? text('例如：星尘纪元、PIX FORGE、龙焰', 'e.g. Starfall Age, PIX FORGE, Dragonflame')
@@ -294,7 +298,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         ? text('例如：苔藓砖石路面、木板地、像素草地', 'e.g. mossy cobblestone, wood planks, grass field')
         : text('例如：冰霜之心', 'e.g. Frost Heart')
   const invalidGrid = isSprite && (safeRows < 1 || safeCols < 1 || safeRows > MAX_GRID_AXIS || safeCols > MAX_GRID_AXIS)
-  const missingRowPrompts = isSprite && safeRows >= 2 && rowPrompts.slice(0, safeRows).some((value) => !value.trim())
+  const missingRowPrompts = isSprite && spriteMode === 'mosaic' && safeRows >= 2 && rowPrompts.slice(0, safeRows).some((value) => !value.trim())
   const submitBlocked = invalidSubAssetSize
     || invalidGrid
     || missingRowPrompts
@@ -344,6 +348,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     if (d.edgeStyle !== undefined) setEdgeStyle(d.edgeStyle)
     if (d.bgRemovalAlgorithm !== undefined) setBgRemovalAlgorithm(d.bgRemovalAlgorithm)
     if (next === 'sprite_sheet') {
+      setSpriteMode('mosaic')
+      setVideoActionPrompt('')
       if (d.fps !== undefined) setFps(d.fps)
       if (d.rows !== undefined) setRows(d.rows)
       if (d.cols !== undefined) setCols(d.cols)
@@ -394,10 +400,13 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       const nextFps = Math.max(1, Math.min(60, Math.round(numberValue(sprite?.fps) ?? 8)))
       const nextRowPrompts = ensureRowPromptsLength(rowPromptValues(sprite?.row_prompts), nextRows)
       setPrompt(job.prompt?.trim() || '')
+      const nextSpriteMode = stringValue(sprite?.mode) === 'video_bridge' ? 'video_bridge' : 'mosaic'
+      setSpriteMode(nextSpriteMode)
       setRows(nextRows)
       setCols(nextCols)
       setFps(nextFps)
       setRowPrompts(nextRowPrompts)
+      setVideoActionPrompt(stringValue(sprite?.video_action_prompt))
       setSpritePreset('custom')
       const referencePath = stringValue(sprite?.reference_image_path)
       setRefImagePath(referencePath)
@@ -438,6 +447,17 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     setRefImagePath(''); setRefImageFile(null); setRefImageUrl(''); setRefUploadMessage('')
     setInputImagePath(''); setUploadFilePreview(null); setUploadUrl(''); setUploadMessage('')
   }, [availableImageModels, imageModels.default, reuseJobSeed, text, token])
+
+  function selectSpriteMode(next: SpriteMode) {
+    setSpriteMode(next)
+    if (next === 'video_bridge') {
+      const firstAction = videoActionPrompt.trim() || rowPrompts.find((value) => value.trim())?.trim() || ''
+      setVideoActionPrompt(firstAction)
+      if (rows !== 1) setRows(1)
+      setRowPrompts((prev) => ensureRowPromptsLength(prev, 1))
+      if (spritePreset !== 'horizontal' && spritePreset !== 'custom') setSpritePreset('custom')
+    }
+  }
 
   // 应用预设
   function applyPreset(preset: SpritePreset) {
@@ -597,15 +617,17 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         pixelize: buildPixelize(mergeReusedPixelize(reusedPixelizeRef.current, { output_size: parsedPixelSize, colors, remove_bg: false, ...edge })),
         grid: buildGridDesign(),
         sprite: {
+          mode: spriteMode,
           rows: safeRows,
           cols: safeCols,
-          row_prompts: cleanRowPrompts,
+          row_prompts: spriteMode === 'video_bridge' ? cleanRowPrompts.slice(0, 1) : cleanRowPrompts,
           reference_image_path: refImagePath || null,
           frame_count: totalFrames,
           fps: safeFps,
           gif_export: false,
           duration_ms: Math.max(20, Math.round(1000 / safeFps)),
           loop: 0,
+          video_action_prompt: spriteMode === 'video_bridge' ? videoActionPrompt.trim() : '',
         },
       }
     }
@@ -763,6 +785,16 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
         {isSprite && (
           <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
+            <PixField label={text('生成方式', 'Generation mode')} hint={text('默认 Mosaic：一次生成整张网格；视频补间：生成首/尾关键帧后调用 Ark 视频任务，再抽帧成序列帧。', 'Default Mosaic generates one full grid; video bridge creates start/end keyframes, runs an Ark video task, then extracts frames.') }>
+              <Select value={spriteMode} onValueChange={(value) => selectSpriteMode(value as SpriteMode)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mosaic">{text('Mosaic 单图网格（默认）', 'Mosaic single image grid (default)')}</SelectItem>
+                  <SelectItem value="video_bridge">{text('首尾帧视频补间', 'Start/end video bridge')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </PixField>
+            {isSpriteVideoBridge && <Alert variant="info">{text('视频补间会在 Ark 任务生成期间进入“等待视频”状态，不占用本地 worker；完成后自动下载视频并抽帧。建议使用 1 行 × 8 帧。', 'Video bridge enters a waiting state while Ark renders, without occupying the local worker; it will download the video and extract frames automatically. 1×8 is recommended.')}</Alert>}
             <PixField label={text('参考角色立绘（可选）', 'Reference character art (optional)')}>
               <div className="grid gap-3">
                 <Button type="button" variant="outline" asChild>
@@ -786,8 +818,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="horizontal">{text('1 行 × 8 帧（横排动作）', '1×8 horizontal action')}</SelectItem>
-                  <SelectItem value="four_directions">{text('4 行 × 8 帧（四方向行走）', '4×8 four-direction walk')}</SelectItem>
-                  <SelectItem value="character_full">{text('8 行 × 8 帧（角色全动作集）', '8×8 full character action set')}</SelectItem>
+                  {!isSpriteVideoBridge && <SelectItem value="four_directions">{text('4 行 × 8 帧（四方向行走）', '4×8 four-direction walk')}</SelectItem>}
+                  {!isSpriteVideoBridge && <SelectItem value="character_full">{text('8 行 × 8 帧（角色全动作集）', '8×8 full character action set')}</SelectItem>}
                   <SelectItem value="custom">{text('自定义网格', 'Custom grid')}</SelectItem>
                 </SelectContent>
               </Select>
@@ -805,7 +837,19 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               </PixField>
             </div>
 
-            {safeRows >= 2 && (
+            {isSpriteVideoBridge && (
+              <PixField label={text('视频动作描述（可选）', 'Video motion description (optional)')} hint={text(`${videoActionPrompt.length}/${spriteRowPromptMaxLength} 字；留空时使用主体描述。`, `${videoActionPrompt.length}/${spriteRowPromptMaxLength} characters; falls back to the subject brief when empty.`)}>
+                <Textarea
+                  value={videoActionPrompt}
+                  rows={2}
+                  maxLength={spriteRowPromptMaxLength}
+                  placeholder={text('例如：从站立蓄力到挥剑释放一道火焰斩', 'e.g. from charging stance to a sword swing releasing a flame slash')}
+                  onChange={(e) => setVideoActionPrompt(e.target.value)}
+                />
+              </PixField>
+            )}
+
+            {!isSpriteVideoBridge && safeRows >= 2 && (
               <div className="grid gap-3 rounded-lg border border-border bg-background/40 p-3">
                 <div className="text-xs text-muted-foreground">{text(`为每一行写一段动作描述（共 ${safeRows} 行，每行 ${safeCols} 帧）`, `Describe the action for each row (${safeRows} rows × ${safeCols} frames)`)}</div>
                 {Array.from({ length: safeRows }, (_, index) => (
@@ -822,7 +866,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               </div>
             )}
 
-            {safeRows === 1 && (
+            {!isSpriteVideoBridge && safeRows === 1 && (
               <PixField label={text('动作描述（可选，留空使用主体描述）', 'Action description (optional)')} hint={text(`${(rowPrompts[0] ?? '').length}/${spriteRowPromptMaxLength} 字`, `${(rowPrompts[0] ?? '').length}/${spriteRowPromptMaxLength} characters`)}>
                 <Textarea
                   value={rowPrompts[0] ?? ''}

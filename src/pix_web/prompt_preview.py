@@ -9,6 +9,7 @@ from pix.config import AppConfig
 from pix.contact_sheet import resolve_key_color
 from pix.prompt_style import compile_style_profile
 from pix.sprite_mosaic import SpriteMosaicInput, _ensure_row_prompts, _resolve_settings, build_mosaic_prompt
+from pix.sprite_video_bridge import build_video_bridge_keyframe_prompt
 from pix_web.pipeline_adapter import RAW_REFERENCE_IMAGE_ALIAS, _asset_reference_prompt_appendix, pixelize_params_from_json
 from pix_web.schemas import JobCreateRequest, PromptPreviewResponse
 
@@ -100,6 +101,25 @@ def _asset_prompt_preview(req: JobCreateRequest, cfg: AppConfig) -> PromptPrevie
 def _sprite_prompt_preview(req: JobCreateRequest, cfg: AppConfig) -> PromptPreviewResponse:
     style_profile = _style_profile(req)
     compiled_style = compile_style_profile(style_profile)
+    if req.sprite.mode == "video_bridge":
+        description = (req.prompt or "").strip()
+        action_prompt = (req.sprite.video_action_prompt or "").strip()
+        if not action_prompt:
+            action_prompt = next((item.strip() for item in req.sprite.row_prompts if item.strip()), description)
+        key_hex, _ = resolve_key_color(cfg.sprite.green_screen_color, description)
+        prompt = build_video_bridge_keyframe_prompt(
+            cfg,
+            description,
+            action_prompt,
+            key_color=key_hex,
+            style_profile=style_profile,
+        )
+        return PromptPreviewResponse(
+            mode="sprite_video_bridge",
+            positive_prompt=prompt.strip(),
+            applied_style_profile=compiled_style.applied_rules,
+            warnings=["首尾帧视频补间会先生成关键帧，再调用 Ark 480p 无声视频任务；耗时通常更长。"],
+        )
     inputs = SpriteMosaicInput(
         prompt=(req.prompt or "").strip(),
         rows=req.sprite.rows,

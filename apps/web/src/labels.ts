@@ -8,6 +8,7 @@ export function jobTypeLabel(type: string, language: PixLanguage = 'zh-CN') {
 export const statusColors: Record<string, 'default' | 'primary' | 'success' | 'error' | 'warning'> = {
   pending: 'warning',
   running: 'primary',
+  waiting: 'warning',
   succeeded: 'success',
   failed: 'error',
   cancelled: 'default',

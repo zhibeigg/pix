@@ -15,7 +15,7 @@ from pix_web.models import AssetPackItem, CreditTransaction, GalleryQuota, Gener
 MAX_RETAINED_PHOTOS_PER_USER = 10
 GALLERY_EXPAND_PRICE_CREDITS = 60
 GALLERY_EXPAND_SLOTS = 10
-ACTIVE_JOB_STATUSES = {"pending", "running"}
+ACTIVE_JOB_STATUSES = {"pending", "running", "waiting"}
 
 
 def retained_photo_count(db: Session, user_id: int) -> int:

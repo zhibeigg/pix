@@ -156,7 +156,7 @@ def _resolve_meta_relative_path(meta_json_path: str | None, value: str | None) -
     )
 
 
-JobStatus = Literal["pending", "running", "succeeded", "failed", "cancelled"]
+JobStatus = Literal["pending", "running", "waiting", "succeeded", "failed", "cancelled"]
 
 
 class EmailCodeRequest(BaseModel):
@@ -443,6 +443,7 @@ class SpriteParamsSchema(BaseModel):
     每条对应一行的动作循环描述。`reference_image_path` 提供时切到 image-edit 模式。
     """
 
+    mode: Literal["mosaic", "video_bridge"] = "mosaic"
     rows: int = Field(default=1, ge=1, le=8)
     cols: int = Field(default=8, ge=1, le=8)
     row_prompts: list[str] = Field(default_factory=list, max_length=8)
@@ -452,6 +453,10 @@ class SpriteParamsSchema(BaseModel):
     gif_export: bool = False
     duration_ms: int = Field(default=125, ge=20, le=2000)
     loop: int = Field(default=0, ge=0, le=999)
+    video_action_prompt: str = Field(default="", max_length=600)
+    video_duration_seconds: int | None = Field(default=None, ge=4, le=15)
+    video_resolution: str | None = "480p"
+    video_ratio: str | None = "1:1"
 
     @model_validator(mode="before")
     @classmethod

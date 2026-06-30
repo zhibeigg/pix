@@ -117,6 +117,7 @@ export const zhCN = {
     status: {
       pending: '排队中',
       running: '生产中',
+      waiting: '等待视频',
       succeeded: '已完成',
       failed: '失败',
       cancelled: '已取消',

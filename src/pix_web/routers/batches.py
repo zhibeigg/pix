@@ -85,7 +85,7 @@ def _batch_response(batch: GenerationBatch) -> GenerationBatchResponse:
         job_count=len(jobs),
         succeeded_count=sum(1 for job in jobs if job.status == "succeeded"),
         failed_count=sum(1 for job in jobs if job.status == "failed"),
-        running_count=sum(1 for job in jobs if job.status == "running"),
+        running_count=sum(1 for job in jobs if job.status in {"running", "waiting"}),
         pending_count=sum(1 for job in jobs if job.status == "pending"),
         total_price_credits=sum(job.price_credits for job in jobs),
     )

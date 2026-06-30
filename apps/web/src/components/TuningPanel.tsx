@@ -43,7 +43,7 @@ export function TuningPanel({ job, action, pricing, loading, onSubmit }: { job: 
   if (!job) return <PixPanel eyebrow={text('微调工位', 'Tuning station')} title={text('选择作品进行微调', 'Select a work to tune')} description={text('选择作品后可重新像素化或 AI 微调。', 'After selecting a work, you can repixelize it or run AI tuning.')} />
 
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
-  const isActive = job.status === 'pending' || job.status === 'running'
+  const isActive = job.status === 'pending' || job.status === 'running' || job.status === 'waiting'
   const previewUrl = isActive ? null : signedFileUrl(output?.pixelized_url || output?.preview_url || output?.source_url || job.input_image_url || '')
   const spriteSheetUrl = isActive ? null : signedFileUrl(output?.sprite_sheet_url || undefined)
   const spriteFps = spriteFpsFromJob(job)

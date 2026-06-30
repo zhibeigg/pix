@@ -9,10 +9,11 @@ import time
 from sqlalchemy import select
 from pix_web.config import WebSettings, load_web_settings
 from pix_web.db import init_db, make_engine, make_session_factory
+from pix.sprite_video_bridge import is_waiting_state_due
 from pix_web.job_observability import cleanup_timed_out_running_jobs
 from pix_web.models import GenerationJob, utcnow
 from pix_web.system_settings import load_effective_web_settings
-from pix_web.worker import process_job
+from pix_web.worker import _video_bridge_state_from_params, process_job
 
 
 def process_job_id(job_id: int) -> int | None:
@@ -25,7 +26,13 @@ def process_job_id(job_id: int) -> int | None:
         settings = load_effective_web_settings(db, settings)
         cleanup_timed_out_running_jobs(db, timeout_minutes=settings.running_job_timeout_minutes)
         job = db.scalar(select(GenerationJob).where(GenerationJob.id == job_id))
-        if job is None or job.status != "pending":
+        if job is None:
+            return None
+        if job.status == "waiting":
+            state = _video_bridge_state_from_params(job.params_json or {})
+            if state is None or not is_waiting_state_due(state):
+                return None
+        elif job.status != "pending":
             return None
         job.status = "running"
         job.started_at = utcnow()
@@ -56,8 +63,27 @@ def run_rq_worker(settings: WebSettings) -> None:
     worker.work()
 
 
+def _due_waiting_job_ids(db, limit: int = 100) -> list[int]:
+    jobs = list(
+        db.scalars(
+            select(GenerationJob)
+            .where(GenerationJob.status == "waiting")
+            .order_by(GenerationJob.created_at.asc())
+            .limit(max(1, int(limit)))
+        )
+    )
+    ids: list[int] = []
+    for job in jobs:
+        state = _video_bridge_state_from_params(job.params_json or {})
+        if state is not None and is_waiting_state_due(state):
+            ids.append(job.id)
+    return ids
+
+
 def run_timeout_cleanup_loop(settings: WebSettings) -> None:
     """RQ 后端的独立超时清理循环。"""
+    from pix_web.queue import enqueue_jobs
+
     engine = make_engine(settings.database_url)
     init_db(engine, create_schema=settings.auto_create_db)
     session_factory = make_session_factory(engine)
@@ -66,6 +92,9 @@ def run_timeout_cleanup_loop(settings: WebSettings) -> None:
         with session_factory() as db:
             effective = load_effective_web_settings(db, settings)
             cleanup_timed_out_running_jobs(db, timeout_minutes=effective.running_job_timeout_minutes)
+            due_ids = _due_waiting_job_ids(db)
+            if due_ids:
+                enqueue_jobs(effective, due_ids)
             interval = max(1, int(effective.running_job_cleanup_interval_seconds))
         time.sleep(interval)
 

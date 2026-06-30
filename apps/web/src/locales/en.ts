@@ -117,6 +117,7 @@ export const en = {
     status: {
       pending: 'Queued',
       running: 'Running',
+      waiting: 'Waiting for video',
       succeeded: 'Completed',
       failed: 'Failed',
       cancelled: 'Cancelled',

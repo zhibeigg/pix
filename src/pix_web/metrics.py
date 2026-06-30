@@ -261,7 +261,7 @@ def task_performance_metrics(db: Session, range_key: str) -> dict[str, Any]:
     ]
 
     running = db.scalar(
-        select(func.count()).select_from(GenerationJob).where(GenerationJob.status == "running")
+        select(func.count()).select_from(GenerationJob).where(GenerationJob.status.in_(["running", "waiting"]))
     ) or 0
 
     recent_jobs = list(

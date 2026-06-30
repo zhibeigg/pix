@@ -123,7 +123,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const selectedJob = useMemo(() => selectedJobPool.find((job) => job.id === selectedJobId) ?? null, [selectedJobPool, selectedJobId])
   const retainedPhotos = useMemo(() => retainedPhotoCount(jobs), [jobs])
   const galleryRetentionLimit = galleryQuota?.retained_limit ?? DEFAULT_PHOTO_RETENTION_LIMIT
-  const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)).length, [jobs])
+  const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running', 'waiting'].includes(job.status)).length, [jobs])
   const completedJobs = useMemo(() => jobs.filter((job) => job.status === 'succeeded').length, [jobs])
   const failedJobs = useMemo(() => jobs.filter((job) => job.status === 'failed').length, [jobs])
 
@@ -747,7 +747,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function deleteJobs(targetJobs: GenerationJob[]) {
     if (!token) return
-    const deletableJobs = targetJobs.filter((job) => !['pending', 'running'].includes(job.status))
+    const deletableJobs = targetJobs.filter((job) => !['pending', 'running', 'waiting'].includes(job.status))
     if (deletableJobs.length === 0) {
       setMessage(text('请选择可删除的已完成作品。', 'Select completed works that can be deleted.'), 'info')
       return

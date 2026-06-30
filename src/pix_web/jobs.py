@@ -114,7 +114,7 @@ def _prompt_policy_text(req: JobCreateRequest) -> str | None:
         ])
         return "\n".join(parts) or None
     if req.job_type == "sprite_sheet":
-        parts = _dedupe_prompt_parts([req.prompt or "", *req.sprite.row_prompts, style_text])
+        parts = _dedupe_prompt_parts([req.prompt or "", *req.sprite.row_prompts, req.sprite.video_action_prompt, style_text])
         return "\n".join(parts) or None
     if req.job_type in {"text_to_image", "image_to_image"}:
         parts = _dedupe_prompt_parts([req.prompt or "", style_text])
@@ -127,7 +127,7 @@ def _prompt_policy_max_chars(req: JobCreateRequest, cfg: AppConfig) -> int | Non
         return (_asset_subject_limit(cfg) * 4) + _asset_extra_prompt_limit(cfg) + STYLE_PROFILE_POLICY_MAX_CHARS
     if req.job_type == "sprite_sheet":
         rows = max(1, min(8, req.sprite.rows))
-        return _sprite_subject_limit(cfg) + (_sprite_row_prompt_limit(cfg) * rows) + STYLE_PROFILE_POLICY_MAX_CHARS
+        return _sprite_subject_limit(cfg) + (_sprite_row_prompt_limit(cfg) * (rows + 1)) + STYLE_PROFILE_POLICY_MAX_CHARS
     if req.job_type in AI_JOB_TYPES:
         return _raw_image_prompt_limit(cfg) + STYLE_PROFILE_POLICY_MAX_CHARS
     return None
@@ -175,6 +175,7 @@ def validate_job_request(req: JobCreateRequest, cfg: AppConfig | None = None) ->
             row_limit = _sprite_row_prompt_limit(cfg)
             for index, row_prompt in enumerate(req.sprite.row_prompts, start=1):
                 _enforce_text_max_chars(f"第 {index} 行动作描述", row_prompt, row_limit)
+            _enforce_text_max_chars("视频补间动作描述", req.sprite.video_action_prompt, row_limit)
         elif req.job_type in {"text_to_image", "image_to_image"}:
             _enforce_text_max_chars("原始生图 prompt", prompt, _raw_image_prompt_limit(cfg))
     try:
@@ -217,12 +218,30 @@ def validate_job_request(req: JobCreateRequest, cfg: AppConfig | None = None) ->
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="序列帧每行/每列最多支持 8"
             )
-        if sprite.rows * sprite.cols < 1:
+        total_frames = sprite.rows * sprite.cols
+        if total_frames < 1:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="序列帧网格至少需要 1 个单元",
             )
-        if sprite.rows >= 2 and len(sprite.row_prompts) < sprite.rows:
+        if sprite.mode == "video_bridge":
+            if total_frames < 2:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="首尾帧视频补间至少需要 2 帧",
+                )
+            if cfg is not None:
+                if not getattr(cfg.video_bridge, "enabled", False):
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="首尾帧视频补间未启用，请先在后台启用 video_bridge",
+                    )
+                if not (getattr(cfg.video_bridge, "api_key", None) or "").strip():
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="首尾帧视频补间需要配置 Ark API Key",
+                    )
+        elif sprite.rows >= 2 and len(sprite.row_prompts) < sprite.rows:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="多行序列帧需要为每一行填写动作描述",

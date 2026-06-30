@@ -29,7 +29,7 @@ interface WorkspacePageProps {
 
 export function WorkspacePage({ mode, pricing, discount, balance, jobs, loading, token, imageModels, reuseJobSeed, onModeChange, onCreateJob, onCreateJobs, onCandidatePixelize, onRefresh }: WorkspacePageProps) {
   const { t } = useI18n()
-  const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running'].includes(job.status)), [jobs])
+  const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running', 'waiting'].includes(job.status)), [jobs])
   return (
     <div className="grid gap-6">
       <PageHeader eyebrow={t('pages.workspace.eyebrow')} title={t('pages.workspace.title')} description={t('pages.workspace.description')} action={(

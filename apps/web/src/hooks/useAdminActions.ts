@@ -66,7 +66,7 @@ export function useAdminActions({ token, refreshCore, setMessage, text }: AdminA
   }, [token, refreshCore, setMessage, text])
 
   const adminCancelJob = useCallback(async (job: GenerationJob) => {
-    if (!token || !['pending', 'running'].includes(job.status)) return
+    if (!token || !['pending', 'running', 'waiting'].includes(job.status)) return
     await api.adminCancelJob(token, job.id)
     setMessage(text(`任务 #${job.id} 已取消并退款。`, `Job #${job.id} cancelled and refunded.`))
     await refreshCore(token)

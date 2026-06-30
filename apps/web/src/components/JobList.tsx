@@ -31,13 +31,13 @@ function EmptyQueueState() {
 function JobCard({ job, onCandidatePixelize }: { job: GenerationJob; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void> }) {
   const { language, t } = useI18n()
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
-  const isActive = job.status === 'pending' || job.status === 'running'
+  const isActive = job.status === 'pending' || job.status === 'running' || job.status === 'waiting'
   const preview = isActive ? null : signedFileUrl(output?.preview_url || output?.pixelized_url || output?.source_url || job.input_image_url)
   const spriteSheetUrl = isActive ? null : signedFileUrl(output?.sprite_sheet_url || undefined)
   const spriteFps = spriteFpsFromJob(job)
   return (
     <article className={`grid gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-[120px_minmax(0,1fr)] ${isActive ? 'pix-work-card-loading' : ''}`}>
-      <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={output?.sprite_frames ?? []} fps={spriteFps} fallbackUrl={preview} loading={isActive} label={job.status === 'pending' ? t('jobs.status.pending') : job.status === 'running' ? t('jobs.status.running') : job.status} className="min-h-28" />
+      <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={output?.sprite_frames ?? []} fps={spriteFps} fallbackUrl={preview} loading={isActive} label={job.status === 'pending' ? t('jobs.status.pending') : job.status === 'running' ? t('jobs.status.running') : job.status === 'waiting' ? t('jobs.status.waiting') : job.status} className="min-h-28" />
       <div className="min-w-0 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-semibold">#{job.id} · {jobTypeLabel(job.job_type, language)}</h3><p className="mt-1 text-sm text-muted-foreground">{jobInputSummary(job, t('gallery.noInputSummary'))}</p></div><PixStatusBadge status={job.status} /></div>
         <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{t('common.points', { count: job.price_credits })}</Badge><Badge variant="outline">{t('queue.reserved', { count: job.reserved_credits })}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge></div>

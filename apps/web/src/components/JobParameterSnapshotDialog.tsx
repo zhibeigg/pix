@@ -70,8 +70,10 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
   ]) : []
 
   const spriteRows = job.job_type === 'sprite_sheet' ? compactRows([
+    [text('生成方式', 'Generation mode'), spriteModeLabel(sprite?.mode, text)],
     [text('帧数', 'Frame count'), stringOrDash(sprite?.frame_count)],
     ['FPS', stringOrDash(sprite?.fps)],
+    [text('视频动作描述', 'Video motion description'), sprite?.mode === 'video_bridge' ? stringOrDash(sprite?.video_action_prompt) : '—'],
   ]) : []
 
   async function copySnapshot() {
@@ -203,8 +205,10 @@ function buildUserInputSnapshot(job: GenerationJob) {
       transition_style: asset?.transition_style,
     }) : undefined,
     sequence: job.job_type === 'sprite_sheet' ? stripEmpty({
+      mode: sprite?.mode,
       frame_count: sprite?.frame_count,
       fps: sprite?.fps,
+      video_action_prompt: sprite?.mode === 'video_bridge' ? sprite?.video_action_prompt : undefined,
     }) : undefined,
   })
 }
@@ -239,6 +243,12 @@ function edgeStyleLabel(value: unknown, text: (zh: string, en: string) => string
 function bgRemovalAlgorithmLabel(value: unknown, text: (zh: string, en: string) => string): string {
   if (value === 'color_to_alpha') return text('高清（Color-to-Alpha）', 'HD (Color-to-Alpha)')
   if (value === 'pixel_bg' || value === 'auto' || value === 'imagemagick_fuzz_floodfill_alpha' || value === 'flood_fill' || value === 'hybrid') return text('像素（pixel_bg）', 'Pixel (pixel_bg)')
+  return stringOrDash(value)
+}
+
+function spriteModeLabel(value: unknown, text: (zh: string, en: string) => string): string {
+  if (value === 'video_bridge') return text('首尾帧视频补间', 'Start/end video bridge')
+  if (value === 'mosaic' || value === undefined || value === null || value === '') return text('Mosaic 单图网格', 'Mosaic single image grid')
   return stringOrDash(value)
 }
 

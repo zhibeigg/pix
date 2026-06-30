@@ -295,8 +295,8 @@ def cleanup_timed_out_running_jobs(db: Session, *, timeout_minutes: int, limit: 
 
 
 def cancel_job_and_refund(db: Session, job: GenerationJob, *, note: str = "管理员取消任务并退款") -> GenerationJob:
-    if job.status not in {"pending", "running"}:
-        raise ValueError("只有排队中或运行中的任务可以取消")
+    if job.status not in {"pending", "running", "waiting"}:
+        raise ValueError("只有排队中、运行中或等待中的任务可以取消")
     return mark_job_failed_and_refund(
         db,
         job,
@@ -308,8 +308,8 @@ def cancel_job_and_refund(db: Session, job: GenerationJob, *, note: str = "管�
 
 
 def admin_fail_job_and_refund(db: Session, job: GenerationJob, *, note: str = "管理员标记失败并退款") -> GenerationJob:
-    if job.status not in {"pending", "running", "failed"}:
-        raise ValueError("只有排队中、运行中或失败任务可以标记失败并退款")
+    if job.status not in {"pending", "running", "waiting", "failed"}:
+        raise ValueError("只有排队中、运行中、等待中或失败任务可以标记失败并退款")
     return mark_job_failed_and_refund(
         db,
         job,

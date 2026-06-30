@@ -18,7 +18,7 @@ config.example.toml               # Pix 核心可选配置示例
 Dockerfile / docker-compose.yml    # 后端镜像与整站编排
 ```
 
-> 注意：Web 后端不仅依赖 `src/pix_web`，还依赖 `src/pix` 中的 `asset.py`、`pipeline.py`、`pixelize/*`、`grid/*`、`api/*`、`sprite_mosaic.py`（序列帧 pipeline）、`sprite.py`（序列帧通用工具与数据类）等核心代码。
+> 注意：Web 后端不仅依赖 `src/pix_web`，还依赖 `src/pix` 中的 `asset.py`、`pipeline.py`、`pixelize/*`、`grid/*`、`api/*`、`sprite_mosaic.py`（mosaic 序列帧 pipeline）、`sprite_video_bridge.py`（首尾帧视频补间 pipeline）、`sprite.py`（序列帧通用工具与数据类）等核心代码。
 
 ## 本地开发
 
@@ -90,6 +90,9 @@ npm run build
 | `SHENGSUANYUN_BASE_URL` | 胜算云 API Base URL，默认 `https://router.shengsuanyun.com`。 |
 | `PIX_IMAGE_DEFAULT_MODEL` | 默认 logical 生图模型，建议 `image2`；可选值仅为 `image2`、`gemini-3.1-flash-image-preview`、`gemini-3-pro-image-preview`。 |
 | `PIX_IMAGE_PROVIDERS_JSON` | 可选：用 JSON 覆盖/补充多 Provider 配置，适合容器密钥管理场景。 |
+| `ARK_API_KEY` / `VOLCENGINE_ARK_API_KEY` | 可选：启用 `sprite.mode="video_bridge"` 首尾帧视频补间时使用的火山方舟 API Key；也可在后台「视频补间」配置。 |
+| `PIX_VIDEO_BRIDGE_ENABLED` | 可选：设为 `true` 后允许创建首尾帧视频补间序列帧任务。 |
+| `PIX_VIDEO_BRIDGE_MODEL` / `PIX_VIDEO_BRIDGE_BASE_URL` / `PIX_VIDEO_BRIDGE_DURATION` | 可选：覆盖 Ark Seedance 模型、Base URL 和视频秒数。 |
 | `PACKY_API_KEY` | Packy 老部署兼容 / 首次导入「上游供应商」种子 / fallback Provider 的生图 API key；新部署请优先在后台「上游供应商」配置。 |
 | `PACKY_VL_API_KEY` | 视觉模型旧变量，老部署兼容 / 首次导入用，可与 `PACKY_API_KEY` 共用。 |
 | `PACKY_BASE_URL` | Packy 旧 Base URL，老部署兼容 / 首次导入用，默认 `https://www.packyapi.com`。 |
@@ -122,6 +125,12 @@ npm run build
 ### 输入长度限制配置
 
 后台「素材默认值」和「序列帧」现支持调整 Web 表单与外部 API 共用的描述长度限制：`pix.asset.subject_max_chars`、`pix.asset.extra_prompt_max_chars`、`pix.sprite.subject_max_chars`、`pix.sprite.row_prompt_max_chars`。同名字段也可写入 `config.toml` 的 `[asset]` / `[sprite]` 段。公开接口 `GET /settings/image-models` 与外部 API `GET /external/v1/models` 会在 `limits` 中返回当前生效值，前端据此显示字数计数、超限提示并禁用提交；后端创建任务、批量创建和失败重试也会按同一配置二次校验。
+
+### 首尾帧视频补间序列帧
+
+序列帧任务默认仍为 `sprite.mode = "mosaic"`。启用 `[video_bridge]` / 后台「视频补间」并配置 Ark Key 后，可提交 `sprite.mode = "video_bridge"`：系统先生成首尾关键帧图，再通过火山方舟 Ark / Seedance 首尾帧图生视频异步接口创建视频任务。视频生成期间任务状态为 `waiting`，不会长时间占用本地 worker；到达 `next_poll_at` 后数据库 worker 或 RQ 清理循环会重新捞取任务继续轮询。成功后会立即下载临时视频并抽帧，输出仍兼容现有序列帧契约：`sprite_sheet.png`、`sprite_sheet_grid.png`、`frames/`、可选 `sprite.gif`、`sequence.json` 和 `meta.json`。
+
+外部 API 示例见前端 API 页「创建序列帧任务」；分页查询的 `status` 可包含 `waiting`。
 
 ### 公开分享作品
 

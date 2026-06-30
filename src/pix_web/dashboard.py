@@ -65,7 +65,7 @@ def admin_dashboard(db: Session) -> dict[str, int | float]:
     failed_today = _count_jobs(db, status="failed", since=today)
     succeeded_today = _count_jobs(db, status="succeeded", since=today)
     pending_jobs = _count_jobs(db, status="pending")
-    running_jobs = _count_jobs(db, status="running")
+    running_jobs = _count_jobs(db, status="running") + _count_jobs(db, status="waiting")
     new_users_today = db.scalar(select(func.count()).select_from(User).where(User.created_at >= today)) or 0
     policy_blocked_today = db.scalar(
         select(func.count()).select_from(GenerationPolicyEvent).where(GenerationPolicyEvent.created_at >= today)

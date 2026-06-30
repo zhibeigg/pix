@@ -191,7 +191,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
   }'
 
 # 成功后通过 outputs/pixelized 下载透明 PNG。`, [])
-  const spriteCurl = useMemo(() => String.raw`# 创建序列帧任务：rows 表示动作行，cols 表示每行动画帧数
+  const spriteCurl = useMemo(() => String.raw`# 创建序列帧任务（默认 mosaic）：rows 表示动作行，cols 表示每行动画帧数
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
@@ -200,10 +200,34 @@ curl -X POST "$PIX_API_BASE/jobs" \
     "job_type": "sprite_sheet",
     "prompt": "一个蓝色斗篷骑士，侧视角像素风行走动画，动作连贯",
     "sprite": {
+      "mode": "mosaic",
       "rows": 1,
       "cols": 8,
       "fps": 8,
       "row_prompts": ["walk cycle, left to right"]
+    },
+    "pixelize": {
+      "output_size": [48, 48],
+      "colors": 24,
+      "remove_bg": true
+    },
+    "image_model": "image2"
+  }'
+
+# 首尾帧视频补间：先生成首/尾关键帧，再进入 waiting 等 Ark 视频完成并抽帧
+curl -X POST "$PIX_API_BASE/jobs" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: demo-hero-slash-video-001" \
+  -d '{
+    "job_type": "sprite_sheet",
+    "prompt": "一个蓝色斗篷骑士，侧视角像素风，身份和配色稳定",
+    "sprite": {
+      "mode": "video_bridge",
+      "rows": 1,
+      "cols": 8,
+      "fps": 8,
+      "video_action_prompt": "从站立蓄力到挥剑释放一道蓝色剑气"
     },
     "pixelize": {
       "output_size": [48, 48],
@@ -216,7 +240,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
 curl "$PIX_API_BASE/jobs/123" \
   -H "Authorization: Bearer $PIX_API_KEY"
 
-# 列表分页：status 可选 pending / running / succeeded / failed，before_id 用于翻页
+# 列表分页：status 可选 pending / running / waiting / succeeded / failed，before_id 用于翻页
 curl "$PIX_API_BASE/jobs?status=succeeded&limit=20" \
   -H "Authorization: Bearer $PIX_API_KEY"`, [])
   const downloadCurl = useMemo(() => String.raw`# 单图任务常用输出：source / pixelized / preview
@@ -433,7 +457,7 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
         <CodeBlock title={text('5. 创建图生图 / 参考图重绘任务', '5. Create an image-to-image job')} description={text('先上传图片，再把上传结果 path 放到 input_image_path。', 'Upload an image first, then pass the returned path as input_image_path.')} code={imageCurl} copied={copied} onCopy={(code) => void copy(code, 'image')} copyKey="image" />
         <CodeBlock title={text('6. 创建本地去背景任务', '6. Create a local background-removal job')} description={text('先上传图片，再选择 pixel_bg（像素）或 color_to_alpha（高清）算法；不调用 AI。', 'Upload an image first, then choose pixel_bg (pixel) or color_to_alpha (HD); no AI call is made.')} code={bgRemoveCurl} copied={copied} onCopy={(code) => void copy(code, 'bg-remove')} copyKey="bg-remove" />
         <CodeBlock title={text('7. 创建序列帧任务', '7. Create a sprite-sheet job')} description={text('用于角色行走、攻击、待机等动画；rows × cols 决定动作行和帧数。', 'Use this for walk, attack, idle, and other animations; rows × cols controls action rows and frame count.')} code={spriteCurl} copied={copied} onCopy={(code) => void copy(code, 'sprite')} copyKey="sprite" />
-        <CodeBlock title={text('8. 轮询任务和分页列表', '8. Poll jobs and list pages')} description={text('任务状态通常为 pending / running / succeeded / failed；成功后再下载输出。', 'Job status is usually pending / running / succeeded / failed; download outputs after success.')} code={pollCurl} copied={copied} onCopy={(code) => void copy(code, 'poll')} copyKey="poll" />
+        <CodeBlock title={text('8. 轮询任务和分页列表', '8. Poll jobs and list pages')} description={text('任务状态通常为 pending / running / waiting / succeeded / failed；video_bridge 在 Ark 视频生成期间会显示 waiting。', 'Job status is usually pending / running / waiting / succeeded / failed; video_bridge shows waiting while Ark renders.')} code={pollCurl} copied={copied} onCopy={(code) => void copy(code, 'poll')} copyKey="poll" />
         <CodeBlock title={text('9. 下载输出文件', '9. Download output files')} description={text('下载接口需要 files:read 权限；文件不存在或任务未完成时会返回 404 / 409。', 'Download endpoints require files:read; unavailable files or unfinished jobs return 404 / 409.')} code={downloadCurl} copied={copied} onCopy={(code) => void copy(code, 'download')} copyKey="download" />
       </section>
     </div>

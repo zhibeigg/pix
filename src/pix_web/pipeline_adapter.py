@@ -32,6 +32,7 @@ from pix.pixelize.perfect_pixel import preprocess_generated_image
 from pix.prompt_style import STYLE_PROFILE_POLICY_MAX_CHARS, compile_style_profile, style_profile_policy_text
 from pix.sprite import SpritePipelineResult
 from pix.sprite_mosaic import SpriteMosaicInput, run_sprite_mosaic_pipeline
+from pix.sprite_video_bridge import SpriteVideoBridgeInput, run_sprite_video_bridge_pipeline
 from pix_web.config import WebSettings
 from pix_web.models import GenerationJob
 
@@ -459,7 +460,7 @@ def asset_pipeline_input_from_job(
     )
 
 
-def sprite_mosaic_input_from_job(job: GenerationJob, settings: WebSettings) -> SpriteMosaicInput:
+def _sprite_common_values(job: GenerationJob, settings: WebSettings) -> tuple[dict[str, Any], dict[str, Any], Path, list[str], Path | None]:
     data = job.params_json or {}
     sprite = data.get("sprite") or {}
     out_root = settings.storage_root / "runs" / f"job-{job.id}"
@@ -469,6 +470,11 @@ def sprite_mosaic_input_from_job(job: GenerationJob, settings: WebSettings) -> S
     row_prompts = [str(item) for item in raw_row_prompts]
     reference_path_value = sprite.get("reference_image_path")
     reference_path = Path(reference_path_value) if reference_path_value else None
+    return data, sprite, out_root, row_prompts, reference_path
+
+
+def sprite_mosaic_input_from_job(job: GenerationJob, settings: WebSettings) -> SpriteMosaicInput:
+    data, sprite, out_root, row_prompts, reference_path = _sprite_common_values(job, settings)
     return SpriteMosaicInput(
         prompt=job.prompt or "",
         rows=int(sprite.get("rows", 1)),
@@ -493,7 +499,36 @@ def sprite_mosaic_input_from_job(job: GenerationJob, settings: WebSettings) -> S
     )
 
 
+def sprite_video_bridge_input_from_job(job: GenerationJob, settings: WebSettings) -> SpriteVideoBridgeInput:
+    data, sprite, out_root, row_prompts, reference_path = _sprite_common_values(job, settings)
+    state = sprite.get("video_bridge_state") if isinstance(sprite.get("video_bridge_state"), dict) else None
+    if state is None:
+        state = data.get("video_bridge_state") if isinstance(data.get("video_bridge_state"), dict) else None
+    return SpriteVideoBridgeInput(
+        prompt=job.prompt or "",
+        rows=int(sprite.get("rows", 1)),
+        cols=int(sprite.get("cols", sprite.get("frame_count", 8) or 8)),
+        row_prompts=row_prompts,
+        video_action_prompt=str(sprite.get("video_action_prompt") or ""),
+        reference_image_path=reference_path,
+        image_size=data.get("image_size"),
+        image_quality=data.get("image_quality"),
+        image_model=data.get("image_model"),
+        pixelize_params=pixelize_params_from_json(data),
+        out_root=out_root,
+        fps=int(sprite.get("fps", 8)),
+        duration_ms=int(sprite.get("duration_ms", 0)) or None,
+        loop=int(sprite.get("loop", 0)),
+        gif_export=bool(sprite.get("gif_export", False)),
+        billing=data.get("billing") if isinstance(data.get("billing"), dict) else None,
+        style_profile=_style_profile_data(job),
+        local_stage_context=_local_stage_context(settings),
+        state=state,
+    )
+
+
 def _write_asset_meta(result: PipelineResult, job: GenerationJob, inputs: PipelineInput) -> None:
+
     data = job.params_json or {}
     asset = _asset_data(job)
     name = _asset_name(job)
@@ -1237,6 +1272,13 @@ def run_job_pipeline(
             return run_tile_asset_job_pipeline(job, settings, resolved_cfg)
         return run_asset_job_pipeline(job, settings, resolved_cfg)
     if job.job_type == "sprite_sheet":
+        data = job.params_json or {}
+        sprite = data.get("sprite") if isinstance(data, dict) else None
+        mode = str(sprite.get("mode") or "mosaic") if isinstance(sprite, dict) else "mosaic"
+        if mode == "video_bridge":
+            return run_sprite_video_bridge_pipeline(
+                resolved_cfg, sprite_video_bridge_input_from_job(job, settings)
+            )
         return run_sprite_mosaic_pipeline(resolved_cfg, sprite_mosaic_input_from_job(job, settings))
     if job.job_type == "local_bg_remove":
         return run_local_bg_remove_job_pipeline(job, settings, resolved_cfg)

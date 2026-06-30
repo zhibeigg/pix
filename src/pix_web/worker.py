@@ -25,26 +25,61 @@ from pix_web.job_observability import (
     user_message_for_failure,
 )
 from pix_web.models import GenerationJob, GenerationOutput, utcnow
+from pix.sprite_video_bridge import VideoBridgeWaiting, is_waiting_state_due
 from pix_web.pipeline_adapter import run_job_pipeline
 from pix_web.retention import prune_user_photos
 from pix_web.system_settings import load_effective_web_settings, load_managed_pix_config
 
 
-def claim_next_job(db: Session) -> GenerationJob | None:
-    """原子领取一个 pending job，并把它切换为 running。"""
-    while True:
-        job_id = db.scalar(
-            select(GenerationJob.id)
-            .where(GenerationJob.status == "pending")
+def _video_bridge_state_from_params(params: object) -> dict | None:
+    if not isinstance(params, dict):
+        return None
+    sprite = params.get("sprite") if isinstance(params.get("sprite"), dict) else None
+    state = sprite.get("video_bridge_state") if isinstance(sprite, dict) else None
+    if isinstance(state, dict):
+        return state
+    legacy_state = params.get("video_bridge_state")
+    return legacy_state if isinstance(legacy_state, dict) else None
+
+
+def _waiting_job_due(job: GenerationJob) -> bool:
+    return (state := _video_bridge_state_from_params(job.params_json or {})) is not None and is_waiting_state_due(state)
+
+
+def _next_claimable_job_id(db: Session) -> tuple[int, str] | None:
+    pending_id = db.scalar(
+        select(GenerationJob.id)
+        .where(GenerationJob.status == "pending")
+        .order_by(GenerationJob.queue_priority.desc(), GenerationJob.created_at.asc())
+        .limit(1)
+    )
+    if pending_id is not None:
+        return int(pending_id), "pending"
+    waiting_jobs = list(
+        db.scalars(
+            select(GenerationJob)
+            .where(GenerationJob.status == "waiting")
             .order_by(GenerationJob.queue_priority.desc(), GenerationJob.created_at.asc())
-            .limit(1)
+            .limit(50)
         )
-        if job_id is None:
+    )
+    for job in waiting_jobs:
+        if _waiting_job_due(job):
+            return job.id, "waiting"
+    return None
+
+
+def claim_next_job(db: Session) -> GenerationJob | None:
+    """原子领取一个 pending / 到期 waiting job，并把它切换为 running。"""
+    while True:
+        claim = _next_claimable_job_id(db)
+        if claim is None:
             return None
+        job_id, expected_status = claim
 
         result = db.execute(
             update(GenerationJob)
-            .where(GenerationJob.id == job_id, GenerationJob.status == "pending")
+            .where(GenerationJob.id == job_id, GenerationJob.status == expected_status)
             .values(status="running", started_at=utcnow())
         )
         db.commit()
@@ -147,6 +182,23 @@ def process_job(db: Session, job: GenerationJob, settings: WebSettings) -> Gener
         _settle_credits_on_success(db, job, result.meta)
         db.commit()
         prune_user_photos(db, job.user_id, settings)
+        db.commit()
+    except VideoBridgeWaiting as waiting:
+        db.rollback()
+        job = db.get(GenerationJob, job.id)
+        if job is None:
+            raise
+        params = dict(job.params_json or {})
+        sprite = dict(params.get("sprite") or {})
+        sprite["video_bridge_state"] = waiting.state
+        params["sprite"] = sprite
+        params.pop("video_bridge_state", None)
+        job.params_json = params
+        job.status = "waiting"
+        job.started_at = None
+        job.provider = "ark_video"
+        job.error_message = str(waiting)[:8000]
+        job.user_error_message = "视频补间任务正在生成，请稍后查看结果"
         db.commit()
     except Exception as exc:  # noqa: BLE001 — worker 必须捕获失败并退款
         db.rollback()

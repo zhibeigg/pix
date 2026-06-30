@@ -316,6 +316,26 @@ mosaic_prompt_template = "Create a TRUE pixel-art sprite sheet for the following
 # 占位符额外包含 {base_template}：会被替换为已渲染好的 mosaic_prompt_template 文本。
 mosaic_reference_prompt_template = "Re-create the sprite sheet described below based on the provided reference image as the character source. The reference image defines the core character design (silhouette, palette, costume, proportions). Reuse the reference character identity in EVERY cell; only the action/pose changes per cell.\n\n{base_template}\n\nStrictly preserve the reference character's identity, color palette, and proportions across every cell."
 
+[video_bridge]
+# 首尾帧视频补间：仅当 sprite.mode = "video_bridge" 时启用。
+# 流程：生成首/尾关键帧图 → 提交 Ark/Seedance 首尾帧图生视频异步任务 → job 进入 waiting → 到期重捞轮询 → 下载视频并抽帧为 mosaic 兼容输出。
+enabled = false
+provider = "ark"
+base_url = "https://ark.cn-beijing.volces.com/api/v3"
+# 推荐通过 ARK_API_KEY / VOLCENGINE_ARK_API_KEY 环境变量或后台「视频补间」配置；不要把生产密钥提交进仓库。
+api_key = ""
+model = "doubao-seedance-2-0-260128"
+resolution = "480p" # 480p | 720p | 1080p | 4k
+ratio = "1:1"
+duration = 5
+fps = 24
+generate_audio = false
+watermark = false
+poll_interval_seconds = 30
+task_timeout_seconds = 1800
+video_input_size = [640, 640]
+max_base64_image_bytes = 31457280
+
 [cache]
 enabled        = true
 dir            = ".pix_cache"

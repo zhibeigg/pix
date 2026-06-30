@@ -362,6 +362,27 @@ class SpriteConfig:
 
 
 @dataclass
+class VideoBridgeConfig:
+    """首尾帧视频补间配置（Ark / Seedance）。"""
+
+    enabled: bool = False
+    provider: str = "ark"
+    base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
+    api_key: str | None = None
+    model: str = "doubao-seedance-2-0-260128"
+    resolution: str = "480p"
+    ratio: str = "1:1"
+    duration: int = 5
+    fps: int = 24
+    generate_audio: bool = False
+    watermark: bool = False
+    poll_interval_seconds: int = 30
+    task_timeout_seconds: int = 1800
+    video_input_size: tuple[int, int] = (640, 640)
+    max_base64_image_bytes: int = 30 * 1024 * 1024
+
+
+@dataclass
 class CacheConfig:
     enabled: bool = True
     dir: str = ".pix_cache"
@@ -391,6 +412,7 @@ class AppConfig:
     pixelize: PixelizeConfig = field(default_factory=PixelizeConfig)
     asset: AssetConfig = field(default_factory=AssetConfig)
     sprite: SpriteConfig = field(default_factory=SpriteConfig)
+    video_bridge: VideoBridgeConfig = field(default_factory=VideoBridgeConfig)
     cache: CacheConfig = field(default_factory=CacheConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
     history: HistoryConfig = field(default_factory=HistoryConfig)
@@ -653,6 +675,21 @@ def _apply_mapping(cfg: AppConfig, data: Mapping[str, Any]) -> None:
         _update_dataclass(section_obj, section_values)
 
 
+def _env_bool(value: str | None, fallback: bool) -> bool:
+    if value is None:
+        return fallback
+    return value.strip().lower() not in {"0", "false", "no", "off", "disabled"}
+
+
+def _env_int(value: str | None, fallback: int) -> int:
+    if value is None:
+        return fallback
+    try:
+        return int(value)
+    except ValueError:
+        return fallback
+
+
 def _apply_env(cfg: AppConfig) -> None:
     """从环境变量覆盖关键字段。"""
     api_key = os.getenv("PACKY_API_KEY")
@@ -660,6 +697,11 @@ def _apply_env(cfg: AppConfig) -> None:
     gemini_key = os.getenv("PACKY_GEMINI_API_KEY")
     base_url = os.getenv("PACKY_BASE_URL")
     default_model = os.getenv("PIX_IMAGE_DEFAULT_MODEL")
+    ark_key = os.getenv("ARK_API_KEY") or os.getenv("VOLCENGINE_ARK_API_KEY")
+    video_bridge_enabled = os.getenv("PIX_VIDEO_BRIDGE_ENABLED")
+    video_bridge_model = os.getenv("PIX_VIDEO_BRIDGE_MODEL")
+    video_bridge_base_url = os.getenv("PIX_VIDEO_BRIDGE_BASE_URL")
+    video_bridge_duration = os.getenv("PIX_VIDEO_BRIDGE_DURATION")
 
     if api_key:
         cfg.api.image_api_key = api_key
@@ -671,6 +713,16 @@ def _apply_env(cfg: AppConfig) -> None:
         cfg.api.base_url = base_url
     if default_model:
         cfg.image_gen.model = "image2" if default_model.strip().lower() == "gpt-image-2" else default_model
+    if ark_key:
+        cfg.video_bridge.api_key = ark_key
+    if video_bridge_enabled is not None:
+        cfg.video_bridge.enabled = _env_bool(video_bridge_enabled, cfg.video_bridge.enabled)
+    if video_bridge_model:
+        cfg.video_bridge.model = video_bridge_model
+    if video_bridge_base_url:
+        cfg.video_bridge.base_url = video_bridge_base_url
+    if video_bridge_duration:
+        cfg.video_bridge.duration = max(1, _env_int(video_bridge_duration, cfg.video_bridge.duration))
 
 
 # ---------- 公共入口 ----------

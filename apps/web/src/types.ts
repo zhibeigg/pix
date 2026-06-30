@@ -154,6 +154,8 @@ export type ReferralSummary = {
 }
 
 export type JobType = 'asset' | 'text_to_image' | 'image_to_image' | 'local_pixelize' | 'local_bg_remove' | 'repixelize' | 'sprite_sheet'
+export type JobStatus = 'pending' | 'running' | 'waiting' | 'succeeded' | 'failed' | 'cancelled' | string
+export type SpriteMode = 'mosaic' | 'video_bridge'
 
 export type ImageModelInfo = {
   id: string
@@ -212,6 +214,7 @@ export type GridDesignParams = {
 }
 
 export type SpriteParams = {
+  mode?: SpriteMode
   rows: number
   cols: number
   row_prompts?: string[]
@@ -221,6 +224,10 @@ export type SpriteParams = {
   gif_export?: boolean
   duration_ms: number
   loop: number
+  video_action_prompt?: string
+  video_duration_seconds?: number | null
+  video_resolution?: string | null
+  video_ratio?: string | null
 }
 
 export type TextureKind = 'auto' | 'generic_texture' | 'terrain_ground' | 'path_floor' | 'wall_surface' | 'wood_planks' | 'water_liquid' | 'foliage_canopy' | 'roof_tile' | 'metal_panel' | 'fabric_carpet'
@@ -529,7 +536,7 @@ export type GenerationJob = {
   batch_id: number | null
   batch_name: string | null
   job_type: string
-  status: string
+  status: JobStatus
   prompt: string | null
   input_image_path: string | null
   input_image_url: string | null

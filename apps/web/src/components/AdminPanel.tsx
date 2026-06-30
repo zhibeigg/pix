@@ -214,7 +214,7 @@ function AdminJobsPanel({ jobs, users, onRetry, onCancel, onFailRefund }: { jobs
   }, [jobs, query, status, userId, usersById])
   const statusSummary = useMemo(() => ({
     total: filteredJobs.length,
-    active: filteredJobs.filter((job) => ['pending', 'running'].includes(job.status)).length,
+    active: filteredJobs.filter((job) => ['pending', 'running', 'waiting'].includes(job.status)).length,
     succeeded: filteredJobs.filter((job) => job.status === 'succeeded').length,
     failed: filteredJobs.filter((job) => job.status === 'failed').length,
   }), [filteredJobs])
@@ -291,7 +291,7 @@ function AdminJobsList({ jobs, usersById, onRetry, onCancel, onFailRefund }: { j
             </div>
             <div className="flex flex-wrap items-center gap-2 xl:justify-end">
               {job.status === 'failed' && <Button variant="outline" size="sm" onClick={async () => { if (await confirm({ title: '重试任务', description: `重试任务 #${job.id}？`, confirmText: '重试' })) void onRetry(job) }}>重试</Button>}
-              {['pending', 'running'].includes(job.status) && <Button variant="outline" size="sm" onClick={async () => { if (await confirm({ title: '取消并退款', description: `取消任务 #${job.id} 并退款？`, confirmText: '取消并退款', tone: 'danger' })) void onCancel(job) }}>取消并退款</Button>}
+              {['pending', 'running', 'waiting'].includes(job.status) && <Button variant="outline" size="sm" onClick={async () => { if (await confirm({ title: '取消并退款', description: `取消任务 #${job.id} 并退款？`, confirmText: '取消并退款', tone: 'danger' })) void onCancel(job) }}>取消并退款</Button>}
               {['pending', 'running', 'failed'].includes(job.status) && <Button variant="destructive" size="sm" onClick={async () => { if (await confirm({ title: '标记失败并退款', description: `将任务 #${job.id} 标记为失败并退款？`, confirmText: '失败并退款', tone: 'danger' })) void onFailRefund(job) }}>失败并退款</Button>}
             </div>
           </div>
