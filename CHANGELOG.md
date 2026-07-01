@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.101.25] - 2026-07-01
+
+### Fixed
+
+- 修复 `sprite.mode = "video_bridge"` 抽帧后逐帧独立 perfectPixel 检测导致序列帧网格可能抖动的问题：现在会先对所有原始视频抽帧执行 perfectPixel 自动检测，统计众数网格尺寸，再用该众数网格作为固定 `grid_size` 对全部帧统一重跑 perfectPixel；`meta.json` 会记录每帧首次检测结果和最终众数网格。
+
 ## [1.101.24] - 2026-07-01
 
 ### Fixed

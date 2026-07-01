@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import base64
-from collections import deque
+from collections import Counter, deque
 import json
 import re
 from contextlib import nullcontext
@@ -57,7 +57,7 @@ LocalStageContext = Callable[[], ContextManager[None]]
 ProgressCb = Any
 _WAITING_STATUSES = {"queued", "running"}
 _FAILED_STATUSES = {"failed", "expired", "cancelled"}
-_FRAME_BACKGROUND_FLOW = "video_frames_to_perfect_pixel_to_key_color_alpha_to_denoise_to_union_bbox_to_palette_limit"
+_FRAME_BACKGROUND_FLOW = "video_frames_to_perfect_pixel_detect_all_to_mode_grid_to_fixed_grid_perfect_pixel_to_key_color_alpha_to_denoise_to_union_bbox_to_palette_limit"
 
 
 @dataclass
@@ -1275,6 +1275,64 @@ def _union_bbox(bboxes: list[tuple[int, int, int, int] | None], fallback_size: t
     )
 
 
+def _preprocess_grid_from_meta(meta: Mapping[str, Any]) -> tuple[int, int] | None:
+    for key in ("refined_size", "output_size", "grid_size"):
+        value = meta.get(key)
+        if not isinstance(value, (list, tuple)) or len(value) != 2:
+            continue
+        try:
+            grid = int(value[0]), int(value[1])
+        except (TypeError, ValueError):
+            continue
+        if grid[0] > 0 and grid[1] > 0:
+            return grid
+    return None
+
+
+def _mode_grid_size(grids: list[tuple[int, int]], target_size: tuple[int, int]) -> tuple[int, int] | None:
+    if not grids:
+        return None
+    target = int(target_size[0]), int(target_size[1])
+    counts = Counter(grids)
+    return min(
+        counts,
+        key=lambda grid: (
+            -counts[grid],
+            abs(grid[0] - target[0]) + abs(grid[1] - target[1]),
+            abs((grid[0] * grid[1]) - (target[0] * target[1])),
+            grid,
+        ),
+    )
+
+
+def _detect_sequence_perfect_pixel_grid(
+    raw_frame_paths: list[Path],
+    *,
+    method: str | None,
+    target_size: tuple[int, int],
+) -> tuple[tuple[int, int] | None, list[dict[str, Any]]]:
+    detections: list[dict[str, Any]] = []
+    if (method or "").strip().lower().replace("-", "_") not in {"perfect", "perfectpixel", "perfect_pixel"}:
+        return None, detections
+    detected_grids: list[tuple[int, int]] = []
+    for index, path in enumerate(raw_frame_paths, start=1):
+        with Image.open(path) as opened:
+            source = opened.convert("RGBA")
+        result = preprocess_generated_image(source, method=method, target_size=target_size)
+        grid = _preprocess_grid_from_meta(result.meta)
+        if grid is not None:
+            detected_grids.append(grid)
+        detections.append(
+            {
+                "index": index,
+                "source": path.name,
+                "detected_grid_size": list(grid) if grid else None,
+                "preprocess": result.meta,
+            }
+        )
+    return _mode_grid_size(detected_grids, target_size), detections
+
+
 def _apply_individual_palettes(
     images: list[Image.Image],
     *,
@@ -1308,6 +1366,11 @@ def _process_frames(
     bg_feather: int,
     generated_preprocess_method: str | None = "perfect_pixel",
 ) -> tuple[list[Path], list[tuple[int, int, int, int] | None], tuple[int, int], list[str], dict[str, Any]]:
+    sequence_grid_size, grid_detections = _detect_sequence_perfect_pixel_grid(
+        raw_frame_paths,
+        method=generated_preprocess_method,
+        target_size=target_size,
+    )
     prepared: list[Image.Image] = []
     bboxes: list[tuple[int, int, int, int] | None] = []
     frame_meta: list[dict[str, Any]] = []
@@ -1319,6 +1382,7 @@ def _process_frames(
             source,
             method=generated_preprocess_method,
             target_size=target_size,
+            grid_size=sequence_grid_size,
         )
         normalized = preprocessed.image.convert("RGBA")
         if normalized.size != target_size:
@@ -1387,6 +1451,12 @@ def _process_frames(
         "frame_padding": frame_padding,
         "target_size": list(target_size),
         "generated_preprocess_method": generated_preprocess_method,
+        "perfect_pixel_sequence_grid": {
+            "enabled": bool(grid_detections),
+            "strategy": "detect_all_frames_take_mode_then_reprocess_with_fixed_grid",
+            "mode_grid_size": list(sequence_grid_size) if sequence_grid_size else None,
+            "detections": grid_detections,
+        },
         "denoise": {
             "enabled": True,
             "method": "connected_components_keep_main_subject",

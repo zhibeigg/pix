@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw
 
 from pix.config import AppConfig
 from pix.pixelize.core import PixelizeParams
+from pix.pixelize.perfect_pixel import GeneratedPreprocessResult
 from pix.sprite_video_bridge import (
     SpriteVideoBridgeInput,
     VideoBridgeWaiting,
@@ -563,6 +564,70 @@ def _alpha_bbox(path) -> tuple[int, int, int, int]:
                 xs.append(x)
                 ys.append(y)
     return min(xs), min(ys), max(xs) + 1, max(ys) + 1
+
+
+def test_process_frames_detects_mode_grid_then_reprocesses_all_frames(tmp_path, monkeypatch) -> None:
+    raw_dir = tmp_path / "raw"
+    final_dir = tmp_path / "final"
+    raw_dir.mkdir()
+    key = (255, 0, 255, 255)
+    raw_paths = []
+    for index, size in enumerate([(64, 64), (65, 64), (64, 65)], start=1):
+        path = raw_dir / f"frame_{index:03d}.png"
+        image = Image.new("RGBA", size, key)
+        draw = ImageDraw.Draw(image)
+        draw.rectangle([size[0] // 3, size[1] // 3, size[0] // 3 + 12, size[1] // 3 + 12], fill=(20, 20, 30, 255))
+        image.save(path)
+        raw_paths.append(path)
+
+    calls: list[tuple[str, tuple[int, int], tuple[int, int] | None]] = []
+
+    def fake_preprocess(image, *, method, target_size, grid_size=None, **_kwargs):
+        if grid_size is None:
+            detected = (17, 16) if image.size[0] == 65 else (16, 16)
+            calls.append(("detect", image.size, None))
+        else:
+            detected = tuple(grid_size)
+            calls.append(("fixed", image.size, tuple(grid_size)))
+        return GeneratedPreprocessResult(
+            image=image,
+            meta={
+                "method": method,
+                "applied": True,
+                "target_size": list(target_size),
+                "refined_size": list(detected),
+                "output_size": list(detected),
+                "fixed_grid_size": list(grid_size) if grid_size else None,
+            },
+        )
+
+    monkeypatch.setattr("pix.sprite_video_bridge.preprocess_generated_image", fake_preprocess)
+    cfg = AppConfig()
+    cfg.sprite.shared_palette = False
+
+    _final_paths, _bboxes, _effective_size, _palette, process_meta = _process_frames(
+        cfg,
+        raw_paths,
+        final_dir,
+        target_size=(16, 16),
+        frame_size_step=16,
+        anchor="bottom_center",
+        key_rgb=key[:3],
+        key_tolerance=0,
+        max_colors=4,
+        dither="none",
+        edge_style="hard",
+        bg_feather=0,
+        generated_preprocess_method="perfect_pixel",
+    )
+
+    grid_meta = process_meta["perfect_pixel_sequence_grid"]
+    assert grid_meta["strategy"] == "detect_all_frames_take_mode_then_reprocess_with_fixed_grid"
+    assert grid_meta["mode_grid_size"] == [16, 16]
+    assert [item[0] for item in calls].count("detect") == 3
+    assert [item[0] for item in calls].count("fixed") == 3
+    assert all(call[2] == (16, 16) for call in calls if call[0] == "fixed")
+    assert [frame["preprocess"]["fixed_grid_size"] for frame in process_meta["frames"]] == [[16, 16]] * 3
 
 
 def test_process_frames_keeps_foreground_away_from_output_edges(tmp_path) -> None:

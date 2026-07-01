@@ -46,12 +46,14 @@ def preprocess_generated_image(
     min_size: float = 4.0,
     peak_width: int = 6,
     refine_intensity: float = 0.25,
+    grid_size: tuple[int, int] | None = None,
 ) -> GeneratedPreprocessResult:
     """按生成图预处理策略返回图像和可追踪 metadata。
 
     直接传入 ``legacy`` / ``none`` 时不改变图像。``perfect_pixel`` 优先调用
     项目内置的 noCV2 perfectPixel 后端并让它自动检测网格；``target_size`` 只作为后续
-    Pix Grid 提取的目标尺寸记录，不强行覆盖 noCV2 后端的检测结果。
+    Pix Grid 提取的目标尺寸记录，不强行覆盖 noCV2 后端的检测结果。传入 ``grid_size``
+    时会把该网格尺寸交给 perfectPixel 后端，跳过每张图独立自动检测。
     """
     normalized = normalize_generated_preprocess_method(method)
     base_meta = {
@@ -61,6 +63,7 @@ def preprocess_generated_image(
         "original_size": list(image.size),
         "target_size": list(target_size) if target_size else None,
         "sample_method": sample_method,
+        "fixed_grid_size": list(grid_size) if grid_size else None,
     }
     if normalized != "perfect_pixel":
         return GeneratedPreprocessResult(image=image, meta=base_meta)
@@ -68,7 +71,7 @@ def preprocess_generated_image(
     try:
         refined_w, refined_h, refined, details = _get_external_perfect_pixel(
             image,
-            grid_size=None,
+            grid_size=grid_size,
             requested_target_size=target_size,
             sample_method=sample_method,
             min_size=min_size,
@@ -79,7 +82,7 @@ def preprocess_generated_image(
         try:
             refined_w, refined_h, refined, details = _get_perfect_pixel_like(
                 image,
-                grid_size=None,
+                grid_size=grid_size,
                 sample_method=sample_method,
                 min_size=min_size,
                 peak_width=peak_width,

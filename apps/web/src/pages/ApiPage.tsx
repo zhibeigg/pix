@@ -216,7 +216,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
     "image_model": "image2"
   }'
 
-# 首尾帧视频补间：先生成首/尾关键帧，VL 可用时会优化连贯像素动作 prompt；Ark 视频秒数按 rows×cols×duration_ms 锁定；视频 prompt 会要求像素方块横平竖直且不得旋转/倾斜像素块；pixelize.output_size/colors/edge_style/generated_preprocess_method 会进入 prompt 与抽帧后处理，去杂色固定启用；video_return_to_first_frame=true 会要求尾帧后回到首帧以便循环
+# 首尾帧视频补间：先生成首/尾关键帧，VL 可用时会优化连贯像素动作 prompt；Ark 视频秒数按 rows×cols×duration_ms 锁定；视频 prompt 会要求像素方块横平竖直且不得旋转/倾斜像素块；抽帧后 perfectPixel 会先全帧检测、取众数网格、再固定网格重跑所有帧；pixelize.output_size/colors/edge_style/generated_preprocess_method 会进入 prompt 与抽帧后处理，去杂色固定启用；video_return_to_first_frame=true 会要求尾帧后回到首帧以便循环
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
