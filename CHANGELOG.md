@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.99.15] - 2026-07-01
+
+### Fixed
+
+- 修复 `sprite.mode = "video_bridge"` 首尾关键帧裁剪会被远处孤立色块撑大或让长武器贴边的问题：关键帧现在按 key 背景色分割原始色块组件，优先保留主体轮廓和近邻组件，过滤远离主体的噪点，并在统一视频输入画布前加入安全边距。
+
 ## [1.99.14] - 2026-07-01
 
 ### Fixed

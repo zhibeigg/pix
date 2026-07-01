@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+from collections import deque
 import json
 from contextlib import nullcontext
 from dataclasses import dataclass, field
@@ -234,12 +235,219 @@ def _fit_to_canvas(image: Image.Image, size: tuple[int, int], key_rgb: tuple[int
     return canvas
 
 
+def _paste_keyframe_content_to_canvas(content: Image.Image, *, size: tuple[int, int], anchor: str) -> Image.Image:
+    """按几何 bbox 安全贴首尾关键帧。
+
+    最终 sprite 帧使用质心对齐来降低身体抖动；但 Ark 首尾输入不能用质心对齐，
+    否则长匕首/法杖等横向轮廓会被夹到归一化画布边缘。
+    """
+    canvas = Image.new("RGBA", size, (0, 0, 0, 0))
+    frame = content.convert("RGBA")
+    x = max(0, (size[0] - frame.width) // 2)
+    anchor_key = (anchor or "bottom_center").strip().lower()
+    if anchor_key in {"center", "middle", "center_center"}:
+        y = max(0, (size[1] - frame.height) // 2)
+    else:
+        y = max(0, size[1] - frame.height)
+    canvas.alpha_composite(frame, (x, y))
+    return canvas
+
+
 def _split_keyframes(pair_path: Path, first_path: Path, last_path: Path) -> None:
     with Image.open(pair_path) as opened:
         pair = opened.convert("RGBA")
     mid = max(1, pair.width // 2)
     pair.crop((0, 0, mid, pair.height)).save(first_path)
     pair.crop((mid, 0, pair.width, pair.height)).save(last_path)
+
+
+def _mask_bbox(mask: np.ndarray) -> tuple[int, int, int, int] | None:
+    ys, xs = np.where(mask)
+    if len(xs) == 0 or len(ys) == 0:
+        return None
+    return (int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1)
+
+
+def _expand_bbox(
+    bbox: tuple[int, int, int, int],
+    *,
+    padding: int,
+    size: tuple[int, int],
+) -> tuple[int, int, int, int]:
+    width, height = size
+    safe_padding = max(0, int(padding))
+    return (
+        max(0, bbox[0] - safe_padding),
+        max(0, bbox[1] - safe_padding),
+        min(int(width), bbox[2] + safe_padding),
+        min(int(height), bbox[3] + safe_padding),
+    )
+
+
+def _bbox_distance(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> int:
+    dx = max(0, max(a[0], b[0]) - min(a[2], b[2]))
+    dy = max(0, max(a[1], b[1]) - min(a[3], b[3]))
+    return max(dx, dy)
+
+
+def _foreground_components(
+    linked_mask: np.ndarray,
+    source_mask: np.ndarray,
+) -> list[dict[str, Any]]:
+    height, width = linked_mask.shape
+    seen = np.zeros((height, width), dtype=bool)
+    components: list[dict[str, Any]] = []
+    for y in range(height):
+        x_candidates = np.where(linked_mask[y] & ~seen[y])[0]
+        for start_x_raw in x_candidates:
+            start_x = int(start_x_raw)
+            if seen[y, start_x] or not linked_mask[y, start_x]:
+                continue
+            queue: deque[tuple[int, int]] = deque([(start_x, y)])
+            seen[y, start_x] = True
+            xs: list[int] = []
+            ys: list[int] = []
+            source_xs: list[int] = []
+            source_ys: list[int] = []
+            dilated_area = 0
+            while queue:
+                x, current_y = queue.popleft()
+                xs.append(x)
+                ys.append(current_y)
+                dilated_area += 1
+                if source_mask[current_y, x]:
+                    source_xs.append(x)
+                    source_ys.append(current_y)
+                for next_y in range(current_y - 1, current_y + 2):
+                    if next_y < 0 or next_y >= height:
+                        continue
+                    for next_x in range(x - 1, x + 2):
+                        if next_x < 0 or next_x >= width:
+                            continue
+                        if seen[next_y, next_x] or not linked_mask[next_y, next_x]:
+                            continue
+                        seen[next_y, next_x] = True
+                        queue.append((next_x, next_y))
+            if not source_xs or not source_ys:
+                continue
+            components.append(
+                {
+                    "area": len(source_xs),
+                    "dilated_area": dilated_area,
+                    "bbox": (min(source_xs), min(source_ys), max(source_xs) + 1, max(source_ys) + 1),
+                    "linked_bbox": (min(xs), min(ys), max(xs) + 1, max(ys) + 1),
+                    "_points": list(zip(source_xs, source_ys)),
+                }
+            )
+    components.sort(key=lambda item: (int(item["area"]), int(item["dilated_area"])), reverse=True)
+    return components
+
+
+def _bbox_union(bboxes: list[tuple[int, int, int, int]]) -> tuple[int, int, int, int] | None:
+    if not bboxes:
+        return None
+    return (
+        min(item[0] for item in bboxes),
+        min(item[1] for item in bboxes),
+        max(item[2] for item in bboxes),
+        max(item[3] for item in bboxes),
+    )
+
+
+def _paint_components(mask: np.ndarray, components: list[dict[str, Any]]) -> None:
+    for component in components:
+        for x, y in component.get("_points", []):
+            mask[int(y), int(x)] = True
+
+
+def _select_subject_mask(
+    foreground_mask: np.ndarray,
+    *,
+    target_size: tuple[int, int],
+) -> tuple[np.ndarray, tuple[int, int, int, int] | None, dict[str, Any]]:
+    raw_bbox = _mask_bbox(foreground_mask)
+    if raw_bbox is None:
+        return foreground_mask.copy(), None, {
+            "raw_bbox": None,
+            "bbox": None,
+            "component_count": 0,
+            "kept_component_count": 0,
+            "dropped_component_count": 0,
+        }
+
+    height, width = foreground_mask.shape
+    scale = max(
+        width / max(1, int(target_size[0])),
+        height / max(1, int(target_size[1])),
+        1.0,
+    )
+    crop_padding = max(2, min(12, int(round(2 * scale))))
+    # 组件必须先按原始非背景色块识别，不能让小噪点在膨胀后成为“桥”，
+    # 否则远处孤立紫点会被并入主体并撑大 bbox。
+    components = _foreground_components(foreground_mask, foreground_mask)
+    if not components:
+        bbox = _expand_bbox(raw_bbox, padding=crop_padding, size=(width, height))
+        return foreground_mask.copy(), bbox, {
+            "raw_bbox": list(raw_bbox),
+            "bbox": list(bbox),
+            "crop_padding": crop_padding,
+            "component_count": 0,
+            "kept_component_count": 0,
+            "dropped_component_count": 0,
+        }
+
+    main = components[0]
+    main_area = max(1, int(main["area"]))
+    significant_area = max(8, int(round(main_area * 0.025)))
+    significant_gap = max(3, min(18, int(round(3 * scale))))
+    small_gap = max(2, min(10, int(round(2 * scale))))
+    min_small_area = 1
+
+    significant = [component for component in components if int(component["area"]) >= significant_area]
+    kept_significant: list[dict[str, Any]] = [main]
+    frontier_bbox = main["bbox"]
+    changed = True
+    while changed:
+        changed = False
+        for component in significant:
+            if component in kept_significant:
+                continue
+            if _bbox_distance(component["bbox"], frontier_bbox) <= significant_gap:
+                kept_significant.append(component)
+                union = _bbox_union([item["bbox"] for item in kept_significant])
+                if union is not None:
+                    frontier_bbox = union
+                changed = True
+
+    significant_bbox = _bbox_union([item["bbox"] for item in kept_significant]) or main["bbox"]
+    kept: list[dict[str, Any]] = list(kept_significant)
+    for component in components:
+        if component in kept:
+            continue
+        area = int(component["area"])
+        if area >= min_small_area and _bbox_distance(component["bbox"], significant_bbox) <= small_gap:
+            # 小色块可以被主体轮廓吸附，但不会继续扩展 significant_bbox，避免噪点链条桥接。
+            kept.append(component)
+
+    selected = np.zeros_like(foreground_mask, dtype=bool)
+    _paint_components(selected, kept)
+    subject_bbox = _mask_bbox(selected) or significant_bbox
+    bbox = _expand_bbox(subject_bbox, padding=crop_padding, size=(width, height))
+    return selected, bbox, {
+        "raw_bbox": list(raw_bbox),
+        "subject_bbox": list(subject_bbox),
+        "bbox": list(bbox),
+        "crop_padding": crop_padding,
+        "significant_area": significant_area,
+        "significant_gap": significant_gap,
+        "small_gap": small_gap,
+        "component_count": len(components),
+        "kept_component_count": len(kept),
+        "dropped_component_count": max(0, len(components) - len(kept)),
+        "top_components": [
+            {"area": int(item["area"]), "bbox": list(item["bbox"])} for item in components[:8]
+        ],
+    }
 
 
 def _keyframe_content(
@@ -254,7 +462,7 @@ def _keyframe_content(
 
     注意：这里是送入视频模型前的关键一步。不能直接把左右半图等比塞进视频画布，
     否则双栏图里的留白/分隔线/主体偏移会被 Ark 当作首尾帧内容。流程必须与
-    mosaic cell 类似：perfectPixel 对齐 → key-color alpha → 可见像素 bbox 裁剪。
+    mosaic cell 类似：perfectPixel 对齐 → key-color alpha → 基于主体轮廓裁剪。
     """
     with Image.open(src_path) as opened:
         source = opened.convert("RGBA")
@@ -268,16 +476,23 @@ def _keyframe_content(
         key_rgb=key_rgb,
         tolerance=max(0, int(key_tolerance)),
     )
-    bbox = _visible_bbox(alpha_image, threshold=8)
+    alpha = np.asarray(alpha_image.getchannel("A"), dtype=np.uint8)
+    foreground_mask = alpha > 8
+    subject_mask, bbox, selection_meta = _select_subject_mask(foreground_mask, target_size=target_size)
     if bbox is None:
         content = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
     else:
-        content = alpha_image.crop(bbox).convert("RGBA")
+        clean = alpha_image.copy()
+        clean_alpha = np.asarray(clean.getchannel("A"), dtype=np.uint8).copy()
+        clean_alpha[~subject_mask] = 0
+        clean.putalpha(Image.fromarray(clean_alpha, mode="L"))
+        content = clean.crop(bbox).convert("RGBA")
     return content, {
         "source": str(src_path.name),
         "source_size": list(source.size),
         "preprocess": preprocessed.meta,
         "bbox": list(bbox) if bbox else None,
+        "selection": selection_meta,
         "content_size": list(content.size),
     }
 
@@ -310,12 +525,19 @@ def _prepare_video_keyframes(
         key_tolerance=key_tolerance,
         generated_preprocess_method=generated_preprocess_method,
     )
+    content_padding = max(4, min(16, int(round(min(target_size) * 0.125))))
     normalized_size = (
-        _ceil_to_multiple(max(target_size[0], first_content.width, last_content.width), frame_size_step),
-        _ceil_to_multiple(max(target_size[1], first_content.height, last_content.height), frame_size_step),
+        _ceil_to_multiple(
+            max(target_size[0], first_content.width + content_padding * 2, last_content.width + content_padding * 2),
+            frame_size_step,
+        ),
+        _ceil_to_multiple(
+            max(target_size[1], first_content.height + content_padding * 2, last_content.height + content_padding * 2),
+            frame_size_step,
+        ),
     )
-    first_normalized = _paste_content_to_canvas(first_content, size=normalized_size, anchor=anchor)
-    last_normalized = _paste_content_to_canvas(last_content, size=normalized_size, anchor=anchor)
+    first_normalized = _paste_keyframe_content_to_canvas(first_content, size=normalized_size, anchor=anchor)
+    last_normalized = _paste_keyframe_content_to_canvas(last_content, size=normalized_size, anchor=anchor)
     first_fitted = _fit_to_canvas(first_normalized, size, key_rgb)
     last_fitted = _fit_to_canvas(last_normalized, size, key_rgb)
     first_dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -324,6 +546,7 @@ def _prepare_video_keyframes(
     return {
         "target_size": list(target_size),
         "normalized_size": list(normalized_size),
+        "content_padding": content_padding,
         "video_input_size": list(size),
         "anchor": anchor,
         "key_tolerance": int(key_tolerance),
