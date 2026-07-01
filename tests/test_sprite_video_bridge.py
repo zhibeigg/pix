@@ -589,8 +589,11 @@ def test_process_frames_detects_mode_grid_then_reprocesses_all_frames(tmp_path, 
         else:
             detected = tuple(grid_size)
             calls.append(("fixed", image.size, tuple(grid_size)))
+        out = Image.new("RGBA", detected, key)
+        out_draw = ImageDraw.Draw(out)
+        out_draw.rectangle([4, 4, min(detected[0] - 1, 10), min(detected[1] - 1, 10)], fill=(20, 20, 30, 255))
         return GeneratedPreprocessResult(
-            image=image,
+            image=out,
             meta={
                 "method": method,
                 "applied": True,
@@ -609,7 +612,7 @@ def test_process_frames_detects_mode_grid_then_reprocesses_all_frames(tmp_path, 
         cfg,
         raw_paths,
         final_dir,
-        target_size=(16, 16),
+        target_size=(8, 8),
         frame_size_step=16,
         anchor="bottom_center",
         key_rgb=key[:3],
@@ -627,6 +630,9 @@ def test_process_frames_detects_mode_grid_then_reprocesses_all_frames(tmp_path, 
     assert [item[0] for item in calls].count("detect") == 3
     assert [item[0] for item in calls].count("fixed") == 3
     assert all(call[2] == (16, 16) for call in calls if call[0] == "fixed")
+    assert process_meta["common_preprocess_size"] == [16, 16]
+    assert process_meta["preserve_perfect_pixel_detected_size"] is True
+    assert [frame["normalized_size"] for frame in process_meta["frames"]] == [[16, 16]] * 3
     assert [frame["preprocess"]["fixed_grid_size"] for frame in process_meta["frames"]] == [[16, 16]] * 3
 
 

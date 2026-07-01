@@ -45,7 +45,7 @@
    - 失败/超时：标记失败并退款
    - 成功：立即下载视频到 `ark_video.mp4`
 6. 用 `imageio` / `imageio-ffmpeg` 按最终帧数均匀抽帧。
-7. 对抽取帧先按 `generated_preprocess_method` 处理：`perfect_pixel` 模式会先对全部原始帧自动检测网格，统计众数网格尺寸，再用该众数作为固定 `grid_size` 对所有帧统一重跑 perfectPixel；随后执行 key-color 去背景、连通域去杂色、统一 bbox、边缘处理与颜色上限；`shared_palette=true` 时使用跨帧共享调色板，关闭时仍逐帧量化到 `pixelize.colors`。最终透明帧四周保留安全透明边，确保任何非背景/非透明像素都不触碰成品帧边界。
+7. 对抽取帧先按 `generated_preprocess_method` 处理：`perfect_pixel` 模式会先对全部原始帧自动检测网格，统计众数网格尺寸，再用该众数作为固定 `grid_size` 对所有帧统一重跑 perfectPixel，并保留 perfectPixel 的实际输出尺寸而不是强制缩回 `pixelize.output_size`；随后执行 key-color 去背景、连通域去杂色、统一 bbox、边缘处理与颜色上限；`shared_palette=true` 时使用跨帧共享调色板，关闭时仍逐帧量化到 `pixelize.colors`。最终透明帧四周保留安全透明边，确保任何非背景/非透明像素都不触碰成品帧边界。
 8. 输出与 mosaic 兼容的 sprite 产物。
 
 ## Worker 状态机

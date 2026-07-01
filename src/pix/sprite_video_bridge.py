@@ -1372,6 +1372,7 @@ def _process_frames(
         target_size=target_size,
     )
     prepared: list[Image.Image] = []
+    prepared_sizes: list[tuple[int, int]] = []
     bboxes: list[tuple[int, int, int, int] | None] = []
     frame_meta: list[dict[str, Any]] = []
     dropped_components = 0
@@ -1384,15 +1385,16 @@ def _process_frames(
             target_size=target_size,
             grid_size=sequence_grid_size,
         )
+        # 与素材直出保持一致：perfectPixel 的输出尺寸应以检测/固定网格为准，
+        # 不能再强行缩放回用户请求的 target_size，否则会把检测到的像素格重新压糊。
         normalized = preprocessed.image.convert("RGBA")
-        if normalized.size != target_size:
-            normalized = normalized.resize(target_size, Image.Resampling.NEAREST)
+        frame_size = normalized.size
         transparent = apply_pixel_bg_alpha(normalized, key_rgb=key_rgb, tolerance=key_tolerance)
         alpha = np.asarray(transparent.getchannel("A"), dtype=np.uint8)
         foreground_mask = alpha > 8
         subject_mask, selection_bbox, selection_meta = _select_subject_mask(
             foreground_mask,
-            target_size=target_size,
+            target_size=frame_size,
         )
         clean = transparent.copy()
         clean_alpha = alpha.copy()
@@ -1400,6 +1402,7 @@ def _process_frames(
         clean.putalpha(Image.fromarray(clean_alpha, mode="L"))
         bbox = selection_bbox if selection_bbox is not None else _visible_bbox(clean)
         prepared.append(clean)
+        prepared_sizes.append(frame_size)
         bboxes.append(bbox)
         dropped_components += int(selection_meta.get("dropped_component_count") or 0)
         frame_meta.append(
@@ -1417,12 +1420,24 @@ def _process_frames(
                 "bbox": list(bbox) if bbox else None,
             }
         )
-    union = _union_bbox(bboxes, target_size)
-    contents = [image.crop(union).convert("RGBA") for image in prepared]
+    common_size = (
+        max([int(target_size[0]), *(size[0] for size in prepared_sizes)]),
+        max([int(target_size[1]), *(size[1] for size in prepared_sizes)]),
+    )
+    common_prepared: list[Image.Image] = []
+    for image in prepared:
+        if image.size == common_size:
+            common_prepared.append(image)
+            continue
+        canvas = Image.new("RGBA", common_size, (0, 0, 0, 0))
+        canvas.alpha_composite(image.convert("RGBA"), (0, 0))
+        common_prepared.append(canvas)
+    union = _union_bbox(bboxes, common_size)
+    contents = [image.crop(union).convert("RGBA") for image in common_prepared]
     contents = _apply_frame_edges(contents, edge_style=edge_style, feather=bg_feather)
-    frame_padding = max(2, min(8, int(round(min(target_size) * 0.08))))
-    max_w = max([target_size[0], *(content.width + frame_padding * 2 for content in contents)])
-    max_h = max([target_size[1], *(content.height + frame_padding * 2 for content in contents)])
+    frame_padding = max(2, min(8, int(round(min(common_size) * 0.08))))
+    max_w = max([common_size[0], *(content.width + frame_padding * 2 for content in contents)])
+    max_h = max([common_size[1], *(content.height + frame_padding * 2 for content in contents)])
     effective_size = (
         _ceil_to_multiple(max_w, frame_size_step),
         _ceil_to_multiple(max_h, frame_size_step),
@@ -1450,6 +1465,8 @@ def _process_frames(
         "union_bbox": list(union),
         "frame_padding": frame_padding,
         "target_size": list(target_size),
+        "common_preprocess_size": list(common_size),
+        "preserve_perfect_pixel_detected_size": True,
         "generated_preprocess_method": generated_preprocess_method,
         "perfect_pixel_sequence_grid": {
             "enabled": bool(grid_detections),

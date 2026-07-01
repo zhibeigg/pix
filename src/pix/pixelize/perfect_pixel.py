@@ -68,17 +68,36 @@ def preprocess_generated_image(
     if normalized != "perfect_pixel":
         return GeneratedPreprocessResult(image=image, meta=base_meta)
 
+    external_exc: Exception | None = None
     try:
-        refined_w, refined_h, refined, details = _get_external_perfect_pixel(
-            image,
-            grid_size=grid_size,
-            requested_target_size=target_size,
-            sample_method=sample_method,
-            min_size=min_size,
-            peak_width=peak_width,
-            refine_intensity=refine_intensity,
-        )
-    except Exception as external_exc:  # noqa: BLE001 - 外部 perfectPixel 不可用时回退内置实现
+        if grid_size is not None:
+            # 固定众数网格时必须稳定输出尺寸，不能让 vendor 后端再次逐帧 refine
+            # 导致 106x106 变成 102x104 / 111x107 之类的抖动。
+            refined_w, refined_h, refined, details = _get_perfect_pixel_like(
+                image,
+                grid_size=grid_size,
+                sample_method=sample_method,
+                min_size=min_size,
+                peak_width=peak_width,
+                refine_intensity=refine_intensity,
+            )
+            details = {
+                **details,
+                "backend": "builtin_numpy",
+                "external_backend_skipped": "fixed_grid_size_requires_stable_output_shape",
+            }
+        else:
+            refined_w, refined_h, refined, details = _get_external_perfect_pixel(
+                image,
+                grid_size=None,
+                requested_target_size=target_size,
+                sample_method=sample_method,
+                min_size=min_size,
+                peak_width=peak_width,
+                refine_intensity=refine_intensity,
+            )
+    except Exception as exc:  # noqa: BLE001 - 外部 perfectPixel 不可用时回退内置实现
+        external_exc = exc
         try:
             refined_w, refined_h, refined, details = _get_perfect_pixel_like(
                 image,
@@ -93,10 +112,10 @@ def preprocess_generated_image(
                 "backend": "builtin_numpy",
                 "external_backend_error": str(external_exc),
             }
-        except Exception as exc:  # noqa: BLE001 - 预处理失败必须回退旧流程
+        except Exception as inner_exc:  # noqa: BLE001 - 预处理失败必须回退旧流程
             return GeneratedPreprocessResult(
                 image=image,
-                meta={**base_meta, "reason": "error", "error": str(exc), "external_backend_error": str(external_exc)},
+                meta={**base_meta, "reason": "error", "error": str(inner_exc), "external_backend_error": str(external_exc)},
             )
 
     if refined_w is None or refined_h is None or refined is None:
@@ -214,7 +233,7 @@ def _get_perfect_pixel_like(
     coord_fallback = False
     if grid_size is not None:
         grid_w, grid_h = int(grid_size[0]), int(grid_size[1])
-        grid_source = "target_size"
+        grid_source = "fixed_grid_size"
     else:
         detected = _detect_grid_scale(rgb_arr, peak_width=peak_width, min_size=min_size)
         if detected is None:
@@ -224,16 +243,17 @@ def _get_perfect_pixel_like(
     if grid_w < 1 or grid_h < 1:
         return None, None, None, {"reason": "invalid_grid_size", "grid_size": [grid_w, grid_h]}
 
-    x_coords, y_coords = _refine_grids(
-        rgb_arr,
-        grid_w=grid_w,
-        grid_h=grid_h,
-        refine_intensity=refine_intensity,
-    )
-    if grid_size is not None and (len(x_coords) != grid_w + 1 or len(y_coords) != grid_h + 1):
+    if grid_size is not None:
         x_coords = _even_grid_coords(width, grid_w)
         y_coords = _even_grid_coords(height, grid_h)
         coord_fallback = True
+    else:
+        x_coords, y_coords = _refine_grids(
+            rgb_arr,
+            grid_w=grid_w,
+            grid_h=grid_h,
+            refine_intensity=refine_intensity,
+        )
     if len(x_coords) < 2 or len(y_coords) < 2:
         return None, None, None, {"reason": "not_enough_grid_lines", "grid_size": [grid_w, grid_h]}
 

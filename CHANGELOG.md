@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.101.26] - 2026-07-01
+
+### Fixed
+
+- 修复 `sprite.mode = "video_bridge"` 在 perfectPixel 后又把帧强制缩放回 `pixelize.output_size` 导致细节损失的问题：现在与素材直出一致，保留 perfectPixel 检测/固定网格输出的实际尺寸；固定众数网格阶段也会使用稳定均匀采样，避免 vendor 后端再次逐帧 refine 出不同输出尺寸，再基于该尺寸统一裁剪、去杂色和合成序列帧。
+
 ## [1.101.25] - 2026-07-01
 
 ### Fixed
