@@ -31,7 +31,7 @@
 
 1. 生成一张左右双栏关键帧图：左栏为起始姿势，右栏为结束姿势。
 2. 切分首帧/尾帧；每个半图先执行 perfectPixel 预处理，再用 key-color 转 alpha，按背景色与主体色块轮廓识别原始连通组件：保留主体轮廓和近邻组件、过滤远处孤立噪点，带安全边距裁剪后按统一尺寸/锚点铺回视频输入画布，转为 PNG data URL。
-3. 调用 Ark `/contents/generations/tasks` 创建 Seedance 首尾帧图生视频异步任务。
+3. 构造视频补间 motion prompt，明确要求主体、武器、烟雾、粒子和拖尾在每一帧都完整留在画面内、四周保留 key-color 安全边距，禁止裁切/出界/触边；然后调用 Ark `/contents/generations/tasks` 创建 Seedance 首尾帧图生视频异步任务。
 4. 抛出 `VideoBridgeWaiting`，worker 将 job 置为 `waiting`，并在 `params_json.sprite.video_bridge_state` 保存：
    - `run_dir`
    - `ark_task_id`

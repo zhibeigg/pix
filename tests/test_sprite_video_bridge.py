@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from PIL import Image, ImageDraw
 
 from pix.config import AppConfig
-from pix.sprite_video_bridge import _prepare_video_keyframes, is_waiting_state_due
+from pix.sprite_video_bridge import build_video_bridge_motion_prompt, _prepare_video_keyframes, is_waiting_state_due
 from pix_web.jobs import params_json_from_request, validate_job_request
 from pix_web.prompt_preview import build_prompt_preview
 from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema, SpriteParamsSchema
@@ -94,6 +94,18 @@ def test_video_bridge_prompt_preview_uses_keyframe_prompt() -> None:
     assert "END pose" in preview.positive_prompt
     assert "蓝色斗篷骑士" in preview.positive_prompt
     assert preview.warnings
+
+
+def test_video_bridge_motion_prompt_keeps_subject_inside_frame() -> None:
+    prompt = build_video_bridge_motion_prompt("暗黑法师刺客", "向前突刺并释放烟雾粒子")
+
+    assert "fully inside the frame" in prompt
+    assert "weapon" in prompt
+    assert "smoke" in prompt
+    assert "magic particles" in prompt
+    assert "clear key-color padding on all four edges" in prompt
+    assert "Never crop, clip, truncate" in prompt
+    assert "scale the motion down" in prompt
 
 
 def test_waiting_state_due_parses_iso_time() -> None:

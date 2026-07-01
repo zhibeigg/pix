@@ -212,6 +212,8 @@ def build_video_bridge_motion_prompt(description: str, action_prompt: str) -> st
         f"Create a short seamless pixel-art motion interpolation for this subject: {description}. "
         f"Motion: {action_prompt}. The first frame must match the provided first_frame image and the last frame must match the provided last_frame image. "
         "Keep a fixed orthographic game-sprite camera, identical character identity, proportions, palette, outline thickness, and scale for the entire video. "
+        "The entire subject silhouette must remain fully inside the frame for every frame: hood, cloak, limbs, weapon, smoke, magic particles, trails, and all effects must stay visible with clear key-color padding on all four edges. "
+        "Never crop, clip, truncate, or let any subject pixel touch or cross the frame boundary; if the motion would extend outward, keep the subject centered and scale the motion down instead of moving outside the canvas. "
         "Use smooth evenly spaced in-between poses, no cuts, no zoom, no camera pan, no background changes. "
         "No text, no logo, no watermark, no UI. Keep the flat key-color background consistent."
     )

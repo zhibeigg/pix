@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.99.16] - 2026-07-01
+
+### Fixed
+
+- 修复 `sprite.mode = "video_bridge"` 视频补间 motion prompt 未明确约束主体边界的问题：现在会要求主体、武器、烟雾、魔法粒子和拖尾在每一帧都完整留在画面内，并保持四周 key-color 安全边距，避免 Seedance 补间时放大、漂移或裁切出界。
+
 ## [1.99.15] - 2026-07-01
 
 ### Fixed
