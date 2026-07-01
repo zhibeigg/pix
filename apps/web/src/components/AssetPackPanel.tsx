@@ -137,12 +137,12 @@ export function AssetPackPanel({ packs, quota, selectedPackId, downloading, onSe
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2" aria-label={t('packs.commandBar')}>
+            <div className="grid grid-cols-1 gap-2 xs:grid-cols-2" aria-label={t('packs.commandBar')}>
               <CommandButton disabled={!selectedPack} onClick={() => selectedPack && startRename(selectedPack)}><Pencil />{t('packs.rename')}</CommandButton>
               <CommandButton disabled={!selectedPack || selectedPack.item_count === 0 || downloading} onClick={() => selectedPack && onDownloadPack(selectedPack)}><Download />{t('packs.downloadZip')}</CommandButton>
               <CommandButton disabled={!selectedPack} onClick={() => selectedPack && onToggleArchive(selectedPack)}><Archive />{selectedPack?.status === 'archived' ? t('packs.restore') : t('packs.archive')}</CommandButton>
               <CommandButton tone="danger" disabled={!selectedPack || selectedPack.item_count > 0} onClick={() => selectedPack && onDeletePack(selectedPack)}><Trash2 />{t('packs.deleteEmpty')}</CommandButton>
-              <CommandButton className="col-span-2 border-[hsl(var(--pix-brand-yellow)/.55)] bg-[hsl(var(--pix-yellow)/.55)] text-[hsl(var(--pix-brand-brown))] hover:border-[hsl(var(--pix-brand-yellow))] hover:bg-[hsl(var(--pix-yellow))] dark:border-[hsl(var(--pix-brand-yellow)/.24)] dark:bg-[hsl(var(--pix-brand-yellow)/.12)] dark:text-[hsl(var(--pix-brand-yellow))] dark:hover:bg-[hsl(var(--pix-brand-yellow)/.18)]" onClick={onExpandPackLimit}><Sparkles />{t('packs.expandPackLimit', { price: expandPrice })}</CommandButton>
+              <CommandButton className="xs:col-span-2 border-[hsl(var(--pix-brand-yellow)/.55)] bg-[hsl(var(--pix-yellow)/.55)] text-[hsl(var(--pix-brand-brown))] hover:border-[hsl(var(--pix-brand-yellow))] hover:bg-[hsl(var(--pix-yellow))] dark:border-[hsl(var(--pix-brand-yellow)/.24)] dark:bg-[hsl(var(--pix-brand-yellow)/.12)] dark:text-[hsl(var(--pix-brand-yellow))] dark:hover:bg-[hsl(var(--pix-brand-yellow)/.18)]" onClick={onExpandPackLimit}><Sparkles />{t('packs.expandPackLimit', { price: expandPrice })}</CommandButton>
             </div>
           </div>
         </section>

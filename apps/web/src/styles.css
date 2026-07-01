@@ -7,6 +7,9 @@
   --font-serif: "Inter Tight Variable", "Inter Tight", "Inter", "Noto Sans SC", "PingFang SC", "HarmonyOS Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei UI", sans-serif;
   --font-mono: "Maple Mono NF CN", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 
+  /* 额外的超小屏断点（480px）：用于窄屏下从单列到双列的过渡，介于默认与 sm(640px) 之间。 */
+  --breakpoint-xs: 30rem;
+
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));

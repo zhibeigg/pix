@@ -194,7 +194,7 @@ function GalleryCard({ job, selected, bulkMode, bulkSelected, bulkDisabled, retr
         {detailsVisible && <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{t('common.points', { count: job.price_credits })}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge>{job.batch_name && <Badge variant="outline">{job.batch_name}</Badge>}<QuickParameterBadges job={job} output={output} /></div>}
         {detailsVisible && job.status === 'failed' && <JobErrorSummary error={job.error_message} compact />}
         {detailsVisible && output && <CandidateMiniGrid job={job} output={output} displayedSizeRetryCandidateKey={displayedSizeRetryCandidateKey} onSizeRetrySelect={(candidate) => setSelectedSizeRetryCandidateKey(candidateKey(candidate))} onCandidatePixelize={onCandidatePixelize} />}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5 xs:gap-2">
           <Button size="sm" variant={detailsVisible ? 'default' : 'outline'} onClick={(event) => { event.stopPropagation(); onSelect(job) }}>{detailsVisible ? t('gallery.expanded') : t('gallery.details')}</Button>
           {onReuseJob && <Button size="sm" variant="outline" title={t('gallery.reuseTitle')} onClick={(event) => { event.stopPropagation(); onReuseJob(job) }}><CopyPlus />{t('gallery.reuse')}</Button>}
           {output && <JobParameterSnapshotDialog job={job} output={output} />}

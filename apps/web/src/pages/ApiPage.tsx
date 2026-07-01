@@ -368,7 +368,7 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
             <h2 className="flex items-center gap-2 text-xl font-semibold"><KeyRound className="h-5 w-5 text-primary" />{text('API Key 管理', 'API key management')}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{text('Key 只与当前账号绑定；外部请求会按账号余额扣点。建议按用途创建不同 Key。', 'Keys are bound to your account; external requests consume your account credits. Create separate keys per integration.')}</p>
           </div>
-          <Badge variant="outline">{text('Base URL', 'Base URL')}: {baseUrl}</Badge>
+          <Badge variant="outline" className="min-w-0 max-w-full shrink whitespace-normal break-all">{text('Base URL', 'Base URL')}: {baseUrl}</Badge>
         </div>
 
         <div className="grid gap-5 rounded-lg border border-border bg-muted/30 p-5">

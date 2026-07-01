@@ -766,7 +766,7 @@ const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpri
         <span>{text(`${example.frameCount} 帧 · 单帧 ${frameSize}`, `${example.frameCount} frames · ${frameSize} each`)}</span>
       </div>
 
-      <div className="mt-3 grid grid-cols-[168px_1fr] items-stretch gap-3">
+      <div className="mt-3 grid grid-cols-[120px_1fr] items-stretch gap-3 xs:grid-cols-[168px_1fr]">
         <div className="grid gap-1">
           <div className="pix-checkerboard relative aspect-square overflow-hidden rounded-md border border-border bg-muted/40 dark:bg-[hsl(var(--pix-dark-band))]">
             <div

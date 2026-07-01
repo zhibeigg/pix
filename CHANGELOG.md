@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.102.27] - 2026-07-02
+
+### Added
+
+- Web 前端全面适配手机端（移动端）：新增 `xs`（480px）自定义断点，并对全站高复用组件与关键页面做窄屏（320–640px）响应式优化。
+  - 全局组件：`PixPanel`（内边距 `p-6 → p-4 md:p-6`、标题字号移动端降级）、`PageHeader`（标题 `text-2xl sm:text-3xl md:text-5xl`）、`ui/tabs`（`TabsList` 增加 `flex-wrap` 防止标签横向溢出）。
+  - 顶部导航：`App.tsx` header 操作区允许换行，首页「进入工作台」按钮在极窄屏收起（仍可从账户菜单进入）。
+  - 溢出修复：`SpriteSequenceAlignmentEditor` 缩放工具栏 `min-w-[260px]` 在对齐弹窗内溢出、`ApiPage` Base URL 徽章长文本溢出、`LandingSections` 序列帧卡片 168px 固定列在窄屏挤压、`RawImagePage` 预览画布最小高度过大与「最近」缩略图竖排过长（改窄屏横向滚动）。
+  - 字号与栅格降级：`AppHero` 主标题 `text-3xl xs:text-[40px] …`、`CreditPanel` 金额大字号、`AssetPackPanel` 命令栏 `grid-cols-1 xs:grid-cols-2`、`GalleryGrid` 卡片操作按钮组窄屏间距收紧。
+- 说明：本次仅为响应式布局与样式增强，未改动任何业务逻辑、API 与状态管理。
+
 ## [1.101.27] - 2026-07-01
 
 ### Fixed

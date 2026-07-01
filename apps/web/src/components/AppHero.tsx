@@ -25,7 +25,7 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
             <span className="h-2 w-2 rounded-full bg-[hsl(var(--tone-success-line))] shadow-[0_0_8px_hsl(var(--tone-success-line))]" />
             {text('给游戏开发者的 AI 像素素材工具', 'AI pixel asset tool for game developers')}
           </div>
-          <h1 className="mt-6 text-[40px] font-semibold leading-[1.05] tracking-[-1.4px] text-[hsl(var(--pix-ink))] md:text-[64px] md:tracking-[-2px] xl:text-[80px] dark:text-white">
+          <h1 className="mt-6 text-3xl font-semibold leading-[1.08] tracking-[-1px] text-[hsl(var(--pix-ink))] xs:text-[40px] xs:leading-[1.05] xs:tracking-[-1.4px] md:text-[64px] md:tracking-[-2px] xl:text-[80px] dark:text-white">
             {text('10–30 分钟，', '10–30 minutes to')}<br className="hidden md:block" />{text('做出可进游戏的像素素材', 'game-ready pixel assets')}
           </h1>
           <p className="mx-auto mt-5 max-w-3xl text-lg leading-[1.55] text-[hsl(var(--pix-slate))] dark:text-white/70">

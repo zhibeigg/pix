@@ -857,11 +857,11 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
             </div>
           </a>
           {user && <div className="hidden min-w-0 lg:block" aria-hidden="true" />}
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <HeaderUtilityBar language={language} themePreference={themePreference} resolvedMode={themeMode} systemMode={systemThemeMode} autoOpenAnnouncement={page === 'home'} onLanguageChange={onLanguageChange} onThemePreferenceChange={onThemePreferenceChange} />
             {user ? (
               <>
-                {page === 'home' && <Button asChild><a href="#/workspace">{t('app.workbench')}</a></Button>}
+                {page === 'home' && <Button asChild className="hidden xs:inline-flex"><a href="#/workspace">{t('app.workbench')}</a></Button>}
                 <AccountMenu user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} isAdmin={isAdmin} onNavigate={navigate} onRefresh={refreshCurrent} onLogout={logout} />
               </>
             ) : (
