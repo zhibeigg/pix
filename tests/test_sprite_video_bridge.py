@@ -11,6 +11,7 @@ from pix.sprite_video_bridge import (
     build_video_bridge_motion_prompt,
     _optimize_video_bridge_motion_prompt,
     _prepare_video_keyframes,
+    _process_frames,
     is_waiting_state_due,
 )
 from pix_web.jobs import params_json_from_request, validate_job_request
@@ -275,9 +276,9 @@ def test_prepare_video_keyframes_crops_and_normalizes_subject_bbox(tmp_path) -> 
     assert meta["last"]["selection"]["subject_bbox"] == [230, 55, 301, 141]
     assert meta["first"]["bbox"][0] < 20
     assert meta["last"]["bbox"][2] > 301
-    assert meta["content_padding"] == 8
-    assert meta["normalized_size"][0] >= meta["last"]["content_size"][0] + 16
-    assert meta["normalized_size"][1] >= meta["last"]["content_size"][1] + 16
+    assert meta["content_padding"] == 16
+    assert meta["normalized_size"][0] >= meta["last"]["content_size"][0] + 32
+    assert meta["normalized_size"][1] >= meta["last"]["content_size"][1] + 32
 
 
 def test_prepare_video_keyframes_uses_subject_contour_and_safe_padding(tmp_path) -> None:
@@ -327,3 +328,61 @@ def test_prepare_video_keyframes_uses_subject_contour_and_safe_padding(tmp_path)
     assert first_bbox[2] < 256
     assert last_bbox[0] > 0
     assert last_bbox[2] < 256
+
+
+def _alpha_bbox(path) -> tuple[int, int, int, int]:
+    with Image.open(path) as opened:
+        alpha = opened.convert("RGBA").getchannel("A")
+    pixels = alpha.load()
+    xs: list[int] = []
+    ys: list[int] = []
+    for y in range(alpha.height):
+        for x in range(alpha.width):
+            if pixels[x, y] > 8:
+                xs.append(x)
+                ys.append(y)
+    return min(xs), min(ys), max(xs) + 1, max(ys) + 1
+
+
+def test_process_frames_keeps_foreground_away_from_output_edges(tmp_path) -> None:
+    raw_dir = tmp_path / "raw"
+    final_dir = tmp_path / "final"
+    raw_dir.mkdir()
+    key = (255, 0, 0, 255)
+    raw_paths = []
+    for index in range(2):
+        path = raw_dir / f"frame_{index + 1:03d}.png"
+        image = Image.new("RGBA", (64, 64), key)
+        draw = ImageDraw.Draw(image)
+        if index == 0:
+            draw.rectangle([0, 18, 30, 63], fill=(20, 20, 30, 255))
+        else:
+            draw.rectangle([34, 0, 63, 44], fill=(20, 20, 30, 255))
+        image.save(path)
+        raw_paths.append(path)
+
+    cfg = AppConfig()
+    cfg.sprite.shared_palette = False
+    final_paths, _bboxes, effective_size, _palette, process_meta = _process_frames(
+        cfg,
+        raw_paths,
+        final_dir,
+        target_size=(64, 64),
+        frame_size_step=16,
+        anchor="bottom_center",
+        key_rgb=(255, 0, 0),
+        key_tolerance=0,
+        max_colors=16,
+        dither="none",
+        edge_style="hard",
+        bg_feather=0,
+    )
+
+    assert effective_size == (80, 80)
+    assert process_meta["frame_padding"] == 5
+    for path in final_paths:
+        bbox = _alpha_bbox(path)
+        assert bbox[0] >= 5
+        assert bbox[1] >= 5
+        assert effective_size[0] - bbox[2] >= 5
+        assert effective_size[1] - bbox[3] >= 5

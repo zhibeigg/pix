@@ -33,7 +33,6 @@ from pix.sprite import (
     SpritePipelineResult,
     _apply_shared_palette,
     _ceil_to_multiple,
-    _paste_content_to_canvas,
     _rel,
     _visible_bbox,
     compose_gif,
@@ -222,7 +221,7 @@ def build_video_bridge_motion_prompt(description: str, action_prompt: str, *, fr
         "Every frame must be TRUE pixel art: visible pixels are crisp square pixel blocks aligned to a stable pixel grid, with hard edges, limited palette, no anti-aliasing, no motion blur, no painterly smoothing, no subpixel smearing, and no soft interpolated gradients. "
         "Keep a fixed orthographic game-sprite camera, identical character identity, proportions, palette, outline thickness, and scale for the entire video. "
         "The entire subject silhouette must remain fully inside the frame for every frame: hood, cloak, limbs, weapon, smoke, magic particles, trails, and all effects must stay visible with clear key-color padding on all four edges. "
-        "Pixel-boundary rule: only the flat key-color background may touch the canvas edges; every non-background / non-key-color pixel is foreground and must stay completely inside the interior safe area, including stray particles, smoke wisps, weapon tips, shadows, highlights, trails, and effects. "
+        "Pixel-boundary rule: only the flat key-color background may touch the canvas edges; every non-background / non-key-color pixel is foreground and must stay completely inside the interior safe area, with at least 10% key-color margin from every canvas edge, including stray particles, smoke wisps, weapon tips, shadows, highlights, trails, and effects. "
         "Never crop, clip, truncate, or let any foreground pixel touch or cross the frame boundary; if the motion would extend outward, keep the subject centered and scale the motion down instead of moving outside the canvas. "
         "No cuts, no zoom, no camera pan, no background changes. No text, no logo, no watermark, no UI. Keep the flat key-color background consistent."
     )
@@ -260,6 +259,41 @@ def _paste_keyframe_content_to_canvas(content: Image.Image, *, size: tuple[int, 
         y = max(0, (size[1] - frame.height) // 2)
     else:
         y = max(0, size[1] - frame.height)
+    canvas.alpha_composite(frame, (x, y))
+    return canvas
+
+
+def _paste_final_frame_content_to_canvas(
+    content: Image.Image,
+    *,
+    size: tuple[int, int],
+    anchor: str,
+    padding: int,
+) -> Image.Image:
+    """最终序列帧贴图时强制给所有非透明像素保留安全边。
+
+    视频模型可能仍把烟雾/粒子生成到画面边缘；抽帧后必须保证成品中任何
+    非背景/非透明像素都不触碰输出帧边界。
+    """
+    canvas = Image.new("RGBA", size, (0, 0, 0, 0))
+    frame = content.convert("RGBA")
+    safe_padding = max(0, int(padding))
+    min_x = safe_padding if frame.width + safe_padding * 2 <= size[0] else 0
+    max_x = max(min_x, size[0] - frame.width - min_x)
+    x = max(min_x, min(max_x, (size[0] - frame.width) // 2))
+    alpha = np.asarray(frame)[..., 3]
+    xs = np.where(alpha > 8)[1]
+    if xs.size:
+        centroid_x = float(xs.mean())
+        x = int(round(size[0] / 2.0 - centroid_x))
+        x = max(min_x, min(max_x, x))
+    min_y = safe_padding if frame.height + safe_padding * 2 <= size[1] else 0
+    max_y = max(min_y, size[1] - frame.height - min_y)
+    anchor_key = (anchor or "bottom_center").strip().lower()
+    if anchor_key in {"center", "middle", "center_center"}:
+        y = max(min_y, min(max_y, (size[1] - frame.height) // 2))
+    else:
+        y = max(min_y, min(max_y, size[1] - frame.height - min_y))
     canvas.alpha_composite(frame, (x, y))
     return canvas
 
@@ -536,7 +570,7 @@ def _prepare_video_keyframes(
         key_tolerance=key_tolerance,
         generated_preprocess_method=generated_preprocess_method,
     )
-    content_padding = max(4, min(16, int(round(min(target_size) * 0.125))))
+    content_padding = max(8, min(32, int(round(min(target_size) * 0.25))))
     normalized_size = (
         _ceil_to_multiple(
             max(target_size[0], first_content.width + content_padding * 2, last_content.width + content_padding * 2),
@@ -620,7 +654,7 @@ def _motion_prompt_optimizer_instruction(
         "Inspect the provided first_frame and last_frame images, then write a concise motion plan that helps the video model create fluid, coherent in-betweens. "
         "Do not override safety or product constraints. Preserve the subject identity and the exact start/end poses. "
         "The plan must emphasize: continuous readable motion, evenly spaced intermediate poses, every sampled frame as crisp grid-aligned TRUE pixel art, no anti-aliasing, no blur, no painterly smoothing, fixed orthographic camera, no zoom/pan/cuts, and all subject parts/effects staying fully inside the frame with key-color padding. "
-        "Pixel-boundary rule: only the flat key-color background is allowed to touch canvas edges; every non-background / non-key-color pixel is foreground and must remain inside the interior safe area, including stray particles, smoke wisps, weapon tips, shadows, highlights, trails, and effects. "
+        "Pixel-boundary rule: only the flat key-color background is allowed to touch canvas edges; every non-background / non-key-color pixel is foreground and must remain inside the interior safe area with at least 10% key-color margin from every canvas edge, including stray particles, smoke wisps, weapon tips, shadows, highlights, trails, and effects. "
         "Mention weapons, cloak, smoke, particles, trails, and other moving parts only as controlled in-frame foreground elements that never touch or cross the boundary. "
         "Return JSON only, no Markdown, in this schema: {\"optimized_motion_plan\": \"one English paragraph under 1200 characters\"}.\n\n"
         f"Subject: {description}\n"
@@ -942,13 +976,17 @@ def _process_frames(
     union = _union_bbox(bboxes, target_size)
     contents = [image.crop(union).convert("RGBA") for image in prepared]
     contents = _apply_frame_edges(contents, edge_style=edge_style, feather=bg_feather)
-    max_w = max([target_size[0], *(content.width for content in contents)])
-    max_h = max([target_size[1], *(content.height for content in contents)])
+    frame_padding = max(2, min(8, int(round(min(target_size) * 0.08))))
+    max_w = max([target_size[0], *(content.width + frame_padding * 2 for content in contents)])
+    max_h = max([target_size[1], *(content.height + frame_padding * 2 for content in contents)])
     effective_size = (
         _ceil_to_multiple(max_w, frame_size_step),
         _ceil_to_multiple(max_h, frame_size_step),
     )
-    canvases = [_paste_content_to_canvas(content, size=effective_size, anchor=anchor) for content in contents]
+    canvases = [
+        _paste_final_frame_content_to_canvas(content, size=effective_size, anchor=anchor, padding=frame_padding)
+        for content in contents
+    ]
     palette: list[str] = []
     if cfg.sprite.shared_palette:
         canvases, palette = _apply_shared_palette(canvases, colors=max_colors, dither=dither)
@@ -958,7 +996,7 @@ def _process_frames(
         path = final_dir / f"frame_{index:03d}.png"
         canvas.save(path)
         final_paths.append(path)
-    return final_paths, bboxes, effective_size, palette, {"union_bbox": list(union)}
+    return final_paths, bboxes, effective_size, palette, {"union_bbox": list(union), "frame_padding": frame_padding}
 
 
 def _finalize_outputs(

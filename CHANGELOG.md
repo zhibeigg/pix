@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.99.19] - 2026-07-01
+
+### Fixed
+
+- 修复 `sprite.mode = "video_bridge"` 真实 Ark 补间中间帧仍可能让非背景像素贴边的问题：现在首/尾视频输入帧会使用更大的安全边距，视频抽帧后最终透明帧也会在上下左右强制保留安全透明边，避免任何前景像素触碰成品帧边界。
+
 ## [1.99.18] - 2026-07-01
 
 ### Fixed
