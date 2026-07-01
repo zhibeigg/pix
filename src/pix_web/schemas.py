@@ -454,6 +454,7 @@ class SpriteParamsSchema(BaseModel):
     duration_ms: int = Field(default=125, ge=20, le=2000)
     loop: int = Field(default=0, ge=0, le=999)
     video_action_prompt: str = Field(default="", max_length=600)
+    video_return_to_first_frame: bool = False
     video_duration_seconds: int | None = Field(default=None, ge=4, le=15)
     video_resolution: str | None = "480p"
     video_ratio: str | None = "1:1"

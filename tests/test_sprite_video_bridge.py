@@ -33,9 +33,10 @@ def test_sprite_params_defaults_to_mosaic() -> None:
 
     assert req.sprite.mode == "mosaic"
     assert req.sprite.frame_count == req.sprite.rows * req.sprite.cols
-
+    assert req.sprite.video_return_to_first_frame is False
     data = params_json_from_request(req)
     assert data["sprite"]["mode"] == "mosaic"
+    assert data["sprite"]["video_return_to_first_frame"] is False
 
 
 def test_video_bridge_validation_requires_enabled_and_key() -> None:
@@ -103,6 +104,27 @@ def test_video_bridge_prompt_preview_uses_keyframe_prompt() -> None:
     assert preview.warnings
 
 
+def test_video_bridge_return_to_first_frame_is_saved_and_previewed() -> None:
+    req = JobCreateRequest(
+        job_type="sprite_sheet",
+        prompt="蓝色斗篷骑士",
+        sprite=SpriteParamsSchema(
+            mode="video_bridge",
+            rows=1,
+            cols=8,
+            video_action_prompt="挥剑释放蓝色剑气",
+            video_return_to_first_frame=True,
+        ),
+        pixelize=PixelizeParamsSchema(output_size=(64, 64), colors=16),
+    )
+
+    data = params_json_from_request(req)
+    preview = build_prompt_preview(req, _video_cfg())
+
+    assert data["sprite"]["video_return_to_first_frame"] is True
+    assert any("回到首帧" in warning for warning in preview.warnings)
+
+
 def test_video_bridge_motion_prompt_keeps_subject_inside_frame_and_pixel_grid() -> None:
     prompt = build_video_bridge_motion_prompt("暗黑法师刺客", "向前突刺并释放烟雾粒子", frame_count=24)
 
@@ -127,6 +149,24 @@ def test_video_bridge_motion_prompt_keeps_subject_inside_frame_and_pixel_grid() 
     assert "Never crop, clip, truncate" in prompt
     assert "foreground pixel touch or cross the frame boundary" in prompt
     assert "scale the motion down" in prompt
+    assert "Loop-return requirement" not in prompt
+
+
+def test_video_bridge_motion_prompt_can_return_to_first_frame() -> None:
+    prompt = build_video_bridge_motion_prompt(
+        "暗黑法师刺客",
+        "突刺后收招",
+        frame_count=24,
+        return_to_first_frame=True,
+    )
+
+    assert "Loop-return requirement" in prompt
+    assert "first and final video frames must both match the provided first_frame image" in prompt
+    assert "last_frame image is the peak/action target pose" in prompt
+    assert "reaches the provided last_frame pose" in prompt
+    assert "smooth return motion back to the provided first_frame pose" in prompt
+    assert "final sampled frame must match first_frame again" in prompt
+    assert "no sudden snap back" in prompt
 
 
 def test_optimize_video_bridge_motion_prompt_uses_vl_motion_plan(tmp_path, monkeypatch) -> None:

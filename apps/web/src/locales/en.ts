@@ -15,6 +15,10 @@ export const en = {
     creditUnit: 'credits',
     recommended: 'Recommended',
   },
+  videoBridge: {
+    returnToFirstFrame: 'Return to first frame (loop)',
+    returnToFirstFrameHint: 'When enabled, the video model is told to reach the end pose, then smoothly return so the final frame matches the first frame.',
+  },
   styleProfile: {
     title: 'Project style profile',
     previewPrompt: 'Preview prompt',

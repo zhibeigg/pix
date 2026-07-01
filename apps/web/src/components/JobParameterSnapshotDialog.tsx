@@ -74,6 +74,7 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
     [text('帧数', 'Frame count'), stringOrDash(sprite?.frame_count)],
     ['FPS', stringOrDash(sprite?.fps)],
     [text('视频动作描述', 'Video motion description'), sprite?.mode === 'video_bridge' ? stringOrDash(sprite?.video_action_prompt) : '—'],
+    [text('回到初始帧', 'Return to first frame'), sprite?.mode === 'video_bridge' ? yesNo(sprite?.video_return_to_first_frame, text) : '—'],
   ]) : []
 
   async function copySnapshot() {
@@ -209,6 +210,7 @@ function buildUserInputSnapshot(job: GenerationJob) {
       frame_count: sprite?.frame_count,
       fps: sprite?.fps,
       video_action_prompt: sprite?.mode === 'video_bridge' ? sprite?.video_action_prompt : undefined,
+      video_return_to_first_frame: sprite?.mode === 'video_bridge' ? sprite?.video_return_to_first_frame : undefined,
     }) : undefined,
   })
 }

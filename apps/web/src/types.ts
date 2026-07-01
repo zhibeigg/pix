@@ -225,6 +225,7 @@ export type SpriteParams = {
   duration_ms: number
   loop: number
   video_action_prompt?: string
+  video_return_to_first_frame?: boolean
   video_duration_seconds?: number | null
   video_resolution?: string | null
   video_ratio?: string | null

@@ -114,11 +114,14 @@ def _sprite_prompt_preview(req: JobCreateRequest, cfg: AppConfig) -> PromptPrevi
             key_color=key_hex,
             style_profile=style_profile,
         )
+        warnings = ["首尾帧视频补间会先生成关键帧，再调用 Ark 480p 无声视频任务；耗时通常更长。"]
+        if req.sprite.video_return_to_first_frame:
+            warnings.append("已启用回到初始帧：视频 motion prompt 会要求先到尾帧，再平滑回到首帧以便循环。")
         return PromptPreviewResponse(
             mode="sprite_video_bridge",
             positive_prompt=prompt.strip(),
             applied_style_profile=compiled_style.applied_rules,
-            warnings=["首尾帧视频补间会先生成关键帧，再调用 Ark 480p 无声视频任务；耗时通常更长。"],
+            warnings=warnings,
         )
     inputs = SpriteMosaicInput(
         prompt=(req.prompt or "").strip(),

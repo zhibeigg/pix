@@ -15,6 +15,10 @@ export const zhCN = {
     creditUnit: '点',
     recommended: '推荐',
   },
+  videoBridge: {
+    returnToFirstFrame: '回到初始帧（循环动作）',
+    returnToFirstFrameHint: '开启后会告诉视频模型：先到达尾帧，再平滑回到首帧，最后一帧匹配初始帧。',
+  },
   styleProfile: {
     title: '项目风格档案',
     previewPrompt: '预览 Prompt',

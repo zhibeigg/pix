@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.100.21] - 2026-07-01
+
+### Added
+
+- 为 `sprite.mode = "video_bridge"` 增加 `video_return_to_first_frame` 选项：用户启用后，视频 motion prompt 和 VL 优化指令会要求动作先到达尾帧姿势，再平滑回到首帧；提交 Ark 时也会把最终约束帧切换为首帧，让最后采样帧匹配初始帧以便循环播放。前端表单、参数快照和外部 API 示例同步支持该选项。
+
 ## [1.99.21] - 2026-07-01
 
 ### Fixed

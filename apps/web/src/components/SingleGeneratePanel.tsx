@@ -247,6 +247,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [cols, setCols] = useState(8)
   const [rowPrompts, setRowPrompts] = useState<string[]>([''])
   const [videoActionPrompt, setVideoActionPrompt] = useState('')
+  const [videoReturnToFirstFrame, setVideoReturnToFirstFrame] = useState(false)
   const [fps, setFps] = useState(8)
   const [refImagePath, setRefImagePath] = useState('')
   const [refImageUrl, setRefImageUrl] = useState('')
@@ -350,6 +351,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     if (next === 'sprite_sheet') {
       setSpriteMode('mosaic')
       setVideoActionPrompt('')
+      setVideoReturnToFirstFrame(false)
       if (d.fps !== undefined) setFps(d.fps)
       if (d.rows !== undefined) setRows(d.rows)
       if (d.cols !== undefined) setCols(d.cols)
@@ -407,6 +409,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       setFps(nextFps)
       setRowPrompts(nextRowPrompts)
       setVideoActionPrompt(stringValue(sprite?.video_action_prompt))
+      setVideoReturnToFirstFrame(Boolean(sprite?.video_return_to_first_frame))
       setSpritePreset('custom')
       const referencePath = stringValue(sprite?.reference_image_path)
       setRefImagePath(referencePath)
@@ -628,6 +631,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           duration_ms: Math.max(20, Math.round(1000 / safeFps)),
           loop: 0,
           video_action_prompt: spriteMode === 'video_bridge' ? videoActionPrompt.trim() : '',
+          video_return_to_first_frame: spriteMode === 'video_bridge' ? videoReturnToFirstFrame : false,
         },
       }
     }
@@ -838,15 +842,24 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
             </div>
 
             {isSpriteVideoBridge && (
-              <PixField label={text('视频动作描述（可选）', 'Video motion description (optional)')} hint={text(`${videoActionPrompt.length}/${spriteRowPromptMaxLength} 字；留空时使用主体描述。`, `${videoActionPrompt.length}/${spriteRowPromptMaxLength} characters; falls back to the subject brief when empty.`)}>
-                <Textarea
-                  value={videoActionPrompt}
-                  rows={2}
-                  maxLength={spriteRowPromptMaxLength}
-                  placeholder={text('例如：从站立蓄力到挥剑释放一道火焰斩', 'e.g. from charging stance to a sword swing releasing a flame slash')}
-                  onChange={(e) => setVideoActionPrompt(e.target.value)}
-                />
-              </PixField>
+              <div className="grid gap-3">
+                <PixField label={text('视频动作描述（可选）', 'Video motion description (optional)')} hint={text(`${videoActionPrompt.length}/${spriteRowPromptMaxLength} 字；留空时使用主体描述。`, `${videoActionPrompt.length}/${spriteRowPromptMaxLength} characters; falls back to the subject brief when empty.`)}>
+                  <Textarea
+                    value={videoActionPrompt}
+                    rows={2}
+                    maxLength={spriteRowPromptMaxLength}
+                    placeholder={text('例如：从站立蓄力到挥剑释放一道火焰斩', 'e.g. from charging stance to a sword swing releasing a flame slash')}
+                    onChange={(e) => setVideoActionPrompt(e.target.value)}
+                  />
+                </PixField>
+                <label className="flex items-start gap-2 rounded-lg border border-border bg-background/45 p-3 text-sm">
+                  <Checkbox checked={videoReturnToFirstFrame} onCheckedChange={(value) => setVideoReturnToFirstFrame(Boolean(value))} />
+                  <span className="grid gap-1">
+                    <span className="font-medium">{text('回到初始帧（循环动作）', 'Return to first frame (loop)')}</span>
+                    <span className="text-xs text-muted-foreground">{text('开启后会告诉视频模型：先到达尾帧，再平滑回到首帧，最后一帧匹配初始帧。', 'When enabled, the video model is told to reach the end pose, then smoothly return so the final frame matches the first frame.')}</span>
+                  </span>
+                </label>
+              </div>
             )}
 
             {!isSpriteVideoBridge && safeRows >= 2 && (

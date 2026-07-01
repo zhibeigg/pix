@@ -64,6 +64,7 @@ class SpriteVideoBridgeInput:
     cols: int
     row_prompts: list[str] = field(default_factory=list)
     video_action_prompt: str = ""
+    video_return_to_first_frame: bool = False
     reference_image_path: Path | None = None
     image_size: str | None = None
     image_quality: str | None = None
@@ -209,16 +210,32 @@ def build_video_bridge_keyframe_prompt(
     return prompt.strip()
 
 
-def build_video_bridge_motion_prompt(description: str, action_prompt: str, *, frame_count: int | None = None) -> str:
+def build_video_bridge_motion_prompt(
+    description: str,
+    action_prompt: str,
+    *,
+    frame_count: int | None = None,
+    return_to_first_frame: bool = False,
+) -> str:
     frame_clause = (
         f"The motion will be sampled into {max(2, int(frame_count))} sprite frames, so every sampled frame must read as a clean incremental pose. "
         if frame_count
         else "Every sampled frame must read as a clean incremental sprite pose. "
     )
+    return_clause = (
+        "Loop-return requirement: after the animation reaches the provided last_frame pose, it must continue with a smooth return motion back to the provided first_frame pose; the final sampled frame must match first_frame again, making the sequence loop-ready. Allocate enough intermediate frames for both the outbound action and the return-to-start motion, with no teleporting, no hard cut, and no sudden snap back to the initial pose. "
+        if return_to_first_frame
+        else ""
+    )
+    endpoint_clause = (
+        "The first and final video frames must both match the provided first_frame image. The provided last_frame image is the peak/action target pose that should be reached during the middle or later part of the animation before returning to first_frame. "
+        if return_to_first_frame
+        else "The first frame must match the provided first_frame image and the final frame must match the provided last_frame image. "
+    )
     return (
         f"Create a short continuous pixel-art motion interpolation for this subject: {description}. "
-        f"Motion: {action_prompt}. The first frame must match the provided first_frame image and the last frame must match the provided last_frame image. "
-        f"{frame_clause}Use smooth evenly spaced in-between poses with small consistent changes between adjacent frames; no sudden jumps, no duplicated frozen frames, no skipped action phases. "
+        f"Motion: {action_prompt}. {endpoint_clause}"
+        f"{frame_clause}{return_clause}Use smooth evenly spaced in-between poses with small consistent changes between adjacent frames; no sudden jumps, no duplicated frozen frames, no skipped action phases. "
         "Every frame must be TRUE pixel art: visible pixels are crisp square pixel blocks aligned to a stable pixel grid, with hard edges, limited palette, no anti-aliasing, no motion blur, no painterly smoothing, no subpixel smearing, and no soft interpolated gradients. "
         "Keep a fixed orthographic game-sprite camera, identical character identity, proportions, palette, outline thickness, and scale for the entire video. "
         "The entire subject silhouette must remain fully inside the frame for every frame: hood, cloak, limbs, weapon, smoke, magic particles, trails, and all effects must stay visible with clear key-color padding on all four edges. "
@@ -733,11 +750,18 @@ def _motion_prompt_optimizer_instruction(
     action_prompt: str,
     base_prompt: str,
     frame_count: int,
+    return_to_first_frame: bool = False,
 ) -> str:
+    loop_instruction = (
+        "The user enabled return_to_first_frame: the motion plan must explicitly reach the last_frame pose, then continue back to the first_frame pose so the final sampled frame matches first_frame for a loop-ready animation. "
+        if return_to_first_frame
+        else ""
+    )
     return (
         "You are optimizing a video-generation prompt for a pixel-art sprite animation. "
         "Inspect the provided first_frame and last_frame images, then write a concise motion plan that helps the video model create fluid, coherent in-betweens. "
         "Do not override safety or product constraints. Preserve the subject identity and the exact start/end poses. "
+        f"{loop_instruction}"
         "The plan must emphasize: continuous readable motion, evenly spaced intermediate poses, every sampled frame as crisp grid-aligned TRUE pixel art, no anti-aliasing, no blur, no painterly smoothing, fixed orthographic camera, no zoom/pan/cuts, and all subject parts/effects staying fully inside the frame with key-color padding. "
         "Pixel-boundary rule: only the flat key-color background is allowed to touch canvas edges; every non-background / non-key-color pixel is foreground and must remain inside the interior safe area with at least 10% key-color margin from every canvas edge, including stray particles, smoke wisps, weapon tips, shadows, highlights, trails, and effects. "
         "Mention weapons, cloak, smoke, particles, trails, and other moving parts only as controlled in-frame foreground elements that never touch or cross the boundary. "
@@ -758,6 +782,7 @@ def _optimize_video_bridge_motion_prompt(
     first_frame_path: Path,
     last_frame_path: Path,
     frame_count: int,
+    return_to_first_frame: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     model = str(getattr(cfg.vision, "model", "") or "").strip()
     meta: dict[str, Any] = {
@@ -765,6 +790,7 @@ def _optimize_video_bridge_motion_prompt(
         "used": False,
         "mode": "fallback",
         "model": model,
+        "return_to_first_frame": bool(return_to_first_frame),
     }
     try:
         api_key = require_vl_api_key(cfg)
@@ -777,6 +803,7 @@ def _optimize_video_bridge_motion_prompt(
         action_prompt=action_prompt,
         base_prompt=base_prompt,
         frame_count=frame_count,
+        return_to_first_frame=return_to_first_frame,
     )
     model_name = model or cfg.vision.model
     temperature = min(float(getattr(cfg.vision, "temperature", 0.2)), 0.2)
@@ -906,7 +933,15 @@ def _start_video_task(
     first_data_url = _data_url_from_png(first_video_path, max_bytes)
     last_data_url = _data_url_from_png(last_video_path, max_bytes)
     frame_count = max(2, int(inputs.rows or 1) * int(inputs.cols or 1))
-    base_motion_prompt = build_video_bridge_motion_prompt(description, action_prompt, frame_count=frame_count)
+    return_to_first_frame = bool(inputs.video_return_to_first_frame)
+    ark_last_frame_data_url = first_data_url if return_to_first_frame else last_data_url
+    ark_last_frame_source = "first_frame_video_path" if return_to_first_frame else "last_frame_video_path"
+    base_motion_prompt = build_video_bridge_motion_prompt(
+        description,
+        action_prompt,
+        frame_count=frame_count,
+        return_to_first_frame=return_to_first_frame,
+    )
     motion_prompt, motion_prompt_optimizer = _optimize_video_bridge_motion_prompt(
         cfg,
         description=description,
@@ -915,13 +950,14 @@ def _start_video_task(
         first_frame_path=first_video_path,
         last_frame_path=last_video_path,
         frame_count=frame_count,
+        return_to_first_frame=return_to_first_frame,
     )
     notify("video_bridge_motion_prompt_ready", {"optimized": bool(motion_prompt_optimizer.get("used"))})
     client = ArkVideoClient(cfg)
     created = client.create_task(
         prompt=motion_prompt,
         first_frame_data_url=first_data_url,
-        last_frame_data_url=last_data_url,
+        last_frame_data_url=ark_last_frame_data_url,
         model=cfg.video_bridge.model,
         resolution=cfg.video_bridge.resolution,
         ratio=cfg.video_bridge.ratio,
@@ -941,6 +977,8 @@ def _start_video_task(
         "motion_prompt": motion_prompt,
         "motion_prompt_base": base_motion_prompt,
         "motion_prompt_optimizer": motion_prompt_optimizer,
+        "video_return_to_first_frame": return_to_first_frame,
+        "ark_last_frame_source": ark_last_frame_source,
         "keyframe_pair_path": _rel(keyframe_pair_path, run_dir),
         "first_frame_path": _rel(first_path, run_dir),
         "last_frame_path": _rel(last_path, run_dir),
@@ -1238,6 +1276,7 @@ def _finalize_outputs(
             "prompt": inputs.prompt,
             "row_prompts": safe_row_prompts,
             "video_action_prompt": action_prompt,
+            "video_return_to_first_frame": bool(inputs.video_return_to_first_frame),
             "style_profile": compiled_style.data,
             "applied_style_profile": compiled_style.applied_rules,
             "effective_prompt": effective_prompt,
@@ -1261,6 +1300,7 @@ def _finalize_outputs(
             "duration": cfg.video_bridge.duration,
             "generate_audio": cfg.video_bridge.generate_audio,
             "watermark": cfg.video_bridge.watermark,
+            "return_to_first_frame": bool(inputs.video_return_to_first_frame),
             "state": state,
             "video_path": _rel(video_path, run_dir),
             "keyframe_pair": _rel(keyframe_pair_path, run_dir),
@@ -1292,6 +1332,7 @@ def _finalize_outputs(
             "shared_palette_colors": shared_palette_hex,
             "row_prompts": safe_row_prompts,
             "video_action_prompt": action_prompt,
+            "video_return_to_first_frame": bool(inputs.video_return_to_first_frame),
             "raw_frames_dir": _rel(raw_dir, run_dir),
             "frames_dir": _rel(final_dir, run_dir),
             "horizontal_sheet": sheet_path.name,
