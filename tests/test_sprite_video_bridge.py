@@ -631,9 +631,69 @@ def test_process_frames_detects_mode_grid_then_reprocesses_all_frames(tmp_path, 
     assert [item[0] for item in calls].count("fixed") == 3
     assert all(call[2] == (16, 16) for call in calls if call[0] == "fixed")
     assert process_meta["common_preprocess_size"] == [16, 16]
+    assert process_meta["final_canvas_rule"] == "next_power_of_two_square_transparent_padding"
     assert process_meta["preserve_perfect_pixel_detected_size"] is True
     assert [frame["normalized_size"] for frame in process_meta["frames"]] == [[16, 16]] * 3
     assert [frame["preprocess"]["fixed_grid_size"] for frame in process_meta["frames"]] == [[16, 16]] * 3
+
+
+
+def test_process_frames_pads_detected_size_to_power_of_two_square(tmp_path, monkeypatch) -> None:
+    raw_dir = tmp_path / "raw"
+    final_dir = tmp_path / "final"
+    raw_dir.mkdir()
+    key = (255, 0, 255, 255)
+    raw_paths = []
+    for index in range(2):
+        path = raw_dir / f"frame_{index + 1:03d}.png"
+        Image.new("RGBA", (512, 512), key).save(path)
+        raw_paths.append(path)
+
+    def fake_preprocess(image, *, method, target_size, grid_size=None, **_kwargs):
+        detected = tuple(grid_size) if grid_size else (106, 106)
+        out = Image.new("RGBA", detected, key)
+        draw = ImageDraw.Draw(out)
+        draw.rectangle([20, 20, 80, 80], fill=(20, 20, 30, 255))
+        return GeneratedPreprocessResult(
+            image=out,
+            meta={
+                "method": method,
+                "applied": True,
+                "target_size": list(target_size),
+                "refined_size": list(detected),
+                "output_size": list(detected),
+                "fixed_grid_size": list(grid_size) if grid_size else None,
+            },
+        )
+
+    monkeypatch.setattr("pix.sprite_video_bridge.preprocess_generated_image", fake_preprocess)
+    cfg = AppConfig()
+    cfg.sprite.shared_palette = False
+
+    final_paths, _bboxes, effective_size, _palette, process_meta = _process_frames(
+        cfg,
+        raw_paths,
+        final_dir,
+        target_size=(64, 64),
+        frame_size_step=16,
+        anchor="bottom_center",
+        key_rgb=key[:3],
+        key_tolerance=0,
+        max_colors=4,
+        dither="none",
+        edge_style="hard",
+        bg_feather=0,
+        generated_preprocess_method="perfect_pixel",
+    )
+
+    assert effective_size == (128, 128)
+    assert process_meta["common_preprocess_size"] == [106, 106]
+    assert process_meta["required_frame_size"] == [106, 106]
+    assert process_meta["final_canvas_rule"] == "next_power_of_two_square_transparent_padding"
+    assert process_meta["perfect_pixel_sequence_grid"]["mode_grid_size"] == [106, 106]
+    with Image.open(final_paths[0]) as opened:
+        assert opened.size == (128, 128)
+        assert opened.getpixel((0, 0))[3] == 0
 
 
 def test_process_frames_keeps_foreground_away_from_output_edges(tmp_path) -> None:
@@ -671,7 +731,8 @@ def test_process_frames_keeps_foreground_away_from_output_edges(tmp_path) -> Non
         generated_preprocess_method="none",
     )
 
-    assert effective_size == (80, 80)
+    assert effective_size == (128, 128)
+    assert process_meta["final_canvas_rule"] == "next_power_of_two_square_transparent_padding"
     assert process_meta["frame_padding"] == 5
     for path in final_paths:
         bbox = _alpha_bbox(path)

@@ -25,7 +25,7 @@ from pix.config import AppConfig, require_vl_api_key
 from pix.contact_sheet import parse_hex_color
 from pix.io_utils import image_to_base64_data_url, new_run_dir
 from pix.pixelize.bg_removal import apply_pixel_bg_alpha
-from pix.pixelize.core import PixelizeParams
+from pix.pixelize.core import PixelizeParams, next_power_of_two
 from pix.pixelize.palette import kmeans_palette, rgb_to_hex
 from pix.pixelize.perfect_pixel import preprocess_generated_image
 from pix.prompt_style import STYLE_PROFILE_POLICY_MAX_CHARS, compile_style_profile, style_profile_policy_text
@@ -57,7 +57,7 @@ LocalStageContext = Callable[[], ContextManager[None]]
 ProgressCb = Any
 _WAITING_STATUSES = {"queued", "running"}
 _FAILED_STATUSES = {"failed", "expired", "cancelled"}
-_FRAME_BACKGROUND_FLOW = "video_frames_to_perfect_pixel_detect_all_to_mode_grid_to_fixed_grid_perfect_pixel_to_key_color_alpha_to_denoise_to_union_bbox_to_palette_limit"
+_FRAME_BACKGROUND_FLOW = "video_frames_to_perfect_pixel_detect_all_to_mode_grid_to_fixed_grid_perfect_pixel_to_key_color_alpha_to_denoise_to_union_bbox_to_power2_square_canvas_to_palette_limit"
 
 
 @dataclass
@@ -1305,6 +1305,24 @@ def _mode_grid_size(grids: list[tuple[int, int]], target_size: tuple[int, int]) 
     )
 
 
+def _power_of_two_square_frame_size(
+    required_size: tuple[int, int],
+    *,
+    target_size: tuple[int, int],
+) -> tuple[int, int]:
+    """把最终帧画布向上取整为 2 的幂方形尺寸，不缩放内容，只透明填充。"""
+    side = next_power_of_two(
+        max(
+            1,
+            int(required_size[0]),
+            int(required_size[1]),
+            int(target_size[0]),
+            int(target_size[1]),
+        )
+    )
+    return side, side
+
+
 def _detect_sequence_perfect_pixel_grid(
     raw_frame_paths: list[Path],
     *,
@@ -1438,10 +1456,8 @@ def _process_frames(
     frame_padding = max(2, min(8, int(round(min(common_size) * 0.08))))
     max_w = max([common_size[0], *(content.width + frame_padding * 2 for content in contents)])
     max_h = max([common_size[1], *(content.height + frame_padding * 2 for content in contents)])
-    effective_size = (
-        _ceil_to_multiple(max_w, frame_size_step),
-        _ceil_to_multiple(max_h, frame_size_step),
-    )
+    required_frame_size = (max_w, max_h)
+    effective_size = _power_of_two_square_frame_size(required_frame_size, target_size=target_size)
     canvases = [
         _paste_final_frame_content_to_canvas(content, size=effective_size, anchor=anchor, padding=frame_padding)
         for content in contents
@@ -1466,6 +1482,9 @@ def _process_frames(
         "frame_padding": frame_padding,
         "target_size": list(target_size),
         "common_preprocess_size": list(common_size),
+        "required_frame_size": list(required_frame_size),
+        "final_canvas_rule": "next_power_of_two_square_transparent_padding",
+        "legacy_frame_size_step": int(frame_size_step),
         "preserve_perfect_pixel_detected_size": True,
         "generated_preprocess_method": generated_preprocess_method,
         "perfect_pixel_sequence_grid": {

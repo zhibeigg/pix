@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.101.27] - 2026-07-01
+
+### Fixed
+
+- 修正 `sprite.mode = "video_bridge"` 最终帧画布尺寸规则：perfectPixel 检测/固定网格输出不缩放，最终按不小于检测尺寸、透明安全边和 `pixelize.output_size` 的最小 2 的幂 1:1 方形画布透明填充（如 106×106 → 128×128），不再交付 112×112 这类 16 倍数中间尺寸。
+
 ## [1.101.26] - 2026-07-01
 
 ### Fixed
