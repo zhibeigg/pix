@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.99.17] - 2026-07-01
+
+### Fixed
+
+- 改进 `sprite.mode = "video_bridge"` 的视频生成 prompt：首尾关键帧整理完成后会优先调用 VL 模型读取首/尾输入帧并生成动作补间计划，再把该计划附加到本地硬约束 prompt；同时强制每一帧保持清晰方块像素格、动作小步均匀连贯、无抗锯齿/模糊/绘画化。VL 不可用或解析失败时自动回退本地硬约束 prompt。
+
 ## [1.99.16] - 2026-07-01
 
 ### Fixed

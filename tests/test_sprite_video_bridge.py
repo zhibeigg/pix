@@ -7,7 +7,12 @@ from fastapi import HTTPException
 from PIL import Image, ImageDraw
 
 from pix.config import AppConfig
-from pix.sprite_video_bridge import build_video_bridge_motion_prompt, _prepare_video_keyframes, is_waiting_state_due
+from pix.sprite_video_bridge import (
+    build_video_bridge_motion_prompt,
+    _optimize_video_bridge_motion_prompt,
+    _prepare_video_keyframes,
+    is_waiting_state_due,
+)
 from pix_web.jobs import params_json_from_request, validate_job_request
 from pix_web.prompt_preview import build_prompt_preview
 from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema, SpriteParamsSchema
@@ -96,9 +101,18 @@ def test_video_bridge_prompt_preview_uses_keyframe_prompt() -> None:
     assert preview.warnings
 
 
-def test_video_bridge_motion_prompt_keeps_subject_inside_frame() -> None:
-    prompt = build_video_bridge_motion_prompt("暗黑法师刺客", "向前突刺并释放烟雾粒子")
+def test_video_bridge_motion_prompt_keeps_subject_inside_frame_and_pixel_grid() -> None:
+    prompt = build_video_bridge_motion_prompt("暗黑法师刺客", "向前突刺并释放烟雾粒子", frame_count=24)
 
+    assert "sampled into 24 sprite frames" in prompt
+    assert "smooth evenly spaced in-between poses" in prompt
+    assert "small consistent changes between adjacent frames" in prompt
+    assert "no duplicated frozen frames" in prompt
+    assert "Every frame must be TRUE pixel art" in prompt
+    assert "crisp square pixel blocks aligned to a stable pixel grid" in prompt
+    assert "no anti-aliasing" in prompt
+    assert "no motion blur" in prompt
+    assert "no painterly smoothing" in prompt
     assert "fully inside the frame" in prompt
     assert "weapon" in prompt
     assert "smoke" in prompt
@@ -106,6 +120,80 @@ def test_video_bridge_motion_prompt_keeps_subject_inside_frame() -> None:
     assert "clear key-color padding on all four edges" in prompt
     assert "Never crop, clip, truncate" in prompt
     assert "scale the motion down" in prompt
+
+
+def test_optimize_video_bridge_motion_prompt_uses_vl_motion_plan(tmp_path, monkeypatch) -> None:
+    first = tmp_path / "first.png"
+    last = tmp_path / "last.png"
+    Image.new("RGBA", (8, 8), (255, 0, 0, 255)).save(first)
+    Image.new("RGBA", (8, 8), (255, 0, 0, 255)).save(last)
+
+    class FakeClient:
+        def post_json(self, path, payload):
+            assert path == "/v1/chat/completions"
+            content = payload["messages"][0]["content"]
+            assert content[0]["type"] == "text"
+            assert "Target sampled sprite frames: 24" in content[0]["text"]
+            assert "first_frame" in content[0]["text"]
+            assert content[1]["type"] == "image_url"
+            assert content[2]["type"] == "image_url"
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"optimized_motion_plan":"Use a controlled smoke-to-lunge arc with evenly spaced readable poses; keep every pixel block crisp and all dagger trails inside the canvas."}'
+                        }
+                    }
+                ]
+            }
+
+    monkeypatch.setattr("pix.sprite_video_bridge.require_vl_api_key", lambda _cfg: "vl-key")
+    monkeypatch.setattr("pix.sprite_video_bridge.make_packy_client", lambda _cfg, _api_key: FakeClient())
+
+    base = build_video_bridge_motion_prompt("暗黑法师刺客", "突刺", frame_count=24)
+    prompt, meta = _optimize_video_bridge_motion_prompt(
+        AppConfig(),
+        description="暗黑法师刺客",
+        action_prompt="突刺",
+        base_prompt=base,
+        first_frame_path=first,
+        last_frame_path=last,
+        frame_count=24,
+    )
+
+    assert prompt.startswith(base)
+    assert "Optimized motion plan" in prompt
+    assert "controlled smoke-to-lunge arc" in prompt
+    assert "every pixel block crisp" in prompt
+    assert meta["used"] is True
+    assert meta["mode"] == "model"
+
+
+def test_optimize_video_bridge_motion_prompt_falls_back_without_vl_key(tmp_path, monkeypatch) -> None:
+    first = tmp_path / "first.png"
+    last = tmp_path / "last.png"
+    Image.new("RGBA", (8, 8), (255, 0, 0, 255)).save(first)
+    Image.new("RGBA", (8, 8), (255, 0, 0, 255)).save(last)
+
+    def raise_missing_key(_cfg):
+        raise RuntimeError("missing vl key")
+
+    monkeypatch.setattr("pix.sprite_video_bridge.require_vl_api_key", raise_missing_key)
+    base = build_video_bridge_motion_prompt("暗黑法师刺客", "突刺", frame_count=24)
+    prompt, meta = _optimize_video_bridge_motion_prompt(
+        AppConfig(),
+        description="暗黑法师刺客",
+        action_prompt="突刺",
+        base_prompt=base,
+        first_frame_path=first,
+        last_frame_path=last,
+        frame_count=24,
+    )
+
+    assert prompt == base
+    assert meta["used"] is False
+    assert meta["mode"] == "unavailable"
+    assert "missing vl key" in meta["error"]
 
 
 def test_waiting_state_due_parses_iso_time() -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 from collections import deque
 import json
+import re
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -18,10 +19,11 @@ from pix import __version__
 from pix.api.ark_video import ArkVideoClient
 from pix.api.image_dispatcher import clear_image_provider_history, image_provider_history
 from pix.api.image_gen import edit_image, generate_image
+from pix.api.packy_client import make_packy_client
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
-from pix.config import AppConfig
+from pix.config import AppConfig, require_vl_api_key
 from pix.contact_sheet import parse_hex_color, resolve_key_color
-from pix.io_utils import new_run_dir
+from pix.io_utils import image_to_base64_data_url, new_run_dir
 from pix.pixelize.bg_removal import apply_pixel_bg_alpha
 from pix.pixelize.core import PixelizeParams
 from pix.pixelize.perfect_pixel import preprocess_generated_image
@@ -207,15 +209,21 @@ def build_video_bridge_keyframe_prompt(
     return prompt.strip()
 
 
-def build_video_bridge_motion_prompt(description: str, action_prompt: str) -> str:
+def build_video_bridge_motion_prompt(description: str, action_prompt: str, *, frame_count: int | None = None) -> str:
+    frame_clause = (
+        f"The motion will be sampled into {max(2, int(frame_count))} sprite frames, so every sampled frame must read as a clean incremental pose. "
+        if frame_count
+        else "Every sampled frame must read as a clean incremental sprite pose. "
+    )
     return (
-        f"Create a short seamless pixel-art motion interpolation for this subject: {description}. "
+        f"Create a short continuous pixel-art motion interpolation for this subject: {description}. "
         f"Motion: {action_prompt}. The first frame must match the provided first_frame image and the last frame must match the provided last_frame image. "
+        f"{frame_clause}Use smooth evenly spaced in-between poses with small consistent changes between adjacent frames; no sudden jumps, no duplicated frozen frames, no skipped action phases. "
+        "Every frame must be TRUE pixel art: visible pixels are crisp square pixel blocks aligned to a stable pixel grid, with hard edges, limited palette, no anti-aliasing, no motion blur, no painterly smoothing, no subpixel smearing, and no soft interpolated gradients. "
         "Keep a fixed orthographic game-sprite camera, identical character identity, proportions, palette, outline thickness, and scale for the entire video. "
         "The entire subject silhouette must remain fully inside the frame for every frame: hood, cloak, limbs, weapon, smoke, magic particles, trails, and all effects must stay visible with clear key-color padding on all four edges. "
         "Never crop, clip, truncate, or let any subject pixel touch or cross the frame boundary; if the motion would extend outward, keep the subject centered and scale the motion down instead of moving outside the canvas. "
-        "Use smooth evenly spaced in-between poses, no cuts, no zoom, no camera pan, no background changes. "
-        "No text, no logo, no watermark, no UI. Keep the flat key-color background consistent."
+        "No cuts, no zoom, no camera pan, no background changes. No text, no logo, no watermark, no UI. Keep the flat key-color background consistent."
     )
 
 
@@ -558,6 +566,127 @@ def _prepare_video_keyframes(
     }
 
 
+_JSON_BLOCK_RE = re.compile(r"```json\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)
+_LOOSE_JSON_RE = re.compile(r"\{[\s\S]*\}")
+
+
+def _extract_chat_content(resp: dict[str, Any]) -> str:
+    choices = resp.get("choices") or []
+    if not choices:
+        raise ValueError(f"VL 响应缺少 choices: {str(resp)[:500]}")
+    message = choices[0].get("message") or {}
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text":
+                parts.append(str(item.get("text", "")))
+            elif isinstance(item, str):
+                parts.append(item)
+        return "".join(parts)
+    raise ValueError(f"无法解析 VL 响应 content: {str(resp)[:500]}")
+
+
+def _extract_motion_plan(raw: str) -> str:
+    text = (raw or "").strip()
+    json_block = _JSON_BLOCK_RE.search(text)
+    if json_block:
+        text = json_block.group(1).strip()
+    else:
+        loose = _LOOSE_JSON_RE.search(text)
+        if loose:
+            text = loose.group(0).strip()
+    data = json.loads(text)
+    if not isinstance(data, dict):
+        raise ValueError("VL motion prompt 响应不是 JSON 对象")
+    plan = str(data.get("optimized_motion_plan") or data.get("motion_plan") or data.get("prompt") or "").strip()
+    if not plan:
+        raise ValueError("VL motion prompt 响应缺少 optimized_motion_plan")
+    return " ".join(plan.split())[:1600]
+
+
+def _motion_prompt_optimizer_instruction(
+    *,
+    description: str,
+    action_prompt: str,
+    base_prompt: str,
+    frame_count: int,
+) -> str:
+    return (
+        "You are optimizing a video-generation prompt for a pixel-art sprite animation. "
+        "Inspect the provided first_frame and last_frame images, then write a concise motion plan that helps the video model create fluid, coherent in-betweens. "
+        "Do not override safety or product constraints. Preserve the subject identity and the exact start/end poses. "
+        "The plan must emphasize: continuous readable motion, evenly spaced intermediate poses, every sampled frame as crisp grid-aligned TRUE pixel art, no anti-aliasing, no blur, no painterly smoothing, fixed orthographic camera, no zoom/pan/cuts, and all subject parts/effects staying fully inside the frame with key-color padding. "
+        "Mention weapons, cloak, smoke, particles, trails, and other moving parts only as controlled in-frame elements. "
+        "Return JSON only, no Markdown, in this schema: {\"optimized_motion_plan\": \"one English paragraph under 1200 characters\"}.\n\n"
+        f"Subject: {description}\n"
+        f"User motion request: {action_prompt}\n"
+        f"Target sampled sprite frames: {max(2, int(frame_count))}\n"
+        f"Non-negotiable base prompt constraints to preserve:\n{base_prompt}"
+    )
+
+
+def _optimize_video_bridge_motion_prompt(
+    cfg: AppConfig,
+    *,
+    description: str,
+    action_prompt: str,
+    base_prompt: str,
+    first_frame_path: Path,
+    last_frame_path: Path,
+    frame_count: int,
+) -> tuple[str, dict[str, Any]]:
+    model = str(getattr(cfg.vision, "model", "") or "").strip()
+    meta: dict[str, Any] = {
+        "enabled": True,
+        "used": False,
+        "mode": "fallback",
+        "model": model,
+    }
+    try:
+        api_key = require_vl_api_key(cfg)
+    except RuntimeError as exc:
+        return base_prompt, {**meta, "mode": "unavailable", "error": str(exc)}
+
+    try:
+        client = make_packy_client(cfg, api_key)
+        instruction = _motion_prompt_optimizer_instruction(
+            description=description,
+            action_prompt=action_prompt,
+            base_prompt=base_prompt,
+            frame_count=frame_count,
+        )
+        payload: dict[str, Any] = {
+            "model": model or cfg.vision.model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": instruction},
+                        {"type": "image_url", "image_url": {"url": image_to_base64_data_url(first_frame_path)}},
+                        {"type": "image_url", "image_url": {"url": image_to_base64_data_url(last_frame_path)}},
+                    ],
+                }
+            ],
+            "temperature": min(float(getattr(cfg.vision, "temperature", 0.2)), 0.2),
+            "max_tokens": max(600, min(int(getattr(cfg.vision, "max_tokens", 2048)), 1600)),
+        }
+        raw = _extract_chat_content(client.post_json("/v1/chat/completions", payload))
+        motion_plan = _extract_motion_plan(raw)
+    except Exception as exc:  # noqa: BLE001 - 优化失败不能阻断视频任务
+        return base_prompt, {**meta, "mode": "failed", "error": str(exc)[:500]}
+
+    optimized_prompt = f"{base_prompt} Optimized motion plan: {motion_plan}".strip()
+    return optimized_prompt, {
+        **meta,
+        "used": True,
+        "mode": "model",
+        "optimized_motion_plan": motion_plan,
+    }
+
+
 def _start_video_task(
     cfg: AppConfig,
     inputs: SpriteVideoBridgeInput,
@@ -625,7 +754,18 @@ def _start_video_task(
     max_bytes = max(1, int(getattr(cfg.video_bridge, "max_base64_image_bytes", 30 * 1024 * 1024)))
     first_data_url = _data_url_from_png(first_video_path, max_bytes)
     last_data_url = _data_url_from_png(last_video_path, max_bytes)
-    motion_prompt = build_video_bridge_motion_prompt(description, action_prompt)
+    frame_count = max(2, int(inputs.rows or 1) * int(inputs.cols or 1))
+    base_motion_prompt = build_video_bridge_motion_prompt(description, action_prompt, frame_count=frame_count)
+    motion_prompt, motion_prompt_optimizer = _optimize_video_bridge_motion_prompt(
+        cfg,
+        description=description,
+        action_prompt=action_prompt,
+        base_prompt=base_motion_prompt,
+        first_frame_path=first_video_path,
+        last_frame_path=last_video_path,
+        frame_count=frame_count,
+    )
+    notify("video_bridge_motion_prompt_ready", {"optimized": bool(motion_prompt_optimizer.get("used"))})
     client = ArkVideoClient(cfg)
     created = client.create_task(
         prompt=motion_prompt,
@@ -648,6 +788,8 @@ def _start_video_task(
         "last_status": "created",
         "keyframe_prompt": keyframe_prompt,
         "motion_prompt": motion_prompt,
+        "motion_prompt_base": base_motion_prompt,
+        "motion_prompt_optimizer": motion_prompt_optimizer,
         "keyframe_pair_path": _rel(keyframe_pair_path, run_dir),
         "first_frame_path": _rel(first_path, run_dir),
         "last_frame_path": _rel(last_path, run_dir),

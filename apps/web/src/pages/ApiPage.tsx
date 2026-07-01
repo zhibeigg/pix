@@ -214,7 +214,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
     "image_model": "image2"
   }'
 
-# 首尾帧视频补间：先生成首/尾关键帧，再进入 waiting 等 Ark 视频完成并抽帧
+# 首尾帧视频补间：先生成首/尾关键帧，VL 可用时会优化连贯像素动作 prompt，再进入 waiting 等 Ark 视频完成并抽帧
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
