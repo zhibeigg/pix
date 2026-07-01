@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.102.28] - 2026-07-02
+
+### Fixed
+
+- 修复 `sprite.mode = "video_bridge"` 视频序列帧后处理的限色盘步骤：此前固定使用本地 K-means 聚类，与素材直出模式不一致。现在默认走 **VL 模型色阶（ramp）限色盘**——把「去背景 + 去杂色后的主体帧」合成 mosaic 作为 VL 参考图，整段序列只调用一次 VL 生成共享 ramp，再对每帧按 Lab 最近色量化，帧间色彩一致性最佳。
+  - VL 不可用 / 调用失败 / 解析失败时优雅回退本地 `build_local_ramp`，绝不因限色盘失败中断视频任务；仅当用户显式设置 `pixelize.palette_mode = "kmeans"` 时才回退旧的本地 K-means 逃生阀。
+  - VL 参考图取自去杂色后、裁剪前的主体帧，颜色未被裁剪 / 2 次幂透明填充破坏，限色盘结果与在「去杂色处」限色盘等价；实际逐帧量化在合并成精灵表前执行。
+  - `SpriteVideoBridgeInput` 新增 `vl_model` 字段并由 Web 适配层透传；`meta.json` 的 `sprite.palette_mode` / `palette_ramp` / `processing.ramp` 记录限色盘来源（vl / local_fallback / local）与 ramp 明细。
+  - 修正 `src/pix/__init__.py` 的 `__version__` 与 CHANGELOG 版本不一致（此前停留在 1.101.27，实际已发布 1.102.27）。
+
 ## [1.102.27] - 2026-07-02
 
 ### Added

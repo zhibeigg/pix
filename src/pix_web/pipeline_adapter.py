@@ -515,6 +515,7 @@ def sprite_video_bridge_input_from_job(job: GenerationJob, settings: WebSettings
         image_size=data.get("image_size"),
         image_quality=data.get("image_quality"),
         image_model=data.get("image_model"),
+        vl_model=data.get("vl_model"),
         pixelize_params=pixelize_params_from_json(data),
         out_root=out_root,
         fps=int(sprite.get("fps", 8)),

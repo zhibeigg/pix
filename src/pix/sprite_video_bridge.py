@@ -6,6 +6,7 @@ import base64
 from collections import Counter, deque
 import json
 import re
+import tempfile
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -28,12 +29,21 @@ from pix.pixelize.bg_removal import apply_pixel_bg_alpha
 from pix.pixelize.core import PixelizeParams, next_power_of_two
 from pix.pixelize.palette import kmeans_palette, rgb_to_hex
 from pix.pixelize.perfect_pixel import preprocess_generated_image
+from pix.pixelize.ramp import (
+    RampPalette,
+    RampValidationError,
+    build_local_ramp,
+    quantize_to_ramp,
+    ramp_from_vl,
+    ramp_to_meta,
+)
 from pix.prompt_style import STYLE_PROFILE_POLICY_MAX_CHARS, compile_style_profile, style_profile_policy_text
 from pix.sprite import (
     SpriteFrame,
     SpritePipelineResult,
     _apply_shared_palette,
     _ceil_to_multiple,
+    _compose_mosaic,
     _quantize_with_palette,
     _rel,
     _visible_bbox,
@@ -57,7 +67,7 @@ LocalStageContext = Callable[[], ContextManager[None]]
 ProgressCb = Any
 _WAITING_STATUSES = {"queued", "running"}
 _FAILED_STATUSES = {"failed", "expired", "cancelled"}
-_FRAME_BACKGROUND_FLOW = "video_frames_to_perfect_pixel_detect_all_to_mode_grid_to_fixed_grid_perfect_pixel_to_key_color_alpha_to_denoise_to_union_bbox_to_power2_square_canvas_to_palette_limit"
+_FRAME_BACKGROUND_FLOW = "video_frames_to_perfect_pixel_detect_all_to_mode_grid_to_fixed_grid_perfect_pixel_to_key_color_alpha_to_denoise_to_vl_ramp_palette_limit_to_union_bbox_to_power2_square_canvas"
 
 
 @dataclass
@@ -72,6 +82,7 @@ class SpriteVideoBridgeInput:
     image_size: str | None = None
     image_quality: str | None = None
     image_model: str | None = None
+    vl_model: str | None = None
     pixelize_params: PixelizeParams = field(default_factory=PixelizeParams)
     out_root: str | Path | None = None
     fps: int = 8
@@ -1368,6 +1379,112 @@ def _apply_individual_palettes(
     return quantized, palettes
 
 
+def _ramp_dither_mode(dither: str) -> str:
+    """把 PixelizeParams.dither 归一化成 quantize_to_ramp 接受的取值。"""
+    return "floyd_steinberg" if str(dither).strip().lower() == "floyd_steinberg" else "none"
+
+
+def _resolve_sequence_ramp(
+    cfg: AppConfig,
+    subject_frames: list[Image.Image],
+    *,
+    run_dir: Path | None,
+    colors: int,
+    description: str,
+    vl_model: str | None,
+) -> tuple[RampPalette | None, dict[str, Any]]:
+    """为整个序列求一套共享 VL 色阶(ramp)。
+
+    - VL 参考图基于「去背景 + 去杂色后的主体帧」合成的横向 mosaic，颜色未被裁剪 /
+      2 次幂透明填充破坏，因此与在第 4 步(去杂色处)限色盘等价。
+    - 无论是否共享调色板，VL 都只调用 1 次(基于全序列 mosaic)，避免逐帧最多
+      rows×cols 次调用的成本；帧间色彩一致性也因此最佳。
+    - VL 不可用 / 失败 / 解析失败时优雅回退本地 ramp(build_local_ramp)，绝不
+      因限色盘失败而中断视频任务。
+    - run_dir 为空时把参考图落到临时目录，不影响是否走 VL。
+    """
+    safe_colors = max(3, min(256, int(colors)))
+    meta: dict[str, Any] = {
+        "requested": "vl_ramp",
+        "source": None,
+        "vl_error": None,
+        "shared_vl_call_count": 0,
+    }
+    visible_frames = [frame for frame in subject_frames if _visible_bbox(frame) is not None]
+    mosaic_source = visible_frames or subject_frames
+    if not mosaic_source:
+        meta["source"] = "skipped_empty"
+        return None, meta
+
+    mosaic = _compose_mosaic(mosaic_source)
+    tmp_ref_dir: tempfile.TemporaryDirectory[str] | None = None
+    if run_dir is not None:
+        ramp_ref_path = run_dir / "frames" / "ramp_reference.png"
+        ramp_ref_path.parent.mkdir(parents=True, exist_ok=True)
+        meta["reference_image"] = _rel(ramp_ref_path, run_dir)
+    else:
+        tmp_ref_dir = tempfile.TemporaryDirectory(prefix="pix_video_ramp_")
+        ramp_ref_path = Path(tmp_ref_dir.name) / "ramp_reference.png"
+    try:
+        mosaic.save(ramp_ref_path)
+
+        draft_hex = [rgb_to_hex(rgb) for rgb in kmeans_palette(mosaic, max(4, min(8, safe_colors)))]
+        meta["draft_palette"] = draft_hex
+
+        try:
+            require_vl_api_key(cfg)
+            vl_available = True
+        except RuntimeError as exc:
+            vl_available = False
+            meta["vl_error"] = str(exc)
+
+        ramp: RampPalette | None = None
+        if vl_available:
+            try:
+                ramp = ramp_from_vl(
+                    cfg,
+                    ramp_ref_path,
+                    max_colors=safe_colors,
+                    output_size=mosaic.size,
+                    description=description,
+                    draft_palette_hex=draft_hex,
+                    model=vl_model,
+                )
+                meta["source"] = "vl"
+                meta["shared_vl_call_count"] = 1
+            except (RampValidationError, Exception) as exc:  # noqa: BLE001 - 限色盘失败必须回退，不能中断视频任务
+                meta["vl_error"] = str(exc)[:500]
+                meta["source"] = "local_fallback"
+        else:
+            meta["source"] = "local"
+
+        if ramp is None:
+            ramp = build_local_ramp(mosaic, max_colors=safe_colors)
+    finally:
+        if tmp_ref_dir is not None:
+            tmp_ref_dir.cleanup()
+
+    if ramp is None or not ramp.rgb_list:
+        meta["source"] = meta["source"] or "unavailable"
+        return None, meta
+
+    meta["ramp"] = ramp_to_meta(ramp)
+    return ramp, meta
+
+
+def _apply_sequence_ramp(
+    images: list[Image.Image],
+    ramp: RampPalette,
+    *,
+    dither: str,
+) -> tuple[list[Image.Image], list[str]]:
+    """用共享 ramp 对每帧做 Lab 最近色量化，返回量化结果与扁平色板。"""
+    mode = _ramp_dither_mode(dither)
+    quantized = [quantize_to_ramp(image.convert("RGBA"), ramp, dither=mode) for image in images]
+    palette_hex = [rgb_to_hex(rgb) for rgb in ramp.rgb_list]
+    return quantized, palette_hex
+
+
 def _process_frames(
     cfg: AppConfig,
     raw_frame_paths: list[Path],
@@ -1383,6 +1500,10 @@ def _process_frames(
     edge_style: str,
     bg_feather: int,
     generated_preprocess_method: str | None = "perfect_pixel",
+    palette_mode: str = "auto",
+    vl_model: str | None = None,
+    description: str = "",
+    run_dir: Path | None = None,
 ) -> tuple[list[Path], list[tuple[int, int, int, int] | None], tuple[int, int], list[str], dict[str, Any]]:
     sequence_grid_size, grid_detections = _detect_sequence_perfect_pixel_grid(
         raw_frame_paths,
@@ -1464,13 +1585,34 @@ def _process_frames(
     ]
     palette: list[str] = []
     frame_palettes: list[list[str]] = []
-    palette_mode = "none"
-    if cfg.sprite.shared_palette:
+    ramp_meta: dict[str, Any] | None = None
+    # 限色盘：默认走 VL 模型色阶(ramp)，与素材直出模式保持一致；仅当用户显式选择
+    # palette_mode=kmeans 时回退旧的本地 K-means 逃生阀。VL 参考图取「去背景 + 去杂色
+    # 后的主体帧」(prepared)，颜色未被裁剪 / 2 次幂透明填充破坏，等价于在去杂色处限色盘。
+    normalized_palette_mode = str(palette_mode or "auto").strip().lower()
+    use_kmeans = normalized_palette_mode == "kmeans"
+    applied_palette_mode = "none"
+    ramp: RampPalette | None = None
+    if not use_kmeans:
+        ramp, ramp_meta = _resolve_sequence_ramp(
+            cfg,
+            prepared,
+            run_dir=run_dir,
+            colors=max_colors,
+            description=description,
+            vl_model=vl_model,
+        )
+    if ramp is not None:
+        canvases, palette = _apply_sequence_ramp(canvases, ramp, dither=dither)
+        applied_palette_mode = (
+            "vl_ramp_shared" if cfg.sprite.shared_palette else "vl_ramp_shared_no_shared_flag"
+        )
+    elif cfg.sprite.shared_palette:
         canvases, palette = _apply_shared_palette(canvases, colors=max_colors, dither=dither)
-        palette_mode = "shared"
+        applied_palette_mode = "kmeans_shared"
     else:
         canvases, frame_palettes = _apply_individual_palettes(canvases, colors=max_colors, dither=dither)
-        palette_mode = "per_frame"
+        applied_palette_mode = "kmeans_per_frame"
     final_dir.mkdir(parents=True, exist_ok=True)
     final_paths: list[Path] = []
     for index, canvas in enumerate(canvases, start=1):
@@ -1498,7 +1640,10 @@ def _process_frames(
             "method": "connected_components_keep_main_subject",
             "dropped_component_count": dropped_components,
         },
-        "palette_mode": palette_mode,
+        "palette_mode": applied_palette_mode,
+        "requested_palette_mode": normalized_palette_mode,
+        "palette_limit_step": "vl_ramp_after_denoise_before_merge",
+        "ramp": ramp_meta,
         "max_colors": int(max_colors),
         "shared_palette": bool(cfg.sprite.shared_palette),
         "frame_palettes": frame_palettes,
@@ -1547,6 +1692,10 @@ def _finalize_outputs(
         edge_style=settings.edge_style,
         bg_feather=settings.bg_feather,
         generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
+        palette_mode=inputs.pixelize_params.palette_mode,
+        vl_model=inputs.vl_model,
+        description=description,
+        run_dir=run_dir,
     )
 
     frames: list[SpriteFrame] = []
@@ -1671,6 +1820,8 @@ def _finalize_outputs(
             "postprocess_denoise": process_meta.get("denoise"),
             "generated_preprocess_method": inputs.pixelize_params.generated_preprocess_method,
             "palette_mode": process_meta.get("palette_mode"),
+            "requested_palette_mode": process_meta.get("requested_palette_mode"),
+            "palette_ramp": process_meta.get("ramp"),
             "shared_palette": bool(cfg.sprite.shared_palette),
             "shared_palette_colors": shared_palette_hex,
             "row_prompts": safe_row_prompts,
