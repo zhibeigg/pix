@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.101.22] - 2026-07-01
+
+### Added
+
+- `sprite.mode = "video_bridge"` 视频转序列帧现在复用素材直出同款可选参数：`pixelize.output_size`、`colors`、`edge_style/bg_feather`、`generated_preprocess_method` 与 `dither` 会同步写入关键帧 / 视频 motion prompt，并在抽帧后执行 perfectPixel、固定连通域去杂色和强制限色（共享调色板关闭时也会逐帧限色）。前端提示、作品参数快览、Prompt 预览、外部 API 示例、README 与示例配置已同步说明。
+
 ## [1.100.22] - 2026-07-01
 
 ### Fixed

@@ -101,6 +101,9 @@ def test_video_bridge_prompt_preview_uses_keyframe_prompt() -> None:
     assert "START pose" in preview.positive_prompt
     assert "END pose" in preview.positive_prompt
     assert "蓝色斗篷骑士" in preview.positive_prompt
+    assert "Target extracted sprite frame size is 64x64" in preview.positive_prompt
+    assert "Use no more than 16 visible foreground/subject colors" in preview.positive_prompt
+    assert "Denoise discipline" in preview.positive_prompt
     assert preview.warnings
 
 
@@ -499,6 +502,7 @@ def test_process_frames_keeps_foreground_away_from_output_edges(tmp_path) -> Non
         dither="none",
         edge_style="hard",
         bg_feather=0,
+        generated_preprocess_method="none",
     )
 
     assert effective_size == (80, 80)
@@ -509,3 +513,66 @@ def test_process_frames_keeps_foreground_away_from_output_edges(tmp_path) -> Non
         assert bbox[1] >= 5
         assert effective_size[0] - bbox[2] >= 5
         assert effective_size[1] - bbox[3] >= 5
+
+
+def _visible_colors(path) -> set[tuple[int, int, int]]:
+    with Image.open(path) as opened:
+        rgba = opened.convert("RGBA")
+    pixels = rgba.load()
+    colors: set[tuple[int, int, int]] = set()
+    for y in range(rgba.height):
+        for x in range(rgba.width):
+            r, g, b, a = pixels[x, y]
+            if a > 8:
+                colors.add((r, g, b))
+    return colors
+
+
+def test_process_frames_denoises_and_limits_colors_when_shared_palette_disabled(tmp_path) -> None:
+    raw_dir = tmp_path / "raw"
+    final_dir = tmp_path / "final"
+    raw_dir.mkdir()
+    key = (255, 0, 255, 255)
+    raw_path = raw_dir / "frame_001.png"
+    image = Image.new("RGBA", (64, 64), key)
+    draw = ImageDraw.Draw(image)
+    # 主体内故意放入多种颜色，验证即使 shared_palette=false 也会按 max_colors 限色。
+    palette = [
+        (10, 10, 20, 255),
+        (30, 40, 90, 255),
+        (70, 20, 120, 255),
+        (120, 50, 40, 255),
+        (180, 90, 30, 255),
+        (220, 160, 60, 255),
+    ]
+    for offset, color in enumerate(palette):
+        draw.rectangle([14 + offset * 4, 18, 17 + offset * 4, 42], fill=color)
+    noise_color = (0, 255, 0, 255)
+    draw.point((58, 6), fill=noise_color)
+    image.save(raw_path)
+
+    cfg = AppConfig()
+    cfg.sprite.shared_palette = False
+    final_paths, _bboxes, _effective_size, shared_palette, process_meta = _process_frames(
+        cfg,
+        [raw_path],
+        final_dir,
+        target_size=(64, 64),
+        frame_size_step=16,
+        anchor="bottom_center",
+        key_rgb=key[:3],
+        key_tolerance=0,
+        max_colors=4,
+        dither="none",
+        edge_style="hard",
+        bg_feather=0,
+        generated_preprocess_method="none",
+    )
+
+    colors = _visible_colors(final_paths[0])
+    assert process_meta["denoise"]["dropped_component_count"] >= 1
+    assert process_meta["palette_mode"] == "per_frame"
+    assert process_meta["frame_palettes"]
+    assert shared_palette == []
+    assert len(colors) <= 4
+    assert noise_color[:3] not in colors

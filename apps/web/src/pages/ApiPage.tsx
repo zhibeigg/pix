@@ -209,12 +209,14 @@ curl -X POST "$PIX_API_BASE/jobs" \
     "pixelize": {
       "output_size": [48, 48],
       "colors": 24,
-      "remove_bg": true
+      "remove_bg": false,
+      "edge_style": "hard",
+      "generated_preprocess_method": "perfect_pixel"
     },
     "image_model": "image2"
   }'
 
-# 首尾帧视频补间：先生成首/尾关键帧，VL 可用时会优化连贯像素动作 prompt；video_return_to_first_frame=true 会要求尾帧后回到首帧以便循环
+# 首尾帧视频补间：先生成首/尾关键帧，VL 可用时会优化连贯像素动作 prompt；pixelize.output_size/colors/edge_style/generated_preprocess_method 会进入 prompt 与抽帧后处理，去杂色固定启用；video_return_to_first_frame=true 会要求尾帧后回到首帧以便循环
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
@@ -233,7 +235,9 @@ curl -X POST "$PIX_API_BASE/jobs" \
     "pixelize": {
       "output_size": [48, 48],
       "colors": 24,
-      "remove_bg": true
+      "remove_bg": false,
+      "edge_style": "hard",
+      "generated_preprocess_method": "perfect_pixel"
     },
     "image_model": "image2"
   }'`, [])

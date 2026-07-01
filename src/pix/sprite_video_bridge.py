@@ -22,10 +22,11 @@ from pix.api.image_gen import edit_image, generate_image
 from pix.api.packy_client import make_packy_client
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
 from pix.config import AppConfig, require_vl_api_key
-from pix.contact_sheet import parse_hex_color, resolve_key_color
+from pix.contact_sheet import parse_hex_color
 from pix.io_utils import image_to_base64_data_url, new_run_dir
 from pix.pixelize.bg_removal import apply_pixel_bg_alpha
 from pix.pixelize.core import PixelizeParams
+from pix.pixelize.palette import kmeans_palette, rgb_to_hex
 from pix.pixelize.perfect_pixel import preprocess_generated_image
 from pix.prompt_style import STYLE_PROFILE_POLICY_MAX_CHARS, compile_style_profile, style_profile_policy_text
 from pix.sprite import (
@@ -33,6 +34,7 @@ from pix.sprite import (
     SpritePipelineResult,
     _apply_shared_palette,
     _ceil_to_multiple,
+    _quantize_with_palette,
     _rel,
     _visible_bbox,
     compose_gif,
@@ -55,7 +57,7 @@ LocalStageContext = Callable[[], ContextManager[None]]
 ProgressCb = Any
 _WAITING_STATUSES = {"queued", "running"}
 _FAILED_STATUSES = {"failed", "expired", "cancelled"}
-_FRAME_BACKGROUND_FLOW = "video_frames_to_key_color_alpha_to_union_bbox_to_shared_palette"
+_FRAME_BACKGROUND_FLOW = "video_frames_to_perfect_pixel_to_key_color_alpha_to_denoise_to_union_bbox_to_palette_limit"
 
 
 @dataclass
@@ -185,15 +187,108 @@ def _action_prompt(inputs: SpriteVideoBridgeInput) -> str:
     return inputs.prompt.strip()
 
 
+def _mosaic_inputs_for_video_bridge(
+    inputs: SpriteVideoBridgeInput,
+    *,
+    action_prompt: str,
+) -> SpriteMosaicInput:
+    """把 video_bridge 输入映射到 mosaic 的通用设置解析结构。
+
+    video_bridge 不是 mosaic 出图，但它应复用同一套 `pixelize` 参数语义：
+    output_size / colors / edge_style / bg_feather / dither / generated_preprocess_method。
+    """
+    return SpriteMosaicInput(
+        prompt=inputs.prompt,
+        rows=inputs.rows,
+        cols=inputs.cols,
+        row_prompts=inputs.row_prompts or [action_prompt],
+        reference_image_path=inputs.reference_image_path,
+        image_size=inputs.image_size,
+        image_quality=inputs.image_quality,
+        image_model=inputs.image_model,
+        pixelize_params=inputs.pixelize_params,
+        out_root=inputs.out_root,
+        fps=inputs.fps,
+        duration_ms=inputs.duration_ms,
+        loop=inputs.loop,
+        gif_export=inputs.gif_export,
+        billing=inputs.billing,
+        style_profile=inputs.style_profile,
+        local_stage_context=inputs.local_stage_context,
+    )
+
+
+def _resolve_video_bridge_settings(
+    cfg: AppConfig,
+    inputs: SpriteVideoBridgeInput,
+    *,
+    description: str,
+    action_prompt: str,
+):
+    return _resolve_settings(
+        cfg,
+        _mosaic_inputs_for_video_bridge(inputs, action_prompt=action_prompt),
+        description,
+    )
+
+
+def _frame_parameter_clause(
+    *,
+    frame_size: tuple[int, int] | None,
+    max_colors: int | None,
+    key_color: str | None,
+    key_tolerance: int | None,
+    denoise: bool,
+) -> str:
+    parts: list[str] = []
+    if frame_size is not None:
+        parts.append(
+            f"Target extracted sprite frame size is {int(frame_size[0])}x{int(frame_size[1])} pixel-art pixels; "
+            "keep the subject readable at exactly this small game-sprite size and do not rely on subpixel detail."
+        )
+    if max_colors is not None:
+        parts.append(
+            f"Use no more than {max(2, int(max_colors))} visible foreground/subject colors across the animation; "
+            "the flat key-color background does not count, and the palette must stay stable with no per-frame color flicker."
+        )
+    if key_color:
+        tolerance_text = (
+            f" with removal tolerance {max(0, int(key_tolerance))} RGB Euclidean distance"
+            if key_tolerance is not None
+            else ""
+        )
+        parts.append(
+            f"Use the single flat key-color {key_color} only for background/empty pixels{tolerance_text}; "
+            "foreground colors must stay clearly separated from it."
+        )
+    if denoise:
+        parts.append(
+            "Denoise discipline: do not create isolated random color speckles, compression-like noise, stray dots, "
+            "one-pixel debris, or off-body color flecks; all visible non-background pixels should belong to the main subject, controlled effects, weapon trails, smoke, or particles attached to the action."
+        )
+    return " ".join(parts)
+
+
 def build_video_bridge_keyframe_prompt(
     cfg: AppConfig,
     description: str,
     action_prompt: str,
     *,
     key_color: str,
+    key_tolerance: int | None = None,
+    frame_size: tuple[int, int] | None = None,
+    max_colors: int | None = None,
+    denoise: bool = True,
     style_profile: Mapping[str, object] | None = None,
 ) -> str:
     style_prompt = compile_style_profile(style_profile).prompt
+    parameter_clause = _frame_parameter_clause(
+        frame_size=frame_size,
+        max_colors=max_colors,
+        key_color=key_color,
+        key_tolerance=key_tolerance,
+        denoise=denoise,
+    )
     prompt = (
         "Create ONE image containing exactly two side-by-side panels for a pixel-art animation bridge. "
         f"Subject identity: {description}. Action to interpolate: {action_prompt}. "
@@ -203,6 +298,7 @@ def build_video_bridge_keyframe_prompt(
         "Use a flat orthographic game-sprite view with no camera perspective change. "
         f"Fill every empty/background pixel in both panels with one perfectly uniform key color {key_color}; no gradients, no shadows on the background, no texture in the background. "
         "Leave clear empty key-color margin around the subject in both panels. "
+        f"{parameter_clause} "
         "Do not add text, labels, arrows, watermark, UI, frame numbers, borders, panel dividers, or extra poses. "
         "Crisp pixel art, hard edges, limited palette, no painterly blending, no anti-aliased soft brush."
     )
@@ -217,11 +313,23 @@ def build_video_bridge_motion_prompt(
     *,
     frame_count: int | None = None,
     return_to_first_frame: bool = False,
+    frame_size: tuple[int, int] | None = None,
+    max_colors: int | None = None,
+    key_color: str | None = None,
+    key_tolerance: int | None = None,
+    denoise: bool = True,
 ) -> str:
     frame_clause = (
         f"The motion will be sampled into {max(2, int(frame_count))} sprite frames, so every sampled frame must read as a clean incremental pose. "
         if frame_count
         else "Every sampled frame must read as a clean incremental sprite pose. "
+    )
+    parameter_clause = _frame_parameter_clause(
+        frame_size=frame_size,
+        max_colors=max_colors,
+        key_color=key_color,
+        key_tolerance=key_tolerance,
+        denoise=denoise,
     )
     return_clause = (
         "Loop-return requirement: after the animation reaches the provided last_frame pose, it must continue with a smooth return motion back to the provided first_frame pose; the final sampled frame must match first_frame again, making the sequence loop-ready. Allocate enough intermediate frames for both the outbound action and the return-to-start motion, with no teleporting, no hard cut, and no sudden snap back to the initial pose. "
@@ -237,6 +345,7 @@ def build_video_bridge_motion_prompt(
         f"Create a short continuous pixel-art motion interpolation for this subject: {description}. "
         f"Motion: {action_prompt}. {endpoint_clause}"
         f"{frame_clause}{return_clause}Use smooth evenly spaced in-between poses with small consistent changes between adjacent frames; no sudden jumps, no duplicated frozen frames, no skipped action phases. "
+        f"{parameter_clause} "
         "Every frame must be TRUE pixel art: visible pixels are crisp square pixel blocks aligned to a stable pixel grid, with hard edges, limited palette, no anti-aliasing, no motion blur, no painterly smoothing, no subpixel smearing, and no soft interpolated gradients. "
         "Keep a fixed orthographic game-sprite camera, identical character identity, proportions, palette, outline thickness, and scale for the entire video. "
         "The entire subject silhouette must remain fully inside the frame for every frame: hood, cloak, limbs, weapon, smoke, magic particles, trails, and all effects must stay visible with clear key-color padding on all four edges. "
@@ -865,12 +974,21 @@ def _start_video_task(
     first_video_path = run_dir / "keyframes" / "first_frame_video.png"
     last_video_path = run_dir / "keyframes" / "last_frame_video.png"
     first_path.parent.mkdir(parents=True, exist_ok=True)
+    settings = _resolve_video_bridge_settings(
+        cfg,
+        inputs,
+        description=description,
+        action_prompt=action_prompt,
+    )
 
     keyframe_prompt = build_video_bridge_keyframe_prompt(
         cfg,
         description,
         action_prompt,
         key_color=key_color,
+        key_tolerance=settings.key_tolerance,
+        frame_size=settings.target_size,
+        max_colors=settings.max_colors,
         style_profile=inputs.style_profile,
     )
     clear_image_provider_history()
@@ -902,7 +1020,7 @@ def _start_video_task(
             first_path,
             last_path,
             key_rgb=key_rgb,
-            key_tolerance=int(getattr(cfg.sprite, "green_screen_tolerance", 48)),
+            key_tolerance=settings.key_tolerance,
         )
         video_size = _video_input_size(cfg)
         keyframe_preprocess = _prepare_video_keyframes(
@@ -911,18 +1029,18 @@ def _start_video_task(
             first_video_path,
             last_video_path,
             video_size,
-            target_size=inputs.pixelize_params.output_size,
-            frame_size_step=max(1, int(getattr(cfg.sprite, "frame_size_step", 16))),
-            anchor=str(getattr(cfg.sprite, "anchor", "bottom_center") or "bottom_center"),
+            target_size=settings.target_size,
+            frame_size_step=settings.frame_size_step,
+            anchor=settings.anchor,
             key_rgb=key_rgb,
-            key_tolerance=int(getattr(cfg.sprite, "green_screen_tolerance", 48)),
+            key_tolerance=settings.key_tolerance,
             generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
         )
 
     max_bytes = max(1, int(getattr(cfg.video_bridge, "max_base64_image_bytes", 30 * 1024 * 1024)))
     first_data_url = _data_url_from_png(first_video_path, max_bytes)
     last_data_url = _data_url_from_png(last_video_path, max_bytes)
-    frame_count = max(2, int(inputs.rows or 1) * int(inputs.cols or 1))
+    frame_count = max(2, int(settings.frame_count))
     return_to_first_frame = bool(inputs.video_return_to_first_frame)
     ark_last_frame_data_url = first_data_url if return_to_first_frame else last_data_url
     ark_last_frame_source = "first_frame_video_path" if return_to_first_frame else "last_frame_video_path"
@@ -931,6 +1049,10 @@ def _start_video_task(
         action_prompt,
         frame_count=frame_count,
         return_to_first_frame=return_to_first_frame,
+        frame_size=settings.target_size,
+        max_colors=settings.max_colors,
+        key_color=key_color,
+        key_tolerance=settings.key_tolerance,
     )
     motion_prompt, motion_prompt_optimizer = _optimize_video_bridge_motion_prompt(
         cfg,
@@ -969,6 +1091,16 @@ def _start_video_task(
         "motion_prompt_optimizer": motion_prompt_optimizer,
         "video_return_to_first_frame": return_to_first_frame,
         "ark_last_frame_source": ark_last_frame_source,
+        "prompt_parameters": {
+            "target_frame_size": list(settings.target_size),
+            "colors": int(settings.max_colors),
+            "green_screen_color": key_color,
+            "green_screen_tolerance": int(settings.key_tolerance),
+            "edge_style": settings.edge_style,
+            "bg_feather": int(settings.bg_feather),
+            "generated_preprocess_method": inputs.pixelize_params.generated_preprocess_method,
+            "denoise": True,
+        },
         "keyframe_pair_path": _rel(keyframe_pair_path, run_dir),
         "first_frame_path": _rel(first_path, run_dir),
         "last_frame_path": _rel(last_path, run_dir),
@@ -1093,6 +1225,23 @@ def _union_bbox(bboxes: list[tuple[int, int, int, int] | None], fallback_size: t
     )
 
 
+def _apply_individual_palettes(
+    images: list[Image.Image],
+    *,
+    colors: int,
+    dither: str,
+) -> tuple[list[Image.Image], list[list[str]]]:
+    """共享调色板关闭时也强制每帧遵守颜色上限。"""
+    quantized: list[Image.Image] = []
+    palettes: list[list[str]] = []
+    safe_colors = max(2, min(256, int(colors)))
+    for image in images:
+        palette_rgb = kmeans_palette(image, safe_colors)
+        quantized.append(_quantize_with_palette(image, palette_rgb, dither=dither))
+        palettes.append([rgb_to_hex(rgb) for rgb in palette_rgb])
+    return quantized, palettes
+
+
 def _process_frames(
     cfg: AppConfig,
     raw_frame_paths: list[Path],
@@ -1107,16 +1256,53 @@ def _process_frames(
     dither: str,
     edge_style: str,
     bg_feather: int,
+    generated_preprocess_method: str | None = "perfect_pixel",
 ) -> tuple[list[Path], list[tuple[int, int, int, int] | None], tuple[int, int], list[str], dict[str, Any]]:
     prepared: list[Image.Image] = []
     bboxes: list[tuple[int, int, int, int] | None] = []
-    for path in raw_frame_paths:
+    frame_meta: list[dict[str, Any]] = []
+    dropped_components = 0
+    for index, path in enumerate(raw_frame_paths, start=1):
         with Image.open(path) as opened:
-            resized = opened.convert("RGBA").resize(target_size, Image.Resampling.NEAREST)
-        transparent = apply_pixel_bg_alpha(resized, key_rgb=key_rgb, tolerance=key_tolerance)
-        bbox = _visible_bbox(transparent)
-        prepared.append(transparent)
+            source = opened.convert("RGBA")
+        preprocessed = preprocess_generated_image(
+            source,
+            method=generated_preprocess_method,
+            target_size=target_size,
+        )
+        normalized = preprocessed.image.convert("RGBA")
+        if normalized.size != target_size:
+            normalized = normalized.resize(target_size, Image.Resampling.NEAREST)
+        transparent = apply_pixel_bg_alpha(normalized, key_rgb=key_rgb, tolerance=key_tolerance)
+        alpha = np.asarray(transparent.getchannel("A"), dtype=np.uint8)
+        foreground_mask = alpha > 8
+        subject_mask, selection_bbox, selection_meta = _select_subject_mask(
+            foreground_mask,
+            target_size=target_size,
+        )
+        clean = transparent.copy()
+        clean_alpha = alpha.copy()
+        clean_alpha[~subject_mask] = 0
+        clean.putalpha(Image.fromarray(clean_alpha, mode="L"))
+        bbox = selection_bbox if selection_bbox is not None else _visible_bbox(clean)
+        prepared.append(clean)
         bboxes.append(bbox)
+        dropped_components += int(selection_meta.get("dropped_component_count") or 0)
+        frame_meta.append(
+            {
+                "index": index,
+                "source": path.name,
+                "source_size": list(source.size),
+                "preprocess": preprocessed.meta,
+                "normalized_size": list(normalized.size),
+                "denoise": {
+                    "enabled": True,
+                    "method": "connected_components_keep_main_subject",
+                    "selection": selection_meta,
+                },
+                "bbox": list(bbox) if bbox else None,
+            }
+        )
     union = _union_bbox(bboxes, target_size)
     contents = [image.crop(union).convert("RGBA") for image in prepared]
     contents = _apply_frame_edges(contents, edge_style=edge_style, feather=bg_feather)
@@ -1132,15 +1318,36 @@ def _process_frames(
         for content in contents
     ]
     palette: list[str] = []
+    frame_palettes: list[list[str]] = []
+    palette_mode = "none"
     if cfg.sprite.shared_palette:
         canvases, palette = _apply_shared_palette(canvases, colors=max_colors, dither=dither)
+        palette_mode = "shared"
+    else:
+        canvases, frame_palettes = _apply_individual_palettes(canvases, colors=max_colors, dither=dither)
+        palette_mode = "per_frame"
     final_dir.mkdir(parents=True, exist_ok=True)
     final_paths: list[Path] = []
     for index, canvas in enumerate(canvases, start=1):
         path = final_dir / f"frame_{index:03d}.png"
         canvas.save(path)
         final_paths.append(path)
-    return final_paths, bboxes, effective_size, palette, {"union_bbox": list(union), "frame_padding": frame_padding}
+    return final_paths, bboxes, effective_size, palette, {
+        "union_bbox": list(union),
+        "frame_padding": frame_padding,
+        "target_size": list(target_size),
+        "generated_preprocess_method": generated_preprocess_method,
+        "denoise": {
+            "enabled": True,
+            "method": "connected_components_keep_main_subject",
+            "dropped_component_count": dropped_components,
+        },
+        "palette_mode": palette_mode,
+        "max_colors": int(max_colors),
+        "shared_palette": bool(cfg.sprite.shared_palette),
+        "frame_palettes": frame_palettes,
+        "frames": frame_meta,
+    }
 
 
 def _finalize_outputs(
@@ -1156,25 +1363,7 @@ def _finalize_outputs(
     effective_prompt: str,
     notify: ProgressCb,
 ) -> SpritePipelineResult:
-    mosaic_inputs = SpriteMosaicInput(
-        prompt=inputs.prompt,
-        rows=inputs.rows,
-        cols=inputs.cols,
-        row_prompts=inputs.row_prompts or [action_prompt],
-        reference_image_path=inputs.reference_image_path,
-        image_size=inputs.image_size,
-        image_quality=inputs.image_quality,
-        image_model=inputs.image_model,
-        pixelize_params=inputs.pixelize_params,
-        out_root=inputs.out_root,
-        fps=inputs.fps,
-        duration_ms=inputs.duration_ms,
-        loop=inputs.loop,
-        gif_export=inputs.gif_export,
-        billing=inputs.billing,
-        style_profile=inputs.style_profile,
-        local_stage_context=inputs.local_stage_context,
-    )
+    mosaic_inputs = _mosaic_inputs_for_video_bridge(inputs, action_prompt=action_prompt)
     settings = _resolve_settings(cfg, mosaic_inputs, description)
     safe_row_prompts = _ensure_row_prompts(mosaic_inputs.row_prompts, settings.rows, action_prompt)
     raw_dir = run_dir / "frames" / "raw"
@@ -1201,6 +1390,7 @@ def _finalize_outputs(
         dither=inputs.pixelize_params.dither,
         edge_style=settings.edge_style,
         bg_feather=settings.bg_feather,
+        generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
     )
 
     frames: list[SpriteFrame] = []
@@ -1318,6 +1508,9 @@ def _finalize_outputs(
             "green_screen_color": settings.key_color,
             "green_screen_tolerance": settings.key_tolerance,
             "frame_background_flow": _FRAME_BACKGROUND_FLOW,
+            "postprocess_denoise": process_meta.get("denoise"),
+            "generated_preprocess_method": inputs.pixelize_params.generated_preprocess_method,
+            "palette_mode": process_meta.get("palette_mode"),
             "shared_palette": bool(cfg.sprite.shared_palette),
             "shared_palette_colors": shared_palette_hex,
             "row_prompts": safe_row_prompts,
@@ -1391,12 +1584,21 @@ def run_sprite_video_bridge_pipeline(
         raise ValueError(str(exc)) from exc
     prompt_guard_meta = guard.to_metadata()
     description = guard.normalized_description or prompt
-    key_color, _ = resolve_key_color(cfg.sprite.green_screen_color, description)
+    settings = _resolve_video_bridge_settings(
+        cfg,
+        inputs,
+        description=description,
+        action_prompt=action_prompt,
+    )
+    key_color = settings.key_color
     effective_prompt = build_video_bridge_keyframe_prompt(
         cfg,
         description,
         action_prompt,
         key_color=key_color,
+        key_tolerance=settings.key_tolerance,
+        frame_size=settings.target_size,
+        max_colors=settings.max_colors,
         style_profile=inputs.style_profile,
     )
 

@@ -42,9 +42,11 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
   ] : [
     [job.job_type === 'sprite_sheet' ? text('单帧尺寸', 'Frame size') : text('像素尺寸', 'Pixel size'), pairLabel(pixelize?.output_size)],
     [text('颜色数', 'Color count'), stringOrDash(pixelize?.colors)],
-    ...(job.job_type === 'sprite_sheet' ? [] : [
+    [text('边缘处理', 'Edge treatment'), edgeStyleLabel(pixelize?.edge_style, text)],
+    ...(job.job_type === 'sprite_sheet' ? [
+      [text('像素预处理', 'Pixel preprocess'), stringOrDash(pixelize?.generated_preprocess_method)],
+    ] as Array<[string, string]> : [
       [text('透明背景', 'Transparent background'), yesNo(pixelize?.remove_bg, text)],
-      [text('边缘处理', 'Edge treatment'), edgeStyleLabel(pixelize?.edge_style, text)],
       [text('去背景算法', 'Background removal algorithm'), bgRemovalAlgorithmLabel(pixelize?.bg_removal_algorithm, text)],
     ] as Array<[string, string]>),
   ]) : []
@@ -190,7 +192,8 @@ function buildUserInputSnapshot(job: GenerationJob) {
       output_size: pixelize?.output_size,
       colors: pixelize?.colors,
       remove_bg: job.job_type === 'sprite_sheet' ? undefined : pixelize?.remove_bg,
-      edge_style: job.job_type === 'sprite_sheet' || job.job_type === 'local_bg_remove' ? undefined : pixelize?.edge_style,
+      edge_style: job.job_type === 'local_bg_remove' ? undefined : pixelize?.edge_style,
+      generated_preprocess_method: job.job_type === 'sprite_sheet' ? pixelize?.generated_preprocess_method : undefined,
       bg_removal_algorithm: job.job_type === 'sprite_sheet' ? undefined : pixelize?.bg_removal_algorithm,
     }) : undefined,
     asset: job.job_type === 'asset' ? stripEmpty({

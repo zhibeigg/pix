@@ -798,7 +798,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                 </SelectContent>
               </Select>
             </PixField>
-            {isSpriteVideoBridge && <Alert variant="info">{text('视频补间会在 Ark 任务生成期间进入“等待视频”状态，不占用本地 worker；完成后自动下载视频并抽帧。建议使用 1 行 × 8 帧。', 'Video bridge enters a waiting state while Ark renders, without occupying the local worker; it will download the video and extract frames automatically. 1×8 is recommended.')}</Alert>}
+            {isSpriteVideoBridge && <Alert variant="info">{text('视频补间会在 Ark 任务生成期间进入“等待视频”状态；单帧尺寸、颜色数、边缘处理会同步写入关键帧 / 视频 Prompt，并在抽帧后执行去杂色与限色。建议使用 1 行 × 8 帧。', 'Video bridge enters a waiting state while Ark renders. Frame size, color count, and edge treatment are injected into the keyframe/video prompts, then denoise and palette limiting run after frame extraction. 1×8 is recommended.')}</Alert>}
             <PixField label={text('参考角色立绘（可选）', 'Reference character art (optional)')}>
               <div className="grid gap-3">
                 <Button type="button" variant="outline" asChild>

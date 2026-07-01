@@ -106,15 +106,35 @@ def _sprite_prompt_preview(req: JobCreateRequest, cfg: AppConfig) -> PromptPrevi
         action_prompt = (req.sprite.video_action_prompt or "").strip()
         if not action_prompt:
             action_prompt = next((item.strip() for item in req.sprite.row_prompts if item.strip()), description)
+        inputs = SpriteMosaicInput(
+            prompt=description,
+            rows=req.sprite.rows,
+            cols=req.sprite.cols,
+            row_prompts=list(req.sprite.row_prompts or []),
+            reference_image_path=None,
+            image_size=req.image_size,
+            image_quality=req.image_quality,
+            image_model=req.image_model,
+            pixelize_params=pixelize_params_from_json({"pixelize": req.pixelize.model_dump(mode="json")}),
+            fps=req.sprite.fps,
+            duration_ms=req.sprite.duration_ms,
+            loop=req.sprite.loop,
+            gif_export=req.sprite.gif_export,
+            style_profile=style_profile,
+        )
+        settings = _resolve_settings(cfg, inputs, description)
         key_hex, _ = resolve_key_color(cfg.sprite.green_screen_color, description)
         prompt = build_video_bridge_keyframe_prompt(
             cfg,
             description,
             action_prompt,
             key_color=key_hex,
+            key_tolerance=settings.key_tolerance,
+            frame_size=settings.target_size,
+            max_colors=settings.max_colors,
             style_profile=style_profile,
         )
-        warnings = ["首尾帧视频补间会先生成关键帧，再调用 Ark 480p 无声视频任务；耗时通常更长。"]
+        warnings = ["首尾帧视频补间会先生成关键帧，再调用 Ark 480p 无声视频任务；单帧尺寸、颜色数、边缘处理与固定去杂色后处理会同步应用。"]
         if req.sprite.video_return_to_first_frame:
             warnings.append("已启用回到初始帧：视频 motion prompt 会要求先到尾帧，再平滑回到首帧以便循环。")
         return PromptPreviewResponse(
