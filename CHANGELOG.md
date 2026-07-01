@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.99.21] - 2026-07-01
+
+### Fixed
+
+- 修复 `sprite.mode = "video_bridge"` 首尾关键帧双栏图按几何中线硬切导致尾帧后腿、披风或烟雾跨中线时被裁掉的问题：现在会在双栏中间区域按 key-color 前景密度寻找真实空隙切分，并在关键帧 prompt 中要求两姿势之间保留宽 key-color gutter。
+
 ## [1.99.20] - 2026-07-01
 
 ### Fixed

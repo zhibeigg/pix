@@ -12,6 +12,7 @@ from pix.sprite_video_bridge import (
     _optimize_video_bridge_motion_prompt,
     _prepare_video_keyframes,
     _process_frames,
+    _split_keyframes,
     is_waiting_state_due,
 )
 from pix_web.jobs import params_json_from_request, validate_job_request
@@ -289,6 +290,32 @@ def _non_key_bbox(path, key=(255, 0, 255)) -> tuple[int, int, int, int]:
                 xs.append(x)
                 ys.append(y)
     return min(xs), min(ys), max(xs) + 1, max(ys) + 1
+
+
+def test_split_keyframes_uses_foreground_gutter_instead_of_midpoint(tmp_path) -> None:
+    key = (0, 255, 255, 255)
+    pair = tmp_path / "pair.png"
+    first = tmp_path / "first.png"
+    last = tmp_path / "last.png"
+    image = Image.new("RGBA", (200, 100), key)
+    draw = ImageDraw.Draw(image)
+    # 左姿势完整落在左半区，但右姿势的后腿/披风伸过几何中线 x=100。
+    draw.rectangle([20, 20, 80, 80], fill=(10, 10, 10, 255))
+    draw.rectangle([90, 70, 130, 90], fill=(30, 30, 30, 255))
+    draw.rectangle([130, 30, 180, 80], fill=(40, 40, 40, 255))
+    image.save(pair)
+
+    meta = _split_keyframes(pair, first, last, key_rgb=key[:3], key_tolerance=16)
+
+    assert meta["method"] == "adaptive_foreground_gutter"
+    assert meta["split_x"] < 100
+    assert meta["split_x"] > 80
+    first_bbox = _non_key_bbox(first, key=key[:3])
+    last_bbox = _non_key_bbox(last, key=key[:3])
+    assert first_bbox == (20, 20, 81, 81)
+    # 若按中线硬切，尾帧 bbox 宽度只有 81；自适应 gutter 应保留 x=90..180 的完整伸出部分。
+    assert last_bbox[2] - last_bbox[0] >= 91
+    assert last_bbox[0] <= 5
 
 
 def test_prepare_video_keyframes_crops_and_normalizes_subject_bbox(tmp_path) -> None:

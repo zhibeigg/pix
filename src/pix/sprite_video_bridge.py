@@ -197,6 +197,7 @@ def build_video_bridge_keyframe_prompt(
         f"Subject identity: {description}. Action to interpolate: {action_prompt}. "
         "Left panel: the exact START pose of the action. Right panel: the exact END pose of the same action. "
         "The same character or object must keep identical identity, costume, palette, outline thickness, scale, proportions, and ground footprint in both panels. "
+        "Each pose must stay completely inside its own half of the image: the left pose cannot cross the vertical midpoint, the right pose cannot cross into the left half, and there must be a wide empty key-color gutter between the two poses. "
         "Use a flat orthographic game-sprite view with no camera perspective change. "
         f"Fill every empty/background pixel in both panels with one perfectly uniform key color {key_color}; no gradients, no shadows on the background, no texture in the background. "
         "Leave clear empty key-color margin around the subject in both panels. "
@@ -298,12 +299,74 @@ def _paste_final_frame_content_to_canvas(
     return canvas
 
 
-def _split_keyframes(pair_path: Path, first_path: Path, last_path: Path) -> None:
+def _key_color_foreground_mask(image: Image.Image, key_rgb: tuple[int, int, int], tolerance: int) -> np.ndarray:
+    arr = np.asarray(image.convert("RGBA"))
+    rgb = arr[:, :, :3].astype(np.int32)
+    key = np.asarray(key_rgb, dtype=np.int32)
+    diff = rgb - key
+    dist_sq = np.sum(diff * diff, axis=2)
+    safe_tolerance = max(0, int(tolerance))
+    return (arr[:, :, 3] > 8) & (dist_sq > safe_tolerance * safe_tolerance)
+
+
+def _adaptive_keyframe_split_x(pair: Image.Image, key_rgb: tuple[int, int, int], key_tolerance: int) -> int:
+    """在双栏关键帧之间寻找真实空隙，避免尾帧动作越过几何中线时被硬切。"""
+    width, height = pair.size
+    if width <= 2:
+        return max(1, width // 2)
+    mid = width // 2
+    lo = max(1, int(round(width * 0.30)))
+    hi = min(width - 1, int(round(width * 0.70)))
+    if hi <= lo:
+        return max(1, min(width - 1, mid))
+
+    mask = _key_color_foreground_mask(pair, key_rgb, key_tolerance)
+    counts = mask.sum(axis=0)
+    # 允许极少量离散粒子/压缩噪声；真正的双栏间隔应是一段低前景密度竖向 gutter。
+    threshold = max(1, int(round(height * 0.005)))
+    runs: list[tuple[int, int]] = []
+    start: int | None = None
+    for x in range(lo, hi):
+        if int(counts[x]) <= threshold:
+            if start is None:
+                start = x
+        elif start is not None:
+            if x - start >= 4:
+                runs.append((start, x))
+            start = None
+    if start is not None and hi - start >= 4:
+        runs.append((start, hi))
+
+    if runs:
+        start, end = max(runs, key=lambda item: (item[1] - item[0], -abs(((item[0] + item[1]) // 2) - mid)))
+        split = (start + end) // 2
+    else:
+        window = max(5, min(31, ((hi - lo) // 12) | 1))
+        kernel = np.ones(window, dtype=np.float32) / float(window)
+        smoothed = np.convolve(counts.astype(np.float32), kernel, mode="same")
+        split = lo + int(np.argmin(smoothed[lo:hi]))
+    return max(1, min(width - 1, int(split)))
+
+
+def _split_keyframes(
+    pair_path: Path,
+    first_path: Path,
+    last_path: Path,
+    *,
+    key_rgb: tuple[int, int, int] | None = None,
+    key_tolerance: int = 48,
+) -> dict[str, Any]:
     with Image.open(pair_path) as opened:
         pair = opened.convert("RGBA")
-    mid = max(1, pair.width // 2)
-    pair.crop((0, 0, mid, pair.height)).save(first_path)
-    pair.crop((mid, 0, pair.width, pair.height)).save(last_path)
+    if key_rgb is None:
+        split_x = max(1, pair.width // 2)
+        method = "midpoint"
+    else:
+        split_x = _adaptive_keyframe_split_x(pair, key_rgb, key_tolerance)
+        method = "adaptive_foreground_gutter"
+    pair.crop((0, 0, split_x, pair.height)).save(first_path)
+    pair.crop((split_x, 0, pair.width, pair.height)).save(last_path)
+    return {"method": method, "split_x": split_x, "source_size": [pair.width, pair.height]}
 
 
 def _mask_bbox(mask: np.ndarray) -> tuple[int, int, int, int] | None:
@@ -816,9 +879,15 @@ def _start_video_task(
                 quality=inputs.image_quality or cfg.sprite.image_quality,
                 model=inputs.image_model,
             )
-        _split_keyframes(keyframe_pair_path, first_path, last_path)
-        video_size = _video_input_size(cfg)
         key_rgb = parse_hex_color(key_color)
+        keyframe_split = _split_keyframes(
+            keyframe_pair_path,
+            first_path,
+            last_path,
+            key_rgb=key_rgb,
+            key_tolerance=int(getattr(cfg.sprite, "green_screen_tolerance", 48)),
+        )
+        video_size = _video_input_size(cfg)
         keyframe_preprocess = _prepare_video_keyframes(
             first_path,
             last_path,
@@ -877,6 +946,7 @@ def _start_video_task(
         "last_frame_path": _rel(last_path, run_dir),
         "first_frame_video_path": _rel(first_video_path, run_dir),
         "last_frame_video_path": _rel(last_video_path, run_dir),
+        "keyframe_split": keyframe_split,
         "keyframe_preprocess": keyframe_preprocess,
         "ark_create": created.raw,
         "provider_history": image_provider_history(),
