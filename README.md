@@ -128,7 +128,7 @@ npm run build
 
 ### 首尾帧视频补间序列帧
 
-序列帧任务默认仍为 `sprite.mode = "mosaic"`。启用 `[video_bridge]` / 后台「视频补间」并配置 Ark Key 后，可提交 `sprite.mode = "video_bridge"`：系统先生成首尾关键帧图，再通过火山方舟 Ark / Seedance 首尾帧图生视频异步接口创建视频任务。创建视频前会先整理首/尾输入帧，并在 `PACKY_VL_API_KEY` 可用时调用 VL 模型读取首尾帧、优化动作补间计划；最终 motion prompt 会强制动作小步均匀连贯、每一帧保持清晰方块像素格、无抗锯齿/模糊/绘画化，并要求主体、武器、烟雾、粒子和拖尾全程不出画面。VL 不可用或解析失败时自动回退本地硬约束 prompt。视频生成期间任务状态为 `waiting`，不会长时间占用本地 worker；到达 `next_poll_at` 后数据库 worker 或 RQ 清理循环会重新捞取任务继续轮询。成功后会立即下载临时视频并抽帧，输出仍兼容现有序列帧契约：`sprite_sheet.png`、`sprite_sheet_grid.png`、`frames/`、可选 `sprite.gif`、`sequence.json` 和 `meta.json`。
+序列帧任务默认仍为 `sprite.mode = "mosaic"`。启用 `[video_bridge]` / 后台「视频补间」并配置 Ark Key 后，可提交 `sprite.mode = "video_bridge"`：系统先生成首尾关键帧图，再通过火山方舟 Ark / Seedance 首尾帧图生视频异步接口创建视频任务。创建视频前会先整理首/尾输入帧，并在 `PACKY_VL_API_KEY` 可用时调用 VL 模型读取首尾帧、优化动作补间计划；最终 motion prompt 会强制动作小步均匀连贯、每一帧保持清晰方块像素格、无抗锯齿/模糊/绘画化，并要求只有 flat key-color 背景可以接触画布边缘，任何非背景/非 key-color 像素（主体、武器、烟雾、粒子、阴影、高光、拖尾和特效）都必须留在内部安全区。VL 不可用或解析失败时自动回退本地硬约束 prompt。视频生成期间任务状态为 `waiting`，不会长时间占用本地 worker；到达 `next_poll_at` 后数据库 worker 或 RQ 清理循环会重新捞取任务继续轮询。成功后会立即下载临时视频并抽帧，输出仍兼容现有序列帧契约：`sprite_sheet.png`、`sprite_sheet_grid.png`、`frames/`、可选 `sprite.gif`、`sequence.json` 和 `meta.json`。
 
 外部 API 示例见前端 API 页「创建序列帧任务」；分页查询的 `status` 可包含 `waiting`。
 

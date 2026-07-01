@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.99.18] - 2026-07-01
+
+### Fixed
+
+- 进一步强化 `sprite.mode = "video_bridge"` 的视频补间边界约束：最终 motion prompt 与 VL 优化指令现在明确规定只有 flat key-color 背景可以接触画布边缘，任何非背景/非 key-color 像素都视为前景，包含零散粒子、烟雾、武器尖端、阴影、高光、拖尾和特效，必须完整留在内部安全区，不能触边或越界。
+
 ## [1.99.17] - 2026-07-01
 
 ### Fixed

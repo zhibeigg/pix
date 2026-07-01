@@ -118,7 +118,12 @@ def test_video_bridge_motion_prompt_keeps_subject_inside_frame_and_pixel_grid() 
     assert "smoke" in prompt
     assert "magic particles" in prompt
     assert "clear key-color padding on all four edges" in prompt
+    assert "only the flat key-color background may touch the canvas edges" in prompt
+    assert "every non-background / non-key-color pixel is foreground" in prompt
+    assert "stray particles" in prompt
+    assert "weapon tips" in prompt
     assert "Never crop, clip, truncate" in prompt
+    assert "foreground pixel touch or cross the frame boundary" in prompt
     assert "scale the motion down" in prompt
 
 
@@ -135,6 +140,9 @@ def test_optimize_video_bridge_motion_prompt_uses_vl_motion_plan(tmp_path, monke
             assert content[0]["type"] == "text"
             assert "Target sampled sprite frames: 24" in content[0]["text"]
             assert "first_frame" in content[0]["text"]
+            assert "only the flat key-color background is allowed to touch canvas edges" in content[0]["text"]
+            assert "every non-background / non-key-color pixel is foreground" in content[0]["text"]
+            assert "weapon tips" in content[0]["text"]
             assert content[1]["type"] == "image_url"
             assert content[2]["type"] == "image_url"
             return {

@@ -31,7 +31,7 @@
 
 1. 生成一张左右双栏关键帧图：左栏为起始姿势，右栏为结束姿势。
 2. 切分首帧/尾帧；每个半图先执行 perfectPixel 预处理，再用 key-color 转 alpha，按背景色与主体色块轮廓识别原始连通组件：保留主体轮廓和近邻组件、过滤远处孤立噪点，带安全边距裁剪后按统一尺寸/锚点铺回视频输入画布，转为 PNG data URL。
-3. 构造视频补间 motion prompt：本地硬约束要求动作小步均匀连贯、每一帧都是清晰方块像素格、无抗锯齿/模糊/绘画化，并要求主体、武器、烟雾、粒子和拖尾在每一帧都完整留在画面内、四周保留 key-color 安全边距，禁止裁切/出界/触边。若 VL key 可用，会把整理后的首/尾视频输入帧和本地硬约束发送给 VL 模型生成 `optimized_motion_plan`，再附加到最终 Ark prompt；VL 不可用或解析失败时回退本地硬约束 prompt。随后调用 Ark `/contents/generations/tasks` 创建 Seedance 首尾帧图生视频异步任务。
+3. 构造视频补间 motion prompt：本地硬约束要求动作小步均匀连贯、每一帧都是清晰方块像素格、无抗锯齿/模糊/绘画化，并要求只有 flat key-color 背景可以接触画布边缘，任何非背景/非 key-color 像素都视为前景，包含主体、武器、烟雾、粒子、阴影、高光、拖尾和特效，必须完整留在内部安全区，禁止裁切/出界/触边。若 VL key 可用，会把整理后的首/尾视频输入帧和本地硬约束发送给 VL 模型生成 `optimized_motion_plan`，再附加到最终 Ark prompt；VL 不可用或解析失败时回退本地硬约束 prompt。随后调用 Ark `/contents/generations/tasks` 创建 Seedance 首尾帧图生视频异步任务。
 4. 抛出 `VideoBridgeWaiting`，worker 将 job 置为 `waiting`，并在 `params_json.sprite.video_bridge_state` 保存：
    - `run_dir`
    - `ark_task_id`

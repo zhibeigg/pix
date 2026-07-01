@@ -222,7 +222,8 @@ def build_video_bridge_motion_prompt(description: str, action_prompt: str, *, fr
         "Every frame must be TRUE pixel art: visible pixels are crisp square pixel blocks aligned to a stable pixel grid, with hard edges, limited palette, no anti-aliasing, no motion blur, no painterly smoothing, no subpixel smearing, and no soft interpolated gradients. "
         "Keep a fixed orthographic game-sprite camera, identical character identity, proportions, palette, outline thickness, and scale for the entire video. "
         "The entire subject silhouette must remain fully inside the frame for every frame: hood, cloak, limbs, weapon, smoke, magic particles, trails, and all effects must stay visible with clear key-color padding on all four edges. "
-        "Never crop, clip, truncate, or let any subject pixel touch or cross the frame boundary; if the motion would extend outward, keep the subject centered and scale the motion down instead of moving outside the canvas. "
+        "Pixel-boundary rule: only the flat key-color background may touch the canvas edges; every non-background / non-key-color pixel is foreground and must stay completely inside the interior safe area, including stray particles, smoke wisps, weapon tips, shadows, highlights, trails, and effects. "
+        "Never crop, clip, truncate, or let any foreground pixel touch or cross the frame boundary; if the motion would extend outward, keep the subject centered and scale the motion down instead of moving outside the canvas. "
         "No cuts, no zoom, no camera pan, no background changes. No text, no logo, no watermark, no UI. Keep the flat key-color background consistent."
     )
 
@@ -619,7 +620,8 @@ def _motion_prompt_optimizer_instruction(
         "Inspect the provided first_frame and last_frame images, then write a concise motion plan that helps the video model create fluid, coherent in-betweens. "
         "Do not override safety or product constraints. Preserve the subject identity and the exact start/end poses. "
         "The plan must emphasize: continuous readable motion, evenly spaced intermediate poses, every sampled frame as crisp grid-aligned TRUE pixel art, no anti-aliasing, no blur, no painterly smoothing, fixed orthographic camera, no zoom/pan/cuts, and all subject parts/effects staying fully inside the frame with key-color padding. "
-        "Mention weapons, cloak, smoke, particles, trails, and other moving parts only as controlled in-frame elements. "
+        "Pixel-boundary rule: only the flat key-color background is allowed to touch canvas edges; every non-background / non-key-color pixel is foreground and must remain inside the interior safe area, including stray particles, smoke wisps, weapon tips, shadows, highlights, trails, and effects. "
+        "Mention weapons, cloak, smoke, particles, trails, and other moving parts only as controlled in-frame foreground elements that never touch or cross the boundary. "
         "Return JSON only, no Markdown, in this schema: {\"optimized_motion_plan\": \"one English paragraph under 1200 characters\"}.\n\n"
         f"Subject: {description}\n"
         f"User motion request: {action_prompt}\n"
