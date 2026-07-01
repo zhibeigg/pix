@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.99.20] - 2026-07-01
+
+### Fixed
+
+- 修复 `sprite.mode = "video_bridge"` 的 VL prompt 优化在使用 Claude / Anthropic 模型时误走 OpenAI 兼容 `/v1/chat/completions` 的问题：现在会按模型协议路由，Claude / Anthropic 模型直接 POST `/v1/messages`，OpenAI 兼容模型继续 POST `/v1/chat/completions`，并用对应图像 content block 传入首尾关键帧。
+
 ## [1.99.19] - 2026-07-01
 
 ### Fixed

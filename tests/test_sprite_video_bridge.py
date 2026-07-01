@@ -159,9 +159,11 @@ def test_optimize_video_bridge_motion_prompt_uses_vl_motion_plan(tmp_path, monke
     monkeypatch.setattr("pix.sprite_video_bridge.require_vl_api_key", lambda _cfg: "vl-key")
     monkeypatch.setattr("pix.sprite_video_bridge.make_packy_client", lambda _cfg, _api_key: FakeClient())
 
+    cfg = AppConfig()
+    cfg.vision.model = "gpt-4o"
     base = build_video_bridge_motion_prompt("暗黑法师刺客", "突刺", frame_count=24)
     prompt, meta = _optimize_video_bridge_motion_prompt(
-        AppConfig(),
+        cfg,
         description="暗黑法师刺客",
         action_prompt="突刺",
         base_prompt=base,
@@ -176,6 +178,60 @@ def test_optimize_video_bridge_motion_prompt_uses_vl_motion_plan(tmp_path, monke
     assert "every pixel block crisp" in prompt
     assert meta["used"] is True
     assert meta["mode"] == "model"
+    assert meta["endpoint"] == "/v1/chat/completions"
+
+
+def test_optimize_video_bridge_motion_prompt_routes_claude_to_anthropic_messages(tmp_path, monkeypatch) -> None:
+    first = tmp_path / "first.png"
+    last = tmp_path / "last.png"
+    Image.new("RGBA", (8, 8), (255, 0, 0, 255)).save(first)
+    Image.new("RGBA", (8, 8), (255, 0, 0, 255)).save(last)
+
+    calls: list[str] = []
+
+    class FakeClient:
+        def post_json(self, path, payload):
+            calls.append(path)
+            assert path == "/v1/messages"
+            assert payload["model"] == "claude-sonnet-5"
+            content = payload["messages"][0]["content"]
+            assert content[0]["type"] == "text"
+            assert "every non-background / non-key-color pixel is foreground" in content[0]["text"]
+            assert content[1]["type"] == "image"
+            assert content[1]["source"]["type"] == "base64"
+            assert content[1]["source"]["media_type"] == "image/png"
+            assert content[2]["type"] == "image"
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": '{"optimized_motion_plan":"Use 24 readable smoke transformation poses; keep all foreground pixels at least 10 percent away from all frame edges."}',
+                    }
+                ]
+            }
+
+    monkeypatch.setattr("pix.sprite_video_bridge.require_vl_api_key", lambda _cfg: "vl-key")
+    monkeypatch.setattr("pix.sprite_video_bridge.make_packy_client", lambda _cfg, _api_key: FakeClient())
+
+    cfg = AppConfig()
+    cfg.vision.model = "claude-sonnet-5"
+    base = build_video_bridge_motion_prompt("暗黑法师刺客", "突刺", frame_count=24)
+    prompt, meta = _optimize_video_bridge_motion_prompt(
+        cfg,
+        description="暗黑法师刺客",
+        action_prompt="突刺",
+        base_prompt=base,
+        first_frame_path=first,
+        last_frame_path=last,
+        frame_count=24,
+    )
+
+    assert calls == ["/v1/messages"]
+    assert prompt.startswith(base)
+    assert "24 readable smoke transformation poses" in prompt
+    assert meta["used"] is True
+    assert meta["mode"] == "model"
+    assert meta["endpoint"] == "/v1/messages"
 
 
 def test_optimize_video_bridge_motion_prompt_falls_back_without_vl_key(tmp_path, monkeypatch) -> None:

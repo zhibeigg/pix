@@ -605,12 +605,7 @@ _JSON_BLOCK_RE = re.compile(r"```json\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)
 _LOOSE_JSON_RE = re.compile(r"\{[\s\S]*\}")
 
 
-def _extract_chat_content(resp: dict[str, Any]) -> str:
-    choices = resp.get("choices") or []
-    if not choices:
-        raise ValueError(f"VL 响应缺少 choices: {str(resp)[:500]}")
-    message = choices[0].get("message") or {}
-    content = message.get("content")
+def _extract_text_parts(content: Any) -> str:
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -621,7 +616,34 @@ def _extract_chat_content(resp: dict[str, Any]) -> str:
             elif isinstance(item, str):
                 parts.append(item)
         return "".join(parts)
+    return ""
+
+
+def _extract_chat_content(resp: dict[str, Any]) -> str:
+    choices = resp.get("choices") or []
+    if not choices:
+        raise ValueError(f"VL 响应缺少 choices: {str(resp)[:500]}")
+    message = choices[0].get("message") or {}
+    content = _extract_text_parts(message.get("content"))
+    if content:
+        return content
     raise ValueError(f"无法解析 VL 响应 content: {str(resp)[:500]}")
+
+
+def _extract_anthropic_content(resp: dict[str, Any]) -> str:
+    content = _extract_text_parts(resp.get("content"))
+    if content:
+        return content
+    raise ValueError(f"无法解析 Anthropic VL 响应 content: {str(resp)[:500]}")
+
+
+def _anthropic_image_content(path: Path) -> dict[str, Any]:
+    data_url = image_to_base64_data_url(path)
+    header, _, data = data_url.partition(",")
+    media_type = "image/png"
+    if header.startswith("data:") and ";" in header:
+        media_type = header[5:].split(";", 1)[0] or media_type
+    return {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data}}
 
 
 def _extract_motion_plan(raw: str) -> str:
@@ -686,39 +708,63 @@ def _optimize_video_bridge_motion_prompt(
     except RuntimeError as exc:
         return base_prompt, {**meta, "mode": "unavailable", "error": str(exc)}
 
+    client = make_packy_client(cfg, api_key)
+    instruction = _motion_prompt_optimizer_instruction(
+        description=description,
+        action_prompt=action_prompt,
+        base_prompt=base_prompt,
+        frame_count=frame_count,
+    )
+    model_name = model or cfg.vision.model
+    temperature = min(float(getattr(cfg.vision, "temperature", 0.2)), 0.2)
+    max_tokens = max(600, min(int(getattr(cfg.vision, "max_tokens", 2048)), 1600))
+    use_anthropic_protocol = "claude" in model_name.lower() or "anthropic" in model_name.lower()
+    endpoint = "/v1/messages" if use_anthropic_protocol else "/v1/chat/completions"
     try:
-        client = make_packy_client(cfg, api_key)
-        instruction = _motion_prompt_optimizer_instruction(
-            description=description,
-            action_prompt=action_prompt,
-            base_prompt=base_prompt,
-            frame_count=frame_count,
-        )
-        payload: dict[str, Any] = {
-            "model": model or cfg.vision.model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": instruction},
-                        {"type": "image_url", "image_url": {"url": image_to_base64_data_url(first_frame_path)}},
-                        {"type": "image_url", "image_url": {"url": image_to_base64_data_url(last_frame_path)}},
-                    ],
-                }
-            ],
-            "temperature": min(float(getattr(cfg.vision, "temperature", 0.2)), 0.2),
-            "max_tokens": max(600, min(int(getattr(cfg.vision, "max_tokens", 2048)), 1600)),
-        }
-        raw = _extract_chat_content(client.post_json("/v1/chat/completions", payload))
+        if use_anthropic_protocol:
+            anthropic_payload: dict[str, Any] = {
+                "model": model_name,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": instruction},
+                            _anthropic_image_content(first_frame_path),
+                            _anthropic_image_content(last_frame_path),
+                        ],
+                    }
+                ],
+            }
+            raw = _extract_anthropic_content(client.post_json(endpoint, anthropic_payload))
+        else:
+            payload: dict[str, Any] = {
+                "model": model_name,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": instruction},
+                            {"type": "image_url", "image_url": {"url": image_to_base64_data_url(first_frame_path)}},
+                            {"type": "image_url", "image_url": {"url": image_to_base64_data_url(last_frame_path)}},
+                        ],
+                    }
+                ],
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+            raw = _extract_chat_content(client.post_json(endpoint, payload))
         motion_plan = _extract_motion_plan(raw)
     except Exception as exc:  # noqa: BLE001 - 优化失败不能阻断视频任务
-        return base_prompt, {**meta, "mode": "failed", "error": str(exc)[:500]}
+        return base_prompt, {**meta, "mode": "failed", "endpoint": endpoint, "error": str(exc)[:500]}
 
     optimized_prompt = f"{base_prompt} Optimized motion plan: {motion_plan}".strip()
     return optimized_prompt, {
         **meta,
         "used": True,
         "mode": "model",
+        "endpoint": endpoint,
         "optimized_motion_plan": motion_plan,
     }
 
