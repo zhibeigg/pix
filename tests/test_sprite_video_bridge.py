@@ -7,12 +7,17 @@ from fastapi import HTTPException
 from PIL import Image, ImageDraw
 
 from pix.config import AppConfig
+from pix.pixelize.core import PixelizeParams
 from pix.sprite_video_bridge import (
+    SpriteVideoBridgeInput,
+    VideoBridgeWaiting,
     build_video_bridge_motion_prompt,
+    derive_video_bridge_duration_seconds,
     _optimize_video_bridge_motion_prompt,
     _prepare_video_keyframes,
     _process_frames,
     _split_keyframes,
+    _start_video_task,
     is_waiting_state_due,
 )
 from pix_web.jobs import params_json_from_request, validate_job_request
@@ -170,6 +175,89 @@ def test_video_bridge_motion_prompt_can_return_to_first_frame() -> None:
     assert "smooth return motion back to the provided first_frame pose" in prompt
     assert "final sampled frame must match first_frame again" in prompt
     assert "no sudden snap back" in prompt
+
+
+def test_video_bridge_motion_prompt_includes_locked_timing() -> None:
+    prompt = build_video_bridge_motion_prompt(
+        "灵山野猪妖幼崽",
+        "待机呼吸",
+        frame_count=8,
+        frame_duration_ms=125,
+        video_duration_seconds=1,
+    )
+
+    assert "sampled into 8 sprite frames" in prompt
+    assert "source video duration is locked to 1 second(s)" in prompt
+    assert "8 sprite frames × 125 ms per frame" in prompt
+    assert "1000 ms total animation time" in prompt
+
+
+def test_derive_video_bridge_duration_seconds_ceil_to_whole_second() -> None:
+    assert derive_video_bridge_duration_seconds(8, 125) == 1
+    assert derive_video_bridge_duration_seconds(9, 125) == 2
+
+
+def test_start_video_task_uses_sprite_timing_for_ark_duration(tmp_path, monkeypatch) -> None:
+    cfg = _video_cfg()
+    cfg.video_bridge.duration = 5
+    captured: dict[str, object] = {}
+
+    def fake_generate_image(_cfg, _prompt, dest_path, **_kwargs):
+        image = Image.new("RGBA", (160, 80), (255, 0, 255, 255))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle([18, 30, 48, 62], fill=(30, 60, 90, 255))
+        draw.rectangle([108, 26, 140, 62], fill=(30, 60, 90, 255))
+        image.save(dest_path)
+        return dest_path
+
+    def fake_optimize(_cfg, **kwargs):
+        return kwargs["base_prompt"], {"used": False, "mode": "test"}
+
+    class FakeArkVideoClient:
+        def __init__(self, _cfg):
+            pass
+
+        def create_task(self, **kwargs):
+            captured.update(kwargs)
+            return type("Created", (), {"id": "ark-task-1", "raw": {"id": "ark-task-1"}})()
+
+    monkeypatch.setattr("pix.sprite_video_bridge.generate_image", fake_generate_image)
+    monkeypatch.setattr("pix.sprite_video_bridge._optimize_video_bridge_motion_prompt", fake_optimize)
+    monkeypatch.setattr("pix.sprite_video_bridge.ArkVideoClient", FakeArkVideoClient)
+
+    inputs = SpriteVideoBridgeInput(
+        prompt="灵山野猪妖幼崽",
+        rows=1,
+        cols=8,
+        row_prompts=["待机呼吸"],
+        pixelize_params=PixelizeParams(output_size=(32, 32), colors=8, generated_preprocess_method="none"),
+        fps=8,
+        duration_ms=125,
+    )
+
+    with pytest.raises(VideoBridgeWaiting) as exc_info:
+        _start_video_task(
+            cfg,
+            inputs,
+            run_dir=tmp_path,
+            description="灵山野猪妖幼崽",
+            action_prompt="待机呼吸",
+            key_color="#FF00FF",
+            notify=lambda _step, _payload: None,
+        )
+
+    assert captured["duration"] == 1
+    assert "source video duration is locked to 1 second(s)" in str(captured["prompt"])
+    assert exc_info.value.state["timing"] == {
+        "source": "sprite_timing",
+        "frame_count": 8,
+        "frame_duration_ms": 125,
+        "total_duration_ms": 1000,
+        "ark_duration_seconds": 1,
+    }
+    assert exc_info.value.state["duration"] == 1
+    assert exc_info.value.state["configured_duration"] == 5
+    assert exc_info.value.state["duration_source"] == "sprite_timing"
 
 
 def test_optimize_video_bridge_motion_prompt_uses_vl_motion_plan(tmp_path, monkeypatch) -> None:

@@ -372,6 +372,7 @@ class VideoBridgeConfig:
     model: str = "doubao-seedance-2-0-260128"
     resolution: str = "480p"
     ratio: str = "1:1"
+    # 兼容旧配置的兜底值；video_bridge 实际 Ark 秒数按 rows×cols × duration_ms 推导。
     duration: int = 5
     fps: int = 24
     generate_audio: bool = False

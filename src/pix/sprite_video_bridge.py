@@ -114,6 +114,30 @@ def next_poll_at(cfg: AppConfig) -> str:
     return _iso(_utcnow() + timedelta(seconds=interval))
 
 
+def derive_video_bridge_duration_seconds(frame_count: int, duration_ms: int) -> int:
+    """按序列帧播放节奏推导 Ark 视频秒数。
+
+    video_bridge 的抽帧时间轴必须跟最终序列帧一致：N 帧 × 每帧间隔。
+    Ark 当前 duration 使用秒级整数，非整秒时向上取整，避免生成视频短于目标动画。
+    """
+    safe_frame_count = max(1, int(frame_count))
+    safe_duration_ms = max(1, int(duration_ms))
+    return max(1, (safe_frame_count * safe_duration_ms + 999) // 1000)
+
+
+def video_bridge_timing_meta(frame_count: int, duration_ms: int) -> dict[str, Any]:
+    safe_frame_count = max(1, int(frame_count))
+    safe_duration_ms = max(1, int(duration_ms))
+    total_ms = safe_frame_count * safe_duration_ms
+    return {
+        "source": "sprite_timing",
+        "frame_count": safe_frame_count,
+        "frame_duration_ms": safe_duration_ms,
+        "total_duration_ms": total_ms,
+        "ark_duration_seconds": derive_video_bridge_duration_seconds(safe_frame_count, safe_duration_ms),
+    }
+
+
 def parse_state_time(value: Any) -> datetime | None:
     if not value:
         return None
@@ -312,6 +336,8 @@ def build_video_bridge_motion_prompt(
     action_prompt: str,
     *,
     frame_count: int | None = None,
+    frame_duration_ms: int | None = None,
+    video_duration_seconds: int | None = None,
     return_to_first_frame: bool = False,
     frame_size: tuple[int, int] | None = None,
     max_colors: int | None = None,
@@ -319,11 +345,22 @@ def build_video_bridge_motion_prompt(
     key_tolerance: int | None = None,
     denoise: bool = True,
 ) -> str:
+    safe_frame_count = max(2, int(frame_count)) if frame_count else None
     frame_clause = (
-        f"The motion will be sampled into {max(2, int(frame_count))} sprite frames, so every sampled frame must read as a clean incremental pose. "
-        if frame_count
+        f"The motion will be sampled into {safe_frame_count} sprite frames, so every sampled frame must read as a clean incremental pose. "
+        if safe_frame_count
         else "Every sampled frame must read as a clean incremental sprite pose. "
     )
+    timing_clause = ""
+    if safe_frame_count and frame_duration_ms and video_duration_seconds:
+        safe_frame_duration_ms = max(1, int(frame_duration_ms))
+        total_ms = safe_frame_count * safe_frame_duration_ms
+        timing_clause = (
+            f"Timing target: the source video duration is locked to {max(1, int(video_duration_seconds))} second(s), "
+            f"derived from {safe_frame_count} sprite frames × {safe_frame_duration_ms} ms per frame "
+            f"({total_ms} ms total animation time, rounded up to whole seconds for the video API). "
+            "Distribute the motion evenly across this full duration so the extracted sprite frames preserve the requested playback cadence. "
+        )
     parameter_clause = _frame_parameter_clause(
         frame_size=frame_size,
         max_colors=max_colors,
@@ -344,7 +381,7 @@ def build_video_bridge_motion_prompt(
     return (
         f"Create a short continuous pixel-art motion interpolation for this subject: {description}. "
         f"Motion: {action_prompt}. {endpoint_clause}"
-        f"{frame_clause}{return_clause}Use smooth evenly spaced in-between poses with small consistent changes between adjacent frames; no sudden jumps, no duplicated frozen frames, no skipped action phases. "
+        f"{frame_clause}{timing_clause}{return_clause}Use smooth evenly spaced in-between poses with small consistent changes between adjacent frames; no sudden jumps, no duplicated frozen frames, no skipped action phases. "
         f"{parameter_clause} "
         "Every frame must be TRUE pixel art: visible pixels are crisp square pixel blocks aligned to a stable pixel grid, with hard edges, limited palette, no anti-aliasing, no motion blur, no painterly smoothing, no subpixel smearing, and no soft interpolated gradients. "
         "Keep a fixed orthographic game-sprite camera, identical character identity, proportions, palette, outline thickness, and scale for the entire video. "
@@ -1041,6 +1078,8 @@ def _start_video_task(
     first_data_url = _data_url_from_png(first_video_path, max_bytes)
     last_data_url = _data_url_from_png(last_video_path, max_bytes)
     frame_count = max(2, int(settings.frame_count))
+    timing_meta = video_bridge_timing_meta(frame_count, settings.duration_ms)
+    ark_duration_seconds = int(timing_meta["ark_duration_seconds"])
     return_to_first_frame = bool(inputs.video_return_to_first_frame)
     ark_last_frame_data_url = first_data_url if return_to_first_frame else last_data_url
     ark_last_frame_source = "first_frame_video_path" if return_to_first_frame else "last_frame_video_path"
@@ -1048,6 +1087,8 @@ def _start_video_task(
         description,
         action_prompt,
         frame_count=frame_count,
+        frame_duration_ms=settings.duration_ms,
+        video_duration_seconds=ark_duration_seconds,
         return_to_first_frame=return_to_first_frame,
         frame_size=settings.target_size,
         max_colors=settings.max_colors,
@@ -1064,7 +1105,10 @@ def _start_video_task(
         frame_count=frame_count,
         return_to_first_frame=return_to_first_frame,
     )
-    notify("video_bridge_motion_prompt_ready", {"optimized": bool(motion_prompt_optimizer.get("used"))})
+    notify(
+        "video_bridge_motion_prompt_ready",
+        {"optimized": bool(motion_prompt_optimizer.get("used")), "timing": timing_meta},
+    )
     client = ArkVideoClient(cfg)
     created = client.create_task(
         prompt=motion_prompt,
@@ -1073,7 +1117,7 @@ def _start_video_task(
         model=cfg.video_bridge.model,
         resolution=cfg.video_bridge.resolution,
         ratio=cfg.video_bridge.ratio,
-        duration=max(1, int(cfg.video_bridge.duration)),
+        duration=ark_duration_seconds,
         generate_audio=bool(cfg.video_bridge.generate_audio),
         watermark=bool(cfg.video_bridge.watermark),
     )
@@ -1091,6 +1135,10 @@ def _start_video_task(
         "motion_prompt_optimizer": motion_prompt_optimizer,
         "video_return_to_first_frame": return_to_first_frame,
         "ark_last_frame_source": ark_last_frame_source,
+        "timing": timing_meta,
+        "duration": ark_duration_seconds,
+        "configured_duration": int(getattr(cfg.video_bridge, "duration", ark_duration_seconds) or ark_duration_seconds),
+        "duration_source": "sprite_timing",
         "prompt_parameters": {
             "target_frame_size": list(settings.target_size),
             "colors": int(settings.max_colors),
@@ -1449,6 +1497,7 @@ def _finalize_outputs(
 
     compiled_style = compile_style_profile(inputs.style_profile)
     frame_report = _frame_size_report(settings.target_size, effective_size)
+    timing_meta = video_bridge_timing_meta(settings.frame_count, settings.duration_ms)
     state = _load_file_state(run_dir)
     meta = {
         "version": __version__,
@@ -1477,7 +1526,10 @@ def _finalize_outputs(
             "model": cfg.video_bridge.model,
             "resolution": cfg.video_bridge.resolution,
             "ratio": cfg.video_bridge.ratio,
-            "duration": cfg.video_bridge.duration,
+            "duration": timing_meta["ark_duration_seconds"],
+            "configured_duration": cfg.video_bridge.duration,
+            "duration_source": "sprite_timing",
+            "timing": timing_meta,
             "generate_audio": cfg.video_bridge.generate_audio,
             "watermark": cfg.video_bridge.watermark,
             "return_to_first_frame": bool(inputs.video_return_to_first_frame),

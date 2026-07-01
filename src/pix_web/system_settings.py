@@ -180,7 +180,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
     SettingDefinition("pix.video_bridge.model", "视频模型", "视频补间", "string", "", "例如 doubao-seedance-2-0-260128。"),
     SettingDefinition("pix.video_bridge.resolution", "视频分辨率", "视频补间", "select", "", options=("480p", "720p", "1080p", "4k")),
     SettingDefinition("pix.video_bridge.ratio", "视频宽高比", "视频补间", "select", "", options=("1:1", "16:9", "4:3", "3:4", "9:16", "21:9", "adaptive")),
-    SettingDefinition("pix.video_bridge.duration", "视频秒数", "视频补间", "number", "", "Seedance 2.0 建议 4~15 秒；时间越长成本越高。"),
+    SettingDefinition("pix.video_bridge.duration", "视频秒数兜底值", "视频补间", "number", "", "兼容旧配置的兜底值；sprite.mode=video_bridge 实际提交 Ark 的秒数会按 rows×cols 与 duration_ms 自动推导。"),
     SettingDefinition("pix.video_bridge.poll_interval_seconds", "视频任务轮询间隔", "视频补间", "number", "", "worker 进入 waiting 后下一次查询 Ark 状态的间隔。"),
     SettingDefinition("pix.video_bridge.task_timeout_seconds", "视频任务超时秒数", "视频补间", "number", "", "超过该时长未完成会标记失败并退款。"),
     SettingDefinition("pix.vision.model", "VL 模型", "模型与 API", "string", ""),

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.101.23] - 2026-07-01
+
+### Fixed
+
+- 修复 `sprite.mode = "video_bridge"` 的 Ark 视频时长仍使用 `[video_bridge].duration` 默认值的问题：现在会按 `rows×cols×duration_ms` 推导并锁定提交给 Ark 的秒数（非整秒向上取整），motion prompt、Prompt 预览、`video_bridge_state` 与 `meta.json` 都会记录同一 timing 信息，确保视频补间时间轴匹配最终序列帧 / GIF 播放节奏。
+
 ## [1.101.22] - 2026-07-01
 
 ### Added
