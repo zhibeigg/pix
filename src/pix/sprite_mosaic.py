@@ -758,7 +758,7 @@ def _split_sheet_to_cells(
         "detected_rows": int(detected_rows),
         "row_splits": row_splits.tolist(),
         "col_splits_per_row": per_row_col_splits,
-        "method": "foreground_projection_autogrid",
+        "method": "foreground_axis_transition_autogrid",
     }
     return cells, meta
 
@@ -773,41 +773,178 @@ def _key_color_foreground_mask(rgb: np.ndarray, key_rgb: tuple[int, int, int], t
     return dist_sq > threshold_sq
 
 
-def _projection_splits(projection: np.ndarray, total: int, segments: int) -> np.ndarray:
-    """根据 1D 投影找 `segments+1` 条切分线（含 0 与 total）。
+def _equal_axis_splits(total: int, segments: int) -> np.ndarray:
+    safe_segments = max(1, int(segments))
+    return np.array([int(round(i * total / safe_segments)) for i in range(safe_segments + 1)], dtype=np.int64)
 
-    分两步：
-    1. 用前景投影定位整体主体的 `[content_start, content_end]` 区间，trim 掉首尾的
-       大段空白边距（典型 case：模型在 1024×1024 画布上画 3 行人物 + 底部空白条，
-       直接全图等分会把第 4 条切线落在尾部空白里，让最后一行 cell 全空）。
-    2. 在 trim 后的内容区间内对 `segments-1` 条内部切线均分，再在每条理论切线
-       附近的搜索窗口里挑前景像素最少的位置。
-    最外侧的两条切线仍固定为 0 与 total，保证完整覆盖原图。
+
+def _axis_mixed_threshold(projection: np.ndarray) -> int:
+    """整轴逐像素扫线时，允许极少背景噪点仍视为「几乎同色」。"""
+    if projection.size == 0:
+        return 0
+    peak = int(np.asarray(projection).max())
+    if peak <= 0:
+        return 0
+    # 这里必须比旧投影法更敏感：粒子/拖尾/武器尖端只要形成少量非 key 像素，
+    # 就应被当成「杂色」纳入主体扫掠，避免切线穿过特效边缘。
+    return max(1, int(round(peak * 0.002)))
+
+
+def _axis_gap_candidates(mixed: np.ndarray, *, min_gap: int) -> list[dict[str, float | int]]:
+    """按用户描述从 0 开始扫：空白→主体→空白→下一主体，记录两个状态翻转间的 gutter。"""
+    if mixed.size == 0 or not bool(mixed.any()):
+        return []
+    candidates: list[dict[str, float | int]] = []
+    safe_min_gap = max(1, int(min_gap))
+    i = 0
+    n = int(mixed.size)
+
+    # 先跳过开头第一段几乎同色的背景边距。
+    while i < n and not bool(mixed[i]):
+        i += 1
+    if i >= n:
+        return []
+
+    while i < n:
+        # 当前处于「存在杂色」的主体扫掠段，先越过它。
+        while i < n and bool(mixed[i]):
+            i += 1
+        if i >= n:
+            break
+        gap_start = i  # 下一次检测到整行/整列几乎同色：证明进入空隙。
+        while i < n and not bool(mixed[i]):
+            i += 1
+        if i >= n:
+            break  # 尾部空白只作为外边距，不生成内部切线。
+        gap_end = i  # 直到下一次检测到杂色：证明下一个主体开始。
+        gap_width = gap_end - gap_start
+        if gap_width >= safe_min_gap:
+            center = (gap_start + gap_end) / 2.0
+            candidates.append(
+                {
+                    "start": int(gap_start),
+                    "end": int(gap_end),
+                    "width": int(gap_width),
+                    "center": center,
+                }
+            )
+    return candidates
+
+
+def _select_axis_gap_centers(
+    candidates: list[dict[str, float | int]],
+    *,
+    content_start: int,
+    content_end: int,
+    segments: int,
+) -> list[int]:
+    """从整轴扫出的 gutter 中选出 `segments-1` 条切线；额外内部空洞用等距先验兜底过滤。"""
+    needed = max(0, int(segments) - 1)
+    if needed <= 0:
+        return []
+    if len(candidates) == needed:
+        return [int(round(float(item["center"]))) for item in candidates]
+
+    content_len = max(float(segments), float(content_end - content_start))
+    cell_size = content_len / max(1, int(segments))
+    selected: list[int] = []
+    start_index = 0
+    for split_index in range(1, int(segments)):
+        remaining_after = needed - len(selected) - 1
+        end_exclusive = len(candidates) - remaining_after
+        if start_index >= end_exclusive:
+            break
+        ideal = content_start + split_index * cell_size
+        best_index = start_index
+        best_score: float | None = None
+        for candidate_index in range(start_index, end_exclusive):
+            item = candidates[candidate_index]
+            center = float(item["center"])
+            width = float(item["width"])
+            distance_score = abs(center - ideal) / max(1.0, cell_size)
+            width_bonus = min(width / max(1.0, cell_size), 0.5) * 0.2
+            score = distance_score - width_bonus
+            if best_score is None or score < best_score:
+                best_score = score
+                best_index = candidate_index
+        selected.append(int(round(float(candidates[best_index]["center"]))))
+        start_index = best_index + 1
+    return selected
+
+
+def _axis_transition_splits(projection: np.ndarray, total: int, segments: int) -> np.ndarray | None:
+    """整轴逐像素偏移扫掠切分。
+
+    从 0 开始沿目标轴逐行/列判断「几乎同色」与「存在杂色」：
+    1. 跳过开头第一段几乎同色背景；
+    2. 遇到杂色后视为主体扫掠；
+    3. 主体后第一次再次几乎同色视为空隙起点；
+    4. 直到下一次杂色视为下个主体起点；
+    5. 取空隙起点与下个主体起点的中值作为切线。
     """
     safe_segments = max(1, int(segments))
     if safe_segments == 1 or total <= safe_segments:
-        return np.array([int(round(i * total / safe_segments)) for i in range(safe_segments + 1)], dtype=np.int64)
+        return _equal_axis_splits(total, safe_segments)
 
     proj = np.asarray(projection, dtype=np.int64)
     if proj.size != total:
-        # 维度不匹配时退化
-        return np.array([int(round(i * total / safe_segments)) for i in range(safe_segments + 1)], dtype=np.int64)
+        return None
+    threshold = _axis_mixed_threshold(proj)
+    mixed = proj > threshold
+    if not bool(mixed.any()):
+        return None
 
-    # 1. trim 首尾空白：投影 ≤ 阈值视为空白
+    content_start = int(np.argmax(mixed))
+    content_end = total - int(np.argmax(mixed[::-1]))
+    span = max(1, content_end - content_start)
+    min_gap = max(2, int(round((span / safe_segments) * 0.01)))
+    candidates = _axis_gap_candidates(mixed, min_gap=min_gap)
+    needed = safe_segments - 1
+    if len(candidates) < needed:
+        return None
+
+    centers = _select_axis_gap_centers(
+        candidates,
+        content_start=content_start,
+        content_end=content_end,
+        segments=safe_segments,
+    )
+    if len(centers) != needed:
+        return None
+
+    splits: list[int] = [0]
+    for index, center in enumerate(centers, start=1):
+        remaining = safe_segments - index
+        value = max(splits[-1] + 1, min(total - remaining, int(center)))
+        splits.append(value)
+    splits.append(int(total))
+    if len(splits) != safe_segments + 1 or any(splits[i] >= splits[i + 1] for i in range(len(splits) - 1)):
+        return None
+    return np.asarray(splits, dtype=np.int64)
+
+
+def _projection_window_splits(projection: np.ndarray, total: int, segments: int) -> np.ndarray:
+    """旧的投影窗口回退：整轴扫掠找不到足够 gutter 时避免生成空切片。"""
+    safe_segments = max(1, int(segments))
+    if safe_segments == 1 or total <= safe_segments:
+        return _equal_axis_splits(total, safe_segments)
+
+    proj = np.asarray(projection, dtype=np.int64)
+    if proj.size != total:
+        return _equal_axis_splits(total, safe_segments)
+
     fg_threshold = max(1, int(proj.max() * 0.005)) if proj.max() > 0 else 1
     fg_mask = proj > fg_threshold
     if fg_mask.any():
         content_start = int(np.argmax(fg_mask))
-        content_end = total - int(np.argmax(fg_mask[::-1]))  # 排他上界
+        content_end = total - int(np.argmax(fg_mask[::-1]))
     else:
         content_start, content_end = 0, total
-    # 仅当首尾空白合计超过画布 5%（约 1/(2·cells) 个 cell）时才启用 trim
     margin_total = content_start + (total - content_end)
     if margin_total < int(total * 0.05):
         content_start, content_end = 0, total
     content_len = max(safe_segments, content_end - content_start)
     cell_size = content_len / safe_segments
-    # 搜索半径：cell 的 40%，至少 2 像素
     search_radius = max(2, int(round(cell_size * 0.4)))
 
     splits: list[int] = [0]
@@ -819,18 +956,27 @@ def _projection_splits(projection: np.ndarray, total: int, segments: int) -> np.
             splits.append(int(round(ideal)))
             continue
         window = proj[lo:hi]
-        # 优先：窗口内最宽的「空白柱」(gutter，prompt 要求每格四周留背景边距) 的中心。
-        # gutter 中心比「前景最少点」更稳——主体移动/抖动时单点最小值可能贴着主体边缘，
-        # 而留白带中心始终落在两帧之间，切线不会啃到主体。
         best = _widest_gap_center(window, lo, fg_threshold, ideal)
         if best is None:
-            # 回退：窗口内前景最少处，取距 ideal 最近的（主体填满无 gutter 时，如剧烈摇晃帧）。
             min_val = int(window.min())
             candidate_indices = np.flatnonzero(window == min_val) + lo
             best = int(candidate_indices[np.abs(candidate_indices - ideal).argmin()])
         splits.append(max(splits[-1] + 1, best))
     splits.append(int(total))
     return np.asarray(splits, dtype=np.int64)
+
+
+def _projection_splits(projection: np.ndarray, total: int, segments: int) -> np.ndarray:
+    """根据 1D 投影找 `segments+1` 条切分线（含 0 与 total）。
+
+    优先使用整轴逐像素扫掠：只在「主体扫掠结束后的几乎同色空隙」与「下个主体
+    再次出现杂色」之间取中线，避免切到主体周边颜色接近背景的粒子、拖尾或特效。
+    当模型没有画出足够清晰 gutter 时，回退到旧的投影窗口法以保持可用输出。
+    """
+    scanned = _axis_transition_splits(projection, total, segments)
+    if scanned is not None:
+        return scanned
+    return _projection_window_splits(projection, total, segments)
 
 
 def _widest_gap_center(window: np.ndarray, offset: int, fg_threshold: int, ideal: float) -> int | None:
@@ -866,51 +1012,27 @@ def _widest_gap_center(window: np.ndarray, offset: int, fg_threshold: int, ideal
 def _detect_grid_count(projection: np.ndarray, total: int, hint: int) -> int:
     """从 1D 前景投影检测实际分段数；策略是「优先凑满请求帧数 + 不足才回退」。
 
-    数 hint 间的「真实间隙」（投影落到近空的连续列段）：
-    - 真实间隙 ≥ hint-1（像素足够切出 hint 段）→ 直接返回 hint，尊重用户请求的帧数。
-      这也顺带处理「模型多画了一两列」：仍按请求帧数切，不被多余间隙带偏。
-    - 真实间隙明显不足（模型确实少画，如请求 8 列只画了 7）→ 回退到检测值，避免把
-      某个 cell 切在列间隙上变空帧；仅在与 hint 偏差 ≤ max(1, hint/3) 时采纳，防止
-      异常检测把正常作品带偏。
-
-    关键：间隙按「深度」判定（投影落到峰值 6% 以下即视为间隙），只用很小的宽度下限滤掉
-    1~数像素的边缘抗锯齿噪点，**不再用 (span/hint)·0.18 那种大宽度阈值**——剧烈摇晃帧
-    里相邻主体靠得很近时，真实间隙可能只有几十像素，旧阈值会把它漏掉，导致 8 帧被误判成
-    7 帧、两个主体被并进同一格（铃铛动画「一帧两个铃铛」的根因）。
+    与切线定位保持一致：从整根轴 0 像素开始扫，只有经历「主体杂色段 → 几乎
+    同色空隙 → 下一段主体杂色」的 gutter 才计为真实间隙。这样不会把主体边缘
+    几个接近背景色的特效像素误当成切线，也不会因为窄但真实的帧间空隙漏检。
     """
     safe_hint = max(1, int(hint))
-    proj = np.asarray(projection, dtype=np.float64)
-    if safe_hint <= 1 or proj.size == 0:
+    proj = np.asarray(projection, dtype=np.int64)
+    if safe_hint <= 1 or proj.size == 0 or proj.size != total:
         return safe_hint
-    peak = float(proj.max())
-    if peak <= 0:
+    threshold = _axis_mixed_threshold(proj)
+    mixed = proj > threshold
+    if not bool(mixed.any()):
         return safe_hint
-    content_line = proj > peak * 0.04
-    if not content_line.any():
-        return safe_hint
-    start = int(np.argmax(content_line))
-    end = proj.size - int(np.argmax(content_line[::-1]))
+    start = int(np.argmax(mixed))
+    end = proj.size - int(np.argmax(mixed[::-1]))
     span = max(1, end - start)
-    # 只滤掉边缘抗锯齿造成的几像素浅缝；真实主体间隙（即便窄到几十像素）必须计入。
-    min_gap = max(4, int(round((span / safe_hint) * 0.05)))
-    valley = proj <= peak * 0.06
-    gaps = 0
-    i = start
-    while i < end:
-        if valley[i]:
-            j = i
-            while j < end and valley[j]:
-                j += 1
-            if (j - i) >= min_gap:
-                gaps += 1
-            i = j
-        else:
-            i += 1
+    # 只滤掉极窄噪声缝；真实帧间 gutter 即便偏窄也必须计入。
+    min_gap = max(2, int(round((span / safe_hint) * 0.03)))
+    gaps = len(_axis_gap_candidates(mixed, min_gap=min_gap))
     detected = gaps + 1
-    # 像素足够切出 hint 段（真实间隙 ≥ hint-1）→ 凑满请求帧数。
     if detected >= safe_hint:
         return safe_hint
-    # 间隙不足：模型可能少画。仅在偏差不大时回退到检测值（保留空帧护栏）。
     if detected >= 1 and abs(detected - safe_hint) <= max(1, round(safe_hint / 3)):
         return int(detected)
     return safe_hint

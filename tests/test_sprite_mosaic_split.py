@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 
-from pix.sprite_mosaic import _key_color_foreground_mask, _split_sheet_to_cells
+from pix.sprite_mosaic import _axis_transition_splits, _key_color_foreground_mask, _split_sheet_to_cells
 
 
 def _count_col_runs(cell: Image.Image, key_rgb: tuple[int, int, int], tol: int) -> int:
@@ -44,6 +44,42 @@ def _make_row_sheet(
         if i < len(gaps):
             x += gaps[i]
     return image
+
+
+def test_axis_transition_splits_use_gap_between_subject_runs() -> None:
+    """切线取「主体结束后的空白」与「下一主体开始」的中值，而不是贴着主体边缘。"""
+
+    projection = np.zeros(80, dtype=np.int64)
+    projection[5:25] = 16
+    projection[46:70] = 16
+
+    splits = _axis_transition_splits(projection, total=80, segments=2)
+
+    assert splits is not None
+    assert splits.tolist() == [0, 36, 80]
+
+
+def test_split_multi_action_cuts_rows_before_per_row_columns(tmp_path: Path) -> None:
+    """多动作 mosaic 先按上下动作组切行，再在每行动作图内独立横向切帧。"""
+
+    key_rgb = (255, 0, 255)
+    image = Image.new("RGBA", (360, 180), (*key_rgb, 255))
+    draw = ImageDraw.Draw(image)
+    for row_top in (20, 110):
+        for left in (20, 140, 260):
+            draw.rectangle((left, row_top, left + 45, row_top + 39), fill=(16, 16, 16, 255))
+    sheet_path = tmp_path / "multi_action.png"
+    image.save(sheet_path)
+
+    cells, meta = _split_sheet_to_cells(sheet_path, rows=2, cols=3, key_rgb=key_rgb, key_tolerance=8)
+
+    assert meta["rows"] == 2
+    assert meta["cols"] == 3
+    assert len(cells) == 6
+    assert meta["row_splits"][1] in range(85, 96)
+    for row_splits in meta["col_splits_per_row"]:
+        assert row_splits[1] in range(90, 111)
+        assert row_splits[2] in range(210, 231)
 
 
 def test_split_preserves_requested_action_rows_when_projection_merges_rows(tmp_path: Path) -> None:

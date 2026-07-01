@@ -36,21 +36,19 @@
 
 ## 4. Part 1：切分修复
 
-### 4.1 `_detect_grid_count(projection, total, hint)`
+### 4.1 `_detect_grid_count(projection, total, hint)` / `_projection_splits`
 1. `proj.max()<=0` 或 `hint<=1` → hint。
-2. 内容区间 `[start,end)`：`proj > max*0.04` 的首尾。
-3. `approx=span/hint`；`min_gap=max(2, approx*0.18)`。
-4. 数低谷带：`proj <= max*0.06` 且连续宽度 `>= min_gap` 的区间数 `gaps`。
-5. `detected = gaps + 1`。
-6. **护栏**：仅当 `|detected-hint| <= max(1, round(hint/3))` 才返回 detected，否则 hint。
+2. 沿整根轴从 0 像素开始逐行/列扫掠：先跳过开头同色背景，遇到 `projection > threshold` 视为主体杂色段；主体结束后第一次几乎同色视为空隙起点，直到下一次杂色视为下个主体起点。
+3. 真实 gutter 计数：只记录「主体杂色 → 同色空隙 → 下一主体杂色」完整状态翻转，取空隙起点与下一主体起点的中值作为候选切线；极窄噪声缝用 `min_gap` 过滤。
+4. `detected = gaps + 1`。
+5. **护栏**：真实 gutter ≥ `hint-1` 时尊重请求帧数；不足时仅当 `|detected-hint| <= max(1, round(hint/3))` 才返回 detected，否则 hint。
 
-→ 正常作品（detected==hint）与主体填满作品（detected 远离 hint → 回退）不受影响；只有
-「模型少画/多画且网格清晰」才修正。已验证此图：列 8→7、行 2→2。
+→ 正常作品（detected==hint）与主体填满作品（detected 远离 hint → 回退）不受影响；窄但真实的帧间空隙仍会被计入，主体周边拖尾/粒子/武器尖端则作为杂色保留在主体扫掠内，降低切断特效的概率。
 
 ### 4.2 `_split_sheet_to_cells`
-- 行：`actual_rows = _detect_grid_count(row_proj, height, safe_rows)` 后切行。
-- 列：每行列投影各检测，取众数为统一 `actual_cols`（保证 rows×cols 规整）。
-- 用实际网格切；meta 增加 `detected_rows`/`detected_cols`。
+- 行：行数代表用户请求的动作数，`actual_rows = safe_rows`；行切线用整轴状态翻转定位。多行动作先切上下动作组。
+- 列：每行动作图内独立做列投影与整轴扫掠，取众数为统一 `actual_cols`（保证 rows×cols 规整）。
+- 用实际网格切；meta 记录 `detected_rows`、`row_splits`、`col_splits_per_row`。
 
 ### 4.3 pipeline 用实际网格（关键波及面）
 `run_sprite_mosaic_pipeline` 原先直接用 `settings.rows/cols` 的后续改用实际网格

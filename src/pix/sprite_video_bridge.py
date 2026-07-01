@@ -42,6 +42,7 @@ from pix.sprite import (
 from pix.sprite_mosaic import (
     SpriteMosaicInput,
     _apply_frame_edges,
+    _axis_transition_splits,
     _build_sequence_json,
     _ensure_row_prompts,
     _frame_metadata,
@@ -327,8 +328,8 @@ def _key_color_foreground_mask(image: Image.Image, key_rgb: tuple[int, int, int]
 
 
 def _adaptive_keyframe_split_x(pair: Image.Image, key_rgb: tuple[int, int, int], key_tolerance: int) -> int:
-    """在双栏关键帧之间寻找真实空隙，避免尾帧动作越过几何中线时被硬切。"""
-    width, height = pair.size
+    """在双栏关键帧之间用整轴扫掠寻找真实空隙，避免几何中线硬切。"""
+    width = pair.width
     if width <= 2:
         return max(1, width // 2)
     mid = width // 2
@@ -338,30 +339,19 @@ def _adaptive_keyframe_split_x(pair: Image.Image, key_rgb: tuple[int, int, int],
         return max(1, min(width - 1, mid))
 
     mask = _key_color_foreground_mask(pair, key_rgb, key_tolerance)
-    counts = mask.sum(axis=0)
-    # 允许极少量离散粒子/压缩噪声；真正的双栏间隔应是一段低前景密度竖向 gutter。
-    threshold = max(1, int(round(height * 0.005)))
-    runs: list[tuple[int, int]] = []
-    start: int | None = None
-    for x in range(lo, hi):
-        if int(counts[x]) <= threshold:
-            if start is None:
-                start = x
-        elif start is not None:
-            if x - start >= 4:
-                runs.append((start, x))
-            start = None
-    if start is not None and hi - start >= 4:
-        runs.append((start, hi))
+    counts = mask.sum(axis=0).astype(np.int64)
+    scanned = _axis_transition_splits(counts, width, 2)
+    if scanned is not None and len(scanned) == 3:
+        split = int(scanned[1])
+        # 双栏关键帧仍约束在中间区域，避免把左/右外边距当成首尾分隔。
+        if lo <= split <= hi:
+            return max(1, min(width - 1, split))
 
-    if runs:
-        start, end = max(runs, key=lambda item: (item[1] - item[0], -abs(((item[0] + item[1]) // 2) - mid)))
-        split = (start + end) // 2
-    else:
-        window = max(5, min(31, ((hi - lo) // 12) | 1))
-        kernel = np.ones(window, dtype=np.float32) / float(window)
-        smoothed = np.convolve(counts.astype(np.float32), kernel, mode="same")
-        split = lo + int(np.argmin(smoothed[lo:hi]))
+    # 回退：中间窗口内按平滑后的前景密度找最低点。
+    window = max(5, min(31, ((hi - lo) // 12) | 1))
+    kernel = np.ones(window, dtype=np.float32) / float(window)
+    smoothed = np.convolve(counts.astype(np.float32), kernel, mode="same")
+    split = lo + int(np.argmin(smoothed[lo:hi]))
     return max(1, min(width - 1, int(split)))
 
 
@@ -380,7 +370,7 @@ def _split_keyframes(
         method = "midpoint"
     else:
         split_x = _adaptive_keyframe_split_x(pair, key_rgb, key_tolerance)
-        method = "adaptive_foreground_gutter"
+        method = "axis_transition_gutter"
     pair.crop((0, 0, split_x, pair.height)).save(first_path)
     pair.crop((split_x, 0, pair.width, pair.height)).save(last_path)
     return {"method": method, "split_x": split_x, "source_size": [pair.width, pair.height]}
@@ -461,7 +451,7 @@ def _foreground_components(
                     "dilated_area": dilated_area,
                     "bbox": (min(source_xs), min(source_ys), max(source_xs) + 1, max(source_ys) + 1),
                     "linked_bbox": (min(xs), min(ys), max(xs) + 1, max(ys) + 1),
-                    "_points": list(zip(source_xs, source_ys)),
+                    "_points": list(zip(source_xs, source_ys, strict=False)),
                 }
             )
     components.sort(key=lambda item: (int(item["area"]), int(item["dilated_area"])), reverse=True)

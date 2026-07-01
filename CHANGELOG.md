@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.100.22] - 2026-07-01
+
+### Fixed
+
+- 改进序列帧生图后的切分算法：mosaic 单图网格与 `sprite.mode = "video_bridge"` 首尾关键帧双栏切分都改为整轴逐像素扫掠，按「开头同色背景 → 主体杂色 → 帧间同色空隙 → 下一主体杂色」的状态翻转取空隙中线，减少主体周边拖尾、粒子、武器尖端或近似背景色特效被切断的概率；多行动作 mosaic 会先切上下动作组，再在每行动作图内独立横向切帧。
+
 ## [1.100.21] - 2026-07-01
 
 ### Added

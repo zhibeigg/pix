@@ -347,7 +347,7 @@ def test_split_keyframes_uses_foreground_gutter_instead_of_midpoint(tmp_path) ->
 
     meta = _split_keyframes(pair, first, last, key_rgb=key[:3], key_tolerance=16)
 
-    assert meta["method"] == "adaptive_foreground_gutter"
+    assert meta["method"] == "axis_transition_gutter"
     assert meta["split_x"] < 100
     assert meta["split_x"] > 80
     first_bbox = _non_key_bbox(first, key=key[:3])
