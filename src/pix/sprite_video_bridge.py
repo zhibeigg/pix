@@ -23,6 +23,7 @@ from pix.contact_sheet import parse_hex_color, resolve_key_color
 from pix.io_utils import new_run_dir
 from pix.pixelize.bg_removal import apply_pixel_bg_alpha
 from pix.pixelize.core import PixelizeParams
+from pix.pixelize.perfect_pixel import preprocess_generated_image
 from pix.prompt_style import STYLE_PROFILE_POLICY_MAX_CHARS, compile_style_profile, style_profile_policy_text
 from pix.sprite import (
     SpriteFrame,
@@ -241,17 +242,95 @@ def _split_keyframes(pair_path: Path, first_path: Path, last_path: Path) -> None
     pair.crop((mid, 0, pair.width, pair.height)).save(last_path)
 
 
-def _prepare_video_frame(
+def _keyframe_content(
     src_path: Path,
-    dest_path: Path,
+    *,
+    target_size: tuple[int, int],
+    key_rgb: tuple[int, int, int],
+    key_tolerance: int,
+    generated_preprocess_method: str | None,
+) -> tuple[Image.Image, dict[str, Any]]:
+    """把 AI 关键帧半图整理为透明主体内容。
+
+    注意：这里是送入视频模型前的关键一步。不能直接把左右半图等比塞进视频画布，
+    否则双栏图里的留白/分隔线/主体偏移会被 Ark 当作首尾帧内容。流程必须与
+    mosaic cell 类似：perfectPixel 对齐 → key-color alpha → 可见像素 bbox 裁剪。
+    """
+    with Image.open(src_path) as opened:
+        source = opened.convert("RGBA")
+    preprocessed = preprocess_generated_image(
+        source,
+        method=generated_preprocess_method,
+        target_size=target_size,
+    )
+    alpha_image = apply_pixel_bg_alpha(
+        preprocessed.image.convert("RGBA"),
+        key_rgb=key_rgb,
+        tolerance=max(0, int(key_tolerance)),
+    )
+    bbox = _visible_bbox(alpha_image, threshold=8)
+    if bbox is None:
+        content = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+    else:
+        content = alpha_image.crop(bbox).convert("RGBA")
+    return content, {
+        "source": str(src_path.name),
+        "source_size": list(source.size),
+        "preprocess": preprocessed.meta,
+        "bbox": list(bbox) if bbox else None,
+        "content_size": list(content.size),
+    }
+
+
+def _prepare_video_keyframes(
+    first_path: Path,
+    last_path: Path,
+    first_dest_path: Path,
+    last_dest_path: Path,
     size: tuple[int, int],
     *,
+    target_size: tuple[int, int],
+    frame_size_step: int,
+    anchor: str,
     key_rgb: tuple[int, int, int],
-) -> None:
-    with Image.open(src_path) as opened:
-        fitted = _fit_to_canvas(opened, size, key_rgb)
-    dest_path.parent.mkdir(parents=True, exist_ok=True)
-    fitted.save(dest_path)
+    key_tolerance: int,
+    generated_preprocess_method: str | None,
+) -> dict[str, Any]:
+    first_content, first_meta = _keyframe_content(
+        first_path,
+        target_size=target_size,
+        key_rgb=key_rgb,
+        key_tolerance=key_tolerance,
+        generated_preprocess_method=generated_preprocess_method,
+    )
+    last_content, last_meta = _keyframe_content(
+        last_path,
+        target_size=target_size,
+        key_rgb=key_rgb,
+        key_tolerance=key_tolerance,
+        generated_preprocess_method=generated_preprocess_method,
+    )
+    normalized_size = (
+        _ceil_to_multiple(max(target_size[0], first_content.width, last_content.width), frame_size_step),
+        _ceil_to_multiple(max(target_size[1], first_content.height, last_content.height), frame_size_step),
+    )
+    first_normalized = _paste_content_to_canvas(first_content, size=normalized_size, anchor=anchor)
+    last_normalized = _paste_content_to_canvas(last_content, size=normalized_size, anchor=anchor)
+    first_fitted = _fit_to_canvas(first_normalized, size, key_rgb)
+    last_fitted = _fit_to_canvas(last_normalized, size, key_rgb)
+    first_dest_path.parent.mkdir(parents=True, exist_ok=True)
+    first_fitted.save(first_dest_path)
+    last_fitted.save(last_dest_path)
+    return {
+        "target_size": list(target_size),
+        "normalized_size": list(normalized_size),
+        "video_input_size": list(size),
+        "anchor": anchor,
+        "key_tolerance": int(key_tolerance),
+        "generated_preprocess_method": generated_preprocess_method,
+        "first": first_meta,
+        "last": last_meta,
+    }
 
 
 def _start_video_task(
@@ -304,8 +383,19 @@ def _start_video_task(
         _split_keyframes(keyframe_pair_path, first_path, last_path)
         video_size = _video_input_size(cfg)
         key_rgb = parse_hex_color(key_color)
-        _prepare_video_frame(first_path, first_video_path, video_size, key_rgb=key_rgb)
-        _prepare_video_frame(last_path, last_video_path, video_size, key_rgb=key_rgb)
+        keyframe_preprocess = _prepare_video_keyframes(
+            first_path,
+            last_path,
+            first_video_path,
+            last_video_path,
+            video_size,
+            target_size=inputs.pixelize_params.output_size,
+            frame_size_step=max(1, int(getattr(cfg.sprite, "frame_size_step", 16))),
+            anchor=str(getattr(cfg.sprite, "anchor", "bottom_center") or "bottom_center"),
+            key_rgb=key_rgb,
+            key_tolerance=int(getattr(cfg.sprite, "green_screen_tolerance", 48)),
+            generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
+        )
 
     max_bytes = max(1, int(getattr(cfg.video_bridge, "max_base64_image_bytes", 30 * 1024 * 1024)))
     first_data_url = _data_url_from_png(first_video_path, max_bytes)
@@ -338,6 +428,7 @@ def _start_video_task(
         "last_frame_path": _rel(last_path, run_dir),
         "first_frame_video_path": _rel(first_video_path, run_dir),
         "last_frame_video_path": _rel(last_video_path, run_dir),
+        "keyframe_preprocess": keyframe_preprocess,
         "ark_create": created.raw,
         "provider_history": image_provider_history(),
     }

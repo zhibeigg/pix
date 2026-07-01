@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.99.14] - 2026-07-01
+
+### Fixed
+
+- 修复 `sprite.mode = "video_bridge"` 首尾关键帧送入 Ark 前未做像素级归一化的问题：现在会对左右关键帧分别执行 perfectPixel 预处理、key 色透明化、可见像素 bbox 裁剪，并按统一尺寸/锚点铺回视频输入画布，避免首帧/尾帧受双栏图留白或主体偏移影响。
+
 ## [1.99.13] - 2026-06-30
 
 ### Added
