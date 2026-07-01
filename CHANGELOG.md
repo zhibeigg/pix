@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.101.24] - 2026-07-01
+
+### Fixed
+
+- 强化 `sprite.mode = "video_bridge"` 的视频 motion prompt 与 VL motion plan 指令：明确要求所有像素方块必须保持横平竖直的正交方块网格，禁止通过旋转、倾斜、斜切或菱形化像素块来模拟动作，避免视频模型生成歪斜/旋转像素块。
+
 ## [1.101.23] - 2026-07-01
 
 ### Fixed

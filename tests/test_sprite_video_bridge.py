@@ -142,6 +142,9 @@ def test_video_bridge_motion_prompt_keeps_subject_inside_frame_and_pixel_grid() 
     assert "no duplicated frozen frames" in prompt
     assert "Every frame must be TRUE pixel art" in prompt
     assert "crisp square pixel blocks aligned to a stable pixel grid" in prompt
+    assert "axis-aligned horizontal/vertical square tiles" in prompt
+    assert "never rotate, tilt, shear, skew, diamond-turn, or slant" in prompt
+    assert "not by rotating chunks of pixels" in prompt
     assert "no anti-aliasing" in prompt
     assert "no motion blur" in prompt
     assert "no painterly smoothing" in prompt
@@ -275,6 +278,8 @@ def test_optimize_video_bridge_motion_prompt_uses_vl_motion_plan(tmp_path, monke
             assert "first_frame" in content[0]["text"]
             assert "only the flat key-color background is allowed to touch canvas edges" in content[0]["text"]
             assert "every non-background / non-key-color pixel is foreground" in content[0]["text"]
+            assert "every visible pixel block must stay axis-aligned" in content[0]["text"]
+            assert "never rotate, tilt, shear, skew, diamond-turn, or slant pixel blocks" in content[0]["text"]
             assert "weapon tips" in content[0]["text"]
             assert content[1]["type"] == "image_url"
             assert content[2]["type"] == "image_url"
@@ -329,6 +334,8 @@ def test_optimize_video_bridge_motion_prompt_routes_claude_to_anthropic_messages
             content = payload["messages"][0]["content"]
             assert content[0]["type"] == "text"
             assert "every non-background / non-key-color pixel is foreground" in content[0]["text"]
+            assert "every visible pixel block must stay axis-aligned" in content[0]["text"]
+            assert "never rotate, tilt, shear, skew, diamond-turn, or slant pixel blocks" in content[0]["text"]
             assert content[1]["type"] == "image"
             assert content[1]["source"]["type"] == "base64"
             assert content[1]["source"]["media_type"] == "image/png"
