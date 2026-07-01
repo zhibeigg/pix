@@ -134,10 +134,15 @@ def _sprite_prompt_preview(req: JobCreateRequest, cfg: AppConfig) -> PromptPrevi
             max_colors=settings.max_colors,
             style_profile=style_profile,
         )
-        derived_duration = derive_video_bridge_duration_seconds(settings.frame_count, settings.duration_ms)
+        derived_duration = derive_video_bridge_duration_seconds(
+            settings.frame_count,
+            settings.duration_ms,
+            getattr(cfg.video_bridge, "allowed_durations", None),
+        )
         warnings = [
             "首尾帧视频补间会先生成关键帧，再调用 Ark 480p 无声视频任务；单帧尺寸、颜色数、边缘处理与固定去杂色后处理会同步应用。",
-            f"Ark 视频秒数会按序列帧节奏锁定：{settings.frame_count} 帧 × {settings.duration_ms}ms = {settings.frame_count * settings.duration_ms}ms，提交为 {derived_duration}s。",
+            f"Ark 视频秒数会按序列帧节奏推导（{settings.frame_count} 帧 × {settings.duration_ms}ms = {settings.frame_count * settings.duration_ms}ms），"
+            f"并向上吸附到模型支持的时长档位后提交为 {derived_duration}s；抽帧仍按均匀采样取 {settings.frame_count} 帧，不影响最终播放节奏。",
         ]
         if req.sprite.video_return_to_first_frame:
             warnings.append("已启用回到初始帧：视频 motion prompt 会要求先到尾帧，再平滑回到首帧以便循环。")

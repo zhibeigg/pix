@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.103.0] - 2026-07-02
+
+### Added
+
+- 首页「序列帧」展示新增 6 个用 `sprite.mode = "video_bridge"` 首尾帧视频补间真实生成的动画：3 个修仙题材走视频模式（御剑青衣剑修、踏罡雷法道人、吐纳元婴修士），3 个黑魂 / 中世纪题材走「回到首帧」无缝循环（不死巨剑骑士、褪色巡夜人、持盾长矛守卫）。全部经火山方舟 Ark / Seedance 图生视频生成、抽帧、像素化，主体高填充率对齐现有骑士示例（0.85~0.90），回到首帧的 3 个首尾帧差异 <1（远小于相邻帧），无缝循环。
+- 首页序列帧卡片新增「生成模式」徽标：`Mosaic 单图` / `视频补间` / `视频补间·回首帧循环`，并按模式区分布局文案（mosaic 显示 `rows×cols mosaic`，video_bridge 显示 `N 帧横向带`）；`HomepageSpriteExample` 新增 `generationMode` 字段与 `homepageSpriteGenerationModeLabels` 标签表。
+
+### Fixed
+
+- 修复 `sprite.mode = "video_bridge"` 提交 Ark / Seedance 的视频时长可能为非法值（如 8 帧 × 125ms 推导出 1 秒）而被上游以 `InvalidParameter`（`duration ... not valid for model ... in flf2v`）直接拒绝、导致小帧数序列帧视频补间任务无法生成的问题：`derive_video_bridge_duration_seconds` / `video_bridge_timing_meta` 现在会把推导秒数向上吸附到不小于它的最近合法时长档位，新增可配置 `[video_bridge].allowed_durations`（默认对齐 Seedance 2.0 官方 4/5/6/8/10/12/15 秒）。抽帧仍按均匀采样取 N 帧，视频档位被拉长不影响最终 GIF / 序列帧播放节奏；`timing` meta 新增 `raw_duration_seconds` 记录吸附前的原始秒数。
+
 ## [1.102.27] - 2026-07-02
 
 ### Added

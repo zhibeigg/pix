@@ -52,6 +52,7 @@ scripts/_repixelize_status_frames.py
 status_frames_output/
 image-providers-config.md
 scripts/_storyboard_pix_promo.py
+scripts/_gen_homepage_video_sprites.py
 scripts/verify_sprite_mosaic.py
 scripts/smoke_sprite_mosaic.py
 scripts/real_test_sprite_mosaic.py

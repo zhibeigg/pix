@@ -196,9 +196,16 @@ def test_video_bridge_motion_prompt_includes_locked_timing() -> None:
     assert "1000 ms total animation time" in prompt
 
 
-def test_derive_video_bridge_duration_seconds_ceil_to_whole_second() -> None:
-    assert derive_video_bridge_duration_seconds(8, 125) == 1
-    assert derive_video_bridge_duration_seconds(9, 125) == 2
+def test_derive_video_bridge_duration_seconds_snaps_to_allowed_tiers() -> None:
+    # 默认档位对齐 Seedance 2.0：{4,5,6,8,10,12,15}，推导秒数向上吸附到最近合法档位。
+    assert derive_video_bridge_duration_seconds(8, 125) == 4  # 1s -> 4s
+    assert derive_video_bridge_duration_seconds(9, 125) == 4  # 2s -> 4s
+    assert derive_video_bridge_duration_seconds(40, 125) == 5  # 5s -> 5s
+    assert derive_video_bridge_duration_seconds(56, 125) == 8  # 7s -> 8s
+    assert derive_video_bridge_duration_seconds(200, 125) == 15  # 25s -> clamp 15s
+    # 自定义档位可覆盖默认值。
+    assert derive_video_bridge_duration_seconds(8, 125, (2, 3, 10)) == 2
+    assert derive_video_bridge_duration_seconds(80, 125, (2, 3, 10)) == 10
 
 
 def test_start_video_task_uses_sprite_timing_for_ark_duration(tmp_path, monkeypatch) -> None:
@@ -250,16 +257,17 @@ def test_start_video_task_uses_sprite_timing_for_ark_duration(tmp_path, monkeypa
             notify=lambda _step, _payload: None,
         )
 
-    assert captured["duration"] == 1
-    assert "source video duration is locked to 1 second(s)" in str(captured["prompt"])
+    assert captured["duration"] == 4
+    assert "source video duration is locked to 4 second(s)" in str(captured["prompt"])
     assert exc_info.value.state["timing"] == {
         "source": "sprite_timing",
         "frame_count": 8,
         "frame_duration_ms": 125,
         "total_duration_ms": 1000,
-        "ark_duration_seconds": 1,
+        "raw_duration_seconds": 1,
+        "ark_duration_seconds": 4,
     }
-    assert exc_info.value.state["duration"] == 1
+    assert exc_info.value.state["duration"] == 4
     assert exc_info.value.state["configured_duration"] == 5
     assert exc_info.value.state["duration_source"] == "sprite_timing"
 

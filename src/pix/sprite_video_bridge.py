@@ -114,27 +114,65 @@ def next_poll_at(cfg: AppConfig) -> str:
     return _iso(_utcnow() + timedelta(seconds=interval))
 
 
-def derive_video_bridge_duration_seconds(frame_count: int, duration_ms: int) -> int:
+_DEFAULT_ALLOWED_DURATIONS: tuple[int, ...] = (4, 5, 6, 8, 10, 12, 15)
+
+
+def _snap_to_allowed_duration(seconds: int, allowed_durations: tuple[int, ...] | list[int] | None) -> int:
+    """把推导出的秒数向上吸附到最近的合法视频时长档位。
+
+    Seedance / Ark 只接受离散时长档位（如 4/5/6/8/10/12/15 秒），
+    非法值会被上游以 InvalidParameter 拒绝。这里选择「不小于推导秒数的最小合法档位」，
+    保证生成视频不短于目标动画时长；若推导秒数超过所有档位，则取最大档位。
+
+    `allowed_durations` 为 None 时使用 Seedance 默认档位；显式传入空序列表示不吸附（保留原始秒数）。
+    """
+    safe_seconds = max(1, int(seconds))
+    if allowed_durations is None:
+        allowed_durations = _DEFAULT_ALLOWED_DURATIONS
+    tiers = sorted({int(v) for v in allowed_durations if int(v) > 0})
+    if not tiers:
+        return safe_seconds
+    for tier in tiers:
+        if tier >= safe_seconds:
+            return tier
+    return tiers[-1]
+
+
+def derive_video_bridge_duration_seconds(
+    frame_count: int,
+    duration_ms: int,
+    allowed_durations: tuple[int, ...] | list[int] | None = None,
+) -> int:
     """按序列帧播放节奏推导 Ark 视频秒数。
 
     video_bridge 的抽帧时间轴必须跟最终序列帧一致：N 帧 × 每帧间隔。
-    Ark 当前 duration 使用秒级整数，非整秒时向上取整，避免生成视频短于目标动画。
+    先按 `frame_count × duration_ms` 向上取整到整秒，再向上吸附到最近的合法视频时长档位
+    （Seedance / Ark 只接受离散档位），避免生成视频短于目标动画或被上游拒绝。
+    抽帧时仍按均匀采样取 N 帧，因此视频档位被拉长不影响最终序列帧 / GIF 的播放节奏。
     """
     safe_frame_count = max(1, int(frame_count))
     safe_duration_ms = max(1, int(duration_ms))
-    return max(1, (safe_frame_count * safe_duration_ms + 999) // 1000)
+    raw_seconds = max(1, (safe_frame_count * safe_duration_ms + 999) // 1000)
+    return _snap_to_allowed_duration(raw_seconds, allowed_durations)
 
 
-def video_bridge_timing_meta(frame_count: int, duration_ms: int) -> dict[str, Any]:
+def video_bridge_timing_meta(
+    frame_count: int,
+    duration_ms: int,
+    allowed_durations: tuple[int, ...] | list[int] | None = None,
+) -> dict[str, Any]:
     safe_frame_count = max(1, int(frame_count))
     safe_duration_ms = max(1, int(duration_ms))
     total_ms = safe_frame_count * safe_duration_ms
+    raw_seconds = max(1, (total_ms + 999) // 1000)
+    ark_seconds = _snap_to_allowed_duration(raw_seconds, allowed_durations)
     return {
         "source": "sprite_timing",
         "frame_count": safe_frame_count,
         "frame_duration_ms": safe_duration_ms,
         "total_duration_ms": total_ms,
-        "ark_duration_seconds": derive_video_bridge_duration_seconds(safe_frame_count, safe_duration_ms),
+        "raw_duration_seconds": raw_seconds,
+        "ark_duration_seconds": ark_seconds,
     }
 
 
@@ -191,6 +229,12 @@ def _video_input_size(cfg: AppConfig) -> tuple[int, int]:
         except (TypeError, ValueError):
             pass
     return (640, 640)
+
+
+def _video_allowed_durations(cfg: AppConfig) -> tuple[int, ...]:
+    raw = getattr(cfg.video_bridge, "allowed_durations", None)
+    tiers = tuple(sorted({int(v) for v in (raw or ()) if int(v) > 0}))
+    return tiers or (4, 5, 6, 8, 10, 12, 15)
 
 
 def _prompt_guard_max_chars(cfg: AppConfig) -> int:
@@ -1080,7 +1124,7 @@ def _start_video_task(
     first_data_url = _data_url_from_png(first_video_path, max_bytes)
     last_data_url = _data_url_from_png(last_video_path, max_bytes)
     frame_count = max(2, int(settings.frame_count))
-    timing_meta = video_bridge_timing_meta(frame_count, settings.duration_ms)
+    timing_meta = video_bridge_timing_meta(frame_count, settings.duration_ms, _video_allowed_durations(cfg))
     ark_duration_seconds = int(timing_meta["ark_duration_seconds"])
     return_to_first_frame = bool(inputs.video_return_to_first_frame)
     ark_last_frame_data_url = first_data_url if return_to_first_frame else last_data_url
@@ -1605,7 +1649,7 @@ def _finalize_outputs(
 
     compiled_style = compile_style_profile(inputs.style_profile)
     frame_report = _frame_size_report(settings.target_size, effective_size)
-    timing_meta = video_bridge_timing_meta(settings.frame_count, settings.duration_ms)
+    timing_meta = video_bridge_timing_meta(settings.frame_count, settings.duration_ms, _video_allowed_durations(cfg))
     state = _load_file_state(run_dir)
     meta = {
         "version": __version__,

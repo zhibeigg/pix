@@ -1,11 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react'
-import { Check, ChevronLeft, ChevronRight, Copy, Download, Heart, Pause, Play, Settings2 } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Copy, Download, Grid2x2, Heart, Pause, Play, RefreshCw, Settings2, Video } from 'lucide-react'
 import { publicApiUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import { homepageExampleIconSizes, homepageExampleItemIcons, getHomepageIconsForExample, type HomepageExampleItemIcon } from '../homepageIconExamples'
 import { homepageExampleCategories, homepageExamples, getHomepageExampleItemSubject, getHomepageExampleItemSubjectPrompt, getHomepageExampleLabel, type HomepageExample } from '../homepageExamples'
 import { homepageTextureExamples, homepageTextureCategoriesInUse, getHomepageTextureLabel, type HomepageTextureExample, type HomepageTextureCategory } from '../homepageTextureExamples'
-import { homepageSpriteExamples, homepageSpriteCategoriesInUse, getHomepageSpriteLabel, type HomepageSpriteExample, type HomepageSpriteCategory } from '../homepageSpriteExamples'
+import { homepageSpriteExamples, homepageSpriteCategoriesInUse, homepageSpriteGenerationModeLabels, getHomepageSpriteLabel, type HomepageSpriteExample, type HomepageSpriteCategory } from '../homepageSpriteExamples'
 import { homepageShowcaseExamples, homepageShowcaseKindsInUse, homepageShowcaseModelLabels, homepageShowcaseModelsInUse, getHomepageShowcaseLabel, type HomepageShowcaseExample, type HomepageShowcaseKind, type HomepageShowcaseModel } from '../homepageShowcaseExamples'
 import type { SharedWork, User } from '../types'
 import { Badge } from './ui/badge'
@@ -661,8 +661,8 @@ function SpriteAtlas() {
         <div className="grid items-start gap-6 lg:grid-cols-[.86fr_1.14fr]">
           <div>
             <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('序列帧', 'Sprite sheet')}</Badge>
-            <h3 className="mt-5 text-3xl font-semibold md:text-5xl">{text('一次 API 出图，rows×cols 全帧 mosaic 直出', 'One API call: every frame in a single rows×cols mosaic')}</h3>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('序列帧走 mosaic 单图模式：1 次生图就能拿到 rows×cols 网格上的所有动画帧，后处理切片、对齐、抠色、像素化一气呵成，落盘的是一条横向 sprite sheet。卡片左侧是产物原图，右侧是浏览器内 CSS background-position 切帧实时播放，不依赖 GIF。', 'Sprite sheets use the mosaic single-image mode: a single API call produces every frame of a rows×cols grid; post-processing slices, aligns, keys out the background, and pixelizes them into one horizontal sprite sheet. The left side of each card shows the raw sheet; the right side plays it live in the browser with CSS background-position frame stepping — no GIF needed.')}</p>
+            <h3 className="mt-5 text-3xl font-semibold md:text-5xl">{text('一次 API 出图，或用视频补间生成序列帧', 'Sprite sheets from one API call — or video-bridged frames')}</h3>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('序列帧支持两条链路：mosaic 单图模式 1 次生图拿到 rows×cols 全帧网格；video_bridge 视频补间先生成首/尾关键帧，再调用火山方舟 Ark 图生视频补间、抽帧成序列帧，其中「回到首帧」会让末帧对齐首帧做无缝循环。后处理统一切片、对齐、抠色、像素化并紧致裁剪成一条横向 sprite sheet。卡片左侧是产物原图，右侧是浏览器内 CSS background-position 切帧实时播放，不依赖 GIF。', 'Sprite sheets come from two pipelines: the mosaic single-image mode renders the full rows×cols frame grid in one API call, while video_bridge generates start/end keyframes and calls Volcano Ark image-to-video to interpolate and sample frames — the “return to first frame” variant aligns the last frame back to the first for a seamless loop. Post-processing slices, aligns, keys out the background, pixelizes, and tightly crops everything into one horizontal sprite sheet. The left side of each card shows the raw sheet; the right side plays it live in the browser with CSS background-position frame stepping — no GIF needed.')}</p>
           </div>
           <div className="grid gap-3 rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/60 p-4 dark:border-white/10 dark:bg-white/7">
             <div className="grid grid-cols-3 gap-2 text-center">
@@ -713,6 +713,19 @@ const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpri
   const sheetSize = `${example.sheetWidth}×${example.sheetHeight}`
   const frameSize = `${example.frameWidth}×${example.frameHeight}`
   const mosaicLabel = `${example.mosaicRows}×${example.mosaicCols}`
+  const modeMeta = homepageSpriteGenerationModeLabels[example.generationMode]
+  const modeLabel = {
+    label: language === 'en' ? modeMeta.en : modeMeta.zh,
+    hint: language === 'en' ? modeMeta.hintEn : modeMeta.hint,
+  }
+  const modeBadgeClass =
+    example.generationMode === 'video_bridge_loop'
+      ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+      : example.generationMode === 'video_bridge'
+        ? 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300'
+        : 'border-border bg-muted/50 text-muted-foreground'
+  // mosaic 模式展示 rows×cols 网格结构；video_bridge 抽帧后是 1 行 N 列的横向帧带。
+  const layoutLabel = example.generationMode === 'mosaic' ? `${mosaicLabel} mosaic` : text(`${example.frameCount} 帧横向带`, `${example.frameCount}-frame strip`)
 
   useEffect(() => {
     const node = previewRef.current
@@ -753,7 +766,7 @@ const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpri
         <div className="pix-checkerboard grid h-28 place-items-center overflow-hidden rounded-md border border-border bg-card p-2 dark:bg-[hsl(var(--pix-dark-band))]">
           <img
             src={example.src}
-            alt={text(`${label.theme} sprite sheet 原图，${mosaicLabel} mosaic 共 ${example.frameCount} 帧`, `${label.theme} raw sprite sheet, ${mosaicLabel} mosaic with ${example.frameCount} frames`)}
+            alt={text(`${label.theme} sprite sheet 原图，${layoutLabel} 共 ${example.frameCount} 帧`, `${label.theme} raw sprite sheet, ${layoutLabel} with ${example.frameCount} frames`)}
             loading="lazy"
             decoding="async"
             draggable={false}
@@ -762,7 +775,7 @@ const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpri
         </div>
       </a>
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] font-mono text-muted-foreground">
-        <span>{text(`原图 ${sheetSize} · ${mosaicLabel} mosaic`, `Sheet ${sheetSize} · ${mosaicLabel} mosaic`)}</span>
+        <span>{text(`原图 ${sheetSize} · ${layoutLabel}`, `Sheet ${sheetSize} · ${layoutLabel}`)}</span>
         <span>{text(`${example.frameCount} 帧 · 单帧 ${frameSize}`, `${example.frameCount} frames · ${frameSize} each`)}</span>
       </div>
 
@@ -801,6 +814,17 @@ const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpri
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{label.theme}</p>
           <p className="mt-1 truncate text-xs text-muted-foreground">{label.category} · {example.number} · {label.subject}</p>
+          <div className="mt-1.5">
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${modeBadgeClass}`}
+              title={modeLabel.hint}
+            >
+              {example.generationMode === 'video_bridge_loop' && <RefreshCw className="h-3 w-3" />}
+              {example.generationMode === 'video_bridge' && <Video className="h-3 w-3" />}
+              {example.generationMode === 'mosaic' && <Grid2x2 className="h-3 w-3" />}
+              {modeLabel.label}
+            </span>
+          </div>
           <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{label.prompt}</p>
           {label.rowPrompts.length > 0 && (
             <ul className="mt-1.5 grid gap-0.5">
