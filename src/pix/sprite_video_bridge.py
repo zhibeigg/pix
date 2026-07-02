@@ -17,7 +17,7 @@ import numpy as np
 from PIL import Image
 
 from pix import __version__
-from pix.api.ark_video import ArkVideoClient
+from pix.api.ark_video import ArkVideoClient, ArkVideoError
 from pix.api.image_dispatcher import clear_image_provider_history, image_provider_history
 from pix.api.image_gen import edit_image, generate_image
 from pix.api.packy_client import make_packy_client
@@ -214,6 +214,68 @@ def is_waiting_state_expired(state: Mapping[str, Any], cfg: AppConfig, now: date
     return started + timedelta(seconds=timeout) <= (now or _utcnow())
 
 
+_RETRYABLE_ARK_ERROR_CATEGORIES = {
+    "network",
+    "timeout",
+    "rate_limit",
+    "server_error",
+    "empty_response",
+    "malformed_response",
+    "provider_unavailable",
+}
+
+
+def _ark_error_is_retryable(exc: ArkVideoError) -> bool:
+    category = str(getattr(exc, "category", "") or "")
+    return bool(getattr(exc, "retryable", False)) or category in _RETRYABLE_ARK_ERROR_CATEGORIES
+
+
+def _transient_error_count(state: Mapping[str, Any]) -> int:
+    try:
+        return max(0, int(state.get("transient_error_count") or 0)) + 1
+    except (TypeError, ValueError):
+        return 1
+
+
+def _wait_after_transient_ark_issue(
+    cfg: AppConfig,
+    state: Mapping[str, Any],
+    run_dir: Path,
+    *,
+    stage: str,
+    message: str,
+    category: str,
+    status_code: int | None = None,
+    retryable: bool = True,
+    exc: BaseException | None = None,
+) -> None:
+    error_meta: dict[str, Any] = {
+        "stage": stage,
+        "message": message[:1000],
+        "category": category,
+        "retryable": bool(retryable),
+        "at": _iso(_utcnow()),
+    }
+    if status_code is not None:
+        error_meta["status_code"] = status_code
+    updated = {
+        **dict(state),
+        "stage": stage,
+        "last_transient_error": error_meta,
+        "transient_error_count": _transient_error_count(state),
+        "next_poll_at": next_poll_at(cfg),
+    }
+    _write_state(run_dir, updated)
+    waiting = VideoBridgeWaiting(
+        f"Ark 视频任务暂时无法完成：{message[:500]}",
+        state=updated,
+        run_dir=run_dir,
+    )
+    if exc is not None:
+        raise waiting from exc
+    raise waiting
+
+
 def _write_state(run_dir: Path, state: dict[str, Any]) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "video_bridge_state.json").write_text(
@@ -371,16 +433,16 @@ def build_video_bridge_keyframe_prompt(
     )
     prompt = (
         "Create ONE image containing exactly two side-by-side panels for a pixel-art animation bridge. "
-        f"Subject identity: {description}. Action to interpolate: {action_prompt}. "
-        "Left panel: the exact START pose of the action. Right panel: the exact END pose of the same action. "
-        "The same character or object must keep identical identity, costume, palette, outline thickness, scale, proportions, and ground footprint in both panels. "
+        f"Subject definition: {description}. Keep this exact same subject in both panels: same identity, costume/equipment, silhouette, palette, outline thickness, scale, proportions, and ground footprint. "
+        f"Action to interpolate: {action_prompt}. Left panel is START pose / first_frame. Right panel is END pose / last_frame. "
+        "Make the two poses compatible for smooth in-between animation: the END pose should be a readable continuation of the START pose, not a different character, not a camera change, and not a scene change. "
         "Each pose must stay completely inside its own half of the image: the left pose cannot cross the vertical midpoint, the right pose cannot cross into the left half, and there must be a wide empty key-color gutter between the two poses. "
-        "Use a flat orthographic game-sprite view with no camera perspective change. "
+        "Use one fixed flat orthographic game-sprite view for both panels; no perspective shift, no zoom, no pan, no cut. "
         f"Fill every empty/background pixel in both panels with one perfectly uniform key color {key_color}; no gradients, no shadows on the background, no texture in the background. "
-        "Leave clear empty key-color margin around the subject in both panels. "
+        "Leave clear empty key-color margin around the subject, weapon tips, clothing, smoke, particles, trails, shadows, and all effects in both panels. "
         f"{parameter_clause} "
-        "Do not add text, labels, arrows, watermark, UI, frame numbers, borders, panel dividers, or extra poses. "
-        "Crisp pixel art, hard edges, limited palette, no painterly blending, no anti-aliased soft brush."
+        "Keep the image clean: no subtitles, no generated words, no text, no labels, no arrows, no Logo, no watermark, no UI, no frame numbers, no borders, no panel dividers, no extra poses, and no duplicate clone/twin subject. "
+        "Crisp TRUE pixel art, hard square edges, limited palette, no painterly blending, no anti-aliased soft brush."
     )
     if style_prompt:
         prompt = f"{prompt} {style_prompt}"
@@ -430,22 +492,24 @@ def build_video_bridge_motion_prompt(
         else ""
     )
     endpoint_clause = (
-        "The first and final video frames must both match the provided first_frame image. The provided last_frame image is the peak/action target pose that should be reached during the middle or later part of the animation before returning to first_frame. "
+        "Endpoint contract: the first and final video frames must both match the provided first_frame image. The provided last_frame image is the peak/action target pose that should be reached during the middle or later part of the animation before returning to first_frame. "
         if return_to_first_frame
-        else "The first frame must match the provided first_frame image and the final frame must match the provided last_frame image. "
+        else "Endpoint contract: the first frame must match the provided first_frame image and the final frame must match the provided last_frame image. "
     )
     return (
-        f"Create a short continuous pixel-art motion interpolation for this subject: {description}. "
-        f"Motion: {action_prompt}. {endpoint_clause}"
+        "Seedance prompt structure: precise subject + action timing + fixed camera + pixel-art style + constraints. "
+        f"Subject definition: {description}. Preserve this exact same subject for the entire video: same identity, costume/equipment, silhouette, proportions, palette, outline thickness, scale, and ground footprint; never create a clone, twin, duplicate subject, or identity swap. "
+        f"Motion request: {action_prompt}. {endpoint_clause}"
         f"{frame_clause}{timing_clause}{return_clause}Use smooth evenly spaced in-between poses with small consistent changes between adjacent frames; no sudden jumps, no duplicated frozen frames, no skipped action phases. "
+        "Describe the motion as concrete body/equipment changes: hands, feet, head, shoulders, cloak, weapon, smoke, particles, and trails should move with clear low-amplitude continuous transitions and natural inertia. "
+        "Camera: keep one fixed orthographic game-sprite camera / fixed camera angle for the whole clip; no cuts, no zoom, no camera pan, no camera orbit, no perspective shift, and no background changes. "
         f"{parameter_clause} "
         "Every frame must be TRUE pixel art: visible pixels are crisp square pixel blocks aligned to a stable pixel grid, with hard edges, limited palette, no anti-aliasing, no motion blur, no painterly smoothing, no subpixel smearing, and no soft interpolated gradients. "
         "Pixel-block orientation rule: all visible pixel blocks must remain axis-aligned horizontal/vertical square tiles on one upright pixel grid; never rotate, tilt, shear, skew, diamond-turn, or slant the pixel blocks to simulate motion. Express motion only by changing whole square-pixel positions, silhouettes, and poses on the upright grid, not by rotating chunks of pixels. "
-        "Keep a fixed orthographic game-sprite camera, identical character identity, proportions, palette, outline thickness, and scale for the entire video. "
         "The entire subject silhouette must remain fully inside the frame for every frame: hood, cloak, limbs, weapon, smoke, magic particles, trails, and all effects must stay visible with clear key-color padding on all four edges. "
         "Pixel-boundary rule: only the flat key-color background may touch the canvas edges; every non-background / non-key-color pixel is foreground and must stay completely inside the interior safe area, with at least 10% key-color margin from every canvas edge, including stray particles, smoke wisps, weapon tips, shadows, highlights, trails, and effects. "
         "Never crop, clip, truncate, or let any foreground pixel touch or cross the frame boundary; if the motion would extend outward, keep the subject centered and scale the motion down instead of moving outside the canvas. "
-        "No cuts, no zoom, no camera pan, no background changes. No text, no logo, no watermark, no UI. Keep the flat key-color background consistent."
+        "Clean output constraints: keep no subtitles, avoid any text or captions, do not generate Logo, do not generate watermark, no UI, no labels, and no frame numbers. Keep the flat key-color background perfectly consistent."
     )
 
 
@@ -951,11 +1015,11 @@ def _motion_prompt_optimizer_instruction(
         else ""
     )
     return (
-        "You are optimizing a video-generation prompt for a pixel-art sprite animation. "
-        "Inspect the provided first_frame and last_frame images, then write a concise motion plan that helps the video model create fluid, coherent in-betweens. "
-        "Do not override safety or product constraints. Preserve the subject identity and the exact start/end poses. "
+        "You are optimizing a Seedance video-generation prompt for a pixel-art sprite animation. "
+        "Inspect the provided first_frame and last_frame images, then write a concise engineering-style motion plan: subject identity, ordered action beats, one fixed camera, pixel-art style, and constraints. "
+        "Do not override safety or product constraints. Preserve the subject identity and the exact start/end poses. Do not introduce a new character, duplicate twin, subtitle, Logo, watermark, UI, or scene change. "
         f"{loop_instruction}"
-        "The plan must emphasize: continuous readable motion, evenly spaced intermediate poses, every sampled frame as crisp grid-aligned TRUE pixel art, no anti-aliasing, no blur, no painterly smoothing, fixed orthographic camera, no zoom/pan/cuts, and all subject parts/effects staying fully inside the frame with key-color padding. "
+        "The plan must emphasize: continuous readable motion, evenly spaced intermediate poses, concrete body/equipment transitions, every sampled frame as crisp grid-aligned TRUE pixel art, no anti-aliasing, no blur, no painterly smoothing, fixed orthographic camera, no zoom/pan/cuts, and all subject parts/effects staying fully inside the frame with key-color padding. "
         "Pixel-block orientation rule: every visible pixel block must stay axis-aligned as horizontal/vertical square tiles on one upright pixel grid; never rotate, tilt, shear, skew, diamond-turn, or slant pixel blocks to fake motion. The motion plan should describe changes in whole square-pixel positions, silhouettes, and poses, not rotated pixel chunks. "
         "Pixel-boundary rule: only the flat key-color background is allowed to touch canvas edges; every non-background / non-key-color pixel is foreground and must remain inside the interior safe area with at least 10% key-color margin from every canvas edge, including stray particles, smoke wisps, weapon tips, shadows, highlights, trails, and effects. "
         "Mention weapons, cloak, smoke, particles, trails, and other moving parts only as controlled in-frame foreground elements that never touch or cross the boundary. "
@@ -1232,8 +1296,24 @@ def _poll_video_task(cfg: AppConfig, state: dict[str, Any], run_dir: Path) -> Pa
     task_id = str(state.get("ark_task_id") or "").strip()
     if not task_id:
         raise ValueError("video_bridge_state 缺少 ark_task_id")
-    task = ArkVideoClient(cfg).get_task(task_id)
-    state = {**state, "last_status": task.status, "ark_last": task.raw}
+    client = ArkVideoClient(cfg)
+    try:
+        task = client.get_task(task_id)
+    except ArkVideoError as exc:
+        if _ark_error_is_retryable(exc):
+            _wait_after_transient_ark_issue(
+                cfg,
+                state,
+                run_dir,
+                stage="ark_poll_transient_error",
+                message=str(exc),
+                category=str(getattr(exc, "category", "ark_poll_error") or "ark_poll_error"),
+                status_code=getattr(exc, "status_code", None),
+                retryable=True,
+                exc=exc,
+            )
+        raise
+    state = {**state, "stage": "ark_waiting", "last_status": task.status, "ark_last": task.raw}
     if task.status in _WAITING_STATUSES:
         state["next_poll_at"] = next_poll_at(cfg)
         _write_state(run_dir, state)
@@ -1248,9 +1328,31 @@ def _poll_video_task(cfg: AppConfig, state: dict[str, Any], run_dir: Path) -> Pa
         raise VideoBridgeWaiting(f"Ark 视频任务状态 {task.status}，等待下一次查询", state=state, run_dir=run_dir)
     video_url = task.video_url
     if not video_url:
-        raise RuntimeError("Ark 视频任务成功但未返回 video_url")
+        _wait_after_transient_ark_issue(
+            cfg,
+            state,
+            run_dir,
+            stage="ark_video_url_pending",
+            message="Ark 视频任务成功但 content.video_url 暂未就绪",
+            category="video_url_pending",
+        )
     video_path = run_dir / "ark_video.mp4"
-    ArkVideoClient(cfg).download_video(video_url, video_path)
+    try:
+        client.download_video(video_url, video_path)
+    except ArkVideoError as exc:
+        if _ark_error_is_retryable(exc):
+            _wait_after_transient_ark_issue(
+                cfg,
+                state,
+                run_dir,
+                stage="ark_download_transient_error",
+                message=str(exc),
+                category=str(getattr(exc, "category", "ark_download_error") or "ark_download_error"),
+                status_code=getattr(exc, "status_code", None),
+                retryable=True,
+                exc=exc,
+            )
+        raise
     state.update(
         {
             "stage": "video_downloaded",

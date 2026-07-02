@@ -157,7 +157,13 @@ class ArkVideoClient:
                             if chunk:
                                 fh.write(chunk)
         except UnsafeDownloadURLError as exc:
-            raise ArkVideoError(str(exc), category="network", provider_id="ark_video") from exc
+            retryable = bool(getattr(exc, "retryable", False))
+            raise ArkVideoError(
+                str(exc),
+                category="network" if retryable else "client_error",
+                provider_id="ark_video",
+                retryable=retryable,
+            ) from exc
         except httpx.TimeoutException as exc:
             raise ArkVideoError(str(exc), category="timeout", provider_id="ark_video") from exc
         except httpx.HTTPError as exc:

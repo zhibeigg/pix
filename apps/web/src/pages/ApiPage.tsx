@@ -243,7 +243,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
     "image_model": "image2"
   }'
 
-# 首尾帧视频补间：sprite.video_model 可选 Standard / Fast / Mini 三档并透传 Ark；点数按 4–15 秒价格表精确计算（Standard 47/57/66/75/84/94/103/112/121/131/140/149，Fast 40/48/55/62/70/77/85/92/100/107/114/122，Mini 29/34/38/43/47/52/57/61/66/70/75/80）；先生成首/尾关键帧，VL 可用时会优化连贯像素动作 prompt；Ark 视频秒数按 rows×cols×duration_ms 锁定；video_return_to_first_frame=true 会要求尾帧后回到首帧以便循环
+# 首尾帧视频补间：sprite.video_model 可选 Standard / Fast / Mini 三档并透传 Ark；点数按 4–15 秒价格表精确计算（Standard 47/57/66/75/84/94/103/112/121/131/140/149，Fast 40/48/55/62/70/77/85/92/100/107/114/122，Mini 29/34/38/43/47/52/57/61/66/70/75/80）；先按 Seedance 指南生成首/尾关键帧和结构化 motion prompt，再以 role=first_frame / last_frame 提交 Ark；Ark 视频秒数按 rows×cols×duration_ms 锁定；video_return_to_first_frame=true 会要求尾帧后回到首帧以便循环
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
@@ -492,7 +492,7 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
         <CodeBlock title={text('6. 创建图生图 / 参考图重绘任务', '6. Create an image-to-image job')} description={text('先上传图片，再把上传结果 path 放到 input_image_path。', 'Upload an image first, then pass the returned path as input_image_path.')} code={imageCurl} copied={copied} onCopy={(code) => void copy(code, 'image')} copyKey="image" />
         <CodeBlock title={text('7. 创建本地去背景任务', '7. Create a local background-removal job')} description={text('先上传图片，再选择 pixel_bg（像素）或 color_to_alpha（高清）算法；不调用 AI。', 'Upload an image first, then choose pixel_bg (pixel) or color_to_alpha (HD); no AI call is made.')} code={bgRemoveCurl} copied={copied} onCopy={(code) => void copy(code, 'bg-remove')} copyKey="bg-remove" />
         <CodeBlock title={text('8. 创建序列帧任务', '8. Create a sprite-sheet job')} description={text('用于角色行走、攻击、待机等动画；rows × cols 决定动作行和帧数，可传入角色库 image_path 作为 reference_image_path。', 'Use this for walk, attack, idle, and other animations; rows × cols controls action rows and frame count. You can pass a character image_path as reference_image_path.')} code={spriteCurl} copied={copied} onCopy={(code) => void copy(code, 'sprite')} copyKey="sprite" />
-        <CodeBlock title={text('9. 轮询任务和分页列表', '9. Poll jobs and list pages')} description={text('任务状态通常为 pending / running / waiting / succeeded / failed；video_bridge 在 Ark 视频生成期间会显示 waiting。', 'Job status is usually pending / running / waiting / succeeded / failed; video_bridge shows waiting while Ark renders.')} code={pollCurl} copied={copied} onCopy={(code) => void copy(code, 'poll')} copyKey="poll" />
+        <CodeBlock title={text('9. 轮询任务和分页列表', '9. Poll jobs and list pages')} description={text('任务状态通常为 pending / running / waiting / succeeded / failed；video_bridge 在 Ark 视频生成期间会显示 waiting，可重试的 Ark 上游/网络/超时错误也会保持 waiting 后续重试。', 'Job status is usually pending / running / waiting / succeeded / failed; video_bridge shows waiting while Ark renders, and retryable Ark upstream/network/timeout errors stay waiting for later retries.')} code={pollCurl} copied={copied} onCopy={(code) => void copy(code, 'poll')} copyKey="poll" />
         <CodeBlock title={text('10. 下载输出文件', '10. Download output files')} description={text('下载接口需要 files:read 权限；文件不存在或任务未完成时会返回 404 / 409。', 'Download endpoints require files:read; unavailable files or unfinished jobs return 404 / 409.')} code={downloadCurl} copied={copied} onCopy={(code) => void copy(code, 'download')} copyKey="download" />
       </section>
     </div>

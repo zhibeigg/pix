@@ -6,7 +6,9 @@ import pytest
 from fastapi import HTTPException
 from PIL import Image, ImageDraw
 
+from pix.api.ark_video import ArkVideoClient, ArkVideoError
 from pix.config import AppConfig
+from pix.net_guard import UnsafeDownloadURLError
 from pix.pixelize.core import PixelizeParams
 from pix.pixelize.perfect_pixel import GeneratedPreprocessResult
 from pix.sprite_video_bridge import (
@@ -16,6 +18,7 @@ from pix.sprite_video_bridge import (
     derive_video_bridge_duration_seconds,
     _optimize_video_bridge_motion_prompt,
     _prepare_video_keyframes,
+    _poll_video_task,
     _process_frames,
     _split_keyframes,
     _start_video_task,
@@ -32,6 +35,92 @@ def _video_cfg() -> AppConfig:
     cfg.video_bridge.enabled = True
     cfg.video_bridge.api_key = "test-ark-key"
     return cfg
+
+
+def test_ark_video_client_create_task_uses_official_first_last_frame_payload(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeHttp:
+        def __init__(self, **kwargs):
+            captured["init"] = kwargs
+
+        def post_json(self, path, payload):
+            captured["path"] = path
+            captured["payload"] = payload
+            return {"id": "cgt-test-1"}
+
+    monkeypatch.setattr("pix.api.ark_video.ProviderHttpClient", FakeHttp)
+
+    result = ArkVideoClient(_video_cfg()).create_task(
+        prompt="固定机位，像素骑士挥剑。",
+        first_frame_data_url="data:image/png;base64,first",
+        last_frame_data_url="data:image/png;base64,last",
+        model="doubao-seedance-2-0-260128",
+        resolution="480p",
+        ratio="1:1",
+        duration=4,
+        generate_audio=False,
+        watermark=False,
+    )
+
+    assert result.id == "cgt-test-1"
+    assert captured["path"] == "/contents/generations/tasks"
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert payload["model"] == "doubao-seedance-2-0-260128"
+    assert payload["duration"] == 4
+    assert payload["content"][0] == {"type": "text", "text": "固定机位，像素骑士挥剑。"}
+    assert payload["content"][1] == {
+        "type": "image_url",
+        "image_url": {"url": "data:image/png;base64,first"},
+        "role": "first_frame",
+    }
+    assert payload["content"][2] == {
+        "type": "image_url",
+        "image_url": {"url": "data:image/png;base64,last"},
+        "role": "last_frame",
+    }
+
+
+def test_ark_video_client_get_task_reads_content_video_url(monkeypatch) -> None:
+    class FakeHttp:
+        def __init__(self, **_kwargs):
+            pass
+
+        def get_json(self, path):
+            assert path == "/contents/generations/tasks/cgt-test-1"
+            return {
+                "id": "cgt-test-1",
+                "status": "succeeded",
+                "content": {"video_url": "https://example.com/video.mp4"},
+                "duration": 4,
+                "framespersecond": 24,
+            }
+
+    monkeypatch.setattr("pix.api.ark_video.ProviderHttpClient", FakeHttp)
+
+    task = ArkVideoClient(_video_cfg()).get_task("cgt-test-1")
+
+    assert task.status == "succeeded"
+    assert task.video_url == "https://example.com/video.mp4"
+    assert task.duration == 4
+    assert task.framespersecond == 24
+
+
+def test_ark_video_client_download_video_preserves_retryable_safe_get_error(tmp_path, monkeypatch) -> None:
+    def fake_safe_get_with_redirects(*_args, **_kwargs):
+        exc = UnsafeDownloadURLError("temporary upstream DNS failure")
+        exc.retryable = True
+        raise exc
+
+    monkeypatch.setattr("pix.api.ark_video.safe_get_with_redirects", fake_safe_get_with_redirects)
+
+    with pytest.raises(ArkVideoError) as exc_info:
+        ArkVideoClient(_video_cfg()).download_video("https://example.com/video.mp4", tmp_path / "video.mp4")
+
+    assert exc_info.value.category == "network"
+    assert exc_info.value.retryable is True
+
 
 
 def test_sprite_params_defaults_to_mosaic() -> None:
@@ -163,6 +252,12 @@ def test_video_bridge_motion_prompt_keeps_subject_inside_frame_and_pixel_grid() 
     assert "Never crop, clip, truncate" in prompt
     assert "foreground pixel touch or cross the frame boundary" in prompt
     assert "scale the motion down" in prompt
+    assert "Seedance prompt structure" in prompt
+    assert "fixed orthographic game-sprite camera" in prompt
+    assert "no subtitles" in prompt
+    assert "do not generate Logo" in prompt
+    assert "do not generate watermark" in prompt
+    assert "duplicate subject" in prompt
     assert "Loop-return requirement" not in prompt
 
 
@@ -421,6 +516,88 @@ def test_waiting_state_due_parses_iso_time() -> None:
     assert is_waiting_state_due({"next_poll_at": (now - timedelta(seconds=1)).isoformat()}, now=now)
     assert not is_waiting_state_due({"next_poll_at": (now + timedelta(seconds=30)).isoformat()}, now=now)
     assert is_waiting_state_due({}, now=now)
+
+
+def test_poll_video_task_keeps_waiting_on_retryable_ark_poll_error(tmp_path, monkeypatch) -> None:
+    cfg = _video_cfg()
+    cfg.video_bridge.poll_interval_seconds = 1
+
+    class FakeArkVideoClient:
+        def __init__(self, _cfg):
+            pass
+
+        def get_task(self, _task_id):
+            raise ArkVideoError("temporary gateway timeout", category="timeout", provider_id="ark_video")
+
+    monkeypatch.setattr("pix.sprite_video_bridge.ArkVideoClient", FakeArkVideoClient)
+    state = {"kind": "video_bridge", "ark_task_id": "cgt-test-1", "created_at": datetime.now(timezone.utc).isoformat()}
+
+    with pytest.raises(VideoBridgeWaiting) as exc_info:
+        _poll_video_task(cfg, state, tmp_path)
+
+    waiting_state = exc_info.value.state
+    assert waiting_state["stage"] == "ark_poll_transient_error"
+    assert waiting_state["last_transient_error"]["category"] == "timeout"
+    assert waiting_state["transient_error_count"] == 1
+    assert waiting_state["next_poll_at"]
+    assert (tmp_path / "video_bridge_state.json").exists()
+
+
+def test_poll_video_task_keeps_waiting_on_retryable_download_error(tmp_path, monkeypatch) -> None:
+    cfg = _video_cfg()
+    cfg.video_bridge.poll_interval_seconds = 1
+
+    class FakeTask:
+        status = "succeeded"
+        raw = {"id": "cgt-test-1", "status": "succeeded"}
+        error = None
+        video_url = "https://example.com/video.mp4"
+
+    class FakeArkVideoClient:
+        def __init__(self, _cfg):
+            pass
+
+        def get_task(self, _task_id):
+            return FakeTask()
+
+        def download_video(self, _video_url, _dest):
+            raise ArkVideoError("temporary read timeout", category="timeout", provider_id="ark_video")
+
+    monkeypatch.setattr("pix.sprite_video_bridge.ArkVideoClient", FakeArkVideoClient)
+    state = {"kind": "video_bridge", "ark_task_id": "cgt-test-1", "created_at": datetime.now(timezone.utc).isoformat()}
+
+    with pytest.raises(VideoBridgeWaiting) as exc_info:
+        _poll_video_task(cfg, state, tmp_path)
+
+    waiting_state = exc_info.value.state
+    assert waiting_state["stage"] == "ark_download_transient_error"
+    assert waiting_state["last_status"] == "succeeded"
+    assert waiting_state["last_transient_error"]["category"] == "timeout"
+    assert waiting_state["transient_error_count"] == 1
+    assert waiting_state["next_poll_at"]
+
+
+def test_poll_video_task_fails_on_terminal_ark_status(tmp_path, monkeypatch) -> None:
+    class FakeTask:
+        status = "failed"
+        raw = {"id": "cgt-test-1", "status": "failed"}
+        error = {"code": "InvalidParameter", "message": "bad duration"}
+        video_url = None
+
+    class FakeArkVideoClient:
+        def __init__(self, _cfg):
+            pass
+
+        def get_task(self, _task_id):
+            return FakeTask()
+
+    monkeypatch.setattr("pix.sprite_video_bridge.ArkVideoClient", FakeArkVideoClient)
+    state = {"kind": "video_bridge", "ark_task_id": "cgt-test-1", "created_at": datetime.now(timezone.utc).isoformat()}
+
+    with pytest.raises(RuntimeError) as exc_info:
+        _poll_video_task(_video_cfg(), state, tmp_path)
+
+    assert "Ark 视频任务失败：failed InvalidParameter bad duration" in str(exc_info.value)
 
 
 def test_waiting_state_is_stored_under_sprite_params() -> None:
