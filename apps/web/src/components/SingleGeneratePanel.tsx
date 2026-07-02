@@ -313,6 +313,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const safeRows = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(rows || 1)))
   const safeCols = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(cols || 1)))
   const totalFrames = safeRows * safeCols
+  const playbackFps = Math.max(1, Math.min(60, Math.round(fps || 8)))
+  const playbackSeconds = (totalFrames * Math.max(1, Math.round(1000 / playbackFps))) / 1000
   const billingUnits = Math.max(1, Math.ceil(totalFrames / 9))
   const price = isSprite ? basePrice * billingUnits : basePrice
   const parsedPixelSize = parsePixelSize(pixelSize)
@@ -880,16 +882,16 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
         {isSprite && (
           <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
-            <PixField label={text('生成方式', 'Generation mode')} hint={text('默认 Mosaic：一次生成整张网格；视频补间：生成首/尾关键帧后调用 Ark 视频任务，再抽帧成序列帧。', 'Default Mosaic generates one full grid; video bridge creates start/end keyframes, runs an Ark video task, then extracts frames.') }>
+            <PixField label={text('生成方式', 'Generation mode')} hint={text('默认适合快速生成整张序列帧；连贯动作适合走路、攻击、施法等更顺滑的角色动作。', 'Default is best for quick sprite sheets; smooth action is best for walks, attacks, casts, and other more fluid character motions.') }>
               <Select value={spriteMode} onValueChange={(value) => selectSpriteMode(value as SpriteMode)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mosaic">{text('Mosaic 单图网格（默认）', 'Mosaic single image grid (default)')}</SelectItem>
-                  <SelectItem value="video_bridge">{text('首尾帧视频补间', 'Start/end video bridge')}</SelectItem>
+                  <SelectItem value="mosaic">{text('快速序列帧（默认）', 'Quick sprite sheet (default)')}</SelectItem>
+                  <SelectItem value="video_bridge">{text('连贯动作序列帧', 'Smooth action sequence')}</SelectItem>
                 </SelectContent>
               </Select>
             </PixField>
-            {isSpriteVideoBridge && <Alert variant="info">{text('视频补间会在 Ark 任务生成期间进入“等待视频”状态；单帧尺寸、颜色数、边缘处理会同步写入关键帧 / 视频 Prompt，并在抽帧后执行去杂色与限色。选择下方动画预设即可，无需手动计算视频时长。', 'Video bridge enters a waiting state while Ark renders. Frame size, color count, and edge treatment are injected into the keyframe/video prompts, then denoise and palette limiting run after frame extraction. Just pick an animation preset below — no need to compute the video duration yourself.')}</Alert>}
+            {isSpriteVideoBridge && <Alert variant="info">{text('想要更顺滑的角色动作时，选择下方动画预设即可。完成后会得到可预览、可下载、可导出的序列帧，适合走路、攻击、施法和待机循环。', 'For smoother character motion, choose an animation preset below. You’ll get previewable and downloadable sprite frames ready for walks, attacks, casts, and idle loops.')}</Alert>}
             <PixField label={text('参考来源（可选）', 'Reference source (optional)')} hint={text('可从角色库复用已保存角色，也可以继续直接上传临时参考图。', 'Reuse a saved character from the library, or keep uploading a one-off reference image.') }>
               <div className="grid gap-3">
                 <Select value={refSource} onValueChange={(value) => selectReferenceSource(value as SpriteReferenceSource)}>
@@ -933,17 +935,16 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
             {isSpriteVideoBridge ? (
               <>
-                <PixField label={text('动画预设', 'Animation preset')} hint={text('按流畅度（帧数）× 速度（FPS）选择，自动匹配合法视频时长；抽帧按均匀采样，档位拉长不影响播放节奏。', 'Pick by smoothness (frames) × speed (FPS); the valid video duration is matched automatically. Frames are evenly sampled, so a longer video tier does not change playback pacing.')}>
+                <PixField label={text('动画预设', 'Animation preset')} hint={text('按你想要的流畅度和速度选择：帧数越多越顺滑，FPS 越高播放越快。', 'Choose the smoothness and speed you want: more frames feel smoother, and higher FPS plays faster.')}>
                   <Select value={videoAnimPreset} onValueChange={(value) => applyVideoAnimPreset(value as VideoAnimPresetKey)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {VIDEO_ANIM_PRESETS.map((preset) => {
                         const frames = preset.rows * preset.cols
                         const playSeconds = (frames * Math.max(1, Math.round(1000 / preset.fps))) / 1000
-                        const videoSeconds = deriveVideoDurationSeconds(frames, preset.fps)
                         return (
                           <SelectItem key={preset.key} value={preset.key}>
-                            {text(preset.zh, preset.en)} · {frames} {text('帧', 'frames')} @ {preset.fps}fps · {text(`视频${videoSeconds}s`, `video ${videoSeconds}s`)} · {text(`播放${playSeconds.toFixed(1)}s`, `play ${playSeconds.toFixed(1)}s`)}
+                            {text(preset.zh, preset.en)} · {frames} {text('帧', 'frames')} @ {preset.fps}fps · {text(`播放约 ${playSeconds.toFixed(1)} 秒`, `plays ~${playSeconds.toFixed(1)}s`)}
                           </SelectItem>
                         )
                       })}
@@ -966,8 +967,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                 )}
                 <Alert variant="info">
                   {text(
-                    `当前：${totalFrames} 帧 @ ${Math.max(1, Math.min(60, Math.round(fps || 8)))}fps → 提交 Ark 视频 ${deriveVideoDurationSeconds(totalFrames, fps)}s · 播放约 ${(totalFrames * Math.max(1, Math.round(1000 / Math.max(1, Math.min(60, Math.round(fps || 8))))) / 1000).toFixed(1)}s`,
-                    `Now: ${totalFrames} frames @ ${Math.max(1, Math.min(60, Math.round(fps || 8)))}fps → Ark video ${deriveVideoDurationSeconds(totalFrames, fps)}s · plays ~${(totalFrames * Math.max(1, Math.round(1000 / Math.max(1, Math.min(60, Math.round(fps || 8))))) / 1000).toFixed(1)}s`,
+                    `预计成品：${totalFrames} 帧动画 · 播放约 ${playbackSeconds.toFixed(1)} 秒 · ${playbackFps}fps`,
+                    `Expected output: ${totalFrames}-frame animation · plays ~${playbackSeconds.toFixed(1)}s · ${playbackFps}fps`,
                   )}
                 </Alert>
               </>
@@ -1014,7 +1015,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                   <Checkbox checked={videoReturnToFirstFrame} onCheckedChange={(value) => setVideoReturnToFirstFrame(Boolean(value))} />
                   <span className="grid gap-1">
                     <span className="font-medium">{text('回到初始帧（循环动作）', 'Return to first frame (loop)')}</span>
-                    <span className="text-xs text-muted-foreground">{text('开启后会告诉视频模型：先到达尾帧，再平滑回到首帧，最后一帧匹配初始帧。', 'When enabled, the video model is told to reach the end pose, then smoothly return so the final frame matches the first frame.')}</span>
+                    <span className="text-xs text-muted-foreground">{text('适合待机、走路等循环动作；成品会自然接回第一帧。', 'Best for idle, walk, and other looping motions; the result returns naturally to the first frame.')}</span>
                   </span>
                 </label>
               </div>
@@ -1049,7 +1050,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               </PixField>
             )}
 
-            <PixField label={text('播放 FPS', 'Playback FPS')} hint={isSpriteVideoBridge ? text('修改 FPS 会切换到自定义预设，并可能改变匹配的视频时长档位。', 'Changing FPS switches to the custom preset and may change the matched video duration tier.') : undefined}>
+            <PixField label={text('播放 FPS', 'Playback FPS')} hint={isSpriteVideoBridge ? text('调整成品播放速度；数值越高，动作越快。', 'Adjust the final playback speed; higher values make the motion faster.') : undefined}>
               <Input type="number" min={1} max={60} value={fps} onChange={(e) => { setFps(Number(e.target.value)); if (isSpriteVideoBridge) setVideoAnimPreset('custom') }} />
             </PixField>
           </div>

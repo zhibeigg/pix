@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.107.1] - 2026-07-02
+
+### Changed
+
+- 简化生产工作台「连贯动作序列帧」文案：移除 Ark、Prompt、抽帧和视频时长等实现细节，改为说明成品帧数、播放时长、适用动作与用户可获得的结果。
+
 ## [1.107.0] - 2026-07-02
 
 ### Added
