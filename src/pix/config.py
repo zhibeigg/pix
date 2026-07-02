@@ -375,8 +375,8 @@ class VideoBridgeConfig:
     # 兼容旧配置的兜底值；video_bridge 实际 Ark 秒数按 rows×cols × duration_ms 推导。
     duration: int = 5
     # Seedance / Ark 只接受离散的视频时长档位（秒）：推导出的秒数会向上吸附到最近的合法档位。
-    # 默认对齐 Seedance 2.0 官方价格表支持的 4/5/10/15 秒；不同模型可通过配置覆盖。
-    allowed_durations: tuple[int, ...] = (4, 5, 10, 15)
+    # 默认对齐 Seedance 2.0 价格计算器支持的 4–15 秒完整档位；不同模型可通过配置覆盖。
+    allowed_durations: tuple[int, ...] = tuple(range(4, 16))
     fps: int = 24
     generate_audio: bool = False
     watermark: bool = False

@@ -330,7 +330,7 @@ mosaic_reference_prompt_template = "Re-create the sprite sheet described below b
 #   doubao-seedance-2-0-260128       -> Standard
 #   doubao-seedance-2-0-fast-260128  -> Fast
 #   doubao-seedance-2-0-mini-260615  -> Mini
-# 点数按官方 4/5/10/15 秒价格表精确计算：ceil(视频价格 ×20 + 10 点关键帧生图)。
+# 点数按飞书价格计算器 4–15 秒完整价格表精确计算：ceil(视频价格 ×20 + 10 点关键帧生图)。
 enabled = false
 provider = "ark"
 base_url = "https://ark.cn-beijing.volces.com/api/v3"
@@ -342,8 +342,8 @@ ratio = "1:1"
 duration = 5
 # Seedance / Ark 只接受离散视频时长档位（秒）。推导出的秒数会向上吸附到不小于它的最近档位，
 # 避免出现 1s、2s 这类被上游以 InvalidParameter 拒绝的非法值；抽帧仍按均匀采样取 N 帧，不影响最终播放节奏。
-# 默认对齐 Seedance 2.0 官方价格表支持的 4/5/10/15 秒；换其它模型时按其文档覆盖此列表。
-allowed_durations = [4, 5, 10, 15]
+# 默认对齐 Seedance 2.0 价格计算器支持的 4–15 秒完整档位；换其它模型时按其文档覆盖此列表。
+allowed_durations = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 fps = 24
 generate_audio = false
 watermark = false

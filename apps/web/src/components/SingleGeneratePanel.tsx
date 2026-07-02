@@ -51,7 +51,7 @@ type SpriteMode = 'mosaic' | 'video_bridge'
 type SpriteReferenceSource = 'upload' | 'character'
 
 // Seedance / Ark 只接受离散视频时长档位（秒），与后端 [video_bridge].allowed_durations 保持一致。
-const ALLOWED_VIDEO_DURATIONS = [4, 5, 10, 15]
+const ALLOWED_VIDEO_DURATIONS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
 // 复刻后端 derive_video_bridge_duration_seconds：帧数×每帧 ms 向上取整到整秒，再吸附到不小于它的最近合法档位。
 function deriveVideoDurationSeconds(frames: number, fps: number): number {
@@ -967,7 +967,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
             {isSpriteVideoBridge ? (
               <>
-                <PixField label={text('视频模型', 'Video model')} hint={text('按 480p / 4、5、10、15 秒 / 输入不含视频价格表 ×20，再加 10 点关键帧生图价。', 'Credits use the 480p / 4, 5, 10, and 15s no-input-video price table ×20, plus 10 keyframe credits.')}>
+                <PixField label={text('视频模型', 'Video model')} hint={text('按 480p / 4–15 秒 / 输入不含视频价格表 ×20，再加 10 点关键帧生图价。', 'Credits use the 480p / 4–15s no-input-video price table ×20, plus 10 keyframe credits.')}>
                   <Select value={videoModel} onValueChange={(value) => setVideoModel(normalizeVideoBridgeModel(value))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>

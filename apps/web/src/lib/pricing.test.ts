@@ -22,9 +22,13 @@ describe('video bridge pricing', () => {
 
   test('uses exact duration price table and snaps unsupported seconds upward', () => {
     expect(videoBridgePriceCredits('doubao-seedance-2-0-260128', [], 5)).toBe(57)
-    expect(videoBridgePriceCredits('doubao-seedance-2-0-260128', [], 8)).toBe(103)
+    expect(videoBridgePriceCredits('doubao-seedance-2-0-260128', [], 8)).toBe(84)
+    expect(videoBridgePriceCredits('doubao-seedance-2-0-260128', [], 12)).toBe(121)
+    expect(videoBridgePriceCredits('doubao-seedance-2-0-fast-260128', [], 6)).toBe(55)
     expect(videoBridgePriceCredits('doubao-seedance-2-0-fast-260128', [], 15)).toBe(122)
     expect(videoBridgePriceCredits('doubao-seedance-2-0-mini-260615', [], 10)).toBe(57)
+    expect(videoBridgePriceCredits('doubao-seedance-2-0-mini-260615', [], 14)).toBe(75)
+    expect(videoBridgePriceCredits('doubao-seedance-2-0-mini-260615', [], 16)).toBe(80)
   })
 
   test('normalizes unknown model to default', () => {

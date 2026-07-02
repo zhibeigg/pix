@@ -199,11 +199,11 @@ def test_video_bridge_motion_prompt_includes_locked_timing() -> None:
 
 
 def test_derive_video_bridge_duration_seconds_snaps_to_allowed_tiers() -> None:
-    # 默认档位对齐 Seedance 2.0 价格表：{4,5,10,15}，推导秒数向上吸附到最近合法档位。
+    # 默认档位对齐 Seedance 2.0 价格计算器：4–15 秒，推导秒数向上吸附到最近合法档位。
     assert derive_video_bridge_duration_seconds(8, 125) == 4  # 1s -> 4s
     assert derive_video_bridge_duration_seconds(9, 125) == 4  # 2s -> 4s
     assert derive_video_bridge_duration_seconds(40, 125) == 5  # 5s -> 5s
-    assert derive_video_bridge_duration_seconds(56, 125) == 10  # 7s -> 10s
+    assert derive_video_bridge_duration_seconds(56, 125) == 7  # 7s -> 7s
     assert derive_video_bridge_duration_seconds(200, 125) == 15  # 25s -> clamp 15s
     # 自定义档位可覆盖默认值。
     assert derive_video_bridge_duration_seconds(8, 125, (2, 3, 10)) == 2

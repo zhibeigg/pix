@@ -4,15 +4,27 @@ export const DEFAULT_VIDEO_BRIDGE_MODEL: VideoBridgeModel = 'doubao-seedance-2-0
 export const VIDEO_BRIDGE_IMAGE_PRICE_CREDITS = 10
 export const VIDEO_BRIDGE_PRICE_MULTIPLIER = 20
 export const VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS = 4
-export const VIDEO_BRIDGE_ALLOWED_DURATION_SECONDS = [4, 5, 10, 15] as const
+export const VIDEO_BRIDGE_ALLOWED_DURATION_SECONDS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const
 
 type VideoBridgeDurationSeconds = typeof VIDEO_BRIDGE_ALLOWED_DURATION_SECONDS[number]
 type VideoBridgeModelPrice = { value: VideoBridgeModel; label: string; videoPricesCny: Record<VideoBridgeDurationSeconds, number> }
 
 export const VIDEO_BRIDGE_MODELS: VideoBridgeModelPrice[] = [
-  { value: 'doubao-seedance-2-0-260128', label: 'Seedance 2.0', videoPricesCny: { 4: 1.85, 5: 2.31, 10: 4.62, 15: 6.93 } },
-  { value: 'doubao-seedance-2-0-fast-260128', label: 'Seedance 2.0 Fast', videoPricesCny: { 4: 1.49, 5: 1.86, 10: 3.72, 15: 5.57 } },
-  { value: 'doubao-seedance-2-0-mini-260615', label: 'Seedance 2.0 Mini', videoPricesCny: { 4: 0.92, 5: 1.16, 10: 2.31, 15: 3.47 } },
+  {
+    value: 'doubao-seedance-2-0-260128',
+    label: 'Seedance 2.0',
+    videoPricesCny: { 4: 1.85, 5: 2.31, 6: 2.77, 7: 3.23, 8: 3.7, 9: 4.16, 10: 4.62, 11: 5.08, 12: 5.54, 13: 6.01, 14: 6.47, 15: 6.93 },
+  },
+  {
+    value: 'doubao-seedance-2-0-fast-260128',
+    label: 'Seedance 2.0 Fast',
+    videoPricesCny: { 4: 1.49, 5: 1.86, 6: 2.23, 7: 2.6, 8: 2.97, 9: 3.34, 10: 3.72, 11: 4.09, 12: 4.46, 13: 4.83, 14: 5.2, 15: 5.57 },
+  },
+  {
+    value: 'doubao-seedance-2-0-mini-260615',
+    label: 'Seedance 2.0 Mini',
+    videoPricesCny: { 4: 0.92, 5: 1.16, 6: 1.39, 7: 1.62, 8: 1.85, 9: 2.08, 10: 2.31, 11: 2.54, 12: 2.77, 13: 3, 14: 3.23, 15: 3.47 },
+  },
 ]
 
 export function normalizeVideoBridgeModel(value: unknown): VideoBridgeModel {
@@ -29,10 +41,10 @@ export function videoBridgePricingKey(model: VideoBridgeModel): string {
 }
 
 function videoBridgeModelPrice(model: VideoBridgeModel): VideoBridgeModelPrice {
-  const fallback: VideoBridgeModelPrice = {
+  const fallback: VideoBridgeModelPrice = VIDEO_BRIDGE_MODELS[0] ?? {
     value: DEFAULT_VIDEO_BRIDGE_MODEL,
     label: 'Seedance 2.0',
-    videoPricesCny: { 4: 1.85, 5: 2.31, 10: 4.62, 15: 6.93 },
+    videoPricesCny: { 4: 1.85, 5: 2.31, 6: 2.77, 7: 3.23, 8: 3.7, 9: 4.16, 10: 4.62, 11: 5.08, 12: 5.54, 13: 6.01, 14: 6.47, 15: 6.93 },
   }
   return VIDEO_BRIDGE_MODELS.find((item) => item.value === model) ?? fallback
 }

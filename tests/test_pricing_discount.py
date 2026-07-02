@@ -174,14 +174,53 @@ class DiscountBillingTests(_DbTestCase):
 
     def test_video_bridge_duration_uses_price_table(self) -> None:
         expected = {
-            "doubao-seedance-2-0-260128": {4: 47, 5: 57, 10: 103, 15: 149},
-            "doubao-seedance-2-0-fast-260128": {4: 40, 5: 48, 10: 85, 15: 122},
-            "doubao-seedance-2-0-mini-260615": {4: 29, 5: 34, 10: 57, 15: 80},
+            "doubao-seedance-2-0-260128": {
+                4: 47,
+                5: 57,
+                6: 66,
+                7: 75,
+                8: 84,
+                9: 94,
+                10: 103,
+                11: 112,
+                12: 121,
+                13: 131,
+                14: 140,
+                15: 149,
+            },
+            "doubao-seedance-2-0-fast-260128": {
+                4: 40,
+                5: 48,
+                6: 55,
+                7: 62,
+                8: 70,
+                9: 77,
+                10: 85,
+                11: 92,
+                12: 100,
+                13: 107,
+                14: 114,
+                15: 122,
+            },
+            "doubao-seedance-2-0-mini-260615": {
+                4: 29,
+                5: 34,
+                6: 38,
+                7: 43,
+                8: 47,
+                9: 52,
+                10: 57,
+                11: 61,
+                12: 66,
+                13: 70,
+                14: 75,
+                15: 80,
+            },
         }
         for model, durations in expected.items():
             for duration_seconds, price in durations.items():
                 assert video_bridge_price_credits(model, duration_seconds=duration_seconds) == price
-        assert video_bridge_price_credits("doubao-seedance-2-0-260128", duration_seconds=8) == 103
+        assert video_bridge_price_credits("doubao-seedance-2-0-260128", duration_seconds=16) == 149
 
     def test_video_bridge_billing_uses_model_price_without_frame_units(self) -> None:
         req = JobCreateRequest(
@@ -201,17 +240,17 @@ class DiscountBillingTests(_DbTestCase):
         job = create_job_in_transaction(self.db, self.user, req)
         self.db.commit()
 
-        assert job.price_credits == 85
+        assert job.price_credits == 70
         billing = job.params_json["billing"]
         assert billing["mode"] == "video_bridge"
         assert billing["video_model"] == "doubao-seedance-2-0-fast-260128"
-        assert billing["video_duration_seconds"] == 10
-        assert billing["video_price_cny"] == 3.72
+        assert billing["video_duration_seconds"] == 8
+        assert billing["video_price_cny"] == 2.97
         assert billing["video_base_price_credits"] == 40
         assert billing["image_price_credits"] == 10
         assert billing["billing_units"] == 1
-        assert billing["original_total_points"] == 85
-        assert billing["total_points"] == 85
+        assert billing["original_total_points"] == 70
+        assert billing["total_points"] == 70
 
     def test_batch_reserves_discounted_price_per_job(self) -> None:
         # 批量路径：每个 job 独立 apply_discount，再相加；折扣只应用一次
