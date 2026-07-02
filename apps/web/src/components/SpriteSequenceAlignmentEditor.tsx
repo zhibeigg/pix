@@ -16,12 +16,27 @@ const FRAME_SCALE_DEFAULT = 1
 const FRAME_SCALE_MIN = 0.25
 const FRAME_SCALE_MAX = 4
 const FRAME_SCALE_STEP = 0.05
+const COLOR_COUNT_MIN = 2
+const COLOR_COUNT_MAX = 256
+const COLOR_COUNT_DEFAULT = 16
 
 type Offset = { x: number; y: number }
 type VisibleBounds = { left: number; top: number; right: number; bottom: number }
 type SnapEdge = 'left' | 'right' | 'top' | 'bottom'
 type ImageMap = Map<number, HTMLImageElement>
 type DragState = { startX: number; startY: number; startOffset: Offset }
+type RgbColor = { r: number; g: number; b: number }
+type WeightedColor = RgbColor & { count: number }
+type PaletteBucket = {
+  colors: WeightedColor[]
+  weight: number
+  rMin: number
+  rMax: number
+  gMin: number
+  gMax: number
+  bMin: number
+  bMax: number
+}
 
 type Props = {
   job: GenerationJob
@@ -37,6 +52,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
     const rect = frames[0]?.sheet_rect
     return rect ? { width: Math.max(1, rect.w), height: Math.max(1, rect.h) } : { width: 64, height: 64 }
   }, [frames])
+  const initialColorCount = useMemo(() => colorCountFromJob(job), [job])
   const frameIndexes = useMemo(() => frames.map((frame) => Number(frame.index)), [frames])
   const [selectedIndex, setSelectedIndex] = useState(() => frameIndexes[0] ?? 1)
   const [offsets, setOffsets] = useState<Record<number, Offset>>({})
@@ -47,6 +63,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
   const [playing, setPlaying] = useState(true)
   const [loopCheck, setLoopCheck] = useState(false)
   const [fps, setFps] = useState(spriteFpsFromJob(job))
+  const [colorCount, setColorCount] = useState(initialColorCount)
   const [previewIndex, setPreviewIndex] = useState(0)
   const [editorZoom, setEditorZoom] = useState(DEFAULT_EDITOR_ZOOM)
   const editorCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -67,10 +84,15 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
     : null
   const ghostIndex = useMemo(() => ghostFrameIndex(frameIndexes, selectedIndex), [frameIndexes, selectedIndex])
   const playableIndexes = useMemo(() => loopCheck && frameIndexes.length > 1 ? [frameIndexes[frameIndexes.length - 1], frameIndexes[0]] : frameIndexes, [frameIndexes, loopCheck])
+  const sharedPalette = useMemo(() => buildSharedPalette(frames, images, offsets, scales, frameSize, colorCount), [colorCount, frameSize, frames, images, offsets, scales])
 
   useEffect(() => {
     if (frameIndexes.length > 0 && !frameIndexes.includes(selectedIndex)) setSelectedIndex(frameIndexes[0])
   }, [frameIndexes, selectedIndex])
+
+  useEffect(() => {
+    setColorCount(initialColorCount)
+  }, [initialColorCount])
 
   useEffect(() => {
     let cancelled = false
@@ -110,13 +132,13 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
     const ghostImage = images.get(ghostIndex)
     if (ghostImage) {
       ctx.globalAlpha = onionOpacity / 100
-      drawFrameImage(ctx, ghostImage, offsetFor(offsets, ghostIndex), scaleFor(scales, ghostIndex))
+      drawFrameImage(ctx, ghostImage, offsetFor(offsets, ghostIndex), scaleFor(scales, ghostIndex), sharedPalette)
       ctx.globalAlpha = 1
     }
     const current = images.get(selectedIndex)
-    if (current) drawFrameImage(ctx, current, selectedOffset, selectedScale)
+    if (current) drawFrameImage(ctx, current, selectedOffset, selectedScale, sharedPalette)
     drawCanvasGuides(ctx, frameSize)
-  }, [frameSize, ghostIndex, images, offsets, onionOpacity, scales, selectedIndex, selectedOffset, selectedScale])
+  }, [frameSize, ghostIndex, images, offsets, onionOpacity, scales, selectedIndex, selectedOffset, selectedScale, sharedPalette])
 
   const drawPreview = useCallback(() => {
     const canvas = previewCanvasRef.current
@@ -128,8 +150,8 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
     ctx.clearRect(0, 0, frameSize.width, frameSize.height)
     const index = playableIndexes[previewIndex % playableIndexes.length]
     const image = images.get(index)
-    if (image) drawFrameImage(ctx, image, offsetFor(offsets, index), scaleFor(scales, index))
-  }, [frameSize, images, offsets, playableIndexes, previewIndex, scales])
+    if (image) drawFrameImage(ctx, image, offsetFor(offsets, index), scaleFor(scales, index), sharedPalette)
+  }, [frameSize, images, offsets, playableIndexes, previewIndex, scales, sharedPalette])
 
   useEffect(() => { drawEditor() }, [drawEditor])
   useEffect(() => { drawPreview() }, [drawPreview])
@@ -148,6 +170,10 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
 
   function updateEditorZoom(next: number) {
     setEditorZoom(Math.max(MIN_EDITOR_ZOOM, Math.min(MAX_EDITOR_ZOOM, Math.round(next))))
+  }
+
+  function updateColorCount(next: number) {
+    setColorCount(clampColorCount(next))
   }
 
   function updateScale(index: number, next: number) {
@@ -271,6 +297,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
   async function save() {
     await onSave({
       fps,
+      colors: colorCount,
       gif_export: true,
       frames: frameIndexes.map((index) => {
         const offset = offsetFor(offsets, index)
@@ -285,9 +312,9 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
   }
 
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,.7fr)]">
-        <section className="grid gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
+        <section className="flex min-h-0 flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="info">{selectedIndex === selectedPosition ? text(`第 ${selectedPosition} / ${frameIndexes.length} 帧`, `Frame ${selectedPosition} / ${frameIndexes.length}`) : text(`第 ${selectedPosition} / ${frameIndexes.length} 帧（全局 #${selectedIndex}）`, `Frame ${selectedPosition} / ${frameIndexes.length} (global #${selectedIndex})`)}</Badge>
             <Badge variant="outline">{frameSize.width}×{frameSize.height}</Badge>
@@ -303,7 +330,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
           </div>
           <div
             ref={editorViewportRef}
-            className="pix-checkerboard grid max-h-[68vh] place-items-center overflow-auto rounded-xl border border-border bg-muted/40 p-4 dark:border-[hsl(var(--pix-dark-hairline))]"
+            className="pix-checkerboard grid min-h-[240px] flex-1 place-items-center overflow-auto rounded-xl border border-border bg-muted/40 p-4 dark:border-[hsl(var(--pix-dark-hairline))]"
             title={text('鼠标滚轮缩放当前帧主体（绕帧中心；Ctrl/Cmd + 滚轮 = 浏览器缩放）', 'Mouse wheel scales the current frame around its center (Ctrl/Cmd + wheel keeps browser zoom)')}
           >
             <canvas
@@ -326,7 +353,7 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
             />
           </div>
           {loadError && <Alert variant="warning">{loadError}</Alert>}
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
+          <div className="grid max-h-32 shrink-0 grid-cols-4 gap-2 overflow-y-auto pr-1 sm:grid-cols-8 xl:max-h-28">
             {frames.map((frame) => {
               const index = Number(frame.index)
               const active = index === selectedIndex
@@ -338,20 +365,26 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
           </div>
         </section>
 
-        <aside className="grid gap-3 content-start">
-          <div className="pix-checkerboard grid place-items-center rounded-xl border border-border bg-muted/40 p-4 dark:border-[hsl(var(--pix-dark-hairline))]">
-            <canvas ref={previewCanvasRef} className="rounded-lg ring-1 ring-border [image-rendering:pixelated] dark:ring-[hsl(var(--pix-dark-hairline))]" style={{ width: frameSize.width * 3, height: frameSize.height * 3, maxWidth: '100%' }} />
+        <aside className="grid min-h-0 content-start gap-3 overflow-y-auto pr-1">
+          <div className="pix-checkerboard grid min-h-[180px] place-items-center rounded-xl border border-border bg-muted/40 p-4 dark:border-[hsl(var(--pix-dark-hairline))]">
+            <canvas ref={previewCanvasRef} className="rounded-lg ring-1 ring-border [image-rendering:pixelated] dark:ring-[hsl(var(--pix-dark-hairline))]" style={{ width: `min(${frameSize.width * 3}px, 100%)`, height: 'auto', aspectRatio: `${frameSize.width} / ${frameSize.height}` }} />
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => setPlaying((value) => !value)}>{playing ? <Pause /> : <Play />}{playing ? text('暂停', 'Pause') : text('播放', 'Play')}</Button>
             <Button type="button" variant={loopCheck ? 'default' : 'outline'} onClick={() => setLoopCheck((value) => !value)}><Crosshair />{text('首尾检查', 'Loop check')}</Button>
           </div>
           <label className="grid gap-2 text-sm font-medium">FPS<Input type="number" min={1} max={60} value={fps} onChange={(event) => setFps(Math.max(1, Math.min(60, Math.round(Number(event.target.value) || 8))))} /></label>
+          <div className="grid gap-2 rounded-lg border border-border/70 bg-card/60 p-3 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]">
+            <div className="flex items-center justify-between gap-3 text-sm font-medium"><span>{text('颜色数量', 'Color count')}</span><Badge variant="info">{text(`${colorCount} 色`, `${colorCount} colors`)}</Badge></div>
+            <Slider value={colorCount} min={COLOR_COUNT_MIN} max={COLOR_COUNT_MAX} step={1} onValueChange={updateColorCount} aria-label={text('颜色数量实时预览', 'Live color count preview')} />
+            <Input type="number" min={COLOR_COUNT_MIN} max={COLOR_COUNT_MAX} step={1} value={colorCount} onChange={(event) => updateColorCount(Number(event.target.value))} />
+            <p className="text-xs leading-relaxed text-muted-foreground">{text('拖动后会立即用共享调色板重绘编辑画布和播放预览，保存时同步写入输出。', 'Updates the editor and playback preview immediately with a shared palette; saved output uses the same count.')}</p>
+          </div>
           <label className="grid gap-2 text-sm font-medium">{text('影子透明度', 'Ghost opacity')}<Slider value={onionOpacity} min={0} max={80} step={5} onValueChange={setOnionOpacity} /></label>
         </aside>
       </div>
 
-      <div className="grid gap-3 rounded-xl border border-border bg-muted/35 p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
+      <div className="grid max-h-[34dvh] shrink-0 gap-3 overflow-y-auto rounded-xl border border-border bg-muted/35 p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="grid gap-1 text-sm font-medium">X<Input type="number" value={selectedOffset.x} onChange={(event) => updateOffset(selectedIndex, { x: Number(event.target.value) || 0, y: selectedOffset.y })} /></label>
           <label className="grid gap-1 text-sm font-medium">Y<Input type="number" value={selectedOffset.y} onChange={(event) => updateOffset(selectedIndex, { x: selectedOffset.x, y: Number(event.target.value) || 0 })} /></label>
@@ -385,7 +418,16 @@ function prepareCanvas(canvas: HTMLCanvasElement, size: { width: number; height:
   if (canvas.height !== size.height) canvas.height = size.height
 }
 
-function drawFrameImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement, offset: Offset, scale: number = 1) {
+function drawFrameImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement, offset: Offset, scale: number = 1, palette: RgbColor[] | null = null) {
+  if (palette?.length) {
+    const frame = renderFrameCanvas({ width: ctx.canvas.width, height: ctx.canvas.height }, image, offset, scale, palette)
+    if (frame) ctx.drawImage(frame, 0, 0)
+    return
+  }
+  drawFrameImageRaw(ctx, image, offset, scale)
+}
+
+function drawFrameImageRaw(ctx: CanvasRenderingContext2D, image: HTMLImageElement, offset: Offset, scale: number = 1) {
   const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1
   if (Math.abs(safeScale - 1) < 1e-3) {
     ctx.drawImage(image, Math.round(offset.x), Math.round(offset.y))
@@ -417,6 +459,165 @@ function drawCanvasGuides(ctx: CanvasRenderingContext2D, size: { width: number; 
   ctx.restore()
 }
 
+function renderFrameCanvas(size: { width: number; height: number }, image: HTMLImageElement, offset: Offset, scale: number, palette?: RgbColor[] | null): HTMLCanvasElement | null {
+  if (typeof document === 'undefined') return null
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(size.width))
+  canvas.height = Math.max(1, Math.round(size.height))
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null
+  ctx.imageSmoothingEnabled = false
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  drawFrameImageRaw(ctx, image, offset, scale)
+  if (palette?.length) applyPaletteToCanvas(canvas, palette)
+  return canvas
+}
+
+function buildSharedPalette(frames: SpriteFrameOutput[], images: ImageMap, offsets: Record<number, Offset>, scales: Record<number, number>, frameSize: { width: number; height: number }, colors: number): RgbColor[] | null {
+  const limit = clampColorCount(colors)
+  if (images.size === 0 || typeof document === 'undefined') return null
+  const colorMap = new Map<number, WeightedColor>()
+  for (const frame of frames) {
+    const index = Number(frame.index)
+    const image = images.get(index)
+    if (!image) continue
+    const canvas = renderFrameCanvas(frameSize, image, offsetFor(offsets, index), scaleFor(scales, index))
+    const ctx = canvas?.getContext('2d', { willReadFrequently: true })
+    if (!canvas || !ctx) continue
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] <= 8) continue
+      const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2]
+      const existing = colorMap.get(key)
+      if (existing) {
+        existing.count += 1
+      } else {
+        colorMap.set(key, { r: data[i], g: data[i + 1], b: data[i + 2], count: 1 })
+      }
+    }
+  }
+  const weighted = Array.from(colorMap.values())
+  if (weighted.length === 0) return null
+  return quantizeWeightedColors(weighted, limit)
+}
+
+function applyPaletteToCanvas(canvas: HTMLCanvasElement, palette: RgbColor[]) {
+  if (palette.length === 0) return
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  const data = imageData.data
+  const nearestCache = new Map<number, RgbColor>()
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] <= 8) continue
+    const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2]
+    let nearest = nearestCache.get(key)
+    if (!nearest) {
+      nearest = nearestPaletteColor(data[i], data[i + 1], data[i + 2], palette)
+      nearestCache.set(key, nearest)
+    }
+    data[i] = nearest.r
+    data[i + 1] = nearest.g
+    data[i + 2] = nearest.b
+  }
+  ctx.putImageData(imageData, 0, 0)
+}
+
+function quantizeWeightedColors(colors: WeightedColor[], limit: number): RgbColor[] {
+  const safeLimit = clampColorCount(limit)
+  if (colors.length <= safeLimit) return colors.map(({ r, g, b }) => ({ r, g, b }))
+  const buckets = [makePaletteBucket(colors)]
+  while (buckets.length < safeLimit) {
+    let splitIndex = -1
+    let splitScore = -1
+    for (let i = 0; i < buckets.length; i += 1) {
+      const bucket = buckets[i]
+      if (bucket.colors.length <= 1) continue
+      const score = bucketScore(bucket)
+      if (score > splitScore) {
+        splitScore = score
+        splitIndex = i
+      }
+    }
+    if (splitIndex < 0) break
+    const [bucket] = buckets.splice(splitIndex, 1)
+    const [left, right] = splitPaletteBucket(bucket)
+    buckets.push(left, right)
+  }
+  return buckets.map(bucketAverageColor)
+}
+
+function makePaletteBucket(colors: WeightedColor[]): PaletteBucket {
+  let rMin = 255
+  let rMax = 0
+  let gMin = 255
+  let gMax = 0
+  let bMin = 255
+  let bMax = 0
+  let weight = 0
+  for (const color of colors) {
+    rMin = Math.min(rMin, color.r)
+    rMax = Math.max(rMax, color.r)
+    gMin = Math.min(gMin, color.g)
+    gMax = Math.max(gMax, color.g)
+    bMin = Math.min(bMin, color.b)
+    bMax = Math.max(bMax, color.b)
+    weight += color.count
+  }
+  return { colors, weight, rMin, rMax, gMin, gMax, bMin, bMax }
+}
+
+function bucketScore(bucket: PaletteBucket): number {
+  return Math.max(bucket.rMax - bucket.rMin, bucket.gMax - bucket.gMin, bucket.bMax - bucket.bMin) * Math.max(1, bucket.weight)
+}
+
+function splitPaletteBucket(bucket: PaletteBucket): [PaletteBucket, PaletteBucket] {
+  const ranges = [bucket.rMax - bucket.rMin, bucket.gMax - bucket.gMin, bucket.bMax - bucket.bMin]
+  const channel = ranges[0] >= ranges[1] && ranges[0] >= ranges[2] ? 'r' : ranges[1] >= ranges[2] ? 'g' : 'b'
+  const sorted = [...bucket.colors].sort((a, b) => a[channel] - b[channel])
+  const halfWeight = bucket.weight / 2
+  let running = 0
+  let splitAt = Math.max(1, Math.floor(sorted.length / 2))
+  for (let i = 0; i < sorted.length - 1; i += 1) {
+    running += sorted[i].count
+    if (running >= halfWeight) {
+      splitAt = i + 1
+      break
+    }
+  }
+  splitAt = Math.max(1, Math.min(sorted.length - 1, splitAt))
+  return [makePaletteBucket(sorted.slice(0, splitAt)), makePaletteBucket(sorted.slice(splitAt))]
+}
+
+function bucketAverageColor(bucket: PaletteBucket): RgbColor {
+  let r = 0
+  let g = 0
+  let b = 0
+  const weight = Math.max(1, bucket.weight)
+  for (const color of bucket.colors) {
+    r += color.r * color.count
+    g += color.g * color.count
+    b += color.b * color.count
+  }
+  return { r: Math.round(r / weight), g: Math.round(g / weight), b: Math.round(b / weight) }
+}
+
+function nearestPaletteColor(r: number, g: number, b: number, palette: RgbColor[]): RgbColor {
+  let best = palette[0]
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const color of palette) {
+    const dr = r - color.r
+    const dg = g - color.g
+    const db = b - color.b
+    const distance = dr * dr + dg * dg + db * db
+    if (distance < bestDistance) {
+      best = color
+      bestDistance = distance
+    }
+  }
+  return best
+}
+
 function offsetFor(offsets: Record<number, Offset>, index: number): Offset {
   return offsets[index] ?? { x: 0, y: 0 }
 }
@@ -429,6 +630,11 @@ function scaleFor(scales: Record<number, number>, index: number): number {
 function clampFrameScale(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return FRAME_SCALE_DEFAULT
   return Math.max(FRAME_SCALE_MIN, Math.min(FRAME_SCALE_MAX, Math.round(value * 100) / 100))
+}
+
+function clampColorCount(value: number): number {
+  if (!Number.isFinite(value)) return COLOR_COUNT_DEFAULT
+  return Math.max(COLOR_COUNT_MIN, Math.min(COLOR_COUNT_MAX, Math.round(value)))
 }
 
 function ghostFrameIndex(indexes: number[], selectedIndex: number) {
@@ -510,6 +716,13 @@ function projectBoundsToCanvas(bounds: VisibleBounds, sourceSize: { width: numbe
     right: Math.round(baseX + offset.x + bounds.right * safeScale),
     bottom: Math.round(baseY + offset.y + bounds.bottom * safeScale),
   }
+}
+
+function colorCountFromJob(job: GenerationJob) {
+  const pixelize = typeof job.params_json?.pixelize === 'object' && job.params_json?.pixelize !== null ? job.params_json.pixelize as Record<string, unknown> : null
+  const sprite = typeof job.params_json?.sprite === 'object' && job.params_json?.sprite !== null ? job.params_json.sprite as Record<string, unknown> : null
+  const value = Number(pixelize?.colors ?? sprite?.colors)
+  return Number.isFinite(value) && value > 0 ? clampColorCount(value) : COLOR_COUNT_DEFAULT
 }
 
 function spriteFpsFromJob(job: GenerationJob) {

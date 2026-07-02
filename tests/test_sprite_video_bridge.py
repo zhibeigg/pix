@@ -14,8 +14,10 @@ from pix.pixelize.perfect_pixel import GeneratedPreprocessResult
 from pix.sprite_video_bridge import (
     SpriteVideoBridgeInput,
     VideoBridgeWaiting,
+    build_video_bridge_keyframe_prompt,
     build_video_bridge_motion_prompt,
     derive_video_bridge_duration_seconds,
+    _motion_prompt_optimizer_instruction,
     _optimize_video_bridge_motion_prompt,
     _prepare_video_keyframes,
     _poll_video_task,
@@ -225,6 +227,18 @@ def test_video_bridge_return_to_first_frame_is_saved_and_previewed() -> None:
     assert any("回到首帧" in warning for warning in preview.warnings)
 
 
+def test_video_bridge_keyframe_prompt_locks_facing_direction() -> None:
+    prompt = build_video_bridge_keyframe_prompt(_video_cfg(), "蓝色斗篷骑士侧视角", "向左走两步", key_color="#FF00FF")
+
+    assert "Single-action contract" in prompt
+    assert "one occurrence of the requested action" in prompt
+    assert "one gait pass / one left-right leg alternation is enough" in prompt
+    assert "Facing-direction lock" in prompt
+    assert "both panels must preserve the exact same character facing direction" in prompt
+    assert "do not turn the head" in prompt
+    assert "toward the opposite direction" in prompt
+
+
 def test_video_bridge_motion_prompt_keeps_subject_inside_frame_and_pixel_grid() -> None:
     prompt = build_video_bridge_motion_prompt("暗黑法师刺客", "向前突刺并释放烟雾粒子", frame_count=24)
 
@@ -254,6 +268,14 @@ def test_video_bridge_motion_prompt_keeps_subject_inside_frame_and_pixel_grid() 
     assert "scale the motion down" in prompt
     assert "Seedance prompt structure" in prompt
     assert "fixed orthographic game-sprite camera" in prompt
+    assert "Facing-direction lock" in prompt
+    assert "exact facing direction" in prompt
+    assert "do not yaw, rotate, turn around" in prompt
+    assert "Single-action contract" in prompt
+    assert "perform the user's requested action exactly once" in prompt
+    assert "Do not fill the 4-second minimum duration with repeated loops" in prompt
+    assert "one left-right leg alternation" in prompt
+    assert "must not turn the face" in prompt
     assert "no subtitles" in prompt
     assert "do not generate Logo" in prompt
     assert "do not generate watermark" in prompt
@@ -275,6 +297,11 @@ def test_video_bridge_motion_prompt_can_return_to_first_frame() -> None:
     assert "reaches the provided last_frame pose" in prompt
     assert "smooth return motion back to the provided first_frame pose" in prompt
     assert "final sampled frame must match first_frame again" in prompt
+    assert "The outbound phase is one single execution" in prompt
+    assert "do not insert additional walking/attack/cast cycles" in prompt
+    assert "reversing only the pose/limb cycle" in prompt
+    assert "never turn the character around" in prompt
+    assert "never change travel direction as a shortcut" in prompt
     assert "no sudden snap back" in prompt
 
 
@@ -291,6 +318,22 @@ def test_video_bridge_motion_prompt_includes_locked_timing() -> None:
     assert "source video duration is locked to 1 second(s)" in prompt
     assert "8 sprite frames × 125 ms per frame" in prompt
     assert "1000 ms total animation time" in prompt
+
+
+def test_video_bridge_motion_optimizer_instruction_keeps_single_action_pacing() -> None:
+    instruction = _motion_prompt_optimizer_instruction(
+        description="蓝色斗篷骑士侧视角",
+        action_prompt="向左走两步",
+        base_prompt="base constraints",
+        frame_count=16,
+        return_to_first_frame=True,
+    )
+
+    assert "Single-action pacing rule" in instruction
+    assert "exactly one occurrence" in instruction
+    assert "slow down and stretch that one action" in instruction
+    assert "do not add extra gait loops" in instruction
+    assert "one left-right leg alternation is enough" in instruction
 
 
 def test_derive_video_bridge_duration_seconds_snaps_to_allowed_tiers() -> None:

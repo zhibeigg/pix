@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from pix_web.character_library import clean_character_text, create_character_item_from_job
+from pix_web.character_library import clean_character_text, create_character_item_from_job, is_character_asset_job
 from pix_web.config import WebSettings
 from pix_web.file_ownership import resolve_owned_input_path, run_job_id_for_file
 from pix_web.models import CharacterLibraryItem, GenerationJob, User
@@ -55,6 +55,19 @@ def _source_job_id_for_file(path: Path, settings: WebSettings) -> int | None:
     return run_job_id_for_file(path.resolve(), settings)
 
 
+def _require_character_asset_source_job(
+    db: Session,
+    user: User,
+    source_job_id: int | None,
+) -> GenerationJob:
+    if source_job_id is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只有像素直出的角色类型作品才能成为角色")
+    job = db.scalar(select(GenerationJob).where(GenerationJob.id == source_job_id, GenerationJob.user_id == user.id))
+    if job is None or not is_character_asset_job(job):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只有像素直出的角色类型作品才能成为角色")
+    return job
+
+
 def _character_response(item: CharacterLibraryItem) -> CharacterResponse:
     return CharacterResponse.model_validate(item)
 
@@ -86,8 +99,9 @@ def create_character(
     image_path = str(image_file)
     preview_path = str(preview_file)
     source_job_id = _source_job_id_for_file(image_file, settings) or _source_job_id_for_file(preview_file, settings)
+    _require_character_asset_source_job(db, user, source_job_id)
     name = clean_character_text(req.name, 160) or image_file.stem[:160] or "未命名角色"
-    snapshot_source = "job_output" if source_job_id is not None else "upload"
+    snapshot_source = "asset_character_job_output"
     item = CharacterLibraryItem(
         user_id=user.id,
         source_job_id=source_job_id,

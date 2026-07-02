@@ -25,6 +25,10 @@ from urllib.parse import urlsplit
 import httpx
 
 DEFAULT_MAX_REDIRECTS = 3
+FAKE_IP_NETWORKS = (ipaddress.ip_network("198.18.0.0/15"),)
+# Clash/Surge 等代理的 fake-ip 模式会把外网域名解析到 198.18.0.0/15。
+# 只对 Ark 视频结果当前使用的可信火山 TOS 下载域名放行该 fake-ip，避免误关掉 SSRF 防护。
+DEFAULT_TRUSTED_FAKE_IP_HOST_SUFFIXES = ("ark-acg-cn-beijing.tos-cn-beijing.volces.com",)
 
 
 class UnsafeDownloadURLError(ValueError):
@@ -33,6 +37,32 @@ class UnsafeDownloadURLError(ValueError):
 
 def _allow_private_downloads() -> bool:
     return os.getenv("PIX_ALLOW_PRIVATE_DOWNLOAD", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _trusted_fake_ip_host_suffixes() -> tuple[str, ...]:
+    extra = tuple(
+        item.strip().lower().strip(".")
+        for item in os.getenv("PIX_DOWNLOAD_TRUSTED_FAKE_IP_HOST_SUFFIXES", "").split(",")
+        if item.strip().strip(".")
+    )
+    return DEFAULT_TRUSTED_FAKE_IP_HOST_SUFFIXES + extra
+
+
+def _host_matches_suffix(host: str, suffix: str) -> bool:
+    normalized_host = host.lower().strip(".")
+    normalized_suffix = suffix.lower().strip(".")
+    return normalized_host == normalized_suffix or normalized_host.endswith(f".{normalized_suffix}")
+
+
+def _allows_trusted_fake_ip(host: str) -> bool:
+    return any(_host_matches_suffix(host, suffix) for suffix in _trusted_fake_ip_host_suffixes())
+
+
+def _is_fake_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        ip = mapped
+    return any(ip.version == network.version and ip in network for network in FAKE_IP_NETWORKS)
 
 
 def _is_blocked_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
@@ -84,9 +114,12 @@ def assert_safe_download_url(url: str) -> None:
     host = parts.hostname
     if not host:
         raise UnsafeDownloadURLError("下载地址缺少主机名")
-    for ip in _resolved_ips(host):
-        if _is_blocked_ip(ip):
-            raise UnsafeDownloadURLError(f"下载地址指向受限网络：{host} -> {ip}")
+    blocked_ips = [ip for ip in _resolved_ips(host) if _is_blocked_ip(ip)]
+    if not blocked_ips:
+        return
+    if _allows_trusted_fake_ip(host) and all(_is_fake_ip(ip) for ip in blocked_ips):
+        return
+    raise UnsafeDownloadURLError(f"下载地址指向受限网络：{host} -> {blocked_ips[0]}")
 
 
 def safe_get_with_redirects(

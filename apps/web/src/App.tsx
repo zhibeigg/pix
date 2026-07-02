@@ -19,7 +19,7 @@ import { WorkspacePage, type AssetGeneratorPresetSeed, type ReuseJobSeed, type W
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 const ApiPage = lazy(() => import('./pages/ApiPage').then((m) => ({ default: m.ApiPage })))
 const BillingPage = lazy(() => import('./pages/BillingPage').then((m) => ({ default: m.BillingPage })))
-const CharactersPage = lazy(() => import('./pages/CharactersPage').then((m) => ({ default: m.CharactersPage })))
+const CharactersPage = lazy(() => import('./pages/CharactersPage').then((m) => ({ default: m.default ?? m.CharactersPage })))
 const PacksPage = lazy(() => import('./pages/PacksPage').then((m) => ({ default: m.PacksPage })))
 const RawImagePage = lazy(() => import('./pages/RawImagePage').then((m) => ({ default: m.RawImagePage })))
 const RewardsPage = lazy(() => import('./pages/RewardsPage').then((m) => ({ default: m.RewardsPage })))
@@ -32,7 +32,7 @@ import { useReferralCode, LEGACY_REFERRAL_CODE_KEY } from './hooks/useReferralCo
 import { useBillingActions } from './hooks/useBillingActions'
 import { useAdminActions } from './hooks/useAdminActions'
 import { applyPageSeo } from './lib/seo'
-import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, CharacterCreatePayload, CharacterFromJobPayload, CharacterItem, CharacterUpdatePayload, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GalleryQuota, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingDiscount, PricingRule, SequenceAlignmentRequest, SetupStatus, SharedWork, SystemSetting, User } from './types'
+import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, CharacterItem, CharacterUpdatePayload, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GalleryQuota, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingDiscount, PricingRule, SequenceAlignmentRequest, SetupStatus, SharedWork, SystemSetting, User } from './types'
 
 type AppProps = {
   themeMode: PixThemeMode
@@ -711,32 +711,6 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
-  async function createCharacter(payload: CharacterCreatePayload) {
-    if (!token) return null
-    try {
-      const item = await api.createCharacter(token, payload)
-      await refreshCore(token)
-      setMessage(text(`角色「${item.name}」已保存`, `Character “${item.name}” saved`), 'success')
-      return item
-    } catch (error) {
-      showError(error)
-      throw error
-    }
-  }
-
-  async function createCharacterFromJob(job: GenerationJob, payload: CharacterFromJobPayload = {}) {
-    if (!token) return null
-    try {
-      const item = await api.createCharacterFromJob(token, job.id, payload)
-      await refreshCore(token)
-      setMessage(text(`作品 #${job.id} 已保存为角色「${item.name}」`, `Work #${job.id} saved as character “${item.name}”`), 'success')
-      return item
-    } catch (error) {
-      showError(error)
-      throw error
-    }
-  }
-
   async function updateCharacter(item: CharacterItem, payload: CharacterUpdatePayload) {
     if (!token) return null
     try {
@@ -1017,9 +991,9 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           <Suspense fallback={<div className="grid min-h-[calc(100vh-160px)] place-items-center px-4 text-sm text-muted-foreground">{t('app.checkingSetup')}</div>}>
             {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} discount={discount} balance={balance} jobs={jobs} characters={characters} loading={busy} token={token} imageModels={imageModels} reuseJobSeed={reuseJobSeed} assetPresetSeed={assetPresetSeed} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'raw-image' && <RawImagePage pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} selectedJobId={selectedRawJobId} reuseSeed={rawReuseSeed} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
-            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onDeleteJobs={deleteJobs} onSaveSequenceAlignment={saveSequenceAlignment} onPublishShare={publishJobShare} onUnpublishShare={unpublishJobShare} onSaveAsCharacter={async (job) => { await createCharacterFromJob(job) }} />}
+            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onDeleteJobs={deleteJobs} onSaveSequenceAlignment={saveSequenceAlignment} onPublishShare={publishJobShare} onUnpublishShare={unpublishJobShare} />}
             {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
-            {page === 'characters' && <CharactersPage token={token} characters={characters} loading={busy} onCreate={createCharacter} onUpdate={updateCharacter} onDelete={deleteCharacter} onGenerateCharacter={openCharacterGenerator} onRefresh={refreshCurrent} />}
+            {page === 'characters' && <CharactersPage characters={characters} loading={busy} onUpdate={updateCharacter} onDelete={deleteCharacter} onGenerateCharacter={openCharacterGenerator} onRefresh={refreshCurrent} />}
             {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
             {page === 'rewards' && <RewardsPage token={token} onRefresh={refreshCurrent} />}
             {page === 'api' && <ApiPage token={token} />}
@@ -1029,7 +1003,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       ) : (
         <div>
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={packs.length} />
-          <LandingSections sharedWorks={sharedWorks} user={user} onToggleSharedWorkLike={toggleSharedWorkLike} authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onRequestResetCode={requestResetCode} onResetPassword={resetAndLogin} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} referralCode={referralCode} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} turnstileEnabled={setupStatus?.turnstile_enabled ?? false} turnstileSiteKey={setupStatus?.turnstile_site_key ?? ''} />} />
+          <LandingSections token={token} sharedWorks={sharedWorks} user={user} onToggleSharedWorkLike={toggleSharedWorkLike} authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onRequestResetCode={requestResetCode} onResetPassword={resetAndLogin} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} referralCode={referralCode} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} turnstileEnabled={setupStatus?.turnstile_enabled ?? false} turnstileSiteKey={setupStatus?.turnstile_site_key ?? ''} />} />
           <SiteFooter />
         </div>
       )}

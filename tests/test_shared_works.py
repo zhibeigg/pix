@@ -50,7 +50,15 @@ class SharedWorkTests(unittest.TestCase):
     def _auth(self, token: str) -> dict[str, str]:
         return {"Authorization": f"Bearer {token}"}
 
-    def _successful_job(self, owner: User | None = None, index: int = 1) -> GenerationJob:
+    def _successful_job(
+        self,
+        owner: User | None = None,
+        index: int = 1,
+        *,
+        asset_kind: str = "item_icon",
+        output_size: tuple[int, int] = (32, 32),
+        image_model: str = "image2",
+    ) -> GenerationJob:
         owner = owner or self.user
         run_dir = self.settings.storage_root / "runs" / f"job-{owner.id}-{index}"
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -67,9 +75,9 @@ class SharedWorkTests(unittest.TestCase):
             status="succeeded",
             prompt=f"share prompt {index}",
             params_json={
-                "asset": {"name": f"分享飞剑 {index}", "asset_kind": "item_icon", "extra_prompt": "青玉质感"},
-                "pixelize": {"output_size": [32, 32], "colors": 16, "remove_bg": True},
-                "image_model": "image2",
+                "asset": {"name": f"分享飞剑 {index}", "asset_kind": asset_kind, "extra_prompt": "青玉质感"},
+                "pixelize": {"output_size": list(output_size), "colors": 16, "remove_bg": True},
+                "image_model": image_model,
             },
         )
         self.db.add(job)
@@ -207,6 +215,47 @@ class SharedWorkTests(unittest.TestCase):
         self.assertEqual(admin_hidden.json()["status"], "hidden")
         after_hidden = self.client.get("/shares", headers=self._auth(self.jwt))
         self.assertEqual(after_hidden.json()["total"], 0)
+
+    def test_public_listing_filters_by_asset_kind_size_and_image_model(self) -> None:
+        icon_32 = self._successful_job(index=21, asset_kind="item_icon", output_size=(32, 32), image_model="image2")
+        character_64 = self._successful_job(index=22, asset_kind="character", output_size=(64, 64), image_model="gemini-3.1-flash-image-preview")
+        icon_64 = self._successful_job(index=23, asset_kind="item_icon", output_size=(64, 64), image_model="gemini-3.1-flash-image-preview")
+        shares = [self._approve(self._publish(job)["id"]) for job in (icon_32, character_64, icon_64)]
+
+        all_list = self.client.get("/shares?limit=120", headers=self._auth(self.jwt))
+        self.assertEqual(all_list.status_code, 200, all_list.text)
+        self.assertEqual(all_list.json()["total"], 3)
+        filters = all_list.json()["filters"]
+        self.assertEqual({item["value"]: item["count"] for item in filters["asset_kinds"]}, {"character": 1, "item_icon": 2})
+        self.assertEqual({item["value"]: item["count"] for item in filters["output_sizes"]}, {"32x32": 1, "64x64": 2})
+        self.assertEqual({item["value"]: item["count"] for item in filters["image_models"]}, {"gemini-3.1-flash-image-preview": 2, "image2": 1})
+        self.assertEqual(
+            {item["parameter_snapshot"]["generation"]["model"] for item in all_list.json()["items"]},
+            {"gemini-3.1-flash-image-preview", "image2"},
+        )
+
+        size_list = self.client.get("/shares?output_size=32×32", headers=self._auth(self.jwt))
+        self.assertEqual(size_list.status_code, 200, size_list.text)
+        self.assertEqual(size_list.json()["total"], 1)
+        self.assertEqual(size_list.json()["items"][0]["id"], shares[0]["id"])
+
+        model_list = self.client.get("/shares?image_model=gemini-3.1-flash-image-preview", headers=self._auth(self.jwt))
+        self.assertEqual(model_list.status_code, 200, model_list.text)
+        self.assertEqual(model_list.json()["total"], 2)
+        self.assertEqual({item["id"] for item in model_list.json()["items"]}, {shares[1]["id"], shares[2]["id"]})
+
+        kind_list = self.client.get("/shares?asset_kind=character", headers=self._auth(self.jwt))
+        self.assertEqual(kind_list.status_code, 200, kind_list.text)
+        self.assertEqual(kind_list.json()["total"], 1)
+        self.assertEqual(kind_list.json()["items"][0]["id"], shares[1]["id"])
+
+        combo_list = self.client.get(
+            "/shares?asset_kind=item_icon&output_size=64x64&image_model=gemini-3.1-flash-image-preview",
+            headers=self._auth(self.jwt),
+        )
+        self.assertEqual(combo_list.status_code, 200, combo_list.text)
+        self.assertEqual(combo_list.json()["total"], 1)
+        self.assertEqual(combo_list.json()["items"][0]["id"], shares[2]["id"])
 
     def test_approval_rewards_respect_author_daily_limit(self) -> None:
         reward_credits = self.db.scalar(select(SystemSetting).where(SystemSetting.key == "share.reward_credits"))

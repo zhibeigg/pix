@@ -7,7 +7,7 @@ import type { CharacterItem, GenerationJob, ImageModelInfo, ImageModelsResponse,
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type BgRemovalAlgorithmChoice, type EdgeStyleChoice } from '../pixelize'
 import { assetKindDefaults, jobTypeDefaults, mergeReusedPixelize, parseAssetKind, resolveReusableAssetKind, reusableWorkbenchType, sizeRetryStateFromJob, type AssetKindChoice, type DualGridTransitionStyle } from '../lib/jobReuse'
 import { promptLimitsFromModels } from '../lib/promptLimits'
-import { DEFAULT_VIDEO_BRIDGE_MODEL, VIDEO_BRIDGE_MODELS, normalizeVideoBridgeModel, videoBridgePriceCredits } from '../lib/pricing'
+import { DEFAULT_VIDEO_BRIDGE_MODEL, VIDEO_BRIDGE_MODELS, deriveVideoBridgeDurationSeconds, normalizeVideoBridgeModel, rawVideoBridgeDurationSeconds, videoBridgePriceCredits } from '../lib/pricing'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
@@ -49,21 +49,6 @@ const TEXTURE_KIND_OPTIONS: TextureKindOption[] = [
 type SpritePreset = 'horizontal' | 'four_directions' | 'character_full' | 'custom'
 type SpriteMode = 'mosaic' | 'video_bridge'
 type SpriteReferenceSource = 'upload' | 'character'
-
-// Seedance / Ark 只接受离散视频时长档位（秒），与后端 [video_bridge].allowed_durations 保持一致。
-const ALLOWED_VIDEO_DURATIONS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-
-// 复刻后端 derive_video_bridge_duration_seconds：帧数×每帧 ms 向上取整到整秒，再吸附到不小于它的最近合法档位。
-function deriveVideoDurationSeconds(frames: number, fps: number): number {
-  const safeFrames = Math.max(1, Math.round(frames || 1))
-  const safeFps = Math.max(1, Math.round(fps || 1))
-  const durationMs = Math.max(1, Math.round(1000 / safeFps))
-  const rawSeconds = Math.max(1, Math.ceil((safeFrames * durationMs) / 1000))
-  for (const tier of ALLOWED_VIDEO_DURATIONS) {
-    if (tier >= rawSeconds) return tier
-  }
-  return ALLOWED_VIDEO_DURATIONS[ALLOWED_VIDEO_DURATIONS.length - 1]
-}
 
 // video_bridge 专用「动画预设」：用帧数（流畅度）× fps（速度）表达，自动映射 rows×cols 与合法视频档位。
 type VideoAnimPresetKey = 'light_loop' | 'standard' | 'fluid' | 'silky' | 'showcase' | 'custom'
@@ -325,8 +310,10 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const playbackFps = Math.max(1, Math.min(60, Math.round(fps || 8)))
   const playbackSeconds = (totalFrames * Math.max(1, Math.round(1000 / playbackFps))) / 1000
   const billingUnits = Math.max(1, Math.ceil(totalFrames / 9))
-  const videoBridgeDurationSeconds = deriveVideoDurationSeconds(totalFrames, playbackFps)
+  const videoBridgeRawDurationSeconds = rawVideoBridgeDurationSeconds(totalFrames, playbackFps)
+  const videoBridgeDurationSeconds = deriveVideoBridgeDurationSeconds(totalFrames, playbackFps)
   const videoBridgePrice = videoBridgePriceCredits(videoModel, pricing, videoBridgeDurationSeconds)
+  const videoBridgeUsesMinimumDuration = videoBridgeDurationSeconds > videoBridgeRawDurationSeconds
   const price = isSpriteVideoBridge ? videoBridgePrice : isSprite ? basePrice * billingUnits : basePrice
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
@@ -574,6 +561,12 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     setVideoAnimPreset('custom')
   }
 
+  function updateFps(value: number) {
+    const next = Math.max(1, Math.min(60, Math.round(value || 1)))
+    setFps(next)
+    if (isSpriteVideoBridge) setVideoAnimPreset('custom')
+  }
+
   function updateRowPrompt(index: number, value: string) {
     setRowPrompts((prev) => {
       const next = ensureRowPromptsLength(prev, safeRows).slice()
@@ -790,7 +783,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   }
 
   return (
-      <PixPanel eyebrow={text('单张试做', 'Single test')} title={text('任务配方', 'Job recipe')} action={<EstimateBadge price={price} discount={discount} sprite={isSprite && !isSpriteVideoBridge ? { billingUnits, basePrice, totalFrames } : null} />}>
+      <PixPanel eyebrow={text('单张试做', 'Single test')} title={text('任务配方', 'Job recipe')} action={<EstimateBadge price={price} discount={discount} sprite={isSprite && !isSpriteVideoBridge ? { billingUnits, basePrice, totalFrames } : null} videoBridge={isSpriteVideoBridge ? { durationSeconds: videoBridgeDurationSeconds, totalFrames, fps: playbackFps } : null} />}>
       <form className="grid gap-5" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
           <PixField label={text('模式', 'Mode')}>
@@ -986,23 +979,30 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                       {VIDEO_ANIM_PRESETS.map((preset) => {
                         const frames = preset.rows * preset.cols
                         const playSeconds = (frames * Math.max(1, Math.round(1000 / preset.fps))) / 1000
+                        const billedSeconds = deriveVideoBridgeDurationSeconds(frames, preset.fps)
+                        const billedPrice = videoBridgePriceCredits(videoModel, pricing, billedSeconds)
                         return (
                           <SelectItem key={preset.key} value={preset.key}>
-                            {text(preset.zh, preset.en)} · {frames} {text('帧', 'frames')} @ {preset.fps}fps · {text(`播放约 ${playSeconds.toFixed(1)} 秒`, `plays ~${playSeconds.toFixed(1)}s`)}
+                            {text(preset.zh, preset.en)} · {frames} {text('帧', 'frames')} @ {preset.fps}fps · {text(`播放约 ${playSeconds.toFixed(1)} 秒`, `plays ~${playSeconds.toFixed(1)}s`)} · {text(`计费 ${billedSeconds}s / ${billedPrice} 点`, `billed ${billedSeconds}s / ${billedPrice} credits`)}
                           </SelectItem>
                         )
                       })}
-                      <SelectItem value="custom">{text('自定义（帧数 / FPS）', 'Custom (frames / FPS)')}</SelectItem>
+                      <SelectItem value="custom">
+                        {text(`自定义 · 当前 ${totalFrames} 帧 @ ${playbackFps}fps · 计费 ${videoBridgeDurationSeconds}s / ${videoBridgePrice} 点`, `Custom · current ${totalFrames} frames @ ${playbackFps}fps · billed ${videoBridgeDurationSeconds}s / ${videoBridgePrice} credits`)}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </PixField>
                 {videoAnimPreset === 'custom' && (
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-4">
                     <PixField label={text('行 rows（1~8）', 'Rows (1–8)')}>
                       <Input type="number" min={1} max={MAX_GRID_AXIS} value={safeRows} onChange={(e) => updateRows(Number(e.target.value))} />
                     </PixField>
                     <PixField label={text('列 cols（1~8）', 'Cols (1–8)')}>
                       <Input type="number" min={1} max={MAX_GRID_AXIS} value={safeCols} onChange={(e) => updateCols(Number(e.target.value))} />
+                    </PixField>
+                    <PixField label={text('播放 FPS', 'Playback FPS')} hint={text('改动后会立即重新计算计费秒数和价格。', 'Changes recalculate billing duration and price immediately.')}>
+                      <Input type="number" min={1} max={60} value={playbackFps} onChange={(e) => updateFps(Number(e.target.value))} />
                     </PixField>
                     <PixField label={text('总帧数', 'Total frames')}>
                       <Input value={`${totalFrames}`} readOnly />
@@ -1011,8 +1011,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                 )}
                 <Alert variant="info">
                   {text(
-                    `预计成品：${totalFrames} 帧动画 · 播放约 ${playbackSeconds.toFixed(1)} 秒 · ${playbackFps}fps · 提交 ${videoBridgeDurationSeconds}s 视频补间`,
-                    `Expected output: ${totalFrames}-frame animation · plays ~${playbackSeconds.toFixed(1)}s · ${playbackFps}fps · submits a ${videoBridgeDurationSeconds}s video bridge`,
+                    `预计成品：${totalFrames} 帧动画 · 播放约 ${playbackSeconds.toFixed(1)} 秒 · ${playbackFps}fps · 计费 ${videoBridgeDurationSeconds}s 视频补间 · 预计 ${videoBridgePrice} 点${videoBridgeUsesMinimumDuration ? `（当前播放时长约 ${videoBridgeRawDurationSeconds}s，不足 4s 按官方 4s 最低档计费）` : ''}`,
+                    `Expected output: ${totalFrames}-frame animation · plays ~${playbackSeconds.toFixed(1)}s · ${playbackFps}fps · billed as a ${videoBridgeDurationSeconds}s video bridge · estimated ${videoBridgePrice} credits${videoBridgeUsesMinimumDuration ? ` (current playback rounds to ${videoBridgeRawDurationSeconds}s, below the official 4s minimum tier)` : ''}`,
                   )}
                 </Alert>
               </>
@@ -1094,9 +1094,11 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               </PixField>
             )}
 
-            <PixField label={text('播放 FPS', 'Playback FPS')} hint={isSpriteVideoBridge ? text('调整成品播放速度；数值越高，动作越快。', 'Adjust the final playback speed; higher values make the motion faster.') : undefined}>
-              <Input type="number" min={1} max={60} value={fps} onChange={(e) => { setFps(Number(e.target.value)); if (isSpriteVideoBridge) setVideoAnimPreset('custom') }} />
-            </PixField>
+            {!isSpriteVideoBridge && (
+              <PixField label={text('播放 FPS', 'Playback FPS')}>
+                <Input type="number" min={1} max={60} value={fps} onChange={(e) => updateFps(Number(e.target.value))} />
+              </PixField>
+            )}
           </div>
         )}
 

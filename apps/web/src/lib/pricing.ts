@@ -7,6 +7,20 @@ export const VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS = 4
 export const VIDEO_BRIDGE_ALLOWED_DURATION_SECONDS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const
 
 type VideoBridgeDurationSeconds = typeof VIDEO_BRIDGE_ALLOWED_DURATION_SECONDS[number]
+
+export function videoBridgeFrameDurationMs(fps: number): number {
+  const safeFps = Math.max(1, Math.round(fps || 1))
+  return Math.max(1, Math.round(1000 / safeFps))
+}
+
+export function rawVideoBridgeDurationSeconds(frames: number, fps: number): number {
+  const safeFrames = Math.max(1, Math.round(frames || 1))
+  return Math.max(1, Math.ceil((safeFrames * videoBridgeFrameDurationMs(fps)) / 1000))
+}
+
+export function deriveVideoBridgeDurationSeconds(frames: number, fps: number): VideoBridgeDurationSeconds {
+  return normalizeVideoBridgeDurationSeconds(rawVideoBridgeDurationSeconds(frames, fps))
+}
 type VideoBridgeModelPrice = { value: VideoBridgeModel; label: string; videoPricesCny: Record<VideoBridgeDurationSeconds, number> }
 
 export const VIDEO_BRIDGE_MODELS: VideoBridgeModelPrice[] = [
@@ -64,13 +78,16 @@ export function videoBridgePriceCredits(
   durationSeconds = VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS,
 ): number {
   const seconds = normalizeVideoBridgeDurationSeconds(durationSeconds)
+  const defaultPrice = creditsFromVideoPriceCny(videoBridgePriceCny(model, VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS))
   const rule = pricing.find((item) => item.key === videoBridgePricingKey(model))
   if (rule) {
     const basePrice = Math.max(0, Math.round(rule.price_credits || 0))
-    if (seconds <= VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS || basePrice <= VIDEO_BRIDGE_IMAGE_PRICE_CREDITS) return basePrice
-    const videoComponent = basePrice - VIDEO_BRIDGE_IMAGE_PRICE_CREDITS
-    const ratio = videoBridgePriceCny(model, seconds) / videoBridgePriceCny(model, VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS)
-    return VIDEO_BRIDGE_IMAGE_PRICE_CREDITS + Math.ceil(videoComponent * ratio)
+    if (basePrice !== defaultPrice) {
+      if (seconds <= VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS || basePrice <= VIDEO_BRIDGE_IMAGE_PRICE_CREDITS) return basePrice
+      const videoComponent = basePrice - VIDEO_BRIDGE_IMAGE_PRICE_CREDITS
+      const ratio = videoBridgePriceCny(model, seconds) / videoBridgePriceCny(model, VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS)
+      return VIDEO_BRIDGE_IMAGE_PRICE_CREDITS + Math.ceil(videoComponent * ratio)
+    }
   }
   return creditsFromVideoPriceCny(videoBridgePriceCny(model, seconds))
 }

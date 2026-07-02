@@ -406,9 +406,6 @@ export const en = {
     saveWork: 'Save to pack',
     removeWork: 'Remove',
   },
-  characters: {
-    saveFromWork: 'Save as character',
-  },
   queue: {
     eyebrow: 'Production queue',
     title: 'In production',

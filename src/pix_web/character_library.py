@@ -98,7 +98,9 @@ def create_character_item_from_job(
     source: str = "job",
     auto_saved: bool = False,
 ) -> CharacterLibraryItem:
-    """从已完成任务输出创建角色库记录；调用方负责 commit。"""
+    """从已完成的像素直出角色任务输出创建角色库记录；调用方负责 commit。"""
+    if not is_character_asset_job(job):
+        raise ValueError("只有像素直出的角色类型作品才能成为角色")
     image_path = character_output_path(output, image_kind)
     preview_path = character_preview_path(output, image_path)
     item = CharacterLibraryItem(
@@ -121,7 +123,7 @@ def create_character_item_from_job(
     return item
 
 
-def _is_character_asset_job(job: GenerationJob) -> bool:
+def is_character_asset_job(job: GenerationJob) -> bool:
     params = _as_record(job.params_json)
     asset = _as_record(params.get("asset"))
     return job.job_type == "asset" and str(asset.get("asset_kind") or "") == "character"
@@ -133,7 +135,7 @@ def auto_save_character_for_job(
     output: GenerationOutput,
 ) -> CharacterLibraryItem | None:
     """角色素材任务成功后自动进入角色库；同一源任务只创建一次。"""
-    if not _is_character_asset_job(job):
+    if not is_character_asset_job(job):
         return None
     existing = db.scalar(
         select(CharacterLibraryItem).where(

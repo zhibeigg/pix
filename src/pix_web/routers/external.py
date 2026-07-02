@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from pix_web.character_library import clean_character_text, create_character_item_from_job
+from pix_web.character_library import clean_character_text, create_character_item_from_job, is_character_asset_job
 from pix_web.config import WebSettings
 from pix_web.credits import ensure_credit_account
 from pix_web.external_api_keys import ExternalApiPrincipal, require_external_scope
@@ -63,6 +63,19 @@ def _normalize_character_path(raw_path: str, principal: ExternalApiPrincipal, db
 
 def _source_job_id_for_file(path: Path, settings: WebSettings) -> int | None:
     return run_job_id_for_file(path.resolve(), settings)
+
+
+def _require_character_asset_source_job(
+    db: Session,
+    principal: ExternalApiPrincipal,
+    source_job_id: int | None,
+) -> GenerationJob:
+    if source_job_id is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只有像素直出的角色类型作品才能成为角色")
+    job = _job_for_principal(db, principal, source_job_id)
+    if not is_character_asset_job(job):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只有像素直出的角色类型作品才能成为角色")
+    return job
 
 
 def _external_character_response(item: CharacterLibraryItem) -> CharacterResponse:
@@ -203,9 +216,10 @@ def external_create_character(
     image_file = _normalize_character_path(req.image_path, principal, db, settings)
     preview_file = _normalize_character_path(req.preview_path, principal, db, settings) if req.preview_path else image_file
     source_job_id = _source_job_id_for_file(image_file, settings) or _source_job_id_for_file(preview_file, settings)
+    _require_character_asset_source_job(db, principal, source_job_id)
     image_path = str(image_file)
     preview_path = str(preview_file)
-    snapshot_source = "job_output" if source_job_id is not None else "external"
+    snapshot_source = "asset_character_job_output"
     name = clean_character_text(req.name, 160) or image_file.stem[:160] or "未命名角色"
     item = CharacterLibraryItem(
         user_id=principal.user.id,

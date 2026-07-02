@@ -270,6 +270,7 @@ export type SequenceFrameAlignment = {
 export type SequenceAlignmentRequest = {
   frames: SequenceFrameAlignment[]
   fps?: number | null
+  colors?: number | null
   gif_export?: boolean
 }
 
@@ -532,11 +533,23 @@ export type SharedWork = {
   updated_at: string
 }
 
+export type SharedWorkFilterOption = {
+  value: string
+  count: number
+}
+
+export type SharedWorkFilters = {
+  asset_kinds: SharedWorkFilterOption[]
+  output_sizes: SharedWorkFilterOption[]
+  image_models: SharedWorkFilterOption[]
+}
+
 export type SharedWorkListResponse = {
   items: SharedWork[]
   total: number
   limit: number
   offset: number
+  filters?: SharedWorkFilters
 }
 
 export type AdminSharedWork = Omit<SharedWork, 'download_options' | 'liked_by_me' | 'owned_by_me'> & {

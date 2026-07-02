@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import socket
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -153,6 +155,17 @@ class SsrfGuardTests(unittest.TestCase):
     def test_allows_public_ip_literal(self) -> None:
         # 公网 IP 字面量无需 DNS 解析，应放行
         assert_safe_download_url("https://8.8.8.8/x.png")
+
+    def test_allows_trusted_ark_tos_fake_ip(self) -> None:
+        fake_info = [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("198.18.1.202", 443))]
+        with patch("socket.getaddrinfo", return_value=fake_info):
+            assert_safe_download_url("https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/video.mp4")
+
+    def test_blocks_untrusted_fake_ip(self) -> None:
+        fake_info = [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("198.18.1.202", 443))]
+        with patch("socket.getaddrinfo", return_value=fake_info):
+            with self.assertRaises(UnsafeDownloadURLError):
+                assert_safe_download_url("https://example.com/video.mp4")
 
 
 if __name__ == "__main__":

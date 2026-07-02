@@ -102,6 +102,97 @@ def _as_record(value: object) -> dict[str, object]:
     return value if isinstance(value, dict) else {}
 
 
+def _normalized_filter_value(value: str) -> str:
+    return " ".join(str(value or "").strip().split())[:128]
+
+
+def _size_key(value: object) -> str:
+    if isinstance(value, str):
+        cleaned = value.strip().lower().replace("×", "x").replace(" ", "")
+        parts = cleaned.split("x")
+        if len(parts) == 2:
+            try:
+                width, height = int(parts[0]), int(parts[1])
+            except ValueError:
+                return ""
+            if width > 0 and height > 0:
+                return f"{width}x{height}"
+        return ""
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        return ""
+    try:
+        width, height = int(value[0]), int(value[1])
+    except (TypeError, ValueError):
+        return ""
+    if width <= 0 or height <= 0:
+        return ""
+    return f"{width}x{height}"
+
+
+def _share_output_size_key(share: SharedWork) -> str:
+    snapshot = _as_record(share.parameter_snapshot_json)
+    pixel = _as_record(snapshot.get("pixel"))
+    key = _size_key(pixel.get("output_size"))
+    if key:
+        return key
+    job = getattr(share, "job", None)
+    params = _as_record(getattr(job, "params_json", None))
+    pixelize = _as_record(params.get("pixelize"))
+    return _size_key(pixelize.get("output_size"))
+
+
+def _share_image_model(share: SharedWork) -> str:
+    snapshot = _as_record(share.parameter_snapshot_json)
+    generation = _as_record(snapshot.get("generation"))
+    raw_image = _as_record(snapshot.get("raw_image"))
+    value = generation.get("model") or raw_image.get("model")
+    if value:
+        return str(value)
+    job = getattr(share, "job", None)
+    params = _as_record(getattr(job, "params_json", None))
+    return str(params.get("image_model") or "")
+
+
+def _sort_size_value(value: str) -> tuple[int, int, str]:
+    parts = value.split("x")
+    try:
+        width, height = int(parts[0]), int(parts[1])
+    except (IndexError, ValueError):
+        return (10**9, 10**9, value)
+    return (width * height, width, value)
+
+
+def _filter_options(shares: list[SharedWork]) -> dict[str, list[dict[str, object]]]:
+    asset_kinds: dict[str, int] = {}
+    output_sizes: dict[str, int] = {}
+    image_models: dict[str, int] = {}
+    for share in shares:
+        asset_kind = str(share.asset_kind or "")
+        if asset_kind:
+            asset_kinds[asset_kind] = asset_kinds.get(asset_kind, 0) + 1
+        size = _share_output_size_key(share)
+        if size:
+            output_sizes[size] = output_sizes.get(size, 0) + 1
+        model = _share_image_model(share)
+        if model:
+            image_models[model] = image_models.get(model, 0) + 1
+    return {
+        "asset_kinds": [{"value": key, "count": asset_kinds[key]} for key in sorted(asset_kinds)],
+        "output_sizes": [{"value": key, "count": output_sizes[key]} for key in sorted(output_sizes, key=_sort_size_value)],
+        "image_models": [{"value": key, "count": image_models[key]} for key in sorted(image_models)],
+    }
+
+
+def _share_matches_filters(share: SharedWork, *, asset_kind: str, output_size: str, image_model: str) -> bool:
+    if asset_kind and str(share.asset_kind or "") != asset_kind:
+        return False
+    if output_size and _share_output_size_key(share) != output_size:
+        return False
+    if image_model and _share_image_model(share) != image_model:
+        return False
+    return True
+
+
 def _strip_empty(value: object) -> object:
     if isinstance(value, dict):
         result = {}
@@ -126,6 +217,11 @@ def _parameter_snapshot(job: GenerationJob) -> dict[str, object]:
         "mode": job.job_type,
         "prompt": (job.prompt or "").strip() or None,
         "input_image": "uploaded" if job.input_image_path else None,
+        "generation": {
+            "model": params.get("image_model"),
+            "image_size": params.get("image_size"),
+            "quality": params.get("image_quality"),
+        },
         "raw_image": {
             "model": params.get("image_model"),
             "image_size": params.get("image_size"),
@@ -272,13 +368,30 @@ def _share_download_options(share: SharedWork) -> list[SharedDownloadOptionRespo
     return options
 
 
+def _share_parameter_snapshot(share: SharedWork) -> dict[str, object]:
+    snapshot = dict(_as_record(share.parameter_snapshot_json))
+    generation = dict(_as_record(snapshot.get("generation")))
+    job = getattr(share, "job", None)
+    params = _as_record(getattr(job, "params_json", None))
+    if not generation.get("model") and params.get("image_model"):
+        generation["model"] = params.get("image_model")
+    if not generation.get("image_size") and params.get("image_size"):
+        generation["image_size"] = params.get("image_size")
+    if not generation.get("quality") and params.get("image_quality"):
+        generation["quality"] = params.get("image_quality")
+    cleaned = _strip_empty(generation)
+    if isinstance(cleaned, dict) and cleaned:
+        snapshot["generation"] = cleaned
+    return snapshot
+
+
 def _share_response(
     share: SharedWork,
     *,
     current_user: User | None = None,
     liked_ids: set[int] | None = None,
 ) -> SharedWorkResponse:
-    parameter_snapshot = share.parameter_snapshot_json if isinstance(share.parameter_snapshot_json, dict) else {}
+    parameter_snapshot = _share_parameter_snapshot(share)
     return SharedWorkResponse(
         id=share.id,
         job_id=share.job_id,
@@ -341,19 +454,32 @@ def list_shares(
     limit: int = Query(default=48, ge=1, le=120),
     offset: int = Query(default=0, ge=0),
     asset_kind: str = Query(default=""),
+    output_size: str = Query(default=""),
+    image_model: str = Query(default=""),
 ) -> SharedWorkListResponse:
     # 需登录才能浏览社区公开池；只返回审核通过（active）的作品。
-    conditions = [SharedWork.status == SHARE_STATUS_ACTIVE]
-    if asset_kind:
-        conditions.append(SharedWork.asset_kind == asset_kind)
-    total = int(db.scalar(select(func.count()).select_from(SharedWork).where(*conditions)) or 0)
-    shares = list(db.scalars(
+    normalized_asset_kind = _normalized_filter_value(asset_kind)
+    normalized_output_size = _size_key(output_size)
+    normalized_image_model = _normalized_filter_value(image_model)
+    all_active_shares = list(db.scalars(
         select(SharedWork)
-        .where(*conditions)
+        .options(selectinload(SharedWork.job))
+        .where(SharedWork.status == SHARE_STATUS_ACTIVE)
         .order_by(SharedWork.like_count.desc(), SharedWork.published_at.desc(), SharedWork.id.desc())
-        .offset(offset)
-        .limit(limit)
     ))
+    filters = _filter_options(all_active_shares)
+    filtered_shares = [
+        share
+        for share in all_active_shares
+        if _share_matches_filters(
+            share,
+            asset_kind=normalized_asset_kind,
+            output_size=normalized_output_size,
+            image_model=normalized_image_model,
+        )
+    ]
+    total = len(filtered_shares)
+    shares = filtered_shares[offset: offset + limit]
     liked_ids: set[int] = set()
     if current_user is not None and shares:
         liked_ids = set(db.scalars(
@@ -367,6 +493,7 @@ def list_shares(
         total=total,
         limit=limit,
         offset=offset,
+        filters=filters,
     )
 
 

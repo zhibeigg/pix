@@ -1,9 +1,8 @@
-import { FormEvent, useMemo, useState } from 'react'
-import { Archive, RotateCw, Save, Sparkles, Trash2, Upload } from 'lucide-react'
-import { api } from '../api'
+import { useMemo, useState } from 'react'
+import { Archive, RotateCw, Save, Sparkles, Trash2 } from 'lucide-react'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
-import type { CharacterCreatePayload, CharacterItem, CharacterUpdatePayload } from '../types'
+import type { CharacterItem, CharacterUpdatePayload } from '../types'
 import { formatDateTime } from '../lib/utils'
 import { Alert } from '../components/ui/alert'
 import { Badge } from '../components/ui/badge'
@@ -15,10 +14,8 @@ import { PixPanel } from '../components/pix/PixPanel'
 import { PixPreviewFrame } from '../components/pix/PixPreviewFrame'
 
 type CharactersPageProps = {
-  token: string
   characters: CharacterItem[]
   loading?: boolean
-  onCreate: (payload: CharacterCreatePayload) => Promise<CharacterItem | null>
   onUpdate: (item: CharacterItem, payload: CharacterUpdatePayload) => Promise<CharacterItem | null>
   onDelete: (item: CharacterItem) => Promise<void>
   onGenerateCharacter: () => void
@@ -35,59 +32,13 @@ function draftFromCharacter(item: CharacterItem): Draft {
   return { name: item.name, description: item.description || '', tags: (item.tags ?? []).join(', ') }
 }
 
-export function CharactersPage({ token, characters, loading = false, onCreate, onUpdate, onDelete, onGenerateCharacter, onRefresh }: CharactersPageProps) {
+function CharactersPage({ characters, loading = false, onUpdate, onDelete, onGenerateCharacter, onRefresh }: CharactersPageProps) {
   const { text } = useI18n()
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [tags, setTags] = useState('')
-  const [imagePath, setImagePath] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editDraft, setEditDraft] = useState<Draft>({ name: '', description: '', tags: '' })
   const activeCount = useMemo(() => characters.filter((item) => item.status === 'active').length, [characters])
-
-  async function upload(file: File | undefined) {
-    if (!file) return
-    setUploading(true)
-    setMessage('')
-    setImageFile(file)
-    setImageUrl('')
-    setImagePath('')
-    try {
-      const uploaded = await api.uploadImage(token, file)
-      setImagePath(uploaded.path)
-      setImageUrl(signedFileUrl(uploaded.url))
-    } catch (error) {
-      setImageFile(null)
-      setMessage(error instanceof Error ? error.message : text('上传失败', 'Upload failed'))
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    if (!imagePath || saving) return
-    setSaving(true)
-    setMessage('')
-    try {
-      await onCreate({ name: name.trim(), description: description.trim(), tags: tagsFromText(tags), image_path: imagePath })
-      setName('')
-      setDescription('')
-      setTags('')
-      setImagePath('')
-      setImageUrl('')
-      setImageFile(null)
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : text('保存角色失败', 'Failed to save character'))
-    } finally {
-      setSaving(false)
-    }
-  }
 
   function beginEdit(item: CharacterItem) {
     setEditingId(item.id)
@@ -115,35 +66,18 @@ export function CharactersPage({ token, characters, loading = false, onCreate, o
     <div className="grid gap-6">
       <PageHeader
         eyebrow={text('角色库', 'Character library')}
-        title={text('长期保存可复用角色参考图', 'Save reusable character references')}
-        description={text('角色库是独立持久资源，不占普通作品库保留格；序列帧生成时可直接选择角色作为参考来源。', 'Character library items are persistent resources outside gallery retention. Sprite generation can use them directly as references.')}
+        title={text('像素直出角色会自动进入角色库', 'Pixel-direct character jobs are saved automatically')}
+        description={text('只有在生产工作台选择「素材直出 → 角色」生成成功的作品会成为角色；序列帧生成时可直接选择这些角色作为参考来源。', 'Only successful “asset → character” generation jobs become character-library items. Sprite generation can use these characters directly as references.')}
         action={<div className="flex flex-wrap gap-2"><Button onClick={onGenerateCharacter}><Sparkles />{text('生成角色', 'Generate character')}</Button><Button variant="outline" onClick={onRefresh} disabled={loading}><RotateCw />{text('刷新', 'Refresh')}</Button></div>}
       />
 
       {message && <Alert variant="destructive">{message}</Alert>}
 
-      <PixPanel eyebrow={text('新增', 'New')} title={text('上传角色参考图', 'Upload a character reference')} description={text('适合立绘、三视图、已整理好的角色设定图。', 'Use portraits, turnarounds, or cleaned character reference sheets.')}>
-        <form className="grid gap-4" onSubmit={submit}>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-            <div className="grid gap-3">
-              <Input value={name} maxLength={160} placeholder={text('角色名称，例如：蓝袍骑士', 'Character name, e.g. Blue Cloak Knight')} onChange={(event) => setName(event.target.value)} />
-              <Textarea value={description} rows={3} maxLength={1000} placeholder={text('角色说明（可选）：身份、配色、服装、体型等', 'Notes (optional): identity, palette, costume, body shape, etc.')} onChange={(event) => setDescription(event.target.value)} />
-              <Input value={tags} placeholder={text('标签（逗号分隔）：主角, 近战, 蓝色', 'Tags (comma-separated): hero, melee, blue')} onChange={(event) => setTags(event.target.value)} />
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" asChild>
-                  <label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : imagePath ? text('替换图片', 'Replace image') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void upload(event.currentTarget.files?.[0])} /></label>
-                </Button>
-                <Button type="submit" disabled={!imagePath || uploading || saving}><Save />{saving ? text('保存中…', 'Saving…') : text('保存到角色库', 'Save to library')}</Button>
-              </div>
-            </div>
-            <PixPreviewFrame url={imageUrl} file={imageFile} loading={uploading} label={imagePath ? text('角色图预览', 'Character preview') : text('等待上传', 'Waiting for upload')} />
-          </div>
-        </form>
-      </PixPanel>
-
       <PixPanel eyebrow={text('角色', 'Characters')} title={text('我的角色库', 'My character library')} action={<div className="flex flex-wrap gap-2"><Badge variant="success">{text(`活跃 ${activeCount}`, `${activeCount} active`)}</Badge><Badge variant="outline">{text(`共 ${characters.length}`, `${characters.length} total`)}</Badge></div>}>
         {characters.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border bg-muted/45 p-8 text-center text-sm text-muted-foreground">{text('还没有角色。上传一张参考图，或在作品库里点击“保存为角色”。', 'No characters yet. Upload a reference, or click “Save as character” in the gallery.')}</div>
+          <div className="rounded-lg border border-dashed border-border bg-muted/45 p-8 text-center text-sm text-muted-foreground">
+            {text('还没有角色。请点击「生成角色」，在生产工作台使用「素材直出 → 角色」创建 64×64 角色素材。', 'No characters yet. Click “Generate character” and use “asset → character” in the workspace to create a 64×64 character asset.')}
+          </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {characters.map((item) => {
@@ -180,3 +114,6 @@ export function CharactersPage({ token, characters, loading = false, onCreate, o
     </div>
   )
 }
+
+export { CharactersPage }
+export default CharactersPage

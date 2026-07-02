@@ -318,11 +318,13 @@ export const api = {
   expandGalleryQuota(token: string) {
     return request<GalleryQuota>('/jobs/gallery-quota/expand', { method: 'POST' }, token)
   },
-  sharedWorks(token?: string | null, params: { limit?: number; offset?: number; assetKind?: string } = {}) {
+  sharedWorks(token?: string | null, params: { limit?: number; offset?: number; assetKind?: string; outputSize?: string; imageModel?: string } = {}) {
     const search = new URLSearchParams()
     if (params.limit) search.set('limit', String(params.limit))
     if (params.offset) search.set('offset', String(params.offset))
     if (params.assetKind) search.set('asset_kind', params.assetKind)
+    if (params.outputSize) search.set('output_size', params.outputSize)
+    if (params.imageModel) search.set('image_model', params.imageModel)
     const query = search.toString()
     return request<SharedWorkListResponse>(`/shares${query ? `?${query}` : ''}`, {}, token)
   },

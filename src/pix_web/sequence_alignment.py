@@ -11,7 +11,7 @@ import numpy as np
 from fastapi import HTTPException, status
 from PIL import Image
 
-from pix.sprite import compose_gif, compose_grid_sprite_sheet, compose_horizontal_sprite_sheet
+from pix.sprite import _apply_shared_palette, compose_gif, compose_grid_sprite_sheet, compose_horizontal_sprite_sheet
 from pix_web.models import GenerationJob, GenerationOutput
 from pix_web.schemas import SequenceAlignmentRequest
 
@@ -221,6 +221,30 @@ def _frame_scales(payload: SequenceAlignmentRequest) -> dict[int, float]:
     return scales
 
 
+def _payload_colors(payload: SequenceAlignmentRequest) -> int | None:
+    try:
+        colors = int(payload.colors) if payload.colors is not None else None
+    except (TypeError, ValueError):
+        return None
+    if colors is None:
+        return None
+    return max(2, min(256, colors))
+
+
+def _pixelize_dither(job: GenerationJob) -> str:
+    params = job.params_json if isinstance(job.params_json, dict) else {}
+    pixelize = params.get("pixelize")
+    dither = pixelize.get("dither") if isinstance(pixelize, dict) else None
+    return "floyd_steinberg" if str(dither).strip().lower() == "floyd_steinberg" else "none"
+
+
+def _quantize_aligned_frames(images: list[Image.Image], *, colors: int | None, dither: str) -> tuple[list[Image.Image], list[str]]:
+    if colors is None:
+        return images, []
+    quantized, palette = _apply_shared_palette(images, colors=colors, dither=dither)
+    return quantized, palette
+
+
 def _compose_row_outputs(
     sprite_meta: dict[str, Any],
     aligned_meta: list[dict[str, Any]],
@@ -285,14 +309,15 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
     rows, cols = _sprite_grid(sprite_meta, raw_frames)
     offsets = _frame_offsets(payload)
     scales = _frame_scales(payload)
+    color_count = _payload_colors(payload)
+    dither = _pixelize_dither(job)
     version = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     align_root = run_dir / "alignments" / version
     aligned_frames_dir = align_root / "frames"
     aligned_frames_dir.mkdir(parents=True, exist_ok=True)
 
-    aligned_frame_paths: list[Path] = []
-    aligned_frame_paths_by_index: dict[int, Path] = {}
-    aligned_meta: list[dict[str, Any]] = []
+    pending_frames: list[dict[str, Any]] = []
+    aligned_images: list[Image.Image] = []
     for index, item in enumerate(raw_frames, start=1):
         if not isinstance(item, dict):
             continue
@@ -304,15 +329,8 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
         scale = scales.get(frame_index, 1.0)
         with Image.open(source_path) as opened:
             aligned = _paste_aligned(opened.convert("RGBA"), frame_size, offset=offset, scale=scale)
-        frame_path = aligned_frames_dir / f"frame_{frame_index:03d}.png"
-        aligned.save(frame_path)
-        sheet_position = len(aligned_frame_paths)
-        aligned_frame_paths.append(frame_path)
-        aligned_frame_paths_by_index[frame_index] = frame_path
-        bbox = _visible_bbox(aligned)
         row_index, col_index = _frame_grid_position(item, frame_index, cols)
-        sheet_rect = {"x": sheet_position * frame_size[0], "y": 0, "w": frame_size[0], "h": frame_size[1]}
-        aligned_meta.append({
+        pending_frames.append({
             "index": frame_index,
             "row": row_index,
             "col": col_index,
@@ -320,12 +338,41 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
             "grid_col": col_index,
             "raw_path": item.get("raw_path"),
             "reference_path": item.get("reference_path"),
+            "action_phase": item.get("action_phase"),
+            "offset": offset,
+            "scale": scale,
+        })
+        aligned_images.append(aligned)
+
+    if not pending_frames:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="没有可合成的序列帧")
+
+    aligned_images, palette = _quantize_aligned_frames(aligned_images, colors=color_count, dither=dither)
+    aligned_frame_paths: list[Path] = []
+    aligned_frame_paths_by_index: dict[int, Path] = {}
+    aligned_meta: list[dict[str, Any]] = []
+    for sheet_position, (item, aligned) in enumerate(zip(pending_frames, aligned_images, strict=False)):
+        frame_index = int(item["index"])
+        frame_path = aligned_frames_dir / f"frame_{frame_index:03d}.png"
+        aligned.save(frame_path)
+        aligned_frame_paths.append(frame_path)
+        aligned_frame_paths_by_index[frame_index] = frame_path
+        bbox = _visible_bbox(aligned)
+        sheet_rect = {"x": sheet_position * frame_size[0], "y": 0, "w": frame_size[0], "h": frame_size[1]}
+        aligned_meta.append({
+            "index": frame_index,
+            "row": item.get("row"),
+            "col": item.get("col"),
+            "grid_row": item.get("grid_row"),
+            "grid_col": item.get("grid_col"),
+            "raw_path": item.get("raw_path"),
+            "reference_path": item.get("reference_path"),
             "path": _rel(frame_path, run_dir),
             "sheet_rect": sheet_rect,
             "action_phase": item.get("action_phase"),
             "bbox": list(bbox) if bbox else None,
-            "alignment_offset": {"x": offset[0], "y": offset[1]},
-            "alignment_scale": scale,
+            "alignment_offset": {"x": item["offset"][0], "y": item["offset"][1]},
+            "alignment_scale": item["scale"],
         })
 
     if not aligned_frame_paths:
@@ -370,6 +417,8 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
         "active": True,
         "fps": fps,
         "gif_export": bool(payload.gif_export),
+        "colors": color_count,
+        "palette": palette,
         "frame_size": {"width": frame_size[0], "height": frame_size[1]},
         "frames": [
             {"index": index, "offset_x": offset[0], "offset_y": offset[1], "scale": scales.get(index, 1.0)}
@@ -388,6 +437,8 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
         "cols": cols,
         "fps": fps,
         "duration_ms": duration_ms,
+        "colors": color_count,
+        "palette": palette,
         "effective_frame_size": {"width": frame_size[0], "height": frame_size[1]},
         "sheet_size": {"width": frame_size[0] * len(aligned_meta), "height": frame_size[1]},
         "playback_source": _rel(sheet_path, run_dir),
@@ -431,6 +482,9 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
     sprite_meta["gif"] = gif_rel
     sprite_meta["fps"] = fps
     sprite_meta["duration_ms"] = duration_ms
+    if color_count is not None:
+        sprite_meta["colors"] = color_count
+        sprite_meta["palette"] = palette
     sprite_meta["rows_outputs"] = rows_outputs
     sprite_meta["row_sheets_dir"] = _rel(align_root / "row_sheets", run_dir) if any(entry.get("sheet") for entry in rows_outputs) else None
     sprite_meta["row_previews_dir"] = _rel(align_root / "previews", run_dir) if any(entry.get("gif") for entry in rows_outputs) else None
@@ -439,7 +493,7 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
     versions = sprite_meta.get("alignment_versions")
     if not isinstance(versions, list):
         versions = []
-    versions.append({"version": version, "path": _rel(alignment_path, run_dir), "sprite_sheet": _rel(sheet_path, run_dir), "sprite_sheet_grid": grid_rel, "sequence_json": _rel(sequence_path, run_dir), "sprite_gif": gif_rel, "rows_outputs": rows_outputs})
+    versions.append({"version": version, "path": _rel(alignment_path, run_dir), "sprite_sheet": _rel(sheet_path, run_dir), "sprite_sheet_grid": grid_rel, "sequence_json": _rel(sequence_path, run_dir), "sprite_gif": gif_rel, "rows_outputs": rows_outputs, "colors": color_count, "palette": palette})
     sprite_meta["alignment_versions"] = versions[-12:]
     meta["sprite"] = sprite_meta
     outputs = dict(original_outputs)
@@ -460,21 +514,36 @@ def apply_sequence_alignment(job: GenerationJob, output: GenerationOutput, paylo
         "preview": preview_rel,
         "alignment": _rel(alignment_path, run_dir),
     })
+    if color_count is not None:
+        pixelize_meta = meta.get("pixelize") if isinstance(meta.get("pixelize"), dict) else {}
+        pixelize_meta = dict(pixelize_meta)
+        effective_params = pixelize_meta.get("effective_params") if isinstance(pixelize_meta.get("effective_params"), dict) else {}
+        effective_params = dict(effective_params)
+        effective_params["colors"] = color_count
+        pixelize_meta["effective_params"] = effective_params
+        pixelize_meta["alignment_palette"] = palette
+        meta["pixelize"] = pixelize_meta
     meta["outputs"] = outputs
     _write_json(meta_path, meta)
 
-    # 同步把用户调整后的 fps / gif_export / 每帧 offset/scale 也写回 job.params_json，
+    # 同步把用户调整后的 fps / gif_export / colors / 每帧 offset/scale 也写回 job.params_json，
     # 让下次打开编辑器、作品库快览、重试任务都能拿到调整后的值。
     params = dict(job.params_json or {})
     sprite_params = dict(params.get("sprite") or {})
     sprite_params["fps"] = fps
     sprite_params["duration_ms"] = duration_ms
     sprite_params["gif_export"] = bool(payload.gif_export)
+    if color_count is not None:
+        sprite_params["colors"] = color_count
     sprite_params["alignment_version"] = version
     sprite_params["alignment_frames"] = [
         {"index": index, "offset_x": offset[0], "offset_y": offset[1], "scale": scales.get(index, 1.0)}
         for index, offset in sorted(offsets.items())
     ]
+    if color_count is not None:
+        pixelize_params = dict(params.get("pixelize") or {})
+        pixelize_params["colors"] = color_count
+        params["pixelize"] = pixelize_params
     params["sprite"] = sprite_params
     job.params_json = params
 

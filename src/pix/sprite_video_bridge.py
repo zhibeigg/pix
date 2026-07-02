@@ -435,7 +435,9 @@ def build_video_bridge_keyframe_prompt(
         "Create ONE image containing exactly two side-by-side panels for a pixel-art animation bridge. "
         f"Subject definition: {description}. Keep this exact same subject in both panels: same identity, costume/equipment, silhouette, palette, outline thickness, scale, proportions, and ground footprint. "
         f"Action to interpolate: {action_prompt}. Left panel is START pose / first_frame. Right panel is END pose / last_frame. "
-        "Make the two poses compatible for smooth in-between animation: the END pose should be a readable continuation of the START pose, not a different character, not a camera change, and not a scene change. "
+        "Make the two poses compatible for smooth in-between animation: the END pose should be a readable continuation of the START pose and represent the completion or peak of exactly one requested action pass, not a later repeated cycle, not a different character, not a camera change, and not a scene change. "
+        "Single-action contract: generate only the START and END poses for one occurrence of the requested action; for walking, one gait pass / one left-right leg alternation is enough unless the user explicitly asks for multiple cycles. "
+        "Facing-direction lock: both panels must preserve the exact same character facing direction and side-profile orientation; do not turn the head, face, torso, shield, weapon, or body toward the camera, away from the camera, or toward the opposite direction. "
         "Each pose must stay completely inside its own half of the image: the left pose cannot cross the vertical midpoint, the right pose cannot cross into the left half, and there must be a wide empty key-color gutter between the two poses. "
         "Use one fixed flat orthographic game-sprite view for both panels; no perspective shift, no zoom, no pan, no cut. "
         f"Fill every empty/background pixel in both panels with one perfectly uniform key color {key_color}; no gradients, no shadows on the background, no texture in the background. "
@@ -478,6 +480,7 @@ def build_video_bridge_motion_prompt(
             f"derived from {safe_frame_count} sprite frames × {safe_frame_duration_ms} ms per frame "
             f"({total_ms} ms total animation time, rounded up to whole seconds for the video API). "
             "Distribute the motion evenly across this full duration so the extracted sprite frames preserve the requested playback cadence. "
+            "Single-pass pacing: use the entire locked source-video duration for exactly one execution of the user's requested action; if the action would normally take 1 second, slow it down and stretch that same single action over the full duration instead of adding extra cycles. "
         )
     parameter_clause = _frame_parameter_clause(
         frame_size=frame_size,
@@ -487,7 +490,7 @@ def build_video_bridge_motion_prompt(
         denoise=denoise,
     )
     return_clause = (
-        "Loop-return requirement: after the animation reaches the provided last_frame pose, it must continue with a smooth return motion back to the provided first_frame pose; the final sampled frame must match first_frame again, making the sequence loop-ready. Allocate enough intermediate frames for both the outbound action and the return-to-start motion, with no teleporting, no hard cut, and no sudden snap back to the initial pose. "
+        "Loop-return requirement: after the animation reaches the provided last_frame pose exactly once, it must continue with a smooth return motion back to the provided first_frame pose; the final sampled frame must match first_frame again, making the sequence loop-ready. The outbound phase is one single execution of the requested action, and the return phase is one single recovery to the start pose; do not insert additional walking/attack/cast cycles before, between, or after those phases. Return by reversing only the pose/limb cycle on the same side-profile facing direction; never turn the character around, never turn the head/face/torso/shield/weapon toward the camera, away from the camera, or toward the opposite direction, and never change travel direction as a shortcut. Allocate enough intermediate frames for both the outbound action and the return-to-start motion, with no teleporting, no hard cut, and no sudden snap back to the initial pose. "
         if return_to_first_frame
         else ""
     )
@@ -499,9 +502,11 @@ def build_video_bridge_motion_prompt(
     return (
         "Seedance prompt structure: precise subject + action timing + fixed camera + pixel-art style + constraints. "
         f"Subject definition: {description}. Preserve this exact same subject for the entire video: same identity, costume/equipment, silhouette, proportions, palette, outline thickness, scale, and ground footprint; never create a clone, twin, duplicate subject, or identity swap. "
+        "Facing-direction lock: every frame must preserve the exact facing direction and side-profile orientation shown in first_frame and last_frame; do not yaw, rotate, turn around, look back, look toward the camera, look away from the camera, or face the opposite direction. Keep head, face, torso, shield, weapon, feet, and shoulders oriented consistently; motion may move limbs but must not change the character's facing side. "
+        "Single-action contract: perform the user's requested action exactly once across the full source-video duration. Do not fill the 4-second minimum duration with repeated loops or multiple cycles. For walking or running, one left-right leg alternation / one requested step sequence is enough unless the user explicitly asks for multiple cycles; stretch it slower across the duration rather than repeating it. For attack, cast, jump, hit, idle, or effect motions, execute one complete action arc only. "
         f"Motion request: {action_prompt}. {endpoint_clause}"
         f"{frame_clause}{timing_clause}{return_clause}Use smooth evenly spaced in-between poses with small consistent changes between adjacent frames; no sudden jumps, no duplicated frozen frames, no skipped action phases. "
-        "Describe the motion as concrete body/equipment changes: hands, feet, head, shoulders, cloak, weapon, smoke, particles, and trails should move with clear low-amplitude continuous transitions and natural inertia. "
+        "Describe the motion as concrete body/equipment changes: hands, feet, head, shoulders, cloak, weapon, smoke, particles, and trails should move with clear low-amplitude continuous transitions and natural inertia; head movement is limited to tiny bobbing and must not turn the face. "
         "Camera: keep one fixed orthographic game-sprite camera / fixed camera angle for the whole clip; no cuts, no zoom, no camera pan, no camera orbit, no perspective shift, and no background changes. "
         f"{parameter_clause} "
         "Every frame must be TRUE pixel art: visible pixels are crisp square pixel blocks aligned to a stable pixel grid, with hard edges, limited palette, no anti-aliasing, no motion blur, no painterly smoothing, no subpixel smearing, and no soft interpolated gradients. "
@@ -1017,9 +1022,11 @@ def _motion_prompt_optimizer_instruction(
     return (
         "You are optimizing a Seedance video-generation prompt for a pixel-art sprite animation. "
         "Inspect the provided first_frame and last_frame images, then write a concise engineering-style motion plan: subject identity, ordered action beats, one fixed camera, pixel-art style, and constraints. "
-        "Do not override safety or product constraints. Preserve the subject identity and the exact start/end poses. Do not introduce a new character, duplicate twin, subtitle, Logo, watermark, UI, or scene change. "
+        "Do not override safety or product constraints. Preserve the subject identity, exact start/end poses, and exact facing direction / side-profile orientation. Do not introduce a new character, duplicate twin, subtitle, Logo, watermark, UI, or scene change. "
         f"{loop_instruction}"
         "The plan must emphasize: continuous readable motion, evenly spaced intermediate poses, concrete body/equipment transitions, every sampled frame as crisp grid-aligned TRUE pixel art, no anti-aliasing, no blur, no painterly smoothing, fixed orthographic camera, no zoom/pan/cuts, and all subject parts/effects staying fully inside the frame with key-color padding. "
+        "Single-action pacing rule: explicitly plan exactly one occurrence of the user's requested action across the whole locked video duration; if the video duration is longer than the natural action, slow down and stretch that one action instead of repeating walking/attack/cast/idle cycles. For walking/running, do not add extra gait loops; one requested step sequence or one left-right leg alternation is enough unless the user explicitly asks for multiple cycles. "
+        "Facing-direction rule: explicitly state that the head, face, torso, shield, weapon, feet, and shoulders keep the same facing side in every frame; never turn around, look back, look toward the camera, look away from the camera, or face the opposite direction. "
         "Pixel-block orientation rule: every visible pixel block must stay axis-aligned as horizontal/vertical square tiles on one upright pixel grid; never rotate, tilt, shear, skew, diamond-turn, or slant pixel blocks to fake motion. The motion plan should describe changes in whole square-pixel positions, silhouettes, and poses, not rotated pixel chunks. "
         "Pixel-boundary rule: only the flat key-color background is allowed to touch canvas edges; every non-background / non-key-color pixel is foreground and must remain inside the interior safe area with at least 10% key-color margin from every canvas edge, including stray particles, smoke wisps, weapon tips, shadows, highlights, trails, and effects. "
         "Mention weapons, cloak, smoke, particles, trails, and other moving parts only as controlled in-frame foreground elements that never touch or cross the boundary. "

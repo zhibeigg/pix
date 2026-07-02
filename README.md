@@ -49,7 +49,7 @@ npm install
 npm run dev
 ```
 
-主页「范例图鉴」包含物品图标、真实上游实测样例、平铺纹理和序列帧；登录后还会出现「用户分享」tab，仅展示管理员审核通过的用户作品。用户在作品库点击「提交审核」后，作品先进入待审核队列，管理员通过后才会展示在首页、允许其他登录用户点赞/下载，并在通过时发放分享奖励。实测样例会展示本地真实流程生成的 Logo / 技能书结果，并在卡片和筛选器中标注使用的生成模型（如 `image2`、`gemini-3.1-flash-image-preview`），静态图片位于 `apps/web/public/homepage-examples/showcase/`。
+主页「范例图鉴」包含物品图标、真实上游实测样例、平铺纹理和序列帧；登录后还会出现「用户分享」tab，仅展示管理员审核通过的用户作品，并可按像素尺寸、生图模型和直出类型快速筛选。用户在作品库点击「提交审核」后，作品先进入待审核队列，管理员通过后才会展示在首页、允许其他登录用户点赞/下载，并在通过时发放分享奖励。实测样例会展示本地真实流程生成的 Logo / 技能书结果，并在卡片和筛选器中标注使用的生成模型（如 `image2`、`gemini-3.1-flash-image-preview`），静态图片位于 `apps/web/public/homepage-examples/showcase/`。
 
 前端构建：
 
@@ -138,19 +138,19 @@ npm run build
 
 ### 角色库
 
-登录用户可在「角色库」页面持久保存角色参考图：既可以直接上传立绘 / 三视图 / 设定图，也可以在作品库卡片点击「保存为角色」把已完成作品保存为角色。角色库页面还提供「生成角色」按钮，会跳转到生产工作台并预选「素材直出 → 角色」类型；该类型任务成功后会自动写入角色库。角色库是独立持久资源，不占普通作品库保留格；角色记录只保存图片路径、预览路径、名称、说明、标签、源作品 ID 和安全参数快照，不会复制或移动原始产物。
+登录用户可在「角色库」页面查看和管理长期保存的角色参考图。只有「素材直出 → 角色」（`job_type="asset"` 且 `asset.asset_kind="character"`）任务成功后会自动写入角色库；普通上传图、图生图、序列帧、普通素材作品和作品库卡片都不能手动保存为角色。角色库页面提供「生成角色」按钮，会跳转到生产工作台并预选「素材直出 → 角色」类型。角色库是独立持久资源，不占普通作品库保留格；角色记录只保存图片路径、预览路径、名称、说明、标签、源作品 ID 和安全参数快照，不会复制或移动原始产物。
 
 角色库已接入统一文件归属校验：`/files` 访问、站内任务创建和外部 API 创建任务都只能引用当前用户自己的上传图、任务产物或角色库记录中的图片。序列帧表单的「参考来源」可在「从角色库选择」与「直接上传参考图」之间切换；最终提交仍写入 `sprite.reference_image_path`，因此 `sprite.mode="mosaic"` 与 `sprite.mode="video_bridge"` 复用现有后端链路。
 
-保存自作品产物的角色会锁定对应源作品：普通作品库自动清理不会删除该源作品，用户手动删除源作品时会返回 409，需要先删除对应角色记录。删除角色只移除角色库记录，不会删除上传文件或源作品；如果角色来自上传图，则不占用作品库保留策略。
+角色库记录会锁定对应的角色素材源作品：普通作品库自动清理不会删除该源作品，用户手动删除源作品时会返回 409，需要先删除对应角色记录。删除角色只移除角色库记录，不会删除源作品产物。
 
 站内角色 API：
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | `GET` | `/characters?limit=100` | 列出当前用户 `active` / `archived` 角色。 |
-| `POST` | `/characters` | 用当前用户可访问的 `image_path` 创建角色；若路径位于 `runs/job-{id}` 会自动记录 `source_job_id`。 |
-| `POST` | `/characters/jobs/{job_id}` | 从当前用户已完成作品保存角色，`image_kind` 可选 `source` / `pixelized` / `preview`。 |
+| `POST` | `/characters` | 仅兼容来自当前用户 `asset_kind=character` 像素直出任务的产物路径；普通上传图或非角色任务会返回 409。 |
+| `POST` | `/characters/jobs/{job_id}` | 仅兼容当前用户已完成的 `asset_kind=character` 像素直出任务；`image_kind` 可选 `source` / `pixelized` / `preview`。 |
 | `PATCH` | `/characters/{id}` | 更新名称、说明、标签或 `active` / `archived` 状态。 |
 | `DELETE` | `/characters/{id}` | 软删除角色记录。 |
 
@@ -158,7 +158,7 @@ npm run build
 
 作品库中的成功作品可点击「提交审核」进入管理员审核队列（`pending`），不会立即出现在首页。审核通过后状态变为 `active`，才会进入首页「用户分享」池；管理员也可以驳回为 `rejected`，作者在作品库查看驳回理由、修改后可重新提交。审核通过的分享会锁定源作品：作者不能自行下架分享，也不能删除源作品；如需下架由管理员在后台「内容审核」执行。审核中（`pending`）的源作品同样禁止作者删除；`rejected` / `hidden` 仍可删除，删除时分享记录标记为 `deleted`。
 
-公开/审核时后端会固化安全参数快照和下载清单，只展示用户可填写/选择的参数（提示词、素材类型、像素尺寸、颜色数、序列帧 FPS 等），不会公开邮箱、内部 `run_dir`、诊断信息、系统 prompt 或密钥。分享预览和下载链接使用短时效文件票据（query `token`）或 Bearer 鉴权，避免在 `<img>` 中暴露长期登录 token；未登录用户不会看到首页「用户分享」tab，后端 `GET /shares` 也会返回 401。
+公开/审核时后端会固化安全参数快照和下载清单，只展示用户可填写/选择的参数（提示词、素材类型、像素尺寸、颜色数、生图模型、序列帧 FPS 等），不会公开邮箱、内部 `run_dir`、诊断信息、系统 prompt 或密钥。首页「用户分享」筛选器会复用这些公开快照，并兼容旧分享从源任务参数回填生图模型。分享预览和下载链接使用短时效文件票据（query `token`）或 Bearer 鉴权，避免在 `<img>` 中暴露长期登录 token；未登录用户不会看到首页「用户分享」tab，后端 `GET /shares` 也会返回 401。
 
 分享奖励由后台「作品分享」系统设置管理：`share.reward_enabled` 控制是否奖励，`share.reward_credits` 控制每个作品首次审核通过返还点数（默认 1），`share.daily_reward_limit` 控制每用户每日最多获得多少次分享奖励（0 表示不限制）。奖励时机已从「提交分享」改为「管理员通过审核」，同一作品反复撤回/重新提交/重新通过不会重复返还。
 
@@ -166,7 +166,7 @@ npm run build
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| `GET` | `/shares?limit=48&offset=0&asset_kind=item_icon` | 需登录；只返回 `active` 分享，默认按点赞数、发布时间排序，并返回 `liked_by_me`。 |
+| `GET` | `/shares?limit=48&offset=0&asset_kind=item_icon&output_size=32x32&image_model=image2` | 需登录；只返回 `active` 分享，默认按点赞数、发布时间排序；支持按直出类型、像素尺寸、生图模型筛选，并返回 `liked_by_me` 与 `filters.asset_kinds` / `filters.output_sizes` / `filters.image_models` 选项数量。 |
 | `POST` | `/shares/jobs/{job_id}/publish` | 当前用户提交自己的成功作品进入审核（`pending`）；`rejected` / `hidden` 可重新提交。 |
 | `POST` | `/shares/{share_id}/unpublish` | 作者只能撤回自己的 `pending` / `rejected` 分享；`active` 只能管理员下架。 |
 | `POST` / `DELETE` | `/shares/{share_id}/like` | 登录用户点赞 / 取消点赞，仅对 `active` 分享生效，后端幂等维护 `like_count`。 |
@@ -230,20 +230,20 @@ npm run build
 可分配的 scope：
 
 - `me:read` / `balance:read` / `models:read`：查询账号、余额与可用模型；
-- `uploads:create`：上传参考图 / 输入图，供后续任务 payload 或角色库使用；
+- `uploads:create`：上传参考图 / 输入图，供后续任务 payload 使用；上传图不会直接进入角色库；
 - `jobs:create`：创建素材直出、文生图、图生图、本地像素化、本地去背景、重新像素化、序列帧等任务；
 - `jobs:read`：查询自己的任务列表与任务详情；
 - `files:read`：下载自己的任务输出或序列帧动作 zip；
 - `characters:read`：读取当前账号角色库；
-- `characters:write`：创建、更新、删除角色，或从已完成任务保存角色。
+- `characters:write`：更新、删除角色，或从已完成的 `asset_kind=character` 像素直出任务创建角色记录。
 
 外部角色库 API：
 
 | 方法 | 路径 | Scope | 说明 |
 |---|---|---|---|
 | `GET` | `/external/v1/characters?limit=100` | `characters:read` | 列出当前 API Key 所属账号的角色库。 |
-| `POST` | `/external/v1/characters` | `characters:write` | 用已归属当前账号的 `image_path` 创建角色。 |
-| `POST` | `/external/v1/characters/jobs/{job_id}` | `characters:write` | 从当前账号已完成任务保存角色。 |
+| `POST` | `/external/v1/characters` | `characters:write` | 仅兼容来自当前账号 `asset_kind=character` 像素直出任务的产物路径；普通上传图或非角色任务会返回 409。 |
+| `POST` | `/external/v1/characters/jobs/{job_id}` | `characters:write` | 仅兼容当前账号已完成的 `asset_kind=character` 像素直出任务。 |
 | `PATCH` | `/external/v1/characters/{id}` | `characters:write` | 更新名称、说明、标签或归档状态。 |
 | `DELETE` | `/external/v1/characters/{id}` | `characters:write` | 软删除角色记录。 |
 
@@ -289,13 +289,11 @@ curl -X POST "https://example.com/api/external/v1/uploads/images" \
   -H "Authorization: Bearer pix_live_xxx" \
   -F "file=@reference.png"
 
-# 角色库：保存上传图，或从已完成任务保存角色
-curl -X POST "https://example.com/api/external/v1/characters" \
-  -H "Authorization: Bearer pix_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"blue knight","image_path":"把上传接口返回的 path 填在这里","tags":["hero"]}'
+# 角色库：读取自动保存的角色；只有 asset_kind=character 的像素直出任务能成为角色
+curl "https://example.com/api/external/v1/characters?limit=100" \
+  -H "Authorization: Bearer pix_live_xxx"
 
-curl -X POST "https://example.com/api/external/v1/characters/jobs/{job_id}" \
+curl -X POST "https://example.com/api/external/v1/characters/jobs/{character_asset_job_id}" \
   -H "Authorization: Bearer pix_live_xxx" \
   -H "Content-Type: application/json" \
   -d '{"name":"blue knight","image_kind":"pixelized"}'

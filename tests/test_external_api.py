@@ -244,10 +244,35 @@ class ExternalApiTests(unittest.TestCase):
         self.assertEqual(forbidden.status_code, 403, forbidden.text)
 
         raw = self._create_key(scopes=["characters:read", "characters:write"])
-        created = self.client.post(
+        rejected_upload = self.client.post(
             "/external/v1/characters",
             headers={"Authorization": f"Bearer {raw}"},
             json={"name": "Hero", "tags": ["blue", "hero"], "image_path": str(image_path)},
+        )
+        self.assertEqual(rejected_upload.status_code, 409, rejected_upload.text)
+        self.assertIn("只有像素直出的角色类型作品才能成为角色", rejected_upload.text)
+
+        job = GenerationJob(
+            user_id=self.user.id,
+            client_request_id="character-direct",
+            job_type="asset",
+            status="succeeded",
+            prompt="Hero",
+            params_json={"asset": {"name": "Hero", "asset_kind": "character", "subject_kind": "single_character"}},
+        )
+        self.db.add(job)
+        self.db.flush()
+        run_dir = self.settings.storage_root / "runs" / f"job-{job.id}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        pixelized = run_dir / "pixelized.png"
+        pixelized.write_bytes(b"img")
+        self.db.add(GenerationOutput(job_id=job.id, run_dir=str(run_dir), source_path=str(pixelized), pixelized_path=str(pixelized), preview_path=str(pixelized), meta_json_path=str(run_dir / "meta.json")))
+        self.db.commit()
+
+        created = self.client.post(
+            "/external/v1/characters",
+            headers={"Authorization": f"Bearer {raw}"},
+            json={"name": "Hero", "tags": ["blue", "hero"], "image_path": str(pixelized)},
         )
         self.assertEqual(created.status_code, 201, created.text)
         character_id = created.json()["id"]
@@ -274,7 +299,14 @@ class ExternalApiTests(unittest.TestCase):
 
     def test_external_create_character_from_job_records_source_job(self) -> None:
         raw = self._create_key(scopes=["characters:read", "characters:write", "jobs:read"])
-        job = GenerationJob(user_id=self.user.id, client_request_id="done", job_type="asset", status="succeeded", prompt="Hero")
+        job = GenerationJob(
+            user_id=self.user.id,
+            client_request_id="done",
+            job_type="asset",
+            status="succeeded",
+            prompt="Hero",
+            params_json={"asset": {"name": "Hero", "asset_kind": "character", "subject_kind": "single_character"}},
+        )
         self.db.add(job)
         self.db.flush()
         run_dir = self.settings.storage_root / "runs" / f"job-{job.id}"
@@ -292,6 +324,34 @@ class ExternalApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 201, response.text)
         self.assertEqual(response.json()["source_job_id"], job.id)
         self.assertEqual(response.json()["image_path"], str(pixelized))
+
+    def test_external_create_character_from_non_character_job_is_rejected(self) -> None:
+        raw = self._create_key(scopes=["characters:read", "characters:write", "jobs:read"])
+        job = GenerationJob(
+            user_id=self.user.id,
+            client_request_id="not-character",
+            job_type="asset",
+            status="succeeded",
+            prompt="Sword",
+            params_json={"asset": {"name": "Sword", "asset_kind": "item_icon"}},
+        )
+        self.db.add(job)
+        self.db.flush()
+        run_dir = self.settings.storage_root / "runs" / f"job-{job.id}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        pixelized = run_dir / "pixelized.png"
+        pixelized.write_bytes(b"img")
+        self.db.add(GenerationOutput(job_id=job.id, run_dir=str(run_dir), source_path=str(pixelized), pixelized_path=str(pixelized), preview_path=str(pixelized), meta_json_path=str(run_dir / "meta.json")))
+        self.db.commit()
+
+        response = self.client.post(
+            f"/external/v1/characters/jobs/{job.id}",
+            headers={"Authorization": f"Bearer {raw}"},
+            json={"name": "Sword As Hero", "image_kind": "pixelized"},
+        )
+
+        self.assertEqual(response.status_code, 409, response.text)
+        self.assertIn("只有像素直出的角色类型作品才能成为角色", response.text)
 
 
 if __name__ == "__main__":

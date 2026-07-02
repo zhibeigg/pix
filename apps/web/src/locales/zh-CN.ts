@@ -406,9 +406,6 @@ export const zhCN = {
     saveWork: '保存到素材包',
     removeWork: '移除',
   },
-  characters: {
-    saveFromWork: '保存为角色',
-  },
   queue: {
     eyebrow: '生产队列',
     title: '正在生产',

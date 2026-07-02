@@ -627,6 +627,7 @@ class SequenceFrameAlignmentSchema(BaseModel):
 class SequenceAlignmentRequest(BaseModel):
     frames: list[SequenceFrameAlignmentSchema] = Field(min_length=1, max_length=128)
     fps: int | None = Field(default=None, ge=1, le=60)
+    colors: int | None = Field(default=None, ge=2, le=256)
     gif_export: bool = True
 
 
@@ -1109,11 +1110,23 @@ class SharedWorkResponse(BaseModel):
     updated_at: datetime
 
 
+class SharedWorkFilterOptionResponse(BaseModel):
+    value: str
+    count: int
+
+
+class SharedWorkFiltersResponse(BaseModel):
+    asset_kinds: list[SharedWorkFilterOptionResponse] = Field(default_factory=list)
+    output_sizes: list[SharedWorkFilterOptionResponse] = Field(default_factory=list)
+    image_models: list[SharedWorkFilterOptionResponse] = Field(default_factory=list)
+
+
 class SharedWorkListResponse(BaseModel):
     items: list[SharedWorkResponse]
     total: int
     limit: int
     offset: int
+    filters: SharedWorkFiltersResponse = Field(default_factory=SharedWorkFiltersResponse)
 
 
 class AdminSharedWorkResponse(BaseModel):

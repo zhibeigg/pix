@@ -113,19 +113,11 @@ curl -X POST "$PIX_API_BASE/uploads/images" \
 
 # 返回示例
 # { "path": ".../uploads/xxx.png", "url": "/files/...", "filename": "reference.png" }`, [])
-  const characterCurl = useMemo(() => String.raw`# 角色库：读取、保存上传图、从已完成任务保存角色
+  const characterCurl = useMemo(() => String.raw`# 角色库：读取自动保存的角色。只有“素材直出 → 角色”(asset_kind=character) 的成功任务能成为角色
 curl "$PIX_API_BASE/characters" \
   -H "Authorization: Bearer $PIX_API_KEY"
 
-curl -X POST "$PIX_API_BASE/characters" \
-  -H "Authorization: Bearer $PIX_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "蓝袍骑士",
-    "tags": ["hero", "blue"],
-    "image_path": "把上传接口返回的 path 填在这里"
-  }'
-
+# 可选：从已完成的角色素材任务补建/重建角色记录；普通上传图或非角色任务会返回 409
 curl -X POST "$PIX_API_BASE/characters/jobs/123" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
@@ -486,8 +478,8 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
         </div>
         <CodeBlock title={text('1. 保存令牌并测试认证', '1. Save token and test auth')} description={text('把 API 页面创建出的令牌保存成环境变量，后续示例可直接复制运行。', 'Store the generated API token as an environment variable; later examples can be copied as-is.')} code={authCurl} copied={copied} onCopy={(code) => void copy(code, 'auth')} copyKey="auth" />
         <CodeBlock title={text('2. 查询账号、余额和模型', '2. Inspect account, credits, and models')} description={text('用于确认 Key 权限、账号余额和当前可选的生图模型。', 'Use this to verify key scopes, credit balance, and available generation models.')} code={inspectCurl} copied={copied} onCopy={(code) => void copy(code, 'inspect')} copyKey="inspect" />
-        <CodeBlock title={text('3. 上传参考图（可选）', '3. Upload a reference image (optional)')} description={text('上传返回的 path 可以写入 input_image_path，也可以保存到角色库后复用。', 'The returned path can be used as input_image_path or saved into the character library for reuse.')} code={uploadCurl} copied={copied} onCopy={(code) => void copy(code, 'upload')} copyKey="upload" />
-        <CodeBlock title={text('4. 角色库读写', '4. Read/write character library')} description={text('角色库需要 characters:read / characters:write；角色 image_path 可写入序列帧 sprite.reference_image_path。', 'Character library calls require characters:read / characters:write; use a character image_path as sprite.reference_image_path for sprite jobs.')} code={characterCurl} copied={copied} onCopy={(code) => void copy(code, 'characters')} copyKey="characters" />
+        <CodeBlock title={text('3. 上传参考图（可选）', '3. Upload a reference image (optional)')} description={text('上传返回的 path 可以写入 input_image_path；角色库只接收“素材直出 → 角色”的成功任务产物。', 'The returned path can be used as input_image_path; the character library only accepts successful asset → character job outputs.')} code={uploadCurl} copied={copied} onCopy={(code) => void copy(code, 'upload')} copyKey="upload" />
+        <CodeBlock title={text('4. 角色库读写', '4. Read/write character library')} description={text('角色库需要 characters:read / characters:write；只有像素直出的角色类型会进入角色库，角色 image_path 可写入序列帧 sprite.reference_image_path。', 'Character library calls require characters:read / characters:write; only pixel-direct character jobs enter the library, and their image_path can be used as sprite.reference_image_path for sprite jobs.')} code={characterCurl} copied={copied} onCopy={(code) => void copy(code, 'characters')} copyKey="characters" />
         <CodeBlock title={text('5. 创建素材直出任务', '5. Create an asset job')} description={text('适合游戏图标、道具、UI 小物件等单图素材；创建成功返回 202 和任务 id。', 'Best for icons, props, UI items, and other single-image assets; returns 202 with a job id.')} code={assetCurl} copied={copied} onCopy={(code) => void copy(code, 'asset')} copyKey="asset" />
         <CodeBlock title={text('6. 创建图生图 / 参考图重绘任务', '6. Create an image-to-image job')} description={text('先上传图片，再把上传结果 path 放到 input_image_path。', 'Upload an image first, then pass the returned path as input_image_path.')} code={imageCurl} copied={copied} onCopy={(code) => void copy(code, 'image')} copyKey="image" />
         <CodeBlock title={text('7. 创建本地去背景任务', '7. Create a local background-removal job')} description={text('先上传图片，再选择 pixel_bg（像素）或 color_to_alpha（高清）算法；不调用 AI。', 'Upload an image first, then choose pixel_bg (pixel) or color_to_alpha (HD); no AI call is made.')} code={bgRemoveCurl} copied={copied} onCopy={(code) => void copy(code, 'bg-remove')} copyKey="bg-remove" />
