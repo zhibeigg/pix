@@ -17,6 +17,7 @@ except ImportError:  # pragma: no cover
 @dataclass(frozen=True)
 class WebSettings:
     database_url: str = "sqlite:///pix_web.db"
+    env: str = "dev"
     db_pool_size: int = 10
     db_max_overflow: int = 20
     db_pool_timeout: float = 30.0
@@ -154,6 +155,9 @@ def load_web_settings() -> WebSettings:
         else:
             load_dotenv()
     database_url = os.getenv("PIX_WEB_DATABASE_URL", _DEFAULTS["PIX_WEB_DATABASE_URL"])
+    env = os.getenv("PIX_WEB_ENV", "dev").strip().lower()
+    if env not in {"dev", "prod"}:
+        env = "dev"
     db_pool_size = _env_int("PIX_WEB_DB_POOL_SIZE", WebSettings.db_pool_size, 1)
     db_max_overflow = _env_int("PIX_WEB_DB_MAX_OVERFLOW", WebSettings.db_max_overflow, 0)
     db_pool_recycle = _env_int("PIX_WEB_DB_POOL_RECYCLE", WebSettings.db_pool_recycle, -1)
@@ -204,6 +208,7 @@ def load_web_settings() -> WebSettings:
         max_upload_bytes = WebSettings.max_upload_bytes
     return WebSettings(
         database_url=database_url,
+        env=env,
         db_pool_size=db_pool_size,
         db_max_overflow=db_max_overflow,
         db_pool_timeout=db_pool_timeout,

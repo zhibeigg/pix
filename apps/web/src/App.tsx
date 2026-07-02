@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PixLanguage, PixThemeMode, PixThemePreference } from './theme'
 import { api, ApiError, TOKEN_KEY } from './api'
+import { prefetchFileTicket, clearFileTicket } from './fileUrls'
 import { AppTabs, type AppPage } from './components/AppTabs'
 import { AccountMenu } from './components/AccountMenu'
 import { AppHero } from './components/AppHero'
@@ -166,6 +167,8 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
+    // 与核心数据一起预取文件票据，确保作品/图片渲染时票据已就绪（避免 <img> 首帧无票据 401）。
+    void prefetchFileTicket(activeToken)
     const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextGalleryQuota, nextSharedWorks, nextPacks, nextPackQuota, nextPricing, nextImageModels, nextDiscount] = await Promise.all([
       api.me(activeToken),
       api.balance(activeToken),
@@ -267,6 +270,20 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       showError(error)
     })
   }, [refreshCore, showError, token])
+
+  // 文件访问票据：登录后主动预取，并按票据 TTL（后端默认 5 分钟）定时刷新；
+  // 登出/失效时清空缓存。signedFileUrl 同步读取该缓存，避免长期 token 出现在图片 URL。
+  useEffect(() => {
+    if (!token) {
+      clearFileTicket()
+      return
+    }
+    void prefetchFileTicket(token)
+    const timer = window.setInterval(() => {
+      void prefetchFileTicket(token)
+    }, 4 * 60 * 1000)
+    return () => window.clearInterval(timer)
+  }, [token])
 
   useEffect(() => {
     const returned = paymentReturnFromHash()

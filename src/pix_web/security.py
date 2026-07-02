@@ -127,6 +127,37 @@ def create_access_token(user: User, settings: WebSettings, *, local_only: bool =
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
+# 文件访问票据：短时效、单用途（scope=file）令牌，供 <img>/下载链接以 query 参数携带，
+# 避免把长期登录 token 暴露在 URL、浏览器历史、Referer 与反代日志中。
+FILE_TICKET_SCOPE = "file"
+FILE_TICKET_TTL_SECONDS = 300
+
+
+def create_file_ticket(user: User, settings: WebSettings, *, ttl_seconds: int = FILE_TICKET_TTL_SECONDS) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(user.id),
+        "scope": FILE_TICKET_SCOPE,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(seconds=max(30, ttl_seconds))).timestamp()),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def decode_file_ticket(token: str, settings: WebSettings) -> int | None:
+    """校验文件票据，返回用户 id；非票据或无效时返回 None（调用方可回退旧 token 校验）。"""
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    except Exception:
+        return None
+    if payload.get("scope") != FILE_TICKET_SCOPE:
+        return None
+    try:
+        return int(payload.get("sub", "0"))
+    except (TypeError, ValueError):
+        return None
+
+
 def get_db(request: Request) -> Session:
     session_factory = request.app.state.SessionLocal
     db = session_factory()

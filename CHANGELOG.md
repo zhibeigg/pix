@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.103.27] - 2026-07-02
+
+### Security
+
+- 修复任意文件读取（LFI）：创建任务时对用户提交的 `input_image_path` / `sprite.reference_image_path` 强制归属校验，仅允许指向本人上传目录（`uploads/{uid}/`）或本人任务产物目录（`runs/job-{jid}/`）。此前 `local_bg_remove` / `local_pixelize` 等任务只校验路径存在，可被构造成读取服务器上任意可被 Pillow 打开的文件。
+- 修复受保护文件下载越权（IDOR）：`GET /files` 在原有目录范围校验之外新增文件归属校验，登录用户不能再下载他人上传或他人任务产物（管理员除外）。公开分享下载（`/shares/...`）仍走固化清单，不受影响。
+- 新增出站下载 SSRF 防护：`io_utils.download()` 与 Ark 视频下载在请求前解析目标 IP，拒绝回环 / 私网 / 链路本地 / 云元数据（169.254.169.254）等地址；重定向改为逐跳复验（最多 3 跳），防 302 绕过与 DNS 重绑定。可用 `PIX_ALLOW_PRIVATE_DOWNLOAD=true` 为可信内网上游放行。胜算云等「仅返回图片 URL」的主力上游下载链路不受影响。
+- 新增认证接口限流（slowapi）：`/auth/login`、`/auth/register`、`/auth/reset-password` 10/分钟，`/auth/register-code`、`/auth/reset-code` 5/分钟，按客户端真实 IP（读取 `X-Forwarded-For` / `X-Real-IP`，兼容反向代理）。可用 `PIX_WEB_RATE_LIMIT_ENABLED=false` 关闭。
+- 收敛文件访问令牌暴露面：新增短时效（5 分钟）单用途文件票据 `POST /files/ticket`，前端 `<img>` / 下载链接改用票据而非把长期登录 token 明文拼进 URL（避免经浏览器历史 / Referer / 反代日志泄露）。旧 token 参数在过渡期仍兼容。
+- 部署加固：新增 `PIX_WEB_ENV`（`dev` / `prod`）。`prod` 下若 `PIX_WEB_JWT_SECRET` 仍为默认值或长度不足 32 字符，服务拒绝启动；新增安全响应头（`X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`，prod 追加 HSTS）；`docker-compose.yml` 移除 PostgreSQL 默认弱密码兜底，未显式提供 `POSTGRES_PASSWORD` 时拒绝启动，并启用 `scram-sha-256` 认证。
+
+### Notes
+
+- 本次为安全专项修复：登录仍走 `Authorization: Bearer` 头（未迁移 Cookie），token 仍存于 localStorage；后续如需彻底消除 XSS 窃取长期 token 的风险，可另行排期迁移 HttpOnly Cookie。
+
 ## [1.102.27] - 2026-07-02
 
 ### Added

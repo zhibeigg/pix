@@ -1,11 +1,71 @@
 import { API_BASE, TOKEN_KEY } from './api'
 
+// 文件访问票据缓存：短时效、单用途（scope=file）令牌，替代把长期登录 token 明文拼进
+// <img>/下载 URL。票据在登录后主动预取并定时刷新，signedFileUrl 保持同步读取缓存。
+let cachedTicket = ''
+let ticketExpiresAt = 0
+let inflight: Promise<string> | null = null
+
+const TICKET_REFRESH_SKEW_MS = 60_000
+
+export function clearFileTicket() {
+  cachedTicket = ''
+  ticketExpiresAt = 0
+  inflight = null
+}
+
+function ticketFresh(): boolean {
+  return Boolean(cachedTicket) && Date.now() < ticketExpiresAt - TICKET_REFRESH_SKEW_MS
+}
+
+/**
+ * 主动获取/刷新文件票据。应在登录后与临过期前调用（见 App.tsx）。
+ * 返回当前可用票据；失败时保留旧票据（可能为空）。
+ */
+export async function prefetchFileTicket(tokenOverride?: string | null): Promise<string> {
+  const token = tokenOverride ?? localStorage.getItem(TOKEN_KEY)
+  if (!token) {
+    clearFileTicket()
+    return ''
+  }
+  if (ticketFresh()) return cachedTicket
+  if (inflight) return inflight
+  inflight = (async () => {
+    try {
+      const response = await fetch(`${API_BASE}/files/ticket`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      })
+      if (!response.ok) return cachedTicket
+      const body = (await response.json()) as { ticket?: string; expires_in?: number }
+      if (body.ticket) {
+        cachedTicket = body.ticket
+        ticketExpiresAt = Date.now() + Math.max(30, body.expires_in ?? 300) * 1000
+      }
+      return cachedTicket
+    } catch {
+      return cachedTicket
+    } finally {
+      inflight = null
+    }
+  })()
+  return inflight
+}
+
+function currentTicket(): string {
+  // 同步读取已缓存票据；未就绪时触发一次异步预取（不阻塞本次渲染，下次渲染即可用）。
+  if (!ticketFresh() && !inflight) {
+    void prefetchFileTicket()
+  }
+  return cachedTicket
+}
+
 export function signedFileUrl(url?: string | null, tokenOverride?: string | null, noCache = false) {
   if (!url) return ''
   if (!url.startsWith('/files')) return noCache ? appendNoCache(url) : url
-  const token = tokenOverride ?? localStorage.getItem(TOKEN_KEY)
+  const ticket = tokenOverride ?? currentTicket()
   const separator = url.includes('?') ? '&' : '?'
-  const withToken = token ? `${url}${separator}token=${encodeURIComponent(token)}` : url
+  const withToken = ticket ? `${url}${separator}token=${encodeURIComponent(ticket)}` : url
   const withCachePolicy = noCache ? appendNoCache(withToken) : withToken
   return `${API_BASE}${withCachePolicy.startsWith('/') ? withCachePolicy : `/${withCachePolicy}`}`
 }
@@ -26,7 +86,7 @@ export function fileName(path: string) {
 }
 
 export function spriteActionsZipUrl(jobId: number): string {
-  const token = localStorage.getItem(TOKEN_KEY)
+  const ticket = currentTicket()
   const path = `/jobs/${jobId}/sprite-actions.zip`
-  return `${API_BASE}${token ? `${path}?token=${encodeURIComponent(token)}` : path}`
+  return `${API_BASE}${ticket ? `${path}?token=${encodeURIComponent(ticket)}` : path}`
 }
