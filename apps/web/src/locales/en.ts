@@ -305,7 +305,7 @@ export const en = {
       sharedPrompt: 'Keep the subject and convert it into a clear pixel-game icon style',
     },
     assetKindLabel: 'Asset type',
-    assetKinds: { item_icon: 'Item icon', ui_component: 'UI component', tile_texture: 'Tileable texture', game_logo: 'Game logo', dual_grid: 'Dual-grid tileset' },
+    assetKinds: { item_icon: 'Item icon', ui_component: 'UI component', tile_texture: 'Tileable texture', game_logo: 'Game logo', dual_grid: 'Dual-grid tileset', character: 'Character' },
     textureKindLabel: 'Texture type',
     textureKindHint: 'Common game-map texture subtype; matching rules are injected into the prompt.',
     textureKinds: {
@@ -328,6 +328,9 @@ export const en = {
     textureSubjectPlaceholder: 'Mossy cobblestone\nWood planks\nPixel grass field',
     logoSubjects: 'Logo titles (one per line)',
     logoSubjectPlaceholder: 'Starfall Age\nPIX FORGE\nDragonflame',
+    characterSubjects: 'Character briefs (one per line)',
+    characterSubjectPlaceholder: 'Blue-cloak knight\nRed-haired mage\nPixel merchant NPC',
+    characterAutoSaveHint: 'Character assets are saved to the character library automatically, ready to reuse as sprite references later.',
     assetDescriptions: 'Asset descriptions (one per line)',
     sharedPrompt: 'Shared tuning prompt',
     uploading: 'Uploading…',

@@ -167,6 +167,10 @@ curl -X POST "$PIX_API_BASE/jobs" \
 # 一次产出 16 张可无缝拼接的 4×4 过渡瓦片图集 + 应用预览 + meta（含 bitmask→cell 映射）。
 # material_a 必填；material_b 空串或 "transparent" 即透明模式。material_a_texture_kind / material_b_texture_kind 复用上面的 texture_kind 枚举（默认 auto）。
 
+# 角色示例：把 asset 改为
+# { "name": "蓝袍骑士", "asset_kind": "character", "subject_kind": "single_character" }
+# 角色素材任务成功后会自动保存到角色库，可直接作为序列帧参考来源。
+
 # 尺寸重试示例：在请求体加入以下字段，反复重新生成直到实际尺寸匹配 image_size 或达到上限。
 # 适用 text_to_image / image_to_image / asset；image_size 必须为具体 WxH（非 auto）。
 # {
@@ -182,7 +186,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
 # style_profile 可选：project_name / palette / line_style / lighting / view_rule / avoid_elements 会作为项目统一风格补充进入 prompt。
 # 202 返回 JobResponse，记录 id 后轮询 /jobs/{id}`, [])
   const imageCurl = useMemo(() => String.raw`# 图生图 / 参考图重绘：先上传图片，再把返回 path 放到 input_image_path
-# asset.asset_kind 可选 item_icon / ui_component / tile_texture / game_logo / dual_grid，决定按哪种素材规则重绘（默认 item_icon）
+# asset.asset_kind 可选 item_icon / ui_component / tile_texture / game_logo / dual_grid / character，决定按哪种素材规则重绘（默认 item_icon）
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \

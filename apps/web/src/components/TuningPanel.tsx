@@ -109,10 +109,10 @@ export function TuningPanel({ job, action, pricing, loading, onSubmit }: { job: 
     // 复用原作品的素材类型：参考图微调本质是“按原素材规则重绘”，不带类型会让 UI 组件 / Logo / 平铺纹理都被当成物品图标。
     const sourceAsset = asRecord(job?.params_json?.asset)
     const rawKind = typeof sourceAsset?.asset_kind === 'string' ? sourceAsset.asset_kind : ''
-    const assetKind = (['item_icon', 'ui_component', 'tile_texture', 'game_logo'] as const).find((kind) => kind === rawKind) ?? 'item_icon'
+    const assetKind = (['item_icon', 'ui_component', 'tile_texture', 'game_logo', 'character'] as const).find((kind) => kind === rawKind) ?? 'item_icon'
     const rawTextureKind = typeof sourceAsset?.texture_kind === 'string' ? sourceAsset.texture_kind : 'auto'
     const textureKind = (['auto', 'generic_texture', 'terrain_ground', 'path_floor', 'wall_surface', 'wood_planks', 'water_liquid', 'foliage_canopy', 'roof_tile', 'metal_panel', 'fabric_carpet'] as const).find((kind) => kind === rawTextureKind) ?? 'auto'
-    const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : 'single_prop'
+    const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : assetKind === 'character' ? 'single_character' : 'single_prop'
     await onSubmit({ job_type: 'image_to_image', prompt: aiPrompt, input_image_path: sourcePath, client_request_id: crypto.randomUUID(), skip_vl: false, pixelize: buildPixelize({ output_size: parsedPixelSize, colors, remove_bg: removeBg, ...edgeStylePixelize(edgeStyle) }), grid: buildGridDesign(), asset: { name: '', asset_kind: assetKind, subject_kind: subjectKind, texture_kind: assetKind === 'tile_texture' ? textureKind as TextureKind : undefined } })
   }
 

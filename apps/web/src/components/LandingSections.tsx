@@ -399,6 +399,7 @@ function sharedAssetKindLabel(value: string, text: (zh: string, en: string) => s
   if (value === 'tile_texture') return text('平铺纹理', 'Tile texture')
   if (value === 'game_logo') return text('游戏 Logo', 'Game logo')
   if (value === 'dual_grid') return text('双瓦片', 'Dual-grid')
+  if (value === 'character') return text('角色', 'Character')
   if (value === 'sprite_sheet') return text('序列帧', 'Sprite')
   return value || text('作品', 'Work')
 }

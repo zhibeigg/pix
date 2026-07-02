@@ -7,11 +7,13 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from pix_web.character_library import auto_save_character_for_job
 from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits, ensure_credit_account
 from pix_web.external_api_keys import create_external_api_key, hash_api_key
 from pix_web.main import create_app
 from pix_web.models import CharacterLibraryItem, ExternalApiKey, GenerationJob, GenerationOutput, SystemSetting, User
+from pix_web.schemas import AssetParamsSchema
 from pix_web.security import create_access_token
 
 
@@ -136,6 +138,75 @@ class ExternalApiTests(unittest.TestCase):
         listed = self.client.get("/external/v1/jobs", headers={"Authorization": f"Bearer {raw}"})
         self.assertEqual(listed.status_code, 200, listed.text)
         self.assertEqual(listed.json()[0]["id"], jobs[0].id)
+
+    def test_external_job_create_accepts_character_asset_kind(self) -> None:
+        raw = self._create_key()
+        payload = self._asset_payload()
+        payload["asset"] = {
+            "name": "蓝袍骑士",
+            "asset_kind": "character",
+            "subject_kind": "single_prop",
+        }
+        payload["pixelize"] = {"output_size": [64, 64], "colors": 32, "remove_bg": True}
+
+        response = self.client.post("/external/v1/jobs", headers={"Authorization": f"Bearer {raw}"}, json=payload)
+        self.assertEqual(response.status_code, 202, response.text)
+
+        job = self.db.get(GenerationJob, response.json()["id"])
+        self.assertIsNotNone(job)
+        asset = job.params_json["asset"]
+        self.assertEqual(asset["asset_kind"], "character")
+        self.assertEqual(asset["subject_kind"], "single_character")
+
+    def test_character_asset_schema_normalizes_and_auto_saves_library_item(self) -> None:
+        params = AssetParamsSchema(asset_kind="character", subject_kind="single_prop")
+        self.assertEqual(params.subject_kind, "single_character")
+
+        job = GenerationJob(
+            user_id=self.user.id,
+            client_request_id="character-job",
+            job_type="asset",
+            status="succeeded",
+            prompt="蓝袍骑士",
+            params_json={
+                "asset": {"name": "蓝袍骑士", "asset_kind": "character", "subject_kind": "single_character"},
+                "pixelize": {"output_size": [64, 64], "colors": 32, "remove_bg": True},
+            },
+        )
+        self.db.add(job)
+        self.db.flush()
+        run_dir = self.settings.storage_root / "runs" / f"job-{job.id}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        pixelized = run_dir / "pixelized.png"
+        preview = run_dir / "preview.png"
+        pixelized.write_bytes(b"pixel")
+        preview.write_bytes(b"preview")
+        output = GenerationOutput(
+            job_id=job.id,
+            run_dir=str(run_dir),
+            source_path=str(pixelized),
+            pixelized_path=str(pixelized),
+            preview_path=str(preview),
+            meta_json_path=str(run_dir / "meta.json"),
+        )
+        self.db.add(output)
+        self.db.flush()
+
+        item = auto_save_character_for_job(self.db, job, output)
+        self.assertIsNotNone(item)
+        self.db.commit()
+        self.db.refresh(item)
+        self.assertEqual(item.name, "蓝袍骑士")
+        self.assertEqual(item.source_job_id, job.id)
+        self.assertEqual(item.image_path, str(pixelized))
+        self.assertEqual(item.preview_path, str(preview))
+        self.assertEqual(item.parameter_snapshot_json["source"], "auto_asset_character")
+        self.assertTrue(item.parameter_snapshot_json["auto_saved"])
+
+        duplicate = auto_save_character_for_job(self.db, job, output)
+        self.assertEqual(duplicate.id, item.id)
+        active_items = list(self.db.scalars(select(CharacterLibraryItem).where(CharacterLibraryItem.source_job_id == job.id)))
+        self.assertEqual(len(active_items), 1)
 
     def test_external_job_access_is_limited_to_key_owner(self) -> None:
         raw, _row = create_external_api_key(self.db, self.user, name="owner", scopes=["jobs:read"])

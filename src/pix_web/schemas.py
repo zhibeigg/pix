@@ -513,11 +513,11 @@ class AssetParamsSchema(BaseModel):
     name: str = Field(default="", max_length=20000)
     extra_prompt: str = Field(default="", max_length=20000)
     asset_kind: Literal[
-        "item_icon", "ui_component", "tile_texture", "game_logo", "dual_grid"
+        "item_icon", "ui_component", "tile_texture", "game_logo", "dual_grid", "character"
     ] = "item_icon"
-    subject_kind: Literal["single_prop", "single_ui", "tileable_pattern", "logo_mark"] = (
-        "single_prop"
-    )
+    subject_kind: Literal[
+        "single_prop", "single_ui", "tileable_pattern", "logo_mark", "single_character"
+    ] = "single_prop"
     texture_kind: Literal[
         "auto",
         "generic_texture",
@@ -542,7 +542,8 @@ class AssetParamsSchema(BaseModel):
 
     @model_validator(mode="after")
     def _normalize_subject_kind(self) -> "AssetParamsSchema":
-        # 让 subject_kind 与 asset_kind 强一致：tile_texture → tileable_pattern；ui_component → single_ui；game_logo → logo_mark；其它 → single_prop
+        # 让 subject_kind 与 asset_kind 强一致：tile_texture / dual_grid → tileable_pattern；
+        # ui_component → single_ui；game_logo → logo_mark；character → single_character；其它 → single_prop。
         if self.asset_kind == "tile_texture" and self.subject_kind != "tileable_pattern":
             object.__setattr__(self, "subject_kind", "tileable_pattern")
         elif self.asset_kind == "dual_grid" and self.subject_kind != "tileable_pattern":
@@ -551,6 +552,8 @@ class AssetParamsSchema(BaseModel):
             object.__setattr__(self, "subject_kind", "single_ui")
         elif self.asset_kind == "game_logo" and self.subject_kind != "logo_mark":
             object.__setattr__(self, "subject_kind", "logo_mark")
+        elif self.asset_kind == "character" and self.subject_kind != "single_character":
+            object.__setattr__(self, "subject_kind", "single_character")
         elif self.asset_kind == "item_icon" and self.subject_kind not in {"single_prop"}:
             object.__setattr__(self, "subject_kind", "single_prop")
         return self

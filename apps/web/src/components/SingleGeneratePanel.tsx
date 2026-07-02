@@ -22,7 +22,8 @@ import { PromptPreviewDialog } from './PromptPreviewDialog'
 import { SizeRetryControls, DEFAULT_SIZE_RETRY, type SizeRetryState } from './SizeRetryControls'
 import { StyleProfileControls, compactStyleProfile } from './StyleProfileControls'
 
-type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; characters: CharacterItem[]; reuseJobSeed?: { revision: number; job: GenerationJob } | null; onSubmit: (payload: JobCreateRequest) => Promise<void> }
+type AssetPresetSeed = { revision: number; assetKind: AssetKindChoice; assetName?: string }
+type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; characters: CharacterItem[]; reuseJobSeed?: { revision: number; job: GenerationJob } | null; assetPresetSeed?: AssetPresetSeed | null; onSubmit: (payload: JobCreateRequest) => Promise<void> }
 
 type TextureKindOption = { value: TextureKind; zh: string; en: string }
 
@@ -191,6 +192,7 @@ function assetKindLabel(value: AssetKindChoice, text: (zh: string, en: string) =
   if (value === 'tile_texture') return text('平铺纹理', 'Tileable texture')
   if (value === 'game_logo') return text('游戏 Logo', 'Game logo')
   if (value === 'dual_grid') return text('双瓦片', 'Dual-grid tileset')
+  if (value === 'character') return text('角色', 'Character')
   return text('物品图标', 'Item icon')
 }
 
@@ -233,7 +235,7 @@ function styleProfileValue(value: unknown): StyleProfile {
   }
 }
 
-export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, characters, reuseJobSeed, onSubmit }: Props) {
+export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, characters, reuseJobSeed, assetPresetSeed, onSubmit }: Props) {
   const { text } = useI18n()
   const [jobType, setJobType] = useState<JobType>('asset')
   const [imageModel, setImageModel] = useState(imageModels.default)
@@ -242,6 +244,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const selectedModelInfo = useMemo(() => availableImageModels.find((item) => item.id === imageModel), [availableImageModels, imageModel])
   const selectedModelSupportsI2I = supportsImageToImage(selectedModelInfo)
   const lastAppliedReuseRevisionRef = useRef<number | null>(null)
+  const lastAppliedAssetPresetRevisionRef = useRef<number | null>(null)
   // 复用时缓存原作品完整 pixelize，提交时与界面字段合并，避免丢失界面未暴露的高级参数。
   const reusedPixelizeRef = useRef<Record<string, unknown> | null>(null)
   const [reuseModelMissing, setReuseModelMissing] = useState(false)
@@ -301,9 +304,10 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const isTileAsset = isAsset && assetKind === 'tile_texture'
   const isLogoAsset = isAsset && assetKind === 'game_logo'
   const isDualGridAsset = isAsset && assetKind === 'dual_grid'
+  const isCharacterAsset = isAsset && assetKind === 'character'
   const dualMaterialBTransparent = dualMaterialB.trim() === '' || dualMaterialB.trim().toLocaleLowerCase() === 'transparent'
   // 平铺纹理 / 双瓦片不走参考图模式；普通素材参考图仍保留 asset job_type，以便继续使用素材直出 prompt。
-  const assetSupportsReference = isAsset && (assetKind === 'item_icon' || assetKind === 'ui_component' || assetKind === 'game_logo')
+  const assetSupportsReference = isAsset && (assetKind === 'item_icon' || assetKind === 'ui_component' || assetKind === 'game_logo' || assetKind === 'character')
   const hasAssetReference = assetSupportsReference && !!assetRefPath
   const basePrice = useMemo(() => {
     // 素材直出 + 参考图 时，按图生图价位计费；Logo 会保留 asset job_type，但后端同样按 image_to_image 取价。
@@ -319,7 +323,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const price = isSprite ? basePrice * billingUnits : basePrice
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
-  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : (assetKind === 'tile_texture' || assetKind === 'dual_grid') ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : 'single_prop'
+  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : (assetKind === 'tile_texture' || assetKind === 'dual_grid') ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : assetKind === 'character' ? 'single_character' : 'single_prop'
   const uiComponentImageSize = assetKind === 'ui_component' ? UI_COMPONENT_IMAGE_SIZE : undefined
   const assetSubjectMaxLength = promptLimits.asset_subject_max_chars
   const spriteSubjectMaxLength = promptLimits.sprite_subject_max_chars
@@ -329,14 +333,16 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const dualMaterialBTooLong = isDualGridAsset && dualMaterialB.trim().length > assetSubjectMaxLength
   const spriteSubjectTooLong = prompt.length > spriteSubjectMaxLength
   const rowPromptTooLong = isSprite && (ensureRowPromptsLength(rowPrompts, safeRows).some((value) => value.length > spriteRowPromptMaxLength) || videoActionPrompt.length > spriteRowPromptMaxLength)
-  const assetNameLabel = isLogoAsset ? text('Logo 标题 / 品牌名', 'Logo title / brand name') : isDualGridAsset ? text('图集名称（可选）', 'Atlas name (optional)') : isTileAsset ? text('纹理主题 / 题材', 'Texture theme') : text('主体', 'Subject')
+  const assetNameLabel = isLogoAsset ? text('Logo 标题 / 品牌名', 'Logo title / brand name') : isDualGridAsset ? text('图集名称（可选）', 'Atlas name (optional)') : isTileAsset ? text('纹理主题 / 题材', 'Texture theme') : isCharacterAsset ? text('角色描述', 'Character brief') : text('主体', 'Subject')
   const assetNamePlaceholder = isLogoAsset
     ? text('例如：星尘纪元、PIX FORGE、龙焰', 'e.g. Starfall Age, PIX FORGE, Dragonflame')
     : isDualGridAsset
       ? text('例如：草地泥土过渡；留空会按 A/B 材质自动命名', 'e.g. Grass dirt transition; leave blank to name from A/B materials')
       : isTileAsset
         ? text('例如：苔藓砖石路面、木板地、像素草地', 'e.g. mossy cobblestone, wood planks, grass field')
-        : text('例如：冰霜之心', 'e.g. Frost Heart')
+        : isCharacterAsset
+          ? text('例如：蓝袍骑士、红发法师、像素风商人 NPC', 'e.g. Blue-cloak knight, red-haired mage, pixel merchant NPC')
+          : text('例如：冰霜之心', 'e.g. Frost Heart')
   const invalidGrid = isSprite && (safeRows < 1 || safeCols < 1 || safeRows > MAX_GRID_AXIS || safeCols > MAX_GRID_AXIS)
   const missingRowPrompts = isSprite && spriteMode === 'mosaic' && safeRows >= 2 && rowPrompts.slice(0, safeRows).some((value) => !value.trim())
   const submitBlocked = invalidSubAssetSize
@@ -398,6 +404,21 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       if (d.rowPrompts !== undefined) setRowPrompts(d.rowPrompts)
     }
   }
+
+  useEffect(() => {
+    if (!assetPresetSeed || lastAppliedAssetPresetRevisionRef.current === assetPresetSeed.revision) return
+    lastAppliedAssetPresetRevisionRef.current = assetPresetSeed.revision
+    reusedPixelizeRef.current = null
+    setReuseModelMissing(false)
+    setSizeRetry(DEFAULT_SIZE_RETRY)
+    setJobType('asset')
+    setAssetKind(assetPresetSeed.assetKind)
+    applyAssetKindDefaults(assetPresetSeed.assetKind)
+    if (assetPresetSeed.assetName !== undefined) setAssetName(assetPresetSeed.assetName)
+    setAssetRefPath(''); setAssetRefFile(null); setAssetRefUrl(''); setAssetRefMessage('')
+    setInputImagePath(''); setUploadFilePreview(null); setUploadUrl(''); setUploadMessage('')
+    setRefSource('upload'); setSelectedRefCharacterId(null); setRefImagePath(''); setRefImageFile(null); setRefImageUrl(''); setRefUploadMessage('')
+  }, [assetPresetSeed])
 
   useEffect(() => {
     if (!reuseJobSeed || lastAppliedReuseRevisionRef.current === reuseJobSeed.revision) return
@@ -800,9 +821,11 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                 <SelectItem value="tile_texture">{text('平铺纹理', 'Tileable texture')}</SelectItem>
                 <SelectItem value="game_logo">{text('游戏 Logo', 'Game logo')}</SelectItem>
                 <SelectItem value="dual_grid">{text('双瓦片', 'Dual-grid tileset')}</SelectItem>
+                <SelectItem value="character">{text('角色', 'Character')}</SelectItem>
               </SelectContent>
             </Select>
           </PixField>
+          {isCharacterAsset && <Alert variant="info">{text('角色素材完成后会自动保存到角色库，之后可直接作为序列帧参考来源。', 'Character assets are saved to the character library automatically, ready to reuse as sprite references later.')}</Alert>}
           {isDualGridAsset && <Alert variant="info">{text('一次生成 4×4 / 16 张过渡瓦片图集：先生成材质 A、B，再按 dual-grid 角掩码合成。B 留空或填 transparent 会生成透明边缘。', 'Generates a 4×4 / 16-tile transition atlas: material A and B are generated first, then composed with dual-grid corner masks. Leave B empty or use transparent for transparent edges.')}</Alert>}
           {isTileAsset && (
             <PixField label={text('纹理类型', 'Texture type')} hint={text('选择常见游戏地图纹理类型；自动识别会按主题关键词推断，并把对应规则写入 Prompt。', 'Choose a common game-map texture type. Auto detect infers from keywords and injects matching prompt rules.')}>

@@ -72,7 +72,7 @@ class LoadMetaJsonTests(unittest.TestCase):
     def test_valid_json_is_read_and_cached(self) -> None:
         path = self._write("meta.json", b'{"sprite": {"rows": 4}}')
         first = schemas._load_meta_json(path)
-        second = schemas._load_meta_json(path)
+        _second = schemas._load_meta_json(path)
         self.assertEqual(first["sprite"]["rows"], 4)
         # 第二次读取应命中缓存，而非再次解析磁盘。
         self.assertGreaterEqual(schemas._load_meta_json_cached.cache_info().hits, 1)

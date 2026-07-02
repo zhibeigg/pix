@@ -305,7 +305,7 @@ export const zhCN = {
       sharedPrompt: '保留主体，统一改造成清晰的像素游戏图标风格',
     },
     assetKindLabel: '素材类型',
-    assetKinds: { item_icon: '物品图标', ui_component: 'UI 组件', tile_texture: '平铺纹理', game_logo: '游戏 Logo', dual_grid: '双瓦片' },
+    assetKinds: { item_icon: '物品图标', ui_component: 'UI 组件', tile_texture: '平铺纹理', game_logo: '游戏 Logo', dual_grid: '双瓦片', character: '角色' },
     textureKindLabel: '纹理类型',
     textureKindHint: '按常见游戏地图纹理细分，系统会把对应规则写入 Prompt。',
     textureKinds: {
@@ -328,6 +328,9 @@ export const zhCN = {
     textureSubjectPlaceholder: '苔藓砖石路面\n木板地\n像素草地',
     logoSubjects: 'Logo 标题（每行一个）',
     logoSubjectPlaceholder: '星尘纪元\nPIX FORGE\n龙焰',
+    characterSubjects: '角色描述（每行一个）',
+    characterSubjectPlaceholder: '蓝袍骑士\n红发法师\n像素风商人 NPC',
+    characterAutoSaveHint: '角色素材完成后会自动保存到角色库，之后可直接作为序列帧参考来源。',
     assetDescriptions: '素材描述（每行一个）',
     sharedPrompt: '共用微调描述',
     uploading: '上传中…',

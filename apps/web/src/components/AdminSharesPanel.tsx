@@ -229,6 +229,7 @@ function assetKindLabel(value: string) {
   if (value === 'tile_texture') return '平铺纹理'
   if (value === 'game_logo') return '游戏 Logo'
   if (value === 'dual_grid') return '双瓦片'
+  if (value === 'character') return '角色'
   if (value === 'sprite_sheet') return '序列帧'
   return value || '作品'
 }

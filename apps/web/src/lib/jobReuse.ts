@@ -1,7 +1,7 @@
 import type { GenerationJob, JobType, PixelizeParams, SizeRetryMode, TextureKind } from '../types'
 import type { BgRemovalAlgorithmChoice, EdgeStyleChoice } from '../pixelize'
 
-export type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo' | 'dual_grid'
+export type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo' | 'dual_grid' | 'character'
 export type DualGridTransitionStyle = 'rounded' | 'hard' | 'outline'
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -26,6 +26,7 @@ export function parseAssetKind(value: unknown): AssetKindChoice | null {
   if (normalized === 'tile_texture' || normalized === 'tileable_texture' || normalized === 'tileabletexture' || normalized === 'tile' || normalized === 'texture' || raw === '平铺纹理' || raw === '无缝纹理') return 'tile_texture'
   if (normalized === 'game_logo' || normalized === 'gamelogo' || normalized === 'logo' || normalized === 'logo_mark' || normalized === '游戏_logo' || raw === '游戏 Logo' || raw === '游戏Logo') return 'game_logo'
   if (normalized === 'dual_grid' || normalized === 'dualgrid' || normalized === 'dual_grid_tileset' || normalized === 'tileset' || raw === '双瓦片' || raw === '过渡瓦片') return 'dual_grid'
+  if (normalized === 'character' || normalized === 'character_reference' || normalized === 'character_ref' || normalized === 'role' || raw === '角色' || raw === '角色参考' || raw === '角色参考图') return 'character'
   return null
 }
 
@@ -46,6 +47,7 @@ export function resolveReusableAssetKind(asset: unknown): AssetKindChoice | null
   const subjectKind = stringValue(data.subject_kind).trim().toLocaleLowerCase()
   if (subjectKind === 'single_ui') return 'ui_component'
   if (subjectKind === 'logo_mark') return 'game_logo'
+  if (subjectKind === 'single_character') return 'character'
   if (subjectKind === 'tileable_pattern') return 'tile_texture'
 
   const textureKind = stringValue(data.texture_kind).trim()
@@ -97,6 +99,8 @@ export function assetKindDefaults(assetKind: AssetKindChoice): AssetKindDefaults
       return { pixelSize: '32x32', colors: 12, removeBg: false, edgeStyle: 'hard', dualMaterialATextureKind: 'auto', dualMaterialBTextureKind: 'auto', dualTransitionStyle: 'rounded', clearAssetRef: true }
     case 'game_logo':
       return { pixelSize: '128x64', colors: 24, removeBg: true, edgeStyle: 'hard' }
+    case 'character':
+      return { pixelSize: '64x64', colors: 32, removeBg: true, edgeStyle: 'hard' }
     case 'ui_component':
       return { pixelSize: '32x32', colors: 12, removeBg: true, edgeStyle: 'outline' }
     case 'item_icon':

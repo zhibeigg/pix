@@ -59,7 +59,7 @@ def _bg_removal_options(cfg, params: "PixelizeParams | None" = None) -> dict:
             }
         )
     if params is not None and getattr(params, "bg_removal_algorithm", ""):
-        options["bg_removal_algorithm"] = getattr(params, "bg_removal_algorithm")
+        options["bg_removal_algorithm"] = params.bg_removal_algorithm
     return options
 
 

@@ -6,9 +6,11 @@ import { PageHeader } from '../components/PageHeader'
 import { SingleGeneratePanel } from '../components/SingleGeneratePanel'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import type { CharacterItem, ContactSheetCandidate, CreditBalance, GenerationJob, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule } from '../types'
+import type { AssetKindChoice } from '../lib/jobReuse'
 
 export type WorkMode = 'single' | 'batch'
 export type ReuseJobSeed = { revision: number; job: GenerationJob }
+export type AssetGeneratorPresetSeed = { revision: number; assetKind: AssetKindChoice; assetName?: string }
 
 interface WorkspacePageProps {
   mode: WorkMode
@@ -21,6 +23,7 @@ interface WorkspacePageProps {
   token: string
   imageModels: ImageModelsResponse
   reuseJobSeed?: ReuseJobSeed | null
+  assetPresetSeed?: AssetGeneratorPresetSeed | null
   onModeChange: (mode: WorkMode) => void
   onCreateJob: (payload: JobCreateRequest) => Promise<void>
   onCreateJobs: (payloads: JobCreateRequest[], batchName?: string, mode?: string) => Promise<void>
@@ -28,7 +31,7 @@ interface WorkspacePageProps {
   onRefresh: () => void
 }
 
-export function WorkspacePage({ mode, pricing, discount, balance, jobs, characters, loading, token, imageModels, reuseJobSeed, onModeChange, onCreateJob, onCreateJobs, onCandidatePixelize, onRefresh }: WorkspacePageProps) {
+export function WorkspacePage({ mode, pricing, discount, balance, jobs, characters, loading, token, imageModels, reuseJobSeed, assetPresetSeed, onModeChange, onCreateJob, onCreateJobs, onCandidatePixelize, onRefresh }: WorkspacePageProps) {
   const { t } = useI18n()
   const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running', 'waiting'].includes(job.status)), [jobs])
   return (
@@ -38,7 +41,7 @@ export function WorkspacePage({ mode, pricing, discount, balance, jobs, characte
           <TabsList><TabsTrigger value="single">{t('pages.workspace.single')}</TabsTrigger><TabsTrigger value="batch">{t('pages.workspace.batch')}</TabsTrigger></TabsList>
         </Tabs>
       )} />
-      {mode === 'single' ? <SingleGeneratePanel pricing={pricing} discount={discount} loading={loading} token={token} imageModels={imageModels} characters={characters} reuseJobSeed={reuseJobSeed} onSubmit={onCreateJob} /> : <BatchGeneratePanel pricing={pricing} discount={discount} balance={balance} loading={loading} token={token} imageModels={imageModels} onSubmitMany={onCreateJobs} />}
+      {mode === 'single' ? <SingleGeneratePanel pricing={pricing} discount={discount} loading={loading} token={token} imageModels={imageModels} characters={characters} reuseJobSeed={reuseJobSeed} assetPresetSeed={assetPresetSeed} onSubmit={onCreateJob} /> : <BatchGeneratePanel pricing={pricing} discount={discount} balance={balance} loading={loading} token={token} imageModels={imageModels} onSubmitMany={onCreateJobs} />}
       <JobList jobs={activeJobs} onRefresh={onRefresh} onCandidatePixelize={onCandidatePixelize} />
     </div>
   )

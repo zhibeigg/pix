@@ -263,6 +263,7 @@ function assetKindLabel(value: unknown, text: (zh: string, en: string) => string
   if (value === 'tile_texture') return text('平铺纹理', 'Tileable texture')
   if (value === 'game_logo') return text('游戏 Logo', 'Game logo')
   if (value === 'dual_grid') return text('双瓦片', 'Dual-grid tileset')
+  if (value === 'character') return text('角色', 'Character')
   return stringOrDash(value)
 }
 
@@ -277,6 +278,7 @@ function subjectKindLabel(value: unknown, text: (zh: string, en: string) => stri
   if (value === 'single_ui') return text('单个 UI', 'Single UI')
   if (value === 'tileable_pattern') return text('无缝平铺图案', 'Seamlessly tileable pattern')
   if (value === 'logo_mark') return text('Logo 标题标识', 'Logo title mark')
+  if (value === 'single_character') return text('单个角色', 'Single character')
   return stringOrDash(value)
 }
 

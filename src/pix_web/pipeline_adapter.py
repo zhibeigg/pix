@@ -303,6 +303,13 @@ def _asset_reference_prompt_appendix(asset_kind: str, has_reference: bool) -> st
             "but redesign it as a clean pixel-art game logo. The final readable text must only use "
             "the exact title, acronym, or brand text from the Subject; do not copy or invent any extra words from the reference."
         )
+    if asset_kind == "character":
+        return (
+            "Use the provided reference image as character inspiration: preserve the character identity, silhouette, "
+            "costume language, palette mood, and major body proportions where useful, then redraw it as a clean TRUE pixel-art "
+            "single-character reference. Keep the full body readable inside the canvas unless the Subject explicitly asks for a portrait. "
+            "Do not turn the result into an item icon, UI component, logo, multi-character scene, or cropped prop sheet."
+        )
     return (
         "Use the provided reference image only as visual input for an asset redraw. First convert the reference mentally into "
         "a clean TRUE pixel-art interpretation with large square pixels, hard edges, a limited palette, and a simple silhouette; "

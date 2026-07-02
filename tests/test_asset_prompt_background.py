@@ -40,6 +40,20 @@ class AssetPromptBackgroundTests(unittest.TestCase):
         for needle in ANTI_PATTERNS:
             self.assertIn(needle, prompt, f"canonical fallback missing: {needle}")
 
+    def test_character_asset_prompt_is_reusable_single_character_reference(self) -> None:
+        prompt = build_asset_prompt(
+            "",
+            "蓝袍骑士",
+            size=(64, 64),
+            asset_kind="character",
+            subject_kind="single_prop",
+            max_colors=32,
+        )
+        self.assertIn("character reference", prompt)
+        self.assertIn("single character", prompt)
+        self.assertIn("full character readable", prompt)
+        self.assertIn("no multiple characters", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

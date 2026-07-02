@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from pix_web.character_library import clean_character_text, create_character_item_from_job
 from pix_web.config import WebSettings
 from pix_web.credits import ensure_credit_account
 from pix_web.external_api_keys import ExternalApiPrincipal, require_external_scope
@@ -68,10 +69,6 @@ def _external_character_response(item: CharacterLibraryItem) -> CharacterRespons
     return CharacterResponse.model_validate(item)
 
 
-def _clean_text(value: str | None, limit: int) -> str:
-    return " ".join((value or "").strip().split())[:limit]
-
-
 def _character_for_principal(db: Session, principal: ExternalApiPrincipal, character_id: int) -> CharacterLibraryItem:
     item = db.scalar(
         select(CharacterLibraryItem).where(
@@ -124,29 +121,6 @@ def _output_path(job: GenerationJob, kind: str) -> str:
         "sprite-grid": outputs.get("sprite_sheet_grid") or sprite.get("grid_sheet"),
     }
     return _resolve_meta_path(output.meta_json_path, by_kind.get(kind))
-
-
-def _character_output_path(job: GenerationJob, image_kind: str) -> str:
-    if job.status != "succeeded" or not job.outputs:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只能把已完成任务保存为角色")
-    output = job.outputs[0]
-    preferred = {
-        "source": output.source_path,
-        "pixelized": output.pixelized_path,
-        "preview": output.preview_path,
-    }.get(image_kind)
-    for candidate in (preferred, output.source_path, output.pixelized_path, output.preview_path):
-        if candidate and Path(candidate).is_file():
-            return str(candidate)
-    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="任务没有可保存为角色的图片")
-
-
-def _character_preview_path(job: GenerationJob, image_path: str) -> str:
-    output = job.outputs[0]
-    for candidate in (output.preview_path, output.pixelized_path, image_path, output.source_path):
-        if candidate and Path(candidate).is_file():
-            return str(candidate)
-    return image_path
 
 
 def _download_response(path: str, filename: str = "") -> FileResponse:
@@ -232,13 +206,13 @@ def external_create_character(
     image_path = str(image_file)
     preview_path = str(preview_file)
     snapshot_source = "job_output" if source_job_id is not None else "external"
-    name = _clean_text(req.name, 160) or image_file.stem[:160] or "未命名角色"
+    name = clean_character_text(req.name, 160) or image_file.stem[:160] or "未命名角色"
     item = CharacterLibraryItem(
         user_id=principal.user.id,
         source_job_id=source_job_id,
         status="active",
         name=name,
-        description=_clean_text(req.description, 1000),
+        description=clean_character_text(req.description, 1000),
         tags_json=list(req.tags),
         image_path=image_path,
         preview_path=preview_path,
@@ -258,20 +232,20 @@ def external_create_character_from_job(
     db: Session = Depends(get_db),
 ) -> CharacterResponse:
     job = _job_for_principal(db, principal, job_id)
-    image_path = _character_output_path(job, req.image_kind)
-    preview_path = _character_preview_path(job, image_path)
-    item = CharacterLibraryItem(
-        user_id=principal.user.id,
-        source_job_id=job.id,
-        status="active",
-        name=_clean_text(req.name, 160) or _job_file_prefix(job),
-        description=_clean_text(req.description, 1000),
-        tags_json=list(req.tags),
-        image_path=image_path,
-        preview_path=preview_path,
-        parameter_snapshot_json={"source": "job", "source_job_id": job.id, "image_kind": req.image_kind},
-    )
-    db.add(item)
+    if job.status != "succeeded" or not job.outputs:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只能把已完成任务保存为角色")
+    try:
+        item = create_character_item_from_job(
+            db,
+            job,
+            job.outputs[0],
+            name=req.name,
+            description=req.description,
+            tags=req.tags,
+            image_kind=req.image_kind,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     db.commit()
     db.refresh(item)
     return _external_character_response(item)
@@ -286,12 +260,12 @@ def external_update_character(
 ) -> CharacterResponse:
     item = _character_for_principal(db, principal, character_id)
     if req.name is not None:
-        name = _clean_text(req.name, 160)
+        name = clean_character_text(req.name, 160)
         if not name:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="角色名称不能为空")
         item.name = name
     if req.description is not None:
-        item.description = _clean_text(req.description, 1000)
+        item.description = clean_character_text(req.description, 1000)
     if req.tags is not None:
         item.tags_json = list(req.tags)
     if req.status is not None:

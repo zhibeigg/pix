@@ -16,7 +16,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.config import WebSettings
-from pix_web.credits import reward_share_credits
 from pix_web.models import CreditTransaction, GenerationJob, GenerationOutput, SharedWork, SharedWorkLike, User, utcnow
 from pix_web.schemas import JobOutputResponse, SharedDownloadOptionResponse, SharedWorkListResponse, SharedWorkResponse
 from pix_web.security import decode_file_ticket, get_current_user, get_db, get_settings

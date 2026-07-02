@@ -23,7 +23,7 @@ import { SizeRetryControls, DEFAULT_SIZE_RETRY, type SizeRetryState } from './Si
 import { StyleProfileControls, compactStyleProfile } from './StyleProfileControls'
 
 type BatchMode = 'asset' | 'local_pixelize'
-type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo'
+type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo' | 'character'
 type BatchUpload = { id: string; status: 'uploading' | 'uploaded' | 'failed'; error?: string; upload?: UploadResponse }
 type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; balance: CreditBalance | null; loading: boolean; token: string; imageModels: ImageModelsResponse; onSubmitMany: (payloads: JobCreateRequest[], batchName: string, mode: string) => Promise<void> }
 
@@ -100,10 +100,11 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
   const isAsset = batchMode === 'asset'
   const isTileAsset = isAsset && assetKind === 'tile_texture'
   const isLogoAsset = isAsset && assetKind === 'game_logo'
-  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : 'single_prop'
+  const isCharacterAsset = isAsset && assetKind === 'character'
+  const subjectKind = assetKind === 'ui_component' ? 'single_ui' : assetKind === 'tile_texture' ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : assetKind === 'character' ? 'single_character' : 'single_prop'
   const uiComponentImageSize = assetKind === 'ui_component' ? UI_COMPONENT_IMAGE_SIZE : undefined
-  const assetSubjectsLabel = isLogoAsset ? t('batchForm.logoSubjects') : isTileAsset ? t('batchForm.textureSubjects') : t('batchForm.assetSubjects')
-  const assetSubjectPlaceholder = isLogoAsset ? t('batchForm.logoSubjectPlaceholder') : isTileAsset ? t('batchForm.textureSubjectPlaceholder') : t('batchForm.assetSubjectPlaceholder')
+  const assetSubjectsLabel = isLogoAsset ? t('batchForm.logoSubjects') : isTileAsset ? t('batchForm.textureSubjects') : isCharacterAsset ? t('batchForm.characterSubjects') : t('batchForm.assetSubjects')
+  const assetSubjectPlaceholder = isLogoAsset ? t('batchForm.logoSubjectPlaceholder') : isTileAsset ? t('batchForm.textureSubjectPlaceholder') : isCharacterAsset ? t('batchForm.characterSubjectPlaceholder') : t('batchForm.assetSubjectPlaceholder')
 
   useEffect(() => {
     if (!availableImageModels.some((item) => item.id === imageModel)) {
@@ -122,6 +123,8 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
       setPixelSize('32x32'); setColors(12); setRemoveBg(false); setEdgeStyle('hard'); setTextureKind('auto')
     } else if (assetKind === 'game_logo') {
       setPixelSize('128x64'); setColors(24); setRemoveBg(true); setEdgeStyle('hard')
+    } else if (assetKind === 'character') {
+      setPixelSize('64x64'); setColors(32); setRemoveBg(true); setEdgeStyle('hard')
     } else if (assetKind === 'item_icon') {
       setPixelSize('16x16'); setColors(8); setRemoveBg(true); setEdgeStyle('hard')
     } else if (assetKind === 'ui_component') {
@@ -172,7 +175,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
 
   function buildBatchPreviewPayload(): JobCreateRequest | null {
     if (!isAsset || overlongSubject || invalidSubAssetSize) return null
-    const name = lines[0] || (isLogoAsset ? t('batchForm.logoSubjectPlaceholder') : isTileAsset ? t('batchForm.textureSubjectPlaceholder') : t('batchForm.assetSubjectPlaceholder'))
+    const name = lines[0] || (isLogoAsset ? t('batchForm.logoSubjectPlaceholder') : isTileAsset ? t('batchForm.textureSubjectPlaceholder') : isCharacterAsset ? t('batchForm.characterSubjectPlaceholder') : t('batchForm.assetSubjectPlaceholder'))
     return buildAssetPayload(name, 'prompt-preview')
   }
 
@@ -209,8 +212,9 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
         {batchMode === 'asset' && <PixField label={text('生图模型', 'Image model')}><Select value={imageModel} onValueChange={setImageModel}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{availableImageModels.map((m) => <SelectItem value={m.id} key={m.id}>{modelOptionLabel(m)}</SelectItem>)}</SelectContent></Select></PixField>}
         {batchMode === 'asset' ? <div className="grid gap-4">
           {isAsset && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4">
-            <PixField label={t('batchForm.assetKindLabel')}><Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="item_icon">{t('batchForm.assetKinds.item_icon')}</SelectItem><SelectItem value="ui_component">{t('batchForm.assetKinds.ui_component')}</SelectItem><SelectItem value="tile_texture">{t('batchForm.assetKinds.tile_texture')}</SelectItem><SelectItem value="game_logo">{t('batchForm.assetKinds.game_logo')}</SelectItem></SelectContent></Select></PixField>
+            <PixField label={t('batchForm.assetKindLabel')}><Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="item_icon">{t('batchForm.assetKinds.item_icon')}</SelectItem><SelectItem value="ui_component">{t('batchForm.assetKinds.ui_component')}</SelectItem><SelectItem value="tile_texture">{t('batchForm.assetKinds.tile_texture')}</SelectItem><SelectItem value="game_logo">{t('batchForm.assetKinds.game_logo')}</SelectItem><SelectItem value="character">{t('batchForm.assetKinds.character')}</SelectItem></SelectContent></Select></PixField>
             {isTileAsset && <PixField label={t('batchForm.textureKindLabel')} hint={t('batchForm.textureKindHint')}><Select value={textureKind} onValueChange={(value) => setTextureKind(value as TextureKind)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TEXTURE_KIND_VALUES.map((value) => <SelectItem key={value} value={value}>{t(`batchForm.textureKinds.${value}`)}</SelectItem>)}</SelectContent></Select></PixField>}
+            {isCharacterAsset && <Alert variant="info">{t('batchForm.characterAutoSaveHint')}</Alert>}
           </div>}
           <PixField label={assetSubjectsLabel} hint={text(`每行最多 ${assetSubjectMaxLength} 字。`, `Up to ${assetSubjectMaxLength} characters per line.`)}><Textarea value={prompts} rows={8} placeholder={assetSubjectPlaceholder} onChange={(e) => setPrompts(e.target.value)} /></PixField>
           <StyleProfileControls value={styleProfile} onChange={setStyleProfile} />

@@ -14,7 +14,6 @@ from pix_web.routers.shares import (
     SHARE_STATUS_ACTIVE,
     SHARE_STATUS_DELETED,
     SHARE_STATUS_HIDDEN,
-    SHARE_STATUS_PENDING,
     SHARE_STATUS_REJECTED,
     _file_ticket_user,
     _reward_amount_for_publish,

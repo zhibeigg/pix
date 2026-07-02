@@ -26,7 +26,6 @@ from pix.api.image_gen import (
     generate_image,
     generate_images_batch,
     last_size_retry_outcome,
-    parse_size,
 )
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
 from pix.api.vision import VisionParseError, analyze_image

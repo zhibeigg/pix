@@ -41,18 +41,20 @@ function makeJob(partial: Partial<GenerationJob> & { params_json?: Record<string
 }
 
 describe('parseAssetKind', () => {
-  test('accepts the five canonical kinds', () => {
+  test('accepts the canonical kinds', () => {
     expect(parseAssetKind('item_icon')).toBe('item_icon')
     expect(parseAssetKind('ui_component')).toBe('ui_component')
     expect(parseAssetKind('tile_texture')).toBe('tile_texture')
     expect(parseAssetKind('game_logo')).toBe('game_logo')
     expect(parseAssetKind('dual_grid')).toBe('dual_grid')
+    expect(parseAssetKind('character')).toBe('character')
   })
 
   test('normalizes spacing/case and localized labels', () => {
     expect(parseAssetKind('Dual Grid')).toBe('dual_grid')
     expect(parseAssetKind('双瓦片')).toBe('dual_grid')
     expect(parseAssetKind('平铺纹理')).toBe('tile_texture')
+    expect(parseAssetKind('角色参考图')).toBe('character')
   })
 
   test('returns null for unknown values', () => {
@@ -72,6 +74,7 @@ describe('resolveReusableAssetKind', () => {
     expect(resolveReusableAssetKind({ asset_kind: 'item_icon', subject_kind: 'single_ui' })).toBe('ui_component')
     expect(resolveReusableAssetKind({ asset_kind: 'item_icon', subject_kind: 'logo_mark' })).toBe('game_logo')
     expect(resolveReusableAssetKind({ asset_kind: 'item_icon', subject_kind: 'tileable_pattern' })).toBe('tile_texture')
+    expect(resolveReusableAssetKind({ asset_kind: 'item_icon', subject_kind: 'single_character' })).toBe('character')
     expect(resolveReusableAssetKind({ asset_kind: 'item_icon', material_a: '草地', material_b: '泥土' })).toBe('dual_grid')
   })
 
@@ -93,10 +96,11 @@ describe('assetKindDefaults', () => {
     })
   })
 
-  test('item_icon / game_logo / ui_component keep their own defaults', () => {
+  test('item_icon / game_logo / ui_component / character keep their own defaults', () => {
     expect(assetKindDefaults('item_icon')).toMatchObject({ pixelSize: '16x16', colors: 8, removeBg: true, edgeStyle: 'hard' })
     expect(assetKindDefaults('game_logo')).toMatchObject({ pixelSize: '128x64', colors: 24, removeBg: true, edgeStyle: 'hard' })
     expect(assetKindDefaults('ui_component')).toMatchObject({ pixelSize: '32x32', colors: 12, removeBg: true, edgeStyle: 'outline' })
+    expect(assetKindDefaults('character')).toMatchObject({ pixelSize: '64x64', colors: 32, removeBg: true, edgeStyle: 'hard' })
   })
 })
 

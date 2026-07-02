@@ -14,7 +14,7 @@ import { LandingSections } from './components/LandingSections'
 import { NotFoundPage } from './components/NotFoundPage'
 import { SetupWizard } from './components/SetupWizard'
 import { GalleryPage } from './pages/GalleryPage'
-import { WorkspacePage, type ReuseJobSeed, type WorkMode } from './pages/WorkspacePage'
+import { WorkspacePage, type AssetGeneratorPresetSeed, type ReuseJobSeed, type WorkMode } from './pages/WorkspacePage'
 
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 const ApiPage = lazy(() => import('./pages/ApiPage').then((m) => ({ default: m.ApiPage })))
@@ -108,6 +108,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [setupLoading, setSetupLoading] = useState(true)
   const [mode, setMode] = useState<WorkMode>('single')
   const [reuseJobSeed, setReuseJobSeed] = useState<ReuseJobSeed | null>(null)
+  const [assetPresetSeed, setAssetPresetSeed] = useState<AssetGeneratorPresetSeed | null>(null)
   const [rawReuseSeed, setRawReuseSeed] = useState<ReuseJobSeed | null>(null)
   const [selectedPackId, setSelectedPackId] = useState<number | null>(null)
   const [selectedPackJobs, setSelectedPackJobs] = useState<GenerationJob[]>([])
@@ -478,6 +479,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setSelectedJobId(null)
     setSelectedRawJobId(null)
     setReuseJobSeed(null)
+    setAssetPresetSeed(null)
     setRawReuseSeed(null)
     setRetryingJobId(null)
     setMessage(text('已退出', 'Signed out'))
@@ -761,6 +763,14 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
+  function openCharacterGenerator() {
+    setMode('single')
+    setReuseJobSeed(null)
+    setAssetPresetSeed({ revision: Date.now(), assetKind: 'character', assetName: '' })
+    navigate('workspace')
+    setMessage(text('已切换到素材直出的角色类型，生成完成后会自动保存到角色库。', 'Switched to the character asset type. Finished results will be saved to the character library automatically.'), 'info')
+  }
+
   async function publishJobShare(job: GenerationJob) {
     if (!token) return
     const resubmitting = job.share?.status === 'rejected' || job.share?.status === 'hidden'
@@ -1005,11 +1015,11 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           onNavigate={navigate}
         >
           <Suspense fallback={<div className="grid min-h-[calc(100vh-160px)] place-items-center px-4 text-sm text-muted-foreground">{t('app.checkingSetup')}</div>}>
-            {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} discount={discount} balance={balance} jobs={jobs} characters={characters} loading={busy} token={token} imageModels={imageModels} reuseJobSeed={reuseJobSeed} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
+            {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} discount={discount} balance={balance} jobs={jobs} characters={characters} loading={busy} token={token} imageModels={imageModels} reuseJobSeed={reuseJobSeed} assetPresetSeed={assetPresetSeed} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'raw-image' && <RawImagePage pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} selectedJobId={selectedRawJobId} reuseSeed={rawReuseSeed} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
             {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onDeleteJobs={deleteJobs} onSaveSequenceAlignment={saveSequenceAlignment} onPublishShare={publishJobShare} onUnpublishShare={unpublishJobShare} onSaveAsCharacter={async (job) => { await createCharacterFromJob(job) }} />}
             {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
-            {page === 'characters' && <CharactersPage token={token} characters={characters} loading={busy} onCreate={createCharacter} onUpdate={updateCharacter} onDelete={deleteCharacter} onRefresh={refreshCurrent} />}
+            {page === 'characters' && <CharactersPage token={token} characters={characters} loading={busy} onCreate={createCharacter} onUpdate={updateCharacter} onDelete={deleteCharacter} onGenerateCharacter={openCharacterGenerator} onRefresh={refreshCurrent} />}
             {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
             {page === 'rewards' && <RewardsPage token={token} onRefresh={refreshCurrent} />}
             {page === 'api' && <ApiPage token={token} />}

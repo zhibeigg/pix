@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react'
-import { Archive, RotateCw, Save, Trash2, Upload } from 'lucide-react'
+import { Archive, RotateCw, Save, Sparkles, Trash2, Upload } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
@@ -21,6 +21,7 @@ type CharactersPageProps = {
   onCreate: (payload: CharacterCreatePayload) => Promise<CharacterItem | null>
   onUpdate: (item: CharacterItem, payload: CharacterUpdatePayload) => Promise<CharacterItem | null>
   onDelete: (item: CharacterItem) => Promise<void>
+  onGenerateCharacter: () => void
   onRefresh: () => void
 }
 
@@ -34,7 +35,7 @@ function draftFromCharacter(item: CharacterItem): Draft {
   return { name: item.name, description: item.description || '', tags: (item.tags ?? []).join(', ') }
 }
 
-export function CharactersPage({ token, characters, loading = false, onCreate, onUpdate, onDelete, onRefresh }: CharactersPageProps) {
+export function CharactersPage({ token, characters, loading = false, onCreate, onUpdate, onDelete, onGenerateCharacter, onRefresh }: CharactersPageProps) {
   const { text } = useI18n()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -116,7 +117,7 @@ export function CharactersPage({ token, characters, loading = false, onCreate, o
         eyebrow={text('角色库', 'Character library')}
         title={text('长期保存可复用角色参考图', 'Save reusable character references')}
         description={text('角色库是独立持久资源，不占普通作品库保留格；序列帧生成时可直接选择角色作为参考来源。', 'Character library items are persistent resources outside gallery retention. Sprite generation can use them directly as references.')}
-        action={<Button variant="outline" onClick={onRefresh} disabled={loading}><RotateCw />{text('刷新', 'Refresh')}</Button>}
+        action={<div className="flex flex-wrap gap-2"><Button onClick={onGenerateCharacter}><Sparkles />{text('生成角色', 'Generate character')}</Button><Button variant="outline" onClick={onRefresh} disabled={loading}><RotateCw />{text('刷新', 'Refresh')}</Button></div>}
       />
 
       {message && <Alert variant="destructive">{message}</Alert>}

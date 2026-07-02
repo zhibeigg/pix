@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from pix.api.image_dispatcher import image_provider_history
 from pix_web.config import WebSettings, load_web_settings
+from pix_web.character_library import auto_save_character_for_job
 from pix_web.credits import consume_reserved, refund_reserved, settle_partial_reserved
 from pix_web.db import init_db, make_engine, make_session_factory
 from pix_web.job_observability import (
@@ -179,6 +180,7 @@ def process_job(db: Session, job: GenerationJob, settings: WebSettings) -> Gener
         job.status = "succeeded"
         job.finished_at = utcnow()
         job.provider = _provider_from_history(image_provider_history())
+        auto_save_character_for_job(db, job, output)
         _settle_credits_on_success(db, job, result.meta)
         db.commit()
         prune_user_photos(db, job.user_id, settings)

@@ -246,8 +246,8 @@ export type StyleProfile = {
 export type AssetParams = {
   name: string
   extra_prompt?: string
-  asset_kind?: 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo' | 'dual_grid'
-  subject_kind?: 'single_prop' | 'single_ui' | 'tileable_pattern' | 'logo_mark'
+  asset_kind?: 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo' | 'dual_grid' | 'character'
+  subject_kind?: 'single_prop' | 'single_ui' | 'tileable_pattern' | 'logo_mark' | 'single_character'
   texture_kind?: TextureKind
   use_vl?: boolean | null
   no_preview?: boolean

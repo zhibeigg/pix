@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.108.1] - 2026-07-02
+
+### Added
+
+- 素材直出新增「角色」类型：生成单个完整角色参考图，并在任务成功后自动保存到角色库，后续可直接作为序列帧参考来源。
+- 角色库页面新增「生成角色」按钮，可一键跳转到生产工作台并预选素材直出的角色类型。
+- 外部 API 与站内参数快览补充 `asset_kind="character"` / `subject_kind="single_character"` 的枚举、文档和显示标签。
+
+### Tests
+
+- 新增角色素材 schema 归一化、外部 API 创建角色素材、角色素材成功后自动入库，以及角色 prompt 约束的回归测试。
+
 ## [1.107.1] - 2026-07-02
 
 ### Changed

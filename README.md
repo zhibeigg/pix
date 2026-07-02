@@ -136,7 +136,7 @@ npm run build
 
 ### 角色库
 
-登录用户可在「角色库」页面持久保存角色参考图：既可以直接上传立绘 / 三视图 / 设定图，也可以在作品库卡片点击「保存为角色」把已完成作品保存为角色。角色库是独立持久资源，不占普通作品库保留格；角色记录只保存图片路径、预览路径、名称、说明、标签、源作品 ID 和安全参数快照，不会复制或移动原始产物。
+登录用户可在「角色库」页面持久保存角色参考图：既可以直接上传立绘 / 三视图 / 设定图，也可以在作品库卡片点击「保存为角色」把已完成作品保存为角色。角色库页面还提供「生成角色」按钮，会跳转到生产工作台并预选「素材直出 → 角色」类型；该类型任务成功后会自动写入角色库。角色库是独立持久资源，不占普通作品库保留格；角色记录只保存图片路径、预览路径、名称、说明、标签、源作品 ID 和安全参数快照，不会复制或移动原始产物。
 
 角色库已接入统一文件归属校验：`/files` 访问、站内任务创建和外部 API 创建任务都只能引用当前用户自己的上传图、任务产物或角色库记录中的图片。序列帧表单的「参考来源」可在「从角色库选择」与「直接上传参考图」之间切换；最终提交仍写入 `sprite.reference_image_path`，因此 `sprite.mode="mosaic"` 与 `sprite.mode="video_bridge"` 复用现有后端链路。
 
@@ -190,7 +190,7 @@ npm run build
 
 1. `build_asset_prompt` 根据用户主体、素材类型、尺寸、颜色数和抠色容差构建 prompt。
 2. 本地 prompt guard 只审核用户原始输入，不把服务端模板暴露给审核模型；“直接复刻/抄袭参考图”类请求会在创建任务前拒绝，不入队、不冻结点数，并写入策略审计事件供后台统计。
-3. 使用当前配置的 logical 生图模型生成单张源图；同一模型可由 Crazyrouter、Packy 等多个 Provider 承载并自动失败切换。普通素材上传参考图时仍走 `job_type=asset` 的素材直出链路（按图生图价格计费）：后端先要求模型把参考图理解 / 转译为 TRUE pixel-art，再套用素材模板中的尺寸、颜色数、纯色背景、禁文字等约束重绘，避免退化成简单处理上传图。
+3. 使用当前配置的 logical 生图模型生成单张源图；同一模型可由 Crazyrouter、Packy 等多个 Provider 承载并自动失败切换。普通素材上传参考图时仍走 `job_type=asset` 的素材直出链路（按图生图价格计费）：后端先要求模型把参考图理解 / 转译为 TRUE pixel-art，再套用素材模板中的尺寸、颜色数、纯色背景、禁文字等约束重绘，避免退化成简单处理上传图。`asset_kind=character` 会按单个完整角色参考图约束生成，任务成功后自动保存到角色库。
 4. 默认 `skip_vl = true`，不走普通 VL 分析。
 5. Pixel Grid extract：
    - `perfect_pixel` 网格对齐，并保存 `02_perfect_pixel_preprocess.png`；
@@ -201,7 +201,7 @@ npm run build
    - sample cells / cluster palette；
    - 渲染最终 PNG 与 `.grid.json`。
 
-> 参考图微调（`job_type=image_to_image` 且会进入像素化的任务，如作品库「AI 微调」）现在与素材直出共用同一套像素风 prompt：复用 `build_asset_prompt` + 参考图 appendix，把上传图当参考图、按 TRUE pixel-art 重绘（不再把用户原文直接发给模型），并声明上传图即「图1」，用户可在提示词用「图1」指代参考图（如「把图1重绘成像素风戏台」）。作品库「AI 微调」会沿用原作品的素材类型（物品图标 / UI 组件 / Logo / 平铺纹理）重绘，外部 API 也可在 `asset.asset_kind` 指定，缺省按物品图标处理。可用 `[image_gen].image_to_image_pixel_prompt = false` 回退原始 prompt 直传；`source_only` 的原生大图（参考图直出 1024 大图）不受影响。
+> 参考图微调（`job_type=image_to_image` 且会进入像素化的任务，如作品库「AI 微调」）现在与素材直出共用同一套像素风 prompt：复用 `build_asset_prompt` + 参考图 appendix，把上传图当参考图、按 TRUE pixel-art 重绘（不再把用户原文直接发给模型），并声明上传图即「图1」，用户可在提示词用「图1」指代参考图（如「把图1重绘成像素风戏台」）。作品库「AI 微调」会沿用原作品的素材类型（物品图标 / UI 组件 / Logo / 平铺纹理 / 角色）重绘，外部 API 也可在 `asset.asset_kind` 指定，缺省按物品图标处理。可用 `[image_gen].image_to_image_pixel_prompt = false` 回退原始 prompt 直传；`source_only` 的原生大图（参考图直出 1024 大图）不受影响。
 >
 > `job_type=local_bg_remove` 提供纯本地去背景，不调用 AI、不做像素化。`pixelize.bg_removal_algorithm="pixel_bg"` 对应前端「像素」算法（与像素直出当前抠色一致），`"color_to_alpha"` 对应「高清」算法（Color-to-Alpha 软边）。输出仍通过 `pixelized` 下载通道返回透明 PNG。
 
@@ -263,6 +263,18 @@ curl -X POST "https://example.com/api/external/v1/jobs" \
       "avoid_elements": "modern guns, watermark, text"
     },
     "pixelize": {"output_size": [32, 32], "colors": 8, "remove_bg": true},
+    "skip_vl": true
+  }'
+
+# 创建角色素材：成功后会自动进入角色库
+curl -X POST "https://example.com/api/external/v1/jobs" \
+  -H "Authorization: Bearer pix_live_xxx" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: character-001" \
+  -d '{
+    "job_type": "asset",
+    "asset": {"name": "blue cloak knight", "asset_kind": "character", "subject_kind": "single_character"},
+    "pixelize": {"output_size": [64, 64], "colors": 32, "remove_bg": true},
     "skip_vl": true
   }'
 
@@ -344,7 +356,7 @@ OpenAI Images 兼容模型走 `/v1/images/generations` / `/v1/images/edits` 或 
 网站输入框只要求用户填写主体/描述，服务端再拼装完整素材 prompt。模板中的动态值必须来自用户或当前任务参数：
 
 - `Canvas size must be exactly {width}x{height} pixels` 必须与用户实际选择的输出尺寸一致，例如 `16x16`、`32x32`、`64x64`。
-- `{asset_kind_label}` / `{subject_kind_label}` / `{asset_usage_label}` / `{placement_context}` / `{forbidden_elements}` 由素材类型、主体类型选择自动填入；物品图标只出现物品/背包语义，UI 组件只出现界面组件语义，平铺纹理只出现无缝铺满语义，游戏 Logo 只出现标题页/菜单品牌标识语义，不能混写。
+- `{asset_kind_label}` / `{subject_kind_label}` / `{asset_usage_label}` / `{placement_context}` / `{forbidden_elements}` 由素材类型、主体类型选择自动填入；物品图标只出现物品/背包语义，UI 组件只出现界面组件语义，角色只出现单个完整角色参考图与后续序列帧复用语义，平铺纹理只出现无缝铺满语义，游戏 Logo 只出现标题页/菜单品牌标识语义，不能混写。
 - `{max_colors}` / `{colors}` 使用用户实际选择的颜色数量上限，例如选择 8 色就写入 `no more than 8 visible subject colors`。
 - `{key_tolerance}` 使用当前实际抠色最大色距容差，例如网站素材默认 48。
 - 背景要求是“用于 chroma-key 移除的纯色背景”：模型须先确定主体完整调色板，再选一个与**主体所有可见颜色**的 RGB 欧氏距离中**最小值最大化**（maximin）的背景色，优先主体完全没用到的高饱和互补/对立色相；该最小距离须远大于抠色容差 `{key_tolerance}`，目标 ≥150 RGB 欧氏距离，避免背景与主体撞色或抠图误伤。不要固定写死为 `#FF00FF` 或任何单一 HEX。
@@ -372,9 +384,18 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 - 源图尺寸交给 Provider / 模型自动选择，避免复杂 UI 边框、面板或多空位布局被固定正方形源图过度裁切或留白。
 - 默认开启透明背景并使用 `edge_style=outline`，方便把 UI 边框或面板叠到游戏界面中。
 
+### 角色素材（character）
+
+素材类型选择「角色」时，仍走普通素材直出链路，但 prompt 会转为单个完整角色参考图：清晰轮廓、透明背景、避免多角色、避免头像裁切或物品图标化，方便后续作为序列帧参考来源。
+
+- 前端默认尺寸为 `64x64`，颜色数默认 32 色，默认透明背景与硬边缘，适合生成可复用的完整角色参考图。
+- 支持可选参考图：后端会保留参考图里的角色身份、剪影、服装语言、配色气质和主要体型，再重绘为干净的 TRUE pixel-art 单角色参考图；带参考图时按图生图价格计费。
+- 任务成功后，worker 会自动创建角色库记录（`source_job_id` 指向源任务，`parameter_snapshot_json.source = "auto_asset_character"`），角色库页面与序列帧表单可立即复用。
+- 外部 API 可在 `asset` 中传 `{"asset_kind":"character","subject_kind":"single_character"}`；即使旧客户端误传其它 `subject_kind`，后端也会归一为 `single_character`。
+
 ### 尺寸重试（size-match retry）
 
-生产工作台的主体类素材直出（物品图标 / UI 组件 / Logo 等，平铺纹理与双瓦片除外）可选开启「尺寸重试」：每次尝试都会先按正常素材流程生成源图，再由 perfectPixel 检测真实像素网格，最后把像素成品**透明居中填充到最近的 2 的幂尺寸**（32 / 64 / 128 / 256 …）。尺寸重试比较的是这个填充后的最终 PNG 尺寸与用户在像素参数中选择的 `pixelize.output_size`，不再比较 AI 原始画布尺寸；原始生图页（`source_only=true`）不提供尺寸重试。
+生产工作台的主体类素材直出（物品图标 / UI 组件 / Logo / 角色等，平铺纹理与双瓦片除外）可选开启「尺寸重试」：每次尝试都会先按正常素材流程生成源图，再由 perfectPixel 检测真实像素网格，最后把像素成品**透明居中填充到最近的 2 的幂尺寸**（32 / 64 / 128 / 256 …）。尺寸重试比较的是这个填充后的最终 PNG 尺寸与用户在像素参数中选择的 `pixelize.output_size`，不再比较 AI 原始画布尺寸；原始生图页（`source_only=true`）不提供尺寸重试。
 
 - 停止条件二选一：`size_retry_mode=attempts`（最大尝试次数，含首次，上限 `[image_gen].size_retry_max_attempts_limit`，默认 8）或 `size_retry_mode=credits`（最大点数预算，后端按单次单价折算成次数）。
 - 交付与选择：所有尝试都会保留独立产物并写入 `image_gen.size_retry.attempts`，API 同时在 `JobOutputResponse.candidates` 暴露为可选候选。命中目标时交付第一张命中的尝试；耗尽仍未命中时交付最后一次尝试。作品库中点击任意尺寸重试尝试会直接切换当前卡片预览与下载目标，不再重新创建本地像素化任务；普通多候选图仍可按原流程进入本地像素化。

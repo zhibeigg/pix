@@ -120,18 +120,21 @@ ASSET_KIND_LABELS: dict[str, str] = {
     "tile_texture": "tileable pixel texture",
     "game_logo": "game logo",
     "dual_grid": "dual-grid tileset",
+    "character": "character reference",
 }
 SUBJECT_KIND_LABELS: dict[str, str] = {
     "single_prop": "single prop",
     "single_ui": "single UI element",
     "tileable_pattern": "seamlessly tileable pattern",
     "logo_mark": "logo title mark",
+    "single_character": "single character",
 }
 COMPATIBLE_SUBJECT_KINDS: dict[str, set[str]] = {
     "item_icon": {"single_prop"},
     "ui_component": {"single_ui"},
     "tile_texture": {"tileable_pattern"},
     "game_logo": {"logo_mark"},
+    "character": {"single_character"},
 }
 
 
@@ -172,6 +175,15 @@ ASSET_PROMPT_PROFILES: dict[str, AssetPromptProfile] = {
         # 关键：要求图案铺满画布、四边可拼接，禁止主体居中留白
         placement_context="filling the entire canvas with a seamlessly tileable pattern; the left edge must connect to the right edge and the top edge must connect to the bottom edge without seams",
         forbidden_elements="No text, no watermark, no centered subject, no transparent background, no border, no frame, no vignette, no padding around the edges.",
+    ),
+    "character": AssetPromptProfile(
+        default_subject_kind="single_character",
+        usage_label="reusable character reference and sprite-animation source use",
+        placement_context="easy reuse as a character reference for later sprite sheets, with the full character readable in one centered image",
+        forbidden_elements=(
+            "No text, no watermark, no frame, no labels, no inventory icon pedestal, no UI chrome, "
+            "no cropped head-only portrait, no multiple characters, no unrelated props as the main subject."
+        ),
     ),
 }
 
