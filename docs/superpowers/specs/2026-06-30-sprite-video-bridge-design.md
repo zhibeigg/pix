@@ -17,13 +17,15 @@
     "rows": 1,
     "cols": 8,
     "fps": 8,
+    "video_model": "doubao-seedance-2-0-260128",
     "video_action_prompt": "从站立蓄力到挥剑释放一道蓝色剑气"
   }
 }
 ```
 
-- `mode` 缺省为 `mosaic`，保持旧任务兼容。
+- 后端 schema 的 `mode` 缺省仍为 `mosaic`，保持旧任务兼容；生产工作台初始化与切回序列帧时默认进入 `video_bridge`。
 - `rows × cols` 仍决定最终抽帧数量和输出布局，至少 2 帧。
+- `video_model` 可选三档 Seedance 2.0 并透传 Ark：`doubao-seedance-2-0-lite-260128`（Lite）、`doubao-seedance-2-0-260128`（Standard，默认）、`doubao-seedance-2-0-pro-260128`（Pro）。
 - Ark 视频生成时长由 `rows × cols × duration_ms` 推导并锁定，非整秒向上取整；这样视频补间时间轴与最终 GIF / 序列帧播放节奏一致，不再直接使用 `[video_bridge].duration` 覆盖任务节奏。
 - `video_action_prompt` 可选；留空时回退到第一条 `row_prompts`，再回退到主 prompt。
 - `reference_image_path` 仍可用于关键帧图生图。
@@ -39,6 +41,7 @@
    - `run_dir`
    - `ark_task_id`
    - `next_poll_at`
+   - 实际提交的 `model` / `video_model`
    - prompt、关键帧路径、`timing`（`frame_count` / `frame_duration_ms` / `total_duration_ms` / `ark_duration_seconds`）、Ark 原始响应等调试信息
 5. 到期后 worker 重新领取 waiting job，查询 Ark 任务：
    - 未完成：更新 `next_poll_at`，继续 `waiting`
@@ -70,6 +73,10 @@
 - `sequence.json`：包含 `mode = "video_bridge"`、`source_video`、帧 rect、fps、rows/cols
 - `meta.json`：包含 `video_bridge` 调用状态、抽帧采样信息、处理信息和标准 `sprite` 输出块
 
+## 计费
+
+`sprite.mode="mosaic"` 仍按 `ceil(rows·cols / 9) × sprite_sheet` 基础价计费。`sprite.mode="video_bridge"` 不再乘帧组数，而是按所选 Seedance 2.0 视频模型单任务价计费：火山/飞书价格表中 480p、输入不含视频、4 秒视频价格分别为 Lite 0.984312 元、Standard 1.848096 元、Pro 3.696192 元；默认点数按 `ceil(视频价格 × 20 + 10)` 得到 30 / 47 / 84 点，其中 10 点为首尾关键帧生图价。若自定义帧数/FPS 推导出更长 Ark 秒数，则视频价格部分随秒数线性折算，关键帧生图价仍只加一次。任务创建时会把模型、实际视频秒数、视频价格与折扣后的总点数写入 `params_json.billing` 快照。
+
 ## 配置
 
 `[video_bridge]` 支持：
@@ -78,7 +85,7 @@
 - `provider`
 - `base_url`
 - `api_key`
-- `model`
+- `model`（默认 Standard 档；任务级 `sprite.video_model` 存在时优先使用任务值）
 - `resolution`
 - `ratio`
 - `duration`（旧配置兜底值；实际 Ark 秒数优先由 `rows×cols×duration_ms` 推导）

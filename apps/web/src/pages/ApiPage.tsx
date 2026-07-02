@@ -243,7 +243,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
     "image_model": "image2"
   }'
 
-# 首尾帧视频补间：先生成首/尾关键帧，VL 可用时会优化连贯像素动作 prompt；Ark 视频秒数按 rows×cols×duration_ms 锁定；视频 prompt 会要求像素方块横平竖直且不得旋转/倾斜像素块；抽帧后 perfectPixel 会先全帧检测、取众数网格、再固定网格重跑所有帧；pixelize.output_size/colors/edge_style/generated_preprocess_method 会进入 prompt 与抽帧后处理，去杂色固定启用；video_return_to_first_frame=true 会要求尾帧后回到首帧以便循环
+# 首尾帧视频补间：sprite.video_model 可选三档 Seedance 2.0 并透传 Ark（Lite 30 点 / Standard 47 点 / Pro 84 点，4 秒 480p 基准，公式为视频价格×20+10）；先生成首/尾关键帧，VL 可用时会优化连贯像素动作 prompt；Ark 视频秒数按 rows×cols×duration_ms 锁定；video_return_to_first_frame=true 会要求尾帧后回到首帧以便循环
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
@@ -257,6 +257,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
       "cols": 8,
       "fps": 8,
       "duration_ms": 125,
+      "video_model": "doubao-seedance-2-0-260128",
       "video_action_prompt": "从站立蓄力到挥剑释放一道蓝色剑气",
       "video_return_to_first_frame": true
     },

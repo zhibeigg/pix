@@ -157,6 +157,11 @@ def _resolve_meta_relative_path(meta_json_path: str | None, value: str | None) -
 
 
 JobStatus = Literal["pending", "running", "waiting", "succeeded", "failed", "cancelled"]
+VideoBridgeModel = Literal[
+    "doubao-seedance-2-0-lite-260128",
+    "doubao-seedance-2-0-260128",
+    "doubao-seedance-2-0-pro-260128",
+]
 
 
 class EmailCodeRequest(BaseModel):
@@ -460,6 +465,7 @@ class SpriteParamsSchema(BaseModel):
     loop: int = Field(default=0, ge=0, le=999)
     video_action_prompt: str = Field(default="", max_length=600)
     video_return_to_first_frame: bool = False
+    video_model: VideoBridgeModel = "doubao-seedance-2-0-260128"
     video_duration_seconds: int | None = Field(default=None, ge=4, le=15)
     video_resolution: str | None = "480p"
     video_ratio: str | None = "1:1"

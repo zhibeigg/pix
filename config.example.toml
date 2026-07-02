@@ -326,6 +326,11 @@ mosaic_reference_prompt_template = "Re-create the sprite sheet described below b
 # 流程：生成首/尾关键帧图 → 提交 Ark/Seedance 首尾帧图生视频异步任务 → job 进入 waiting → 到期重捞轮询 → 下载视频并抽帧为 mosaic 兼容输出。
 # 会复用任务的 pixelize.output_size / colors / edge_style+bg_feather / generated_preprocess_method / dither：这些参数进入关键帧与视频 motion prompt，并在抽帧后执行「全帧检测→众数网格→固定网格重跑且保留实际尺寸」perfectPixel、固定去杂色和限色；最终帧不缩放，透明填充到不小于检测尺寸和 output_size 的 2 的幂 1:1 方形画布。
 # Ark 视频秒数按 rows×cols×duration_ms 自动推导，再向上吸附到 allowed_durations 中最近的合法档位并锁定；duration 仅保留为旧配置兜底值。
+# 生产工作台可在单任务里通过 sprite.video_model 选择并透传三档 Seedance 2.0：
+#   doubao-seedance-2-0-lite-260128  -> Lite，4 秒 480p 默认 30 点
+#   doubao-seedance-2-0-260128       -> Standard，4 秒 480p 默认 47 点
+#   doubao-seedance-2-0-pro-260128   -> Pro，4 秒 480p 默认 84 点
+# 默认点数按火山/飞书价格表「视频价格 ×20 + 10 点关键帧生图」计算；更长视频按视频价格部分随秒数折算。
 enabled = false
 provider = "ark"
 base_url = "https://ark.cn-beijing.volces.com/api/v3"

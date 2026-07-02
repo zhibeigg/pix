@@ -16,12 +16,24 @@ from pix.api.prompt_guard import RAW_IMAGE_PROMPT_MAX_CHARS
 from pix.asset import AssetSizePolicyError, resolve_asset_generation_policy
 from pix.config import AppConfig, load_config
 from pix.prompt_style import STYLE_PROFILE_POLICY_MAX_CHARS, style_profile_policy_text
+from pix.sprite_video_bridge import derive_video_bridge_duration_seconds
 from pix_web.config import WebSettings, load_web_settings
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, reserve_credits
 from pix_web.file_ownership import resolve_owned_input_path
 from pix_web.job_observability import record_policy_event
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
-from pix_web.pricing import PricingDisabledError, apply_discount, get_price
+from pix_web.pricing import (
+    VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS,
+    VIDEO_BRIDGE_IMAGE_PRICE_CREDITS,
+    VIDEO_BRIDGE_MODEL_PRICE_CNY,
+    VIDEO_BRIDGE_PRICE_MULTIPLIER,
+    PricingDisabledError,
+    apply_discount,
+    get_price,
+    normalize_video_bridge_model,
+    video_bridge_price_credits,
+    video_bridge_price_key,
+)
 from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema, SpriteParamsSchema
 from pix_web.system_settings import (
     PricingDiscount,
@@ -313,6 +325,10 @@ def _existing_job(db: Session, user: User, client_request_id: str) -> Generation
     )
 
 
+def _is_sprite_video_bridge(req: JobCreateRequest) -> bool:
+    return req.job_type == "sprite_sheet" and req.sprite.mode == "video_bridge"
+
+
 def _frame_count_for_price(req: JobCreateRequest) -> int:
     if req.job_type != "sprite_sheet":
         return 1
@@ -320,17 +336,26 @@ def _frame_count_for_price(req: JobCreateRequest) -> int:
 
 
 def _sprite_billing_units(req: JobCreateRequest) -> int:
-    """序列帧 billing 单位：按 ceil(总帧数 / 9) 计算（最少 1）。"""
-    if req.job_type != "sprite_sheet":
+    """mosaic 序列帧 billing 单位：按 ceil(总帧数 / 9) 计算（最少 1）。"""
+    if req.job_type != "sprite_sheet" or _is_sprite_video_bridge(req):
         return 1
     total = max(1, req.sprite.rows * req.sprite.cols)
     return max(1, (total + 8) // 9)
 
 
+def _video_bridge_duration_seconds_for_price(req: JobCreateRequest) -> int:
+    if req.job_type != "sprite_sheet":
+        return VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS
+    return derive_video_bridge_duration_seconds(_frame_count_for_price(req), req.sprite.duration_ms)
+
+
 def _base_price_for_request(db: Session, req: JobCreateRequest) -> int:
-    price_key = (
-        "image_to_image" if req.job_type == "asset" and req.input_image_path else req.job_type
-    )
+    if _is_sprite_video_bridge(req):
+        price_key = video_bridge_price_key(req.sprite.video_model)
+    else:
+        price_key = (
+            "image_to_image" if req.job_type == "asset" and req.input_image_path else req.job_type
+        )
     try:
         return get_price(db, price_key)
     except PricingDisabledError as exc:
@@ -339,6 +364,12 @@ def _base_price_for_request(db: Session, req: JobCreateRequest) -> int:
 
 def _original_price_for_request(db: Session, req: JobCreateRequest) -> int:
     base_price = _base_price_for_request(db, req)
+    if _is_sprite_video_bridge(req):
+        return video_bridge_price_credits(
+            req.sprite.video_model,
+            duration_seconds=_video_bridge_duration_seconds_for_price(req),
+            base_duration_price_credits=base_price,
+        )
     if req.job_type == "sprite_sheet":
         return base_price * _sprite_billing_units(req)
     return base_price
@@ -474,24 +505,51 @@ def _billing_snapshot_for_request(
     size_retry: SizeRetryPlan | None = None,
 ) -> dict | None:
     is_sprite = req.job_type == "sprite_sheet"
+    is_video_bridge = _is_sprite_video_bridge(req)
     has_size_retry = size_retry is not None and size_retry.enabled
     if not is_sprite and not discount.active and not has_size_retry:
         return None
     snapshot: dict = {}
     if is_sprite:
         base_price = _base_price_for_request(db, req)
-        snapshot.update(
-            {
-                "rows": req.sprite.rows,
-                "cols": req.sprite.cols,
-                "frame_base_price": base_price,
-                "frame_count": _frame_count_for_price(req),
-                "billing_units": _sprite_billing_units(req),
-                "max_frame_count": 64,
-                "formula": "ceil(rows*cols/9) * frame_base_price",
-                "billing_note": "one API call per job; postprocess included",
-            }
-        )
+        if is_video_bridge:
+            video_model = normalize_video_bridge_model(req.sprite.video_model)
+            video_duration_seconds = _video_bridge_duration_seconds_for_price(req)
+            video_price_cny = (
+                VIDEO_BRIDGE_MODEL_PRICE_CNY[video_model]
+                * video_duration_seconds
+                / VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS
+            )
+            snapshot.update(
+                {
+                    "mode": "video_bridge",
+                    "rows": req.sprite.rows,
+                    "cols": req.sprite.cols,
+                    "frame_count": _frame_count_for_price(req),
+                    "billing_units": 1,
+                    "video_model": video_model,
+                    "video_duration_seconds": video_duration_seconds,
+                    "video_price_cny": video_price_cny,
+                    "video_base_price_credits": base_price,
+                    "image_price_credits": VIDEO_BRIDGE_IMAGE_PRICE_CREDITS,
+                    "formula": f"ceil(video_price_cny * {VIDEO_BRIDGE_PRICE_MULTIPLIER} + image_price_credits)",
+                    "billing_note": "one keyframe image generation plus one 480p Seedance video bridge; postprocess included",
+                }
+            )
+        else:
+            snapshot.update(
+                {
+                    "mode": "mosaic",
+                    "rows": req.sprite.rows,
+                    "cols": req.sprite.cols,
+                    "frame_base_price": base_price,
+                    "frame_count": _frame_count_for_price(req),
+                    "billing_units": _sprite_billing_units(req),
+                    "max_frame_count": 64,
+                    "formula": "ceil(rows*cols/9) * frame_base_price",
+                    "billing_note": "one API call per job; postprocess included",
+                }
+            )
     snapshot["original_total_points"] = original_total
     snapshot["total_points"] = discounted_total
     if discount.active:

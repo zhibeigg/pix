@@ -83,6 +83,7 @@ class SpriteVideoBridgeInput:
     image_quality: str | None = None
     image_model: str | None = None
     vl_model: str | None = None
+    video_model: str | None = None
     pixelize_params: PixelizeParams = field(default_factory=PixelizeParams)
     out_root: str | Path | None = None
     fps: int = 8
@@ -1166,12 +1167,13 @@ def _start_video_task(
         "video_bridge_motion_prompt_ready",
         {"optimized": bool(motion_prompt_optimizer.get("used")), "timing": timing_meta},
     )
+    video_model = (inputs.video_model or cfg.video_bridge.model or "").strip()
     client = ArkVideoClient(cfg)
     created = client.create_task(
         prompt=motion_prompt,
         first_frame_data_url=first_data_url,
         last_frame_data_url=ark_last_frame_data_url,
-        model=cfg.video_bridge.model,
+        model=video_model,
         resolution=cfg.video_bridge.resolution,
         ratio=cfg.video_bridge.ratio,
         duration=ark_duration_seconds,
@@ -1196,6 +1198,10 @@ def _start_video_task(
         "duration": ark_duration_seconds,
         "configured_duration": int(getattr(cfg.video_bridge, "duration", ark_duration_seconds) or ark_duration_seconds),
         "duration_source": "sprite_timing",
+        "model": video_model,
+        "video_model": video_model,
+        "resolution": cfg.video_bridge.resolution,
+        "ratio": cfg.video_bridge.ratio,
         "prompt_parameters": {
             "target_frame_size": list(settings.target_size),
             "colors": int(settings.max_colors),

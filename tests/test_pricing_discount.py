@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from pix_web.credits import adjust_credits, refund_reserved
 from pix_web.jobs import create_job_in_transaction, create_jobs_batch, retry_failed_job
 from pix_web.models import Base, CreditAccount, SystemSetting, User
-from pix_web.pricing import apply_discount
+from pix_web.pricing import DEFAULT_PRICES, apply_discount, video_bridge_price_credits, video_bridge_price_key
 from pix_web.routers.pricing import pricing_discount
 from pix_web.schemas import AssetParamsSchema, JobCreateRequest, SpriteParamsSchema
 from pix_web.system_settings import (
@@ -158,9 +158,52 @@ class DiscountBillingTests(_DbTestCase):
         self.db.commit()
         assert job.price_credits == 20          # base 5 * units 8 = 40 → 0.5 → 20
         billing = job.params_json["billing"]
+        assert billing["mode"] == "mosaic"
         assert billing["original_total_points"] == 40
         assert billing["total_points"] == 20
         assert billing["discount"]["rate"] == 0.5
+
+    def test_video_bridge_default_prices_use_selected_seedance_model(self) -> None:
+        expected = {
+            "doubao-seedance-2-0-lite-260128": 30,
+            "doubao-seedance-2-0-260128": 47,
+            "doubao-seedance-2-0-pro-260128": 84,
+        }
+        for model, price in expected.items():
+            assert DEFAULT_PRICES[video_bridge_price_key(model)] == price
+
+    def test_video_bridge_duration_scales_video_component(self) -> None:
+        assert video_bridge_price_credits("doubao-seedance-2-0-pro-260128", duration_seconds=8) == 158
+
+    def test_video_bridge_billing_uses_model_price_without_frame_units(self) -> None:
+        req = JobCreateRequest(
+            job_type="sprite_sheet",
+            prompt="slash",
+            sprite=SpriteParamsSchema(
+                mode="video_bridge",
+                rows=2,
+                cols=8,
+                fps=8,
+                duration_ms=125,
+                video_model="doubao-seedance-2-0-pro-260128",
+                video_action_prompt="挥剑",
+            ),
+        )
+
+        job = create_job_in_transaction(self.db, self.user, req)
+        self.db.commit()
+
+        assert job.price_credits == 84
+        billing = job.params_json["billing"]
+        assert billing["mode"] == "video_bridge"
+        assert billing["video_model"] == "doubao-seedance-2-0-pro-260128"
+        assert billing["video_duration_seconds"] == 4
+        assert billing["video_price_cny"] == 3.696192
+        assert billing["video_base_price_credits"] == 84
+        assert billing["image_price_credits"] == 10
+        assert billing["billing_units"] == 1
+        assert billing["original_total_points"] == 84
+        assert billing["total_points"] == 84
 
     def test_batch_reserves_discounted_price_per_job(self) -> None:
         # 批量路径：每个 job 独立 apply_discount，再相加；折扣只应用一次

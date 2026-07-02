@@ -3,10 +3,11 @@ import { Upload } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
-import type { CharacterItem, GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule, StyleProfile, TextureKind } from '../types'
+import type { CharacterItem, GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule, StyleProfile, TextureKind, VideoBridgeModel } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type BgRemovalAlgorithmChoice, type EdgeStyleChoice } from '../pixelize'
 import { assetKindDefaults, jobTypeDefaults, mergeReusedPixelize, parseAssetKind, resolveReusableAssetKind, reusableWorkbenchType, sizeRetryStateFromJob, type AssetKindChoice, type DualGridTransitionStyle } from '../lib/jobReuse'
 import { promptLimitsFromModels } from '../lib/promptLimits'
+import { DEFAULT_VIDEO_BRIDGE_MODEL, VIDEO_BRIDGE_MODELS, normalizeVideoBridgeModel, videoBridgePriceCredits } from '../lib/pricing'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
@@ -75,6 +76,9 @@ const VIDEO_ANIM_PRESETS: VideoAnimPresetSpec[] = [
   { key: 'showcase', zh: '长演出', en: 'Long showcase', rows: 3, cols: 8, fps: 8 },
 ]
 const DEFAULT_VIDEO_ANIM_PRESET: VideoAnimPresetKey = 'silky'
+const DEFAULT_VIDEO_ANIM_SPEC: VideoAnimPresetSpec = VIDEO_ANIM_PRESETS.find((item) => item.key === DEFAULT_VIDEO_ANIM_PRESET) ?? {
+  key: 'silky', zh: '丝滑动作', en: 'Silky action', rows: 2, cols: 8, fps: 8,
+}
 
 function matchVideoAnimPreset(rows: number, cols: number, fps: number): VideoAnimPresetKey {
   const found = VIDEO_ANIM_PRESETS.find((preset) => preset.rows === rows && preset.cols === cols && preset.fps === fps)
@@ -237,7 +241,7 @@ function styleProfileValue(value: unknown): StyleProfile {
 
 export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, characters, reuseJobSeed, assetPresetSeed, onSubmit }: Props) {
   const { text } = useI18n()
-  const [jobType, setJobType] = useState<JobType>('asset')
+  const [jobType, setJobType] = useState<JobType>('sprite_sheet')
   const [imageModel, setImageModel] = useState(imageModels.default)
   const promptLimits = useMemo(() => promptLimitsFromModels(imageModels), [imageModels])
   const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
@@ -256,7 +260,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [dualMaterialATextureKind, setDualMaterialATextureKind] = useState<TextureKind>('auto')
   const [dualMaterialBTextureKind, setDualMaterialBTextureKind] = useState<TextureKind>('auto')
   const [dualTransitionStyle, setDualTransitionStyle] = useState<DualGridTransitionStyle>('rounded')
-  const [prompt, setPrompt] = useState(() => text('一枚幻想 RPG 魔法药水图标，居中构图，轮廓清晰，透明背景', 'A fantasy RPG magic potion icon, centered composition, clear silhouette, transparent background'))
+  const [prompt, setPrompt] = useState(() => text('蓝色斗篷骑士，侧视角像素风，身份和配色稳定', 'Blue-cape knight, side-view pixel art, stable identity and palette'))
   const [inputImagePath, setInputImagePath] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
@@ -268,24 +272,25 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [assetRefFile, setAssetRefFile] = useState<File | null>(null)
   const [assetRefUploading, setAssetRefUploading] = useState(false)
   const [assetRefMessage, setAssetRefMessage] = useState('')
-  const [pixelSize, setPixelSize] = useState('16x16')
-  const [colors, setColors] = useState(8)
-  const [removeBg, setRemoveBg] = useState(true)
+  const [pixelSize, setPixelSize] = useState('64x64')
+  const [colors, setColors] = useState(16)
+  const [removeBg, setRemoveBg] = useState(false)
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyleChoice>('hard')
   const [bgRemovalAlgorithm, setBgRemovalAlgorithm] = useState<BgRemovalAlgorithmChoice>('pixel_bg')
   const [skipVl, setSkipVl] = useState(false)
   const [sizeRetry, setSizeRetry] = useState<SizeRetryState>(DEFAULT_SIZE_RETRY)
   const [styleProfile, setStyleProfile] = useState<StyleProfile>({})
   // 序列帧专用状态（mosaic / 首尾帧视频补间）
-  const [spriteMode, setSpriteMode] = useState<SpriteMode>('mosaic')
+  const [spriteMode, setSpriteMode] = useState<SpriteMode>('video_bridge')
   const [spritePreset, setSpritePreset] = useState<SpritePreset>('horizontal')
   const [videoAnimPreset, setVideoAnimPreset] = useState<VideoAnimPresetKey>(DEFAULT_VIDEO_ANIM_PRESET)
-  const [rows, setRows] = useState(1)
-  const [cols, setCols] = useState(8)
+  const [videoModel, setVideoModel] = useState<VideoBridgeModel>(DEFAULT_VIDEO_BRIDGE_MODEL)
+  const [rows, setRows] = useState(DEFAULT_VIDEO_ANIM_SPEC.rows)
+  const [cols, setCols] = useState(DEFAULT_VIDEO_ANIM_SPEC.cols)
   const [rowPrompts, setRowPrompts] = useState<string[]>([''])
   const [videoActionPrompt, setVideoActionPrompt] = useState('')
   const [videoReturnToFirstFrame, setVideoReturnToFirstFrame] = useState(false)
-  const [fps, setFps] = useState(8)
+  const [fps, setFps] = useState(DEFAULT_VIDEO_ANIM_SPEC.fps)
   const [refSource, setRefSource] = useState<SpriteReferenceSource>('upload')
   const [selectedRefCharacterId, setSelectedRefCharacterId] = useState<number | null>(null)
   const [refImagePath, setRefImagePath] = useState('')
@@ -320,7 +325,9 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const playbackFps = Math.max(1, Math.min(60, Math.round(fps || 8)))
   const playbackSeconds = (totalFrames * Math.max(1, Math.round(1000 / playbackFps))) / 1000
   const billingUnits = Math.max(1, Math.ceil(totalFrames / 9))
-  const price = isSprite ? basePrice * billingUnits : basePrice
+  const videoBridgeDurationSeconds = deriveVideoDurationSeconds(totalFrames, playbackFps)
+  const videoBridgePrice = videoBridgePriceCredits(videoModel, pricing, videoBridgeDurationSeconds)
+  const price = isSpriteVideoBridge ? videoBridgePrice : isSprite ? basePrice * billingUnits : basePrice
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
   const subjectKind = assetKind === 'ui_component' ? 'single_ui' : (assetKind === 'tile_texture' || assetKind === 'dual_grid') ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : assetKind === 'character' ? 'single_character' : 'single_prop'
@@ -394,14 +401,13 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     if (d.edgeStyle !== undefined) setEdgeStyle(d.edgeStyle)
     if (d.bgRemovalAlgorithm !== undefined) setBgRemovalAlgorithm(d.bgRemovalAlgorithm)
     if (next === 'sprite_sheet') {
-      setSpriteMode('mosaic')
+      setSpriteMode('video_bridge')
       setVideoActionPrompt('')
       setVideoReturnToFirstFrame(false)
-      if (d.fps !== undefined) setFps(d.fps)
-      if (d.rows !== undefined) setRows(d.rows)
-      if (d.cols !== undefined) setCols(d.cols)
+      setVideoModel(DEFAULT_VIDEO_BRIDGE_MODEL)
+      applyVideoAnimPreset(DEFAULT_VIDEO_ANIM_PRESET)
       if (d.spritePreset !== undefined) setSpritePreset(d.spritePreset)
-      if (d.rowPrompts !== undefined) setRowPrompts(d.rowPrompts)
+      if (d.rowPrompts !== undefined) setRowPrompts(ensureRowPromptsLength(d.rowPrompts, 1))
     }
   }
 
@@ -470,6 +476,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       setRowPrompts(nextRowPrompts)
       setVideoActionPrompt(stringValue(sprite?.video_action_prompt))
       setVideoReturnToFirstFrame(Boolean(sprite?.video_return_to_first_frame))
+      setVideoModel(normalizeVideoBridgeModel(sprite?.video_model))
       setSpritePreset('custom')
       // video_bridge：若 rows/cols/fps 命中某动画预设则选中它，否则标记自定义。
       setVideoAnimPreset(nextSpriteMode === 'video_bridge' ? matchVideoAnimPreset(nextRows, nextCols, nextFps) : DEFAULT_VIDEO_ANIM_PRESET)
@@ -520,6 +527,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     if (next === 'video_bridge') {
       const firstAction = videoActionPrompt.trim() || rowPrompts.find((value) => value.trim())?.trim() || ''
       setVideoActionPrompt(firstAction)
+      setVideoModel(DEFAULT_VIDEO_BRIDGE_MODEL)
       // 切到视频补间：应用默认动画预设（丝滑动作 16帧@8fps），并把 rowPrompts 收敛到 1 条（视频补间只用单条动作描述）。
       applyVideoAnimPreset(DEFAULT_VIDEO_ANIM_PRESET)
       setRowPrompts((prev) => ensureRowPromptsLength(prev, 1))
@@ -746,6 +754,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           loop: 0,
           video_action_prompt: spriteMode === 'video_bridge' ? videoActionPrompt.trim() : '',
           video_return_to_first_frame: spriteMode === 'video_bridge' ? videoReturnToFirstFrame : false,
+          video_model: spriteMode === 'video_bridge' ? videoModel : undefined,
         },
       }
     }
@@ -781,7 +790,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   }
 
   return (
-      <PixPanel eyebrow={text('单张试做', 'Single test')} title={text('任务配方', 'Job recipe')} action={<EstimateBadge price={price} discount={discount} sprite={isSprite ? { billingUnits, basePrice, totalFrames } : null} />}>
+      <PixPanel eyebrow={text('单张试做', 'Single test')} title={text('任务配方', 'Job recipe')} action={<EstimateBadge price={price} discount={discount} sprite={isSprite && !isSpriteVideoBridge ? { billingUnits, basePrice, totalFrames } : null} />}>
       <form className="grid gap-5" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
           <PixField label={text('模式', 'Mode')}>
@@ -909,8 +918,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               <Select value={spriteMode} onValueChange={(value) => selectSpriteMode(value as SpriteMode)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mosaic">{text('快速序列帧（默认）', 'Quick sprite sheet (default)')}</SelectItem>
-                  <SelectItem value="video_bridge">{text('连贯动作序列帧', 'Smooth action sequence')}</SelectItem>
+                  <SelectItem value="video_bridge">{text('连贯动作序列帧（默认）', 'Smooth action sequence (default)')}</SelectItem>
+                  <SelectItem value="mosaic">{text('快速序列帧', 'Quick sprite sheet')}</SelectItem>
                 </SelectContent>
               </Select>
             </PixField>
@@ -958,6 +967,18 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
             {isSpriteVideoBridge ? (
               <>
+                <PixField label={text('视频模型', 'Video model')} hint={text('默认按价格表 480p / 4 秒 / 输入不含视频价格 ×20，再加 10 点关键帧生图价；长预设按实际提交秒数折算。', 'Default credits use the 480p / 4s / no-input-video table price ×20, plus 10 keyframe credits; longer presets scale by submitted seconds.')}>
+                  <Select value={videoModel} onValueChange={(value) => setVideoModel(normalizeVideoBridgeModel(value))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {VIDEO_BRIDGE_MODELS.map((model) => (
+                        <SelectItem key={model.value} value={model.value}>
+                          {model.value} · {text(model.label, model.label)} · {videoBridgePriceCredits(model.value, pricing, videoBridgeDurationSeconds)} {text('点', 'credits')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </PixField>
                 <PixField label={text('动画预设', 'Animation preset')} hint={text('按你想要的流畅度和速度选择：帧数越多越顺滑，FPS 越高播放越快。', 'Choose the smoothness and speed you want: more frames feel smoother, and higher FPS plays faster.')}>
                   <Select value={videoAnimPreset} onValueChange={(value) => applyVideoAnimPreset(value as VideoAnimPresetKey)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -990,8 +1011,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                 )}
                 <Alert variant="info">
                   {text(
-                    `预计成品：${totalFrames} 帧动画 · 播放约 ${playbackSeconds.toFixed(1)} 秒 · ${playbackFps}fps`,
-                    `Expected output: ${totalFrames}-frame animation · plays ~${playbackSeconds.toFixed(1)}s · ${playbackFps}fps`,
+                    `预计成品：${totalFrames} 帧动画 · 播放约 ${playbackSeconds.toFixed(1)} 秒 · ${playbackFps}fps · 提交 ${videoBridgeDurationSeconds}s 视频补间`,
+                    `Expected output: ${totalFrames}-frame animation · plays ~${playbackSeconds.toFixed(1)}s · ${playbackFps}fps · submits a ${videoBridgeDurationSeconds}s video bridge`,
                   )}
                 </Alert>
               </>

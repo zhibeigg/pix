@@ -40,9 +40,11 @@ def test_sprite_params_defaults_to_mosaic() -> None:
     assert req.sprite.mode == "mosaic"
     assert req.sprite.frame_count == req.sprite.rows * req.sprite.cols
     assert req.sprite.video_return_to_first_frame is False
+    assert req.sprite.video_model == "doubao-seedance-2-0-260128"
     data = params_json_from_request(req)
     assert data["sprite"]["mode"] == "mosaic"
     assert data["sprite"]["video_return_to_first_frame"] is False
+    assert data["sprite"]["video_model"] == "doubao-seedance-2-0-260128"
 
 
 def test_video_bridge_validation_requires_enabled_and_key() -> None:
@@ -241,6 +243,7 @@ def test_start_video_task_uses_sprite_timing_for_ark_duration(tmp_path, monkeypa
         rows=1,
         cols=8,
         row_prompts=["待机呼吸"],
+        video_model="doubao-seedance-2-0-pro-260128",
         pixelize_params=PixelizeParams(output_size=(32, 32), colors=8, generated_preprocess_method="none"),
         fps=8,
         duration_ms=125,
@@ -258,6 +261,7 @@ def test_start_video_task_uses_sprite_timing_for_ark_duration(tmp_path, monkeypa
         )
 
     assert captured["duration"] == 4
+    assert captured["model"] == "doubao-seedance-2-0-pro-260128"
     assert "source video duration is locked to 4 second(s)" in str(captured["prompt"])
     assert exc_info.value.state["timing"] == {
         "source": "sprite_timing",
@@ -270,6 +274,8 @@ def test_start_video_task_uses_sprite_timing_for_ark_duration(tmp_path, monkeypa
     assert exc_info.value.state["duration"] == 4
     assert exc_info.value.state["configured_duration"] == 5
     assert exc_info.value.state["duration_source"] == "sprite_timing"
+    assert exc_info.value.state["model"] == "doubao-seedance-2-0-pro-260128"
+    assert exc_info.value.state["video_model"] == "doubao-seedance-2-0-pro-260128"
 
 
 def test_optimize_video_bridge_motion_prompt_uses_vl_motion_plan(tmp_path, monkeypatch) -> None:
