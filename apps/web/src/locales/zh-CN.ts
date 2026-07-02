@@ -273,8 +273,9 @@ export const zhCN = {
     language: {
       switchLabel: '切换语言',
       groupLabel: '语言',
+      // 语言名固定用本名展示（endonym）：不懂当前界面语言的用户也能认出自己的语言。
       chinese: '中文',
-      english: '英文',
+      english: 'English',
     },
   },
   batches: {

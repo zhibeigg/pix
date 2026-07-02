@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from pix_web.config import WebSettings
 from pix_web.credits import reward_share_credits
-from pix_web.models import SharedWork, User, utcnow
+from pix_web.models import SharedWork, SharedWorkLike, User, utcnow
 from pix_web.routers.shares import (
     SHARE_STATUS_ACTIVE,
     SHARE_STATUS_DELETED,
@@ -156,6 +156,27 @@ def admin_unpublish_share(
     db.commit()
     db.refresh(share)
     return _admin_response(share)
+
+
+@router.delete("/{share_id}")
+def delete_share(
+    share_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    share = _load_share(db, share_id)
+    now = utcnow()
+    for like in db.scalars(select(SharedWorkLike).where(SharedWorkLike.shared_work_id == share.id)):
+        db.delete(like)
+    share.status = SHARE_STATUS_DELETED
+    share.like_count = 0
+    share.download_count = 0
+    share.published_at = None
+    share.reviewed_at = now
+    share.reviewed_by_user_id = admin.id
+    share.updated_at = now
+    db.commit()
+    return {"deleted": True}
 
 
 @router.get("/{share_id}/preview")

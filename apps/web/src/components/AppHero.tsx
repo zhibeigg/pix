@@ -26,7 +26,8 @@ export function AppHero({ user, balance, activeJobs, completedJobs, failedJobs, 
             {text('给游戏开发者的 AI 像素素材工具', 'AI pixel asset tool for game developers')}
           </div>
           <h1 className="mt-6 text-3xl font-semibold leading-[1.08] tracking-[-1px] text-[hsl(var(--pix-ink))] xs:text-[40px] xs:leading-[1.05] xs:tracking-[-1.4px] md:text-[64px] md:tracking-[-2px] xl:text-[80px] dark:text-white">
-            {text('10–30 分钟，', '10–30 minutes to')}<br className="hidden md:block" />{text('做出可进游戏的像素素材', 'game-ready pixel assets')}
+            {/* 英文第一段带尾随空格：窄屏 <br> 隐藏时两段直接相邻，缺空格会拼成 “togame-ready”。 */}
+            {text('10–30 分钟，', '10–30 minutes to ')}<br className="hidden md:block" />{text('做出可进游戏的像素素材', 'game-ready pixel assets')}
           </h1>
           <p className="mx-auto mt-5 max-w-3xl text-lg leading-[1.55] text-[hsl(var(--pix-slate))] dark:text-white/70">
             {text('输入一句描述，批量产出统一尺寸、透明背景、可直接导出的像素 PNG 与精灵帧。把 1–3 天的美术打样，压缩成一次生成。', 'Describe it once — batch-generate consistent, transparent, export-ready pixel PNGs and sprite frames. Compress 1–3 days of art mockups into a single run.')}

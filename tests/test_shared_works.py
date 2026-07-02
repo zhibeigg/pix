@@ -5,11 +5,11 @@ import tempfile
 import unittest
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from pix_web.config import WebSettings
 from pix_web.main import create_app
-from pix_web.models import CreditAccount, CreditTransaction, GenerationJob, GenerationOutput, SharedWork, SystemSetting, User
+from pix_web.models import CreditAccount, CreditTransaction, GenerationJob, GenerationOutput, SharedWork, SharedWorkLike, SystemSetting, User
 from pix_web.retention import prune_user_photos
 from pix_web.security import create_access_token, create_file_ticket
 
@@ -126,7 +126,13 @@ class SharedWorkTests(unittest.TestCase):
                 "published_at": share.published_at,
                 "reward_credits": share.reward_credits,
                 "rewarded_at": share.rewarded_at,
+                "like_count": share.like_count,
+                "download_count": share.download_count,
             }
+
+    def _share_like_count(self, share_id: int) -> int:
+        with self.app.state.SessionLocal() as db:
+            return int(db.scalar(select(func.count()).select_from(SharedWorkLike).where(SharedWorkLike.shared_work_id == share_id)) or 0)
 
     def test_publish_enters_pending_and_public_listing_requires_login(self) -> None:
         job = self._successful_job(index=10)
@@ -215,6 +221,49 @@ class SharedWorkTests(unittest.TestCase):
         self.assertEqual(admin_hidden.json()["status"], "hidden")
         after_hidden = self.client.get("/shares", headers=self._auth(self.jwt))
         self.assertEqual(after_hidden.json()["total"], 0)
+
+    def test_admin_can_delete_shared_work_without_deleting_source_job(self) -> None:
+        job = self._successful_job(index=25)
+        pending = self._publish(job)
+        share_id = pending["id"]
+        self._approve(share_id)
+
+        forbidden = self.client.delete(f"/admin/shares/{share_id}", headers=self._auth(self.jwt))
+        self.assertEqual(forbidden.status_code, 403, forbidden.text)
+
+        liked = self.client.post(f"/shares/{share_id}/like", headers=self._auth(self.other_jwt))
+        self.assertEqual(liked.status_code, 200, liked.text)
+        self.assertEqual(liked.json()["like_count"], 1)
+        self.assertEqual(self._share_like_count(share_id), 1)
+
+        deleted = self.client.delete(f"/admin/shares/{share_id}", headers=self._auth(self.admin_jwt))
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+        self.assertEqual(deleted.json(), {"deleted": True})
+        row = self._share_row(share_id)
+        self.assertEqual(row["status"], "deleted")
+        self.assertEqual(row["reviewed_by_user_id"], self.admin.id)
+        self.assertIsNone(row["published_at"])
+        self.assertEqual(row["like_count"], 0)
+        self.assertEqual(row["download_count"], 0)
+        self.assertEqual(self._share_like_count(share_id), 0)
+
+        public_list = self.client.get("/shares", headers=self._auth(self.jwt))
+        self.assertEqual(public_list.status_code, 200, public_list.text)
+        self.assertEqual(public_list.json()["total"], 0)
+        admin_all = self.client.get("/admin/shares?status=all", headers=self._auth(self.admin_jwt))
+        self.assertEqual(admin_all.status_code, 200, admin_all.text)
+        self.assertEqual(admin_all.json()["total"], 0)
+
+        jobs = self.client.get("/jobs", headers=self._auth(self.jwt))
+        self.assertEqual(jobs.status_code, 200, jobs.text)
+        listed_job = next(item for item in jobs.json() if item["id"] == job.id)
+        self.assertIsNone(listed_job["share"])
+        self.assertIsNotNone(self.db.get(GenerationJob, job.id))
+
+        admin_preview = self.client.get(f"/admin/shares/{share_id}/preview", headers=self._auth(self.admin_jwt))
+        self.assertEqual(admin_preview.status_code, 404, admin_preview.text)
+        like_deleted = self.client.post(f"/shares/{share_id}/like", headers=self._auth(self.other_jwt))
+        self.assertEqual(like_deleted.status_code, 404, like_deleted.text)
 
     def test_public_listing_filters_by_asset_kind_size_and_image_model(self) -> None:
         icon_32 = self._successful_job(index=21, asset_kind="item_icon", output_size=(32, 32), image_model="image2")

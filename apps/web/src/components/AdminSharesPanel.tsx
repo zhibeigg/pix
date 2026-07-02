@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, Eye, RefreshCw, RotateCcw, ShieldCheck, XCircle } from 'lucide-react'
+import { Check, Eye, RefreshCw, RotateCcw, ShieldCheck, Trash2, XCircle } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { formatDateTime } from '../lib/utils'
@@ -10,6 +10,7 @@ import { Button } from './ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Textarea } from './ui/textarea'
 import { PixField } from './pix/PixField'
+import { useConfirm } from './ConfirmDialog'
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: '待审核' },
@@ -25,6 +26,7 @@ type AdminSharesPanelProps = {
 }
 
 export function AdminSharesPanel({ token, onRefresh }: AdminSharesPanelProps) {
+  const confirm = useConfirm()
   const [status, setStatus] = useState('pending')
   const [items, setItems] = useState<AdminSharedWork[]>([])
   const [total, setTotal] = useState(0)
@@ -64,7 +66,17 @@ export function AdminSharesPanel({ token, onRefresh }: AdminSharesPanelProps) {
     rejected: items.filter((item) => item.status === 'rejected').length,
   }), [items])
 
-  async function runAction(share: AdminSharedWork, action: 'approve' | 'reject' | 'unpublish') {
+  async function runAction(share: AdminSharedWork, action: 'approve' | 'reject' | 'unpublish' | 'delete') {
+    if (action === 'delete') {
+      const approved = await confirm({
+        title: '删除分享作品',
+        description: `确定删除分享「${share.title || `#${share.id}`}」？删除后会从首页和后台非删除列表中移除，但不会删除用户源作品。`,
+        confirmText: '删除分享',
+        tone: 'danger',
+        impactItems: ['从公开分享池移除', '清空该分享的点赞记录', '用户源作品仍保留在作品库'],
+      })
+      if (!approved) return
+    }
     setBusyId(share.id)
     setMessage('')
     setError('')
@@ -75,9 +87,12 @@ export function AdminSharesPanel({ token, onRefresh }: AdminSharesPanelProps) {
       } else if (action === 'reject') {
         await api.rejectShare(token, share.id, notes[share.id] ?? '')
         setMessage(`已驳回分享 #${share.id}。`)
-      } else {
+      } else if (action === 'unpublish') {
         await api.adminUnpublishShare(token, share.id)
         setMessage(`已下架分享 #${share.id}。`)
+      } else {
+        await api.deleteAdminShare(token, share.id)
+        setMessage(`已删除分享 #${share.id}，列表状态已刷新。`)
       }
       await load()
       onRefresh?.()
@@ -130,6 +145,7 @@ export function AdminSharesPanel({ token, onRefresh }: AdminSharesPanelProps) {
             onApprove={() => { void runAction(share, 'approve') }}
             onReject={() => { void runAction(share, 'reject') }}
             onUnpublish={() => { void runAction(share, 'unpublish') }}
+            onDelete={() => { void runAction(share, 'delete') }}
           />
         ))}
       </div>
@@ -137,12 +153,13 @@ export function AdminSharesPanel({ token, onRefresh }: AdminSharesPanelProps) {
   )
 }
 
-function ShareReviewCard({ share, busy, note, onNoteChange, onApprove, onReject, onUnpublish }: { share: AdminSharedWork; busy: boolean; note: string; onNoteChange: (value: string) => void; onApprove: () => void; onReject: () => void; onUnpublish: () => void }) {
+function ShareReviewCard({ share, busy, note, onNoteChange, onApprove, onReject, onUnpublish, onDelete }: { share: AdminSharedWork; busy: boolean; note: string; onNoteChange: (value: string) => void; onApprove: () => void; onReject: () => void; onUnpublish: () => void; onDelete: () => void }) {
   const previewUrl = signedFileUrl(share.preview_url)
   const chips = snapshotChips(share.parameter_snapshot)
   const canApprove = share.status !== 'active'
   const canReject = share.status !== 'rejected' && share.status !== 'hidden'
   const canUnpublish = share.status === 'active'
+  const canDelete = share.status !== 'deleted'
   return (
     <article className="grid overflow-hidden rounded-xl border border-border bg-card dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))] lg:grid-cols-[240px_minmax(0,1fr)]">
       <a href={previewUrl} target="_blank" rel="noreferrer" className="pix-checkerboard grid min-h-[220px] place-items-center border-b border-border bg-muted/35 p-4 dark:border-[hsl(var(--pix-dark-hairline))] lg:border-b-0 lg:border-r">
@@ -163,6 +180,7 @@ function ShareReviewCard({ share, busy, note, onNoteChange, onApprove, onReject,
           <div className="flex flex-wrap gap-2">
             {canApprove && <Button size="sm" onClick={onApprove} disabled={busy}><Check />通过</Button>}
             {canUnpublish && <Button size="sm" variant="outline" onClick={onUnpublish} disabled={busy}><RotateCcw />下架</Button>}
+            {canDelete && <Button size="sm" variant="destructive" onClick={onDelete} disabled={busy}><Trash2 />删除</Button>}
           </div>
         </div>
 

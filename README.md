@@ -156,7 +156,7 @@ npm run build
 
 ### 公开分享作品
 
-作品库中的成功作品可点击「提交审核」进入管理员审核队列（`pending`），不会立即出现在首页。审核通过后状态变为 `active`，才会进入首页「用户分享」池；管理员也可以驳回为 `rejected`，作者在作品库查看驳回理由、修改后可重新提交。审核通过的分享会锁定源作品：作者不能自行下架分享，也不能删除源作品；如需下架由管理员在后台「内容审核」执行。审核中（`pending`）的源作品同样禁止作者删除；`rejected` / `hidden` 仍可删除，删除时分享记录标记为 `deleted`。
+作品库中的成功作品可点击「提交审核」进入管理员审核队列（`pending`），不会立即出现在首页。审核通过后状态变为 `active`，才会进入首页「用户分享」池；管理员也可以驳回为 `rejected`，作者在作品库查看驳回理由、修改后可重新提交。审核通过的分享会锁定源作品：作者不能自行下架分享，也不能删除源作品；如需下架或删除分享由管理员在后台「内容审核」执行。审核中（`pending`）的源作品同样禁止作者删除；`rejected` / `hidden` 仍可删除源作品，删除源作品或管理员删除分享时分享记录标记为 `deleted`。
 
 公开/审核时后端会固化安全参数快照和下载清单，只展示用户可填写/选择的参数（提示词、素材类型、像素尺寸、颜色数、生图模型、序列帧 FPS 等），不会公开邮箱、内部 `run_dir`、诊断信息、系统 prompt 或密钥。首页「用户分享」筛选器会复用这些公开快照，并兼容旧分享从源任务参数回填生图模型。分享预览和下载链接使用短时效文件票据（query `token`）或 Bearer 鉴权，避免在 `<img>` 中暴露长期登录 token；未登录用户不会看到首页「用户分享」tab，后端 `GET /shares` 也会返回 401。
 
@@ -174,6 +174,7 @@ npm run build
 | `GET` | `/shares/{share_id}/download/{kind}` | 需文件票据或 Bearer；根据固化下载清单下载 `active` 分享文件，不暴露任意 `/files?path=`。 |
 | `GET` | `/admin/shares?status=pending|all` | 管理员审核列表，包含作者邮箱、预览 URL、参数快照和审核备注。 |
 | `POST` | `/admin/shares/{id}/approve` / `/reject` / `/unpublish` | 管理员通过、驳回或下架分享；通过时按作者发放分享奖励。 |
+| `DELETE` | `/admin/shares/{id}` | 管理员删除用户分享作品，软删除分享记录、清空点赞/下载计数并从公开池与后台非删除列表移除；不会删除用户源作品。 |
 | `GET` | `/admin/shares/{id}/preview` | 管理员审核预览，需文件票据或 Bearer 且二次校验管理员身份，可查看非 `deleted` 分享。 |
 
 > 老部署注意：后台「模型与 API」已移除旧 Packy / Gemini / VL 密钥入口，供应商密钥统一迁移到「上游供应商」。升级前请阅读 [`docs/deployment/legacy-provider-settings-migration.md`](docs/deployment/legacy-provider-settings-migration.md)。

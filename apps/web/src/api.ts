@@ -414,6 +414,9 @@ export const api = {
   adminUnpublishShare(token: string, shareId: number) {
     return request<AdminSharedWork>(`/admin/shares/${shareId}/unpublish`, { method: 'POST' }, token)
   },
+  deleteAdminShare(token: string, shareId: number) {
+    return request<{ deleted: boolean }>(`/admin/shares/${shareId}`, { method: 'DELETE' }, token)
+  },
   performanceMetrics(token: string, range: string) {
     return request<PerformanceMetrics>(`/admin/performance-metrics?range=${encodeURIComponent(range)}`, {}, token)
   },

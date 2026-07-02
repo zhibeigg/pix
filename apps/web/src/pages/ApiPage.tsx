@@ -85,14 +85,20 @@ export function ApiPage({ token }: { token: string }) {
   const [createdKey, setCreatedKey] = useState('')
   const [copied, setCopied] = useState('')
   const baseUrl = useMemo(() => externalBaseUrl(), [])
-  const authCurl = useMemo(() => String.raw`# 先把 API 页面创建出的令牌保存到环境变量
+  const authCurl = useMemo(() => text(String.raw`# 先把 API 页面创建出的令牌保存到环境变量
 export PIX_API_KEY="pix_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 export PIX_API_BASE="${baseUrl}"
 
 # 所有外部接口都使用 Bearer 认证
 curl "$PIX_API_BASE/me" \
-  -H "Authorization: Bearer $PIX_API_KEY"`, [baseUrl])
-  const inspectCurl = useMemo(() => String.raw`# 查询账号、余额和可用模型
+  -H "Authorization: Bearer $PIX_API_KEY"`, String.raw`# Save the token created on this API page to environment variables first
+export PIX_API_KEY="pix_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+export PIX_API_BASE="${baseUrl}"
+
+# All external endpoints use Bearer authentication
+curl "$PIX_API_BASE/me" \
+  -H "Authorization: Bearer $PIX_API_KEY"`), [baseUrl, text])
+  const inspectCurl = useMemo(() => text(String.raw`# 查询账号、余额和可用模型
 curl "$PIX_API_BASE/me" \
   -H "Authorization: Bearer $PIX_API_KEY"
 
@@ -105,15 +111,34 @@ curl "$PIX_API_BASE/models" \
 # models 响应包含 limits，可在客户端表单校验前读取：
 # limits.asset_subject_max_chars / asset_extra_prompt_max_chars
 # limits.sprite_subject_max_chars / sprite_row_prompt_max_chars
-# limits.raw_image_prompt_max_chars`, [])
-  const uploadCurl = useMemo(() => String.raw`# 上传参考图 / 本地输入图，返回的 path 可作为后续 input_image_path
+# limits.raw_image_prompt_max_chars`, String.raw`# Query account, balance and available models
+curl "$PIX_API_BASE/me" \
+  -H "Authorization: Bearer $PIX_API_KEY"
+
+curl "$PIX_API_BASE/balance" \
+  -H "Authorization: Bearer $PIX_API_KEY"
+
+curl "$PIX_API_BASE/models" \
+  -H "Authorization: Bearer $PIX_API_KEY"
+
+# The models response includes limits you can read before client-side form validation:
+# limits.asset_subject_max_chars / asset_extra_prompt_max_chars
+# limits.sprite_subject_max_chars / sprite_row_prompt_max_chars
+# limits.raw_image_prompt_max_chars`), [text])
+  const uploadCurl = useMemo(() => text(String.raw`# 上传参考图 / 本地输入图，返回的 path 可作为后续 input_image_path
 curl -X POST "$PIX_API_BASE/uploads/images" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -F "file=@reference.png"
 
 # 返回示例
-# { "path": ".../uploads/xxx.png", "url": "/files/...", "filename": "reference.png" }`, [])
-  const characterCurl = useMemo(() => String.raw`# 角色库：读取自动保存的角色。只有“素材直出 → 角色”(asset_kind=character) 的成功任务能成为角色
+# { "path": ".../uploads/xxx.png", "url": "/files/...", "filename": "reference.png" }`, String.raw`# Upload a reference / local input image; the returned path can be used as input_image_path later
+curl -X POST "$PIX_API_BASE/uploads/images" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -F "file=@reference.png"
+
+# Example response
+# { "path": ".../uploads/xxx.png", "url": "/files/...", "filename": "reference.png" }`), [text])
+  const characterCurl = useMemo(() => text(String.raw`# 角色库：读取自动保存的角色。只有“素材直出 → 角色”(asset_kind=character) 的成功任务能成为角色
 curl "$PIX_API_BASE/characters" \
   -H "Authorization: Bearer $PIX_API_KEY"
 
@@ -123,8 +148,18 @@ curl -X POST "$PIX_API_BASE/characters/jobs/123" \
   -H "Content-Type: application/json" \
   -d '{ "name": "蓝袍骑士", "image_kind": "pixelized" }'
 
-# 序列帧任务可把角色响应中的 image_path 写入 sprite.reference_image_path。`, [])
-  const assetCurl = useMemo(() => String.raw`# 创建素材直出任务。Idempotency-Key 可选；相同 key 重试会复用同一任务
+# 序列帧任务可把角色响应中的 image_path 写入 sprite.reference_image_path。`, String.raw`# Character library: read auto-saved characters. Only successful "asset → character" (asset_kind=character) jobs become characters
+curl "$PIX_API_BASE/characters" \
+  -H "Authorization: Bearer $PIX_API_KEY"
+
+# Optional: backfill/rebuild a character record from a finished character asset job; plain uploads or non-character jobs return 409
+curl -X POST "$PIX_API_BASE/characters/jobs/123" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Blue Cloak Knight", "image_kind": "pixelized" }'
+
+# Sprite jobs can put the image_path from a character response into sprite.reference_image_path.`), [text])
+  const assetCurl = useMemo(() => text(String.raw`# 创建素材直出任务。Idempotency-Key 可选；相同 key 重试会复用同一任务
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
@@ -176,8 +211,60 @@ curl -X POST "$PIX_API_BASE/jobs" \
 # 输出读 JobOutput 的 dual_grid_atlas_path/url 与 dual_grid_preview_path/url。
 
 # style_profile 可选：project_name / palette / line_style / lighting / view_rule / avoid_elements 会作为项目统一风格补充进入 prompt。
-# 202 返回 JobResponse，记录 id 后轮询 /jobs/{id}`, [])
-  const imageCurl = useMemo(() => String.raw`# 图生图 / 参考图重绘：先上传图片，再把返回 path 放到 input_image_path
+# 202 返回 JobResponse，记录 id 后轮询 /jobs/{id}`, String.raw`# Create an asset job. Idempotency-Key is optional; retrying with the same key reuses the same job
+curl -X POST "$PIX_API_BASE/jobs" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: demo-sword-001" \
+  -d '{
+    "job_type": "asset",
+    "asset": {
+      "name": "Blue magic sword",
+      "asset_kind": "item_icon"
+    },
+    "style_profile": {
+      "project_name": "Crystal Dungeon",
+      "palette": "cyan, violet, deep navy",
+      "line_style": "thin bright outline",
+      "avoid_elements": "modern firearms, watermarks, text"
+    },
+    "pixelize": {
+      "output_size": [32, 32],
+      "colors": 16,
+      "remove_bg": true
+    },
+    "image_model": "image2",
+    "skip_vl": true
+  }'
+
+# Tile texture example: change asset to
+# { "name": "Mossy flagstone path", "asset_kind": "tile_texture", "texture_kind": "path_floor" }
+# and set pixelize.remove_bg to false. texture_kind options: auto / generic_texture / terrain_ground / path_floor / wall_surface / wood_planks / water_liquid / foliage_canopy / roof_tile / metal_panel / fabric_carpet.
+
+# Dual-grid example: change asset to
+# { "name": "Grass-dirt transition", "asset_kind": "dual_grid", "material_a": "grass", "material_b": "dirt", "transition_style": "rounded" }
+# Produces 16 seamlessly tileable transition tiles as a 4×4 atlas + an application preview + meta (with bitmask→cell mapping) in one run.
+# material_a is required; an empty material_b or "transparent" enables transparent mode. material_a_texture_kind / material_b_texture_kind reuse the texture_kind enum above (default auto).
+
+# Character example: change asset to
+# { "name": "Blue Cloak Knight", "asset_kind": "character", "subject_kind": "single_character" }
+# Successful character asset jobs are saved to the character library automatically and can be used directly as sprite references.
+
+# Size-retry example: add the fields below to keep regenerating until the actual size matches image_size or a cap is hit.
+# Applies to text_to_image / image_to_image / asset; image_size must be a concrete WxH (not auto).
+# {
+#   "size_retry_enabled": true,
+#   "size_retry_mode": "attempts",        // attempts=max attempt count | credits=max credit budget
+#   "size_retry_max_attempts": 5,          // attempts mode: includes the first try, clamped by size_retry_max_attempts_limit
+#   "size_retry_max_credits": 0            // credits mode: max credit budget; the backend converts it to attempts at 60% of the unit price
+# }
+# Billing: each attempt is charged at 60% of the standard price (or the global discount if better), settled by actual attempts; outputs[].size_retry in the response reports attempts made and whether the target was hit.
+# transition_style options: rounded (default) / hard / outline; pixelize.output_size is the single-tile size, the atlas is its 4×4 layout.
+# Read dual_grid_atlas_path/url and dual_grid_preview_path/url from JobOutput.
+
+# style_profile is optional: project_name / palette / line_style / lighting / view_rule / avoid_elements are appended to the prompt as a consistent project style.
+# 202 returns a JobResponse; record the id and poll /jobs/{id}`), [text])
+  const imageCurl = useMemo(() => text(String.raw`# 图生图 / 参考图重绘：先上传图片，再把返回 path 放到 input_image_path
 # asset.asset_kind 可选 item_icon / ui_component / tile_texture / game_logo / dual_grid / character，决定按哪种素材规则重绘（默认 item_icon）
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
@@ -194,8 +281,25 @@ curl -X POST "$PIX_API_BASE/jobs" \
       "remove_bg": true
     },
     "image_model": "image2"
-  }'`, [])
-  const bgRemoveCurl = useMemo(() => String.raw`# 本地去背景：不调用 AI；algorithm 可选 pixel_bg（像素）或 color_to_alpha（高清）
+  }'`, String.raw`# Image-to-image / reference redraw: upload an image first, then put the returned path into input_image_path
+# asset.asset_kind options: item_icon / ui_component / tile_texture / game_logo / dual_grid / character — decides which asset rules the redraw follows (default item_icon)
+curl -X POST "$PIX_API_BASE/jobs" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: demo-reference-redraw-001" \
+  -d '{
+    "job_type": "image_to_image",
+    "prompt": "Redraw the reference into a 32x32 pixel-art game icon, transparent background, high-contrast outline",
+    "input_image_path": "put the path returned by the upload endpoint here",
+    "asset": { "asset_kind": "item_icon" },
+    "pixelize": {
+      "output_size": [32, 32],
+      "colors": 16,
+      "remove_bg": true
+    },
+    "image_model": "image2"
+  }'`), [text])
+  const bgRemoveCurl = useMemo(() => text(String.raw`# 本地去背景：不调用 AI；algorithm 可选 pixel_bg（像素）或 color_to_alpha（高清）
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
@@ -209,8 +313,22 @@ curl -X POST "$PIX_API_BASE/jobs" \
     }
   }'
 
-# 成功后通过 outputs/pixelized 下载透明 PNG。`, [])
-  const spriteCurl = useMemo(() => String.raw`# 创建序列帧任务（默认 mosaic）：rows 表示动作行，cols 表示每行动画帧数
+# 成功后通过 outputs/pixelized 下载透明 PNG。`, String.raw`# Local background removal: no AI call; algorithm options are pixel_bg (pixel art) or color_to_alpha (high-res)
+curl -X POST "$PIX_API_BASE/jobs" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: demo-bg-remove-001" \
+  -d '{
+    "job_type": "local_bg_remove",
+    "input_image_path": "put the path returned by the upload endpoint here",
+    "pixelize": {
+      "remove_bg": true,
+      "bg_removal_algorithm": "color_to_alpha"
+    }
+  }'
+
+# After success, download the transparent PNG via outputs/pixelized.`), [text])
+  const spriteCurl = useMemo(() => text(String.raw`# 创建序列帧任务（默认 mosaic）：rows 表示动作行，cols 表示每行动画帧数
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
@@ -261,15 +379,72 @@ curl -X POST "$PIX_API_BASE/jobs" \
       "generated_preprocess_method": "perfect_pixel"
     },
     "image_model": "image2"
-  }'`, [])
-  const pollCurl = useMemo(() => String.raw`# 轮询任务详情，status 为 succeeded 后再下载
+  }'`, String.raw`# Create a sprite-sheet job (default mosaic): rows = action rows, cols = frames per row
+curl -X POST "$PIX_API_BASE/jobs" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: demo-hero-walk-001" \
+  -d '{
+    "job_type": "sprite_sheet",
+    "prompt": "A blue-cloaked knight, side-view pixel-art walking animation, coherent motion",
+    "sprite": {
+      "mode": "mosaic",
+      "rows": 1,
+      "cols": 8,
+      "fps": 8,
+      "row_prompts": ["walk cycle, left to right"]
+    },
+    "pixelize": {
+      "output_size": [48, 48],
+      "colors": 24,
+      "remove_bg": false,
+      "edge_style": "hard",
+      "generated_preprocess_method": "perfect_pixel"
+    },
+    "image_model": "image2"
+  }'
+
+# First/last-frame video bridge: sprite.video_model offers Standard / Fast / Mini tiers passed through to Ark; credits follow the exact 4–15s price table (Standard 47/57/66/75/84/94/103/112/121/131/140/149, Fast 40/48/55/62/70/77/85/92/100/107/114/122, Mini 29/34/38/43/47/52/57/61/66/70/75/80); first/last keyframes and a structured motion prompt are generated per the Seedance guide, then submitted to Ark as role=first_frame / last_frame; the Ark video duration is locked to rows×cols×duration_ms; video_return_to_first_frame=true asks the ending to return to the first frame for looping
+curl -X POST "$PIX_API_BASE/jobs" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: demo-hero-slash-video-001" \
+  -d '{
+    "job_type": "sprite_sheet",
+    "prompt": "A blue-cloaked knight, side-view pixel art, stable identity and palette",
+    "sprite": {
+      "mode": "video_bridge",
+      "rows": 1,
+      "cols": 8,
+      "fps": 8,
+      "duration_ms": 125,
+      "video_model": "doubao-seedance-2-0-260128",
+      "video_action_prompt": "From a standing charge-up to a sword slash releasing a blue arc of energy",
+      "video_return_to_first_frame": true
+    },
+    "pixelize": {
+      "output_size": [48, 48],
+      "colors": 24,
+      "remove_bg": false,
+      "edge_style": "hard",
+      "generated_preprocess_method": "perfect_pixel"
+    },
+    "image_model": "image2"
+  }'`), [text])
+  const pollCurl = useMemo(() => text(String.raw`# 轮询任务详情，status 为 succeeded 后再下载
 curl "$PIX_API_BASE/jobs/123" \
   -H "Authorization: Bearer $PIX_API_KEY"
 
 # 列表分页：status 可选 pending / running / waiting / succeeded / failed，before_id 用于翻页
 curl "$PIX_API_BASE/jobs?status=succeeded&limit=20" \
-  -H "Authorization: Bearer $PIX_API_KEY"`, [])
-  const downloadCurl = useMemo(() => String.raw`# 单图任务常用输出：source / pixelized / preview
+  -H "Authorization: Bearer $PIX_API_KEY"`, String.raw`# Poll job details; download only after status is succeeded
+curl "$PIX_API_BASE/jobs/123" \
+  -H "Authorization: Bearer $PIX_API_KEY"
+
+# List pagination: status options are pending / running / waiting / succeeded / failed; use before_id to page
+curl "$PIX_API_BASE/jobs?status=succeeded&limit=20" \
+  -H "Authorization: Bearer $PIX_API_KEY"`), [text])
+  const downloadCurl = useMemo(() => text(String.raw`# 单图任务常用输出：source / pixelized / preview
 curl -L "$PIX_API_BASE/jobs/123/outputs/pixelized" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -o pixelized.png
@@ -282,7 +457,20 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-sheet" \
 # 多行动作序列帧可打包下载每行动作图
 curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
   -H "Authorization: Bearer $PIX_API_KEY" \
-  -o sprite-actions.zip`, [])
+  -o sprite-actions.zip`, String.raw`# Common single-image outputs: source / pixelized / preview
+curl -L "$PIX_API_BASE/jobs/123/outputs/pixelized" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -o pixelized.png
+
+# Sprite outputs: sprite-sheet / sprite-mosaic / sprite-grid
+curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-sheet" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -o sprite-sheet.png
+
+# Multi-row action sprite sheets can bundle per-row action images
+curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -o sprite-actions.zip`), [text])
 
   async function load() {
     setLoading(true)

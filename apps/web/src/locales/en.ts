@@ -273,7 +273,8 @@ export const en = {
     language: {
       switchLabel: 'Switch language',
       groupLabel: 'Language',
-      chinese: 'Chinese',
+      // Language names always render as endonyms so users can find their own language.
+      chinese: '中文',
       english: 'English',
     },
   },

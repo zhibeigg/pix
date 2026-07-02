@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.111.6] - 2026-07-02
+
+### Added
+
+- 后台「内容审核」支持管理员删除用户分享作品：新增 `DELETE /admin/shares/{id}`，删除后分享软标记为 `deleted`、清空点赞/下载计数并从公开池和后台非删除列表移除，但保留用户源作品。
+
+### Tests
+
+- 补充管理员删除分享作品的权限、公开列表移除、点赞清理和源作品保留回归测试。
+
 ## [1.109.3] - 2026-07-02
 
 ### Fixed

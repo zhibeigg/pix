@@ -482,7 +482,7 @@ const SharedWorkCard = memo(function SharedWorkCard({ work, user, onToggleLike }
           <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{summary || text('公开参数可查看，下载文件可直接使用。', 'Public parameters are viewable, and downloads are ready to use.')}</p>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {sharedSnapshotChips(work.parameter_snapshot).map((chip) => <Badge key={chip} variant="outline">{chip}</Badge>)}
+          {sharedSnapshotChips(work.parameter_snapshot, text).map((chip) => <Badge key={chip} variant="outline">{chip}</Badge>)}
           <Badge variant="outline">{text(`${work.download_count} 次下载`, `${work.download_count} downloads`)}</Badge>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -509,16 +509,16 @@ function sharedSnapshotSummary(snapshot: Record<string, unknown>) {
   return extra || prompt
 }
 
-function sharedSnapshotChips(snapshot: Record<string, unknown>) {
+function sharedSnapshotChips(snapshot: Record<string, unknown>, text: (zh: string, en: string) => string) {
   const pixel = asSharedRecord(snapshot.pixel)
   const sequence = asSharedRecord(snapshot.sequence)
   const chips: string[] = []
   const outputSize = pixel.output_size
   if (Array.isArray(outputSize) && outputSize.length === 2) chips.push(`${outputSize[0]}×${outputSize[1]}`)
-  if (pixel.colors) chips.push(`${pixel.colors} 色`)
+  if (pixel.colors) chips.push(text(`${pixel.colors} 色`, `${pixel.colors} colors`))
   const model = sharedImageModel(snapshot)
   if (model) chips.push(sharedModelLabel(model))
-  if (sequence.frame_count) chips.push(`${sequence.frame_count} 帧`)
+  if (sequence.frame_count) chips.push(text(`${sequence.frame_count} 帧`, `${sequence.frame_count} frames`))
   if (sequence.fps) chips.push(`${sequence.fps} FPS`)
   return chips.slice(0, 5)
 }
