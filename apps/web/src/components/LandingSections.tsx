@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react'
 import { Check, ChevronLeft, ChevronRight, Copy, Download, Grid2x2, Heart, Pause, Play, RefreshCw, Settings2, Video } from 'lucide-react'
-import { publicApiUrl } from '../fileUrls'
+import { publicApiUrl, signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import { homepageExampleIconSizes, homepageExampleItemIcons, getHomepageIconsForExample, type HomepageExampleItemIcon } from '../homepageIconExamples'
 import { homepageExampleCategories, homepageExamples, getHomepageExampleItemSubject, getHomepageExampleItemSubjectPrompt, getHomepageExampleLabel, type HomepageExample } from '../homepageExamples'
@@ -29,7 +29,7 @@ export function LandingSections({ authSlot, sharedWorks = [], user = null, onTog
   const { text } = useI18n()
   return (
     <>
-      <SectionFrame id="examples" eyebrow={text('范例图鉴', 'Sample atlas')} title={text('按资产类型浏览真实产出', 'Browse real output by asset type')} description={text('物品图标、用户分享、实测样例、平铺纹理、序列帧——全部由本工具真实生成；图标可按尺寸 / 大类 / 风格筛选。', 'Item icons, user shares, tested samples, tile textures, and sprite sheets — all really generated here. Icons filter by size / category / theme.')}>
+      <SectionFrame id="examples" eyebrow={text('范例图鉴', 'Sample atlas')} title={text('按资产类型浏览真实产出', 'Browse real output by asset type')} description={text('物品图标、实测样例、平铺纹理、序列帧——全部由本工具真实生成；登录后还可查看审核通过的用户分享。', 'Item icons, tested samples, tile textures, and sprite sheets — all really generated here. Sign in to view approved user shares.')}>
         <ExampleAtlas sharedWorks={sharedWorks} user={user} onToggleSharedWorkLike={onToggleSharedWorkLike} />
       </SectionFrame>
 
@@ -41,18 +41,22 @@ export function LandingSections({ authSlot, sharedWorks = [], user = null, onTog
 function ExampleAtlas({ sharedWorks, user, onToggleSharedWorkLike }: { sharedWorks: SharedWork[]; user: User | null; onToggleSharedWorkLike?: (work: SharedWork) => void | Promise<void> }) {
   const { text } = useI18n()
   const [assetType, setAssetType] = useState<AssetTypeTab>('item_icon')
+  const canViewShared = Boolean(user)
+  useEffect(() => {
+    if (!canViewShared && assetType === 'shared') setAssetType('item_icon')
+  }, [assetType, canViewShared])
   return (
     <div className="grid gap-6">
       <div role="tablist" aria-label={text('资产类型', 'Asset type')} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2 dark:bg-[hsl(var(--pix-dark-card))]">
         <span className="px-2 text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{text('资产类型', 'Asset type')}</span>
         <AssetTypeChip active={assetType === 'item_icon'} onClick={() => setAssetType('item_icon')}>{text('物品图标', 'Item icons')}<span className="ml-2 opacity-60">{homepageExampleItemIcons.length}</span></AssetTypeChip>
-        <AssetTypeChip active={assetType === 'shared'} onClick={() => setAssetType('shared')}>{text('用户分享', 'User shares')}<span className="ml-2 opacity-60">{sharedWorks.length}</span></AssetTypeChip>
+        {canViewShared && <AssetTypeChip active={assetType === 'shared'} onClick={() => setAssetType('shared')}>{text('用户分享', 'User shares')}<span className="ml-2 opacity-60">{sharedWorks.length}</span></AssetTypeChip>}
         <AssetTypeChip active={assetType === 'showcase'} onClick={() => setAssetType('showcase')}>{text('实测样例', 'Tested samples')}<span className="ml-2 opacity-60">{homepageShowcaseExamples.length}</span></AssetTypeChip>
         <AssetTypeChip active={assetType === 'tile_texture'} onClick={() => setAssetType('tile_texture')}>{text('平铺纹理', 'Tile textures')}<span className="ml-2 opacity-60">{homepageTextureExamples.length}</span></AssetTypeChip>
         <AssetTypeChip active={assetType === 'sprite_sheet'} onClick={() => setAssetType('sprite_sheet')}>{text('序列帧', 'Sprite sheets')}<span className="ml-2 opacity-60">{homepageSpriteExamples.length}</span></AssetTypeChip>
       </div>
 
-      {assetType === 'item_icon' ? <IconAtlas /> : assetType === 'shared' ? <SharedWorksAtlas works={sharedWorks} user={user} onToggleLike={onToggleSharedWorkLike} /> : assetType === 'showcase' ? <ShowcaseAtlas /> : assetType === 'tile_texture' ? <TextureAtlas /> : <SpriteAtlas />}
+      {assetType === 'item_icon' ? <IconAtlas /> : assetType === 'shared' && canViewShared ? <SharedWorksAtlas works={sharedWorks} user={user} onToggleLike={onToggleSharedWorkLike} /> : assetType === 'showcase' ? <ShowcaseAtlas /> : assetType === 'tile_texture' ? <TextureAtlas /> : <SpriteAtlas />}
     </div>
   )
 }
@@ -281,7 +285,7 @@ function SharedWorksAtlas({ works, user, onToggleLike }: { works: SharedWork[]; 
           <div>
             <Badge className="bg-[hsl(var(--pix-navy))] text-white dark:bg-white dark:text-[hsl(var(--pix-navy))]">{text('社区作品', 'Community works')}</Badge>
             <h3 className="mt-5 text-3xl font-semibold md:text-5xl">{text('社区正在复用的像素作品', 'Pixel works the community is reusing')}</h3>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('用户公开的生成结果会按点赞数排序展示。你可以直接下载可用产物，也能查看安全的生成参数快照作为下一次创作起点。', 'User-published outputs are sorted by likes. Download usable files directly, or inspect safe generation parameters as a starting point for your next work.')}</p>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-[hsl(var(--pix-slate))] dark:text-white/66">{text('这里仅展示管理员审核通过的用户作品。提交分享会先进入审核，通过后才出现在首页，并在通过时发放奖励。', 'Only admin-approved user works appear here. Submitted shares enter review first, then appear on the homepage and grant rewards after approval.')}</p>
           </div>
           <div className="grid gap-3 rounded-lg border border-[hsl(var(--pix-navy))]/10 bg-white/60 p-4 dark:border-white/10 dark:bg-white/7">
             <div className="grid grid-cols-3 gap-2 text-center">
@@ -289,7 +293,7 @@ function SharedWorksAtlas({ works, user, onToggleLike }: { works: SharedWork[]; 
               <AtlasStat label={text('总点赞', 'Total likes')} value={ordered.reduce((sum, item) => sum + item.like_count, 0)} />
               <AtlasStat label={text('可下载', 'Downloadable')} value={ordered.filter((item) => item.download_options.length > 0).length} />
             </div>
-            <p className="text-xs leading-5 text-[hsl(var(--pix-steel))] dark:text-white/58">{user ? text('登录状态下可点赞；公开自己的作品可回到作品库下架。', 'You can like while signed in; unpublish your own works from the gallery.') : text('登录后可以给喜欢的作品点赞。', 'Sign in to like shared works.')}</p>
+            <p className="text-xs leading-5 text-[hsl(var(--pix-steel))] dark:text-white/58">{text('登录状态下可点赞和下载；已通过审核的分享由管理员统一下架，作者不能自行删除源作品。', 'Signed-in users can like and download; approved shares are unpublished by admins, and authors cannot delete the source work themselves.')}</p>
           </div>
         </div>
       </div>
@@ -304,7 +308,7 @@ function SharedWorksAtlas({ works, user, onToggleLike }: { works: SharedWork[]; 
       ) : (
         <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
           <p className="text-base font-semibold text-foreground">{text('还没有公开作品', 'No shared works yet')}</p>
-          <p className="mt-2 text-sm">{text('生成完成后在作品库点击「公开分享」，让你的作品成为首页样例。', 'After generation, click “Publish” in the gallery to make your work a homepage sample.')}</p>
+          <p className="mt-2 text-sm">{text('生成完成后在作品库点击「提交审核」，管理员通过后才会展示在这里。', 'After generation, click “Submit for review” in the gallery. It appears here only after admin approval.')}</p>
         </div>
       )}
     </div>
@@ -314,7 +318,7 @@ function SharedWorksAtlas({ works, user, onToggleLike }: { works: SharedWork[]; 
 const SharedWorkCard = memo(function SharedWorkCard({ work, user, onToggleLike }: { work: SharedWork; user: User | null; onToggleLike?: (work: SharedWork) => void | Promise<void> }) {
   const { text } = useI18n()
   const [paramsOpen, setParamsOpen] = useState(false)
-  const previewUrl = publicApiUrl(work.preview_url)
+  const previewUrl = signedFileUrl(work.preview_url)
   const primaryDownload = work.download_options[0]
   const summary = sharedSnapshotSummary(work.parameter_snapshot)
   return (
@@ -401,7 +405,7 @@ function sharedAssetKindLabel(value: string, text: (zh: string, en: string) => s
 
 function downloadSharedOption(url: string, filename: string) {
   const anchor = document.createElement('a')
-  anchor.href = publicApiUrl(url)
+  anchor.href = signedFileUrl(url)
   anchor.download = filename
   anchor.rel = 'noopener'
   document.body.appendChild(anchor)

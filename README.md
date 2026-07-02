@@ -49,7 +49,7 @@ npm install
 npm run dev
 ```
 
-主页「范例图鉴」包含物品图标、用户公开分享、真实上游实测样例、平铺纹理和序列帧五个展示区。用户在作品库公开成功作品后会进入「用户分享」tab，按点赞数排序展示；其他用户可直接下载公开产物、点赞并查看安全的生成参数快照。实测样例会展示本地真实流程生成的 Logo / 技能书结果，并在卡片和筛选器中标注使用的生成模型（如 `image2`、`gemini-3.1-flash-image-preview`），静态图片位于 `apps/web/public/homepage-examples/showcase/`。
+主页「范例图鉴」包含物品图标、真实上游实测样例、平铺纹理和序列帧；登录后还会出现「用户分享」tab，仅展示管理员审核通过的用户作品。用户在作品库点击「提交审核」后，作品先进入待审核队列，管理员通过后才会展示在首页、允许其他登录用户点赞/下载，并在通过时发放分享奖励。实测样例会展示本地真实流程生成的 Logo / 技能书结果，并在卡片和筛选器中标注使用的生成模型（如 `image2`、`gemini-3.1-flash-image-preview`），静态图片位于 `apps/web/public/homepage-examples/showcase/`。
 
 前端构建：
 
@@ -136,19 +136,25 @@ npm run build
 
 ### 公开分享作品
 
-作品库中的成功作品可点击「公开分享 +1 点」加入首页「用户分享」池。公开时后端会固化安全参数快照和下载清单，只展示用户可填写/选择的参数（提示词、素材类型、像素尺寸、颜色数、序列帧 FPS 等），不会公开邮箱、内部 `run_dir`、诊断信息、系统 prompt 或密钥。公开作品默认不会被普通作品库容量清理；用户手动删除作品时会同步将分享记录标记为 `deleted`，避免首页残留失效链接。
+作品库中的成功作品可点击「提交审核」进入管理员审核队列（`pending`），不会立即出现在首页。审核通过后状态变为 `active`，才会进入首页「用户分享」池；管理员也可以驳回为 `rejected`，作者在作品库查看驳回理由、修改后可重新提交。审核通过的分享会锁定源作品：作者不能自行下架分享，也不能删除源作品；如需下架由管理员在后台「内容审核」执行。审核中（`pending`）的源作品同样禁止作者删除；`rejected` / `hidden` 仍可删除，删除时分享记录标记为 `deleted`。
 
-分享奖励由后台「作品分享」系统设置管理：`share.reward_enabled` 控制是否奖励，`share.reward_credits` 控制每个作品首次公开返还点数（默认 1），`share.daily_reward_limit` 控制每用户每日最多获得多少次分享奖励（0 表示不限制）。同一作品反复下架/重新公开不会重复返还。
+公开/审核时后端会固化安全参数快照和下载清单，只展示用户可填写/选择的参数（提示词、素材类型、像素尺寸、颜色数、序列帧 FPS 等），不会公开邮箱、内部 `run_dir`、诊断信息、系统 prompt 或密钥。分享预览和下载链接使用短时效文件票据（query `token`）或 Bearer 鉴权，避免在 `<img>` 中暴露长期登录 token；未登录用户不会看到首页「用户分享」tab，后端 `GET /shares` 也会返回 401。
+
+分享奖励由后台「作品分享」系统设置管理：`share.reward_enabled` 控制是否奖励，`share.reward_credits` 控制每个作品首次审核通过返还点数（默认 1），`share.daily_reward_limit` 控制每用户每日最多获得多少次分享奖励（0 表示不限制）。奖励时机已从「提交分享」改为「管理员通过审核」，同一作品反复撤回/重新提交/重新通过不会重复返还。
 
 公开分享 API：
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| `GET` | `/shares?limit=48&offset=0&asset_kind=item_icon` | 匿名可访问的公开作品列表，默认按点赞数、发布时间排序；带 Bearer token 时返回 `liked_by_me`。 |
-| `POST` | `/shares/jobs/{job_id}/publish` | 当前用户公开自己的成功作品，首次公开按设置返还点数。 |
-| `POST` | `/shares/{share_id}/unpublish` | 作者或管理员下架分享作品。 |
-| `POST` / `DELETE` | `/shares/{share_id}/like` | 登录用户点赞 / 取消点赞，后端幂等维护 `like_count`。 |
-| `GET` | `/shares/{share_id}/download/{kind}` | 根据公开时固化的下载清单下载文件，不暴露任意 `/files?path=`。 |
+| `GET` | `/shares?limit=48&offset=0&asset_kind=item_icon` | 需登录；只返回 `active` 分享，默认按点赞数、发布时间排序，并返回 `liked_by_me`。 |
+| `POST` | `/shares/jobs/{job_id}/publish` | 当前用户提交自己的成功作品进入审核（`pending`）；`rejected` / `hidden` 可重新提交。 |
+| `POST` | `/shares/{share_id}/unpublish` | 作者只能撤回自己的 `pending` / `rejected` 分享；`active` 只能管理员下架。 |
+| `POST` / `DELETE` | `/shares/{share_id}/like` | 登录用户点赞 / 取消点赞，仅对 `active` 分享生效，后端幂等维护 `like_count`。 |
+| `GET` | `/shares/{share_id}/preview` | 需文件票据或 Bearer；仅返回 `active` 分享预览。 |
+| `GET` | `/shares/{share_id}/download/{kind}` | 需文件票据或 Bearer；根据固化下载清单下载 `active` 分享文件，不暴露任意 `/files?path=`。 |
+| `GET` | `/admin/shares?status=pending|all` | 管理员审核列表，包含作者邮箱、预览 URL、参数快照和审核备注。 |
+| `POST` | `/admin/shares/{id}/approve` / `/reject` / `/unpublish` | 管理员通过、驳回或下架分享；通过时按作者发放分享奖励。 |
+| `GET` | `/admin/shares/{id}/preview` | 管理员审核预览，需文件票据或 Bearer 且二次校验管理员身份，可查看非 `deleted` 分享。 |
 
 > 老部署注意：后台「模型与 API」已移除旧 Packy / Gemini / VL 密钥入口，供应商密钥统一迁移到「上游供应商」。升级前请阅读 [`docs/deployment/legacy-provider-settings-migration.md`](docs/deployment/legacy-provider-settings-migration.md)。
 

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.106.0] - 2026-07-02
+
+### Added
+
+- 用户分享新增管理员审核工作流：作者在作品库「提交审核」后进入 `pending`，管理员可在后台「内容审核」查看预览图、参数快照和作者邮箱，并执行通过、驳回（写入作者可见的 `review_note`）或下架。
+- 分享预览与下载复用短时效文件票据：`/shares/.../preview`、`/shares/.../download/{kind}` 与 `/admin/shares/.../preview` 均支持 query `token` 或 Bearer，解决 `<img>` 无法携带 Authorization 头的问题，同时避免长期 token 暴露在 URL。
+
+### Changed
+
+- `/shares` 系列公开池改为登录可见：未登录访问 `GET /shares` 返回 401，前端未登录时隐藏首页「用户分享」tab；其他静态范例 tab 不受影响。
+- 分享奖励时机从「作者提交/公开」改为「管理员审核通过」；奖励和每日上限都按作品作者计，同一作品重复提交或重复通过不会重复发放。
+- 审核通过的 `active` 分享完全锁定：作者不能自行下架，也不能删除源作品；审核中 `pending` 源作品同样禁止删除。`rejected` / `hidden` 仍允许作者删除源作品并将分享记录标记为 `deleted`。
+
+### Fixed
+
+- 自动作品保留策略不再清理 `active` / `pending` 分享的源作品，避免绕过审核锁定导致首页或审核队列出现失效记录。
+
 ## [1.105.0] - 2026-07-02
 
 ### Security

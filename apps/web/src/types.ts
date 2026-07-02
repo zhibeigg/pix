@@ -489,10 +489,12 @@ export type GalleryQuota = {
 
 export type JobShareSummary = {
   id: number
-  status: string
+  status: 'pending' | 'active' | 'rejected' | 'hidden' | 'deleted' | string
   like_count: number
   download_count: number
   reward_credits: number
+  review_note: string
+  reviewed_at: string | null
   published_at: string | null
 }
 
@@ -504,11 +506,13 @@ export type SharedDownloadOption = {
   filename: string
 }
 
+export type SharedWorkStatus = 'pending' | 'active' | 'rejected' | 'hidden' | 'deleted' | string
+
 export type SharedWork = {
   id: number
   job_id: number | null
   user_id: number
-  status: string
+  status: SharedWorkStatus
   title: string
   asset_kind: string
   preview_url: string
@@ -519,6 +523,8 @@ export type SharedWork = {
   reward_credits: number
   liked_by_me: boolean
   owned_by_me: boolean
+  review_note: string
+  reviewed_at: string | null
   published_at: string | null
   created_at: string
   updated_at: string
@@ -526,6 +532,18 @@ export type SharedWork = {
 
 export type SharedWorkListResponse = {
   items: SharedWork[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export type AdminSharedWork = Omit<SharedWork, 'download_options' | 'liked_by_me' | 'owned_by_me'> & {
+  user_email: string
+  reviewed_by_user_id: number | null
+}
+
+export type AdminSharedWorkListResponse = {
+  items: AdminSharedWork[]
   total: number
   limit: number
   offset: number

@@ -1,5 +1,7 @@
 import type {
   AdminDashboard,
+  AdminSharedWork,
+  AdminSharedWorkListResponse,
   PerformanceMetrics,
   ApiKeyCreatePayload,
   ApiKeyCreateResponse,
@@ -373,6 +375,23 @@ export const api = {
   },
   adminJobs(token: string) {
     return request<GenerationJob[]>('/admin/jobs?limit=500', {}, token)
+  },
+  adminListShares(token: string, params: { status?: string; limit?: number; offset?: number } = {}) {
+    const search = new URLSearchParams()
+    search.set('status', params.status ?? 'pending')
+    if (params.limit) search.set('limit', String(params.limit))
+    if (params.offset) search.set('offset', String(params.offset))
+    const query = search.toString()
+    return request<AdminSharedWorkListResponse>(`/admin/shares${query ? `?${query}` : ''}`, {}, token)
+  },
+  approveShare(token: string, shareId: number) {
+    return request<AdminSharedWork>(`/admin/shares/${shareId}/approve`, { method: 'POST' }, token)
+  },
+  rejectShare(token: string, shareId: number, note: string) {
+    return request<AdminSharedWork>(`/admin/shares/${shareId}/reject`, { method: 'POST', body: JSON.stringify({ note }) }, token)
+  },
+  adminUnpublishShare(token: string, shareId: number) {
+    return request<AdminSharedWork>(`/admin/shares/${shareId}/unpublish`, { method: 'POST' }, token)
   },
   performanceMetrics(token: string, range: string) {
     return request<PerformanceMetrics>(`/admin/performance-metrics?range=${encodeURIComponent(range)}`, {}, token)

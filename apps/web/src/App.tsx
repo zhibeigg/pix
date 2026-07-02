@@ -65,6 +65,10 @@ function retainedPhotoCount(jobs: GenerationJob[]) {
   return jobs.filter((job) => job.status === 'succeeded' && job.outputs.length > 0).length
 }
 
+function shareSourceLocked(job: GenerationJob) {
+  return job.share?.status === 'active' || job.share?.status === 'pending'
+}
+
 export function App({ themeMode, themePreference, systemThemeMode, language, onThemePreferenceChange, onLanguageChange }: AppProps) {
   const { text, t } = useI18n()
   const confirm = useConfirm()
@@ -220,10 +224,6 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   }, [notifyJobCompletions, selectedPackId, token])
 
   const refreshCurrent = useCallback(() => { void refreshCore() }, [refreshCore])
-  const refreshSharedWorks = useCallback(async (activeToken = token) => {
-    const result = await api.sharedWorks(activeToken || null, { limit: 48 })
-    setSharedWorks(result.items)
-  }, [token])
   const selectJobById = useCallback((job: GenerationJob) => { setSelectedJobId(job.id) }, [])
   const reuseJobInWorkbench = useCallback((job: GenerationJob) => {
     reuseRevisionRef.current += 1
@@ -258,8 +258,8 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   useEffect(() => {
     if (token) return
-    refreshSharedWorks('').catch(showError)
-  }, [refreshSharedWorks, showError, token])
+    setSharedWorks([])
+  }, [token])
 
   useEffect(() => {
     if (!token) return
@@ -456,6 +456,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setPackages([])
     setOrders([])
     setJobs([])
+    setSharedWorks([])
     setPacks([])
     setPackQuota(null)
     setGalleryQuota(null)
@@ -704,16 +705,17 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function publishJobShare(job: GenerationJob) {
     if (!token) return
+    const resubmitting = job.share?.status === 'rejected' || job.share?.status === 'hidden'
     const approved = await confirm({
-      eyebrow: text('公开分享', 'Public share'),
-      title: text('公开这个作品？', 'Share this work publicly?'),
-      description: text('公开后，其他用户可以在首页看到该作品、下载产物并查看可复用参数。首次公开会按站点规则返还点数。', 'After publishing, other users can see it on the homepage, download outputs, and view reusable parameters. First publish returns credits according to site rules.'),
+      eyebrow: text('提交审核', 'Submit for review'),
+      title: resubmitting ? text('重新提交这个作品？', 'Resubmit this work?') : text('提交这个作品到首页审核？', 'Submit this work for homepage review?'),
+      description: text('提交后会进入管理员审核队列；审核通过后才会展示在首页分享区，并按站点规则发放分享奖励。通过后作品将锁定，不能自行下架或删除源作品。', 'After submission, it enters the admin review queue. It appears on the homepage and earns share rewards only after approval. Once approved, it is locked: you cannot unpublish it or delete the source work yourself.'),
       impactItems: [
         text('不会公开你的邮箱或账号信息', 'Your email or account details are not exposed'),
         text('只展示安全的生成参数快照', 'Only a safe generation-parameter snapshot is shown'),
-        text('下架后不再出现在首页', 'You can unpublish it from the homepage later'),
+        text('审核中或驳回后可撤回/修改后重提；通过后需联系管理员处理', 'You can withdraw while pending or resubmit after rejection; after approval, contact an admin to change it'),
       ],
-      confirmText: text('公开分享', 'Publish'),
+      confirmText: resubmitting ? text('重新提交审核', 'Resubmit') : text('提交审核', 'Submit for review'),
     })
     if (!approved) return
     setBusy(true)
@@ -721,7 +723,12 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     try {
       const share = await api.publishJobShare(token, job.id)
       await refreshCore(token)
-      setMessage(share.reward_credits > 0 ? text(`已公开到首页分享区，返还 ${share.reward_credits} 点。`, `Published to the homepage share pool and returned ${share.reward_credits} credits.`) : text('已公开到首页分享区。', 'Published to the homepage share pool.'), 'success')
+      setMessage(
+        share.status === 'active'
+          ? text('作品已通过审核并在首页展示。', 'This work is approved and visible on the homepage.')
+          : text('已提交审核。审核通过后会展示在首页，分享奖励也会在通过后到账。', 'Submitted for review. It will appear on the homepage after approval, and share rewards are granted then.'),
+        'success',
+      )
     } catch (error) {
       showError(error)
     } finally {
@@ -731,12 +738,16 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function unpublishJobShare(job: GenerationJob) {
     if (!token || !job.share) return
+    if (!['pending', 'rejected'].includes(job.share.status)) {
+      setMessage(text('作品已通过审核并锁定，如需下架请联系管理员。', 'This work is approved and locked; contact an admin to unpublish it.'), 'info')
+      return
+    }
     setBusy(true)
     setMessage('')
     try {
       await api.unpublishShare(token, job.share.id)
       await refreshCore(token)
-      setMessage(text('分享作品已下架', 'Shared work unpublished'), 'success')
+      setMessage(text('已撤回分享审核提交。', 'Share review submission withdrawn.'), 'success')
     } catch (error) {
       showError(error)
     } finally {
@@ -759,14 +770,18 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function deleteJob(job: GenerationJob) {
     if (!token) return
+    if (shareSourceLocked(job)) {
+      setMessage(text('该作品正在审核或已通过审核，源作品已锁定；如需删除请联系管理员。', 'This work is pending review or approved, so the source is locked. Contact an admin to delete it.'), 'info')
+      return
+    }
     setDeleteConfirm({ kind: 'job', job })
   }
 
   async function deleteJobs(targetJobs: GenerationJob[]) {
     if (!token) return
-    const deletableJobs = targetJobs.filter((job) => !['pending', 'running', 'waiting'].includes(job.status))
+    const deletableJobs = targetJobs.filter((job) => !['pending', 'running', 'waiting'].includes(job.status) && !shareSourceLocked(job))
     if (deletableJobs.length === 0) {
-      setMessage(text('请选择可删除的已完成作品。', 'Select completed works that can be deleted.'), 'info')
+      setMessage(text('请选择可删除的已完成作品；审核中或已通过审核的分享源作品不能自行删除。', 'Select completed works that can be deleted; pending or approved shared sources cannot be deleted by the author.'), 'info')
       return
     }
     setDeleteConfirm({ kind: 'jobs', jobs: deletableJobs })

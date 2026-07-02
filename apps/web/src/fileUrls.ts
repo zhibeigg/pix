@@ -7,6 +7,7 @@ let ticketExpiresAt = 0
 let inflight: Promise<string> | null = null
 
 const TICKET_REFRESH_SKEW_MS = 60_000
+const TICKETED_URL_PREFIXES = ['/files', '/shares', '/admin/shares']
 
 export function clearFileTicket() {
   cachedTicket = ''
@@ -62,12 +63,16 @@ function currentTicket(): string {
 
 export function signedFileUrl(url?: string | null, tokenOverride?: string | null, noCache = false) {
   if (!url) return ''
-  if (!url.startsWith('/files')) return noCache ? appendNoCache(url) : url
+  if (!needsFileTicket(url)) return noCache ? appendNoCache(url) : url
   const ticket = tokenOverride ?? currentTicket()
   const separator = url.includes('?') ? '&' : '?'
   const withToken = ticket ? `${url}${separator}token=${encodeURIComponent(ticket)}` : url
   const withCachePolicy = noCache ? appendNoCache(withToken) : withToken
   return `${API_BASE}${withCachePolicy.startsWith('/') ? withCachePolicy : `/${withCachePolicy}`}`
+}
+
+function needsFileTicket(url: string) {
+  return TICKETED_URL_PREFIXES.some((prefix) => url === prefix || url.startsWith(`${prefix}/`) || url.startsWith(`${prefix}?`))
 }
 
 function appendNoCache(url: string) {

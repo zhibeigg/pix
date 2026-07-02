@@ -19,7 +19,7 @@ from pix_web.config import WebSettings
 from pix_web.credits import reward_share_credits
 from pix_web.models import CreditTransaction, GenerationJob, GenerationOutput, SharedWork, SharedWorkLike, User, utcnow
 from pix_web.schemas import JobOutputResponse, SharedDownloadOptionResponse, SharedWorkListResponse, SharedWorkResponse
-from pix_web.security import get_current_user, get_db, get_settings, is_local_request
+from pix_web.security import decode_file_ticket, get_current_user, get_db, get_settings
 from pix_web.storage import resolve_web_file
 from pix_web.system_settings import load_share_settings, resolve_site_timezone
 
@@ -27,29 +27,39 @@ router = APIRouter(prefix="/shares", tags=["shares"])
 
 SHARE_STATUS_ACTIVE = "active"
 SHARE_STATUS_HIDDEN = "hidden"
+SHARE_STATUS_PENDING = "pending"
+SHARE_STATUS_REJECTED = "rejected"
 SHARE_STATUS_DELETED = "deleted"
 SHARE_REWARD_TRANSACTION_TYPE = "share_reward"
+# 作者可自行撤回（回到 hidden）的状态；active 只能管理员下架。
+SHARE_STATUS_AUTHOR_WITHDRAWABLE = {SHARE_STATUS_PENDING, SHARE_STATUS_REJECTED}
 
 
-def _optional_current_user(
+def _file_ticket_user(
     request: Request,
-    db: Session = Depends(get_db),
-    settings: WebSettings = Depends(get_settings),
-) -> User | None:
+    token: str | None,
+    db: Session,
+    settings: WebSettings,
+) -> User:
+    """预览/下载鉴权：优先短时效文件票据（query token），回退 Bearer 登录 token。
+
+    <img> / 下载链接无法携带 Authorization 头，因此复用与 /files 一致的票据机制；
+    票据只证明"已登录用户"，与公开池"任意登录用户可见"的级别一致。
+    """
     bearer = request.headers.get("authorization", "")
-    raw_token = bearer.removeprefix("Bearer ").strip() if bearer.lower().startswith("bearer ") else ""
+    raw_token = token or (bearer.removeprefix("Bearer ").strip() if bearer.lower().startswith("bearer ") else "")
     if not raw_token:
-        return None
-    try:
-        payload = jwt.decode(raw_token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-        user_id = int(payload.get("sub", "0"))
-    except Exception:  # noqa: BLE001 - 匿名接口里无效 token 按未登录处理
-        return None
-    if payload.get("local_only") is True and not is_local_request(request):
-        return None
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录")
+    user_id = decode_file_ticket(raw_token, settings)
+    if user_id is None:
+        try:
+            payload = jwt.decode(raw_token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+            user_id = int(payload.get("sub", "0"))
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录") from exc
     user = db.get(User, user_id)
     if user is None or user.status != "active":
-        return None
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录")
     return user
 
 
@@ -285,6 +295,8 @@ def _share_response(
         reward_credits=share.reward_credits,
         liked_by_me=share.id in (liked_ids or set()),
         owned_by_me=bool(current_user and current_user.id == share.user_id),
+        review_note=share.review_note or "",
+        reviewed_at=share.reviewed_at,
         published_at=share.published_at,
         created_at=share.created_at,
         updated_at=share.updated_at,
@@ -325,12 +337,13 @@ def _reward_amount_for_publish(db: Session, user: User) -> int:
 
 @router.get("", response_model=SharedWorkListResponse)
 def list_shares(
-    current_user: User | None = Depends(_optional_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     limit: int = Query(default=48, ge=1, le=120),
     offset: int = Query(default=0, ge=0),
     asset_kind: str = Query(default=""),
 ) -> SharedWorkListResponse:
+    # 需登录才能浏览社区公开池；只返回审核通过（active）的作品。
     conditions = [SharedWork.status == SHARE_STATUS_ACTIVE]
     if asset_kind:
         conditions.append(SharedWork.asset_kind == asset_kind)
@@ -383,29 +396,27 @@ def publish_job_share(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="作品没有可下载产物")
 
     share = job.shared_work
-    existing_share = share is not None
+    # 已在展示或已在审核队列中，直接返回当前状态，避免重复提交。
+    if share is not None and share.status in {SHARE_STATUS_ACTIVE, SHARE_STATUS_PENDING}:
+        return _share_response(share, current_user=user)
     if share is None:
-        share = SharedWork(job_id=job.id, user_id=user.id, status=SHARE_STATUS_HIDDEN)
+        share = SharedWork(job_id=job.id, user_id=user.id, status=SHARE_STATUS_PENDING)
         db.add(share)
         db.flush()
-    if existing_share and share.status == SHARE_STATUS_ACTIVE:
-        return _share_response(share, current_user=user)
 
-    share.status = SHARE_STATUS_ACTIVE
+    # 首次提交或从 hidden/rejected 重新提交：进入待审核队列，等待管理员审核。
+    # 奖励改到审核通过时发放（见 admin approve），提交时不发。
+    share.status = SHARE_STATUS_PENDING
     share.title = _job_title(job)
     share.asset_kind = _asset_kind(job)
     share.parameter_snapshot_json = _parameter_snapshot(job)
     share.download_manifest_json = manifest
     share.preview_path = _preview_path(output, manifest)
-    share.published_at = now
+    share.review_note = ""
+    share.reviewed_at = None
+    share.reviewed_by_user_id = None
+    share.published_at = None
     share.updated_at = now
-
-    if share.rewarded_at is None:
-        reward = _reward_amount_for_publish(db, user)
-        share.reward_credits = reward
-        share.rewarded_at = now
-        if reward > 0:
-            reward_share_credits(db, user, reward, job_id=job.id, note=f"公开分享作品 #{job.id} 奖励")
 
     db.commit()
     db.refresh(share)
@@ -421,8 +432,16 @@ def unpublish_share(
     share = db.get(SharedWork, share_id)
     if share is None or share.status == SHARE_STATUS_DELETED:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品不存在")
-    if share.user_id != user.id and user.role != "admin":
+    is_admin = user.role == "admin"
+    is_owner = share.user_id == user.id
+    if not is_owner and not is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权下架该分享作品")
+    # 已通过审核（active）的作品只能管理员下架；作者只能撤回自己尚在审核 / 已驳回的提交。
+    if not is_admin and share.status not in SHARE_STATUS_AUTHOR_WITHDRAWABLE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="作品已通过审核并公开展示，如需下架请联系管理员",
+        )
     share.status = SHARE_STATUS_HIDDEN
     share.updated_at = utcnow()
     db.commit()
@@ -473,9 +492,12 @@ def unlike_share(
 @router.get("/{share_id}/preview")
 def shared_preview(
     share_id: int,
+    request: Request,
+    token: str | None = Query(default=None),
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> FileResponse:
+    _file_ticket_user(request, token, db, settings)  # 需登录（票据或 Bearer）
     share = db.scalar(select(SharedWork).where(SharedWork.id == share_id, SharedWork.status == SHARE_STATUS_ACTIVE))
     if share is None or not share.preview_path:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品不存在")
@@ -495,9 +517,12 @@ def _manifest_item(share: SharedWork, kind: str) -> dict[str, object]:
 def download_shared_work(
     share_id: int,
     kind: str,
+    request: Request,
+    token: str | None = Query(default=None),
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> Response:
+    _file_ticket_user(request, token, db, settings)  # 需登录（票据或 Bearer）
     share = db.scalar(select(SharedWork).where(SharedWork.id == share_id, SharedWork.status == SHARE_STATUS_ACTIVE))
     if share is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品不存在")

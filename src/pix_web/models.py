@@ -30,7 +30,7 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     credit_account: Mapped["CreditAccount"] = relationship(back_populates="user", uselist=False)
-    shared_works: Mapped[list["SharedWork"]] = relationship(back_populates="user")
+    shared_works: Mapped[list["SharedWork"]] = relationship(back_populates="user", foreign_keys="SharedWork.user_id")
     shared_work_likes: Mapped[list["SharedWorkLike"]] = relationship(back_populates="user")
 
 
@@ -381,11 +381,14 @@ class SharedWork(Base):
     download_count: Mapped[int] = mapped_column(Integer, default=0)
     reward_credits: Mapped[int] = mapped_column(Integer, default=0)
     rewarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str] = mapped_column(String(500), default="")
+    reviewed_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
-    user: Mapped[User] = relationship(back_populates="shared_works")
+    user: Mapped[User] = relationship(back_populates="shared_works", foreign_keys=[user_id])
     job: Mapped[GenerationJob | None] = relationship(back_populates="shared_work")
     likes: Mapped[list["SharedWorkLike"]] = relationship(back_populates="shared_work", cascade="all, delete-orphan")
 

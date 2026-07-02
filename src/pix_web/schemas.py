@@ -987,6 +987,8 @@ class JobShareSummary(BaseModel):
     like_count: int = 0
     download_count: int = 0
     reward_credits: int = 0
+    review_note: str = ""
+    reviewed_at: datetime | None = None
     published_at: datetime | None = None
 
 
@@ -1013,6 +1015,8 @@ class SharedWorkResponse(BaseModel):
     reward_credits: int = 0
     liked_by_me: bool = False
     owned_by_me: bool = False
+    review_note: str = ""
+    reviewed_at: datetime | None = None
     published_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
@@ -1023,6 +1027,40 @@ class SharedWorkListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class AdminSharedWorkResponse(BaseModel):
+    """管理员审核视角的分享作品（含作者信息、审核字段）。"""
+
+    id: int
+    job_id: int | None
+    user_id: int
+    user_email: str = ""
+    status: str
+    title: str
+    asset_kind: str
+    preview_url: str
+    parameter_snapshot: dict[str, Any] = Field(default_factory=dict)
+    like_count: int = 0
+    download_count: int = 0
+    reward_credits: int = 0
+    review_note: str = ""
+    reviewed_at: datetime | None = None
+    reviewed_by_user_id: int | None = None
+    published_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AdminSharedWorkListResponse(BaseModel):
+    items: list[AdminSharedWorkResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class ShareRejectRequest(BaseModel):
+    note: str = Field(default="", max_length=500)
 
 
 class JobResponse(BaseModel):
@@ -1084,12 +1122,17 @@ def public_job_response(job: Any) -> dict[str, Any]:
     data = JobResponse.model_validate(job).model_dump(mode="python")
     data["error_message"] = safe_user_job_error(job)
     shared = getattr(job, "shared_work", None)
+    # deleted 状态的分享视为无分享，避免作品库残留失效状态。
+    if shared is not None and getattr(shared, "status", None) == "deleted":
+        shared = None
     data["share"] = None if shared is None else {
         "id": shared.id,
         "status": shared.status,
         "like_count": shared.like_count,
         "download_count": shared.download_count,
         "reward_credits": shared.reward_credits,
+        "review_note": shared.review_note or "",
+        "reviewed_at": shared.reviewed_at,
         "published_at": shared.published_at,
     }
     return data

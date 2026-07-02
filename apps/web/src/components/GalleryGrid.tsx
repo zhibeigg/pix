@@ -3,7 +3,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { CopyPlus, Crosshair, Download, FileDown, PackagePlus, RotateCcw, Share2, Trash2, X } from 'lucide-react'
 import { fileName, signedFileUrl, spriteActionsZipUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
-import type { ContactSheetCandidate, GalleryQuota, GenerationJob, JobOutput, SequenceAlignmentRequest } from '../types'
+import type { ContactSheetCandidate, GalleryQuota, GenerationJob, JobOutput, JobShareSummary, SequenceAlignmentRequest } from '../types'
 import { jobInputSummary } from '../pixelize'
 import { jobTypeLabel } from '../labels'
 import { formatDateTime } from '../lib/utils'
@@ -97,7 +97,11 @@ export function GalleryGrid({ jobs, subtitle, selectedJobId, retryingJobId = nul
 }
 
 function isBulkDeletableJob(job: GenerationJob) {
-  return !['pending', 'running', 'waiting'].includes(job.status)
+  return !['pending', 'running', 'waiting'].includes(job.status) && !isShareSourceLocked(job)
+}
+
+function isShareSourceLocked(job: GenerationJob) {
+  return job.share?.status === 'active' || job.share?.status === 'pending'
 }
 
 function GalleryCard({ job, selected, bulkMode, bulkSelected, bulkDisabled, retrying, draggable, onSelect, onBulkToggle, onReuseJob, onCandidatePixelize, onRetryJob, onDeleteJob, onSaveToPack, onRemoveFromPack, onSaveSequenceAlignment, onPublishShare, onUnpublishShare, onActiveActionChange, renderJobBadges }: { job: GenerationJob; selected: boolean; bulkMode: boolean; bulkSelected: boolean; bulkDisabled: boolean; retrying: boolean; draggable: boolean; onSelect: (job: GenerationJob) => void; onBulkToggle: (job: GenerationJob, checked?: boolean) => void; onReuseJob?: (job: GenerationJob) => void; onCandidatePixelize?: (job: GenerationJob, candidate: ContactSheetCandidate) => Promise<void>; onRetryJob?: (job: GenerationJob) => Promise<void>; onDeleteJob?: (job: GenerationJob) => void | Promise<void>; onSaveToPack?: (job: GenerationJob) => void | Promise<void>; onRemoveFromPack?: (job: GenerationJob) => void | Promise<void>; onSaveSequenceAlignment?: (job: GenerationJob, payload: SequenceAlignmentRequest) => Promise<void>; onPublishShare?: (job: GenerationJob) => void | Promise<void>; onUnpublishShare?: (job: GenerationJob) => void | Promise<void>; onActiveActionChange?: (action: SpriteRowAction | null) => void; renderJobBadges?: (job: GenerationJob) => ReactNode }) {
@@ -130,6 +134,8 @@ function GalleryCard({ job, selected, bulkMode, bulkSelected, bulkDisabled, retr
   const summary = jobDisplaySummary(job, displayName, t)
   const previewLabel = isActive ? jobStatusLabel(job, t) : selectedAction ? selectedAction.label : displayedSizeRetryCandidate ? candidateLabel(displayedSizeRetryCandidate, t) : job.status === 'succeeded' ? 'PIX' : t('gallery.waitingOutput')
   const detailsVisible = selected && !bulkMode
+  const share = job.share ?? null
+  const shareLocked = isShareSourceLocked(job)
   function startDrag(event: DragEvent<HTMLElement>) {
     if (!draggable) return
     event.dataTransfer.effectAllowed = 'copy'
@@ -178,8 +184,10 @@ function GalleryCard({ job, selected, bulkMode, bulkSelected, bulkDisabled, retr
             <Badge variant="outline">#{job.id}</Badge>
             <Badge variant="secondary" className="dark:border-[hsl(var(--pix-brand-purple-300)/.24)] dark:bg-[hsl(var(--pix-brand-purple-800)/.42)] dark:text-[hsl(var(--pix-brand-purple-300))]">{typeLabel}</Badge>
             {renderJobBadges?.(job)}
-            {job.share?.status === 'active' && <Badge variant="success">{t('share.galleryBadge', { count: job.share.like_count })}</Badge>}
-            {job.share?.status === 'hidden' && <Badge variant="outline">{t('share.hiddenBadge')}</Badge>}
+            {share?.status === 'active' && <Badge variant="success">{t('share.galleryBadge', { count: share.like_count })}</Badge>}
+            {share?.status === 'pending' && <Badge variant="warning">{t('share.pendingBadge')}</Badge>}
+            {share?.status === 'rejected' && <Badge variant="danger">{t('share.rejectedBadge')}</Badge>}
+            {share?.status === 'hidden' && <Badge variant="outline">{t('share.hiddenBadge')}</Badge>}
             {rowActions.length > 1 && <Badge variant="outline">{t('gallery.actionCount', { count: rowActions.length })}</Badge>}
             {sizeTag && <Badge variant="outline" className={pixelSizeBadgeClass(sizeTag.size)} title={sizeTag.title}>{sizeTag.label}</Badge>}
           </div>
@@ -192,6 +200,7 @@ function GalleryCard({ job, selected, bulkMode, bulkSelected, bulkDisabled, retr
           </div>
         </div>
         {detailsVisible && <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{t('common.points', { count: job.price_credits })}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge>{job.batch_name && <Badge variant="outline">{job.batch_name}</Badge>}<QuickParameterBadges job={job} output={output} /></div>}
+        {detailsVisible && share && ['pending', 'rejected', 'active'].includes(share.status) && <ShareStatusNotice share={share} />}
         {detailsVisible && job.status === 'failed' && <JobErrorSummary error={job.error_message} compact />}
         {detailsVisible && output && <CandidateMiniGrid job={job} output={output} displayedSizeRetryCandidateKey={displayedSizeRetryCandidateKey} onSizeRetrySelect={(candidate) => setSelectedSizeRetryCandidateKey(candidateKey(candidate))} onCandidatePixelize={onCandidatePixelize} />}
         <div className="flex flex-wrap gap-1.5 xs:gap-2">
@@ -199,8 +208,7 @@ function GalleryCard({ job, selected, bulkMode, bulkSelected, bulkDisabled, retr
           {onReuseJob && <Button size="sm" variant="outline" title={t('gallery.reuseTitle')} onClick={(event) => { event.stopPropagation(); onReuseJob(job) }}><CopyPlus />{t('gallery.reuse')}</Button>}
           {output && <JobParameterSnapshotDialog job={job} output={output} />}
           {!output && <JobParameterSnapshotDialog job={job} />}
-          {job.status === 'succeeded' && output && onPublishShare && job.share?.status !== 'active' && <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); void onPublishShare(job) }}><Share2 />{t('share.publishButton')}</Button>}
-          {job.status === 'succeeded' && output && onUnpublishShare && job.share?.status === 'active' && <Button size="sm" variant="outline" title={t('share.unpublishTitle')} onClick={(event) => { event.stopPropagation(); void onUnpublishShare(job) }}><Share2 />{t('share.publishedButton', { count: job.share.like_count })}</Button>}
+          {job.status === 'succeeded' && output && <ShareActionButtons job={job} onPublishShare={onPublishShare} onUnpublishShare={onUnpublishShare} />}
           {job.status === 'succeeded' && output && alignmentOutput && alignmentOutput.sprite_frames.length > 0 && onSaveSequenceAlignment && <Dialog open={alignmentOpen} onOpenChange={setAlignmentOpen}>
             <Button size="sm" variant="outline" title={selectedAction ? t('gallery.alignActionTitle', { action: selectedAction.label }) : t('gallery.alignFrames')} onClick={(event) => { event.stopPropagation(); setAlignmentOpen(true) }}><Crosshair />{t('gallery.alignFrames')}</Button>
             <DialogPortal>
@@ -242,11 +250,46 @@ function GalleryCard({ job, selected, bulkMode, bulkSelected, bulkDisabled, retr
           {onRemoveFromPack && <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); void onRemoveFromPack(job) }}><X />{t('packs.removeWork')}</Button>}
           {job.status === 'failed' && onRetryJob && <Button size="sm" variant="destructive" disabled={retrying} onClick={(event) => { event.stopPropagation(); void onRetryJob(job) }}><RotateCcw />{retrying ? t('gallery.retrying') : t('gallery.retry')}</Button>}
           {downloadOptions.length > 0 && <DownloadDialog job={job} options={downloadOptions} />}
-          {onDeleteJob && !['pending', 'running', 'waiting'].includes(job.status) && <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); void onDeleteJob(job) }}><Trash2 />{t('gallery.delete')}</Button>}
+          {onDeleteJob && !['pending', 'running', 'waiting'].includes(job.status) && (shareLocked ? <Button size="sm" variant="ghost" disabled title={t('share.deleteLockedTitle')} onClick={(event) => event.stopPropagation()}><Trash2 />{t('gallery.delete')}</Button> : <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); void onDeleteJob(job) }}><Trash2 />{t('gallery.delete')}</Button>)}
         </div>
       </div>
     </article>
   )
+}
+
+function ShareStatusNotice({ share }: { share: JobShareSummary }) {
+  const { t } = useI18n()
+  if (share.status === 'pending') {
+    return <div className="rounded-lg border border-amber-300/50 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900 dark:border-amber-300/25 dark:bg-amber-400/10 dark:text-amber-100">{t('share.pendingDescription')}</div>
+  }
+  if (share.status === 'rejected') {
+    return <div className="rounded-lg border border-destructive/35 bg-destructive/10 px-3 py-2 text-xs leading-5 text-destructive"><p className="font-semibold">{t('share.rejectedDescription')}</p>{share.review_note && <p className="mt-1 text-foreground">{share.review_note}</p>}</div>
+  }
+  if (share.status === 'active') {
+    return <div className="rounded-lg border border-emerald-300/45 bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-900 dark:border-emerald-300/25 dark:bg-emerald-400/10 dark:text-emerald-100">{t('share.activeLockedDescription')}</div>
+  }
+  return null
+}
+
+function ShareActionButtons({ job, onPublishShare, onUnpublishShare }: { job: GenerationJob; onPublishShare?: (job: GenerationJob) => void | Promise<void>; onUnpublishShare?: (job: GenerationJob) => void | Promise<void> }) {
+  const { t } = useI18n()
+  const share = job.share
+  if (!share || share.status === 'hidden' || share.status === 'deleted') {
+    if (!onPublishShare) return null
+    return <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); void onPublishShare(job) }}><Share2 />{t('share.publishButton')}</Button>
+  }
+  if (share.status === 'pending') {
+    if (!onUnpublishShare) return <Button size="sm" variant="outline" disabled><Share2 />{t('share.pendingButton')}</Button>
+    return <Button size="sm" variant="outline" title={t('share.pendingWithdrawTitle')} onClick={(event) => { event.stopPropagation(); void onUnpublishShare(job) }}><Share2 />{t('share.pendingButton')}</Button>
+  }
+  if (share.status === 'rejected') {
+    if (!onPublishShare) return null
+    return <Button size="sm" variant="outline" title={share.review_note || t('share.rejectedTitle')} onClick={(event) => { event.stopPropagation(); void onPublishShare(job) }}><Share2 />{t('share.resubmitButton')}</Button>
+  }
+  if (share.status === 'active') {
+    return <Button size="sm" variant="outline" disabled title={t('share.activeLockedTitle')} onClick={(event) => event.stopPropagation()}><Share2 />{t('share.publishedButton', { count: share.like_count })}</Button>
+  }
+  return null
 }
 
 function QuickParameterBadges({ job, output }: { job: GenerationJob; output?: JobOutput }) {

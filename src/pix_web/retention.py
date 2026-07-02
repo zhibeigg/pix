@@ -70,6 +70,19 @@ def delete_user_jobs(db: Session, user_id: int, job_ids: list[int], settings: We
     if active_ids:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="生产中的作品暂不能删除")
 
+    # 已公开展示（active）或正在审核（pending）的分享作品由管理员统一管理，作者不能通过删源作品来移除。
+    locked_shares = list(db.scalars(
+        select(SharedWork).where(
+            SharedWork.job_id.in_(ordered_ids),
+            SharedWork.status.in_(["active", "pending"]),
+        )
+    ))
+    if locked_shares:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="作品已公开分享或正在审核，请联系管理员处理后再删除",
+        )
+
     run_dirs = [
         output.run_dir
         for job_id in ordered_ids
@@ -139,9 +152,10 @@ def prune_user_photos(db: Session, user_id: int, settings: WebSettings, *, keep:
 
 def _successful_jobs_with_outputs(db: Session, user_id: int) -> list[GenerationJob]:
     packed_job_ids = select(AssetPackItem.job_id).where(AssetPackItem.user_id == user_id)
+    # 自动保留策略同样不能清理已公开或正在审核的分享源作品，避免作者绕过审核锁定。
     shared_job_ids = select(SharedWork.job_id).where(
         SharedWork.user_id == user_id,
-        SharedWork.status == "active",
+        SharedWork.status.in_(["active", "pending"]),
         SharedWork.job_id.is_not(None),
     )
     stmt = (
