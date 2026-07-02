@@ -3,7 +3,7 @@ import { Upload } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
-import type { GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule, StyleProfile, TextureKind } from '../types'
+import type { CharacterItem, GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule, StyleProfile, TextureKind } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type BgRemovalAlgorithmChoice, type EdgeStyleChoice } from '../pixelize'
 import { assetKindDefaults, jobTypeDefaults, mergeReusedPixelize, parseAssetKind, resolveReusableAssetKind, reusableWorkbenchType, sizeRetryStateFromJob, type AssetKindChoice, type DualGridTransitionStyle } from '../lib/jobReuse'
 import { promptLimitsFromModels } from '../lib/promptLimits'
@@ -22,7 +22,7 @@ import { PromptPreviewDialog } from './PromptPreviewDialog'
 import { SizeRetryControls, DEFAULT_SIZE_RETRY, type SizeRetryState } from './SizeRetryControls'
 import { StyleProfileControls, compactStyleProfile } from './StyleProfileControls'
 
-type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; reuseJobSeed?: { revision: number; job: GenerationJob } | null; onSubmit: (payload: JobCreateRequest) => Promise<void> }
+type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; characters: CharacterItem[]; reuseJobSeed?: { revision: number; job: GenerationJob } | null; onSubmit: (payload: JobCreateRequest) => Promise<void> }
 
 type TextureKindOption = { value: TextureKind; zh: string; en: string }
 
@@ -46,6 +46,7 @@ const TEXTURE_KIND_OPTIONS: TextureKindOption[] = [
 
 type SpritePreset = 'horizontal' | 'four_directions' | 'character_full' | 'custom'
 type SpriteMode = 'mosaic' | 'video_bridge'
+type SpriteReferenceSource = 'upload' | 'character'
 
 // Seedance / Ark 只接受离散视频时长档位（秒），与后端 [video_bridge].allowed_durations 保持一致。
 const ALLOWED_VIDEO_DURATIONS = [4, 5, 6, 8, 10, 12, 15]
@@ -232,7 +233,7 @@ function styleProfileValue(value: unknown): StyleProfile {
   }
 }
 
-export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, reuseJobSeed, onSubmit }: Props) {
+export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, characters, reuseJobSeed, onSubmit }: Props) {
   const { text } = useI18n()
   const [jobType, setJobType] = useState<JobType>('asset')
   const [imageModel, setImageModel] = useState(imageModels.default)
@@ -282,6 +283,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [videoActionPrompt, setVideoActionPrompt] = useState('')
   const [videoReturnToFirstFrame, setVideoReturnToFirstFrame] = useState(false)
   const [fps, setFps] = useState(8)
+  const [refSource, setRefSource] = useState<SpriteReferenceSource>('upload')
+  const [selectedRefCharacterId, setSelectedRefCharacterId] = useState<number | null>(null)
   const [refImagePath, setRefImagePath] = useState('')
   const [refImageUrl, setRefImageUrl] = useState('')
   const [refImageFile, setRefImageFile] = useState<File | null>(null)
@@ -291,6 +294,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const isAsset = jobType === 'asset'
   const isSprite = jobType === 'sprite_sheet'
   const isSpriteVideoBridge = isSprite && spriteMode === 'video_bridge'
+  const selectedRefCharacter = useMemo(() => characters.find((item) => item.id === selectedRefCharacterId) ?? null, [characters, selectedRefCharacterId])
   const isLocalPixelize = jobType === 'local_pixelize'
   const isLocalBgRemove = jobType === 'local_bg_remove'
   const showsImageModel = !isLocalPixelize && !isLocalBgRemove
@@ -447,9 +451,11 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       // video_bridge：若 rows/cols/fps 命中某动画预设则选中它，否则标记自定义。
       setVideoAnimPreset(nextSpriteMode === 'video_bridge' ? matchVideoAnimPreset(nextRows, nextCols, nextFps) : DEFAULT_VIDEO_ANIM_PRESET)
       const referencePath = stringValue(sprite?.reference_image_path)
+      setRefSource('upload')
+      setSelectedRefCharacterId(null)
       setRefImagePath(referencePath)
       setRefImageFile(null)
-      setRefImageUrl(signedFileUrl(job.input_image_url ?? undefined, token, true))
+      setRefImageUrl(signedFileUrl(job.sprite_reference_image_url ?? undefined, undefined, true))
       setRefUploadMessage('')
       setAssetRefPath(''); setAssetRefFile(null); setAssetRefUrl(''); setAssetRefMessage('')
       setInputImagePath(''); setUploadFilePreview(null); setUploadUrl(''); setUploadMessage('')
@@ -463,7 +469,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       setUploadUrl(signedFileUrl(job.input_image_url ?? undefined, token, true))
       setUploadMessage(job.input_image_path ? text('已复用原任务的输入图片。', 'Reused the original input image.') : '')
       setAssetRefPath(''); setAssetRefFile(null); setAssetRefUrl(''); setAssetRefMessage('')
-      setRefImagePath(''); setRefImageFile(null); setRefImageUrl(''); setRefUploadMessage('')
+      setRefSource('upload'); setSelectedRefCharacterId(null); setRefImagePath(''); setRefImageFile(null); setRefImageUrl(''); setRefUploadMessage('')
       return
     }
 
@@ -563,6 +569,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
   async function uploadReferenceFile(file: File | undefined) {
     if (!file) return
+    setRefSource('upload')
+    setSelectedRefCharacterId(null)
     setRefImagePath('')
     setRefImageUrl('')
     setRefImageFile(file)
@@ -576,8 +584,42 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     } finally { setRefUploading(false) }
   }
 
+  function selectReferenceSource(next: SpriteReferenceSource) {
+    setRefSource(next)
+    if (next === 'upload') {
+      setSelectedRefCharacterId(null)
+      setRefImagePath('')
+      setRefImageUrl('')
+      setRefImageFile(null)
+      setRefUploadMessage('')
+      return
+    }
+    if (selectedRefCharacter) {
+      selectCharacterReference(selectedRefCharacter.id)
+      return
+    }
+    const first = characters[0]
+    if (first) selectCharacterReference(first.id)
+  }
+
+  function selectCharacterReference(rawId: number | string) {
+    const id = Number(rawId)
+    const item = characters.find((candidate) => candidate.id === id)
+    if (!item) {
+      clearReference()
+      setRefSource('character')
+      return
+    }
+    setRefSource('character')
+    setSelectedRefCharacterId(item.id)
+    setRefImagePath(item.image_path)
+    setRefImageUrl(signedFileUrl(item.preview_url || item.image_url || undefined))
+    setRefImageFile(null)
+    setRefUploadMessage('')
+  }
+
   function clearReference() {
-    setRefImagePath(''); setRefImageUrl(''); setRefImageFile(null); setRefUploadMessage('')
+    setRefImagePath(''); setRefImageUrl(''); setRefImageFile(null); setSelectedRefCharacterId(null); setRefUploadMessage('')
   }
 
   async function uploadAssetReferenceFile(file: File | undefined) {
@@ -848,14 +890,37 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               </Select>
             </PixField>
             {isSpriteVideoBridge && <Alert variant="info">{text('视频补间会在 Ark 任务生成期间进入“等待视频”状态；单帧尺寸、颜色数、边缘处理会同步写入关键帧 / 视频 Prompt，并在抽帧后执行去杂色与限色。选择下方动画预设即可，无需手动计算视频时长。', 'Video bridge enters a waiting state while Ark renders. Frame size, color count, and edge treatment are injected into the keyframe/video prompts, then denoise and palette limiting run after frame extraction. Just pick an animation preset below — no need to compute the video duration yourself.')}</Alert>}
-            <PixField label={text('参考角色立绘（可选）', 'Reference character art (optional)')}>
+            <PixField label={text('参考来源（可选）', 'Reference source (optional)')} hint={text('可从角色库复用已保存角色，也可以继续直接上传临时参考图。', 'Reuse a saved character from the library, or keep uploading a one-off reference image.') }>
               <div className="grid gap-3">
-                <Button type="button" variant="outline" asChild>
-                  <label className="cursor-pointer">
-                    <Upload />{refUploading ? text('上传参考图…', 'Uploading reference…') : refImagePath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
-                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传参考图', 'Upload reference')} onChange={(event) => void uploadReferenceFile(event.currentTarget.files?.[0])} />
-                  </label>
-                </Button>
+                <Select value={refSource} onValueChange={(value) => selectReferenceSource(value as SpriteReferenceSource)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="character">{text('从角色库选择', 'Choose from character library')}</SelectItem>
+                    <SelectItem value="upload">{text('直接上传参考图', 'Upload reference directly')}</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {refSource === 'character' ? (
+                  <div className="grid gap-3">
+                    {characters.length > 0 ? (
+                      <Select value={selectedRefCharacterId ? String(selectedRefCharacterId) : ''} onValueChange={selectCharacterReference}>
+                        <SelectTrigger><SelectValue placeholder={text('选择角色', 'Choose a character')} /></SelectTrigger>
+                        <SelectContent>
+                          {characters.map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    ) : <Alert variant="info">{text('角色库还是空的。可以先从作品库保存角色，或切换为直接上传。', 'Your character library is empty. Save a character from the gallery first, or switch to direct upload.')}</Alert>}
+                    {selectedRefCharacter && <div className="text-xs text-muted-foreground">{text('已选择角色库资源：', 'Selected library character: ')}<span className="font-semibold text-foreground">{selectedRefCharacter.name}</span></div>}
+                  </div>
+                ) : (
+                  <Button type="button" variant="outline" asChild>
+                    <label className="cursor-pointer">
+                      <Upload />{refUploading ? text('上传参考图…', 'Uploading reference…') : refImagePath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
+                      <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传参考图', 'Upload reference')} onChange={(event) => void uploadReferenceFile(event.currentTarget.files?.[0])} />
+                    </label>
+                  </Button>
+                )}
+
                 {refUploadMessage && <Alert variant="destructive">{refUploadMessage}</Alert>}
                 {(refImageUrl || refImageFile) && (
                   <div className="grid gap-2">

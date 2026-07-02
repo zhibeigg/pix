@@ -95,6 +95,8 @@ export const en = {
     galleryDescription: 'Review & Tune',
     packs: 'Packs',
     packsDescription: 'Batch manage',
+    characters: 'Characters',
+    charactersDescription: 'Reuse characters',
     billing: 'Billing',
     billingDescription: 'Credits & Orders',
     rewards: 'Rewards',
@@ -401,6 +403,9 @@ export const en = {
     saveWork: 'Save to pack',
     removeWork: 'Remove',
   },
+  characters: {
+    saveFromWork: 'Save as character',
+  },
   queue: {
     eyebrow: 'Production queue',
     title: 'In production',
@@ -501,8 +506,9 @@ export const en = {
   },
   pages: {
     workspace: { eyebrow: 'Production', title: 'Production workspace', description: 'Try one asset first, then batch into the gallery; drag long-term keepers into packs.', single: 'Single test', batch: 'Batch production' },
-    gallery: { eyebrow: 'Works', title: 'Gallery', description: 'Regular works keep 10 by default and can be expanded with credits; works saved into packs are retained permanently.', allWorks: 'All works' },
+    gallery: { eyebrow: 'Works', title: 'Gallery', description: 'Regular works keep 10 by default and can be expanded with credits; works saved into packs or the character library are retained permanently.', allWorks: 'All works' },
     packs: { eyebrow: 'Packs', title: 'Packs', selectedDescription: 'Drop works here to keep them permanently; expand capacity when needed.', emptyDescription: 'Create packs and save works from the gallery.', packSubtitle: 'Pack: {{name}}', selectPack: 'Select a pack' },
+    characters: { eyebrow: 'Characters', title: 'Character library', description: 'Persist reusable character reference images for sprite generation.' },
     billing: { eyebrow: 'Credits', title: 'Billing center', description: 'Top-ups, orders, and credit history.' },
     admin: { eyebrow: 'Admin', title: 'Admin console', description: 'Quickly inspect all task works, plus operations, credits, and pricing configuration.' },
   },

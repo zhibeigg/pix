@@ -10,7 +10,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.config import WebSettings
-from pix_web.models import AssetPackItem, CreditTransaction, GalleryQuota, GenerationJob, GenerationOutput, SharedWork
+from pix_web.models import AssetPackItem, CharacterLibraryItem, CreditTransaction, GalleryQuota, GenerationJob, GenerationOutput, SharedWork
 
 MAX_RETAINED_PHOTOS_PER_USER = 10
 GALLERY_EXPAND_PRICE_CREDITS = 60
@@ -81,6 +81,18 @@ def delete_user_jobs(db: Session, user_id: int, job_ids: list[int], settings: We
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="作品已公开分享或正在审核，请联系管理员处理后再删除",
+        )
+
+    locked_characters = list(db.scalars(
+        select(CharacterLibraryItem).where(
+            CharacterLibraryItem.source_job_id.in_(ordered_ids),
+            CharacterLibraryItem.status != "deleted",
+        )
+    ))
+    if locked_characters:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="作品已保存为角色，请先删除对应角色后再删除源作品",
         )
 
     run_dirs = [
@@ -158,6 +170,10 @@ def _successful_jobs_with_outputs(db: Session, user_id: int) -> list[GenerationJ
         SharedWork.status.in_(["active", "pending"]),
         SharedWork.job_id.is_not(None),
     )
+    character_job_ids = select(CharacterLibraryItem.source_job_id).where(
+        CharacterLibraryItem.status != "deleted",
+        CharacterLibraryItem.source_job_id.is_not(None),
+    )
     stmt = (
         select(GenerationJob)
         .join(GenerationOutput)
@@ -167,6 +183,7 @@ def _successful_jobs_with_outputs(db: Session, user_id: int) -> list[GenerationJ
             GenerationJob.status == "succeeded",
             ~GenerationJob.id.in_(packed_job_ids),
             ~GenerationJob.id.in_(shared_job_ids),
+            ~GenerationJob.id.in_(character_job_ids),
         )
         .order_by(
             GenerationJob.finished_at.desc(),

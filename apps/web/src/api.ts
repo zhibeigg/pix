@@ -13,6 +13,10 @@ import type {
   AnnouncementPublishResponse,
   AssetPack,
   AssetPackQuota,
+  CharacterCreatePayload,
+  CharacterFromJobPayload,
+  CharacterItem,
+  CharacterUpdatePayload,
   CreditBalance,
   AdminBatchAdjustCreditsResponse,
   GenerationBatch,
@@ -292,6 +296,21 @@ export const api = {
   },
   jobs(token: string) {
     return request<GenerationJob[]>('/jobs?limit=50', {}, token)
+  },
+  characters(token: string) {
+    return request<CharacterItem[]>('/characters?limit=100', {}, token)
+  },
+  createCharacter(token: string, payload: CharacterCreatePayload) {
+    return request<CharacterItem>('/characters', { method: 'POST', body: JSON.stringify(payload) }, token)
+  },
+  createCharacterFromJob(token: string, jobId: number, payload: CharacterFromJobPayload = {}) {
+    return request<CharacterItem>(`/characters/jobs/${jobId}`, { method: 'POST', body: JSON.stringify(payload) }, token)
+  },
+  updateCharacter(token: string, characterId: number, payload: CharacterUpdatePayload) {
+    return request<CharacterItem>(`/characters/${characterId}`, { method: 'PATCH', body: JSON.stringify(payload) }, token)
+  },
+  deleteCharacter(token: string, characterId: number) {
+    return request<{ deleted: boolean }>(`/characters/${characterId}`, { method: 'DELETE' }, token)
   },
   galleryQuota(token: string) {
     return request<GalleryQuota>('/jobs/gallery-quota', {}, token)

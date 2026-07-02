@@ -24,6 +24,8 @@ API_KEY_SCOPES: tuple[str, ...] = (
     "jobs:create",
     "jobs:read",
     "files:read",
+    "characters:read",
+    "characters:write",
 )
 DEFAULT_API_KEY_SCOPES: tuple[str, ...] = API_KEY_SCOPES
 API_KEY_PREFIX = "pix_live_"

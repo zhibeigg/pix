@@ -17,11 +17,12 @@ from sqlalchemy.orm import Session, selectinload
 from pix_web.config import WebSettings
 from pix_web.credits import ensure_credit_account
 from pix_web.external_api_keys import ExternalApiPrincipal, require_external_scope
+from pix_web.file_ownership import resolve_owned_input_path, run_job_id_for_file
 from pix_web.jobs import create_job
-from pix_web.models import GenerationJob
+from pix_web.models import CharacterLibraryItem, GenerationJob
 from pix_web.queue import enqueue_jobs
 from pix_web.routers.settings import ImageModelsResponse, available_image_models
-from pix_web.schemas import CreditBalanceResponse, ExternalMeResponse, JobCreateRequest, JobResponse, UploadResponse, public_job_response
+from pix_web.schemas import CharacterCreateRequest, CharacterFromJobRequest, CharacterResponse, CharacterUpdateRequest, CreditBalanceResponse, ExternalMeResponse, JobCreateRequest, JobResponse, UploadResponse, public_job_response
 from pix_web.security import get_db, get_settings
 from pix_web.storage import file_url, store_uploaded_image
 from pix_web.system_settings import enforce_upload_limit, record_upload_event
@@ -47,6 +48,41 @@ def _job_for_principal(db: Session, principal: ExternalApiPrincipal, job_id: int
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
     return job
+
+
+def _normalize_character_path(raw_path: str, principal: ExternalApiPrincipal, db: Session, settings: WebSettings) -> Path:
+    try:
+        resolved = resolve_owned_input_path(raw_path, principal.user, db, settings)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="角色图片路径不合法") from exc
+    if not resolved.is_file():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="角色图片不存在")
+    return resolved
+
+
+def _source_job_id_for_file(path: Path, settings: WebSettings) -> int | None:
+    return run_job_id_for_file(path.resolve(), settings)
+
+
+def _external_character_response(item: CharacterLibraryItem) -> CharacterResponse:
+    return CharacterResponse.model_validate(item)
+
+
+def _clean_text(value: str | None, limit: int) -> str:
+    return " ".join((value or "").strip().split())[:limit]
+
+
+def _character_for_principal(db: Session, principal: ExternalApiPrincipal, character_id: int) -> CharacterLibraryItem:
+    item = db.scalar(
+        select(CharacterLibraryItem).where(
+            CharacterLibraryItem.id == character_id,
+            CharacterLibraryItem.user_id == principal.user.id,
+            CharacterLibraryItem.status != "deleted",
+        )
+    )
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="角色不存在")
+    return item
 
 
 def _read_meta(path: str | None) -> dict:
@@ -88,6 +124,29 @@ def _output_path(job: GenerationJob, kind: str) -> str:
         "sprite-grid": outputs.get("sprite_sheet_grid") or sprite.get("grid_sheet"),
     }
     return _resolve_meta_path(output.meta_json_path, by_kind.get(kind))
+
+
+def _character_output_path(job: GenerationJob, image_kind: str) -> str:
+    if job.status != "succeeded" or not job.outputs:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只能把已完成任务保存为角色")
+    output = job.outputs[0]
+    preferred = {
+        "source": output.source_path,
+        "pixelized": output.pixelized_path,
+        "preview": output.preview_path,
+    }.get(image_kind)
+    for candidate in (preferred, output.source_path, output.pixelized_path, output.preview_path):
+        if candidate and Path(candidate).is_file():
+            return str(candidate)
+    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="任务没有可保存为角色的图片")
+
+
+def _character_preview_path(job: GenerationJob, image_path: str) -> str:
+    output = job.outputs[0]
+    for candidate in (output.preview_path, output.pixelized_path, image_path, output.source_path):
+        if candidate and Path(candidate).is_file():
+            return str(candidate)
+    return image_path
 
 
 def _download_response(path: str, filename: str = "") -> FileResponse:
@@ -140,6 +199,118 @@ def external_models(
     settings: WebSettings = Depends(get_settings),
 ) -> ImageModelsResponse:
     return available_image_models(db=db, web_settings=settings)
+
+
+@router.get("/characters", response_model=list[CharacterResponse])
+def external_list_characters(
+    principal: ExternalApiPrincipal = Depends(require_external_scope("characters:read")),
+    db: Session = Depends(get_db),
+    limit: int = 100,
+) -> list[CharacterResponse]:
+    stmt = (
+        select(CharacterLibraryItem)
+        .where(
+            CharacterLibraryItem.user_id == principal.user.id,
+            CharacterLibraryItem.status.in_(["active", "archived"]),
+        )
+        .order_by(CharacterLibraryItem.updated_at.desc(), CharacterLibraryItem.created_at.desc())
+        .limit(max(1, min(200, int(limit))))
+    )
+    return [_external_character_response(item) for item in db.scalars(stmt)]
+
+
+@router.post("/characters", response_model=CharacterResponse, status_code=status.HTTP_201_CREATED)
+def external_create_character(
+    req: CharacterCreateRequest,
+    principal: ExternalApiPrincipal = Depends(require_external_scope("characters:write")),
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> CharacterResponse:
+    image_file = _normalize_character_path(req.image_path, principal, db, settings)
+    preview_file = _normalize_character_path(req.preview_path, principal, db, settings) if req.preview_path else image_file
+    source_job_id = _source_job_id_for_file(image_file, settings) or _source_job_id_for_file(preview_file, settings)
+    image_path = str(image_file)
+    preview_path = str(preview_file)
+    snapshot_source = "job_output" if source_job_id is not None else "external"
+    name = _clean_text(req.name, 160) or image_file.stem[:160] or "未命名角色"
+    item = CharacterLibraryItem(
+        user_id=principal.user.id,
+        source_job_id=source_job_id,
+        status="active",
+        name=name,
+        description=_clean_text(req.description, 1000),
+        tags_json=list(req.tags),
+        image_path=image_path,
+        preview_path=preview_path,
+        parameter_snapshot_json={"source": snapshot_source, "source_job_id": source_job_id},
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return _external_character_response(item)
+
+
+@router.post("/characters/jobs/{job_id}", response_model=CharacterResponse, status_code=status.HTTP_201_CREATED)
+def external_create_character_from_job(
+    job_id: int,
+    req: CharacterFromJobRequest,
+    principal: ExternalApiPrincipal = Depends(require_external_scope("characters:write")),
+    db: Session = Depends(get_db),
+) -> CharacterResponse:
+    job = _job_for_principal(db, principal, job_id)
+    image_path = _character_output_path(job, req.image_kind)
+    preview_path = _character_preview_path(job, image_path)
+    item = CharacterLibraryItem(
+        user_id=principal.user.id,
+        source_job_id=job.id,
+        status="active",
+        name=_clean_text(req.name, 160) or _job_file_prefix(job),
+        description=_clean_text(req.description, 1000),
+        tags_json=list(req.tags),
+        image_path=image_path,
+        preview_path=preview_path,
+        parameter_snapshot_json={"source": "job", "source_job_id": job.id, "image_kind": req.image_kind},
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return _external_character_response(item)
+
+
+@router.patch("/characters/{character_id}", response_model=CharacterResponse)
+def external_update_character(
+    character_id: int,
+    req: CharacterUpdateRequest,
+    principal: ExternalApiPrincipal = Depends(require_external_scope("characters:write")),
+    db: Session = Depends(get_db),
+) -> CharacterResponse:
+    item = _character_for_principal(db, principal, character_id)
+    if req.name is not None:
+        name = _clean_text(req.name, 160)
+        if not name:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="角色名称不能为空")
+        item.name = name
+    if req.description is not None:
+        item.description = _clean_text(req.description, 1000)
+    if req.tags is not None:
+        item.tags_json = list(req.tags)
+    if req.status is not None:
+        item.status = req.status
+    db.commit()
+    db.refresh(item)
+    return _external_character_response(item)
+
+
+@router.delete("/characters/{character_id}")
+def external_delete_character(
+    character_id: int,
+    principal: ExternalApiPrincipal = Depends(require_external_scope("characters:write")),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    item = _character_for_principal(db, principal, character_id)
+    item.status = "deleted"
+    db.commit()
+    return {"deleted": True}
 
 
 @router.post("/uploads/images", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)

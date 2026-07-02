@@ -11,7 +11,7 @@ from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits, ensure_credit_account
 from pix_web.external_api_keys import create_external_api_key, hash_api_key
 from pix_web.main import create_app
-from pix_web.models import ExternalApiKey, GenerationJob, SystemSetting, User
+from pix_web.models import CharacterLibraryItem, ExternalApiKey, GenerationJob, GenerationOutput, SystemSetting, User
 from pix_web.security import create_access_token
 
 
@@ -161,6 +161,66 @@ class ExternalApiTests(unittest.TestCase):
         response = self.client.post("/external/v1/jobs", headers={"Authorization": f"Bearer {raw}"}, json=payload)
         self.assertEqual(response.status_code, 422, response.text)
         self.assertIn("素材主体最多支持 3 字", response.text)
+
+    def test_external_character_api_requires_scope_and_supports_crud(self) -> None:
+        upload_dir = self.settings.storage_root / "uploads" / str(self.user.id)
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        image_path = upload_dir / "hero.png"
+        image_path.write_bytes(b"img")
+
+        no_scope_key = self._create_key(scopes=["me:read"])
+        forbidden = self.client.get("/external/v1/characters", headers={"Authorization": f"Bearer {no_scope_key}"})
+        self.assertEqual(forbidden.status_code, 403, forbidden.text)
+
+        raw = self._create_key(scopes=["characters:read", "characters:write"])
+        created = self.client.post(
+            "/external/v1/characters",
+            headers={"Authorization": f"Bearer {raw}"},
+            json={"name": "Hero", "tags": ["blue", "hero"], "image_path": str(image_path)},
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        character_id = created.json()["id"]
+        self.assertEqual(created.json()["name"], "Hero")
+        self.assertEqual(created.json()["tags"], ["blue", "hero"])
+
+        listed = self.client.get("/external/v1/characters", headers={"Authorization": f"Bearer {raw}"})
+        self.assertEqual(listed.status_code, 200, listed.text)
+        self.assertEqual([item["id"] for item in listed.json()], [character_id])
+
+        updated = self.client.patch(
+            f"/external/v1/characters/{character_id}",
+            headers={"Authorization": f"Bearer {raw}"},
+            json={"name": "Hero Prime", "status": "archived"},
+        )
+        self.assertEqual(updated.status_code, 200, updated.text)
+        self.assertEqual(updated.json()["status"], "archived")
+
+        deleted = self.client.delete(f"/external/v1/characters/{character_id}", headers={"Authorization": f"Bearer {raw}"})
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+        row = self.db.get(CharacterLibraryItem, character_id)
+        self.assertIsNotNone(row)
+        self.assertEqual(row.status, "deleted")
+
+    def test_external_create_character_from_job_records_source_job(self) -> None:
+        raw = self._create_key(scopes=["characters:read", "characters:write", "jobs:read"])
+        job = GenerationJob(user_id=self.user.id, client_request_id="done", job_type="asset", status="succeeded", prompt="Hero")
+        self.db.add(job)
+        self.db.flush()
+        run_dir = self.settings.storage_root / "runs" / f"job-{job.id}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        pixelized = run_dir / "pixelized.png"
+        pixelized.write_bytes(b"img")
+        self.db.add(GenerationOutput(job_id=job.id, run_dir=str(run_dir), source_path=str(pixelized), pixelized_path=str(pixelized), preview_path=str(pixelized), meta_json_path=str(run_dir / "meta.json")))
+        self.db.commit()
+
+        response = self.client.post(
+            f"/external/v1/characters/jobs/{job.id}",
+            headers={"Authorization": f"Bearer {raw}"},
+            json={"name": "Hero From Job", "image_kind": "pixelized"},
+        )
+        self.assertEqual(response.status_code, 201, response.text)
+        self.assertEqual(response.json()["source_job_id"], job.id)
+        self.assertEqual(response.json()["image_path"], str(pixelized))
 
 
 if __name__ == "__main__":

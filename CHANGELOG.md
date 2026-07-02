@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.107.0] - 2026-07-02
+
+### Added
+
+- 新增独立「角色库」：用户可上传角色参考图，或从已完成作品保存角色；角色库作为持久资源独立于普通作品库保留格，并提供前端页面、导航、路由、SEO 与中英语言文案。
+- 序列帧生成表单新增参考来源选择器：可从角色库选择角色，也可继续直接上传临时参考图；提交仍复用 `sprite.reference_image_path`，兼容现有 `mosaic` 与 `video_bridge` 后端链路。
+- 新增内部 `/characters` 与外部 `/external/v1/characters` 角色库 API，支持列表、创建、从任务保存、更新、删除；外部 API 新增独立 scope：`characters:read` / `characters:write`。
+
+### Security
+
+- 角色库图片接入文件归属校验：任务创建和 `/files` 访问会校验角色记录归属，阻止越权引用或读取他人角色图。
+- 角色引用的源作品加入删除与自动清理保护：保存为角色的作品不会被普通作品库保留策略清理，手动删除源作品会返回冲突提示。
+
+### Tests
+
+- 新增角色库文件归属、序列帧引用下单、作品保留保护、外部 API scope/CRUD 和从任务保存角色的回归测试。
+
 ## [1.106.0] - 2026-07-02
 
 ### Added

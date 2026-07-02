@@ -95,6 +95,8 @@ export const zhCN = {
     galleryDescription: '查看与微调',
     packs: '素材包',
     packsDescription: '批量管理',
+    characters: '角色库',
+    charactersDescription: '复用角色',
     billing: '点数',
     billingDescription: '充值流水',
     rewards: '邀请奖励',
@@ -401,6 +403,9 @@ export const zhCN = {
     saveWork: '保存到素材包',
     removeWork: '移除',
   },
+  characters: {
+    saveFromWork: '保存为角色',
+  },
   queue: {
     eyebrow: '生产队列',
     title: '正在生产',
@@ -501,8 +506,9 @@ export const zhCN = {
   },
   pages: {
     workspace: { eyebrow: '生产', title: '生产工作台', description: '先试单张，再批量进入作品库；需要长期保存的作品可拖入素材包。', single: '单图试做', batch: '批量生产' },
-    gallery: { eyebrow: '作品', title: '作品库', description: '普通作品默认保留 10 张，可用点数扩容；保存进素材包后会永久保留。', allWorks: '全部作品' },
+    gallery: { eyebrow: '作品', title: '作品库', description: '普通作品默认保留 10 张，可用点数扩容；保存进素材包或角色库后会永久保留。', allWorks: '全部作品' },
     packs: { eyebrow: '素材包', title: '素材包', selectedDescription: '拖入作品后会永久保存，可按需扩容。', emptyDescription: '新建素材包并从作品库保存作品。', packSubtitle: '素材包：{{name}}', selectPack: '请选择素材包' },
+    characters: { eyebrow: '角色', title: '角色库', description: '持久保存角色参考图，序列帧生成时可直接复用。' },
     billing: { eyebrow: '点数', title: '点数中心', description: '充值、订单、流水。' },
     admin: { eyebrow: '后台', title: '管理后台', description: '快速查看全站任务作品，并管理运营、点数与价格配置。' },
   },

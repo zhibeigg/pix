@@ -32,6 +32,7 @@ class User(Base):
     credit_account: Mapped["CreditAccount"] = relationship(back_populates="user", uselist=False)
     shared_works: Mapped[list["SharedWork"]] = relationship(back_populates="user", foreign_keys="SharedWork.user_id")
     shared_work_likes: Mapped[list["SharedWorkLike"]] = relationship(back_populates="user")
+    characters: Mapped[list["CharacterLibraryItem"]] = relationship(back_populates="user")
 
 
 class ExternalApiKey(Base):
@@ -333,6 +334,7 @@ class GenerationJob(Base):
     pack_items: Mapped[list[AssetPackItem]] = relationship(back_populates="job")
     outputs: Mapped[list["GenerationOutput"]] = relationship(back_populates="job")
     shared_work: Mapped["SharedWork | None"] = relationship(back_populates="job", uselist=False)
+    character_items: Mapped[list["CharacterLibraryItem"]] = relationship(back_populates="source_job")
 
 
 class GenerationPolicyEvent(Base):
@@ -362,6 +364,26 @@ class GenerationOutput(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     job: Mapped[GenerationJob] = relationship(back_populates="outputs")
+
+
+class CharacterLibraryItem(Base):
+    __tablename__ = "character_library_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    source_job_id: Mapped[int | None] = mapped_column(ForeignKey("generation_jobs.id"), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="active", index=True)
+    name: Mapped[str] = mapped_column(String(160), default="")
+    description: Mapped[str] = mapped_column(Text, default="")
+    tags_json: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    image_path: Mapped[str] = mapped_column(Text, default="")
+    preview_path: Mapped[str] = mapped_column(Text, default="")
+    parameter_snapshot_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    user: Mapped[User] = relationship(back_populates="characters")
+    source_job: Mapped[GenerationJob | None] = relationship(back_populates="character_items")
 
 
 class SharedWork(Base):

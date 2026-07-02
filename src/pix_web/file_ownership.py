@@ -9,7 +9,8 @@
 2. 路径位于 ``storage_root/runs/job-{jid}/`` 下，且 ``GenerationJob.id == jid`` 存在且
    ``job.user_id == user.id`` —— 用户自己任务的产物（本地像素化 / 重新像素化 / 复用源图等
    合法链路会把这些路径回填到 ``input_image_path``）；
-3. 管理员（``user.role == "admin"``）放行。
+3. 路径被用户自己的角色库记录作为 ``image_path`` / ``preview_path`` 引用；
+4. 管理员（``user.role == "admin"``）放行。
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from pix_web.config import WebSettings
-from pix_web.models import GenerationJob, User
+from pix_web.models import CharacterLibraryItem, GenerationJob, User
 
 _JOB_DIR_RE = re.compile(r"^job-(\d+)$")
 
@@ -32,6 +33,39 @@ def _relative_parts(resolved: Path, root: Path) -> tuple[str, ...] | None:
         return resolved.relative_to(root).parts
     except ValueError:
         return None
+
+
+def _path_matches(resolved: Path, raw_path: str | None) -> bool:
+    if not raw_path:
+        return False
+    try:
+        candidate = Path(raw_path).expanduser()
+        if not candidate.is_absolute():
+            candidate = Path.cwd() / candidate
+        return candidate.resolve() == resolved
+    except OSError:
+        return False
+
+
+def _user_character_references_file(resolved: Path, user: User, db: Session) -> bool:
+    stmt = select(CharacterLibraryItem.image_path, CharacterLibraryItem.preview_path).where(
+        CharacterLibraryItem.user_id == user.id,
+        CharacterLibraryItem.status != "deleted",
+    )
+    for image_path, preview_path in db.execute(stmt):
+        if _path_matches(resolved, image_path) or _path_matches(resolved, preview_path):
+            return True
+    return False
+
+
+def run_job_id_for_file(resolved: Path, settings: WebSettings) -> int | None:
+    """若路径位于 ``storage_root/runs/job-{id}`` 下，返回对应任务 ID。"""
+    runs_root = (settings.storage_root.resolve() / "runs").resolve()
+    run_parts = _relative_parts(resolved, runs_root)
+    if not run_parts:
+        return None
+    match = _JOB_DIR_RE.match(run_parts[0])
+    return int(match.group(1)) if match else None
 
 
 def user_owns_file(resolved: Path, user: User, db: Session, settings: WebSettings) -> bool:
@@ -50,17 +84,14 @@ def user_owns_file(resolved: Path, user: User, db: Session, settings: WebSetting
     if upload_parts and len(upload_parts) >= 1 and upload_parts[0] == str(user.id):
         return True
 
-    runs_root = (storage_root / "runs").resolve()
-    run_parts = _relative_parts(resolved, runs_root)
-    if run_parts:
-        match = _JOB_DIR_RE.match(run_parts[0])
-        if match:
-            job_id = int(match.group(1))
-            owner_id = db.scalar(
-                select(GenerationJob.user_id).where(GenerationJob.id == job_id)
-            )
-            if owner_id is not None and owner_id == user.id:
-                return True
+    job_id = run_job_id_for_file(resolved, settings)
+    if job_id is not None:
+        owner_id = db.scalar(select(GenerationJob.user_id).where(GenerationJob.id == job_id))
+        if owner_id is not None and owner_id == user.id:
+            return True
+
+    if _user_character_references_file(resolved, user, db):
+        return True
 
     return False
 
@@ -68,7 +99,7 @@ def user_owns_file(resolved: Path, user: User, db: Session, settings: WebSetting
 def resolve_owned_input_path(raw_path: str, user: User, db: Session, settings: WebSettings) -> Path:
     """解析用户提交的输入图路径并校验归属，返回解析后的绝对路径。
 
-    仅允许指向用户自己的上传目录或自己任务的 run 目录，阻止任意文件读取。
+    仅允许指向用户自己的上传目录、自己任务的 run 目录或自己角色库记录引用的图片，阻止任意文件读取。
     非法路径抛 :class:`ValueError`，由调用方转换为合适的 HTTP 错误。
     """
     candidate = Path(raw_path).expanduser()

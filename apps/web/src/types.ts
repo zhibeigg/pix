@@ -559,6 +559,7 @@ export type GenerationJob = {
   prompt: string | null
   input_image_path: string | null
   input_image_url: string | null
+  sprite_reference_image_url?: string | null
   params_json: Record<string, unknown>
   price_credits: number
   reserved_credits: number
@@ -583,6 +584,46 @@ export type UploadResponse = {
   filename: string
   content_type: string
   size_bytes: number
+}
+
+export type CharacterItem = {
+  id: number
+  user_id: number
+  source_job_id: number | null
+  status: 'active' | 'archived' | string
+  name: string
+  description: string
+  tags_json: unknown[]
+  tags: string[]
+  image_path: string
+  image_url: string | null
+  preview_path: string
+  preview_url: string | null
+  parameter_snapshot_json: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export type CharacterCreatePayload = {
+  name?: string
+  description?: string
+  tags?: string[]
+  image_path: string
+  preview_path?: string | null
+}
+
+export type CharacterFromJobPayload = {
+  name?: string
+  description?: string
+  tags?: string[]
+  image_kind?: 'source' | 'pixelized' | 'preview'
+}
+
+export type CharacterUpdatePayload = {
+  name?: string
+  description?: string
+  tags?: string[]
+  status?: 'active' | 'archived'
 }
 
 export type PricingRule = {

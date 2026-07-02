@@ -4,7 +4,7 @@ import { applyPageSeo } from '../lib/seo'
 import type { AppPage } from '../components/AppTabs'
 import type { User } from '../types'
 
-const HASH_PAGES: AppPage[] = ['home', 'workspace', 'raw-image', 'gallery', 'packs', 'billing', 'rewards', 'api', 'admin']
+const HASH_PAGES: AppPage[] = ['home', 'workspace', 'raw-image', 'gallery', 'packs', 'characters', 'billing', 'rewards', 'api', 'admin']
 
 export function pageFromHash(user: User | null): AppPage {
   const pathname = window.location.pathname.replace(/\/+$/, '') || '/'

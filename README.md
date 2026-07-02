@@ -134,6 +134,24 @@ npm run build
 
 生产工作台的「视频补间」模式提供**动画预设**（帧数×FPS 组合）供直接选择，无需手动计算视频时长：轻量循环（8帧@8fps）、标准动作（8帧@6fps）、流畅动作（16帧@10fps）、丝滑动作（16帧@8fps，默认）、长演出（24帧@8fps），以及「自定义」。选择预设会自动设置 `rows×cols` 与 `fps`，并实时按前端复刻的档位吸附逻辑展示「提交 Ark 视频 Xs · 播放约 Ys」；自定义模式下调整行列 / FPS 也会实时更新推导结果。
 
+### 角色库
+
+登录用户可在「角色库」页面持久保存角色参考图：既可以直接上传立绘 / 三视图 / 设定图，也可以在作品库卡片点击「保存为角色」把已完成作品保存为角色。角色库是独立持久资源，不占普通作品库保留格；角色记录只保存图片路径、预览路径、名称、说明、标签、源作品 ID 和安全参数快照，不会复制或移动原始产物。
+
+角色库已接入统一文件归属校验：`/files` 访问、站内任务创建和外部 API 创建任务都只能引用当前用户自己的上传图、任务产物或角色库记录中的图片。序列帧表单的「参考来源」可在「从角色库选择」与「直接上传参考图」之间切换；最终提交仍写入 `sprite.reference_image_path`，因此 `sprite.mode="mosaic"` 与 `sprite.mode="video_bridge"` 复用现有后端链路。
+
+保存自作品产物的角色会锁定对应源作品：普通作品库自动清理不会删除该源作品，用户手动删除源作品时会返回 409，需要先删除对应角色记录。删除角色只移除角色库记录，不会删除上传文件或源作品；如果角色来自上传图，则不占用作品库保留策略。
+
+站内角色 API：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/characters?limit=100` | 列出当前用户 `active` / `archived` 角色。 |
+| `POST` | `/characters` | 用当前用户可访问的 `image_path` 创建角色；若路径位于 `runs/job-{id}` 会自动记录 `source_job_id`。 |
+| `POST` | `/characters/jobs/{job_id}` | 从当前用户已完成作品保存角色，`image_kind` 可选 `source` / `pixelized` / `preview`。 |
+| `PATCH` | `/characters/{id}` | 更新名称、说明、标签或 `active` / `archived` 状态。 |
+| `DELETE` | `/characters/{id}` | 软删除角色记录。 |
+
 ### 公开分享作品
 
 作品库中的成功作品可点击「提交审核」进入管理员审核队列（`pending`），不会立即出现在首页。审核通过后状态变为 `active`，才会进入首页「用户分享」池；管理员也可以驳回为 `rejected`，作者在作品库查看驳回理由、修改后可重新提交。审核通过的分享会锁定源作品：作者不能自行下架分享，也不能删除源作品；如需下架由管理员在后台「内容审核」执行。审核中（`pending`）的源作品同样禁止作者删除；`rejected` / `hidden` 仍可删除，删除时分享记录标记为 `deleted`。
@@ -203,16 +221,29 @@ npm run build
 
 ## 对外 API
 
-普通用户登录后可在网站「API」页面创建、停用或删除长期 API Key，并查看详细调用文档与 `curl` 示例。页面内置类似 sub2api 的令牌生成器：先在浏览器生成 `pix_live_` + 32 字节随机 hex 的候选令牌，提交创建后才生效；后端会校验格式与唯一性，数据库只保存 hash 与 prefix。API Key 明文只在创建成功时展示一次；列表页只展示名称、prefix、scope、创建时间、最后使用时间和撤销时间。外部程序使用 `Authorization: Bearer <api_key>` 调用 `/external/v1/...`，任务仍归属该 key 对应用户，并复用现有任务创建、扣点预留、队列入队、作品权限和文件下载逻辑。API 页面已覆盖认证、账号 / 余额 / 模型查询、上传参考图、素材直出、图生图、序列帧、轮询分页和下载输出等接入步骤。
+普通用户登录后可在网站「API」页面创建、停用或删除长期 API Key，并查看详细调用文档与 `curl` 示例。页面内置类似 sub2api 的令牌生成器：先在浏览器生成 `pix_live_` + 32 字节随机 hex 的候选令牌，提交创建后才生效；后端会校验格式与唯一性，数据库只保存 hash 与 prefix。API Key 明文只在创建成功时展示一次；列表页只展示名称、prefix、scope、创建时间、最后使用时间和撤销时间。外部程序使用 `Authorization: Bearer <api_key>` 调用 `/external/v1/...`，任务仍归属该 key 对应用户，并复用现有任务创建、扣点预留、队列入队、作品权限、角色库权限和文件下载逻辑。API 页面已覆盖认证、账号 / 余额 / 模型查询、上传参考图、角色库读写、素材直出、图生图、序列帧、轮询分页和下载输出等接入步骤。
 
 `JobCreateRequest` 可选 `style_profile` 项目风格档案：`project_name`、`palette`、`line_style`、`lighting`、`view_rule`、`avoid_elements`。这些字段会由后端统一编译为 prompt 补充约束，用于素材直出、平铺纹理、双瓦片和序列帧；它不会替换像素尺寸、纯色背景、无缝瓦片或序列帧布局等硬约束。站内用户还可调用 `POST /jobs/prompt-preview` 在扣点前查看真实合成后的 prompt（外部 API 创建任务仍走 `/external/v1/jobs`）。
 
 可分配的 scope：
 
+- `me:read` / `balance:read` / `models:read`：查询账号、余额与可用模型；
+- `uploads:create`：上传参考图 / 输入图，供后续任务 payload 或角色库使用；
 - `jobs:create`：创建素材直出、文生图、图生图、本地像素化、本地去背景、重新像素化、序列帧等任务；
 - `jobs:read`：查询自己的任务列表与任务详情；
 - `files:read`：下载自己的任务输出或序列帧动作 zip；
-- `uploads:create`：上传参考图 / 输入图，供后续任务 payload 使用。
+- `characters:read`：读取当前账号角色库；
+- `characters:write`：创建、更新、删除角色，或从已完成任务保存角色。
+
+外部角色库 API：
+
+| 方法 | 路径 | Scope | 说明 |
+|---|---|---|---|
+| `GET` | `/external/v1/characters?limit=100` | `characters:read` | 列出当前 API Key 所属账号的角色库。 |
+| `POST` | `/external/v1/characters` | `characters:write` | 用已归属当前账号的 `image_path` 创建角色。 |
+| `POST` | `/external/v1/characters/jobs/{job_id}` | `characters:write` | 从当前账号已完成任务保存角色。 |
+| `PATCH` | `/external/v1/characters/{id}` | `characters:write` | 更新名称、说明、标签或归档状态。 |
+| `DELETE` | `/external/v1/characters/{id}` | `characters:write` | 软删除角色记录。 |
 
 常用调用示例：
 
@@ -240,9 +271,20 @@ curl "https://example.com/api/external/v1/jobs/{job_id}" \
   -H "Authorization: Bearer pix_live_xxx"
 
 # 上传参考图 / 本地输入图
-curl -X POST "https://example.com/api/external/v1/uploads" \
+curl -X POST "https://example.com/api/external/v1/uploads/images" \
   -H "Authorization: Bearer pix_live_xxx" \
   -F "file=@reference.png"
+
+# 角色库：保存上传图，或从已完成任务保存角色
+curl -X POST "https://example.com/api/external/v1/characters" \
+  -H "Authorization: Bearer pix_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"blue knight","image_path":"把上传接口返回的 path 填在这里","tags":["hero"]}'
+
+curl -X POST "https://example.com/api/external/v1/characters/jobs/{job_id}" \
+  -H "Authorization: Bearer pix_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"blue knight","image_kind":"pixelized"}'
 
 # 创建本地去背景任务（algorithm: pixel_bg=像素；color_to_alpha=高清）
 curl -X POST "https://example.com/api/external/v1/jobs" \
@@ -255,13 +297,13 @@ curl -X POST "https://example.com/api/external/v1/jobs" \
     "pixelize": {"remove_bg": true, "bg_removal_algorithm": "color_to_alpha"}
   }'
 
-# 下载任务输出（kind 可用 final、source、sprite_sheet、sprite_mosaic、grid 等）
-curl -L "https://example.com/api/external/v1/jobs/{job_id}/outputs/final" \
+# 下载任务输出（kind 可用 source、pixelized、preview、sprite-sheet、sprite-mosaic、sprite-grid）
+curl -L "https://example.com/api/external/v1/jobs/{job_id}/outputs/pixelized" \
   -H "Authorization: Bearer pix_live_xxx" \
   -o output.png
 
 # 下载多行动作序列帧 zip
-curl -L "https://example.com/api/external/v1/jobs/{job_id}/sprite-actions.zip" \
+curl -L "https://example.com/api/external/v1/jobs/{job_id}/outputs/sprite-actions.zip" \
   -H "Authorization: Bearer pix_live_xxx" \
   -o sprite-actions.zip
 ```

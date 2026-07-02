@@ -19,6 +19,7 @@ import { WorkspacePage, type ReuseJobSeed, type WorkMode } from './pages/Workspa
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 const ApiPage = lazy(() => import('./pages/ApiPage').then((m) => ({ default: m.ApiPage })))
 const BillingPage = lazy(() => import('./pages/BillingPage').then((m) => ({ default: m.BillingPage })))
+const CharactersPage = lazy(() => import('./pages/CharactersPage').then((m) => ({ default: m.CharactersPage })))
 const PacksPage = lazy(() => import('./pages/PacksPage').then((m) => ({ default: m.PacksPage })))
 const RawImagePage = lazy(() => import('./pages/RawImagePage').then((m) => ({ default: m.RawImagePage })))
 const RewardsPage = lazy(() => import('./pages/RewardsPage').then((m) => ({ default: m.RewardsPage })))
@@ -31,7 +32,7 @@ import { useReferralCode, LEGACY_REFERRAL_CODE_KEY } from './hooks/useReferralCo
 import { useBillingActions } from './hooks/useBillingActions'
 import { useAdminActions } from './hooks/useAdminActions'
 import { applyPageSeo } from './lib/seo'
-import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GalleryQuota, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingDiscount, PricingRule, SequenceAlignmentRequest, SetupStatus, SharedWork, SystemSetting, User } from './types'
+import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, CharacterCreatePayload, CharacterFromJobPayload, CharacterItem, CharacterUpdatePayload, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GalleryQuota, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingDiscount, PricingRule, SequenceAlignmentRequest, SetupStatus, SharedWork, SystemSetting, User } from './types'
 
 type AppProps = {
   themeMode: PixThemeMode
@@ -83,6 +84,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [checkout, setCheckout] = useState<PaymentCheckout | null>(null)
   const [jobs, setJobs] = useState<GenerationJob[]>([])
   const [sharedWorks, setSharedWorks] = useState<SharedWork[]>([])
+  const [characters, setCharacters] = useState<CharacterItem[]>([])
   const [packs, setPacks] = useState<AssetPack[]>([])
   const [packQuota, setPackQuota] = useState<AssetPackQuota | null>(null)
   const [galleryQuota, setGalleryQuota] = useState<GalleryQuota | null>(null)
@@ -173,7 +175,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     if (!activeToken) return
     // 与核心数据一起预取文件票据，确保作品/图片渲染时票据已就绪（避免 <img> 首帧无票据 401）。
     void prefetchFileTicket(activeToken)
-    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextGalleryQuota, nextSharedWorks, nextPacks, nextPackQuota, nextPricing, nextImageModels, nextDiscount] = await Promise.all([
+    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextGalleryQuota, nextSharedWorks, nextCharacters, nextPacks, nextPackQuota, nextPricing, nextImageModels, nextDiscount] = await Promise.all([
       api.me(activeToken),
       api.balance(activeToken),
       api.transactions(activeToken),
@@ -183,6 +185,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       api.jobs(activeToken),
       api.galleryQuota(activeToken),
       api.sharedWorks(activeToken, { limit: 48 }).then((result) => result.items).catch(() => []),
+      api.characters(activeToken),
       api.packs(activeToken),
       api.packQuota(activeToken),
       api.pricing(activeToken),
@@ -199,6 +202,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setJobs(nextJobs)
     setGalleryQuota(nextGalleryQuota)
     setSharedWorks(nextSharedWorks)
+    setCharacters(nextCharacters)
     setPacks(nextPacks)
     setPackQuota(nextPackQuota)
     setPricing(nextPricing)
@@ -259,6 +263,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   useEffect(() => {
     if (token) return
     setSharedWorks([])
+    setCharacters([])
   }, [token])
 
   useEffect(() => {
@@ -457,6 +462,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setOrders([])
     setJobs([])
     setSharedWorks([])
+    setCharacters([])
     setPacks([])
     setPackQuota(null)
     setGalleryQuota(null)
@@ -698,6 +704,58 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       setSelectedPackJobs(await api.packJobs(token, pack.id))
       await refreshCore(token)
       setMessage(text('作品已从素材包移除', 'Work removed from pack'))
+    } catch (error) {
+      showError(error)
+    }
+  }
+
+  async function createCharacter(payload: CharacterCreatePayload) {
+    if (!token) return null
+    try {
+      const item = await api.createCharacter(token, payload)
+      await refreshCore(token)
+      setMessage(text(`角色「${item.name}」已保存`, `Character “${item.name}” saved`), 'success')
+      return item
+    } catch (error) {
+      showError(error)
+      throw error
+    }
+  }
+
+  async function createCharacterFromJob(job: GenerationJob, payload: CharacterFromJobPayload = {}) {
+    if (!token) return null
+    try {
+      const item = await api.createCharacterFromJob(token, job.id, payload)
+      await refreshCore(token)
+      setMessage(text(`作品 #${job.id} 已保存为角色「${item.name}」`, `Work #${job.id} saved as character “${item.name}”`), 'success')
+      return item
+    } catch (error) {
+      showError(error)
+      throw error
+    }
+  }
+
+  async function updateCharacter(item: CharacterItem, payload: CharacterUpdatePayload) {
+    if (!token) return null
+    try {
+      const updated = await api.updateCharacter(token, item.id, payload)
+      await refreshCore(token)
+      setMessage(text('角色已更新', 'Character updated'), 'success')
+      return updated
+    } catch (error) {
+      showError(error)
+      throw error
+    }
+  }
+
+  async function deleteCharacter(item: CharacterItem) {
+    if (!token) return
+    const approved = await confirm({ title: text('删除角色', 'Delete character'), description: text(`删除角色「${item.name}」？这只会移除角色库记录，不会删除源作品或上传文件。`, `Delete character “${item.name}”? This only removes the library entry; it does not delete the source work or upload.`), confirmText: text('删除角色', 'Delete character') })
+    if (!approved) return
+    try {
+      await api.deleteCharacter(token, item.id)
+      await refreshCore(token)
+      setMessage(text('角色已删除', 'Character deleted'), 'success')
     } catch (error) {
       showError(error)
     }
@@ -947,10 +1005,11 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           onNavigate={navigate}
         >
           <Suspense fallback={<div className="grid min-h-[calc(100vh-160px)] place-items-center px-4 text-sm text-muted-foreground">{t('app.checkingSetup')}</div>}>
-            {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} reuseJobSeed={reuseJobSeed} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
+            {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} discount={discount} balance={balance} jobs={jobs} characters={characters} loading={busy} token={token} imageModels={imageModels} reuseJobSeed={reuseJobSeed} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'raw-image' && <RawImagePage pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} selectedJobId={selectedRawJobId} reuseSeed={rawReuseSeed} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
-            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onDeleteJobs={deleteJobs} onSaveSequenceAlignment={saveSequenceAlignment} onPublishShare={publishJobShare} onUnpublishShare={unpublishJobShare} />}
+            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onDeleteJobs={deleteJobs} onSaveSequenceAlignment={saveSequenceAlignment} onPublishShare={publishJobShare} onUnpublishShare={unpublishJobShare} onSaveAsCharacter={async (job) => { await createCharacterFromJob(job) }} />}
             {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
+            {page === 'characters' && <CharactersPage token={token} characters={characters} loading={busy} onCreate={createCharacter} onUpdate={updateCharacter} onDelete={deleteCharacter} onRefresh={refreshCurrent} />}
             {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
             {page === 'rewards' && <RewardsPage token={token} onRefresh={refreshCurrent} />}
             {page === 'api' && <ApiPage token={token} />}

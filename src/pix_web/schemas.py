@@ -629,6 +629,84 @@ class UploadResponse(BaseModel):
     url: str | None = None
 
 
+class CharacterCreateRequest(BaseModel):
+    name: str = Field(default="", max_length=160)
+    description: str = Field(default="", max_length=1000)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    image_path: str
+    preview_path: str | None = None
+
+    @field_validator("tags")
+    @classmethod
+    def _normalize_tags(cls, value: list[str]) -> list[str]:
+        result: list[str] = []
+        seen: set[str] = set()
+        for raw in value:
+            tag = " ".join(str(raw or "").strip().split())[:40]
+            key = tag.lower()
+            if not tag or key in seen:
+                continue
+            seen.add(key)
+            result.append(tag)
+        return result
+
+
+class CharacterFromJobRequest(BaseModel):
+    name: str = Field(default="", max_length=160)
+    description: str = Field(default="", max_length=1000)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    image_kind: Literal["source", "pixelized", "preview"] = "source"
+
+    @field_validator("tags")
+    @classmethod
+    def _normalize_tags(cls, value: list[str]) -> list[str]:
+        return CharacterCreateRequest._normalize_tags(value)
+
+
+class CharacterUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, max_length=160)
+    description: str | None = Field(default=None, max_length=1000)
+    tags: list[str] | None = Field(default=None, max_length=20)
+    status: Literal["active", "archived"] | None = None
+
+    @field_validator("tags")
+    @classmethod
+    def _normalize_tags(cls, value: list[str] | None) -> list[str] | None:
+        return None if value is None else CharacterCreateRequest._normalize_tags(value)
+
+
+class CharacterResponse(BaseModel):
+    id: int
+    user_id: int
+    source_job_id: int | None
+    status: str
+    name: str
+    description: str = ""
+    tags_json: list[Any] = Field(default_factory=list)
+    image_path: str
+    preview_path: str
+    parameter_snapshot_json: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+
+    @computed_field
+    @property
+    def tags(self) -> list[str]:
+        return [str(item) for item in self.tags_json if str(item).strip()]
+
+    @computed_field
+    @property
+    def image_url(self) -> str | None:
+        return file_url(self.image_path)
+
+    @computed_field
+    @property
+    def preview_url(self) -> str | None:
+        return file_url(self.preview_path or self.image_path)
+
+    model_config = {"from_attributes": True}
+
+
 class JobOutputResponse(BaseModel):
     run_dir: str
     source_path: str
@@ -1076,6 +1154,15 @@ class JobResponse(BaseModel):
     @property
     def input_image_url(self) -> str | None:
         return file_url(self.input_image_path)
+
+    @computed_field
+    @property
+    def sprite_reference_image_url(self) -> str | None:
+        sprite = self.params_json.get("sprite") if isinstance(self.params_json, dict) else None
+        if not isinstance(sprite, dict):
+            return None
+        value = sprite.get("reference_image_path")
+        return file_url(str(value)) if value else None
 
     @computed_field
     @property

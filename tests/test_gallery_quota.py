@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits
-from pix_web.models import AssetPack, AssetPackItem, Base, CreditAccount, CreditTransaction, GenerationJob, GenerationOutput, User
+from pix_web.models import AssetPack, AssetPackItem, Base, CharacterLibraryItem, CreditAccount, CreditTransaction, GenerationJob, GenerationOutput, User
 from pix_web.retention import MAX_RETAINED_PHOTOS_PER_USER, delete_user_jobs, effective_gallery_limit, prune_user_photos
 from pix_web.routers.jobs import expand_gallery_quota, get_gallery_quota
 
@@ -151,6 +151,30 @@ class GalleryQuotaTests(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertIsNotNone(self.db.get(GenerationJob, removable_id))
         self.assertIsNotNone(self.db.get(GenerationJob, active_id))
+
+    def test_character_source_job_blocks_manual_delete(self) -> None:
+        job = self._successful_job(401)
+        self.db.add(CharacterLibraryItem(user_id=self.user.id, source_job_id=job.id, name="Hero", image_path="source.png", preview_path="source.png"))
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            delete_user_jobs(self.db, self.user.id, [job.id], self.settings)
+
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertIsNotNone(self.db.get(GenerationJob, job.id))
+
+    def test_prune_user_photos_keeps_character_source_job(self) -> None:
+        keep_job = self._successful_job(501)
+        self.db.add(CharacterLibraryItem(user_id=self.user.id, source_job_id=keep_job.id, name="Hero", image_path="source.png", preview_path="source.png"))
+        for index in range(20):
+            self._successful_job(600 + index)
+        self.db.commit()
+
+        pruned = prune_user_photos(self.db, self.user.id, self.settings, keep=10)
+        self.db.commit()
+
+        self.assertEqual(pruned, 10)
+        self.assertIsNotNone(self.db.get(GenerationJob, keep_job.id))
 
 
 if __name__ == "__main__":

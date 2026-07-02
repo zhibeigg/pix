@@ -55,6 +55,16 @@ const pageSeo: Record<AppPage, Record<PixLanguage, { title: string; description:
       description: 'Organize item icons, textures, and sprite sheets into reusable asset packs for batch export in Pix Forge.',
     },
   },
+  characters: {
+    'zh-CN': {
+      title: '角色库｜复用角色参考生成一致序列帧 - Pix Forge',
+      description: '在 Pix Forge 角色库中保存角色立绘与参考图，并在序列帧生成中复用同一角色设计。',
+    },
+    en: {
+      title: 'Character Library for Consistent Sprite References - Pix Forge',
+      description: 'Save character art and references in Pix Forge, then reuse the same design when generating sprite animations.',
+    },
+  },
   billing: {
     'zh-CN': {
       title: '点数中心｜AI 像素素材生成计费 - Pix Forge',

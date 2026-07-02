@@ -18,6 +18,8 @@ const API_SCOPES = [
   'jobs:create',
   'jobs:read',
   'files:read',
+  'characters:read',
+  'characters:write',
 ]
 
 const SCOPE_LABELS: Record<string, { zh: string; en: string }> = {
@@ -28,6 +30,8 @@ const SCOPE_LABELS: Record<string, { zh: string; en: string }> = {
   'jobs:create': { zh: '创建任务', en: 'Create jobs' },
   'jobs:read': { zh: '读取任务', en: 'Read jobs' },
   'files:read': { zh: '下载结果', en: 'Download files' },
+  'characters:read': { zh: '读取角色库', en: 'Read characters' },
+  'characters:write': { zh: '写入角色库', en: 'Write characters' },
 }
 
 function externalBaseUrl() {
@@ -109,6 +113,25 @@ curl -X POST "$PIX_API_BASE/uploads/images" \
 
 # 返回示例
 # { "path": ".../uploads/xxx.png", "url": "/files/...", "filename": "reference.png" }`, [])
+  const characterCurl = useMemo(() => String.raw`# 角色库：读取、保存上传图、从已完成任务保存角色
+curl "$PIX_API_BASE/characters" \
+  -H "Authorization: Bearer $PIX_API_KEY"
+
+curl -X POST "$PIX_API_BASE/characters" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "蓝袍骑士",
+    "tags": ["hero", "blue"],
+    "image_path": "把上传接口返回的 path 填在这里"
+  }'
+
+curl -X POST "$PIX_API_BASE/characters/jobs/123" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "蓝袍骑士", "image_kind": "pixelized" }'
+
+# 序列帧任务可把角色响应中的 image_path 写入 sprite.reference_image_path。`, [])
   const assetCurl = useMemo(() => String.raw`# 创建素材直出任务。Idempotency-Key 可选；相同 key 重试会复用同一任务
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
@@ -454,17 +477,18 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
           <ApiDocNote title={text('认证', 'Auth')} body={text('所有 /external/v1 接口都支持 Authorization: Bearer <API Key>，也兼容 X-Pix-Api-Key 请求头。', 'All /external/v1 endpoints accept Authorization: Bearer <API Key>, and X-Pix-Api-Key is also supported.')} />
           <ApiDocNote title={text('幂等', 'Idempotency')} body={text('创建任务建议传 Idempotency-Key；同一账号同一 key 重试会返回同一个任务，避免重复扣点。', 'Pass Idempotency-Key when creating jobs; retries with the same key reuse the same job and avoid duplicate charges.')} />
           <ApiDocNote title={text('输出类型', 'Outputs')} body={text('单图下载 source / pixelized / preview；序列帧下载 sprite-sheet / sprite-mosaic / sprite-grid 或 sprite-actions.zip。', 'Single-image outputs: source / pixelized / preview; sprite outputs: sprite-sheet / sprite-mosaic / sprite-grid or sprite-actions.zip.')} />
-          <ApiDocNote title={text('权限 Scope', 'Scopes')} body={text('按最小权限创建 Key：jobs:create 创建任务，jobs:read 查询任务，files:read 下载结果，uploads:create 上传图片。', 'Use least-privilege keys: jobs:create, jobs:read, files:read, and uploads:create as needed.')} />
+          <ApiDocNote title={text('权限 Scope', 'Scopes')} body={text('按最小权限创建 Key：jobs:create 创建任务，jobs:read 查询任务，files:read 下载结果，uploads:create 上传图片，characters:read/write 读写角色库。', 'Use least-privilege keys: jobs:create, jobs:read, files:read, uploads:create, and characters:read/write as needed.')} />
         </div>
         <CodeBlock title={text('1. 保存令牌并测试认证', '1. Save token and test auth')} description={text('把 API 页面创建出的令牌保存成环境变量，后续示例可直接复制运行。', 'Store the generated API token as an environment variable; later examples can be copied as-is.')} code={authCurl} copied={copied} onCopy={(code) => void copy(code, 'auth')} copyKey="auth" />
         <CodeBlock title={text('2. 查询账号、余额和模型', '2. Inspect account, credits, and models')} description={text('用于确认 Key 权限、账号余额和当前可选的生图模型。', 'Use this to verify key scopes, credit balance, and available generation models.')} code={inspectCurl} copied={copied} onCopy={(code) => void copy(code, 'inspect')} copyKey="inspect" />
-        <CodeBlock title={text('3. 上传参考图（可选）', '3. Upload a reference image (optional)')} description={text('上传返回的 path 可以写入 input_image_path，用于图生图或角色参考图。', 'The returned path can be used as input_image_path for image-to-image jobs or character references.')} code={uploadCurl} copied={copied} onCopy={(code) => void copy(code, 'upload')} copyKey="upload" />
-        <CodeBlock title={text('4. 创建素材直出任务', '4. Create an asset job')} description={text('适合游戏图标、道具、UI 小物件等单图素材；创建成功返回 202 和任务 id。', 'Best for icons, props, UI items, and other single-image assets; returns 202 with a job id.')} code={assetCurl} copied={copied} onCopy={(code) => void copy(code, 'asset')} copyKey="asset" />
-        <CodeBlock title={text('5. 创建图生图 / 参考图重绘任务', '5. Create an image-to-image job')} description={text('先上传图片，再把上传结果 path 放到 input_image_path。', 'Upload an image first, then pass the returned path as input_image_path.')} code={imageCurl} copied={copied} onCopy={(code) => void copy(code, 'image')} copyKey="image" />
-        <CodeBlock title={text('6. 创建本地去背景任务', '6. Create a local background-removal job')} description={text('先上传图片，再选择 pixel_bg（像素）或 color_to_alpha（高清）算法；不调用 AI。', 'Upload an image first, then choose pixel_bg (pixel) or color_to_alpha (HD); no AI call is made.')} code={bgRemoveCurl} copied={copied} onCopy={(code) => void copy(code, 'bg-remove')} copyKey="bg-remove" />
-        <CodeBlock title={text('7. 创建序列帧任务', '7. Create a sprite-sheet job')} description={text('用于角色行走、攻击、待机等动画；rows × cols 决定动作行和帧数。', 'Use this for walk, attack, idle, and other animations; rows × cols controls action rows and frame count.')} code={spriteCurl} copied={copied} onCopy={(code) => void copy(code, 'sprite')} copyKey="sprite" />
-        <CodeBlock title={text('8. 轮询任务和分页列表', '8. Poll jobs and list pages')} description={text('任务状态通常为 pending / running / waiting / succeeded / failed；video_bridge 在 Ark 视频生成期间会显示 waiting。', 'Job status is usually pending / running / waiting / succeeded / failed; video_bridge shows waiting while Ark renders.')} code={pollCurl} copied={copied} onCopy={(code) => void copy(code, 'poll')} copyKey="poll" />
-        <CodeBlock title={text('9. 下载输出文件', '9. Download output files')} description={text('下载接口需要 files:read 权限；文件不存在或任务未完成时会返回 404 / 409。', 'Download endpoints require files:read; unavailable files or unfinished jobs return 404 / 409.')} code={downloadCurl} copied={copied} onCopy={(code) => void copy(code, 'download')} copyKey="download" />
+        <CodeBlock title={text('3. 上传参考图（可选）', '3. Upload a reference image (optional)')} description={text('上传返回的 path 可以写入 input_image_path，也可以保存到角色库后复用。', 'The returned path can be used as input_image_path or saved into the character library for reuse.')} code={uploadCurl} copied={copied} onCopy={(code) => void copy(code, 'upload')} copyKey="upload" />
+        <CodeBlock title={text('4. 角色库读写', '4. Read/write character library')} description={text('角色库需要 characters:read / characters:write；角色 image_path 可写入序列帧 sprite.reference_image_path。', 'Character library calls require characters:read / characters:write; use a character image_path as sprite.reference_image_path for sprite jobs.')} code={characterCurl} copied={copied} onCopy={(code) => void copy(code, 'characters')} copyKey="characters" />
+        <CodeBlock title={text('5. 创建素材直出任务', '5. Create an asset job')} description={text('适合游戏图标、道具、UI 小物件等单图素材；创建成功返回 202 和任务 id。', 'Best for icons, props, UI items, and other single-image assets; returns 202 with a job id.')} code={assetCurl} copied={copied} onCopy={(code) => void copy(code, 'asset')} copyKey="asset" />
+        <CodeBlock title={text('6. 创建图生图 / 参考图重绘任务', '6. Create an image-to-image job')} description={text('先上传图片，再把上传结果 path 放到 input_image_path。', 'Upload an image first, then pass the returned path as input_image_path.')} code={imageCurl} copied={copied} onCopy={(code) => void copy(code, 'image')} copyKey="image" />
+        <CodeBlock title={text('7. 创建本地去背景任务', '7. Create a local background-removal job')} description={text('先上传图片，再选择 pixel_bg（像素）或 color_to_alpha（高清）算法；不调用 AI。', 'Upload an image first, then choose pixel_bg (pixel) or color_to_alpha (HD); no AI call is made.')} code={bgRemoveCurl} copied={copied} onCopy={(code) => void copy(code, 'bg-remove')} copyKey="bg-remove" />
+        <CodeBlock title={text('8. 创建序列帧任务', '8. Create a sprite-sheet job')} description={text('用于角色行走、攻击、待机等动画；rows × cols 决定动作行和帧数，可传入角色库 image_path 作为 reference_image_path。', 'Use this for walk, attack, idle, and other animations; rows × cols controls action rows and frame count. You can pass a character image_path as reference_image_path.')} code={spriteCurl} copied={copied} onCopy={(code) => void copy(code, 'sprite')} copyKey="sprite" />
+        <CodeBlock title={text('9. 轮询任务和分页列表', '9. Poll jobs and list pages')} description={text('任务状态通常为 pending / running / waiting / succeeded / failed；video_bridge 在 Ark 视频生成期间会显示 waiting。', 'Job status is usually pending / running / waiting / succeeded / failed; video_bridge shows waiting while Ark renders.')} code={pollCurl} copied={copied} onCopy={(code) => void copy(code, 'poll')} copyKey="poll" />
+        <CodeBlock title={text('10. 下载输出文件', '10. Download output files')} description={text('下载接口需要 files:read 权限；文件不存在或任务未完成时会返回 404 / 409。', 'Download endpoints require files:read; unavailable files or unfinished jobs return 404 / 409.')} code={downloadCurl} copied={copied} onCopy={(code) => void copy(code, 'download')} copyKey="download" />
       </section>
     </div>
   )

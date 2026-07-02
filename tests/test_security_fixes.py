@@ -13,7 +13,7 @@ from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits
 from pix_web.file_ownership import resolve_owned_input_path, user_owns_file
 from pix_web.main import create_app
-from pix_web.models import User
+from pix_web.models import CharacterLibraryItem, User
 from pix_web.security import create_access_token, create_file_ticket, decode_file_ticket
 
 
@@ -106,6 +106,36 @@ class FileOwnershipTests(unittest.TestCase):
             },
         )
         self.assertEqual(resp.status_code, 422)
+
+    def test_character_library_file_is_owned_and_usable_as_sprite_reference(self) -> None:
+        character_dir = self.storage_root / "characters" / str(self.user.id)
+        character_dir.mkdir(parents=True, exist_ok=True)
+        character_file = character_dir / "hero.png"
+        character_file.write_bytes(b"img")
+        self.db.add(CharacterLibraryItem(user_id=self.user.id, name="Hero", image_path=str(character_file), preview_path=str(character_file)))
+        self.db.commit()
+
+        self.assertTrue(user_owns_file(character_file.resolve(), self.user, self.db, self.settings))
+        self.assertFalse(user_owns_file(character_file.resolve(), self.other, self.db, self.settings))
+        self.assertEqual(resolve_owned_input_path(str(character_file), self.user, self.db, self.settings), character_file.resolve())
+
+        ticket = create_file_ticket(self.user, self.settings)
+        response = self.client.get("/files", params={"path": str(character_file), "token": ticket})
+        self.assertEqual(response.status_code, 200, response.text)
+
+        jwt_token = create_access_token(self.user, self.settings)
+        job_response = self.client.post(
+            "/jobs",
+            headers={"Authorization": f"Bearer {jwt_token}"},
+            json={
+                "job_type": "sprite_sheet",
+                "prompt": "蓝袍骑士行走动画",
+                "sprite": {"mode": "mosaic", "rows": 1, "cols": 2, "fps": 8, "reference_image_path": str(character_file)},
+                "pixelize": {"output_size": [32, 32], "colors": 8, "remove_bg": False},
+            },
+        )
+        self.assertEqual(job_response.status_code, 200, job_response.text)
+        self.assertEqual(job_response.json()["sprite_reference_image_url"].startswith("/files?path="), True)
 
 
 class SsrfGuardTests(unittest.TestCase):
