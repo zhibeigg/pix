@@ -126,13 +126,13 @@ def next_poll_at(cfg: AppConfig) -> str:
     return _iso(_utcnow() + timedelta(seconds=interval))
 
 
-_DEFAULT_ALLOWED_DURATIONS: tuple[int, ...] = (4, 5, 6, 8, 10, 12, 15)
+_DEFAULT_ALLOWED_DURATIONS: tuple[int, ...] = (4, 5, 10, 15)
 
 
 def _snap_to_allowed_duration(seconds: int, allowed_durations: tuple[int, ...] | list[int] | None) -> int:
     """把推导出的秒数向上吸附到最近的合法视频时长档位。
 
-    Seedance / Ark 只接受离散时长档位（如 4/5/6/8/10/12/15 秒），
+    Seedance / Ark 只接受离散时长档位（如 4/5/10/15 秒），
     非法值会被上游以 InvalidParameter 拒绝。这里选择「不小于推导秒数的最小合法档位」，
     保证生成视频不短于目标动画时长；若推导秒数超过所有档位，则取最大档位。
 
@@ -246,7 +246,7 @@ def _video_input_size(cfg: AppConfig) -> tuple[int, int]:
 def _video_allowed_durations(cfg: AppConfig) -> tuple[int, ...]:
     raw = getattr(cfg.video_bridge, "allowed_durations", None)
     tiers = tuple(sorted({int(v) for v in (raw or ()) if int(v) > 0}))
-    return tiers or (4, 5, 6, 8, 10, 12, 15)
+    return tiers or _DEFAULT_ALLOWED_DURATIONS
 
 
 def _prompt_guard_max_chars(cfg: AppConfig) -> int:

@@ -199,11 +199,11 @@ def test_video_bridge_motion_prompt_includes_locked_timing() -> None:
 
 
 def test_derive_video_bridge_duration_seconds_snaps_to_allowed_tiers() -> None:
-    # 默认档位对齐 Seedance 2.0：{4,5,6,8,10,12,15}，推导秒数向上吸附到最近合法档位。
+    # 默认档位对齐 Seedance 2.0 价格表：{4,5,10,15}，推导秒数向上吸附到最近合法档位。
     assert derive_video_bridge_duration_seconds(8, 125) == 4  # 1s -> 4s
     assert derive_video_bridge_duration_seconds(9, 125) == 4  # 2s -> 4s
     assert derive_video_bridge_duration_seconds(40, 125) == 5  # 5s -> 5s
-    assert derive_video_bridge_duration_seconds(56, 125) == 8  # 7s -> 8s
+    assert derive_video_bridge_duration_seconds(56, 125) == 10  # 7s -> 10s
     assert derive_video_bridge_duration_seconds(200, 125) == 15  # 25s -> clamp 15s
     # 自定义档位可覆盖默认值。
     assert derive_video_bridge_duration_seconds(8, 125, (2, 3, 10)) == 2
@@ -243,7 +243,7 @@ def test_start_video_task_uses_sprite_timing_for_ark_duration(tmp_path, monkeypa
         rows=1,
         cols=8,
         row_prompts=["待机呼吸"],
-        video_model="doubao-seedance-2-0-pro-260128",
+        video_model="doubao-seedance-2-0-fast-260128",
         pixelize_params=PixelizeParams(output_size=(32, 32), colors=8, generated_preprocess_method="none"),
         fps=8,
         duration_ms=125,
@@ -261,7 +261,7 @@ def test_start_video_task_uses_sprite_timing_for_ark_duration(tmp_path, monkeypa
         )
 
     assert captured["duration"] == 4
-    assert captured["model"] == "doubao-seedance-2-0-pro-260128"
+    assert captured["model"] == "doubao-seedance-2-0-fast-260128"
     assert "source video duration is locked to 4 second(s)" in str(captured["prompt"])
     assert exc_info.value.state["timing"] == {
         "source": "sprite_timing",
@@ -274,8 +274,8 @@ def test_start_video_task_uses_sprite_timing_for_ark_duration(tmp_path, monkeypa
     assert exc_info.value.state["duration"] == 4
     assert exc_info.value.state["configured_duration"] == 5
     assert exc_info.value.state["duration_source"] == "sprite_timing"
-    assert exc_info.value.state["model"] == "doubao-seedance-2-0-pro-260128"
-    assert exc_info.value.state["video_model"] == "doubao-seedance-2-0-pro-260128"
+    assert exc_info.value.state["model"] == "doubao-seedance-2-0-fast-260128"
+    assert exc_info.value.state["video_model"] == "doubao-seedance-2-0-fast-260128"
 
 
 def test_optimize_video_bridge_motion_prompt_uses_vl_motion_plan(tmp_path, monkeypatch) -> None:

@@ -7,16 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.109.2] - 2026-07-02
+
+### Fixed
+
+- 修正 Seedance 2.0 视频模型枚举为 Standard / Fast / Mini（`doubao-seedance-2-0-260128`、`doubao-seedance-2-0-fast-260128`、`doubao-seedance-2-0-mini-260615`），移除错误的 Lite / Pro ID。
+- video_bridge 点数改为按官方 4/5/10/15 秒价格表精确计算：Standard 47/57/103/149，Fast 40/48/85/122，Mini 29/34/57/80；默认时长吸附档位同步收敛为 4/5/10/15 秒，避免 6/8/12 秒线性估算。
+
 ## [1.109.1] - 2026-07-02
 
 ### Added
 
-- 连贯动作序列帧支持在工作台与外部 API 选择 Seedance 2.0 Lite / Standard / Pro 三档视频模型，并通过 `sprite.video_model` 透传给 Ark 视频任务；任务等待状态会记录实际使用的 `model` / `video_model`。
+- 连贯动作序列帧支持在工作台与外部 API 选择 Seedance 2.0 视频模型，并通过 `sprite.video_model` 透传给 Ark 视频任务；任务等待状态会记录实际使用的 `model` / `video_model`。
 
 ### Changed
 
 - 生产工作台默认进入 `sprite.mode="video_bridge"` 的连贯动作序列帧模式（后端 schema 默认仍兼容 `mosaic`），并默认使用丝滑动作 16 帧预设。
-- 视频补间计费改为所选 Seedance 模型单任务价：按火山/飞书价格表 480p、输入不含视频、4 秒视频价格执行 `ceil(视频价格 × 20 + 10)`，默认 Lite 30 点、Standard 47 点、Pro 84 点；不再按帧组数乘序列帧基础价。
+- 视频补间计费改为所选 Seedance 模型单任务价：按火山/飞书价格表 480p、输入不含视频价格执行 `ceil(视频价格 × 20 + 10)`；不再按帧组数乘序列帧基础价。
 
 ### Tests
 

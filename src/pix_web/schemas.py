@@ -158,9 +158,9 @@ def _resolve_meta_relative_path(meta_json_path: str | None, value: str | None) -
 
 JobStatus = Literal["pending", "running", "waiting", "succeeded", "failed", "cancelled"]
 VideoBridgeModel = Literal[
-    "doubao-seedance-2-0-lite-260128",
     "doubao-seedance-2-0-260128",
-    "doubao-seedance-2-0-pro-260128",
+    "doubao-seedance-2-0-fast-260128",
+    "doubao-seedance-2-0-mini-260615",
 ]
 
 

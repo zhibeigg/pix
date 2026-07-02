@@ -4,19 +4,46 @@ export const DEFAULT_VIDEO_BRIDGE_MODEL: VideoBridgeModel = 'doubao-seedance-2-0
 export const VIDEO_BRIDGE_IMAGE_PRICE_CREDITS = 10
 export const VIDEO_BRIDGE_PRICE_MULTIPLIER = 20
 export const VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS = 4
+export const VIDEO_BRIDGE_ALLOWED_DURATION_SECONDS = [4, 5, 10, 15] as const
 
-export const VIDEO_BRIDGE_MODELS: Array<{ value: VideoBridgeModel; label: string; videoPriceCny: number }> = [
-  { value: 'doubao-seedance-2-0-lite-260128', label: 'Seedance 2.0 Lite', videoPriceCny: 0.984312 },
-  { value: 'doubao-seedance-2-0-260128', label: 'Seedance 2.0', videoPriceCny: 1.848096 },
-  { value: 'doubao-seedance-2-0-pro-260128', label: 'Seedance 2.0 Pro', videoPriceCny: 3.696192 },
+type VideoBridgeDurationSeconds = typeof VIDEO_BRIDGE_ALLOWED_DURATION_SECONDS[number]
+type VideoBridgeModelPrice = { value: VideoBridgeModel; label: string; videoPricesCny: Record<VideoBridgeDurationSeconds, number> }
+
+export const VIDEO_BRIDGE_MODELS: VideoBridgeModelPrice[] = [
+  { value: 'doubao-seedance-2-0-260128', label: 'Seedance 2.0', videoPricesCny: { 4: 1.85, 5: 2.31, 10: 4.62, 15: 6.93 } },
+  { value: 'doubao-seedance-2-0-fast-260128', label: 'Seedance 2.0 Fast', videoPricesCny: { 4: 1.49, 5: 1.86, 10: 3.72, 15: 5.57 } },
+  { value: 'doubao-seedance-2-0-mini-260615', label: 'Seedance 2.0 Mini', videoPricesCny: { 4: 0.92, 5: 1.16, 10: 2.31, 15: 3.47 } },
 ]
 
 export function normalizeVideoBridgeModel(value: unknown): VideoBridgeModel {
   return VIDEO_BRIDGE_MODELS.some((item) => item.value === value) ? value as VideoBridgeModel : DEFAULT_VIDEO_BRIDGE_MODEL
 }
 
+export function normalizeVideoBridgeDurationSeconds(value: number): VideoBridgeDurationSeconds {
+  const seconds = Math.max(VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS, Math.round(value || 0))
+  return VIDEO_BRIDGE_ALLOWED_DURATION_SECONDS.find((tier) => seconds <= tier) ?? 15
+}
+
 export function videoBridgePricingKey(model: VideoBridgeModel): string {
   return `sprite_video_bridge:${model}`
+}
+
+function videoBridgeModelPrice(model: VideoBridgeModel): VideoBridgeModelPrice {
+  const fallback: VideoBridgeModelPrice = {
+    value: DEFAULT_VIDEO_BRIDGE_MODEL,
+    label: 'Seedance 2.0',
+    videoPricesCny: { 4: 1.85, 5: 2.31, 10: 4.62, 15: 6.93 },
+  }
+  return VIDEO_BRIDGE_MODELS.find((item) => item.value === model) ?? fallback
+}
+
+export function videoBridgePriceCny(model: VideoBridgeModel, durationSeconds = VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS): number {
+  const seconds = normalizeVideoBridgeDurationSeconds(durationSeconds)
+  return videoBridgeModelPrice(model).videoPricesCny[seconds]
+}
+
+function creditsFromVideoPriceCny(priceCny: number): number {
+  return Math.ceil(priceCny * VIDEO_BRIDGE_PRICE_MULTIPLIER + VIDEO_BRIDGE_IMAGE_PRICE_CREDITS - 1e-9)
 }
 
 export function videoBridgePriceCredits(
@@ -24,22 +51,16 @@ export function videoBridgePriceCredits(
   pricing: PricingRule[] = [],
   durationSeconds = VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS,
 ): number {
-  const seconds = Math.max(VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS, Math.round(durationSeconds || 0))
+  const seconds = normalizeVideoBridgeDurationSeconds(durationSeconds)
   const rule = pricing.find((item) => item.key === videoBridgePricingKey(model))
   if (rule) {
     const basePrice = Math.max(0, Math.round(rule.price_credits || 0))
     if (seconds <= VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS || basePrice <= VIDEO_BRIDGE_IMAGE_PRICE_CREDITS) return basePrice
     const videoComponent = basePrice - VIDEO_BRIDGE_IMAGE_PRICE_CREDITS
-    return VIDEO_BRIDGE_IMAGE_PRICE_CREDITS + Math.ceil(videoComponent * seconds / VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS)
+    const ratio = videoBridgePriceCny(model, seconds) / videoBridgePriceCny(model, VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS)
+    return VIDEO_BRIDGE_IMAGE_PRICE_CREDITS + Math.ceil(videoComponent * ratio)
   }
-  const fallback: { value: VideoBridgeModel; label: string; videoPriceCny: number } = {
-    value: DEFAULT_VIDEO_BRIDGE_MODEL,
-    label: 'Seedance 2.0',
-    videoPriceCny: 1.848096,
-  }
-  const found = VIDEO_BRIDGE_MODELS.find((item) => item.value === model) ?? fallback
-  const videoPriceCny = (found.videoPriceCny / VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS) * seconds
-  return Math.ceil(videoPriceCny * VIDEO_BRIDGE_PRICE_MULTIPLIER + VIDEO_BRIDGE_IMAGE_PRICE_CREDITS)
+  return creditsFromVideoPriceCny(videoBridgePriceCny(model, seconds))
 }
 
 /** 展示用折后价；必须与后端 apply_discount 取整规则保持一致（向下取整 + 保底 1 点）。 */

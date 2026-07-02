@@ -25,12 +25,12 @@ from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
 from pix_web.pricing import (
     VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS,
     VIDEO_BRIDGE_IMAGE_PRICE_CREDITS,
-    VIDEO_BRIDGE_MODEL_PRICE_CNY,
     VIDEO_BRIDGE_PRICE_MULTIPLIER,
     PricingDisabledError,
     apply_discount,
     get_price,
     normalize_video_bridge_model,
+    video_bridge_price_cny,
     video_bridge_price_credits,
     video_bridge_price_key,
 )
@@ -515,11 +515,7 @@ def _billing_snapshot_for_request(
         if is_video_bridge:
             video_model = normalize_video_bridge_model(req.sprite.video_model)
             video_duration_seconds = _video_bridge_duration_seconds_for_price(req)
-            video_price_cny = (
-                VIDEO_BRIDGE_MODEL_PRICE_CNY[video_model]
-                * video_duration_seconds
-                / VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS
-            )
+            video_price = video_bridge_price_cny(video_model, video_duration_seconds)
             snapshot.update(
                 {
                     "mode": "video_bridge",
@@ -529,7 +525,7 @@ def _billing_snapshot_for_request(
                     "billing_units": 1,
                     "video_model": video_model,
                     "video_duration_seconds": video_duration_seconds,
-                    "video_price_cny": video_price_cny,
+                    "video_price_cny": float(video_price),
                     "video_base_price_credits": base_price,
                     "image_price_credits": VIDEO_BRIDGE_IMAGE_PRICE_CREDITS,
                     "formula": f"ceil(video_price_cny * {VIDEO_BRIDGE_PRICE_MULTIPLIER} + image_price_credits)",

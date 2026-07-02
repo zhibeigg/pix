@@ -156,7 +156,7 @@ export type ReferralSummary = {
 export type JobType = 'asset' | 'text_to_image' | 'image_to_image' | 'local_pixelize' | 'local_bg_remove' | 'repixelize' | 'sprite_sheet'
 export type JobStatus = 'pending' | 'running' | 'waiting' | 'succeeded' | 'failed' | 'cancelled' | string
 export type SpriteMode = 'mosaic' | 'video_bridge'
-export type VideoBridgeModel = 'doubao-seedance-2-0-lite-260128' | 'doubao-seedance-2-0-260128' | 'doubao-seedance-2-0-pro-260128'
+export type VideoBridgeModel = 'doubao-seedance-2-0-260128' | 'doubao-seedance-2-0-fast-260128' | 'doubao-seedance-2-0-mini-260615'
 
 export type ImageModelInfo = {
   id: string

@@ -25,7 +25,7 @@
 
 - 后端 schema 的 `mode` 缺省仍为 `mosaic`，保持旧任务兼容；生产工作台初始化与切回序列帧时默认进入 `video_bridge`。
 - `rows × cols` 仍决定最终抽帧数量和输出布局，至少 2 帧。
-- `video_model` 可选三档 Seedance 2.0 并透传 Ark：`doubao-seedance-2-0-lite-260128`（Lite）、`doubao-seedance-2-0-260128`（Standard，默认）、`doubao-seedance-2-0-pro-260128`（Pro）。
+- `video_model` 可选三档 Seedance 2.0 并透传 Ark：`doubao-seedance-2-0-260128`（Standard，默认）、`doubao-seedance-2-0-fast-260128`（Fast）、`doubao-seedance-2-0-mini-260615`（Mini）。
 - Ark 视频生成时长由 `rows × cols × duration_ms` 推导并锁定，非整秒向上取整；这样视频补间时间轴与最终 GIF / 序列帧播放节奏一致，不再直接使用 `[video_bridge].duration` 覆盖任务节奏。
 - `video_action_prompt` 可选；留空时回退到第一条 `row_prompts`，再回退到主 prompt。
 - `reference_image_path` 仍可用于关键帧图生图。
@@ -75,7 +75,7 @@
 
 ## 计费
 
-`sprite.mode="mosaic"` 仍按 `ceil(rows·cols / 9) × sprite_sheet` 基础价计费。`sprite.mode="video_bridge"` 不再乘帧组数，而是按所选 Seedance 2.0 视频模型单任务价计费：火山/飞书价格表中 480p、输入不含视频、4 秒视频价格分别为 Lite 0.984312 元、Standard 1.848096 元、Pro 3.696192 元；默认点数按 `ceil(视频价格 × 20 + 10)` 得到 30 / 47 / 84 点，其中 10 点为首尾关键帧生图价。若自定义帧数/FPS 推导出更长 Ark 秒数，则视频价格部分随秒数线性折算，关键帧生图价仍只加一次。任务创建时会把模型、实际视频秒数、视频价格与折扣后的总点数写入 `params_json.billing` 快照。
+`sprite.mode="mosaic"` 仍按 `ceil(rows·cols / 9) × sprite_sheet` 基础价计费。`sprite.mode="video_bridge"` 不再乘帧组数，而是按所选 Seedance 2.0 视频模型与官方 4/5/10/15 秒价格表单任务价计费。价格表为：Standard 1.85/2.31/4.62/6.93 元，Fast 1.49/1.86/3.72/5.57 元，Mini 0.92/1.16/2.31/3.47 元；点数按 `ceil(视频价格 × 20 + 10)` 得到 Standard 47/57/103/149，Fast 40/48/85/122，Mini 29/34/57/80，其中 10 点为首尾关键帧生图价。任务创建时会把模型、实际视频秒数、视频价格与折扣后的总点数写入 `params_json.billing` 快照。
 
 ## 配置
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from decimal import Decimal, ROUND_CEILING
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,26 +19,66 @@ VIDEO_BRIDGE_IMAGE_PRICE_CREDITS = 10
 VIDEO_BRIDGE_PRICE_MULTIPLIER = 20
 VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS = 4
 VIDEO_BRIDGE_DEFAULT_MODEL = "doubao-seedance-2-0-260128"
-VIDEO_BRIDGE_MODEL_PRICE_CNY: dict[str, float] = {
-    # 火山/飞书价格表：Seedance 2.0，480p，输入不含视频，4 秒视频价格。
-    # 计费口径：视频价格 × 20 + 10 点关键帧生图价。
-    "doubao-seedance-2-0-lite-260128": 0.984312,
-    "doubao-seedance-2-0-260128": 1.848096,
-    "doubao-seedance-2-0-pro-260128": 3.696192,
+VIDEO_BRIDGE_ALLOWED_DURATION_SECONDS = (4, 5, 10, 15)
+VIDEO_BRIDGE_MODEL_PRICE_CNY_BY_DURATION: dict[str, dict[int, Decimal]] = {
+    # 火山/飞书价格表：Seedance 2.0，480p，输入不含视频，不同时长视频价格。
+    # 计费口径：ceil(视频价格 × 20 + 10 点关键帧生图价)。
+    "doubao-seedance-2-0-260128": {
+        4: Decimal("1.85"),
+        5: Decimal("2.31"),
+        10: Decimal("4.62"),
+        15: Decimal("6.93"),
+    },
+    "doubao-seedance-2-0-fast-260128": {
+        4: Decimal("1.49"),
+        5: Decimal("1.86"),
+        10: Decimal("3.72"),
+        15: Decimal("5.57"),
+    },
+    "doubao-seedance-2-0-mini-260615": {
+        4: Decimal("0.92"),
+        5: Decimal("1.16"),
+        10: Decimal("2.31"),
+        15: Decimal("3.47"),
+    },
 }
-VIDEO_BRIDGE_MODEL_PRICE_CNY_PER_SECOND: dict[str, float] = {
-    model: price / VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS
-    for model, price in VIDEO_BRIDGE_MODEL_PRICE_CNY.items()
+VIDEO_BRIDGE_MODEL_PRICE_CNY: dict[str, Decimal] = {
+    model: prices[VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS]
+    for model, prices in VIDEO_BRIDGE_MODEL_PRICE_CNY_BY_DURATION.items()
 }
-VIDEO_BRIDGE_MODEL_PRICE_CREDITS: dict[str, int] = {
-    model: math.ceil(price * VIDEO_BRIDGE_PRICE_MULTIPLIER + VIDEO_BRIDGE_IMAGE_PRICE_CREDITS)
-    for model, price in VIDEO_BRIDGE_MODEL_PRICE_CNY.items()
-}
+VIDEO_BRIDGE_MODEL_PRICE_CREDITS: dict[str, int] = {}
 
 
 def normalize_video_bridge_model(model: str | None) -> str:
     value = (model or "").strip()
-    return value if value in VIDEO_BRIDGE_MODEL_PRICE_CNY else VIDEO_BRIDGE_DEFAULT_MODEL
+    return value if value in VIDEO_BRIDGE_MODEL_PRICE_CNY_BY_DURATION else VIDEO_BRIDGE_DEFAULT_MODEL
+
+
+def normalize_video_bridge_duration_seconds(duration_seconds: int | None) -> int:
+    seconds = max(VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS, int(duration_seconds or 0))
+    for tier in VIDEO_BRIDGE_ALLOWED_DURATION_SECONDS:
+        if seconds <= tier:
+            return tier
+    return VIDEO_BRIDGE_ALLOWED_DURATION_SECONDS[-1]
+
+
+def video_bridge_price_cny(model: str | None, duration_seconds: int | None = None) -> Decimal:
+    normalized = normalize_video_bridge_model(model)
+    seconds = normalize_video_bridge_duration_seconds(duration_seconds)
+    return VIDEO_BRIDGE_MODEL_PRICE_CNY_BY_DURATION[normalized][seconds]
+
+
+def _credits_from_video_price_cny(price_cny: Decimal) -> int:
+    total = price_cny * Decimal(VIDEO_BRIDGE_PRICE_MULTIPLIER) + Decimal(VIDEO_BRIDGE_IMAGE_PRICE_CREDITS)
+    return int(total.to_integral_value(rounding=ROUND_CEILING))
+
+
+VIDEO_BRIDGE_MODEL_PRICE_CREDITS.update(
+    {
+        model: _credits_from_video_price_cny(price)
+        for model, price in VIDEO_BRIDGE_MODEL_PRICE_CNY.items()
+    }
+)
 
 
 def video_bridge_price_key(model: str | None) -> str:
@@ -54,21 +95,22 @@ def video_bridge_price_credits(
 
     价格来源为火山/飞书价格表中 480p、输入不含视频的「视频价格」，
     计费公式：ceil(视频价格 × 20 + 10)，其中 10 点为关键帧生图价格。
-    默认 UI 预设会提交 4 秒视频；若自定义帧数/FPS 推导出更长 Ark 秒数，按同表
-    每秒价格线性折算视频价格。
+    支持的官方时长档位为 4 / 5 / 10 / 15 秒；传入其它秒数时会向上吸附到
+    不小于它的最近价格表档位。
     """
     normalized = normalize_video_bridge_model(model)
-    seconds = max(VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS, int(duration_seconds or 0))
+    seconds = normalize_video_bridge_duration_seconds(duration_seconds)
     default_price = VIDEO_BRIDGE_MODEL_PRICE_CREDITS[normalized]
     if base_duration_price_credits is not None and int(base_duration_price_credits) != default_price:
         base_price = max(0, int(base_duration_price_credits))
         if seconds <= VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS or base_price <= VIDEO_BRIDGE_IMAGE_PRICE_CREDITS:
             return base_price
         video_component = base_price - VIDEO_BRIDGE_IMAGE_PRICE_CREDITS
-        scaled_video = math.ceil(video_component * seconds / VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS)
+        base_video_price = video_bridge_price_cny(normalized, VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS)
+        duration_video_price = video_bridge_price_cny(normalized, seconds)
+        scaled_video = math.ceil(video_component * float(duration_video_price / base_video_price))
         return VIDEO_BRIDGE_IMAGE_PRICE_CREDITS + scaled_video
-    video_price_cny = VIDEO_BRIDGE_MODEL_PRICE_CNY_PER_SECOND[normalized] * seconds
-    return math.ceil(video_price_cny * VIDEO_BRIDGE_PRICE_MULTIPLIER + VIDEO_BRIDGE_IMAGE_PRICE_CREDITS)
+    return _credits_from_video_price_cny(video_bridge_price_cny(normalized, seconds))
 
 
 DEFAULT_PRICES: dict[str, int] = {

@@ -243,7 +243,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
     "image_model": "image2"
   }'
 
-# 首尾帧视频补间：sprite.video_model 可选三档 Seedance 2.0 并透传 Ark（Lite 30 点 / Standard 47 点 / Pro 84 点，4 秒 480p 基准，公式为视频价格×20+10）；先生成首/尾关键帧，VL 可用时会优化连贯像素动作 prompt；Ark 视频秒数按 rows×cols×duration_ms 锁定；video_return_to_first_frame=true 会要求尾帧后回到首帧以便循环
+# 首尾帧视频补间：sprite.video_model 可选 Standard / Fast / Mini 三档并透传 Ark；点数按 4/5/10/15 秒价格表精确计算（Standard 47/57/103/149，Fast 40/48/85/122，Mini 29/34/57/80）；先生成首/尾关键帧，VL 可用时会优化连贯像素动作 prompt；Ark 视频秒数按 rows×cols×duration_ms 锁定；video_return_to_first_frame=true 会要求尾帧后回到首帧以便循环
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
