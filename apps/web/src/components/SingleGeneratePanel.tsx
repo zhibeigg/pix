@@ -47,6 +47,38 @@ const TEXTURE_KIND_OPTIONS: TextureKindOption[] = [
 type SpritePreset = 'horizontal' | 'four_directions' | 'character_full' | 'custom'
 type SpriteMode = 'mosaic' | 'video_bridge'
 
+// Seedance / Ark 只接受离散视频时长档位（秒），与后端 [video_bridge].allowed_durations 保持一致。
+const ALLOWED_VIDEO_DURATIONS = [4, 5, 6, 8, 10, 12, 15]
+
+// 复刻后端 derive_video_bridge_duration_seconds：帧数×每帧 ms 向上取整到整秒，再吸附到不小于它的最近合法档位。
+function deriveVideoDurationSeconds(frames: number, fps: number): number {
+  const safeFrames = Math.max(1, Math.round(frames || 1))
+  const safeFps = Math.max(1, Math.round(fps || 1))
+  const durationMs = Math.max(1, Math.round(1000 / safeFps))
+  const rawSeconds = Math.max(1, Math.ceil((safeFrames * durationMs) / 1000))
+  for (const tier of ALLOWED_VIDEO_DURATIONS) {
+    if (tier >= rawSeconds) return tier
+  }
+  return ALLOWED_VIDEO_DURATIONS[ALLOWED_VIDEO_DURATIONS.length - 1]
+}
+
+// video_bridge 专用「动画预设」：用帧数（流畅度）× fps（速度）表达，自动映射 rows×cols 与合法视频档位。
+type VideoAnimPresetKey = 'light_loop' | 'standard' | 'fluid' | 'silky' | 'showcase' | 'custom'
+type VideoAnimPresetSpec = { key: Exclude<VideoAnimPresetKey, 'custom'>; zh: string; en: string; rows: number; cols: number; fps: number }
+const VIDEO_ANIM_PRESETS: VideoAnimPresetSpec[] = [
+  { key: 'light_loop', zh: '轻量循环', en: 'Light loop', rows: 1, cols: 8, fps: 8 },
+  { key: 'standard', zh: '标准动作', en: 'Standard action', rows: 1, cols: 8, fps: 6 },
+  { key: 'fluid', zh: '流畅动作', en: 'Fluid action', rows: 2, cols: 8, fps: 10 },
+  { key: 'silky', zh: '丝滑动作', en: 'Silky action', rows: 2, cols: 8, fps: 8 },
+  { key: 'showcase', zh: '长演出', en: 'Long showcase', rows: 3, cols: 8, fps: 8 },
+]
+const DEFAULT_VIDEO_ANIM_PRESET: VideoAnimPresetKey = 'silky'
+
+function matchVideoAnimPreset(rows: number, cols: number, fps: number): VideoAnimPresetKey {
+  const found = VIDEO_ANIM_PRESETS.find((preset) => preset.rows === rows && preset.cols === cols && preset.fps === fps)
+  return found ? found.key : 'custom'
+}
+
 type PresetSpec = {
   rows: number
   cols: number
@@ -243,6 +275,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   // 序列帧专用状态（mosaic / 首尾帧视频补间）
   const [spriteMode, setSpriteMode] = useState<SpriteMode>('mosaic')
   const [spritePreset, setSpritePreset] = useState<SpritePreset>('horizontal')
+  const [videoAnimPreset, setVideoAnimPreset] = useState<VideoAnimPresetKey>(DEFAULT_VIDEO_ANIM_PRESET)
   const [rows, setRows] = useState(1)
   const [cols, setCols] = useState(8)
   const [rowPrompts, setRowPrompts] = useState<string[]>([''])
@@ -411,6 +444,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       setVideoActionPrompt(stringValue(sprite?.video_action_prompt))
       setVideoReturnToFirstFrame(Boolean(sprite?.video_return_to_first_frame))
       setSpritePreset('custom')
+      // video_bridge：若 rows/cols/fps 命中某动画预设则选中它，否则标记自定义。
+      setVideoAnimPreset(nextSpriteMode === 'video_bridge' ? matchVideoAnimPreset(nextRows, nextCols, nextFps) : DEFAULT_VIDEO_ANIM_PRESET)
       const referencePath = stringValue(sprite?.reference_image_path)
       setRefImagePath(referencePath)
       setRefImageFile(null)
@@ -456,10 +491,22 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     if (next === 'video_bridge') {
       const firstAction = videoActionPrompt.trim() || rowPrompts.find((value) => value.trim())?.trim() || ''
       setVideoActionPrompt(firstAction)
-      if (rows !== 1) setRows(1)
+      // 切到视频补间：应用默认动画预设（丝滑动作 16帧@8fps），并把 rowPrompts 收敛到 1 条（视频补间只用单条动作描述）。
+      applyVideoAnimPreset(DEFAULT_VIDEO_ANIM_PRESET)
       setRowPrompts((prev) => ensureRowPromptsLength(prev, 1))
-      if (spritePreset !== 'horizontal' && spritePreset !== 'custom') setSpritePreset('custom')
     }
+  }
+
+  // 应用 video_bridge 动画预设（帧数×fps 组合）
+  function applyVideoAnimPreset(preset: VideoAnimPresetKey) {
+    setVideoAnimPreset(preset)
+    if (preset === 'custom') return
+    const spec = VIDEO_ANIM_PRESETS.find((item) => item.key === preset)
+    if (!spec) return
+    setRows(spec.rows)
+    setCols(spec.cols)
+    setFps(spec.fps)
+    setRowPrompts((prev) => ensureRowPromptsLength(prev, 1))
   }
 
   // 应用预设
@@ -480,12 +527,14 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     setRows(next)
     setRowPrompts((prev) => ensureRowPromptsLength(prev, next))
     setSpritePreset('custom')
+    setVideoAnimPreset('custom')
   }
 
   function updateCols(value: number) {
     const next = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(value || 1)))
     setCols(next)
     setSpritePreset('custom')
+    setVideoAnimPreset('custom')
   }
 
   function updateRowPrompt(index: number, value: string) {
@@ -798,7 +847,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                 </SelectContent>
               </Select>
             </PixField>
-            {isSpriteVideoBridge && <Alert variant="info">{text('视频补间会在 Ark 任务生成期间进入“等待视频”状态；单帧尺寸、颜色数、边缘处理会同步写入关键帧 / 视频 Prompt，并在抽帧后执行去杂色与限色。建议使用 1 行 × 8 帧。', 'Video bridge enters a waiting state while Ark renders. Frame size, color count, and edge treatment are injected into the keyframe/video prompts, then denoise and palette limiting run after frame extraction. 1×8 is recommended.')}</Alert>}
+            {isSpriteVideoBridge && <Alert variant="info">{text('视频补间会在 Ark 任务生成期间进入“等待视频”状态；单帧尺寸、颜色数、边缘处理会同步写入关键帧 / 视频 Prompt，并在抽帧后执行去杂色与限色。选择下方动画预设即可，无需手动计算视频时长。', 'Video bridge enters a waiting state while Ark renders. Frame size, color count, and edge treatment are injected into the keyframe/video prompts, then denoise and palette limiting run after frame extraction. Just pick an animation preset below — no need to compute the video duration yourself.')}</Alert>}
             <PixField label={text('参考角色立绘（可选）', 'Reference character art (optional)')}>
               <div className="grid gap-3">
                 <Button type="button" variant="outline" asChild>
@@ -817,29 +866,73 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               </div>
             </PixField>
 
-            <PixField label={text('布局预设', 'Layout preset')}>
-              <Select value={spritePreset} onValueChange={(value) => applyPreset(value as SpritePreset)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="horizontal">{text('1 行 × 8 帧（横排动作）', '1×8 horizontal action')}</SelectItem>
-                  {!isSpriteVideoBridge && <SelectItem value="four_directions">{text('4 行 × 8 帧（四方向行走）', '4×8 four-direction walk')}</SelectItem>}
-                  {!isSpriteVideoBridge && <SelectItem value="character_full">{text('8 行 × 8 帧（角色全动作集）', '8×8 full character action set')}</SelectItem>}
-                  <SelectItem value="custom">{text('自定义网格', 'Custom grid')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </PixField>
+            {isSpriteVideoBridge ? (
+              <>
+                <PixField label={text('动画预设', 'Animation preset')} hint={text('按流畅度（帧数）× 速度（FPS）选择，自动匹配合法视频时长；抽帧按均匀采样，档位拉长不影响播放节奏。', 'Pick by smoothness (frames) × speed (FPS); the valid video duration is matched automatically. Frames are evenly sampled, so a longer video tier does not change playback pacing.')}>
+                  <Select value={videoAnimPreset} onValueChange={(value) => applyVideoAnimPreset(value as VideoAnimPresetKey)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {VIDEO_ANIM_PRESETS.map((preset) => {
+                        const frames = preset.rows * preset.cols
+                        const playSeconds = (frames * Math.max(1, Math.round(1000 / preset.fps))) / 1000
+                        const videoSeconds = deriveVideoDurationSeconds(frames, preset.fps)
+                        return (
+                          <SelectItem key={preset.key} value={preset.key}>
+                            {text(preset.zh, preset.en)} · {frames} {text('帧', 'frames')} @ {preset.fps}fps · {text(`视频${videoSeconds}s`, `video ${videoSeconds}s`)} · {text(`播放${playSeconds.toFixed(1)}s`, `play ${playSeconds.toFixed(1)}s`)}
+                          </SelectItem>
+                        )
+                      })}
+                      <SelectItem value="custom">{text('自定义（帧数 / FPS）', 'Custom (frames / FPS)')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </PixField>
+                {videoAnimPreset === 'custom' && (
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <PixField label={text('行 rows（1~8）', 'Rows (1–8)')}>
+                      <Input type="number" min={1} max={MAX_GRID_AXIS} value={safeRows} onChange={(e) => updateRows(Number(e.target.value))} />
+                    </PixField>
+                    <PixField label={text('列 cols（1~8）', 'Cols (1–8)')}>
+                      <Input type="number" min={1} max={MAX_GRID_AXIS} value={safeCols} onChange={(e) => updateCols(Number(e.target.value))} />
+                    </PixField>
+                    <PixField label={text('总帧数', 'Total frames')}>
+                      <Input value={`${totalFrames}`} readOnly />
+                    </PixField>
+                  </div>
+                )}
+                <Alert variant="info">
+                  {text(
+                    `当前：${totalFrames} 帧 @ ${Math.max(1, Math.min(60, Math.round(fps || 8)))}fps → 提交 Ark 视频 ${deriveVideoDurationSeconds(totalFrames, fps)}s · 播放约 ${(totalFrames * Math.max(1, Math.round(1000 / Math.max(1, Math.min(60, Math.round(fps || 8))))) / 1000).toFixed(1)}s`,
+                    `Now: ${totalFrames} frames @ ${Math.max(1, Math.min(60, Math.round(fps || 8)))}fps → Ark video ${deriveVideoDurationSeconds(totalFrames, fps)}s · plays ~${(totalFrames * Math.max(1, Math.round(1000 / Math.max(1, Math.min(60, Math.round(fps || 8))))) / 1000).toFixed(1)}s`,
+                  )}
+                </Alert>
+              </>
+            ) : (
+              <>
+                <PixField label={text('布局预设', 'Layout preset')}>
+                  <Select value={spritePreset} onValueChange={(value) => applyPreset(value as SpritePreset)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="horizontal">{text('1 行 × 8 帧（横排动作）', '1×8 horizontal action')}</SelectItem>
+                      <SelectItem value="four_directions">{text('4 行 × 8 帧（四方向行走）', '4×8 four-direction walk')}</SelectItem>
+                      <SelectItem value="character_full">{text('8 行 × 8 帧（角色全动作集）', '8×8 full character action set')}</SelectItem>
+                      <SelectItem value="custom">{text('自定义网格', 'Custom grid')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </PixField>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <PixField label={text('行 rows（1~8）', 'Rows (1–8)')}>
-                <Input type="number" min={1} max={MAX_GRID_AXIS} value={safeRows} onChange={(e) => updateRows(Number(e.target.value))} />
-              </PixField>
-              <PixField label={text('列 cols（1~8）', 'Cols (1–8)')}>
-                <Input type="number" min={1} max={MAX_GRID_AXIS} value={safeCols} onChange={(e) => updateCols(Number(e.target.value))} />
-              </PixField>
-              <PixField label={text('总帧数', 'Total frames')}>
-                <Input value={`${totalFrames}`} readOnly />
-              </PixField>
-            </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <PixField label={text('行 rows（1~8）', 'Rows (1–8)')}>
+                    <Input type="number" min={1} max={MAX_GRID_AXIS} value={safeRows} onChange={(e) => updateRows(Number(e.target.value))} />
+                  </PixField>
+                  <PixField label={text('列 cols（1~8）', 'Cols (1–8)')}>
+                    <Input type="number" min={1} max={MAX_GRID_AXIS} value={safeCols} onChange={(e) => updateCols(Number(e.target.value))} />
+                  </PixField>
+                  <PixField label={text('总帧数', 'Total frames')}>
+                    <Input value={`${totalFrames}`} readOnly />
+                  </PixField>
+                </div>
+              </>
+            )}
 
             {isSpriteVideoBridge && (
               <div className="grid gap-3">
@@ -891,8 +984,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               </PixField>
             )}
 
-            <PixField label={text('播放 FPS', 'Playback FPS')}>
-              <Input type="number" min={1} max={60} value={fps} onChange={(e) => setFps(Number(e.target.value))} />
+            <PixField label={text('播放 FPS', 'Playback FPS')} hint={isSpriteVideoBridge ? text('修改 FPS 会切换到自定义预设，并可能改变匹配的视频时长档位。', 'Changing FPS switches to the custom preset and may change the matched video duration tier.') : undefined}>
+              <Input type="number" min={1} max={60} value={fps} onChange={(e) => { setFps(Number(e.target.value)); if (isSpriteVideoBridge) setVideoAnimPreset('custom') }} />
             </PixField>
           </div>
         )}

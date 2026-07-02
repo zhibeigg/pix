@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.104.0] - 2026-07-02
+
+### Added
+
+- 生产工作台「首尾帧视频补间」序列帧新增**动画预设**选择器：用户按「帧数（流畅度）× FPS（速度）」直接选择，无需手动计算或填写 Seedance 合法视频时长。预设含轻量循环（8帧@8fps）、标准动作（8帧@6fps）、流畅动作（16帧@10fps）、丝滑动作（16帧@8fps，默认）、长演出（24帧@8fps）与「自定义」。
+  - 选择预设自动设置 `rows×cols` 与 `fps`；前端复刻后端 `derive_video_bridge_duration_seconds` 的档位吸附逻辑（`ALLOWED_VIDEO_DURATIONS = [4,5,6,8,10,12,15]`），每个预设与「当前」提示实时展示「提交 Ark 视频 Xs · 播放约 Ys · N 帧」。
+  - 保留「自定义」入口（`rows/cols/fps` 手动输入），调整任一项会实时刷新推导的视频档位与播放时长，并自动切到自定义预设；从作品库「复用」回填时会匹配命中的预设，未命中则回落自定义。
+  - 视频补间模式放开了原「强制 1 行」限制，可用 1×8 / 2×8 / 3×8 表达 8 / 16 / 24 帧（抽帧按均匀采样，横向拼条输出不变）。
+
 ## [1.103.0] - 2026-07-02
 
 ### Added
@@ -17,6 +26,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - 修复 `sprite.mode = "video_bridge"` 提交 Ark / Seedance 的视频时长可能为非法值（如 8 帧 × 125ms 推导出 1 秒）而被上游以 `InvalidParameter`（`duration ... not valid for model ... in flf2v`）直接拒绝、导致小帧数序列帧视频补间任务无法生成的问题：`derive_video_bridge_duration_seconds` / `video_bridge_timing_meta` 现在会把推导秒数向上吸附到不小于它的最近合法时长档位，新增可配置 `[video_bridge].allowed_durations`（默认对齐 Seedance 2.0 官方 4/5/6/8/10/12/15 秒）。抽帧仍按均匀采样取 N 帧，视频档位被拉长不影响最终 GIF / 序列帧播放节奏；`timing` meta 新增 `raw_duration_seconds` 记录吸附前的原始秒数。
+
+## [1.102.28] - 2026-07-02
+
+### Fixed
+
+- 修复 `sprite.mode = "video_bridge"` 视频序列帧后处理的限色盘步骤：此前固定使用本地 K-means 聚类，与素材直出模式不一致。现在默认走 **VL 模型色阶（ramp）限色盘**——把「去背景 + 去杂色后的主体帧」合成 mosaic 作为 VL 参考图，整段序列只调用一次 VL 生成共享 ramp，再对每帧按 Lab 最近色量化，帧间色彩一致性最佳。
+  - VL 不可用 / 调用失败 / 解析失败时优雅回退本地 `build_local_ramp`，绝不因限色盘失败中断视频任务；仅当用户显式设置 `pixelize.palette_mode = "kmeans"` 时才回退旧的本地 K-means 逃生阀。
+  - VL 参考图取自去杂色后、裁剪前的主体帧，颜色未被裁剪 / 2 次幂透明填充破坏，限色盘结果与在「去杂色处」限色盘等价；实际逐帧量化在合并成精灵表前执行。
+  - `SpriteVideoBridgeInput` 新增 `vl_model` 字段并由 Web 适配层透传；`meta.json` 的 `sprite.palette_mode` / `palette_ramp` / `processing.ramp` 记录限色盘来源（vl / local_fallback / local）与 ramp 明细。
+  - 修正 `src/pix/__init__.py` 的 `__version__` 与 CHANGELOG 版本不一致（此前停留在 1.101.27，实际已发布 1.102.27）。
 
 ## [1.102.27] - 2026-07-02
 

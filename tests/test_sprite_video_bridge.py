@@ -630,6 +630,8 @@ def test_process_frames_detects_mode_grid_then_reprocesses_all_frames(tmp_path, 
         edge_style="hard",
         bg_feather=0,
         generated_preprocess_method="perfect_pixel",
+        palette_mode="kmeans",
+        run_dir=tmp_path,
     )
 
     grid_meta = process_meta["perfect_pixel_sequence_grid"]
@@ -692,6 +694,8 @@ def test_process_frames_pads_detected_size_to_power_of_two_square(tmp_path, monk
         edge_style="hard",
         bg_feather=0,
         generated_preprocess_method="perfect_pixel",
+        palette_mode="kmeans",
+        run_dir=tmp_path,
     )
 
     assert effective_size == (128, 128)
@@ -737,6 +741,8 @@ def test_process_frames_keeps_foreground_away_from_output_edges(tmp_path) -> Non
         edge_style="hard",
         bg_feather=0,
         generated_preprocess_method="none",
+        palette_mode="kmeans",
+        run_dir=tmp_path,
     )
 
     assert effective_size == (128, 128)
@@ -788,6 +794,7 @@ def test_process_frames_denoises_and_limits_colors_when_shared_palette_disabled(
 
     cfg = AppConfig()
     cfg.sprite.shared_palette = False
+    # 显式选择 kmeans 逃生阀，验证旧的本地限色路径仍可用。
     final_paths, _bboxes, _effective_size, shared_palette, process_meta = _process_frames(
         cfg,
         [raw_path],
@@ -802,12 +809,207 @@ def test_process_frames_denoises_and_limits_colors_when_shared_palette_disabled(
         edge_style="hard",
         bg_feather=0,
         generated_preprocess_method="none",
+        palette_mode="kmeans",
+        run_dir=tmp_path,
     )
 
     colors = _visible_colors(final_paths[0])
     assert process_meta["denoise"]["dropped_component_count"] >= 1
-    assert process_meta["palette_mode"] == "per_frame"
+    assert process_meta["palette_mode"] == "kmeans_per_frame"
+    assert process_meta["requested_palette_mode"] == "kmeans"
     assert process_meta["frame_palettes"]
     assert shared_palette == []
     assert len(colors) <= 4
     assert noise_color[:3] not in colors
+
+
+def _draw_multicolor_subject(path, key=(255, 0, 255, 255)) -> None:
+    image = Image.new("RGBA", (64, 64), key)
+    draw = ImageDraw.Draw(image)
+    palette = [
+        (10, 10, 20, 255),
+        (30, 40, 90, 255),
+        (70, 20, 120, 255),
+        (120, 50, 40, 255),
+        (180, 90, 30, 255),
+        (220, 160, 60, 255),
+    ]
+    for offset, color in enumerate(palette):
+        draw.rectangle([14 + offset * 4, 18, 17 + offset * 4, 42], fill=color)
+    image.save(path)
+
+
+def test_process_frames_defaults_to_vl_ramp_palette(tmp_path, monkeypatch) -> None:
+    from pix.pixelize.ramp import ramp_from_dict
+
+    raw_dir = tmp_path / "raw"
+    final_dir = tmp_path / "final"
+    raw_dir.mkdir()
+    key = (255, 0, 255, 255)
+    raw_paths = []
+    for index in range(2):
+        path = raw_dir / f"frame_{index + 1:03d}.png"
+        _draw_multicolor_subject(path, key=key)
+        raw_paths.append(path)
+
+    ramp_colors = ["#101014", "#3A5AA0", "#C8B43C"]
+    vl_ramp = ramp_from_dict(
+        {
+            "ramps": [
+                {
+                    "name": "main",
+                    "hue": "main",
+                    "steps": [
+                        {"hex": ramp_colors[0], "role": "shadow"},
+                        {"hex": ramp_colors[1], "role": "mid"},
+                        {"hex": ramp_colors[2], "role": "highlight"},
+                    ],
+                }
+            ]
+        }
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_ramp_from_vl(_cfg, image_path, **kwargs):
+        captured["image_path"] = str(image_path)
+        captured["max_colors"] = kwargs.get("max_colors")
+        captured["model"] = kwargs.get("model")
+        return vl_ramp
+
+    monkeypatch.setattr("pix.sprite_video_bridge.require_vl_api_key", lambda _cfg: "vl-key")
+    monkeypatch.setattr("pix.sprite_video_bridge.ramp_from_vl", fake_ramp_from_vl)
+
+    cfg = AppConfig()
+    cfg.sprite.shared_palette = True
+
+    final_paths, _bboxes, _effective_size, shared_palette, process_meta = _process_frames(
+        cfg,
+        raw_paths,
+        final_dir,
+        target_size=(64, 64),
+        frame_size_step=16,
+        anchor="bottom_center",
+        key_rgb=key[:3],
+        key_tolerance=0,
+        max_colors=8,
+        dither="none",
+        edge_style="hard",
+        bg_feather=0,
+        generated_preprocess_method="none",
+        palette_mode="auto",
+        vl_model="gpt-4o",
+        description="多彩主体",
+        run_dir=tmp_path,
+    )
+
+    # VL 只应调用一次（共享色阶）
+    assert process_meta["ramp"]["source"] == "vl"
+    assert process_meta["ramp"]["shared_vl_call_count"] == 1
+    assert process_meta["palette_mode"] == "vl_ramp_shared"
+    assert captured["model"] == "gpt-4o"
+    # 每帧颜色应落在 VL ramp 色板内
+    allowed = {(16, 16, 20), (58, 90, 160), (200, 180, 60)}
+    for path in final_paths:
+        for color in _visible_colors(path):
+            assert color in allowed
+    assert set(shared_palette)  # 返回扁平色板
+
+
+def test_process_frames_falls_back_to_local_ramp_when_vl_fails(tmp_path, monkeypatch) -> None:
+    raw_dir = tmp_path / "raw"
+    final_dir = tmp_path / "final"
+    raw_dir.mkdir()
+    key = (255, 0, 255, 255)
+    raw_paths = []
+    for index in range(2):
+        path = raw_dir / f"frame_{index + 1:03d}.png"
+        _draw_multicolor_subject(path, key=key)
+        raw_paths.append(path)
+
+    def boom(_cfg, _image_path, **_kwargs):
+        raise RuntimeError("vl exploded")
+
+    local_calls: list[int] = []
+    real_build_local_ramp = None
+    from pix.pixelize import ramp as ramp_module
+
+    real_build_local_ramp = ramp_module.build_local_ramp
+
+    def tracking_local_ramp(image, **kwargs):
+        local_calls.append(1)
+        return real_build_local_ramp(image, **kwargs)
+
+    monkeypatch.setattr("pix.sprite_video_bridge.require_vl_api_key", lambda _cfg: "vl-key")
+    monkeypatch.setattr("pix.sprite_video_bridge.ramp_from_vl", boom)
+    monkeypatch.setattr("pix.sprite_video_bridge.build_local_ramp", tracking_local_ramp)
+
+    cfg = AppConfig()
+    cfg.sprite.shared_palette = True
+
+    final_paths, _bboxes, _effective_size, shared_palette, process_meta = _process_frames(
+        cfg,
+        raw_paths,
+        final_dir,
+        target_size=(64, 64),
+        frame_size_step=16,
+        anchor="bottom_center",
+        key_rgb=key[:3],
+        key_tolerance=0,
+        max_colors=6,
+        dither="none",
+        edge_style="hard",
+        bg_feather=0,
+        generated_preprocess_method="none",
+        palette_mode="auto",
+        description="多彩主体",
+        run_dir=tmp_path,
+    )
+
+    assert local_calls == [1]
+    assert process_meta["ramp"]["source"] == "local_fallback"
+    assert "vl exploded" in process_meta["ramp"]["vl_error"]
+    assert process_meta["palette_mode"] == "vl_ramp_shared"
+    assert len(final_paths) == 2
+    # 回退后仍应产出可见像素（限色未清空主体）
+    assert any(_visible_colors(path) for path in final_paths)
+
+
+def test_process_frames_local_ramp_when_no_vl_key(tmp_path, monkeypatch) -> None:
+    raw_dir = tmp_path / "raw"
+    final_dir = tmp_path / "final"
+    raw_dir.mkdir()
+    key = (255, 0, 255, 255)
+    raw_path = raw_dir / "frame_001.png"
+    _draw_multicolor_subject(raw_path, key=key)
+
+    def raise_missing_key(_cfg):
+        raise RuntimeError("missing vl key")
+
+    monkeypatch.setattr("pix.sprite_video_bridge.require_vl_api_key", raise_missing_key)
+
+    cfg = AppConfig()
+    cfg.sprite.shared_palette = True
+
+    final_paths, _bboxes, _effective_size, _shared_palette, process_meta = _process_frames(
+        cfg,
+        [raw_path],
+        final_dir,
+        target_size=(64, 64),
+        frame_size_step=16,
+        anchor="bottom_center",
+        key_rgb=key[:3],
+        key_tolerance=0,
+        max_colors=6,
+        dither="none",
+        edge_style="hard",
+        bg_feather=0,
+        generated_preprocess_method="none",
+        palette_mode="auto",
+        run_dir=tmp_path,
+    )
+
+    assert process_meta["ramp"]["source"] == "local"
+    assert "missing vl key" in process_meta["ramp"]["vl_error"]
+    assert process_meta["palette_mode"] == "vl_ramp_shared"
+    assert len(final_paths) == 1

@@ -296,6 +296,11 @@ crop_padding   = 0.12
 crop_square    = true
 # 对全部帧应用共享调色板，减少序列播放闪色
 shared_palette = true
+# 限色盘策略（video_bridge 视频序列帧模式）：默认走 VL 模型色阶（ramp），
+#   由 pixelize.palette_mode 控制——auto / ramp 均启用 VL（无 VL Key 或调用失败时
+#   优雅回退本地 build_local_ramp，绝不中断视频任务）；仅 palette_mode = "kmeans"
+#   时回退旧的本地 K-means 限色。VL 参考图取「去背景+去杂色后的主体帧」合成的
+#   mosaic，整段序列只调用一次 VL 生成共享 ramp，再逐帧量化，帧间色彩最稳定。
 # 多行 mosaic（rows>1）会自动按行输出独立产物，便于直接拿到「每行一个动画循环」的成品：
 #   {run_dir}/sprite_sheet_grid.png   —— rows×cols 二维网格预览（与原 sprite_mosaic.png 一一对照）
 #   {run_dir}/row_sheets/row_NN.png   —— 每行一张 1×cols 横向 sheet
