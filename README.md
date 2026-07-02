@@ -428,9 +428,22 @@ JSON 示例：
 - `apps/web/public/site.webmanifest`、`icon-192.png`、`icon-512.png`、`apple-touch-icon.png`：PWA 与移动端图标。
 - `apps/web/src/lib/seo.ts`：前端路由与语言切换时同步更新 `document.title`、`description` 和分享 meta。由于当前使用 hash 路由，登录后的工作台/作品库等内页不写入 sitemap；若后续希望内页收录，需要预渲染或 SSR。
 
+## 安全与防护
+
+Pix 后端内置多层防护，部署时请配合下列配置项：
+
+- **文件访问归属校验**：`GET /files` 与任务输入图 `input_image_path` / `reference_image_path` 只允许访问本人上传目录或本人任务产物，杜绝跨用户越权与任意文件读取（LFI）。管理员可访问全部产物。
+- **文件访问票据**：受保护图片 / 下载链接使用短时效（默认 5 分钟）单用途票据（`POST /files/ticket`），前端主动预取并缓存，避免长期登录 token 出现在 URL、浏览器历史或反代日志中。
+- **出站 SSRF 防护**：服务端下载上游图片 / 视频前会校验目标 IP，拒绝回环 / 私网 / 链路本地 / 云元数据地址，并逐跳复验重定向。若上游确在可信内网，可设 `PIX_ALLOW_PRIVATE_DOWNLOAD=true` 放行。
+- **接口限流**：登录、注册、找回密码及验证码接口按客户端真实 IP 限流（读取 `X-Forwarded-For` / `X-Real-IP`）。反向代理需正确透传该头。可用 `PIX_WEB_RATE_LIMIT_ENABLED=false` 关闭（不建议生产关闭）。
+- **生产启动校验**：设 `PIX_WEB_ENV=prod` 后，若 `PIX_WEB_JWT_SECRET` 仍为默认值或长度不足 32 字符，服务会拒绝启动；同时自动附加 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy` 与 HSTS 安全响应头。
+- **数据库密码**：`docker-compose.yml` 不再提供 PostgreSQL 默认密码兜底，必须通过 `POSTGRES_PASSWORD` 显式提供强随机密码，否则容器拒绝启动。
+
+相关环境变量见 `.env.example` 与 `.env.production.example`。
+
 ## 版本与发布
 
-当前版本：`1.104.0`。
+当前版本：`1.105.0`。
 
 版本号格式为 `A.B.C`：
 

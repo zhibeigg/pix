@@ -10,6 +10,7 @@ import httpx
 
 from pix.api.http_client import ProviderError, ProviderHttpClient, category_for_status
 from pix.config import AppConfig
+from pix.net_guard import UnsafeDownloadURLError, safe_get_with_redirects
 
 
 @dataclass(frozen=True)
@@ -139,8 +140,9 @@ class ArkVideoClient:
         dest.parent.mkdir(parents=True, exist_ok=True)
         timeout_config = httpx.Timeout(connect=60.0, read=600.0, write=120.0, pool=600.0)
         try:
-            with httpx.Client(timeout=timeout_config, follow_redirects=True) as client:
-                with client.stream("GET", video_url) as response:
+            # SSRF 防护：逐跳复验重定向目标，禁止指向内网/元数据地址。
+            with httpx.Client(timeout=timeout_config, follow_redirects=False) as client:
+                with safe_get_with_redirects(client, video_url, stream=True) as response:
                     if response.status_code >= 400:
                         body = response.read().decode("utf-8", errors="ignore")
                         raise ArkVideoError(
@@ -154,6 +156,8 @@ class ArkVideoClient:
                         for chunk in response.iter_bytes():
                             if chunk:
                                 fh.write(chunk)
+        except UnsafeDownloadURLError as exc:
+            raise ArkVideoError(str(exc), category="network", provider_id="ark_video") from exc
         except httpx.TimeoutException as exc:
             raise ArkVideoError(str(exc), category="timeout", provider_id="ark_video") from exc
         except httpx.HTTPError as exc:

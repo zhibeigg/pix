@@ -4,8 +4,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-pix}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pix-change-me}
+      # 必须在 .env / .env.production 显式提供强密码；未设置时 compose 会报错拒绝启动。
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必须设置为强随机密码}
       POSTGRES_DB: ${POSTGRES_DB:-pix}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -33,7 +35,7 @@ services:
     env_file:
       - .env.production
     environment:
-      PIX_WEB_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pix}:${POSTGRES_PASSWORD:-pix-change-me}@postgres:5432/${POSTGRES_DB:-pix}
+      PIX_WEB_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pix}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必须设置}@postgres:5432/${POSTGRES_DB:-pix}
     command: ["alembic", "upgrade", "head"]
     depends_on:
       postgres:
@@ -47,7 +49,7 @@ services:
     env_file:
       - .env.production
     environment:
-      PIX_WEB_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pix}:${POSTGRES_PASSWORD:-pix-change-me}@postgres:5432/${POSTGRES_DB:-pix}
+      PIX_WEB_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pix}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必须设置}@postgres:5432/${POSTGRES_DB:-pix}
       PIX_WEB_REDIS_URL: redis://redis:6379/0
       PIX_WEB_QUEUE_BACKEND: rq
       PIX_WEB_AUTO_CREATE_DB: "false"
@@ -73,7 +75,7 @@ services:
     env_file:
       - .env.production
     environment:
-      PIX_WEB_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pix}:${POSTGRES_PASSWORD:-pix-change-me}@postgres:5432/${POSTGRES_DB:-pix}
+      PIX_WEB_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pix}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必须设置}@postgres:5432/${POSTGRES_DB:-pix}
       PIX_WEB_REDIS_URL: redis://redis:6379/0
       PIX_WEB_QUEUE_BACKEND: rq
       PIX_WEB_AUTO_CREATE_DB: "false"

@@ -23,6 +23,13 @@ from pix_web.email_verification import (
     normalize_email,
 )
 from pix_web.models import User
+from pix_web.rate_limit import (
+    EMAIL_CODE_RATE_LIMIT,
+    LOGIN_RATE_LIMIT,
+    PASSWORD_RESET_RATE_LIMIT,
+    REGISTER_RATE_LIMIT,
+    limiter,
+)
 from pix_web.referrals import bind_referral_invite
 from pix_web.schemas import (
     BootstrapAdminRequest,
@@ -235,6 +242,7 @@ def local_test_login(
 
 
 @router.post("/register-code", response_model=EmailCodeResponse)
+@limiter.limit(EMAIL_CODE_RATE_LIMIT)
 def request_register_code(
     req: EmailCodeRequest,
     request: Request,
@@ -273,8 +281,10 @@ def request_register_code(
 
 
 @router.post("/register", response_model=UserResponse)
+@limiter.limit(REGISTER_RATE_LIMIT)
 def register(
     req: RegisterRequest,
+    request: Request,
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> User:
@@ -308,8 +318,10 @@ def register(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit(LOGIN_RATE_LIMIT)
 def login(
     req: LoginRequest,
+    request: Request,
     db: Session = Depends(get_db),
     settings=Depends(get_settings),
 ) -> TokenResponse:
@@ -323,6 +335,7 @@ def login(
 
 
 @router.post("/reset-code", response_model=EmailCodeResponse)
+@limiter.limit(EMAIL_CODE_RATE_LIMIT)
 def request_reset_code(
     req: ResetCodeRequest,
     request: Request,
@@ -367,8 +380,10 @@ def request_reset_code(
 
 
 @router.post("/reset-password", response_model=TokenResponse)
+@limiter.limit(PASSWORD_RESET_RATE_LIMIT)
 def reset_password(
     req: ResetPasswordRequest,
+    request: Request,
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> TokenResponse:

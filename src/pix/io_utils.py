@@ -14,6 +14,8 @@ from types import TracebackType
 
 import httpx
 
+from pix.net_guard import assert_safe_download_url, safe_get_with_redirects
+
 
 class FileLockTimeout(TimeoutError):
     """等待文件锁超时。"""
@@ -160,6 +162,8 @@ def download(
     """
     dest_path = Path(dest)
     ensure_dir(dest_path.parent)
+    # SSRF 防护：下载前先校验目标地址，非法（私网/回环/元数据等）直接抛错，不再重试。
+    assert_safe_download_url(url)
     httpx_timeout = httpx.Timeout(
         connect=connect_timeout if connect_timeout is not None else timeout,
         read=timeout,
@@ -169,7 +173,8 @@ def download(
     tmp_path = dest_path.with_suffix(dest_path.suffix + ".part")
     client_kwargs: dict[str, object] = {
         "timeout": httpx_timeout,
-        "follow_redirects": True,
+        # 逐跳复验重定向目标（防 302 绕内网 / DNS 重绑定），不使用 httpx 自动跟随。
+        "follow_redirects": False,
         "trust_env": trust_env,
     }
     if proxy:
@@ -185,7 +190,7 @@ def download(
                 pass
         try:
             with httpx.Client(**client_kwargs) as client:
-                resp = client.get(url)
+                resp = safe_get_with_redirects(client, url)
                 resp.raise_for_status()
                 expected_length_header = resp.headers.get("content-length")
                 expected_length = int(expected_length_header) if expected_length_header and expected_length_header.isdigit() else None

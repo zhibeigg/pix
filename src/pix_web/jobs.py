@@ -16,8 +16,9 @@ from pix.api.prompt_guard import RAW_IMAGE_PROMPT_MAX_CHARS
 from pix.asset import AssetSizePolicyError, resolve_asset_generation_policy
 from pix.config import AppConfig, load_config
 from pix.prompt_style import STYLE_PROFILE_POLICY_MAX_CHARS, style_profile_policy_text
-from pix_web.config import WebSettings
+from pix_web.config import WebSettings, load_web_settings
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, reserve_credits
+from pix_web.file_ownership import resolve_owned_input_path
 from pix_web.job_observability import record_policy_event
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
 from pix_web.pricing import PricingDisabledError, apply_discount, get_price
@@ -510,6 +511,27 @@ def _billing_snapshot_for_request(
     return snapshot
 
 
+def _enforce_input_path_ownership(
+    db: Session, user: User, req: JobCreateRequest, settings: WebSettings | None
+) -> None:
+    """校验用户提交的输入图/参考图路径必须归属自己，防止任意文件读取（LFI）。
+
+    合法来源：用户自己的上传目录，或用户自己任务的 run 目录（本地像素化 / 重新像素化 /
+    复用源图等链路会把这些产物路径回填到 input_image_path）。指向他人文件或系统任意路径时拒绝。
+    """
+    effective_settings = settings if settings is not None else load_web_settings()
+    for raw_path in (req.input_image_path, req.sprite.reference_image_path):
+        if not raw_path:
+            continue
+        try:
+            resolve_owned_input_path(raw_path, user, db, effective_settings)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="输入图片路径不合法",
+            ) from exc
+
+
 def create_job_in_transaction(
     db: Session,
     user: User,
@@ -518,8 +540,10 @@ def create_job_in_transaction(
     reserve: bool = True,
     batch: GenerationBatch | None = None,
     cfg: AppConfig | None = None,
+    settings: WebSettings | None = None,
 ) -> GenerationJob:
     validate_job_request(req, cfg)
+    _enforce_input_path_ownership(db, user, req, settings)
     client_request_id = req.client_request_id.strip()
     existing = _existing_job(db, user, client_request_id)
     if existing is not None:
@@ -574,7 +598,7 @@ def create_job(
         _enforce_request_prompt_policy(db, user, req, cfg)
         enforce_generation_limits(db, user, new_jobs=1)
     try:
-        job = create_job_in_transaction(db, user, req, cfg=cfg)
+        job = create_job_in_transaction(db, user, req, cfg=cfg, settings=settings)
     except InsufficientCreditsError as exc:
         raise insufficient_credits_http() from exc
     db.commit()
@@ -657,7 +681,7 @@ def create_jobs_batch(
             if existing is not None:
                 jobs.append(existing)
                 continue
-            job = create_job_in_transaction(db, user, req, reserve=False, batch=batch, cfg=cfg)
+            job = create_job_in_transaction(db, user, req, reserve=False, batch=batch, cfg=cfg, settings=settings)
             reserve_credits(db, user, job, price)
             jobs.append(job)
     except InsufficientCreditsError as exc:
@@ -734,7 +758,7 @@ def retry_failed_job(
         raise insufficient_credits_http()
 
     try:
-        job = create_job_in_transaction(db, user, req, reserve=False, batch=failed_job.batch, cfg=cfg)
+        job = create_job_in_transaction(db, user, req, reserve=False, batch=failed_job.batch, cfg=cfg, settings=settings)
         reserve_credits(db, user, job, price)
     except InsufficientCreditsError as exc:
         db.rollback()
@@ -790,7 +814,7 @@ def retry_failed_jobs_in_batch(
     jobs: list[GenerationJob] = []
     try:
         for req, price in zip(reqs, prices, strict=True):
-            job = create_job_in_transaction(db, user, req, reserve=False, batch=batch, cfg=cfg)
+            job = create_job_in_transaction(db, user, req, reserve=False, batch=batch, cfg=cfg, settings=settings)
             reserve_credits(db, user, job, price)
             jobs.append(job)
     except InsufficientCreditsError as exc:
