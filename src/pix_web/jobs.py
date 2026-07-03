@@ -329,8 +329,10 @@ def _is_sprite_video_bridge(req: JobCreateRequest) -> bool:
     return req.job_type == "sprite_sheet" and req.sprite.mode == "video_bridge"
 
 
+
 def _frame_count_for_price(req: JobCreateRequest) -> int:
     if req.job_type != "sprite_sheet":
+
         return 1
     return max(1, req.sprite.rows * req.sprite.cols)
 
@@ -511,8 +513,8 @@ def _billing_snapshot_for_request(
         return None
     snapshot: dict = {}
     if is_sprite:
-        base_price = _base_price_for_request(db, req)
         if is_video_bridge:
+            base_price = _base_price_for_request(db, req)
             video_model = normalize_video_bridge_model(req.sprite.video_model)
             video_duration_seconds = _video_bridge_duration_seconds_for_price(req)
             video_price = video_bridge_price_cny(video_model, video_duration_seconds)
@@ -523,16 +525,22 @@ def _billing_snapshot_for_request(
                     "cols": req.sprite.cols,
                     "frame_count": _frame_count_for_price(req),
                     "billing_units": 1,
+                    "video_first_frame_only": bool(req.sprite.video_first_frame_only),
                     "video_model": video_model,
                     "video_duration_seconds": video_duration_seconds,
                     "video_price_cny": float(video_price),
                     "video_base_price_credits": base_price,
                     "image_price_credits": VIDEO_BRIDGE_IMAGE_PRICE_CREDITS,
                     "formula": f"ceil(video_price_cny * {VIDEO_BRIDGE_PRICE_MULTIPLIER} + image_price_credits)",
-                    "billing_note": "one keyframe image generation plus one 480p Seedance video bridge; postprocess included",
+                    "billing_note": (
+                        "one first-frame key image generation plus one 480p Seedance first-frame video; postprocess included"
+                        if req.sprite.video_first_frame_only
+                        else "one keyframe image generation plus one 480p Seedance video bridge; postprocess included"
+                    ),
                 }
             )
         else:
+            base_price = _base_price_for_request(db, req)
             snapshot.update(
                 {
                     "mode": "mosaic",

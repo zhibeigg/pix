@@ -227,6 +227,7 @@ export type SpriteParams = {
   loop: number
   video_action_prompt?: string
   video_return_to_first_frame?: boolean
+  video_first_frame_only?: boolean
   video_model?: VideoBridgeModel | string | null
   video_duration_seconds?: number | null
   video_resolution?: string | null

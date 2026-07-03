@@ -18,7 +18,8 @@
     "cols": 8,
     "fps": 8,
     "video_model": "doubao-seedance-2-0-260128",
-    "video_action_prompt": "从站立蓄力到挥剑释放一道蓝色剑气"
+    "video_action_prompt": "从站立蓄力到挥剑释放一道蓝色剑气",
+    "video_first_frame_only": false
   }
 }
 ```
@@ -28,11 +29,22 @@
 - `video_model` 可选三档 Seedance 2.0 并透传 Ark：`doubao-seedance-2-0-260128`（Standard，默认）、`doubao-seedance-2-0-fast-260128`（Fast）、`doubao-seedance-2-0-mini-260615`（Mini）。
 - Ark 视频生成时长由 `rows × cols × duration_ms` 推导并锁定，非整秒向上取整；这样视频补间时间轴与最终 GIF / 序列帧播放节奏一致，不再直接使用 `[video_bridge].duration` 覆盖任务节奏。
 - `video_action_prompt` 可选；留空时回退到第一条 `row_prompts`，再回退到主 prompt。
+- `video_first_frame_only=true` 时进入“仅首帧关键图”模式：生图阶段只使用单帧首帧 prompt 生成 `first_frame.png`，不生成尾帧关键图；随后仍按 `rows×cols` 与 `duration_ms` 创建 Ark 首帧图生视频任务并抽帧输出完整序列帧。该模式仍要求 `[video_bridge].enabled` 与 Ark API Key，计费仍按视频模型和推导时长计算。
 - `reference_image_path` 仍可用于关键帧图生图。
 - `pixelize.output_size`、`pixelize.colors`、`pixelize.edge_style/bg_feather`、`pixelize.generated_preprocess_method` 与 `pixelize.dither` 与 mosaic / 素材直出保持同一语义：分别控制最终单帧尺寸、颜色数、抽帧后边缘处理、视频帧 perfectPixel 预处理与限色抖动；这些参数也会写入关键帧 prompt 与 Ark motion prompt。
 - 去杂色是 `video_bridge` 固定后处理，不新增用户开关：抽帧后会通过连通域保留主体及近邻特效，移除远离主体的孤立色点 / 杂色块。
 
 ## Pipeline
+
+### 仅首帧关键图模式（`video_first_frame_only=true`）
+
+1. 构造单帧首帧 prompt：只要求一张 opening frame / first-frame 姿态图，明确禁止双面板、第二姿势、sprite sheet 或对比布局，并保留目标单帧尺寸、颜色数、key-color / 容差、去杂色纪律和风格档案约束。
+2. 调用 `generate_image` / `edit_image` 输出 `keyframes/first_frame.png`，再用与普通模式一致的安全边、锚点、key-color 和视频画布规则整理为 `keyframes/first_frame_video.png`。
+3. 构造首帧图生视频 motion prompt：把 `first_frame` 作为唯一硬约束，要求主体身份、比例、锚点和像素格稳定；动作在完整 `rows×cols`、`fps`、`duration_ms` 推导出的 Ark 时长内均匀展开。
+4. 调用 `ArkVideoClient` 创建 Seedance 首帧图生视频任务，payload 的 `content` 只提交 `role: "first_frame"`，不提交 `last_frame`。
+5. 进入与普通 video_bridge 相同的 `waiting`、轮询、下载、均匀抽帧和后处理流程，输出完整 `rows×cols` 序列帧与 sprite 产物；`meta.json` 记录 `video_first_frame_only=true`。
+
+### 普通视频补间模式
 
 1. 生成一张左右双栏关键帧图：左栏为起始姿势，右栏为结束姿势。
 2. 切分首帧/尾帧：不再固定按几何中线硬切，而是沿双栏横轴从 0 像素开始逐列扫掠，跳过开头同色背景，确认主体杂色段后，在下一段同色空隙与再下一段杂色之间取中线作为真实 gutter，避免尾帧后腿、披风、武器、粒子或烟雾越过中线时被裁掉；每个半图先执行 perfectPixel 预处理，再用 key-color 转 alpha，按背景色与主体色块轮廓识别原始连通组件：保留主体轮廓和近邻组件、过滤远处孤立噪点，带安全边距裁剪后按统一尺寸/锚点铺回视频输入画布，转为 PNG data URL。
@@ -68,7 +80,7 @@
 
 - `sprite_sheet.png`：横向播放 sheet
 - `sprite_sheet_grid.png`：rows×cols 网格预览
-- `frames/raw/*.png`：视频原始抽帧
+- `frames/raw/*.png`：视频原始抽帧；仅首帧关键图模式下同样来自 Ark 视频任务并保留完整 `rows×cols` 帧数
 - `frames/final/*.png`：最终透明帧
 - `sprite.gif`：按配置可选
 - `sequence.json`：包含 `mode = "video_bridge"`、`source_video`、帧 rect、fps、rows/cols
@@ -76,7 +88,7 @@
 
 ## 计费
 
-`sprite.mode="mosaic"` 仍按 `ceil(rows·cols / 9) × sprite_sheet` 基础价计费。`sprite.mode="video_bridge"` 不再乘帧组数，而是按所选 Seedance 2.0 视频模型与飞书价格计算器 4–15 秒完整价格表单任务价计费。价格表为：Standard 1.85/2.31/2.77/3.23/3.70/4.16/4.62/5.08/5.54/6.01/6.47/6.93 元，Fast 1.49/1.86/2.23/2.60/2.97/3.34/3.72/4.09/4.46/4.83/5.20/5.57 元，Mini 0.92/1.16/1.39/1.62/1.85/2.08/2.31/2.54/2.77/3.00/3.23/3.47 元；点数按 `ceil(视频价格 × 20 + 10)` 得到 Standard 47/57/66/75/84/94/103/112/121/131/140/149，Fast 40/48/55/62/70/77/85/92/100/107/114/122，Mini 29/34/38/43/47/52/57/61/66/70/75/80，其中 10 点为首尾关键帧生图价。任务创建时会把模型、实际视频秒数、视频价格与折扣后的总点数写入 `params_json.billing` 快照。
+`sprite.mode="mosaic"` 仍按 `ceil(rows·cols / 9) × sprite_sheet` 基础价计费。`sprite.mode="video_bridge"` 不再乘帧组数，而是按所选 Seedance 2.0 视频模型与飞书价格计算器 4–15 秒完整价格表单任务价计费。价格表为：Standard 1.85/2.31/2.77/3.23/3.70/4.16/4.62/5.08/5.54/6.01/6.47/6.93 元，Fast 1.49/1.86/2.23/2.60/2.97/3.34/3.72/4.09/4.46/4.83/5.20/5.57 元，Mini 0.92/1.16/1.39/1.62/1.85/2.08/2.31/2.54/2.77/3.00/3.23/3.47 元；点数按 `ceil(视频价格 × 20 + 10)` 得到 Standard 47/57/66/75/84/94/103/112/121/131/140/149，Fast 40/48/55/62/70/77/85/92/100/107/114/122，Mini 29/34/38/43/47/52/57/61/66/70/75/80，其中 10 点为关键帧生图价。`video_first_frame_only=true` 只减少关键帧生图输入，不改变视频任务计费口径，仍按所选视频模型和 `rows×cols×duration_ms` 推导出的秒数计费；`params_json.billing` 继续写入 `mode="video_bridge"`，并额外记录 `video_first_frame_only=true`。任务创建时会把模型、实际视频秒数、视频价格与折扣后的总点数写入 `params_json.billing` 快照。
 
 ## 配置
 

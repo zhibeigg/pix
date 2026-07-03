@@ -9,7 +9,11 @@ from pix.config import AppConfig
 from pix.contact_sheet import resolve_key_color
 from pix.prompt_style import compile_style_profile
 from pix.sprite_mosaic import SpriteMosaicInput, _ensure_row_prompts, _resolve_settings, build_mosaic_prompt
-from pix.sprite_video_bridge import build_video_bridge_keyframe_prompt, derive_video_bridge_duration_seconds
+from pix.sprite_video_bridge import (
+    build_video_bridge_first_frame_prompt,
+    build_video_bridge_keyframe_prompt,
+    derive_video_bridge_duration_seconds,
+)
 from pix_web.pipeline_adapter import RAW_REFERENCE_IMAGE_ALIAS, _asset_reference_prompt_appendix, pixelize_params_from_json
 from pix_web.schemas import JobCreateRequest, PromptPreviewResponse
 
@@ -124,28 +128,50 @@ def _sprite_prompt_preview(req: JobCreateRequest, cfg: AppConfig) -> PromptPrevi
         )
         settings = _resolve_settings(cfg, inputs, description)
         key_hex, _ = resolve_key_color(cfg.sprite.green_screen_color, description)
-        prompt = build_video_bridge_keyframe_prompt(
-            cfg,
-            description,
-            action_prompt,
-            key_color=key_hex,
-            key_tolerance=settings.key_tolerance,
-            frame_size=settings.target_size,
-            max_colors=settings.max_colors,
-            style_profile=style_profile,
-        )
-        derived_duration = derive_video_bridge_duration_seconds(
-            settings.frame_count,
-            settings.duration_ms,
-            getattr(cfg.video_bridge, "allowed_durations", None),
-        )
-        warnings = [
-            "首尾帧视频补间会先生成关键帧，再调用 Ark 480p 无声视频任务；单帧尺寸、颜色数、边缘处理与固定去杂色后处理会同步应用。",
-            f"Ark 视频秒数会按序列帧节奏推导（{settings.frame_count} 帧 × {settings.duration_ms}ms = {settings.frame_count * settings.duration_ms}ms），"
-            f"并向上吸附到模型支持的时长档位后提交为 {derived_duration}s；抽帧仍按均匀采样取 {settings.frame_count} 帧，不影响最终播放节奏。",
-        ]
-        if req.sprite.video_return_to_first_frame:
-            warnings.append("已启用回到初始帧：视频 motion prompt 会要求先到尾帧，再平滑回到首帧以便循环。")
+        if req.sprite.video_first_frame_only:
+            prompt = build_video_bridge_first_frame_prompt(
+                cfg,
+                description,
+                action_prompt,
+                key_color=key_hex,
+                key_tolerance=settings.key_tolerance,
+                frame_size=settings.target_size,
+                max_colors=settings.max_colors,
+                style_profile=style_profile,
+            )
+            derived_duration = derive_video_bridge_duration_seconds(
+                settings.frame_count,
+                settings.duration_ms,
+                getattr(cfg.video_bridge, "allowed_durations", None),
+            )
+            warnings = [
+                "已启用仅生成首帧关键图：生图阶段只生成 first_frame，不生成/提交 last_frame；随后仍会创建 Ark 首帧图生视频任务并抽取完整序列帧。",
+                f"Ark 视频秒数会按序列帧节奏推导（{settings.frame_count} 帧 × {settings.duration_ms}ms = {settings.frame_count * settings.duration_ms}ms），"
+                f"并向上吸附到模型支持的时长档位后提交为 {derived_duration}s；抽帧仍按均匀采样取 {settings.frame_count} 帧，不影响最终播放节奏。",
+            ]
+        else:
+            prompt = build_video_bridge_keyframe_prompt(
+                cfg,
+                description,
+                action_prompt,
+                key_color=key_hex,
+                key_tolerance=settings.key_tolerance,
+                frame_size=settings.target_size,
+                max_colors=settings.max_colors,
+                style_profile=style_profile,
+            )
+            derived_duration = derive_video_bridge_duration_seconds(
+                settings.frame_count,
+                settings.duration_ms,
+                getattr(cfg.video_bridge, "allowed_durations", None),
+            )
+            warnings = [
+                "首尾帧视频补间会先生成关键帧，再调用 Ark 480p 无声视频任务；单帧尺寸、颜色数、边缘处理与固定去杂色后处理会同步应用。",
+                f"Ark 视频秒数会按序列帧节奏推导（{settings.frame_count} 帧 × {settings.duration_ms}ms = {settings.frame_count * settings.duration_ms}ms），"
+                f"并向上吸附到模型支持的时长档位后提交为 {derived_duration}s；抽帧仍按均匀采样取 {settings.frame_count} 帧，不影响最终播放节奏。",
+            ]
+            if req.sprite.video_return_to_first_frame:
+                warnings.append("已启用回到初始帧：视频 motion prompt 会要求先到尾帧，再平滑回到首帧以便循环。")
         return PromptPreviewResponse(
             mode="sprite_video_bridge",
             positive_prompt=prompt.strip(),

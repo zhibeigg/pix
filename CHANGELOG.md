@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.115.14] - 2026-07-03
+
+### Added
+
+- 为连贯动作序列帧新增「仅生成首帧关键图」选项：生图阶段只生成 `first_frame`，随后仍调用 Ark 首帧图生视频并抽帧输出完整序列帧，用于降低首尾关键帧大小 / 位置差异导致的抖动。
+
+### Tests
+
+- 补充首帧关键图模式的参数归一化、Ark 配置校验、Prompt 预览、Ark 单首帧 payload 与视频计费测试。
+
 ## [1.114.14] - 2026-07-03
 
 ### Fixed

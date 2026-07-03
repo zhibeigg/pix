@@ -78,6 +78,7 @@ class SpriteVideoBridgeInput:
     row_prompts: list[str] = field(default_factory=list)
     video_action_prompt: str = ""
     video_return_to_first_frame: bool = False
+    video_first_frame_only: bool = False
     reference_image_path: Path | None = None
     image_size: str | None = None
     image_quality: str | None = None
@@ -451,6 +452,44 @@ def build_video_bridge_keyframe_prompt(
     return prompt.strip()
 
 
+def build_video_bridge_first_frame_prompt(
+    cfg: AppConfig,
+    description: str,
+    action_prompt: str,
+    *,
+    key_color: str,
+    key_tolerance: int | None = None,
+    frame_size: tuple[int, int] | None = None,
+    max_colors: int | None = None,
+    denoise: bool = True,
+    style_profile: Mapping[str, object] | None = None,
+) -> str:
+    style_prompt = compile_style_profile(style_profile).prompt
+    parameter_clause = _frame_parameter_clause(
+        frame_size=frame_size,
+        max_colors=max_colors,
+        key_color=key_color,
+        key_tolerance=key_tolerance,
+        denoise=denoise,
+    )
+    prompt = (
+        "Create ONE standalone image for the opening frame of a pixel-art sprite action. "
+        f"Subject definition: {description}. Keep the subject identity, costume/equipment, silhouette, palette, outline thickness, scale, proportions, and ground footprint stable and readable. "
+        f"Action context: {action_prompt}. Depict only the starting pose for this action: an idle-ready, anticipation, or clear initial stance before the motion proceeds. "
+        "Single-frame contract: output exactly one complete pose, not a sprite sheet, not a contact sheet, not two panels, not multiple poses, and not a comparison layout. "
+        "Facing-direction lock: preserve one fixed flat orthographic game-sprite view; do not turn the head, face, torso, shield, weapon, or body toward the camera, away from the camera, or toward the opposite direction unless the user explicitly asked for that view. "
+        f"Fill every empty/background pixel with one perfectly uniform key color {key_color}; no gradients, no shadows on the background, no texture in the background. "
+        "Leave clear empty key-color margin around the subject, weapon tips, clothing, smoke, particles, trails, shadows, and all effects. "
+        f"{parameter_clause} "
+        "Keep the image clean: no subtitles, no generated words, no text, no labels, no arrows, no Logo, no watermark, no UI, no frame numbers, no borders, no panel dividers, no duplicate clone/twin subject, and no extra pose. "
+        "Crisp TRUE pixel art, hard square edges, limited palette, no painterly blending, no anti-aliased soft brush."
+    )
+    if style_prompt:
+        prompt = f"{prompt} {style_prompt}"
+    return prompt.strip()
+
+
+
 def build_video_bridge_motion_prompt(
     description: str,
     action_prompt: str,
@@ -459,6 +498,7 @@ def build_video_bridge_motion_prompt(
     frame_duration_ms: int | None = None,
     video_duration_seconds: int | None = None,
     return_to_first_frame: bool = False,
+    first_frame_only: bool = False,
     frame_size: tuple[int, int] | None = None,
     max_colors: int | None = None,
     key_color: str | None = None,
@@ -489,20 +529,31 @@ def build_video_bridge_motion_prompt(
         key_tolerance=key_tolerance,
         denoise=denoise,
     )
-    return_clause = (
-        "Loop-return requirement: after the animation reaches the provided last_frame pose exactly once, it must continue with a smooth return motion back to the provided first_frame pose; the final sampled frame must match first_frame again, making the sequence loop-ready. The outbound phase is one single execution of the requested action, and the return phase is one single recovery to the start pose; do not insert additional walking/attack/cast cycles before, between, or after those phases. Return by reversing only the pose/limb cycle on the same side-profile facing direction; never turn the character around, never turn the head/face/torso/shield/weapon toward the camera, away from the camera, or toward the opposite direction, and never change travel direction as a shortcut. Allocate enough intermediate frames for both the outbound action and the return-to-start motion, with no teleporting, no hard cut, and no sudden snap back to the initial pose. "
-        if return_to_first_frame
-        else ""
-    )
-    endpoint_clause = (
-        "Endpoint contract: the first and final video frames must both match the provided first_frame image. The provided last_frame image is the peak/action target pose that should be reached during the middle or later part of the animation before returning to first_frame. "
-        if return_to_first_frame
-        else "Endpoint contract: the first frame must match the provided first_frame image and the final frame must match the provided last_frame image. "
-    )
+    if first_frame_only:
+        endpoint_clause = (
+            "Endpoint contract: only a first_frame image is provided. The first video frame must match this first_frame exactly; no separate last_frame image is provided or allowed. Generate the requested motion from this single anchored pose while preserving the same scale, ground footprint, canvas position, silhouette size, and facing direction. Avoid size drift, center drift, pose popping, or identity changes caused by inventing a mismatched endpoint. "
+        )
+        return_clause = (
+            "Loop-return requirement: because only first_frame is provided, make the action a stable cyclic motion whose final sampled frame returns close to the original first_frame pose and footprint without a hard cut, snap, camera move, scale change, or position shift. "
+            if return_to_first_frame
+            else ""
+        )
+    else:
+        return_clause = (
+            "Loop-return requirement: after the animation reaches the provided last_frame pose exactly once, it must continue with a smooth return motion back to the provided first_frame pose; the final sampled frame must match first_frame again, making the sequence loop-ready. The outbound phase is one single execution of the requested action, and the return phase is one single recovery to the start pose; do not insert additional walking/attack/cast cycles before, between, or after those phases. Return by reversing only the pose/limb cycle on the same side-profile facing direction; never turn the character around, never turn the head/face/torso/shield/weapon toward the camera, away from the camera, or toward the opposite direction, and never change travel direction as a shortcut. Allocate enough intermediate frames for both the outbound action and the return-to-start motion, with no teleporting, no hard cut, and no sudden snap back to the initial pose. "
+            if return_to_first_frame
+            else ""
+        )
+        endpoint_clause = (
+            "Endpoint contract: the first and final video frames must both match the provided first_frame image. The provided last_frame image is the peak/action target pose that should be reached during the middle or later part of the animation before returning to first_frame. "
+            if return_to_first_frame
+            else "Endpoint contract: the first frame must match the provided first_frame image and the final frame must match the provided last_frame image. "
+        )
+    facing_reference = "shown in first_frame" if first_frame_only else "shown in first_frame and last_frame"
     return (
         "Seedance prompt structure: precise subject + action timing + fixed camera + pixel-art style + constraints. "
         f"Subject definition: {description}. Preserve this exact same subject for the entire video: same identity, costume/equipment, silhouette, proportions, palette, outline thickness, scale, and ground footprint; never create a clone, twin, duplicate subject, or identity swap. "
-        "Facing-direction lock: every frame must preserve the exact facing direction and side-profile orientation shown in first_frame and last_frame; do not yaw, rotate, turn around, look back, look toward the camera, look away from the camera, or face the opposite direction. Keep head, face, torso, shield, weapon, feet, and shoulders oriented consistently; motion may move limbs but must not change the character's facing side. "
+        f"Facing-direction lock: every frame must preserve the exact facing direction and side-profile orientation {facing_reference}; do not yaw, rotate, turn around, look back, look toward the camera, look away from the camera, or face the opposite direction. Keep head, face, torso, shield, weapon, feet, and shoulders oriented consistently; motion may move limbs but must not change the character's facing side. "
         "Single-action contract: perform the user's requested action exactly once across the full source-video duration. Do not fill the 4-second minimum duration with repeated loops or multiple cycles. For walking or running, one left-right leg alternation / one requested step sequence is enough unless the user explicitly asks for multiple cycles; stretch it slower across the duration rather than repeating it. For attack, cast, jump, hit, idle, or effect motions, execute one complete action arc only. "
         f"Motion request: {action_prompt}. {endpoint_clause}"
         f"{frame_clause}{timing_clause}{return_clause}Use smooth evenly spaced in-between poses with small consistent changes between adjacent frames; no sudden jumps, no duplicated frozen frames, no skipped action phases. "
@@ -884,6 +935,48 @@ def _keyframe_content(
     }
 
 
+def _prepare_single_video_keyframe(
+    first_path: Path,
+    first_dest_path: Path,
+    size: tuple[int, int],
+    *,
+    target_size: tuple[int, int],
+    frame_size_step: int,
+    anchor: str,
+    key_rgb: tuple[int, int, int],
+    key_tolerance: int,
+    generated_preprocess_method: str | None,
+) -> dict[str, Any]:
+    first_content, first_meta = _keyframe_content(
+        first_path,
+        target_size=target_size,
+        key_rgb=key_rgb,
+        key_tolerance=key_tolerance,
+        generated_preprocess_method=generated_preprocess_method,
+    )
+    content_padding = max(8, min(32, int(round(min(target_size) * 0.25))))
+    normalized_size = (
+        _ceil_to_multiple(max(target_size[0], first_content.width + content_padding * 2), frame_size_step),
+        _ceil_to_multiple(max(target_size[1], first_content.height + content_padding * 2), frame_size_step),
+    )
+    first_normalized = _paste_keyframe_content_to_canvas(first_content, size=normalized_size, anchor=anchor)
+    first_fitted = _fit_to_canvas(first_normalized, size, key_rgb)
+    first_dest_path.parent.mkdir(parents=True, exist_ok=True)
+    first_fitted.save(first_dest_path)
+    return {
+        "target_size": list(target_size),
+        "normalized_size": list(normalized_size),
+        "content_padding": content_padding,
+        "video_input_size": list(size),
+        "anchor": anchor,
+        "key_tolerance": int(key_tolerance),
+        "generated_preprocess_method": generated_preprocess_method,
+        "first": first_meta,
+        "last": None,
+    }
+
+
+
 def _prepare_video_keyframes(
     first_path: Path,
     last_path: Path,
@@ -1013,16 +1106,28 @@ def _motion_prompt_optimizer_instruction(
     base_prompt: str,
     frame_count: int,
     return_to_first_frame: bool = False,
+    first_frame_only: bool = False,
 ) -> str:
-    loop_instruction = (
-        "The user enabled return_to_first_frame: the motion plan must explicitly reach the last_frame pose, then continue back to the first_frame pose so the final sampled frame matches first_frame for a loop-ready animation. "
-        if return_to_first_frame
-        else ""
-    )
+    if first_frame_only:
+        loop_instruction = (
+            "The user enabled return_to_first_frame: since only first_frame is provided, plan a stable cyclic motion whose final sampled frame returns close to the first_frame pose, scale, footprint, and position. "
+            if return_to_first_frame
+            else ""
+        )
+        inspection_instruction = "Inspect the provided first_frame image (no last_frame image is provided), then write a concise engineering-style motion plan: subject identity, ordered action beats starting from this anchored pose, one fixed camera, pixel-art style, and constraints. "
+        pose_instruction = "Do not override safety or product constraints. Preserve the subject identity, exact first_frame pose anchor, scale, ground footprint, canvas position, and exact facing direction / side-profile orientation; do not invent a mismatched endpoint that changes size or position. Do not introduce a new character, duplicate twin, subtitle, Logo, watermark, UI, or scene change. "
+    else:
+        loop_instruction = (
+            "The user enabled return_to_first_frame: the motion plan must explicitly reach the last_frame pose, then continue back to the first_frame pose so the final sampled frame matches first_frame for a loop-ready animation. "
+            if return_to_first_frame
+            else ""
+        )
+        inspection_instruction = "Inspect the provided first_frame and last_frame images, then write a concise engineering-style motion plan: subject identity, ordered action beats, one fixed camera, pixel-art style, and constraints. "
+        pose_instruction = "Do not override safety or product constraints. Preserve the subject identity, exact start/end poses, and exact facing direction / side-profile orientation. Do not introduce a new character, duplicate twin, subtitle, Logo, watermark, UI, or scene change. "
     return (
         "You are optimizing a Seedance video-generation prompt for a pixel-art sprite animation. "
-        "Inspect the provided first_frame and last_frame images, then write a concise engineering-style motion plan: subject identity, ordered action beats, one fixed camera, pixel-art style, and constraints. "
-        "Do not override safety or product constraints. Preserve the subject identity, exact start/end poses, and exact facing direction / side-profile orientation. Do not introduce a new character, duplicate twin, subtitle, Logo, watermark, UI, or scene change. "
+        f"{inspection_instruction}"
+        f"{pose_instruction}"
         f"{loop_instruction}"
         "The plan must emphasize: continuous readable motion, evenly spaced intermediate poses, concrete body/equipment transitions, every sampled frame as crisp grid-aligned TRUE pixel art, no anti-aliasing, no blur, no painterly smoothing, fixed orthographic camera, no zoom/pan/cuts, and all subject parts/effects staying fully inside the frame with key-color padding. "
         "Single-action pacing rule: explicitly plan exactly one occurrence of the user's requested action across the whole locked video duration; if the video duration is longer than the natural action, slow down and stretch that one action instead of repeating walking/attack/cast/idle cycles. For walking/running, do not add extra gait loops; one requested step sequence or one left-right leg alternation is enough unless the user explicitly asks for multiple cycles. "
@@ -1045,9 +1150,10 @@ def _optimize_video_bridge_motion_prompt(
     action_prompt: str,
     base_prompt: str,
     first_frame_path: Path,
-    last_frame_path: Path,
+    last_frame_path: Path | None,
     frame_count: int,
     return_to_first_frame: bool = False,
+    first_frame_only: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     model = str(getattr(cfg.vision, "model", "") or "").strip()
     meta: dict[str, Any] = {
@@ -1056,6 +1162,7 @@ def _optimize_video_bridge_motion_prompt(
         "mode": "fallback",
         "model": model,
         "return_to_first_frame": bool(return_to_first_frame),
+        "first_frame_only": bool(first_frame_only),
     }
     try:
         api_key = require_vl_api_key(cfg)
@@ -1069,6 +1176,7 @@ def _optimize_video_bridge_motion_prompt(
         base_prompt=base_prompt,
         frame_count=frame_count,
         return_to_first_frame=return_to_first_frame,
+        first_frame_only=first_frame_only,
     )
     model_name = model or cfg.vision.model
     temperature = min(float(getattr(cfg.vision, "temperature", 0.2)), 0.2)
@@ -1077,35 +1185,29 @@ def _optimize_video_bridge_motion_prompt(
     endpoint = "/v1/messages" if use_anthropic_protocol else "/v1/chat/completions"
     try:
         if use_anthropic_protocol:
+            anthropic_content: list[dict[str, Any]] = [
+                {"type": "text", "text": instruction},
+                _anthropic_image_content(first_frame_path),
+            ]
+            if last_frame_path is not None:
+                anthropic_content.append(_anthropic_image_content(last_frame_path))
             anthropic_payload: dict[str, Any] = {
                 "model": model_name,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": instruction},
-                            _anthropic_image_content(first_frame_path),
-                            _anthropic_image_content(last_frame_path),
-                        ],
-                    }
-                ],
+                "messages": [{"role": "user", "content": anthropic_content}],
             }
             raw = _extract_anthropic_content(client.post_json(endpoint, anthropic_payload))
         else:
+            content: list[dict[str, Any]] = [
+                {"type": "text", "text": instruction},
+                {"type": "image_url", "image_url": {"url": image_to_base64_data_url(first_frame_path)}},
+            ]
+            if last_frame_path is not None:
+                content.append({"type": "image_url", "image_url": {"url": image_to_base64_data_url(last_frame_path)}})
             payload: dict[str, Any] = {
                 "model": model_name,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": instruction},
-                            {"type": "image_url", "image_url": {"url": image_to_base64_data_url(first_frame_path)}},
-                            {"type": "image_url", "image_url": {"url": image_to_base64_data_url(last_frame_path)}},
-                        ],
-                    }
-                ],
+                "messages": [{"role": "user", "content": content}],
                 "temperature": temperature,
                 "max_tokens": max_tokens,
             }
@@ -1122,6 +1224,7 @@ def _optimize_video_bridge_motion_prompt(
         "endpoint": endpoint,
         "optimized_motion_plan": motion_plan,
     }
+
 
 
 def _start_video_task(
@@ -1147,71 +1250,119 @@ def _start_video_task(
         action_prompt=action_prompt,
     )
 
-    keyframe_prompt = build_video_bridge_keyframe_prompt(
-        cfg,
-        description,
-        action_prompt,
-        key_color=key_color,
-        key_tolerance=settings.key_tolerance,
-        frame_size=settings.target_size,
-        max_colors=settings.max_colors,
-        style_profile=inputs.style_profile,
+    first_frame_only = bool(inputs.video_first_frame_only)
+    keyframe_prompt = (
+        build_video_bridge_first_frame_prompt(
+            cfg,
+            description,
+            action_prompt,
+            key_color=key_color,
+            key_tolerance=settings.key_tolerance,
+            frame_size=settings.target_size,
+            max_colors=settings.max_colors,
+            style_profile=inputs.style_profile,
+        )
+        if first_frame_only
+        else build_video_bridge_keyframe_prompt(
+            cfg,
+            description,
+            action_prompt,
+            key_color=key_color,
+            key_tolerance=settings.key_tolerance,
+            frame_size=settings.target_size,
+            max_colors=settings.max_colors,
+            style_profile=inputs.style_profile,
+        )
     )
     clear_image_provider_history()
     with _local_stage(inputs.local_stage_context):
-        notify("video_bridge_keyframes_start", {"run_dir": str(run_dir)})
-        if inputs.reference_image_path is not None:
-            edit_image(
-                cfg,
-                inputs.reference_image_path,
-                keyframe_prompt,
-                keyframe_pair_path,
-                size=inputs.image_size or cfg.image_gen.size,
-                quality=inputs.image_quality or cfg.sprite.image_quality,
-                model=inputs.image_model,
-                input_fidelity=cfg.image_gen.edit_input_fidelity,
+        notify("video_bridge_keyframes_start", {"run_dir": str(run_dir), "first_frame_only": first_frame_only})
+        key_rgb = parse_hex_color(key_color)
+        video_size = _video_input_size(cfg)
+        if first_frame_only:
+            if inputs.reference_image_path is not None:
+                edit_image(
+                    cfg,
+                    inputs.reference_image_path,
+                    keyframe_prompt,
+                    first_path,
+                    size=inputs.image_size or cfg.image_gen.size,
+                    quality=inputs.image_quality or cfg.sprite.image_quality,
+                    model=inputs.image_model,
+                    input_fidelity=cfg.image_gen.edit_input_fidelity,
+                )
+            else:
+                generate_image(
+                    cfg,
+                    keyframe_prompt,
+                    first_path,
+                    size=inputs.image_size or cfg.image_gen.size,
+                    quality=inputs.image_quality or cfg.sprite.image_quality,
+                    model=inputs.image_model,
+                )
+            keyframe_split = None
+            keyframe_preprocess = _prepare_single_video_keyframe(
+                first_path,
+                first_video_path,
+                video_size,
+                target_size=settings.target_size,
+                frame_size_step=settings.frame_size_step,
+                anchor=settings.anchor,
+                key_rgb=key_rgb,
+                key_tolerance=settings.key_tolerance,
+                generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
             )
         else:
-            generate_image(
-                cfg,
-                keyframe_prompt,
+            if inputs.reference_image_path is not None:
+                edit_image(
+                    cfg,
+                    inputs.reference_image_path,
+                    keyframe_prompt,
+                    keyframe_pair_path,
+                    size=inputs.image_size or cfg.image_gen.size,
+                    quality=inputs.image_quality or cfg.sprite.image_quality,
+                    model=inputs.image_model,
+                    input_fidelity=cfg.image_gen.edit_input_fidelity,
+                )
+            else:
+                generate_image(
+                    cfg,
+                    keyframe_prompt,
+                    keyframe_pair_path,
+                    size=inputs.image_size or cfg.image_gen.size,
+                    quality=inputs.image_quality or cfg.sprite.image_quality,
+                    model=inputs.image_model,
+                )
+            keyframe_split = _split_keyframes(
                 keyframe_pair_path,
-                size=inputs.image_size or cfg.image_gen.size,
-                quality=inputs.image_quality or cfg.sprite.image_quality,
-                model=inputs.image_model,
+                first_path,
+                last_path,
+                key_rgb=key_rgb,
+                key_tolerance=settings.key_tolerance,
             )
-        key_rgb = parse_hex_color(key_color)
-        keyframe_split = _split_keyframes(
-            keyframe_pair_path,
-            first_path,
-            last_path,
-            key_rgb=key_rgb,
-            key_tolerance=settings.key_tolerance,
-        )
-        video_size = _video_input_size(cfg)
-        keyframe_preprocess = _prepare_video_keyframes(
-            first_path,
-            last_path,
-            first_video_path,
-            last_video_path,
-            video_size,
-            target_size=settings.target_size,
-            frame_size_step=settings.frame_size_step,
-            anchor=settings.anchor,
-            key_rgb=key_rgb,
-            key_tolerance=settings.key_tolerance,
-            generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
-        )
+            keyframe_preprocess = _prepare_video_keyframes(
+                first_path,
+                last_path,
+                first_video_path,
+                last_video_path,
+                video_size,
+                target_size=settings.target_size,
+                frame_size_step=settings.frame_size_step,
+                anchor=settings.anchor,
+                key_rgb=key_rgb,
+                key_tolerance=settings.key_tolerance,
+                generated_preprocess_method=inputs.pixelize_params.generated_preprocess_method,
+            )
 
     max_bytes = max(1, int(getattr(cfg.video_bridge, "max_base64_image_bytes", 30 * 1024 * 1024)))
     first_data_url = _data_url_from_png(first_video_path, max_bytes)
-    last_data_url = _data_url_from_png(last_video_path, max_bytes)
+    last_data_url = None if first_frame_only else _data_url_from_png(last_video_path, max_bytes)
     frame_count = max(2, int(settings.frame_count))
     timing_meta = video_bridge_timing_meta(frame_count, settings.duration_ms, _video_allowed_durations(cfg))
     ark_duration_seconds = int(timing_meta["ark_duration_seconds"])
     return_to_first_frame = bool(inputs.video_return_to_first_frame)
-    ark_last_frame_data_url = first_data_url if return_to_first_frame else last_data_url
-    ark_last_frame_source = "first_frame_video_path" if return_to_first_frame else "last_frame_video_path"
+    ark_last_frame_data_url = None if first_frame_only else (first_data_url if return_to_first_frame else last_data_url)
+    ark_last_frame_source = None if first_frame_only else ("first_frame_video_path" if return_to_first_frame else "last_frame_video_path")
     base_motion_prompt = build_video_bridge_motion_prompt(
         description,
         action_prompt,
@@ -1219,6 +1370,7 @@ def _start_video_task(
         frame_duration_ms=settings.duration_ms,
         video_duration_seconds=ark_duration_seconds,
         return_to_first_frame=return_to_first_frame,
+        first_frame_only=first_frame_only,
         frame_size=settings.target_size,
         max_colors=settings.max_colors,
         key_color=key_color,
@@ -1230,9 +1382,10 @@ def _start_video_task(
         action_prompt=action_prompt,
         base_prompt=base_motion_prompt,
         first_frame_path=first_video_path,
-        last_frame_path=last_video_path,
+        last_frame_path=None if first_frame_only else last_video_path,
         frame_count=frame_count,
         return_to_first_frame=return_to_first_frame,
+        first_frame_only=first_frame_only,
     )
     notify(
         "video_bridge_motion_prompt_ready",
@@ -1264,6 +1417,7 @@ def _start_video_task(
         "motion_prompt_base": base_motion_prompt,
         "motion_prompt_optimizer": motion_prompt_optimizer,
         "video_return_to_first_frame": return_to_first_frame,
+        "video_first_frame_only": first_frame_only,
         "ark_last_frame_source": ark_last_frame_source,
         "timing": timing_meta,
         "duration": ark_duration_seconds,
@@ -1283,11 +1437,11 @@ def _start_video_task(
             "generated_preprocess_method": inputs.pixelize_params.generated_preprocess_method,
             "denoise": True,
         },
-        "keyframe_pair_path": _rel(keyframe_pair_path, run_dir),
+        "keyframe_pair_path": None if first_frame_only else _rel(keyframe_pair_path, run_dir),
         "first_frame_path": _rel(first_path, run_dir),
-        "last_frame_path": _rel(last_path, run_dir),
+        "last_frame_path": None if first_frame_only else _rel(last_path, run_dir),
         "first_frame_video_path": _rel(first_video_path, run_dir),
-        "last_frame_video_path": _rel(last_video_path, run_dir),
+        "last_frame_video_path": None if first_frame_only else _rel(last_video_path, run_dir),
         "keyframe_split": keyframe_split,
         "keyframe_preprocess": keyframe_preprocess,
         "ark_create": created.raw,
@@ -1839,32 +1993,33 @@ def _process_frames(
     }
 
 
-def _finalize_outputs(
+def _finalize_from_raw_frames(
     cfg: AppConfig,
     inputs: SpriteVideoBridgeInput,
     *,
     run_dir: Path,
-    video_path: Path,
+    raw_frame_paths: list[Path],
+    raw_dir: Path,
+    sampling_meta: dict[str, Any],
+    source_path: Path,
+    source_video_path: Path | None,
+    image_gen_mode: str,
     description: str,
     action_prompt: str,
     key_color: str,
     prompt_guard_meta: dict[str, Any],
     effective_prompt: str,
-    notify: ProgressCb,
 ) -> SpritePipelineResult:
     mosaic_inputs = _mosaic_inputs_for_video_bridge(inputs, action_prompt=action_prompt)
     settings = _resolve_settings(cfg, mosaic_inputs, description)
     safe_row_prompts = _ensure_row_prompts(mosaic_inputs.row_prompts, settings.rows, action_prompt)
-    raw_dir = run_dir / "frames" / "raw"
     final_dir = run_dir / "frames" / "final"
     sheet_path = run_dir / "sprite_sheet.png"
     sheet_grid_path = run_dir / "sprite_sheet_grid.png"
     sequence_path = run_dir / "sequence.json"
     gif_path = run_dir / "sprite.gif"
-    keyframe_pair_path = run_dir / "keyframe_pair.png"
-
-    notify("video_bridge_extract_start", {"video": str(video_path), "frame_count": settings.frame_count})
-    raw_frame_paths, sampling_meta = _extract_video_frames(video_path, raw_dir, settings.frame_count)
+    first_frame_only = bool(inputs.video_first_frame_only)
+    video_bridge_used = source_video_path is not None
     key_rgb = parse_hex_color(key_color)
     frame_paths, bboxes, effective_size, shared_palette_hex, process_meta = _process_frames(
         cfg,
@@ -1929,7 +2084,7 @@ def _finalize_outputs(
         settings=settings,
         effective_size=effective_size,
         sheet_path=sheet_path,
-        mosaic_sheet_path=keyframe_pair_path,
+        mosaic_sheet_path=source_path,
         sheet_grid_path=sheet_grid_path,
         row_prompts=safe_row_prompts,
         rows_outputs=rows_outputs,
@@ -1937,13 +2092,19 @@ def _finalize_outputs(
     )
     sequence["mode"] = "video_bridge"
     sequence["generation_mode"] = "video_bridge"
-    sequence["source_video"] = _rel(video_path, run_dir)
+    sequence["video_first_frame_only"] = first_frame_only
+    sequence["source_video"] = _rel(source_video_path, run_dir) if source_video_path is not None else None
     sequence_path.write_text(json.dumps(sequence, ensure_ascii=False, indent=2), encoding="utf-8")
 
     compiled_style = compile_style_profile(inputs.style_profile)
     frame_report = _frame_size_report(settings.target_size, effective_size)
-    timing_meta = video_bridge_timing_meta(settings.frame_count, settings.duration_ms, _video_allowed_durations(cfg))
+    timing_meta = (
+        video_bridge_timing_meta(settings.frame_count, settings.duration_ms, _video_allowed_durations(cfg))
+        if video_bridge_used
+        else None
+    )
     state = _load_file_state(run_dir)
+    source_output = _rel(source_path, run_dir)
     meta = {
         "version": __version__,
         "input": {
@@ -1951,6 +2112,7 @@ def _finalize_outputs(
             "row_prompts": safe_row_prompts,
             "video_action_prompt": action_prompt,
             "video_return_to_first_frame": bool(inputs.video_return_to_first_frame),
+            "video_first_frame_only": first_frame_only,
             "style_profile": compiled_style.data,
             "applied_style_profile": compiled_style.applied_rules,
             "effective_prompt": effective_prompt,
@@ -1963,24 +2125,28 @@ def _finalize_outputs(
             "output_format": cfg.image_gen.output_format,
             "input_fidelity": cfg.image_gen.edit_input_fidelity,
             "used": True,
-            "mode": "sprite_video_bridge_keyframes",
+            "mode": image_gen_mode,
             "use_reference": inputs.reference_image_path is not None,
         },
         "video_bridge": {
-            "provider": cfg.video_bridge.provider,
-            "model": cfg.video_bridge.model,
-            "resolution": cfg.video_bridge.resolution,
-            "ratio": cfg.video_bridge.ratio,
-            "duration": timing_meta["ark_duration_seconds"],
-            "configured_duration": cfg.video_bridge.duration,
-            "duration_source": "sprite_timing",
+            "used": video_bridge_used,
+            "first_frame_only": first_frame_only,
+            "provider": cfg.video_bridge.provider if video_bridge_used else None,
+            "model": cfg.video_bridge.model if video_bridge_used else None,
+            "resolution": cfg.video_bridge.resolution if video_bridge_used else None,
+            "ratio": cfg.video_bridge.ratio if video_bridge_used else None,
+            "duration": timing_meta["ark_duration_seconds"] if timing_meta is not None else None,
+            "configured_duration": cfg.video_bridge.duration if video_bridge_used else None,
+            "duration_source": "sprite_timing" if video_bridge_used else None,
             "timing": timing_meta,
-            "generate_audio": cfg.video_bridge.generate_audio,
-            "watermark": cfg.video_bridge.watermark,
-            "return_to_first_frame": bool(inputs.video_return_to_first_frame),
+            "generate_audio": cfg.video_bridge.generate_audio if video_bridge_used else False,
+            "watermark": cfg.video_bridge.watermark if video_bridge_used else False,
+            "return_to_first_frame": bool(inputs.video_return_to_first_frame) if video_bridge_used else False,
             "state": state,
-            "video_path": _rel(video_path, run_dir),
-            "keyframe_pair": _rel(keyframe_pair_path, run_dir),
+            "video_path": _rel(source_video_path, run_dir) if source_video_path is not None else None,
+            "keyframe_pair": None if first_frame_only else (source_output if video_bridge_used else None),
+            "first_frame": source_output if first_frame_only else None,
+            "ark_task_id": state.get("ark_task_id") if video_bridge_used else None,
             "sampling": sampling_meta,
             "processing": process_meta,
         },
@@ -2015,6 +2181,7 @@ def _finalize_outputs(
             "row_prompts": safe_row_prompts,
             "video_action_prompt": action_prompt,
             "video_return_to_first_frame": bool(inputs.video_return_to_first_frame),
+            "video_first_frame_only": first_frame_only,
             "raw_frames_dir": _rel(raw_dir, run_dir),
             "frames_dir": _rel(final_dir, run_dir),
             "horizontal_sheet": sheet_path.name,
@@ -2030,11 +2197,11 @@ def _finalize_outputs(
             "use_reference": inputs.reference_image_path is not None,
         },
         "outputs": {
-            "source": _rel(keyframe_pair_path, run_dir),
+            "source": source_output,
             "sprite_frames": _rel(final_dir, run_dir),
             "sprite_sheet": sheet_path.name,
             "sprite_sheet_grid": sheet_grid_path.name,
-            "sprite_mosaic": keyframe_pair_path.name,
+            "sprite_mosaic": source_output,
             "sequence_json": sequence_path.name,
             "sprite_gif": gif_path.name if settings.gif_export else None,
             "pixelized": sheet_path.name,
@@ -2045,13 +2212,55 @@ def _finalize_outputs(
     meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     return SpritePipelineResult(
         run_dir=run_dir,
-        source_path=keyframe_pair_path,
+        source_path=source_path,
         frame_paths=frame_paths,
         pixel_path=sheet_path,
         preview_path=preview_path,
         meta_path=meta_path,
         meta=meta,
     )
+
+
+def _finalize_outputs(
+    cfg: AppConfig,
+    inputs: SpriteVideoBridgeInput,
+    *,
+    run_dir: Path,
+    video_path: Path,
+    description: str,
+    action_prompt: str,
+    key_color: str,
+    prompt_guard_meta: dict[str, Any],
+    effective_prompt: str,
+    notify: ProgressCb,
+) -> SpritePipelineResult:
+    settings = _resolve_video_bridge_settings(
+        cfg,
+        inputs,
+        description=description,
+        action_prompt=action_prompt,
+    )
+    raw_dir = run_dir / "frames" / "raw"
+    notify("video_bridge_extract_start", {"video": str(video_path), "frame_count": settings.frame_count})
+    raw_frame_paths, sampling_meta = _extract_video_frames(video_path, raw_dir, settings.frame_count)
+    return _finalize_from_raw_frames(
+        cfg,
+        inputs,
+        run_dir=run_dir,
+        raw_frame_paths=raw_frame_paths,
+        raw_dir=raw_dir,
+        sampling_meta=sampling_meta,
+        source_path=(run_dir / "keyframes" / "first_frame.png") if bool(inputs.video_first_frame_only) else (run_dir / "keyframe_pair.png"),
+        source_video_path=video_path,
+        image_gen_mode="sprite_video_bridge_first_keyframe" if bool(inputs.video_first_frame_only) else "sprite_video_bridge_keyframes",
+        description=description,
+        action_prompt=action_prompt,
+        key_color=key_color,
+        prompt_guard_meta=prompt_guard_meta,
+        effective_prompt=effective_prompt,
+    )
+
+
 
 
 def run_sprite_video_bridge_pipeline(
@@ -2063,6 +2272,7 @@ def run_sprite_video_bridge_pipeline(
     prompt = (inputs.prompt or "").strip()
     if not prompt:
         raise ValueError("视频补间序列帧任务需要 prompt")
+    first_frame_only = bool(inputs.video_first_frame_only)
     if not getattr(cfg.video_bridge, "enabled", False):
         raise ValueError("首尾帧视频补间未启用，请先配置 pix.video_bridge.enabled")
     if not (getattr(cfg.video_bridge, "api_key", None) or "").strip():
@@ -2090,23 +2300,36 @@ def run_sprite_video_bridge_pipeline(
         action_prompt=action_prompt,
     )
     key_color = settings.key_color
-    effective_prompt = build_video_bridge_keyframe_prompt(
-        cfg,
-        description,
-        action_prompt,
-        key_color=key_color,
-        key_tolerance=settings.key_tolerance,
-        frame_size=settings.target_size,
-        max_colors=settings.max_colors,
-        style_profile=inputs.style_profile,
-    )
+    if first_frame_only:
+        effective_prompt = build_video_bridge_first_frame_prompt(
+            cfg,
+            description,
+            action_prompt,
+            key_color=key_color,
+            key_tolerance=settings.key_tolerance,
+            frame_size=settings.target_size,
+            max_colors=settings.max_colors,
+            style_profile=inputs.style_profile,
+        )
+    else:
+        effective_prompt = build_video_bridge_keyframe_prompt(
+            cfg,
+            description,
+            action_prompt,
+            key_color=key_color,
+            key_tolerance=settings.key_tolerance,
+            frame_size=settings.target_size,
+            max_colors=settings.max_colors,
+            style_profile=inputs.style_profile,
+        )
 
     state = dict(inputs.state or {})
     run_dir = Path(state.get("run_dir") or "") if state.get("run_dir") else None
     if run_dir is None:
         out_root = Path(inputs.out_root or cfg.output.root)
-        run_dir = new_run_dir(out_root, seed=f"video_bridge\n{prompt}\n{action_prompt}")
-        notify("video_bridge_run_start", {"run_dir": str(run_dir)})
+        seed_mode = "video_bridge_first_keyframe" if first_frame_only else "video_bridge"
+        run_dir = new_run_dir(out_root, seed=f"{seed_mode}\n{prompt}\n{action_prompt}")
+        notify("video_bridge_run_start", {"run_dir": str(run_dir), "first_frame_only": first_frame_only})
         _start_video_task(
             cfg,
             inputs,

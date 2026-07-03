@@ -353,7 +353,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
     "image_model": "image2"
   }'
 
-# 首尾帧视频补间：sprite.video_model 可选 Standard / Fast / Mini 三档并透传 Ark；点数按 4–15 秒价格表精确计算（Standard 47/57/66/75/84/94/103/112/121/131/140/149，Fast 40/48/55/62/70/77/85/92/100/107/114/122，Mini 29/34/38/43/47/52/57/61/66/70/75/80）；先按 Seedance 指南生成首/尾关键帧和结构化 motion prompt，再以 role=first_frame / last_frame 提交 Ark；Ark 视频秒数按 rows×cols×duration_ms 锁定；video_return_to_first_frame=true 会要求尾帧后回到首帧以便循环
+# 首尾帧视频补间：sprite.video_model 可选 Standard / Fast / Mini 三档并透传 Ark；点数按 4–15 秒价格表精确计算（Standard 47/57/66/75/84/94/103/112/121/131/140/149，Fast 40/48/55/62/70/77/85/92/100/107/114/122，Mini 29/34/38/43/47/52/57/61/66/70/75/80）；先按 Seedance 指南生成首/尾关键帧和结构化 motion prompt，再以 role=first_frame / last_frame 提交 Ark；Ark 视频秒数按 rows×cols×duration_ms 锁定；video_return_to_first_frame=true 会要求尾帧后回到首帧以便循环；video_first_frame_only=true 时只生成首帧关键图，再以 role=first_frame 创建 Ark 首帧图生视频任务并抽帧输出完整序列帧，仍按视频任务计费
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
@@ -369,7 +369,8 @@ curl -X POST "$PIX_API_BASE/jobs" \
       "duration_ms": 125,
       "video_model": "doubao-seedance-2-0-260128",
       "video_action_prompt": "从站立蓄力到挥剑释放一道蓝色剑气",
-      "video_return_to_first_frame": true
+      "video_return_to_first_frame": true,
+      "video_first_frame_only": false
     },
     "pixelize": {
       "output_size": [48, 48],
@@ -404,7 +405,7 @@ curl -X POST "$PIX_API_BASE/jobs" \
     "image_model": "image2"
   }'
 
-# First/last-frame video bridge: sprite.video_model offers Standard / Fast / Mini tiers passed through to Ark; credits follow the exact 4–15s price table (Standard 47/57/66/75/84/94/103/112/121/131/140/149, Fast 40/48/55/62/70/77/85/92/100/107/114/122, Mini 29/34/38/43/47/52/57/61/66/70/75/80); first/last keyframes and a structured motion prompt are generated per the Seedance guide, then submitted to Ark as role=first_frame / last_frame; the Ark video duration is locked to rows×cols×duration_ms; video_return_to_first_frame=true asks the ending to return to the first frame for looping
+# First/last-frame video bridge: sprite.video_model offers Standard / Fast / Mini tiers passed through to Ark; credits follow the exact 4–15s price table (Standard 47/57/66/75/84/94/103/112/121/131/140/149, Fast 40/48/55/62/70/77/85/92/100/107/114/122, Mini 29/34/38/43/47/52/57/61/66/70/75/80); first/last keyframes and a structured motion prompt are generated per the Seedance guide, then submitted to Ark as role=first_frame / last_frame; the Ark video duration is locked to rows×cols×duration_ms; video_return_to_first_frame=true asks the ending to return to the first frame for looping; video_first_frame_only=true generates only the first keyframe image, then creates an Ark first-frame-to-video task with role=first_frame and extracts the full sprite sequence, still billed as a video task
 curl -X POST "$PIX_API_BASE/jobs" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -H "Content-Type: application/json" \
@@ -420,7 +421,8 @@ curl -X POST "$PIX_API_BASE/jobs" \
       "duration_ms": 125,
       "video_model": "doubao-seedance-2-0-260128",
       "video_action_prompt": "From a standing charge-up to a sword slash releasing a blue arc of energy",
-      "video_return_to_first_frame": true
+      "video_return_to_first_frame": true,
+      "video_first_frame_only": false
     },
     "pixelize": {
       "output_size": [48, 48],

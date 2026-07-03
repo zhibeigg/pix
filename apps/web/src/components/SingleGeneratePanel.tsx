@@ -268,6 +268,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [rowPrompts, setRowPrompts] = useState<string[]>([''])
   const [videoActionPrompt, setVideoActionPrompt] = useState('')
   const [videoReturnToFirstFrame, setVideoReturnToFirstFrame] = useState(false)
+  const [videoFirstFrameOnly, setVideoFirstFrameOnly] = useState(false)
   const [fps, setFps] = useState(DEFAULT_VIDEO_ANIM_SPEC.fps)
   const [refSource, setRefSource] = useState<SpriteReferenceSource>('upload')
   const [selectedRefCharacterId, setSelectedRefCharacterId] = useState<number | null>(null)
@@ -386,6 +387,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       setSpriteMode('video_bridge')
       setVideoActionPrompt('')
       setVideoReturnToFirstFrame(false)
+      setVideoFirstFrameOnly(false)
       setVideoModel(DEFAULT_VIDEO_BRIDGE_MODEL)
       applyVideoAnimPreset(DEFAULT_VIDEO_ANIM_PRESET)
       if (d.spritePreset !== undefined) setSpritePreset(d.spritePreset)
@@ -458,6 +460,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       setRowPrompts(nextRowPrompts)
       setVideoActionPrompt(stringValue(sprite?.video_action_prompt))
       setVideoReturnToFirstFrame(Boolean(sprite?.video_return_to_first_frame))
+      setVideoFirstFrameOnly(Boolean(sprite?.video_first_frame_only))
       setVideoModel(normalizeVideoBridgeModel(sprite?.video_model))
       setSpritePreset('custom')
       // video_bridge：若 rows/cols/fps 命中某动画预设则选中它，否则标记自定义。
@@ -513,6 +516,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       // 切到视频补间：应用默认动画预设（丝滑动作 16帧@8fps），并把 rowPrompts 收敛到 1 条（视频补间只用单条动作描述）。
       applyVideoAnimPreset(DEFAULT_VIDEO_ANIM_PRESET)
       setRowPrompts((prev) => ensureRowPromptsLength(prev, 1))
+    } else {
+      setVideoFirstFrameOnly(false)
     }
   }
 
@@ -718,6 +723,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
     if (isSprite) {
       const safeFps = Math.max(1, Math.min(60, Math.round(fps || 8)))
+      const firstFrameOnly = spriteMode === 'video_bridge' && videoFirstFrameOnly
       const cleanRowPrompts = ensureRowPromptsLength(rowPrompts, safeRows).map((value) => value.trim())
       return {
         job_type: 'sprite_sheet',
@@ -742,6 +748,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           loop: 0,
           video_action_prompt: spriteMode === 'video_bridge' ? videoActionPrompt.trim() : '',
           video_return_to_first_frame: spriteMode === 'video_bridge' ? videoReturnToFirstFrame : false,
+          video_first_frame_only: firstFrameOnly,
           video_model: spriteMode === 'video_bridge' ? videoModel : undefined,
         },
       }
@@ -955,6 +962,13 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
             {isSpriteVideoBridge ? (
               <>
+                <label className="flex items-start gap-2 rounded-lg border border-border bg-background/45 p-3 text-sm">
+                  <Checkbox checked={videoFirstFrameOnly} onCheckedChange={(value) => setVideoFirstFrameOnly(Boolean(value))} />
+                  <span className="grid gap-1">
+                    <span className="font-medium">{text('仅生成首帧关键图', 'Generate first keyframe only')}</span>
+                    <span className="text-xs text-muted-foreground">{text('生图阶段只生成 first_frame，然后仍调用视频模型生成完整序列帧；适合待机、呼吸等不需要明确尾姿势的动作，可减少首尾图大小/位置差异导致的抖动。', 'Generate only first_frame in the image step, then still call the video model for the full sequence; useful for idle/breathing motions and reducing jitter from mismatched start/end keyframes.')}</span>
+                  </span>
+                </label>
                 <PixField label={text('视频模型', 'Video model')} hint={text('按 480p / 4–15 秒 / 输入不含视频价格表 ×20，再加 10 点关键帧生图价。', 'Credits use the 480p / 4–15s no-input-video price table ×20, plus 10 keyframe credits.')}>
                   <Select value={videoModel} onValueChange={(value) => setVideoModel(normalizeVideoBridgeModel(value))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>

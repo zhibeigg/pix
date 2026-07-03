@@ -518,6 +518,7 @@ def sprite_video_bridge_input_from_job(job: GenerationJob, settings: WebSettings
         row_prompts=row_prompts,
         video_action_prompt=str(sprite.get("video_action_prompt") or ""),
         video_return_to_first_frame=bool(sprite.get("video_return_to_first_frame", False)),
+        video_first_frame_only=bool(sprite.get("video_first_frame_only", False)),
         reference_image_path=reference_path,
         image_size=data.get("image_size"),
         image_quality=data.get("image_quality"),

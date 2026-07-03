@@ -14,6 +14,7 @@ from pix.pixelize.perfect_pixel import GeneratedPreprocessResult
 from pix.sprite_video_bridge import (
     SpriteVideoBridgeInput,
     VideoBridgeWaiting,
+    build_video_bridge_first_frame_prompt,
     build_video_bridge_keyframe_prompt,
     build_video_bridge_motion_prompt,
     derive_video_bridge_duration_seconds,
@@ -83,6 +84,45 @@ def test_ark_video_client_create_task_uses_official_first_last_frame_payload(mon
         "image_url": {"url": "data:image/png;base64,last"},
         "role": "last_frame",
     }
+
+
+def test_ark_video_client_create_task_can_use_first_frame_only_payload(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeHttp:
+        def __init__(self, **_kwargs):
+            pass
+
+        def post_json(self, path, payload):
+            captured["path"] = path
+            captured["payload"] = payload
+            return {"id": "cgt-first-only"}
+
+    monkeypatch.setattr("pix.api.ark_video.ProviderHttpClient", FakeHttp)
+
+    result = ArkVideoClient(_video_cfg()).create_task(
+        prompt="固定机位，像素骑士待机呼吸。",
+        first_frame_data_url="data:image/png;base64,first",
+        last_frame_data_url=None,
+        model="doubao-seedance-2-0-260128",
+        resolution="480p",
+        ratio="1:1",
+        duration=4,
+        generate_audio=False,
+        watermark=False,
+    )
+
+    assert result.id == "cgt-first-only"
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert payload["content"] == [
+        {"type": "text", "text": "固定机位，像素骑士待机呼吸。"},
+        {
+            "type": "image_url",
+            "image_url": {"url": "data:image/png;base64,first"},
+            "role": "first_frame",
+        },
+    ]
 
 
 def test_ark_video_client_get_task_reads_content_video_url(monkeypatch) -> None:
@@ -185,6 +225,83 @@ def test_video_bridge_rejects_single_frame() -> None:
         validate_job_request(req, _video_cfg())
     assert exc_info.value.status_code == 422
     assert "至少需要 2 帧" in str(exc_info.value.detail)
+
+
+def test_video_bridge_first_frame_only_preserves_requested_frame_grid() -> None:
+    req = JobCreateRequest(
+        job_type="sprite_sheet",
+        prompt="蓝色骑士",
+        sprite=SpriteParamsSchema(
+            mode="video_bridge",
+            rows=2,
+            cols=8,
+            video_action_prompt="挥剑",
+            video_first_frame_only=True,
+        ),
+        pixelize=PixelizeParamsSchema(output_size=(64, 64)),
+    )
+
+    assert req.sprite.rows == 2
+    assert req.sprite.cols == 8
+    assert req.sprite.frame_count == 16
+    assert req.sprite.video_first_frame_only is True
+
+
+def test_video_bridge_first_frame_only_still_requires_ark_config() -> None:
+    req = JobCreateRequest(
+        job_type="sprite_sheet",
+        prompt="蓝色骑士",
+        sprite=SpriteParamsSchema(
+            mode="video_bridge",
+            rows=1,
+            cols=8,
+            video_action_prompt="挥剑",
+            video_first_frame_only=True,
+        ),
+        pixelize=PixelizeParamsSchema(output_size=(64, 64)),
+    )
+
+    with pytest.raises(HTTPException) as disabled:
+        validate_job_request(req, AppConfig())
+    assert disabled.value.status_code == 409
+    assert "未启用" in str(disabled.value.detail)
+
+    validate_job_request(req, _video_cfg())
+
+
+def test_video_bridge_first_frame_prompt_preview_uses_single_frame_prompt() -> None:
+    req = JobCreateRequest(
+        job_type="sprite_sheet",
+        prompt="蓝色斗篷骑士",
+        sprite=SpriteParamsSchema(
+            mode="video_bridge",
+            rows=1,
+            cols=8,
+            video_action_prompt="挥剑释放蓝色剑气",
+            video_first_frame_only=True,
+        ),
+        pixelize=PixelizeParamsSchema(output_size=(64, 64), colors=16),
+    )
+
+    preview = build_prompt_preview(req, _video_cfg())
+
+    assert preview.mode == "sprite_video_bridge"
+    assert "opening frame" in preview.positive_prompt
+    assert "Single-frame contract" in preview.positive_prompt
+    assert "END pose" not in preview.positive_prompt
+    assert "last_frame" not in preview.positive_prompt
+    assert "Target extracted sprite frame size is 64x64" in preview.positive_prompt
+    assert any("仍会创建 Ark 首帧图生视频任务" in warning for warning in preview.warnings)
+
+
+
+def test_video_bridge_first_frame_prompt_excludes_second_pose_contract() -> None:
+    prompt = build_video_bridge_first_frame_prompt(_video_cfg(), "蓝色骑士", "挥剑", key_color="#FF00FF")
+
+    assert "Single-frame contract" in prompt
+    assert "not two panels" in prompt
+    assert "END pose" not in prompt
+    assert "last_frame" not in prompt
 
 
 def test_video_bridge_prompt_preview_uses_keyframe_prompt() -> None:
@@ -415,6 +532,72 @@ def test_start_video_task_uses_sprite_timing_for_ark_duration(tmp_path, monkeypa
     assert exc_info.value.state["duration_source"] == "sprite_timing"
     assert exc_info.value.state["model"] == "doubao-seedance-2-0-fast-260128"
     assert exc_info.value.state["video_model"] == "doubao-seedance-2-0-fast-260128"
+
+
+def test_start_video_task_first_frame_only_calls_ark_without_last_frame(tmp_path, monkeypatch) -> None:
+    cfg = _video_cfg()
+    captured: dict[str, object] = {}
+
+    def fake_generate_image(_cfg, _prompt, dest_path, **_kwargs):
+        image = Image.new("RGBA", (80, 80), (255, 0, 255, 255))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle([24, 24, 54, 62], fill=(30, 60, 90, 255))
+        image.save(dest_path)
+        return dest_path
+
+    def fake_optimize(_cfg, **kwargs):
+        captured["optimizer_last_frame_path"] = kwargs["last_frame_path"]
+        captured["optimizer_first_frame_only"] = kwargs["first_frame_only"]
+        return kwargs["base_prompt"], {"used": False, "mode": "test", "first_frame_only": kwargs["first_frame_only"]}
+
+    class FakeArkVideoClient:
+        def __init__(self, _cfg):
+            pass
+
+        def create_task(self, **kwargs):
+            captured.update(kwargs)
+            return type("Created", (), {"id": "ark-first-only", "raw": {"id": "ark-first-only"}})()
+
+    monkeypatch.setattr("pix.sprite_video_bridge.generate_image", fake_generate_image)
+    monkeypatch.setattr("pix.sprite_video_bridge._optimize_video_bridge_motion_prompt", fake_optimize)
+    monkeypatch.setattr("pix.sprite_video_bridge.ArkVideoClient", FakeArkVideoClient)
+
+    inputs = SpriteVideoBridgeInput(
+        prompt="灵山野猪妖幼崽",
+        rows=1,
+        cols=8,
+        row_prompts=["待机呼吸"],
+        video_action_prompt="待机呼吸",
+        video_first_frame_only=True,
+        pixelize_params=PixelizeParams(output_size=(32, 32), colors=8, generated_preprocess_method="none"),
+        fps=8,
+        duration_ms=125,
+    )
+
+    with pytest.raises(VideoBridgeWaiting) as exc_info:
+        _start_video_task(
+            cfg,
+            inputs,
+            run_dir=tmp_path,
+            description="灵山野猪妖幼崽",
+            action_prompt="待机呼吸",
+            key_color="#FF00FF",
+            notify=lambda _step, _payload: None,
+        )
+
+    assert captured["last_frame_data_url"] is None
+    assert captured["optimizer_last_frame_path"] is None
+    assert captured["optimizer_first_frame_only"] is True
+    assert "only a first_frame image is provided" in str(captured["prompt"])
+    state = exc_info.value.state
+    assert state["video_first_frame_only"] is True
+    assert state["last_frame_path"] is None
+    assert state["last_frame_video_path"] is None
+    assert state["ark_last_frame_source"] is None
+    assert state["first_frame_path"] == "keyframes/first_frame.png"
+    assert state["first_frame_video_path"] == "keyframes/first_frame_video.png"
+    assert state["timing"]["frame_count"] == 8
+    assert (tmp_path / "keyframes" / "first_frame_video.png").exists()
 
 
 def test_optimize_video_bridge_motion_prompt_uses_vl_motion_plan(tmp_path, monkeypatch) -> None:

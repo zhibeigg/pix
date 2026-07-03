@@ -79,7 +79,7 @@ class ArkVideoClient:
         *,
         prompt: str,
         first_frame_data_url: str,
-        last_frame_data_url: str,
+        last_frame_data_url: str | None = None,
         model: str,
         resolution: str,
         ratio: str,
@@ -87,21 +87,25 @@ class ArkVideoClient:
         generate_audio: bool = False,
         watermark: bool = False,
     ) -> ArkVideoTaskCreateResult:
-        payload: dict[str, Any] = {
-            "model": model,
-            "content": [
-                {"type": "text", "text": prompt},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": first_frame_data_url},
-                    "role": "first_frame",
-                },
+        content: list[dict[str, Any]] = [
+            {"type": "text", "text": prompt},
+            {
+                "type": "image_url",
+                "image_url": {"url": first_frame_data_url},
+                "role": "first_frame",
+            },
+        ]
+        if last_frame_data_url:
+            content.append(
                 {
                     "type": "image_url",
                     "image_url": {"url": last_frame_data_url},
                     "role": "last_frame",
-                },
-            ],
+                }
+            )
+        payload: dict[str, Any] = {
+            "model": model,
+            "content": content,
             "resolution": resolution,
             "ratio": ratio,
             "duration": max(1, int(duration)),
