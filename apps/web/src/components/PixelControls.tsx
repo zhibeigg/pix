@@ -26,9 +26,10 @@ type PixelControlsProps = {
   onEdgeStyleChange?: (value: EdgeStyleChoice) => void
   edgeStyleDisabled?: boolean
   sizeHidden?: boolean
+  colorDescription?: string
 }
 
-export function PixelControls({ pixelSize, onPixelSizeChange, colors, onColorsChange, pixelLabel, sizeOptions = DEFAULT_SIZE_OPTIONS, compact = false, edgeStyle, onEdgeStyleChange, edgeStyleDisabled = false, sizeHidden = false }: PixelControlsProps) {
+export function PixelControls({ pixelSize, onPixelSizeChange, colors, onColorsChange, pixelLabel, sizeOptions = DEFAULT_SIZE_OPTIONS, compact = false, edgeStyle, onEdgeStyleChange, edgeStyleDisabled = false, sizeHidden = false, colorDescription }: PixelControlsProps) {
   const { text } = useI18n()
   const resolvedPixelLabel = pixelLabel ?? text('像素尺寸', 'Pixel size')
   const safeColors = clampColors(colors)
@@ -56,7 +57,7 @@ export function PixelControls({ pixelSize, onPixelSizeChange, colors, onColorsCh
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{text('颜色数', 'Color count')}</p>
-            {!compact && <p className="mt-0.5 text-xs text-muted-foreground">{text('拖动滑块，或直接输入 2–256', 'Drag the slider or enter 2–256 directly')}</p>}
+            {!compact && <p className="mt-0.5 text-xs text-muted-foreground">{colorDescription ?? text('拖动滑块，或直接输入 2–256', 'Drag the slider or enter 2–256 directly')}</p>}
           </div>
           <Input aria-label={text('颜色数', 'Color count')} type="number" min={2} max={256} value={safeColors} onChange={(event) => updateColors(Number(event.target.value))} className="h-9 w-20 text-center font-bold" />
         </div>

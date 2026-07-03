@@ -1076,7 +1076,69 @@ def _draw_multicolor_subject(path, key=(255, 0, 255, 255)) -> None:
     image.save(path)
 
 
-def test_process_frames_defaults_to_vl_ramp_palette(tmp_path, monkeypatch) -> None:
+def test_process_frames_defaults_to_preserve_source_colors(tmp_path, monkeypatch) -> None:
+    raw_dir = tmp_path / "raw"
+    final_dir = tmp_path / "final"
+    raw_dir.mkdir()
+    key = (255, 0, 255, 255)
+    raw_paths = []
+    for index in range(2):
+        path = raw_dir / f"frame_{index + 1:03d}.png"
+        _draw_multicolor_subject(path, key=key)
+        raw_paths.append(path)
+
+    def fail_if_vl_key_requested(_cfg):
+        pytest.fail("auto palette mode must not request VL ramp by default")
+
+    def fail_if_vl_ramp_requested(_cfg, _image_path, **_kwargs):
+        pytest.fail("auto palette mode must not quantize to a VL ramp by default")
+
+    monkeypatch.setattr("pix.sprite_video_bridge.require_vl_api_key", fail_if_vl_key_requested)
+    monkeypatch.setattr("pix.sprite_video_bridge.ramp_from_vl", fail_if_vl_ramp_requested)
+
+    cfg = AppConfig()
+    cfg.sprite.shared_palette = True
+
+    final_paths, _bboxes, _effective_size, shared_palette, process_meta = _process_frames(
+        cfg,
+        raw_paths,
+        final_dir,
+        target_size=(64, 64),
+        frame_size_step=16,
+        anchor="bottom_center",
+        key_rgb=key[:3],
+        key_tolerance=0,
+        max_colors=3,
+        dither="none",
+        edge_style="hard",
+        bg_feather=0,
+        generated_preprocess_method="none",
+        palette_mode="auto",
+        vl_model="gpt-4o",
+        description="多彩主体",
+        run_dir=tmp_path,
+    )
+
+    original_colors = {
+        (10, 10, 20),
+        (30, 40, 90),
+        (70, 20, 120),
+        (120, 50, 40),
+        (180, 90, 30),
+        (220, 160, 60),
+    }
+    assert process_meta["palette_mode"] == "preserve_source_colors"
+    assert process_meta["requested_palette_mode"] == "auto"
+    assert process_meta["palette_limit_step"] == "skipped_preserve_source_colors"
+    assert process_meta["ramp"] is None
+    assert shared_palette == []
+    for path in final_paths:
+        colors = _visible_colors(path)
+        assert original_colors <= colors
+        assert len(colors) > 3
+
+
+def test_process_frames_explicit_ramp_uses_vl_ramp_palette(tmp_path, monkeypatch) -> None:
     from pix.pixelize.ramp import ramp_from_dict
 
     raw_dir = tmp_path / "raw"
@@ -1134,16 +1196,18 @@ def test_process_frames_defaults_to_vl_ramp_palette(tmp_path, monkeypatch) -> No
         edge_style="hard",
         bg_feather=0,
         generated_preprocess_method="none",
-        palette_mode="auto",
+        palette_mode="ramp",
         vl_model="gpt-4o",
         description="多彩主体",
         run_dir=tmp_path,
     )
 
-    # VL 只应调用一次（共享色阶）
+    # 显式 ramp 时，VL 只应调用一次（共享色阶）
     assert process_meta["ramp"]["source"] == "vl"
     assert process_meta["ramp"]["shared_vl_call_count"] == 1
     assert process_meta["palette_mode"] == "vl_ramp_shared"
+    assert process_meta["requested_palette_mode"] == "ramp"
+    assert process_meta["palette_limit_step"] == "vl_ramp_after_denoise_before_merge"
     assert captured["model"] == "gpt-4o"
     # 每帧颜色应落在 VL ramp 色板内
     allowed = {(16, 16, 20), (58, 90, 160), (200, 180, 60)}
@@ -1153,7 +1217,7 @@ def test_process_frames_defaults_to_vl_ramp_palette(tmp_path, monkeypatch) -> No
     assert set(shared_palette)  # 返回扁平色板
 
 
-def test_process_frames_falls_back_to_local_ramp_when_vl_fails(tmp_path, monkeypatch) -> None:
+def test_process_frames_explicit_ramp_falls_back_to_local_ramp_when_vl_fails(tmp_path, monkeypatch) -> None:
     raw_dir = tmp_path / "raw"
     final_dir = tmp_path / "final"
     raw_dir.mkdir()
@@ -1198,7 +1262,7 @@ def test_process_frames_falls_back_to_local_ramp_when_vl_fails(tmp_path, monkeyp
         edge_style="hard",
         bg_feather=0,
         generated_preprocess_method="none",
-        palette_mode="auto",
+        palette_mode="ramp",
         description="多彩主体",
         run_dir=tmp_path,
     )
@@ -1207,12 +1271,13 @@ def test_process_frames_falls_back_to_local_ramp_when_vl_fails(tmp_path, monkeyp
     assert process_meta["ramp"]["source"] == "local_fallback"
     assert "vl exploded" in process_meta["ramp"]["vl_error"]
     assert process_meta["palette_mode"] == "vl_ramp_shared"
+    assert process_meta["requested_palette_mode"] == "ramp"
     assert len(final_paths) == 2
     # 回退后仍应产出可见像素（限色未清空主体）
     assert any(_visible_colors(path) for path in final_paths)
 
 
-def test_process_frames_local_ramp_when_no_vl_key(tmp_path, monkeypatch) -> None:
+def test_process_frames_explicit_ramp_uses_local_ramp_when_no_vl_key(tmp_path, monkeypatch) -> None:
     raw_dir = tmp_path / "raw"
     final_dir = tmp_path / "final"
     raw_dir.mkdir()
@@ -1242,11 +1307,12 @@ def test_process_frames_local_ramp_when_no_vl_key(tmp_path, monkeypatch) -> None
         edge_style="hard",
         bg_feather=0,
         generated_preprocess_method="none",
-        palette_mode="auto",
+        palette_mode="ramp",
         run_dir=tmp_path,
     )
 
     assert process_meta["ramp"]["source"] == "local"
     assert "missing vl key" in process_meta["ramp"]["vl_error"]
     assert process_meta["palette_mode"] == "vl_ramp_shared"
+    assert process_meta["requested_palette_mode"] == "ramp"
     assert len(final_paths) == 1

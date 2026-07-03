@@ -1118,7 +1118,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           </PixField>
         )}
 
-        {!isLocalBgRemove && <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : isDualGridAsset ? text('单张瓦片尺寸', 'Single tile size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : isDualGridAsset ? DUAL_GRID_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || isDualGridAsset || (!isSprite && !removeBg)} sizeHidden={isLocalPixelize} />}
+        {!isLocalBgRemove && <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : isDualGridAsset ? text('单张瓦片尺寸', 'Single tile size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : isDualGridAsset ? DUAL_GRID_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || isDualGridAsset || (!isSprite && !removeBg)} sizeHidden={isLocalPixelize} colorDescription={isSpriteVideoBridge ? text('默认保留视频抽帧原色；该数值仅写入关键帧 / motion prompt，显式选择限色策略时才作为上限。', 'Video bridge preserves sampled source colors by default; this value is used in keyframe / motion prompts and only caps colors when an explicit palette strategy is chosen.') : undefined} />}
 
         {isAsset && !isDualGridAsset && !isTileAsset && <SizeRetryControls value={sizeRetry} onChange={setSizeRetry} basePrice={price} discount={discount} imageSize={pixelSize} />}
 

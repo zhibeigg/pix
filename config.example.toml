@@ -296,11 +296,11 @@ crop_padding   = 0.12
 crop_square    = true
 # 对全部帧应用共享调色板，减少序列播放闪色
 shared_palette = true
-# 限色盘策略（video_bridge 视频序列帧模式）：默认走 VL 模型色阶（ramp），
-#   由 pixelize.palette_mode 控制——auto / ramp 均启用 VL（无 VL Key 或调用失败时
-#   优雅回退本地 build_local_ramp，绝不中断视频任务）；仅 palette_mode = "kmeans"
-#   时回退旧的本地 K-means 限色。VL 参考图取「去背景+去杂色后的主体帧」合成的
-#   mosaic，整段序列只调用一次 VL 生成共享 ramp，再逐帧量化，帧间色彩最稳定。
+# video_bridge 视频序列帧默认保留视频/图像原色，不限制色盘，避免角色或怪物配色被后处理带偏。
+#   由 pixelize.palette_mode 控制：auto=保色不量化；ramp=显式启用 VL 色阶（无 VL Key 或
+#   调用失败时优雅回退本地 build_local_ramp，绝不中断视频任务）；kmeans=显式启用旧的本地
+#   K-means 限色。VL 参考图取「去背景+去杂色后的主体帧」合成的 mosaic，整段序列只调用
+#   一次 VL 生成共享 ramp，再逐帧量化。
 # 多行 mosaic（rows>1）会自动按行输出独立产物，便于直接拿到「每行一个动画循环」的成品：
 #   {run_dir}/sprite_sheet_grid.png   —— rows×cols 二维网格预览（与原 sprite_mosaic.png 一一对照）
 #   {run_dir}/row_sheets/row_NN.png   —— 每行一张 1×cols 横向 sheet
@@ -324,7 +324,7 @@ mosaic_reference_prompt_template = "Re-create the sprite sheet described below b
 [video_bridge]
 # 首尾帧视频补间：仅当 sprite.mode = "video_bridge" 时启用。
 # 流程：生成首/尾关键帧图 → 按官方 role=first_frame/last_frame 提交 Ark/Seedance 首尾帧图生视频异步任务 → job 进入 waiting → 到期重捞轮询 → 从 content.video_url 下载视频并抽帧为 mosaic 兼容输出。
-# 会复用任务的 pixelize.output_size / colors / edge_style+bg_feather / generated_preprocess_method / dither：这些参数进入符合 Seedance 指南的结构化关键帧与 motion prompt，并在抽帧后执行「全帧检测→众数网格→固定网格重跑且保留实际尺寸」perfectPixel、固定去杂色和限色；最终帧不缩放，透明填充到不小于检测尺寸和 output_size 的 2 的幂 1:1 方形画布。
+# 会复用任务的 pixelize.output_size / colors / edge_style+bg_feather / generated_preprocess_method / dither：这些参数进入符合 Seedance 指南的结构化关键帧与 motion prompt，并在抽帧后执行「全帧检测→众数网格→固定网格重跑且保留实际尺寸」perfectPixel、固定去杂色；默认保留原色，只有显式 palette_mode=ramp/kmeans 才限色。最终帧不缩放，透明填充到不小于检测尺寸和 output_size 的 2 的幂 1:1 方形画布。
 # Ark 视频秒数按 rows×cols×duration_ms 自动推导，再向上吸附到 allowed_durations 中最近的合法档位并锁定；duration 仅保留为旧配置兜底值。
 # 生产工作台可在单任务里通过 sprite.video_model 选择并透传三档 Seedance 2.0：
 #   doubao-seedance-2-0-260128       -> Standard

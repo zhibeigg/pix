@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.111.11] - 2026-07-03
+
+### Fixed
+
+- `sprite.mode = "video_bridge"` 默认改为保留视频 / 图像原始颜色：`pixelize.palette_mode = "auto"` 不再触发 VL ramp 或 K-means 限色，避免蓝黑等既有配色被语义色阶带偏；只有显式选择 `ramp` 或 `kmeans` 时才限制色盘。
+
+### Tests
+
+- 补充 video_bridge 默认保色、不触发 VL，以及显式 `ramp` / `kmeans` 仍可用的回归覆盖。
+
 ## [1.111.10] - 2026-07-03
 
 ### Fixed

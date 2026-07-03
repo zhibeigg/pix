@@ -1568,8 +1568,9 @@ def _resolve_sequence_ramp(
     description: str,
     vl_model: str | None,
 ) -> tuple[RampPalette | None, dict[str, Any]]:
-    """为整个序列求一套共享 VL 色阶(ramp)。
+    """为显式 ramp 模式求一套整段序列共享的 VL 色阶。
 
+    - 仅当用户显式选择 palette_mode=ramp 时调用；video_bridge 的 auto 默认保留原色。
     - VL 参考图基于「去背景 + 去杂色后的主体帧」合成的横向 mosaic，颜色未被裁剪 /
       2 次幂透明填充破坏，因此与在第 4 步(去杂色处)限色盘等价。
     - 无论是否共享调色板，VL 都只调用 1 次(基于全序列 mosaic)，避免逐帧最多
@@ -1767,14 +1768,14 @@ def _process_frames(
     palette: list[str] = []
     frame_palettes: list[list[str]] = []
     ramp_meta: dict[str, Any] | None = None
-    # 限色盘：默认走 VL 模型色阶(ramp)，与素材直出模式保持一致；仅当用户显式选择
-    # palette_mode=kmeans 时回退旧的本地 K-means 逃生阀。VL 参考图取「去背景 + 去杂色
-    # 后的主体帧」(prepared)，颜色未被裁剪 / 2 次幂透明填充破坏，等价于在去杂色处限色盘。
+    # 调色盘：video_bridge 默认保留视频抽帧后的原色，避免 VL ramp / K-means 在角色或怪物
+    # 动画里把既有色相带偏。只有用户显式选择 palette_mode=ramp 或 kmeans 时才限色。
     normalized_palette_mode = str(palette_mode or "auto").strip().lower()
+    use_ramp = normalized_palette_mode in {"ramp", "vl", "vl_ramp"}
     use_kmeans = normalized_palette_mode == "kmeans"
-    applied_palette_mode = "none"
+    applied_palette_mode = "preserve_source_colors"
     ramp: RampPalette | None = None
-    if not use_kmeans:
+    if use_ramp:
         ramp, ramp_meta = _resolve_sequence_ramp(
             cfg,
             prepared,
@@ -1788,10 +1789,10 @@ def _process_frames(
         applied_palette_mode = (
             "vl_ramp_shared" if cfg.sprite.shared_palette else "vl_ramp_shared_no_shared_flag"
         )
-    elif cfg.sprite.shared_palette:
+    elif use_kmeans and cfg.sprite.shared_palette:
         canvases, palette = _apply_shared_palette(canvases, colors=max_colors, dither=dither)
         applied_palette_mode = "kmeans_shared"
-    else:
+    elif use_kmeans:
         canvases, frame_palettes = _apply_individual_palettes(canvases, colors=max_colors, dither=dither)
         applied_palette_mode = "kmeans_per_frame"
     final_dir.mkdir(parents=True, exist_ok=True)
@@ -1827,7 +1828,9 @@ def _process_frames(
         },
         "palette_mode": applied_palette_mode,
         "requested_palette_mode": normalized_palette_mode,
-        "palette_limit_step": "vl_ramp_after_denoise_before_merge",
+        "palette_limit_step": "skipped_preserve_source_colors" if not (use_ramp or use_kmeans) else (
+            "vl_ramp_after_denoise_before_merge" if use_ramp else "kmeans_after_canvas_merge"
+        ),
         "ramp": ramp_meta,
         "max_colors": int(max_colors),
         "shared_palette": bool(cfg.sprite.shared_palette),
