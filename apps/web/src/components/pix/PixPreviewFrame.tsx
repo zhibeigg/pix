@@ -2,11 +2,45 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ImageOff } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { PixMotionLoader } from './PixMotionLoader'
+import { ImageLightbox } from '../ImageLightbox'
+import { ZoomButton } from './ZoomButton'
 
-export function PixPreviewFrame({ url, file, alt, label, children, className, imageClassName, loading = false, trim = false }: { url?: string | null; file?: File | null; alt?: string; label?: ReactNode; children?: ReactNode; className?: string; imageClassName?: string; loading?: boolean; trim?: boolean }) {
+type PixPreviewFrameProps = {
+  url?: string | null
+  file?: File | null
+  alt?: string
+  label?: ReactNode
+  children?: ReactNode
+  className?: string
+  imageClassName?: string
+  loading?: boolean
+  trim?: boolean
+  /** 是否允许放大查看，默认开启；无图片源时不显示按钮。 */
+  zoomable?: boolean
+  /** 放大查看时使用的图片地址，默认取 url。 */
+  zoomSrc?: string | null
+  /** 放大查看的渲染模式，默认 pixelated。原始图应传 auto。 */
+  zoomRendering?: 'pixelated' | 'auto'
+}
+
+export function PixPreviewFrame({ url, file, alt, label, children, className, imageClassName, loading = false, trim = false, zoomable = true, zoomSrc, zoomRendering = 'pixelated' }: PixPreviewFrameProps) {
   const imgClass = cn('h-full max-h-[420px] w-full object-contain p-3 [image-rendering:pixelated]', imageClassName)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [fileUrl, setFileUrl] = useState<string | null>(null)
+
+  // 本地文件放大需要 object URL
+  useEffect(() => {
+    if (!file) { setFileUrl(null); return }
+    const objectUrl = URL.createObjectURL(file)
+    setFileUrl(objectUrl)
+    return () => URL.revokeObjectURL(objectUrl)
+  }, [file])
+
+  const resolvedZoomSrc = zoomSrc ?? (file ? fileUrl : url) ?? null
+  const canZoom = zoomable && !loading && !!resolvedZoomSrc
+
   return (
-    <div data-loading={loading ? 'true' : undefined} className={cn('pix-checkerboard pix-preview-frame relative grid min-h-40 place-items-center overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-muted dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]', loading && 'pix-preview-frame-loading', className)}>
+    <div data-loading={loading ? 'true' : undefined} className={cn('pix-checkerboard pix-preview-frame group relative grid min-h-40 place-items-center overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-muted dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]', loading && 'pix-preview-frame-loading', className)}>
       {loading ? (
         <PixMotionLoader label={label ?? '生成中'} />
       ) : file ? (
@@ -21,7 +55,17 @@ export function PixPreviewFrame({ url, file, alt, label, children, className, im
           <p className="text-sm font-bold">{label ?? '暂无预览'}</p>
         </div>
       )}
+      {canZoom && <ZoomButton onClick={() => setLightboxOpen(true)} />}
       {children}
+      {canZoom && resolvedZoomSrc && (
+        <ImageLightbox
+          src={resolvedZoomSrc}
+          alt={typeof label === 'string' ? label : alt}
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          rendering={zoomRendering}
+        />
+      )}
     </div>
   )
 }

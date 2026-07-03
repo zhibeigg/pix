@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { SpriteFrameOutput } from '../types'
 import { cn } from '../lib/utils'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
+import { ImageLightbox } from './ImageLightbox'
+import { ZoomButton } from './pix/ZoomButton'
 
 type Props = {
   sheetUrl?: string | null
@@ -14,15 +16,20 @@ type Props = {
   imageClassName?: string
   trim?: boolean
   children?: ReactNode
+  /** 是否允许放大查看，默认开启。 */
+  zoomable?: boolean
+  /** 放大查看的渲染模式，默认 pixelated。 */
+  zoomRendering?: 'pixelated' | 'auto'
 }
 
-export function SpriteSequencePreview({ sheetUrl, frames = [], fps = 8, fallbackUrl, loading = false, label, className, imageClassName, trim = false, children }: Props) {
+export function SpriteSequencePreview({ sheetUrl, frames = [], fps = 8, fallbackUrl, loading = false, label, className, imageClassName, trim = false, children, zoomable = true, zoomRendering = 'pixelated' }: Props) {
   const playableFrames = useMemo(() => frames.filter((frame) => frame.sheet_rect && frame.sheet_rect.w > 0 && frame.sheet_rect.h > 0).sort((a, b) => Number(a.index) - Number(b.index)), [frames])
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [frameIndex, setFrameIndex] = useState(0)
   const [isVisible, setIsVisible] = useState(true)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const activeFrame = playableFrames.length > 0 ? playableFrames[frameIndex % playableFrames.length] : null
   const rect = activeFrame?.sheet_rect ?? null
   const sheetSize = useMemo(() => {
@@ -72,7 +79,7 @@ export function SpriteSequencePreview({ sheetUrl, frames = [], fps = 8, fallback
   }, [sheetUrl, playableFrames.length])
 
   if (!sheetUrl || !rect || !sheetSize) {
-    return <PixPreviewFrame url={fallbackUrl} loading={loading} label={label} className={className} imageClassName={imageClassName} trim={trim}>{children}</PixPreviewFrame>
+    return <PixPreviewFrame url={fallbackUrl} loading={loading} label={label} className={className} imageClassName={imageClassName} trim={trim} zoomable={zoomable} zoomRendering={zoomRendering}>{children}</PixPreviewFrame>
   }
 
   const fit = fitRect(rect.w, rect.h, Math.max(1, containerSize.width - 24), Math.max(1, containerSize.height - 24))
@@ -81,8 +88,11 @@ export function SpriteSequencePreview({ sheetUrl, frames = [], fps = 8, fallback
   const backgroundSize = `${sheetSize.width * scaleX}px ${sheetSize.height * scaleY}px`
   const backgroundPosition = `${-rect.x * scaleX}px ${-rect.y * scaleY}px`
 
+  const zoomSrc = fallbackUrl || sheetUrl
+  const canZoom = zoomable && !loading && !!zoomSrc
+
   return (
-    <div ref={containerRef} data-loading={loading ? 'true' : undefined} className={cn('pix-checkerboard pix-preview-frame relative grid min-h-40 place-items-center overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-muted p-3 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]', loading && 'pix-preview-frame-loading', className)}>
+    <div ref={containerRef} data-loading={loading ? 'true' : undefined} className={cn('pix-checkerboard pix-preview-frame group relative grid min-h-40 place-items-center overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-muted p-3 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]', loading && 'pix-preview-frame-loading', className)}>
       <div
         role="img"
         aria-label={typeof label === 'string' ? label : '序列帧预览'}
@@ -95,7 +105,17 @@ export function SpriteSequencePreview({ sheetUrl, frames = [], fps = 8, fallback
           backgroundPosition,
         }}
       />
+      {canZoom && <ZoomButton onClick={() => setLightboxOpen(true)} />}
       {children}
+      {canZoom && zoomSrc && (
+        <ImageLightbox
+          src={zoomSrc}
+          alt={typeof label === 'string' ? label : undefined}
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          rendering={zoomRendering}
+        />
+      )}
     </div>
   )
 }

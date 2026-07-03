@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.119.0] - 2026-07-05
+
+### Added
+
+- 全站图片预览新增「放大查看」功能：预览区域悬停（触摸设备常显）时右上角显示放大按钮，点击后进入全屏 Lightbox。Lightbox 支持滚轮缩放、拖拽平移、双击缩放、双指捏合缩放、ESC 关闭，并针对像素图（`pixelated`）与原始 AI 图（`auto`）分别采用锐利 / 平滑渲染。新增可复用组件 `ImageLightbox` 与 `ZoomButton`。
+- `PixPreviewFrame` 新增 `zoomable` / `zoomSrc` / `zoomRendering` 参数；`SpriteSequencePreview` 透传 `zoomable` / `zoomRendering`，动画序列帧分支优先使用原图 / 精灵表作为放大源。原始生图页主预览采用 `auto` 渲染模式，避免放大时出现锯齿。放大按钮会阻止事件冒泡，不影响画廊卡片选择等既有交互。
+
 ## [1.118.0] - 2026-07-04
 
 ### Added

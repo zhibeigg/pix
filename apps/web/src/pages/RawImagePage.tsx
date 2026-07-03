@@ -1,9 +1,11 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { RefreshCw, Upload } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { computeRawReuse, isRawImageJob } from '../lib/jobReuse'
 import { promptLimitsFromModels } from '../lib/promptLimits'
+import { validateImageFile, imageValidationMessage } from '../lib/upload'
+import { ImageDropzone } from '../components/ImageDropzone'
 import { useI18n } from '../i18n'
 import { defaultPixelize, summarizePrompt } from '../pixelize'
 import { applyDiscount } from '../lib/pricing'
@@ -62,10 +64,11 @@ function modelOptionLabel(model: ImageModelInfo) {
 }
 
 export function RawImagePage({ pricing, discount, balance, jobs, loading, token, imageModels, selectedJobId, reuseSeed, onSelectJob, onCreateJob, onRefresh }: Props) {
-  const { text } = useI18n()
+  const { text, isEnglish } = useI18n()
   const [model, setModel] = useState(imageModels.default || 'image2')
   const promptLimits = useMemo(() => promptLimitsFromModels(imageModels), [imageModels])
   const rawImagePromptMaxLength = promptLimits.raw_image_prompt_max_chars
+  const maxUploadBytes = promptLimits.max_upload_bytes ?? 10 * 1024 * 1024
   const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
   const selectedModelInfo = useMemo(() => availableImageModels.find((item) => item.id === model), [availableImageModels, model])
   const modelSizes = selectedModelInfo?.sizes?.length ? selectedModelInfo.sizes : imageSizes
@@ -133,6 +136,11 @@ export function RawImagePage({ pricing, discount, balance, jobs, loading, token,
 
   async function uploadReferenceFile(file: File | undefined) {
     if (!file) return
+    const check = validateImageFile(file, maxUploadBytes)
+    if (!check.ok) {
+      setRefMessage(imageValidationMessage(check, isEnglish))
+      return
+    }
     setRefImagePath('')
     setRefImageUrl('')
     setRefImageFile(file)
@@ -172,12 +180,14 @@ export function RawImagePage({ pricing, discount, balance, jobs, loading, token,
             <PixField label={text('质量', 'Quality')}><Select value={quality} onValueChange={setQuality}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{modelQualities.map((item) => <SelectItem value={item} key={item}>{item}</SelectItem>)}</SelectContent></Select></PixField>
             <PixField label={text('参考图（可选）', 'Reference image (optional)')}>
               <div className="grid gap-2">
-                <Button type="button" variant="outline" asChild>
-                  <label className="cursor-pointer">
-                    <Upload />{refUploading ? text('上传中…', 'Uploading…') : refImagePath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
-                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void uploadReferenceFile(event.currentTarget.files?.[0])} />
-                  </label>
-                </Button>
+                <ImageDropzone
+                  maxBytes={maxUploadBytes}
+                  disabled={refUploading}
+                  label={refUploading ? text('上传中…', 'Uploading…') : refImagePath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
+                  ariaLabel={text('上传参考图', 'Upload reference')}
+                  onFiles={(files) => void uploadReferenceFile(files[0])}
+                  onError={(message) => setRefMessage(message)}
+                />
                 {refMessage && <Alert variant="destructive">{refMessage}</Alert>}
                 {(refImageUrl || refImageFile) && (
                   <div className="grid gap-1">
@@ -192,7 +202,7 @@ export function RawImagePage({ pricing, discount, balance, jobs, loading, token,
 
           <div className="grid gap-4 rounded-lg border border-[hsl(var(--pix-paper-border))] bg-[hsl(var(--pix-paper-soft))] p-4 text-[hsl(var(--pix-ink))] shadow-[inset_0_1px_0_rgba(255,255,255,0.68)] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))] dark:text-white dark:shadow-[0_22px_70px_-46px_rgba(0,0,0,0.95)]">
             <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.14em] text-primary dark:text-[hsl(var(--pix-brand-purple-300))]">{text('预览画布', 'Preview canvas')}</p><h3 className="text-xl font-semibold">{selectedJob ? `#${selectedJob.id} · ${mainImageLabel}` : text('等待第一张原图', 'Waiting for the first source image')}</h3></div>{selectedJob && <PixStatusBadge status={selectedJob.status} />}</div>
-            <PixPreviewFrame url={mainImageUrl} loading={isSelectedActive} label={selectedJob ? rawStateLabel(selectedJob, text) : text('等待提示词点火', 'Waiting for prompt ignition')} className="min-h-[280px] border-[hsl(var(--pix-paper-border))] bg-card sm:min-h-[420px] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]" imageClassName="[image-rendering:auto]" />
+            <PixPreviewFrame url={mainImageUrl} loading={isSelectedActive} label={selectedJob ? rawStateLabel(selectedJob, text) : text('等待提示词点火', 'Waiting for prompt ignition')} className="min-h-[280px] border-[hsl(var(--pix-paper-border))] bg-card sm:min-h-[420px] dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]" imageClassName="[image-rendering:auto]" zoomRendering="auto" />
             {selectedJob?.status === 'failed' && <JobErrorSummary error={selectedJob.error_message} />}
             <p className="text-sm text-muted-foreground dark:text-white/60">{selectedJob ? summarizePrompt(selectedJob.prompt, text('无提示词', 'No prompt')) : text('输入提示词后，生成结果会停留在本页。', 'After entering a prompt, generated results stay on this page.')}</p>
           </div>

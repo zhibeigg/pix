@@ -15,6 +15,15 @@ export const zhCN = {
     creditUnit: '点',
     recommended: '推荐',
   },
+  lightbox: {
+    title: '图片预览',
+    zoom: '放大查看',
+    zoomIn: '放大',
+    zoomOut: '缩小',
+    reset: '还原',
+    close: '关闭',
+    hint: '滚轮缩放 · 拖拽平移 · 双击缩放 · ESC 关闭',
+  },
   videoBridge: {
     returnToFirstFrame: '回到初始帧（循环动作）',
     returnToFirstFrameHint: '开启后会告诉视频模型：先到达尾帧，再平滑回到首帧，最后一帧匹配初始帧。',
