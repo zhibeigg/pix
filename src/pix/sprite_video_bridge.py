@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import base64
-from collections import Counter, deque
+from collections import deque
 import json
 import re
 import tempfile
@@ -1459,20 +1459,18 @@ def _preprocess_grid_from_meta(meta: Mapping[str, Any]) -> tuple[int, int] | Non
     return None
 
 
-def _mode_grid_size(grids: list[tuple[int, int]], target_size: tuple[int, int]) -> tuple[int, int] | None:
+def _max_grid_size(grids: list[tuple[int, int]]) -> tuple[int, int] | None:
+    """对所有 raw 帧检测到的 perfectPixel 网格取最大尺寸。
+
+    同一段视频的序列帧理论上共享同一个像素网格；若某些帧能稳定检测到更密的
+    网格，说明该像素粒度在视频中真实存在。取平均会把高频细节降采样掉，因此
+    这里按轴取最大值，再用这个固定网格统一重采样所有帧。
+    """
     if not grids:
         return None
-    target = int(target_size[0]), int(target_size[1])
-    counts = Counter(grids)
-    return min(
-        counts,
-        key=lambda grid: (
-            -counts[grid],
-            abs(grid[0] - target[0]) + abs(grid[1] - target[1]),
-            abs((grid[0] * grid[1]) - (target[0] * target[1])),
-            grid,
-        ),
-    )
+    width = max(grid[0] for grid in grids)
+    height = max(grid[1] for grid in grids)
+    return max(1, int(width)), max(1, int(height))
 
 
 def _power_of_two_square_frame_size(
@@ -1518,7 +1516,7 @@ def _detect_sequence_perfect_pixel_grid(
                 "preprocess": result.meta,
             }
         )
-    return _mode_grid_size(detected_grids, target_size), detections
+    return _max_grid_size(detected_grids), detections
 
 
 def _apply_individual_palettes(
@@ -1790,7 +1788,8 @@ def _process_frames(
         "generated_preprocess_method": generated_preprocess_method,
         "perfect_pixel_sequence_grid": {
             "enabled": bool(grid_detections),
-            "strategy": "detect_all_frames_take_mode_then_reprocess_with_fixed_grid",
+            "strategy": "detect_all_frames_take_max_then_reprocess_with_fixed_grid",
+            "max_grid_size": list(sequence_grid_size) if sequence_grid_size else None,
             "mode_grid_size": list(sequence_grid_size) if sequence_grid_size else None,
             "detections": grid_detections,
         },

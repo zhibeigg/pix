@@ -76,7 +76,14 @@ def magnitude(gx: np.ndarray, gy: np.ndarray) -> np.ndarray:
 # ----------------------------
 
 def compute_fft_magnitude(gray_image):
-    f = np.fft.fft2(gray_image.astype(np.float32))
+    height, width = gray_image.shape[:2]
+    padded_h = min(2 ** int(np.ceil(np.log2(max(1, height)))), 1024)
+    padded_w = min(2 ** int(np.ceil(np.log2(max(1, width)))), 1024)
+    padded = np.zeros((padded_h, padded_w), dtype=np.float32)
+    copy_h = min(height, padded_h)
+    copy_w = min(width, padded_w)
+    padded[:copy_h, :copy_w] = gray_image[:copy_h, :copy_w].astype(np.float32)
+    f = np.fft.fft2(padded)
     fshift = np.fft.fftshift(f)
     mag = np.abs(fshift)
     mag = 1 - np.log1p(mag)
@@ -138,8 +145,11 @@ def detect_peak(proj, peak_width=6, rel_thr=0.35, min_dist=6):
     if not candidates:
         return None
 
-    left = [c for c in candidates if c["index"] < center - min_dist and c["index"] > center * 0.25]
-    right = [c for c in candidates if c["index"] > center + min_dist and c["index"] < center * 1.75]
+    # Keep in sync with the upstream web demo: allow peaks in a wider band around
+    # the center (0.15x..1.85x) so high-frequency pixel grids are not rejected
+    # prematurely and forced into the less stable gradient fallback.
+    left = [c for c in candidates if c["index"] < center - min_dist and c["index"] > center * 0.15]
+    right = [c for c in candidates if c["index"] > center + min_dist and c["index"] < center * 1.85]
 
     left.sort(key=lambda x: x["score"], reverse=True)
     right.sort(key=lambda x: x["score"], reverse=True)
@@ -289,42 +299,64 @@ def refine_grids(image, grid_x, grid_y, refine_intensity=0.25):
     x_coords = []
     y_coords = []
 
+    # Match the upstream web demo: the refinement search radius is cell/3,
+    # not the historical Python default cell*0.25, and backward traversal is
+    # capped by the expected grid count to avoid accumulating extra lines.
+    refine_x = cell_w / 3.0
+    refine_y = cell_h / 3.0
+
     x = find_best_grid(W / 2, cell_w, cell_w, grad_x_sum)
-    while x < W + cell_w/2:
-        x = find_best_grid(x, cell_w * refine_intensity, cell_w * refine_intensity, grad_x_sum)
+    while x < W + cell_w / 2:
+        x = find_best_grid(x, refine_x, refine_x, grad_x_sum)
         x_coords.append(x)
         x += cell_w
     x = find_best_grid(W / 2, cell_w, cell_w, grad_x_sum) - cell_w
-    while x > -cell_w/2:
-        x = find_best_grid(x, cell_w * refine_intensity, cell_w * refine_intensity, grad_x_sum)
+    while x > -cell_w / 2 and len(x_coords) <= W / cell_w:
+        x = find_best_grid(x, refine_x, refine_x, grad_x_sum)
         x_coords.append(x)
         x -= cell_w
 
     y = find_best_grid(H / 2, cell_h, cell_h, grad_y_sum)
-    while y < H + cell_h/2:
-        y = find_best_grid(y, cell_h * refine_intensity, cell_h * refine_intensity, grad_y_sum)
+    while y < H + cell_h / 2:
+        y = find_best_grid(y, refine_y, refine_y, grad_y_sum)
         y_coords.append(y)
         y += cell_h
     y = find_best_grid(H / 2, cell_h, cell_h, grad_y_sum) - cell_h
-    while y > -cell_h/2:
-        y = find_best_grid(y, cell_h * refine_intensity, cell_h * refine_intensity, grad_y_sum)
+    while y > -cell_h / 2 and len(y_coords) <= H / cell_h:
+        y = find_best_grid(y, refine_y, refine_y, grad_y_sum)
         y_coords.append(y)
         y -= cell_h
+
+    # Web demo balances almost-square coordinate counts before sampling.
+    if abs(len(x_coords) - len(y_coords)) < 2:
+        if len(x_coords) % 2 == 0:
+            if len(x_coords) > len(y_coords):
+                x_coords.pop()
+            elif len(x_coords) < len(y_coords):
+                x_coords.append(0)
+            else:
+                x_coords.append(0)
+                y_coords.append(0)
+        elif len(x_coords) > len(y_coords):
+            y_coords.append(0)
+        elif len(x_coords) < len(y_coords):
+            y_coords.pop()
 
     x_coords = sorted(x_coords)
     y_coords = sorted(y_coords)
     return x_coords, y_coords
 
 def estimate_grid_fft(gray, peak_width=6):
-    """Return (grid_w, grid_h) or None."""
+    """Return (grid_w, grid_h) or None, matching the upstream web demo FFT path."""
     H, W = gray.shape
 
     mag = compute_fft_magnitude(gray)
+    mag_h, mag_w = mag.shape
 
-    band_row = W // 2
-    band_col = H // 2
-    row_sum = np.sum(mag[:, W//2 - band_row: W//2 + band_row], axis=1)
-    col_sum = np.sum(mag[H//2 - band_col: H//2 + band_col, :], axis=0)
+    band_row = mag_w // 2
+    band_col = mag_h // 2
+    row_sum = np.sum(mag[:, mag_w // 2 - band_row: mag_w // 2 + band_row], axis=1)
+    col_sum = np.sum(mag[mag_h // 2 - band_col: mag_h // 2 + band_col, :], axis=0)
 
     row_sum = normalize_minmax(row_sum, 0.0, 1.0).flatten()
     col_sum = normalize_minmax(col_sum, 0.0, 1.0).flatten()
@@ -332,12 +364,14 @@ def estimate_grid_fft(gray, peak_width=6):
     row_sum = smooth_1d(row_sum, k=17)
     col_sum = smooth_1d(col_sum, k=17)
 
-    scale_row = detect_peak(row_sum, peak_width=peak_width)
-    scale_col = detect_peak(col_sum, peak_width=peak_width)
+    period_row = detect_peak(row_sum, peak_width=peak_width)
+    period_col = detect_peak(col_sum, peak_width=peak_width)
 
-    if scale_row is None or scale_col is None or scale_col <= 0:
+    if period_row is None or period_col is None or period_col <= 0:
         return None
 
+    scale_row = period_row * H / mag_h
+    scale_col = period_col * W / mag_w
     return scale_col, scale_row
 
 def estimate_grid_gradient(gray, rel_thr=0.2):

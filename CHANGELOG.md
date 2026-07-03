@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.111.7] - 2026-07-02
+
+### Fixed
+
+- 对齐 perfectPixel 序列帧网格检测与 webdemo 行为，并在 video_bridge 后处理中对所有 raw 帧检测后采用最大网格统一重跑，避免逐帧网格漂移导致的序列帧采样不一致。
+- 重新完整生成首页 video_bridge 展示序列帧资源：6 个示例均使用请求 64×64、16 帧的新 pipeline 输出 sprite sheet，并同步更新前端展示元数据。
+
+### Tests
+
+- 更新 video_bridge 网格聚合回归测试，覆盖最大网格固定重跑和检测尺寸补齐逻辑。
+
 ## [1.111.6] - 2026-07-02
 
 ### Added

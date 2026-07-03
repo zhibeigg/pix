@@ -22,6 +22,7 @@ from pix.sprite_video_bridge import (
     _prepare_video_keyframes,
     _poll_video_task,
     _process_frames,
+    _max_grid_size,
     _split_keyframes,
     _start_video_task,
     is_waiting_state_due,
@@ -800,7 +801,12 @@ def _alpha_bbox(path) -> tuple[int, int, int, int]:
     return min(xs), min(ys), max(xs) + 1, max(ys) + 1
 
 
-def test_process_frames_detects_mode_grid_then_reprocesses_all_frames(tmp_path, monkeypatch) -> None:
+def test_max_grid_size_uses_largest_detected_raw_frame_grid() -> None:
+    assert _max_grid_size([(160, 160), (162, 158), (161, 159)]) == (162, 160)
+    assert _max_grid_size([(160, 160), (161, 161)]) == (161, 161)
+
+
+def test_process_frames_detects_max_grid_then_reprocesses_all_frames(tmp_path, monkeypatch) -> None:
     raw_dir = tmp_path / "raw"
     final_dir = tmp_path / "final"
     raw_dir.mkdir()
@@ -861,16 +867,17 @@ def test_process_frames_detects_mode_grid_then_reprocesses_all_frames(tmp_path, 
     )
 
     grid_meta = process_meta["perfect_pixel_sequence_grid"]
-    assert grid_meta["strategy"] == "detect_all_frames_take_mode_then_reprocess_with_fixed_grid"
-    assert grid_meta["mode_grid_size"] == [16, 16]
+    assert grid_meta["strategy"] == "detect_all_frames_take_max_then_reprocess_with_fixed_grid"
+    assert grid_meta["max_grid_size"] == [17, 16]
+    assert grid_meta["mode_grid_size"] == [17, 16]
     assert [item[0] for item in calls].count("detect") == 3
     assert [item[0] for item in calls].count("fixed") == 3
-    assert all(call[2] == (16, 16) for call in calls if call[0] == "fixed")
-    assert process_meta["common_preprocess_size"] == [16, 16]
+    assert all(call[2] == (17, 16) for call in calls if call[0] == "fixed")
+    assert process_meta["common_preprocess_size"] == [17, 16]
     assert process_meta["final_canvas_rule"] == "next_power_of_two_square_transparent_padding"
     assert process_meta["preserve_perfect_pixel_detected_size"] is True
-    assert [frame["normalized_size"] for frame in process_meta["frames"]] == [[16, 16]] * 3
-    assert [frame["preprocess"]["fixed_grid_size"] for frame in process_meta["frames"]] == [[16, 16]] * 3
+    assert [frame["normalized_size"] for frame in process_meta["frames"]] == [[17, 16]] * 3
+    assert [frame["preprocess"]["fixed_grid_size"] for frame in process_meta["frames"]] == [[17, 16]] * 3
 
 
 
@@ -928,6 +935,7 @@ def test_process_frames_pads_detected_size_to_power_of_two_square(tmp_path, monk
     assert process_meta["common_preprocess_size"] == [106, 106]
     assert process_meta["required_frame_size"] == [106, 106]
     assert process_meta["final_canvas_rule"] == "next_power_of_two_square_transparent_padding"
+    assert process_meta["perfect_pixel_sequence_grid"]["max_grid_size"] == [106, 106]
     assert process_meta["perfect_pixel_sequence_grid"]["mode_grid_size"] == [106, 106]
     with Image.open(final_paths[0]) as opened:
         assert opened.size == (128, 128)
