@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.111.9] - 2026-07-03
+
+### Changed
+
+- 用 tight-union 2 的幂补全逻辑重新处理首页 05–10 的 video_bridge 展示序列帧静态资源，并同步前端展示尺寸元数据；御剑、提灯和盾矛示例由旧 256 帧画布收敛为 128 帧画布。
+
 ## [1.111.8] - 2026-07-03
 
 ### Fixed
