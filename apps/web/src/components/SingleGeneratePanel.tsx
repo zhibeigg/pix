@@ -1,5 +1,4 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { Upload } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
@@ -7,6 +6,8 @@ import type { CharacterItem, GenerationJob, ImageModelInfo, ImageModelsResponse,
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type BgRemovalAlgorithmChoice, type EdgeStyleChoice } from '../pixelize'
 import { assetKindDefaults, jobTypeDefaults, mergeReusedPixelize, normalizeWorkbenchJobType, parseAssetKind, resolveReusableAssetKind, reusablePixelControlsFromJob, reusableWorkbenchType, sizeRetryStateFromJob, type AssetKindChoice, type DualGridTransitionStyle, type WorkbenchJobType } from '../lib/jobReuse'
 import { promptLimitsFromModels } from '../lib/promptLimits'
+import { validateImageFile, imageValidationMessage } from '../lib/upload'
+import { ImageDropzone } from './ImageDropzone'
 import { DEFAULT_VIDEO_BRIDGE_MODEL, VIDEO_BRIDGE_MODELS, deriveVideoBridgeDurationSeconds, normalizeVideoBridgeModel, rawVideoBridgeDurationSeconds, videoBridgePriceCredits } from '../lib/pricing'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -219,10 +220,11 @@ function styleProfileValue(value: unknown): StyleProfile {
 }
 
 export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, characters, reuseJobSeed, assetPresetSeed, onSubmit, onSubmitMany }: Props) {
-  const { text } = useI18n()
+  const { text, isEnglish } = useI18n()
   const [jobType, setJobType] = useState<WorkbenchJobType>('sprite_sheet')
   const [imageModel, setImageModel] = useState(imageModels.default)
   const promptLimits = useMemo(() => promptLimitsFromModels(imageModels), [imageModels])
+  const maxUploadBytes = promptLimits.max_upload_bytes ?? 10 * 1024 * 1024
   const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
   const selectedModelInfo = useMemo(() => availableImageModels.find((item) => item.id === imageModel), [availableImageModels, imageModel])
   const selectedModelSupportsI2I = supportsImageToImage(selectedModelInfo)
@@ -591,6 +593,11 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
   async function uploadFile(file: File | undefined) {
     if (!file) return
+    const check = validateImageFile(file, maxUploadBytes)
+    if (!check.ok) {
+      setUploadMessage(imageValidationMessage(check, isEnglish))
+      return
+    }
     setInputImagePath('')
     setUploadUrl('')
     setUploadFilePreview(file)
@@ -606,6 +613,12 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
   async function uploadReferenceFile(file: File | undefined) {
     if (!file) return
+    const check = validateImageFile(file, maxUploadBytes)
+    if (!check.ok) {
+      setRefSource('upload')
+      setRefUploadMessage(imageValidationMessage(check, isEnglish))
+      return
+    }
     setRefSource('upload')
     setSelectedRefCharacterId(null)
     setRefImagePath('')
@@ -661,6 +674,11 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
   async function uploadAssetReferenceFile(file: File | undefined) {
     if (!file) return
+    const check = validateImageFile(file, maxUploadBytes)
+    if (!check.ok) {
+      setAssetRefMessage(imageValidationMessage(check, isEnglish))
+      return
+    }
     setAssetRefPath('')
     setAssetRefUrl('')
     setAssetRefFile(file)
@@ -940,12 +958,14 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           {assetSupportsReference && (
             <PixField label={text('参考图（可选）', 'Reference image (optional)')}>
               <div className="grid gap-3">
-                <Button type="button" variant="outline" asChild>
-                  <label className="cursor-pointer">
-                    <Upload />{assetRefUploading ? text('上传参考图…', 'Uploading reference…') : assetRefPath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
-                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传参考图', 'Upload reference')} onChange={(event) => void uploadAssetReferenceFile(event.currentTarget.files?.[0])} />
-                  </label>
-                </Button>
+                <ImageDropzone
+                  maxBytes={maxUploadBytes}
+                  disabled={assetRefUploading}
+                  label={assetRefUploading ? text('上传参考图…', 'Uploading reference…') : assetRefPath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
+                  ariaLabel={text('上传参考图', 'Upload reference')}
+                  onFiles={(files) => void uploadAssetReferenceFile(files[0])}
+                  onError={(message) => setAssetRefMessage(message)}
+                />
                 {assetRefMessage && <Alert variant="destructive">{assetRefMessage}</Alert>}
                 {(assetRefUrl || assetRefFile) && (
                   <div className="grid gap-2">
@@ -995,12 +1015,14 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                     {selectedRefCharacter && <div className="text-xs text-muted-foreground">{text('已选择角色库资源：', 'Selected library character: ')}<span className="font-semibold text-foreground">{selectedRefCharacter.name}</span></div>}
                   </div>
                 ) : (
-                  <Button type="button" variant="outline" asChild>
-                    <label className="cursor-pointer">
-                      <Upload />{refUploading ? text('上传参考图…', 'Uploading reference…') : refImagePath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
-                      <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传参考图', 'Upload reference')} onChange={(event) => void uploadReferenceFile(event.currentTarget.files?.[0])} />
-                    </label>
-                  </Button>
+                  <ImageDropzone
+                    maxBytes={maxUploadBytes}
+                    disabled={refUploading}
+                    label={refUploading ? text('上传参考图…', 'Uploading reference…') : refImagePath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
+                    ariaLabel={text('上传参考图', 'Upload reference')}
+                    onFiles={(files) => void uploadReferenceFile(files[0])}
+                    onError={(message) => setRefUploadMessage(message)}
+                  />
                 )}
 
                 {refUploadMessage && <Alert variant="destructive">{refUploadMessage}</Alert>}
@@ -1166,7 +1188,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
         {(isAsset || isSprite) && <StyleProfileControls value={styleProfile} onChange={setStyleProfile} />}
 
-        {(isLocalPixelize || isLocalBgRemove) && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={text('上传图片', 'Upload image')} onChange={(event) => void uploadFile(event.currentTarget.files?.[0])} /></label></Button>{uploadMessage && <Alert variant={uploadMessage.includes('失败') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} file={uploadFilePreview} loading={uploading && !uploadFilePreview && !uploadUrl} label={uploading && !uploadFilePreview && !uploadUrl ? text('上传中…', 'Uploading…') : text('等待上传预览', 'Waiting for upload preview')} /></div>}
+        {(isLocalPixelize || isLocalBgRemove) && <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><ImageDropzone maxBytes={maxUploadBytes} disabled={uploading} label={uploading ? text('上传中…', 'Uploading…') : text('上传图片', 'Upload image')} ariaLabel={text('上传图片', 'Upload image')} onFiles={(files) => void uploadFile(files[0])} onError={(message) => setUploadMessage(message)} />{uploadMessage && <Alert variant={uploadMessage.includes('失败') || uploadMessage.includes('超过') || uploadMessage.includes('exceed') || uploadMessage.includes('supported') || uploadMessage.includes('仅支持') ? 'destructive' : 'info'}>{uploadMessage}</Alert>}<PixPreviewFrame url={uploadUrl} file={uploadFilePreview} loading={uploading && !uploadFilePreview && !uploadUrl} label={uploading && !uploadFilePreview && !uploadUrl ? text('上传中…', 'Uploading…') : text('等待上传预览', 'Waiting for upload preview')} /></div>}
 
         {isLocalBgRemove && (
           <PixField label={text('去背景算法', 'Background removal algorithm')} hint={text('像素适合纯色 key 背景与像素直出；高清使用 Color-to-Alpha，保留抗锯齿软边。', 'Pixel is best for solid key backgrounds and pixel output; HD uses Color-to-Alpha to preserve anti-aliased edges.')}>

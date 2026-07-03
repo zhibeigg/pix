@@ -1,5 +1,4 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import { useI18n } from '../i18n'
@@ -7,6 +6,8 @@ import { useConfirm } from './ConfirmDialog'
 import type { CreditBalance, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule, StyleProfile, TextureKind, UploadResponse } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type EdgeStyleChoice } from '../pixelize'
 import { promptLimitsFromModels } from '../lib/promptLimits'
+import { validateImageFile, imageValidationMessage } from '../lib/upload'
+import { ImageDropzone } from './ImageDropzone'
 import { applyDiscount, discountPercentOff, discountZhe } from '../lib/pricing'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
@@ -64,17 +65,19 @@ function modelOptionLabel(model: ImageModelInfo) {
 
 export function BatchGeneratePanel({ pricing, discount, balance, loading, token, imageModels, onSubmitMany }: Props) {
   const { t } = useTranslation()
-  const { text } = useI18n()
+  const { text, isEnglish } = useI18n()
   const confirm = useConfirm()
   const [batchMode, setBatchMode] = useState<BatchMode>('asset')
   const [imageModel, setImageModel] = useState(imageModels.default)
   const promptLimits = useMemo(() => promptLimitsFromModels(imageModels), [imageModels])
+  const maxUploadBytes = promptLimits.max_upload_bytes ?? 10 * 1024 * 1024
   const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
   const [prompts, setPrompts] = useState(() => t('batchForm.defaults.prompts'))
   const [assetKind, setAssetKind] = useState<AssetKindChoice>('item_icon')
   const [textureKind, setTextureKind] = useState<TextureKind>('auto')
   const [uploads, setUploads] = useState<BatchUpload[]>([])
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
   const [pixelSize, setPixelSize] = useState('16x16')
   const [colors, setColors] = useState(12)
   const [removeBg, setRemoveBg] = useState(true)
@@ -134,10 +137,10 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
     }
   }, [assetKind, batchMode])
 
-  async function uploadFiles(files: FileList | null) {
-    if (!files?.length) return
+  async function uploadFiles(files: File[]) {
+    if (!files.length) return
     setUploading(true)
-    const selected = Array.from(files)
+    const selected = files
     const items = selected.map(() => ({ id: crypto.randomUUID(), status: 'uploading' as const }))
     setUploads(items)
     const results = await Promise.allSettled(selected.map(async (file, index) => {
@@ -229,7 +232,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
           </div>}
           <PixField label={assetSubjectsLabel} hint={text(`每行最多 ${assetSubjectMaxLength} 字。`, `Up to ${assetSubjectMaxLength} characters per line.`)}><Textarea value={prompts} rows={8} placeholder={assetSubjectPlaceholder} onChange={(e) => setPrompts(e.target.value)} /></PixField>
           <StyleProfileControls value={styleProfile} onChange={setStyleProfile} />
-        </div> : <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><Button type="button" variant="outline" asChild><label className="cursor-pointer"><Upload />{uploading ? t('batchForm.uploading') : t('batchForm.uploadImages')}<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" aria-label={t('batchForm.uploadImages')} onChange={(e) => void uploadFiles(e.currentTarget.files)} /></label></Button><UploadList uploads={uploads} /></div>}
+        </div> : <div className="grid gap-4 rounded-lg border border-border bg-muted/45 p-4"><ImageDropzone maxBytes={maxUploadBytes} multiple disabled={uploading} label={uploading ? t('batchForm.uploading') : t('batchForm.uploadImages')} ariaLabel={t('batchForm.uploadImages')} onFiles={(files) => { setUploadError(''); void uploadFiles(files) }} onError={(message) => setUploadError(message)} />{uploadError && <Alert variant="destructive">{uploadError}</Alert>}<UploadList uploads={uploads} /></div>}
         <PixelControls pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || !removeBg} />
         {isAsset && !isTileAsset && !isLogoAsset && <SizeRetryControls value={sizeRetry} onChange={setSizeRetry} basePrice={unitPrice} discount={discount} imageSize={pixelSize} />}
         <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={isTileAsset ? false : removeBg} disabled={isTileAsset} onCheckedChange={(v) => setRemoveBg(Boolean(v))} />{t('batchForm.transparentBackground')}</label><label className="flex items-center gap-2"><Checkbox checked={skipVl} disabled={batchMode === 'local_pixelize' || isAsset} onCheckedChange={(v) => setSkipVl(Boolean(v))} />{isAsset ? t('batchForm.defaultVisionPolicy') : t('batchForm.skipReference')}</label></div>

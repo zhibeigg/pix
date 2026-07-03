@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.118.0] - 2026-07-04
+
+### Added
+
+- 所有上传图片入口（生产工作台本地像素化 / 去背景、素材参考图、序列帧参考图，批量素材多图上传，原始生图参考图）统一改为可点击 + 可拖拽的上传区，新增可复用组件 `ImageDropzone`；拖拽悬停高亮，支持键盘操作与无障碍标签。
+- 上传前置大小 / 类型校验：超过大小上限或非 PNG/JPG/WebP 的文件在本地即被拦截并给出明确提示，不再白白上传后才报错。前端通过 `/settings/image-models` 的 `limits.max_upload_bytes` 获取上限（默认 10 MB，可用 `PIX_WEB_MAX_UPLOAD_BYTES` 配置），上传区直接展示「最大 X MB」提示。
+
+### Changed
+
+- 后端上传超限错误信息补充具体大小上限（如「最大 10 MB」），便于用户理解。
+
+### Documentation
+
+- README 环境变量表新增 `PIX_WEB_MAX_UPLOAD_BYTES` 说明。
+
 ## [1.117.0] - 2026-07-04
 
 ### Added

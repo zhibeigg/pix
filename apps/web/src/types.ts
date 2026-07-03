@@ -179,6 +179,8 @@ export type PromptLimits = {
   asset_extra_prompt_max_chars: number
   sprite_subject_max_chars: number
   sprite_row_prompt_max_chars: number
+  // 单张上传图片大小上限（字节）；前端据此做上传前置校验与提示。
+  max_upload_bytes?: number
 }
 
 export type ImageModelsResponse = {

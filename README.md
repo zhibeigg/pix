@@ -105,6 +105,7 @@ npm run build
 | `PIX_WEB_DB_POOL_RECYCLE` | 连接最大存活秒数，默认 1800，超过即回收，配合 pre_ping 防服务端空闲断连。 |
 | `PIX_WEB_JWT_SECRET` | 登录 token 签名密钥，生产必须替换为长随机值。 |
 | `PIX_WEB_STORAGE_ROOT` | 用户上传、生成结果和任务文件根目录，默认 `web_outputs`。 |
+| `PIX_WEB_MAX_UPLOAD_BYTES` | 单张上传图片大小上限（字节），默认 `10485760`（10 MB）。前端会通过 `/settings/image-models` 读取该值做上传前置校验与提示，后端 storage 层仍是最终防线。 |
 | `PIX_WEB_QUEUE_BACKEND` | `database` 或 `rq`。生产推荐 `rq`。 |
 | `PIX_WEB_WORKER_CONCURRENCY` | Worker 并发任务数。 |
 | `PIX_WEB_RUNNING_JOB_TIMEOUT_MINUTES` | running 任务自动清理阈值，默认 60 分钟；超时会标记失败并退款。 |

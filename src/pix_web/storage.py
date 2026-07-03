@@ -47,7 +47,11 @@ async def store_uploaded_image(settings: WebSettings, user_id: int, file: Upload
     if size == 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="上传文件为空")
     if size > settings.max_upload_bytes:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="上传图片超过大小限制")
+        limit_mb = settings.max_upload_bytes / (1024 * 1024)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"上传图片超过大小限制（最大 {limit_mb:.0f} MB）",
+        )
 
     upload_dir = settings.storage_root / "uploads" / str(user_id)
     upload_dir.mkdir(parents=True, exist_ok=True)

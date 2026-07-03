@@ -36,6 +36,8 @@ class PromptLimitsResponse(BaseModel):
     asset_extra_prompt_max_chars: int = 3000
     sprite_subject_max_chars: int = 3000
     sprite_row_prompt_max_chars: int = 600
+    # 单张上传图片大小上限（字节）；前端据此做上传前置校验与提示，后端仍以 storage 层为最终防线。
+    max_upload_bytes: int = 10 * 1024 * 1024
 
 
 class ImageModelsResponse(BaseModel):
@@ -73,5 +75,6 @@ def available_image_models(
             asset_extra_prompt_max_chars=max(1, int(cfg.asset.extra_prompt_max_chars)),
             sprite_subject_max_chars=max(1, int(cfg.sprite.subject_max_chars)),
             sprite_row_prompt_max_chars=max(1, int(cfg.sprite.row_prompt_max_chars)),
+            max_upload_bytes=max(1024, int(web_settings.max_upload_bytes)),
         ),
     )
