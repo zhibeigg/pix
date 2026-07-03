@@ -519,6 +519,10 @@ export type SharedWork = {
   title: string
   asset_kind: string
   preview_url: string
+  actual_size?: [number, number] | null
+  sprite_sheet_url?: string | null
+  sprite_frames?: SpriteFrameOutput[]
+  sprite_fps?: number | null
   parameter_snapshot: Record<string, unknown>
   download_options: SharedDownloadOption[]
   like_count: number

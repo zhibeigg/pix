@@ -40,6 +40,16 @@ def test_pad_target_larger_than_pow2() -> None:
     assert size == (128, 128)
 
 
+def test_pad_non_power_of_two_target_when_content_fits() -> None:
+    img = Image.new("RGBA", (20, 20), (180, 20, 20, 255))
+    out, size = pad_to_power_of_two(img, target=(24, 24))
+    assert size == (24, 24)
+    assert out.size == (24, 24)
+    arr = out.load()
+    assert arr[0, 0][3] == 0
+    assert arr[12, 12][3] == 255
+
+
 def test_pad_content_larger_than_target_uses_pow2() -> None:
     # 成品 158x156（perfectPixel 检测）大于目标 64，不裁内容，填充到 256
     img = Image.new("RGBA", (158, 156), (200, 200, 0, 255))

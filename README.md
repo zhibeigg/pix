@@ -49,7 +49,7 @@ npm install
 npm run dev
 ```
 
-主页「范例图鉴」包含物品图标、真实上游实测样例、平铺纹理和序列帧；登录后还会出现「用户分享」tab，仅展示管理员审核通过的用户作品，并可按像素尺寸、生图模型和直出类型快速筛选。用户在作品库点击「提交审核」后，作品先进入待审核队列，管理员通过后才会展示在首页、允许其他登录用户点赞/下载，并在通过时发放分享奖励。实测样例会展示本地真实流程生成的 Logo / 技能书结果，并在卡片和筛选器中标注使用的生成模型（如 `image2`、`gemini-3.1-flash-image-preview`），静态图片位于 `apps/web/public/homepage-examples/showcase/`。
+主页「范例图鉴」包含物品图标、真实上游实测样例、平铺纹理和序列帧；登录后还会出现「用户分享」tab，仅展示管理员审核通过的用户作品，并可按实际输出尺寸、生图模型和直出类型快速筛选。序列帧分享会在卡片中按帧播放，并在用户分享筛选上以「序列帧」分类展示；参数按钮使用与作品库一致的分组弹窗展示公开快照。主体类素材的尺寸重试支持前端全部默认像素尺寸档位（16/24/32/48/64/96/128/256），按透明成品尺寸匹配 `pixelize.output_size`。用户在作品库点击「提交审核」后，作品先进入待审核队列，管理员通过后才会展示在首页、允许其他登录用户点赞/下载，并在通过时发放分享奖励。实测样例会展示本地真实流程生成的 Logo / 技能书结果，并在卡片和筛选器中标注使用的生成模型（如 `image2`、`gemini-3.1-flash-image-preview`），静态图片位于 `apps/web/public/homepage-examples/showcase/`。
 
 前端构建：
 
@@ -396,13 +396,13 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ### 尺寸重试（size-match retry）
 
-生产工作台的主体类素材直出（物品图标 / UI 组件 / Logo / 角色等，平铺纹理与双瓦片除外）可选开启「尺寸重试」：每次尝试都会先按正常素材流程生成源图，再由 perfectPixel 检测真实像素网格，最后把像素成品**透明居中填充到最近的 2 的幂尺寸**（32 / 64 / 128 / 256 …）。尺寸重试比较的是这个填充后的最终 PNG 尺寸与用户在像素参数中选择的 `pixelize.output_size`，不再比较 AI 原始画布尺寸；原始生图页（`source_only=true`）不提供尺寸重试。
+生产工作台的主体类素材直出（物品图标 / UI 组件 / Logo / 角色等，平铺纹理与双瓦片除外）可选开启「尺寸重试」：每次尝试都会先按正常素材流程生成源图，再由 perfectPixel 检测真实像素网格，最后把像素成品**透明居中填充到用户选择的像素尺寸**。目标尺寸放得下主体时会精确交付该尺寸，因此 16 / 24 / 32 / 48 / 64 / 96 / 128 / 256 等前端默认档位都可参与尺寸重试；若检测出的主体尺寸大于目标，为避免裁剪才会升到能容纳主体的最近 2 的幂尺寸。尺寸重试比较的是这个填充后的最终 PNG 尺寸与用户在像素参数中选择的 `pixelize.output_size`，不再比较 AI 原始画布尺寸；原始生图页（`source_only=true`）不提供尺寸重试。
 
 - 停止条件二选一：`size_retry_mode=attempts`（最大尝试次数，含首次，上限 `[image_gen].size_retry_max_attempts_limit`，默认 8）或 `size_retry_mode=credits`（最大点数预算，后端按单次单价折算成次数）。
 - 交付与选择：所有尝试都会保留独立产物并写入 `image_gen.size_retry.attempts`，API 同时在 `JobOutputResponse.candidates` 暴露为可选候选。命中目标时交付第一张命中的尝试；耗尽仍未命中时交付最后一次尝试。作品库中点击任意尺寸重试尝试会直接切换当前卡片预览与下载目标，不再重新创建本地像素化任务；普通多候选图仍可按原流程进入本地像素化。
 - 计费：开启时每次尝试按标准价 **6 折**（`[image_gen].size_retry_discount_rate`，默认 0.6）计费，并与全局促销折扣「取更优价」；下单按「单价 × 最大次数」预扣，任务成功后按**实际尝试次数**结算并退还差额。用户最终选择哪张候选不改变已发生尝试次数的计费。
-- 成品填充：`[pixelize].pad_to_power_of_two = true`（默认）会在不缩放像素图的前提下透明填充到最近 2 的幂尺寸，并在 `pixelize.pad_to_power_of_two` 记录原始尺寸、最终尺寸与 offset。关闭该配置会禁用自动 2 幂填充，也会让尺寸重试更难命中目标。
-- 自动失效（静默按普通任务计费，不打 6 折）：任务不是主体类素材生产流程、属于平铺纹理/双瓦片、处于多候选模式，或目标像素尺寸非法；前端会提示目标尺寸建议使用 2 的幂尺寸，以便与自动填充后的标准成品尺寸匹配。
+- 成品填充：`[pixelize].pad_to_power_of_two = true`（默认）会在不缩放像素图的前提下优先透明填充到 `pixelize.output_size`；只有目标放不下主体时才升到不裁内容的最近 2 的幂尺寸，并在 `pixelize.pad_to_power_of_two` 记录原始尺寸、最终尺寸与 offset。关闭该配置会禁用自动透明填充，也会让尺寸重试更难命中目标。
+- 自动失效（静默按普通任务计费，不打 6 折）：任务不是主体类素材生产流程、属于平铺纹理/双瓦片、处于多候选模式，或目标像素尺寸非法；前端会要求目标尺寸来自可选像素档位。
 - **尺寸约束 prompt 工程**：当 `image_size` 为具体 `WxH` 时，后端仍会把强制输出尺寸的指令（绝对像素 + 宽高比 + 画幅方向 + `no padding/border/crop/letterbox` 等负面约束，用「output image file resolution」措辞以免与像素风格的「pixel grid」语义冲突）追加到生图 prompt，提升模型一次出对源图尺寸的概率。该行为对所有有明确尺寸的生图生效，可用 `[image_gen].size_directive_enabled = false` 回退。
 - 外部 API：`JobCreateRequest` 使用 `size_retry_enabled` / `size_retry_mode` / `size_retry_max_attempts` / `size_retry_max_credits`；`JobOutputResponse.size_retry` 返回实际尝试次数、是否命中、目标/最终尺寸和 attempts 明细，`JobOutputResponse.candidates` 会包含每次尝试的可访问图片 URL。
 

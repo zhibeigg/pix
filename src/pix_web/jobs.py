@@ -394,7 +394,7 @@ def _price_for_request(db: Session, req: JobCreateRequest, cfg: AppConfig | None
 
 # ---- 尺寸重试计费 ----
 
-# 尺寸重试只适用于素材生产：按 perfectPixel + 2 的幂透明填充后的成品像素尺寸判定。
+# 尺寸重试只适用于素材生产：按 perfectPixel + 透明填充后的成品像素尺寸判定。
 # t2i/i2i 原始生图是 source_only 大图、跳过像素化，无成品像素尺寸可比对，故排除。
 SIZE_RETRY_JOB_TYPES = {"asset"}
 _UI_COMPONENT_IMAGE_SIZE = "auto"

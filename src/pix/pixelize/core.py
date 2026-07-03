@@ -570,19 +570,23 @@ def pad_to_power_of_two(
     *,
     target: tuple[int, int] | None = None,
 ) -> tuple[Image.Image, tuple[int, int]]:
-    """把图像居中填充透明像素到「最近的 ≥ 当前尺寸的 2 的幂」标准尺寸（无损，不缩放）。
+    """把图像居中透明填充到目标尺寸；没有目标或目标放不下时才升到 2 的幂尺寸。
 
-    宽高各自向上取 2 的幂。若传入 ``target``（用户目标尺寸，本身应为 2 的幂），
-    则在「2 的幂结果」与「target」之间取更大的边，确保不会把内容裁掉、且尽量贴近目标。
-    返回 (填充后图像, 最终尺寸)。
+    若传入 ``target`` 且当前内容宽高都不超过目标，则精确填充到目标尺寸，支持
+    24/48/96 等非 2 的幂像素档位。若目标比内容小，为避免裁剪，宽高各自向上取
+    不小于内容和目标的最近 2 的幂尺寸。返回 (填充后图像, 最终尺寸)。
     """
     w, h = image.size
-    pad_w = next_power_of_two(w)
-    pad_h = next_power_of_two(h)
     if target is not None:
-        # 目标更大时按目标定版（居中透明填充到目标）；目标更小则用 2 的幂结果（不裁内容）。
-        pad_w = max(pad_w, int(target[0]))
-        pad_h = max(pad_h, int(target[1]))
+        target_w = max(1, int(target[0]))
+        target_h = max(1, int(target[1]))
+        if w <= target_w and h <= target_h:
+            return _center_on_canvas(image, (target_w, target_h)), (target_w, target_h)
+        pad_w = next_power_of_two(max(w, target_w))
+        pad_h = next_power_of_two(max(h, target_h))
+    else:
+        pad_w = next_power_of_two(w)
+        pad_h = next_power_of_two(h)
     final_size = (pad_w, pad_h)
     return _center_on_canvas(image, final_size), final_size
 

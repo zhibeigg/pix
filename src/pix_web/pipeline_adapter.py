@@ -460,7 +460,7 @@ def asset_pipeline_input_from_job(
         refresh_cache=False,
         local_stage_context=_local_stage_context(settings),
         # 素材直出尊重 perfectPixel 检测出的真实像素网格（不强制缩放回 output_size），
-        # 再由 pipeline 填充到 2 的幂标准尺寸，避免把 AI 细节缩糊。
+        # 再由 pipeline 透明填充到目标尺寸（目标放不下时才升档），避免把 AI 细节缩糊。
         input_is_generated_source=True,
         size_retry_enabled=_size_retry_enabled_from_job(data),
         size_retry_max_attempts=_size_retry_max_attempts_from_job(data),

@@ -1,6 +1,7 @@
 import { useI18n } from '../i18n'
 import { sizeRetryAttemptPrice } from '../lib/pricing'
 import type { PricingDiscount, SizeRetryMode } from '../types'
+import { DEFAULT_SIZE_OPTIONS } from './PixelControls'
 import { Checkbox } from './ui/checkbox'
 import { Input } from './ui/input'
 import { Badge } from './ui/badge'
@@ -25,36 +26,40 @@ type Props = {
   /** 标准单价（基础价），用于预估每次尝试折后价与最多消耗。 */
   basePrice: number
   discount?: PricingDiscount | null
-  /** 目标像素尺寸（如 64x64）；非 2 的幂方形尺寸时该功能不可用。 */
+  /** 目标像素尺寸（如 24x24）；必须来自像素尺寸可选档位。 */
   imageSize?: string | null
+  /** 支持尺寸重试的像素尺寸档位；默认与 PixelControls 的可选尺寸一致。 */
+  supportedSizeOptions?: string[]
   /** 重试每次尝试的计费倍率（6 折 = 0.6）。 */
   retryRate?: number
   /** 最大尝试次数硬上限。 */
   maxAttemptsLimit?: number
 }
 
-function isPowerOfTwo(n: number): boolean {
-  return n >= 1 && (n & (n - 1)) === 0
-}
-
-/** 目标尺寸需为「2 的幂方形尺寸」（如 32/64/128/256）才支持尺寸重试。 */
-function isRetriableTarget(size: string | null | undefined): boolean {
-  const m = (size || '').trim().match(/^(\d+)x(\d+)$/)
-  if (!m) return false
+function normalizeSizeKey(size: string | null | undefined): string {
+  const m = (size || '').trim().toLowerCase().replace(/×/g, 'x').replace(/\s+/g, '').match(/^(\d+)x(\d+)$/)
+  if (!m) return ''
   const w = Number(m[1])
   const h = Number(m[2])
-  return w === h && isPowerOfTwo(w)
+  return Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0 ? `${w}x${h}` : ''
+}
+
+/** 目标尺寸需来自像素尺寸可选档位；默认支持 16/24/32/48/64/96/128/256。 */
+function isRetriableTarget(size: string | null | undefined, supportedSizeOptions: string[]): boolean {
+  const target = normalizeSizeKey(size)
+  if (!target) return false
+  return new Set(supportedSizeOptions.map(normalizeSizeKey).filter(Boolean)).has(target)
 }
 
 function targetTooSmall(size: string | null | undefined): boolean {
-  const m = (size || '').trim().match(/^(\d+)x(\d+)$/)
-  if (!m) return false
-  return Number(m[1]) <= 32
+  const target = normalizeSizeKey(size)
+  const [width] = target.split('x').map((part) => Number(part))
+  return Number.isFinite(width) && width <= 32
 }
 
-export function SizeRetryControls({ value, onChange, basePrice, discount, imageSize, retryRate = 0.6, maxAttemptsLimit = 8 }: Props) {
+export function SizeRetryControls({ value, onChange, basePrice, discount, imageSize, supportedSizeOptions = DEFAULT_SIZE_OPTIONS, retryRate = 0.6, maxAttemptsLimit = 8 }: Props) {
   const { text } = useI18n()
-  const supported = isRetriableTarget(imageSize)
+  const supported = isRetriableTarget(imageSize, supportedSizeOptions)
   const tooSmall = supported && targetTooSmall(imageSize)
   const perAttempt = sizeRetryAttemptPrice(basePrice, retryRate, discount)
   const percentOff = Math.round((1 - retryRate) * 100)
@@ -86,8 +91,8 @@ export function SizeRetryControls({ value, onChange, basePrice, discount, imageS
                   'When enabled, Pix will retry a few times to better match your selected pixel size. Each attempt is billed at 60% (or better with global discount), settled by actual attempts.',
                 )
               : text(
-                  '尺寸重试要求目标像素尺寸为 2 的幂方形（如 32 / 64 / 128 / 256）。当前目标尺寸不满足，功能不可用。',
-                  'Size-match retry requires a power-of-two square target (e.g. 32 / 64 / 128 / 256). Current target does not qualify, so it is unavailable.',
+                  '尺寸重试要求目标像素尺寸来自上方可选档位（16 / 24 / 32 / 48 / 64 / 96 / 128 / 256）。当前目标尺寸不在可选档位中，功能不可用。',
+                  'Size-match retry requires a target from the available pixel-size presets (16 / 24 / 32 / 48 / 64 / 96 / 128 / 256). Current target is not in the preset list, so it is unavailable.',
                 )}
           </span>
           {tooSmall && (

@@ -576,7 +576,7 @@ class JobCreateRequest(BaseModel):
     vl_model: str | None = None
     skip_vl: bool = False
     source_only: bool = False
-    # 尺寸重试：开启后反复重新生成，直到实际像素尺寸匹配 image_size 或达到上限；
+    # 尺寸重试：开启后反复重新生成，直到透明成品尺寸匹配 pixelize.output_size 或达到上限；
     # 每次尝试按标准价 6 折计费（与全局折扣取更优）。stop_mode 二选一：
     #   attempts —— 用 size_retry_max_attempts 作为最大尝试次数停止条件
     #   credits  —— 用 size_retry_max_credits 作为最大点数预算（后端折算成次数）
@@ -1096,6 +1096,10 @@ class SharedWorkResponse(BaseModel):
     title: str
     asset_kind: str
     preview_url: str
+    actual_size: tuple[int, int] | None = None
+    sprite_sheet_url: str | None = None
+    sprite_frames: list[dict[str, Any]] = Field(default_factory=list)
+    sprite_fps: int | None = None
     parameter_snapshot: dict[str, Any] = Field(default_factory=dict)
     download_options: list[SharedDownloadOptionResponse] = Field(default_factory=list)
     like_count: int = 0

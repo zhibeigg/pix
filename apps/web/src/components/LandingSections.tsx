@@ -9,8 +9,10 @@ import { homepageTextureExamples, homepageTextureCategoriesInUse, getHomepageTex
 import { homepageSpriteExamples, homepageSpriteCategoriesInUse, homepageSpriteGenerationModeLabels, getHomepageSpriteLabel, type HomepageSpriteExample, type HomepageSpriteCategory } from '../homepageSpriteExamples'
 import { homepageShowcaseExamples, homepageShowcaseKindsInUse, homepageShowcaseModelLabels, homepageShowcaseModelsInUse, getHomepageShowcaseLabel, type HomepageShowcaseExample, type HomepageShowcaseKind, type HomepageShowcaseModel } from '../homepageShowcaseExamples'
 import type { SharedWork, SharedWorkFilterOption, SharedWorkFilters, User } from '../types'
+import { SpriteSequencePreview } from './SpriteSequencePreview'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
 
 const homepageExampleById = new Map(homepageExamples.map((example) => [example.id, example]))
 
@@ -399,7 +401,7 @@ function sharedFilterOptionsFromWorks(works: SharedWork[]): SharedWorkFilters {
   const imageModels = new Map<string, number>()
   for (const work of works) {
     if (work.asset_kind) incrementFilterCount(assetKinds, work.asset_kind)
-    const size = sharedOutputSizeKey(work.parameter_snapshot)
+    const size = sharedActualSizeKey(work) || sharedOutputSizeKey(work.parameter_snapshot)
     if (size) incrementFilterCount(outputSizes, size)
     const model = sharedImageModel(work.parameter_snapshot)
     if (model) incrementFilterCount(imageModels, model)
@@ -425,6 +427,14 @@ function hasSharedFilterOptions(filters: SharedWorkFilters) {
 
 function totalSharedFilterCount(options: SharedWorkFilterOption[]) {
   return options.reduce((sum, option) => sum + option.count, 0)
+}
+
+function sharedActualSizeKey(work: SharedWork) {
+  const size = work.actual_size
+  if (!Array.isArray(size) || size.length !== 2) return ''
+  const width = Number(size[0])
+  const height = Number(size[1])
+  return Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0 ? `${width}x${height}` : ''
 }
 
 function sharedOutputSizeKey(snapshot: Record<string, unknown>) {
@@ -459,18 +469,48 @@ function sharedModelLabel(value: string) {
   return value
 }
 
+function isSharedSpriteWork(work: SharedWork) {
+  return work.asset_kind === 'sprite_sheet'
+    || String(work.parameter_snapshot.mode || '') === 'sprite_sheet'
+    || Boolean(asSharedRecord(work.parameter_snapshot.sequence).frame_count)
+    || Boolean(work.sprite_sheet_url && work.sprite_frames?.length)
+}
+
+function sharedSpriteSheetUrl(work: SharedWork) {
+  if (!isSharedSpriteWork(work) || !work.sprite_sheet_url) return null
+  return signedFileUrl(work.sprite_sheet_url)
+}
+
+function sharedSpriteFps(work: SharedWork) {
+  const direct = Number(work.sprite_fps)
+  if (Number.isFinite(direct) && direct > 0) return direct
+  const sequence = asSharedRecord(work.parameter_snapshot.sequence)
+  const fps = Number(sequence.fps)
+  return Number.isFinite(fps) && fps > 0 ? fps : 8
+}
+
 const SharedWorkCard = memo(function SharedWorkCard({ work, user, onToggleLike }: { work: SharedWork; user: User | null; onToggleLike?: (work: SharedWork) => void | Promise<void> }) {
   const { text } = useI18n()
-  const [paramsOpen, setParamsOpen] = useState(false)
   const previewUrl = signedFileUrl(work.preview_url)
+  const spriteSheetUrl = sharedSpriteSheetUrl(work)
+  const spriteFrames = work.sprite_frames ?? []
+  const canPlaySprite = Boolean(spriteSheetUrl && spriteFrames.length > 1)
   const primaryDownload = work.download_options[0]
   const summary = sharedSnapshotSummary(work.parameter_snapshot)
   return (
     <article className="overflow-hidden rounded-lg border border-border bg-card transition hover:-translate-y-0.5 hover:border-primary/55 hover:shadow-[0_10px_24px_-18px_rgba(15,15,15,0.45)] dark:bg-[hsl(var(--pix-dark-card))]">
       <a href={previewUrl} target="_blank" rel="noreferrer" className="block" title={text(`打开 ${work.title} 预览`, `Open preview for ${work.title}`)}>
-        <div className="pix-checkerboard grid aspect-square place-items-center overflow-hidden border-b border-border bg-card p-4 dark:bg-[hsl(var(--pix-dark-band))]">
-          <img src={previewUrl} alt={work.title} loading="lazy" decoding="async" draggable={false} className="h-full w-full object-contain [image-rendering:pixelated]" />
-        </div>
+        {canPlaySprite ? (
+          <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={spriteFrames} fps={sharedSpriteFps(work)} fallbackUrl={previewUrl} label={text(`${work.title} 序列帧播放`, `${work.title} sprite playback`)} className="aspect-square min-h-0 rounded-none border-0 border-b" trim>
+            <div className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-card/92 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised)/.9)]">
+              <Play className="size-3 fill-current" />{text('序列帧播放', 'Sprite playback')}
+            </div>
+          </SpriteSequencePreview>
+        ) : (
+          <div className="pix-checkerboard grid aspect-square place-items-center overflow-hidden border-b border-border bg-card p-4 dark:bg-[hsl(var(--pix-dark-band))]">
+            <img src={previewUrl} alt={work.title} loading="lazy" decoding="async" draggable={false} className="h-full w-full object-contain [image-rendering:pixelated]" />
+          </div>
+        )}
       </a>
       <div className="grid gap-3 p-4">
         <div className="min-w-0">
@@ -482,24 +522,128 @@ const SharedWorkCard = memo(function SharedWorkCard({ work, user, onToggleLike }
           <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{summary || text('公开参数可查看，下载文件可直接使用。', 'Public parameters are viewable, and downloads are ready to use.')}</p>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {sharedSnapshotChips(work.parameter_snapshot, text).map((chip) => <Badge key={chip} variant="outline">{chip}</Badge>)}
+          {sharedSnapshotChips(work, text).map((chip) => <Badge key={chip} variant="outline">{chip}</Badge>)}
           <Badge variant="outline">{text(`${work.download_count} 次下载`, `${work.download_count} downloads`)}</Badge>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" variant={work.liked_by_me ? 'default' : 'outline'} onClick={() => { void onToggleLike?.(work) }} title={user ? undefined : text('登录后点赞', 'Sign in to like')}><Heart className={work.liked_by_me ? 'fill-current' : ''} />{work.like_count}</Button>
           {primaryDownload && <Button type="button" size="sm" variant="outline" onClick={() => downloadSharedOption(primaryDownload.url, primaryDownload.filename)}><Download />{text('下载', 'Download')}</Button>}
-          <Button type="button" size="sm" variant="ghost" onClick={() => setParamsOpen((open) => !open)}><Settings2 />{paramsOpen ? text('收起参数', 'Hide params') : text('参数', 'Params')}</Button>
+          <SharedParameterDialog work={work} />
         </div>
-        {paramsOpen && <SharedParameterPanel snapshot={work.parameter_snapshot} />}
       </div>
     </article>
   )
 })
 
-function SharedParameterPanel({ snapshot }: { snapshot: Record<string, unknown> }) {
+function SharedParameterDialog({ work }: { work: SharedWork }) {
   const { text } = useI18n()
-  const rows = flattenSnapshotRows(snapshot)
-  return <div className="grid gap-2 rounded-lg border border-border bg-muted/35 p-3 text-xs dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]"><p className="font-semibold text-foreground">{text('公开生成参数', 'Public generation parameters')}</p>{rows.length > 0 ? <dl className="grid gap-1.5">{rows.map(([key, value]) => <div key={key} className="grid gap-1 rounded-md bg-card/70 p-2 sm:grid-cols-[116px_minmax(0,1fr)] dark:bg-black/12"><dt className="font-semibold text-muted-foreground">{key}</dt><dd className="min-w-0 break-words text-foreground">{value}</dd></div>)}</dl> : <p className="text-muted-foreground">{text('没有可展示参数。', 'No displayable parameters.')}</p>}</div>
+  const [copied, setCopied] = useState(false)
+  const snapshot = work.parameter_snapshot
+  const generation = asSharedRecord(snapshot.generation)
+  const raw = asSharedRecord(snapshot.raw_image)
+  const pixel = asSharedRecord(snapshot.pixel)
+  const asset = asSharedRecord(snapshot.asset)
+  const sequence = asSharedRecord(snapshot.sequence)
+  const actualSize = sharedActualSizeKey(work)
+  const targetSize = sharedOutputSizeKey(snapshot)
+
+  const userRows = compactSharedRows([
+    [text('模式', 'Mode'), sharedStringOrDash(snapshot.mode || work.asset_kind)],
+    [text('提示词', 'Prompt'), sharedStringOrDash(snapshot.prompt)],
+    [text('输入图片', 'Input image'), snapshot.input_image ? text('已上传图片', 'Uploaded image') : '—'],
+    [text('素材主体', 'Asset subject'), sharedStringOrDash(asset.name)],
+    [text('额外风格描述', 'Extra style notes'), sharedStringOrDash(asset.extra_prompt)],
+  ])
+  const generationRows = compactSharedRows([
+    [text('模型', 'Model'), sharedModelLabel(String(generation.model || raw.model || ''))],
+    [text('图片尺寸', 'Image size'), sharedStringOrDash(generation.image_size || raw.image_size)],
+    [text('质量', 'Quality'), sharedStringOrDash(generation.quality || raw.quality)],
+  ])
+  const pixelRows = compactSharedRows([
+    [text('实际尺寸', 'Actual size'), actualSize ? formatIconSize(actualSize) : '—'],
+    [text('目标尺寸', 'Target size'), targetSize ? formatIconSize(targetSize) : '—'],
+    [text('颜色数', 'Color count'), sharedStringOrDash(pixel.colors)],
+    [text('透明背景', 'Transparent background'), sharedYesNo(pixel.remove_bg, text)],
+    [text('边缘处理', 'Edge treatment'), sharedStringOrDash(pixel.edge_style)],
+    [text('去背景算法', 'Background removal algorithm'), sharedStringOrDash(pixel.bg_removal_algorithm)],
+  ])
+  const assetRows = compactSharedRows([
+    [text('素材类型', 'Asset type'), sharedAssetKindLabel(String(asset.asset_kind || work.asset_kind || ''), text)],
+    [text('主体类型', 'Subject type'), sharedStringOrDash(asset.subject_kind)],
+    [text('纹理类型', 'Texture type'), sharedStringOrDash(asset.texture_kind)],
+    [text('材质 A', 'Material A'), sharedStringOrDash(asset.material_a)],
+    [text('材质 B', 'Material B'), sharedStringOrDash(asset.material_b)],
+    [text('过渡风格', 'Transition style'), sharedStringOrDash(asset.transition_style)],
+  ])
+  const sequenceRows = compactSharedRows([
+    [text('帧数', 'Frame count'), sharedStringOrDash(sequence.frame_count)],
+    ['FPS', sharedStringOrDash(sequence.fps)],
+    [text('行数', 'Rows'), sharedStringOrDash(sequence.rows)],
+    [text('列数', 'Columns'), sharedStringOrDash(sequence.cols)],
+  ])
+
+  async function copySnapshot() {
+    const ok = await copyTextToClipboard(JSON.stringify(snapshot, null, 2))
+    setCopied(ok)
+    if (ok) window.setTimeout(() => setCopied(false), 1600)
+  }
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button type="button" size="sm" variant="ghost"><Settings2 />{text('参数', 'Params')}</Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[calc(100dvh-32px)] w-[min(760px,calc(100vw-32px))] max-w-none overflow-y-auto dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised))]">
+        <DialogHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
+            <div>
+              <DialogTitle>{text('公开生成参数', 'Public generation parameters')}</DialogTitle>
+              <DialogDescription>{text('按作品库同样的结构展示公开参数；卡片尺寸使用实际输出尺寸。', 'Shown in the same structured view as the gallery; card size uses the actual output size.')}</DialogDescription>
+            </div>
+            <Button type="button" variant="outline" onClick={() => void copySnapshot()}><Copy />{copied ? text('已复制', 'Copied') : text('复制参数', 'Copy params')}</Button>
+          </div>
+        </DialogHeader>
+        <div className="grid gap-4">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline">#{work.job_id ?? work.id}</Badge>
+            <Badge variant="secondary">{sharedAssetKindLabel(work.asset_kind, text)}</Badge>
+            {actualSize && <Badge variant="outline">{formatIconSize(actualSize)}</Badge>}
+          </div>
+          <SharedSnapshotSection title={text('用户输入', 'User input')}><SharedKeyValueGrid rows={userRows} multilineKeys={new Set([text('提示词', 'Prompt'), text('额外风格描述', 'Extra style notes')])} /></SharedSnapshotSection>
+          {generationRows.length > 0 && <SharedSnapshotSection title={text('生图设置', 'Generation settings')}><SharedKeyValueGrid rows={generationRows} /></SharedSnapshotSection>}
+          {pixelRows.length > 0 && <SharedSnapshotSection title={text('像素设置', 'Pixel settings')}><SharedKeyValueGrid rows={pixelRows} /></SharedSnapshotSection>}
+          {assetRows.length > 0 && <SharedSnapshotSection title={text('素材设置', 'Asset settings')}><SharedKeyValueGrid rows={assetRows} /></SharedSnapshotSection>}
+          {sequenceRows.length > 0 && <SharedSnapshotSection title={text('序列帧设置', 'Sequence settings')}><SharedKeyValueGrid rows={sequenceRows} /></SharedSnapshotSection>}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+type SharedSnapshotRow = [string, ReactNode]
+
+function SharedSnapshotSection({ title, children }: { title: string; children: ReactNode }) {
+  return <section className="grid gap-3 rounded-xl border border-border bg-card p-4 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card))]"><h3 className="text-sm font-bold">{title}</h3>{children}</section>
+}
+
+function SharedKeyValueGrid({ rows, multilineKeys }: { rows: SharedSnapshotRow[]; multilineKeys?: Set<string> }) {
+  return <dl className="grid gap-2 text-sm">{rows.map(([key, value]) => <div key={key} className="grid gap-1 rounded-lg bg-muted/32 p-2.5 sm:grid-cols-[150px_minmax(0,1fr)] dark:bg-[hsl(var(--pix-dark-band-soft))]"><dt className="text-xs font-semibold text-muted-foreground">{key}</dt><dd className={`min-w-0 break-words font-medium ${multilineKeys?.has(key) ? 'whitespace-pre-wrap leading-6' : ''}`}>{value}</dd></div>)}</dl>
+}
+
+function compactSharedRows(rows: SharedSnapshotRow[]): SharedSnapshotRow[] {
+  return rows.filter(([, value]) => value !== '—' && value !== '' && value !== null && value !== undefined)
+}
+
+function sharedStringOrDash(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—'
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return JSON.stringify(value)
+}
+
+function sharedYesNo(value: unknown, text: (zh: string, en: string) => string): string {
+  if (value === null || value === undefined || value === '') return '—'
+  return Boolean(value) ? text('是', 'Yes') : text('否', 'No')
 }
 
 function sharedSnapshotSummary(snapshot: Record<string, unknown>) {
@@ -509,28 +653,20 @@ function sharedSnapshotSummary(snapshot: Record<string, unknown>) {
   return extra || prompt
 }
 
-function sharedSnapshotChips(snapshot: Record<string, unknown>, text: (zh: string, en: string) => string) {
+function sharedSnapshotChips(work: SharedWork, text: (zh: string, en: string) => string) {
+  const snapshot = work.parameter_snapshot
   const pixel = asSharedRecord(snapshot.pixel)
   const sequence = asSharedRecord(snapshot.sequence)
   const chips: string[] = []
-  const outputSize = pixel.output_size
-  if (Array.isArray(outputSize) && outputSize.length === 2) chips.push(`${outputSize[0]}×${outputSize[1]}`)
+  const actualSize = sharedActualSizeKey(work)
+  const outputSize = actualSize || sharedOutputSizeKey(snapshot)
+  if (outputSize) chips.push(formatIconSize(outputSize))
   if (pixel.colors) chips.push(text(`${pixel.colors} 色`, `${pixel.colors} colors`))
   const model = sharedImageModel(snapshot)
   if (model) chips.push(sharedModelLabel(model))
   if (sequence.frame_count) chips.push(text(`${sequence.frame_count} 帧`, `${sequence.frame_count} frames`))
   if (sequence.fps) chips.push(`${sequence.fps} FPS`)
   return chips.slice(0, 5)
-}
-
-function flattenSnapshotRows(value: unknown, prefix = ''): Array<[string, string]> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return []
-  return Object.entries(value as Record<string, unknown>).flatMap(([key, raw]) => {
-    const label = prefix ? `${prefix}.${key}` : key
-    if (raw && typeof raw === 'object' && !Array.isArray(raw)) return flattenSnapshotRows(raw, label)
-    if (raw === null || raw === undefined || raw === '') return []
-    return [[label, Array.isArray(raw) ? raw.join(', ') : String(raw)]]
-  })
 }
 
 function asSharedRecord(value: unknown): Record<string, unknown> {

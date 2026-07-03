@@ -198,8 +198,8 @@ curl -X POST "$PIX_API_BASE/jobs" \
 # { "name": "蓝袍骑士", "asset_kind": "character", "subject_kind": "single_character" }
 # 角色素材任务成功后会自动保存到角色库，可直接作为序列帧参考来源。
 
-# 尺寸重试示例：在请求体加入以下字段，反复重新生成直到实际尺寸匹配 image_size 或达到上限。
-# 适用 text_to_image / image_to_image / asset；image_size 必须为具体 WxH（非 auto）。
+# 尺寸重试示例：在请求体加入以下字段，反复重新生成直到透明成品尺寸匹配 pixelize.output_size 或达到上限。
+# 适用于主体类 asset（不含 tile_texture / dual_grid）；支持前端全部默认尺寸档位：16/24/32/48/64/96/128/256。
 # {
 #   "size_retry_enabled": true,
 #   "size_retry_mode": "attempts",        // attempts=按最大次数 | credits=按最大点数预算
@@ -250,8 +250,8 @@ curl -X POST "$PIX_API_BASE/jobs" \
 # { "name": "Blue Cloak Knight", "asset_kind": "character", "subject_kind": "single_character" }
 # Successful character asset jobs are saved to the character library automatically and can be used directly as sprite references.
 
-# Size-retry example: add the fields below to keep regenerating until the actual size matches image_size or a cap is hit.
-# Applies to text_to_image / image_to_image / asset; image_size must be a concrete WxH (not auto).
+# Size-retry example: add the fields below to keep regenerating until the transparent final output matches pixelize.output_size or a cap is hit.
+# Applies to subject-style asset jobs (excluding tile_texture / dual_grid); supports every default frontend size preset: 16/24/32/48/64/96/128/256.
 # {
 #   "size_retry_enabled": true,
 #   "size_retry_mode": "attempts",        // attempts=max attempt count | credits=max credit budget

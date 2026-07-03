@@ -92,12 +92,12 @@ class PipelineInput:
     local_stage_context: LocalStageContext | None = None
     # 本地图片是否应按 AI 生成源图处理；用于 local_pixelize 复用完整生成图后处理链路。
     input_is_generated_source: bool = False
-    # 尺寸重试执行计划：Web/pipeline adapter 层按像素化 + 2 的幂填充后的成品尺寸判定，
+    # 尺寸重试执行计划：Web/pipeline adapter 层按像素化 + 目标透明填充后的成品尺寸判定，
     # 核心生图层不再按 AI 原始画布尺寸自行重试。
     size_retry_enabled: bool = False
     # 换算后的最大尝试次数（Web 层把"按点数"上限折算成次数后传入；核心层只认次数）。
     size_retry_max_attempts: int = 1
-    # 成品收尾：把像素化结果居中透明填充到最近的 2 的幂标准尺寸（无损，不缩放）。
+    # 成品收尾：把像素化结果居中透明填充到目标尺寸；目标放不下时才升到 2 的幂尺寸。
     # None 时回退到 cfg.pixelize.pad_to_power_of_two。
     pad_to_power_of_two: bool | None = None
 
@@ -646,11 +646,11 @@ def _apply_pad_to_power_of_two(
     cfg: AppConfig,
     inputs: PipelineInput,
 ) -> tuple["Image.Image", dict | None]:
-    """成品收尾：把像素化结果居中透明填充到最近的 2 的幂标准尺寸（无损，不缩放）。
+    """成品收尾：把像素化结果居中透明填充到用户目标尺寸（无损，不缩放）。
 
     开关优先级：inputs.pad_to_power_of_two（None 时回退 cfg.pixelize.pad_to_power_of_two）。
-    填充目标在「宽高各自向上取 2 的幂」与「用户目标 output_size」之间取更大边，
-    保证不裁内容、且尽量贴近用户目标尺寸。返回 (填充后图, meta 或 None)。
+    若目标尺寸放得下内容，则精确按 output_size 定版；目标放不下时才升到不裁内容的
+    最近 2 的幂尺寸。返回 (填充后图, meta 或 None)。
     """
     enabled = (
         inputs.pad_to_power_of_two
@@ -710,8 +710,8 @@ def run_pipeline(
     use_sheet_overall = (not inputs.source_only) and contact_sheet_enabled(cfg, has_prompt=True)
     candidate_mode_name = candidate_mode(cfg) if use_sheet_overall else "single"
 
-    # 尺寸重试只在单图模式（非多候选）且 image_size 可解析为具体 WxH 时生效。
-    # 多候选/宽高比类 Provider 无法保证精确像素，构造为 None（不重试）。
+    # 原始生图层不再启用内部尺寸重试；Web adapter 会按最终透明成品尺寸重跑整条素材 pipeline。
+    # 保留函数壳是为了让旧的 image_gen 尺寸指令与结果捕获路径保持兼容。
     def _single_size_retry() -> SizeRetryConfig | None:
         # 尺寸重试已上移到 Web 层（adapter 按填充后成品尺寸判定、整条 pipeline 重跑），
         # 这里不再在生图 API 层做"按 AI 画布尺寸"的内部重试循环，避免双重重试。

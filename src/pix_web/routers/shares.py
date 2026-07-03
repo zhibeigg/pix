@@ -82,6 +82,8 @@ def _job_file_prefix(job: GenerationJob) -> str:
 
 
 def _asset_kind(job: GenerationJob) -> str:
+    if job.job_type == "sprite_sheet":
+        return "sprite_sheet"
     params = job.params_json if isinstance(job.params_json, dict) else {}
     asset = params.get("asset") if isinstance(params, dict) else None
     if isinstance(asset, dict) and isinstance(asset.get("asset_kind"), str):
@@ -130,6 +132,9 @@ def _size_key(value: object) -> str:
 
 
 def _share_output_size_key(share: SharedWork) -> str:
+    actual_size = _share_actual_size(share)
+    if actual_size:
+        return f"{actual_size[0]}x{actual_size[1]}"
     snapshot = _as_record(share.parameter_snapshot_json)
     pixel = _as_record(snapshot.get("pixel"))
     key = _size_key(pixel.get("output_size"))
@@ -153,6 +158,17 @@ def _share_image_model(share: SharedWork) -> str:
     return str(params.get("image_model") or "")
 
 
+def _share_asset_kind(share: SharedWork) -> str:
+    """返回展示/筛选用的分享类型，兼容早期把序列帧误存为素材类型的记录。"""
+    job = getattr(share, "job", None)
+    if getattr(job, "job_type", None) == "sprite_sheet":
+        return "sprite_sheet"
+    snapshot = _as_record(share.parameter_snapshot_json)
+    if str(snapshot.get("mode") or "") == "sprite_sheet" or _as_record(snapshot.get("sequence")):
+        return "sprite_sheet"
+    return str(share.asset_kind or "")
+
+
 def _sort_size_value(value: str) -> tuple[int, int, str]:
     parts = value.split("x")
     try:
@@ -167,7 +183,7 @@ def _filter_options(shares: list[SharedWork]) -> dict[str, list[dict[str, object
     output_sizes: dict[str, int] = {}
     image_models: dict[str, int] = {}
     for share in shares:
-        asset_kind = str(share.asset_kind or "")
+        asset_kind = _share_asset_kind(share)
         if asset_kind:
             asset_kinds[asset_kind] = asset_kinds.get(asset_kind, 0) + 1
         size = _share_output_size_key(share)
@@ -184,7 +200,7 @@ def _filter_options(shares: list[SharedWork]) -> dict[str, list[dict[str, object
 
 
 def _share_matches_filters(share: SharedWork, *, asset_kind: str, output_size: str, image_model: str) -> bool:
-    if asset_kind and str(share.asset_kind or "") != asset_kind:
+    if asset_kind and _share_asset_kind(share) != asset_kind:
         return False
     if output_size and _share_output_size_key(share) != output_size:
         return False
@@ -349,6 +365,78 @@ def _preview_path(output: GenerationOutput, manifest: list[dict[str, object]]) -
     return output.pixelized_path or output.source_path
 
 
+def _manifest_path_for_kind(share: SharedWork, kind: str) -> str | None:
+    manifest = share.download_manifest_json if isinstance(share.download_manifest_json, list) else []
+    for raw in manifest:
+        if not isinstance(raw, dict) or raw.get("kind") != kind:
+            continue
+        path = raw.get("path")
+        return str(path) if path else None
+    return None
+
+
+def _positive_int(value: object) -> int | None:
+    try:
+        number = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def _size_pair(value: object) -> tuple[int, int] | None:
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        return None
+    width = _positive_int(value[0])
+    height = _positive_int(value[1])
+    return (width, height) if width and height else None
+
+
+def _sheet_rect_size(frame: object) -> tuple[int, int] | None:
+    if not isinstance(frame, dict):
+        return None
+    rect = frame.get("sheet_rect")
+    if not isinstance(rect, dict):
+        return None
+    width = _positive_int(rect.get("w"))
+    height = _positive_int(rect.get("h"))
+    return (width, height) if width and height else None
+
+
+def _share_actual_size(share: SharedWork) -> tuple[int, int] | None:
+    job = getattr(share, "job", None)
+    outputs = getattr(job, "outputs", None)
+    output = outputs[0] if outputs else None
+    if output is None:
+        return None
+    data = JobOutputResponse.model_validate(output).model_dump(mode="python")
+    if _share_asset_kind(share) == "sprite_sheet":
+        frames = data.get("sprite_frames")
+        if isinstance(frames, list):
+            for frame in frames:
+                size = _sheet_rect_size(frame)
+                if size:
+                    return size
+    return _size_pair(data.get("pixelized_size"))
+
+
+def _share_sprite_preview(share: SharedWork, parameter_snapshot: dict[str, object]) -> tuple[str | None, list[dict[str, object]], int | None]:
+    if _share_asset_kind(share) != "sprite_sheet":
+        return None, [], None
+    sequence = _as_record(parameter_snapshot.get("sequence"))
+    fps = _positive_int(sequence.get("fps"))
+    job = getattr(share, "job", None)
+    outputs = getattr(job, "outputs", None)
+    output = outputs[0] if outputs else None
+    if output is None:
+        return None, [], fps
+    data = JobOutputResponse.model_validate(output).model_dump(mode="python")
+    frames = data.get("sprite_frames")
+    sheet_path = data.get("sprite_sheet_path") or _manifest_path_for_kind(share, "sprite_sheet")
+    if not isinstance(frames, list) or not sheet_path:
+        return None, [], fps
+    return f"/shares/{share.id}/sprite-sheet", frames, fps
+
+
 def _share_download_options(share: SharedWork) -> list[SharedDownloadOptionResponse]:
     manifest = share.download_manifest_json if isinstance(share.download_manifest_json, list) else []
     options: list[SharedDownloadOptionResponse] = []
@@ -392,14 +480,19 @@ def _share_response(
     liked_ids: set[int] | None = None,
 ) -> SharedWorkResponse:
     parameter_snapshot = _share_parameter_snapshot(share)
+    sprite_sheet_url, sprite_frames, sprite_fps = _share_sprite_preview(share, parameter_snapshot)
     return SharedWorkResponse(
         id=share.id,
         job_id=share.job_id,
         user_id=share.user_id,
         status=share.status,
         title=share.title,
-        asset_kind=share.asset_kind,
+        asset_kind=_share_asset_kind(share),
         preview_url=f"/shares/{share.id}/preview",
+        actual_size=_share_actual_size(share),
+        sprite_sheet_url=sprite_sheet_url,
+        sprite_frames=sprite_frames,
+        sprite_fps=sprite_fps,
         parameter_snapshot=parameter_snapshot,
         download_options=_share_download_options(share),
         like_count=share.like_count,
@@ -463,7 +556,7 @@ def list_shares(
     normalized_image_model = _normalized_filter_value(image_model)
     all_active_shares = list(db.scalars(
         select(SharedWork)
-        .options(selectinload(SharedWork.job))
+        .options(selectinload(SharedWork.job).selectinload(GenerationJob.outputs))
         .where(SharedWork.status == SHARE_STATUS_ACTIVE)
         .order_by(SharedWork.like_count.desc(), SharedWork.published_at.desc(), SharedWork.id.desc())
     ))
@@ -581,7 +674,11 @@ def like_share(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> SharedWorkResponse:
-    share = db.scalar(select(SharedWork).where(SharedWork.id == share_id, SharedWork.status == SHARE_STATUS_ACTIVE))
+    share = db.scalar(
+        select(SharedWork)
+        .options(selectinload(SharedWork.job).selectinload(GenerationJob.outputs))
+        .where(SharedWork.id == share_id, SharedWork.status == SHARE_STATUS_ACTIVE)
+    )
     if share is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品不存在")
     existing = db.scalar(select(SharedWorkLike).where(SharedWorkLike.shared_work_id == share.id, SharedWorkLike.user_id == user.id))
@@ -603,7 +700,11 @@ def unlike_share(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> SharedWorkResponse:
-    share = db.scalar(select(SharedWork).where(SharedWork.id == share_id, SharedWork.status == SHARE_STATUS_ACTIVE))
+    share = db.scalar(
+        select(SharedWork)
+        .options(selectinload(SharedWork.job).selectinload(GenerationJob.outputs))
+        .where(SharedWork.id == share_id, SharedWork.status == SHARE_STATUS_ACTIVE)
+    )
     if share is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品不存在")
     existing = db.scalar(select(SharedWorkLike).where(SharedWorkLike.shared_work_id == share.id, SharedWorkLike.user_id == user.id))
@@ -631,6 +732,29 @@ def shared_preview(
     return FileResponse(resolved, filename=resolved.name, content_disposition_type="inline")
 
 
+@router.get("/{share_id}/sprite-sheet")
+def shared_sprite_sheet(
+    share_id: int,
+    request: Request,
+    token: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> FileResponse:
+    _file_ticket_user(request, token, db, settings)  # 需登录（票据或 Bearer）
+    share = db.scalar(
+        select(SharedWork)
+        .options(selectinload(SharedWork.job).selectinload(GenerationJob.outputs))
+        .where(SharedWork.id == share_id, SharedWork.status == SHARE_STATUS_ACTIVE)
+    )
+    if share is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品不存在")
+    path = _manifest_path_for_kind(share, "sprite_sheet")
+    if not path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品没有可播放序列帧")
+    resolved = resolve_web_file(path, settings)
+    return FileResponse(resolved, filename=resolved.name, content_disposition_type="inline")
+
+
 def _manifest_item(share: SharedWork, kind: str) -> dict[str, object]:
     manifest = share.download_manifest_json if isinstance(share.download_manifest_json, list) else []
     for item in manifest:
@@ -649,7 +773,11 @@ def download_shared_work(
     settings: WebSettings = Depends(get_settings),
 ) -> Response:
     _file_ticket_user(request, token, db, settings)  # 需登录（票据或 Bearer）
-    share = db.scalar(select(SharedWork).where(SharedWork.id == share_id, SharedWork.status == SHARE_STATUS_ACTIVE))
+    share = db.scalar(
+        select(SharedWork)
+        .options(selectinload(SharedWork.job).selectinload(GenerationJob.outputs))
+        .where(SharedWork.id == share_id, SharedWork.status == SHARE_STATUS_ACTIVE)
+    )
     if share is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品不存在")
     item = _manifest_item(share, kind)

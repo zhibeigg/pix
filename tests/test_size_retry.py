@@ -195,7 +195,7 @@ class SizeRetryPlanTests(_DbTestCase):
         self.cfg = AppConfig()
 
     def _req(self, **kw) -> JobCreateRequest:
-        # 尺寸重试现仅对 asset 任务生效，目标尺寸 = pixelize.output_size（应为 2 的幂）。
+        # 尺寸重试现仅对 asset 任务生效，目标尺寸 = pixelize.output_size（支持前端全部可选尺寸）。
         base = dict(
             job_type="asset",
             asset=AssetParamsSchema(name="frost"),
@@ -212,6 +212,13 @@ class SizeRetryPlanTests(_DbTestCase):
         assert plan.per_attempt == 12       # base 20 * 0.6
         assert plan.max_attempts == 5
         assert plan.reserve_total == 60
+
+    def test_plan_supports_non_power_of_two_preset_size(self) -> None:
+        discount = load_pricing_discount(self.db)
+        req = self._req(pixelize=PixelizeParamsSchema(output_size=(24, 24)))
+        plan = _size_retry_plan(self.db, req, self.cfg, discount)
+        assert plan.enabled is True
+        assert plan.expected_size == (24, 24)
 
     def test_plan_takes_better_global_discount(self) -> None:
         # 全局 5 折比 6 折更优

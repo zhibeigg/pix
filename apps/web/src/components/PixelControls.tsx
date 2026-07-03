@@ -6,7 +6,7 @@ import { Slider } from './ui/slider'
 import { PixField } from './pix/PixField'
 import { cn } from '../lib/utils'
 
-const DEFAULT_SIZE_OPTIONS = ['16x16', '24x24', '32x32', '48x48', '64x64', '96x96', '128x128', '256x256']
+export const DEFAULT_SIZE_OPTIONS = ['16x16', '24x24', '32x32', '48x48', '64x64', '96x96', '128x128', '256x256']
 const COLOR_PRESETS = [8, 12, 16, 24, 32, 64]
 const EDGE_STYLE_OPTIONS: Array<{ value: EdgeStyleChoice; zh: string; en: string }> = [
   { value: 'outline', zh: '描边', en: 'Outline' },
