@@ -8,6 +8,7 @@ import {
   mergeReusedPixelize,
   normalizeWorkbenchJobType,
   parseAssetKind,
+  reusablePixelControlsFromJob,
   resolveReusableAssetKind,
   reusableWorkbenchType,
   sizeRetryStateFromJob,
@@ -173,6 +174,29 @@ describe('isRawImageJob', () => {
   test('asset and sprite jobs are not raw', () => {
     expect(isRawImageJob(makeJob({ job_type: 'asset', params_json: { asset: { asset_kind: 'tile_texture' } } }))).toBe(false)
     expect(isRawImageJob(makeJob({ job_type: 'sprite_sheet', params_json: {} }))).toBe(false)
+  })
+})
+
+describe('reusablePixelControlsFromJob', () => {
+  test('restores pixel size and color count from saved request parameters', () => {
+    const job = makeJob({
+      params_json: { pixelize: { output_size: [24, 24], colors: 8 } },
+      outputs: [{ pixelized_size: [48, 48], grid_readability: { color_count: 12 } }] as any,
+    })
+    expect(reusablePixelControlsFromJob(job, { pixelSize: '16x16', colors: 4 })).toEqual({ pixelSize: '24x24', colors: 8 })
+  })
+
+  test('falls back to generated output data when old jobs miss pixelize fields', () => {
+    const job = makeJob({
+      params_json: { pixelize: {} },
+      outputs: [{ pixelized_size: [48, 48], grid_readability: { color_count: 12 } }] as any,
+    })
+    expect(reusablePixelControlsFromJob(job, { pixelSize: '16x16', colors: 8 })).toEqual({ pixelSize: '48x48', colors: 12 })
+  })
+
+  test('falls back to caller defaults instead of keeping stale form state', () => {
+    const job = makeJob({ params_json: {} })
+    expect(reusablePixelControlsFromJob(job, { pixelSize: '64x64', colors: 32 })).toEqual({ pixelSize: '64x64', colors: 32 })
   })
 })
 

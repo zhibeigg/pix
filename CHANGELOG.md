@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.114.14] - 2026-07-03
+
+### Fixed
+
+- 修复复用作品时像素尺寸 / 颜色数在原任务缺少对应字段时会保留当前表单旧值的问题；现在会优先还原原任务 `pixelize` 配方，缺字段时再使用产物尺寸 / 实际颜色数或对应模式默认值兜底。
+
+### Tests
+
+- 补充复用像素控件回填测试，覆盖保存参数、产物兜底和默认值兜底三种路径。
+
 ## [1.114.13] - 2026-07-03
 
 ### Fixed

@@ -5,7 +5,7 @@ import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { CharacterItem, GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule, StyleProfile, TextureKind, VideoBridgeModel } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type BgRemovalAlgorithmChoice, type EdgeStyleChoice } from '../pixelize'
-import { assetKindDefaults, jobTypeDefaults, mergeReusedPixelize, normalizeWorkbenchJobType, parseAssetKind, resolveReusableAssetKind, reusableWorkbenchType, sizeRetryStateFromJob, type AssetKindChoice, type DualGridTransitionStyle, type WorkbenchJobType } from '../lib/jobReuse'
+import { assetKindDefaults, jobTypeDefaults, mergeReusedPixelize, normalizeWorkbenchJobType, parseAssetKind, resolveReusableAssetKind, reusablePixelControlsFromJob, reusableWorkbenchType, sizeRetryStateFromJob, type AssetKindChoice, type DualGridTransitionStyle, type WorkbenchJobType } from '../lib/jobReuse'
 import { promptLimitsFromModels } from '../lib/promptLimits'
 import { DEFAULT_VIDEO_BRIDGE_MODEL, VIDEO_BRIDGE_MODELS, deriveVideoBridgeDurationSeconds, normalizeVideoBridgeModel, rawVideoBridgeDurationSeconds, videoBridgePriceCredits } from '../lib/pricing'
 import { Alert } from './ui/alert'
@@ -167,13 +167,6 @@ function numberValue(value: unknown): number | null {
 
 function booleanValue(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null
-}
-
-function pixelSizeValue(value: unknown): string | null {
-  if (!Array.isArray(value) || value.length !== 2) return null
-  const width = numberValue(value[0])
-  const height = numberValue(value[1])
-  return width && height ? `${Math.round(width)}x${Math.round(height)}` : null
 }
 
 function assetKindLabel(value: AssetKindChoice, text: (zh: string, en: string) => string): string {
@@ -438,10 +431,10 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     else if (model) setReuseModelMissing(true)
     else { setImageModel(imageModels.default || availableImageModels[0]?.id || 'image2'); setReuseModelMissing(false) }
 
-    const reusedPixelSize = pixelSizeValue(pixelize?.output_size)
-    if (reusedPixelSize) setPixelSize(reusedPixelSize)
-    const reusedColors = numberValue(pixelize?.colors)
-    if (reusedColors !== null) setColors(Math.max(1, Math.round(reusedColors)))
+    const defaultControls = nextJobType === 'asset' ? assetKindDefaults(nextAssetKind) : jobTypeDefaults(nextJobType)
+    const reusedControls = reusablePixelControlsFromJob(job, defaultControls)
+    setPixelSize(reusedControls.pixelSize)
+    setColors(reusedControls.colors)
     const reusedRemoveBg = booleanValue(pixelize?.remove_bg)
     if (reusedRemoveBg !== null) setRemoveBg(reusedRemoveBg)
     const reusedEdgeStyle = edgeStyleValue(pixelize?.edge_style)

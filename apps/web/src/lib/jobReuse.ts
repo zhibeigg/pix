@@ -1,4 +1,4 @@
-import type { GenerationJob, JobType, PixelizeParams, SizeRetryMode, TextureKind } from '../types'
+import type { GenerationJob, JobOutput, JobType, PixelizeParams, SizeRetryMode, TextureKind } from '../types'
 import type { BgRemovalAlgorithmChoice, EdgeStyleChoice } from '../pixelize'
 
 export type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo' | 'dual_grid' | 'character'
@@ -16,6 +16,19 @@ function stringValue(value: unknown): string {
 function numberValue(value: unknown): number | null {
   const next = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
   return Number.isFinite(next) ? next : null
+}
+
+function positiveIntValue(value: unknown): number | null {
+  const next = numberValue(value)
+  if (next === null || next <= 0) return null
+  return Math.max(1, Math.round(next))
+}
+
+function pixelSizeValue(value: unknown): string | null {
+  if (!Array.isArray(value) || value.length < 2) return null
+  const width = positiveIntValue(value[0])
+  const height = positiveIntValue(value[1])
+  return width && height ? `${width}x${height}` : null
 }
 
 /** 把任务里存的 asset_kind（含历史/本地化写法）归一到当前可选的素材类型。 */
@@ -150,6 +163,34 @@ export function mergeReusedPixelize(
   const base = asRecord(reused)
   if (!base) return { ...overrides }
   return { ...(base as Partial<PixelizeParams>), ...overrides }
+}
+
+export type ReusablePixelControls = {
+  pixelSize: string
+  colors: number
+}
+
+export type ReusablePixelFallback = {
+  pixelSize: string
+  colors: number
+}
+
+/**
+ * 复用作品时回填像素尺寸和颜色数。
+ *
+ * 优先使用原任务保存的请求参数，确保“复用”能还原用户当时选择的配方；
+ * 老任务或异常任务缺字段时，再用已生成产物的实际尺寸 / 实际可读颜色数兜底；
+ * 最后才使用调用方提供的模式默认值，避免沿用当前表单残留状态。
+ */
+export function reusablePixelControlsFromJob(job: GenerationJob, fallback: ReusablePixelFallback): ReusablePixelControls {
+  const params = asRecord(job.params_json) ?? {}
+  const pixelize = asRecord(params.pixelize)
+  const output = Array.isArray(job.outputs) ? job.outputs[0] as JobOutput | undefined : undefined
+  const outputGrid = asRecord(output?.grid_readability)
+  return {
+    pixelSize: pixelSizeValue(pixelize?.output_size) ?? pixelSizeValue(output?.pixelized_size) ?? fallback.pixelSize,
+    colors: positiveIntValue(pixelize?.colors) ?? positiveIntValue(outputGrid?.color_count) ?? fallback.colors,
+  }
 }
 
 /**
