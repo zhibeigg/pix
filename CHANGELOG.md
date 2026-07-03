@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.111.8] - 2026-07-03
+
+### Fixed
+
+- video_bridge 最终 2 的幂画布改为先统计所有帧的最小非透明像素轮廓 union，再按该 tight union 向上取整；不再因请求尺寸、perfectPixel 网格尺寸或额外安全边距把画布放大。
+- 序列帧最终贴图改为使用整段序列共享原点，保留所有帧叠放时的相对位置，避免逐帧质心重居中造成动作位移被抹平。
+
+### Tests
+
+- 补充 tight outline 取整和 power-of-two 补全后相对位移保持不变的 video_bridge 回归测试。
+
 ## [1.111.7] - 2026-07-02
 
 ### Fixed

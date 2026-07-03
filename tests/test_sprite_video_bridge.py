@@ -848,7 +848,7 @@ def test_process_frames_detects_max_grid_then_reprocesses_all_frames(tmp_path, m
     cfg = AppConfig()
     cfg.sprite.shared_palette = False
 
-    _final_paths, _bboxes, _effective_size, _palette, process_meta = _process_frames(
+    _final_paths, _bboxes, effective_size, _palette, process_meta = _process_frames(
         cfg,
         raw_paths,
         final_dir,
@@ -874,14 +874,16 @@ def test_process_frames_detects_max_grid_then_reprocesses_all_frames(tmp_path, m
     assert [item[0] for item in calls].count("fixed") == 3
     assert all(call[2] == (17, 16) for call in calls if call[0] == "fixed")
     assert process_meta["common_preprocess_size"] == [17, 16]
-    assert process_meta["final_canvas_rule"] == "next_power_of_two_square_transparent_padding"
+    assert process_meta["tight_union_bbox"] == [4, 4, 11, 11]
+    assert process_meta["required_frame_size"] == [7, 7]
+    assert effective_size == (8, 8)
+    assert process_meta["final_canvas_rule"] == "tight_union_bbox_to_next_power_of_two_square_preserve_offsets"
     assert process_meta["preserve_perfect_pixel_detected_size"] is True
     assert [frame["normalized_size"] for frame in process_meta["frames"]] == [[17, 16]] * 3
     assert [frame["preprocess"]["fixed_grid_size"] for frame in process_meta["frames"]] == [[17, 16]] * 3
 
 
-
-def test_process_frames_pads_detected_size_to_power_of_two_square(tmp_path, monkeypatch) -> None:
+def test_process_frames_pads_tight_outline_to_power_of_two_square(tmp_path, monkeypatch) -> None:
     raw_dir = tmp_path / "raw"
     final_dir = tmp_path / "final"
     raw_dir.mkdir()
@@ -931,31 +933,31 @@ def test_process_frames_pads_detected_size_to_power_of_two_square(tmp_path, monk
         run_dir=tmp_path,
     )
 
-    assert effective_size == (128, 128)
+    assert effective_size == (64, 64)
     assert process_meta["common_preprocess_size"] == [106, 106]
-    assert process_meta["required_frame_size"] == [106, 106]
-    assert process_meta["final_canvas_rule"] == "next_power_of_two_square_transparent_padding"
+    assert process_meta["tight_union_bbox"] == [20, 20, 81, 81]
+    assert process_meta["selection_union_bbox"] == [18, 18, 83, 83]
+    assert process_meta["required_frame_size"] == [61, 61]
+    assert process_meta["content_origin"] == [1, 3]
+    assert process_meta["final_canvas_rule"] == "tight_union_bbox_to_next_power_of_two_square_preserve_offsets"
     assert process_meta["perfect_pixel_sequence_grid"]["max_grid_size"] == [106, 106]
     assert process_meta["perfect_pixel_sequence_grid"]["mode_grid_size"] == [106, 106]
     with Image.open(final_paths[0]) as opened:
-        assert opened.size == (128, 128)
+        assert opened.size == (64, 64)
         assert opened.getpixel((0, 0))[3] == 0
 
 
-def test_process_frames_keeps_foreground_away_from_output_edges(tmp_path) -> None:
+def test_process_frames_preserves_relative_offsets_when_power2_padding(tmp_path) -> None:
     raw_dir = tmp_path / "raw"
     final_dir = tmp_path / "final"
     raw_dir.mkdir()
     key = (255, 0, 0, 255)
     raw_paths = []
-    for index in range(2):
-        path = raw_dir / f"frame_{index + 1:03d}.png"
+    for index, x0 in enumerate([8, 38], start=1):
+        path = raw_dir / f"frame_{index:03d}.png"
         image = Image.new("RGBA", (64, 64), key)
         draw = ImageDraw.Draw(image)
-        if index == 0:
-            draw.rectangle([0, 18, 30, 63], fill=(20, 20, 30, 255))
-        else:
-            draw.rectangle([34, 0, 63, 44], fill=(20, 20, 30, 255))
+        draw.rectangle([x0, 30, x0 + 10, 40], fill=(20, 20, 30, 255))
         image.save(path)
         raw_paths.append(path)
 
@@ -979,15 +981,16 @@ def test_process_frames_keeps_foreground_away_from_output_edges(tmp_path) -> Non
         run_dir=tmp_path,
     )
 
-    assert effective_size == (128, 128)
-    assert process_meta["final_canvas_rule"] == "next_power_of_two_square_transparent_padding"
-    assert process_meta["frame_padding"] == 5
-    for path in final_paths:
-        bbox = _alpha_bbox(path)
-        assert bbox[0] >= 5
-        assert bbox[1] >= 5
-        assert effective_size[0] - bbox[2] >= 5
-        assert effective_size[1] - bbox[3] >= 5
+    assert effective_size == (64, 64)
+    assert process_meta["tight_union_bbox"] == [8, 30, 49, 41]
+    assert process_meta["required_frame_size"] == [41, 11]
+    assert process_meta["content_origin"] == [11, 53]
+    assert process_meta["final_canvas_rule"] == "tight_union_bbox_to_next_power_of_two_square_preserve_offsets"
+    first_bbox = _alpha_bbox(final_paths[0])
+    second_bbox = _alpha_bbox(final_paths[1])
+    assert first_bbox == (11, 53, 22, 64)
+    assert second_bbox == (41, 53, 52, 64)
+    assert second_bbox[0] - first_bbox[0] == 30
 
 
 def _visible_colors(path) -> set[tuple[int, int, int]]:

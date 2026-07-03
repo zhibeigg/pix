@@ -67,7 +67,7 @@ LocalStageContext = Callable[[], ContextManager[None]]
 ProgressCb = Any
 _WAITING_STATUSES = {"queued", "running"}
 _FAILED_STATUSES = {"failed", "expired", "cancelled"}
-_FRAME_BACKGROUND_FLOW = "video_frames_to_perfect_pixel_detect_all_to_mode_grid_to_fixed_grid_perfect_pixel_to_key_color_alpha_to_denoise_to_vl_ramp_palette_limit_to_union_bbox_to_power2_square_canvas"
+_FRAME_BACKGROUND_FLOW = "video_frames_to_perfect_pixel_detect_all_to_max_grid_to_fixed_grid_perfect_pixel_to_key_color_alpha_to_denoise_to_vl_ramp_palette_limit_to_tight_union_bbox_to_power2_square_canvas_preserve_offsets"
 
 
 @dataclass
@@ -1473,22 +1473,40 @@ def _max_grid_size(grids: list[tuple[int, int]]) -> tuple[int, int] | None:
     return max(1, int(width)), max(1, int(height))
 
 
-def _power_of_two_square_frame_size(
-    required_size: tuple[int, int],
-    *,
-    target_size: tuple[int, int],
-) -> tuple[int, int]:
-    """把最终帧画布向上取整为 2 的幂方形尺寸，不缩放内容，只透明填充。"""
-    side = next_power_of_two(
-        max(
-            1,
-            int(required_size[0]),
-            int(required_size[1]),
-            int(target_size[0]),
-            int(target_size[1]),
-        )
-    )
+def _power_of_two_square_frame_size(required_size: tuple[int, int]) -> tuple[int, int]:
+    """把 tight union 内容画布向上取整为 2 的幂方形尺寸，不缩放内容，只透明填充。"""
+    side = next_power_of_two(max(1, int(required_size[0]), int(required_size[1])))
     return side, side
+
+
+def _sequence_content_origin(
+    content_size: tuple[int, int],
+    *,
+    canvas_size: tuple[int, int],
+    anchor: str,
+) -> tuple[int, int]:
+    """返回整段序列共享的贴图原点，避免逐帧重心居中破坏相对位置。"""
+    content_w, content_h = max(1, int(content_size[0])), max(1, int(content_size[1]))
+    canvas_w, canvas_h = max(1, int(canvas_size[0])), max(1, int(canvas_size[1]))
+    x = max(0, (canvas_w - content_w) // 2)
+    anchor_key = str(anchor or "bottom_center").strip().lower()
+    if anchor_key in {"center", "middle", "center_center"}:
+        y = max(0, (canvas_h - content_h) // 2)
+    else:
+        y = max(0, canvas_h - content_h)
+    return x, y
+
+
+def _paste_sequence_content_to_canvas(
+    content: Image.Image,
+    *,
+    size: tuple[int, int],
+    origin: tuple[int, int],
+) -> Image.Image:
+    """把已按全序列 tight union 裁剪的帧贴到统一画布，保持帧间坐标关系不变。"""
+    canvas = Image.new("RGBA", size, (0, 0, 0, 0))
+    canvas.alpha_composite(content.convert("RGBA"), origin)
+    return canvas
 
 
 def _detect_sequence_perfect_pixel_grid(
@@ -1670,6 +1688,7 @@ def _process_frames(
     prepared: list[Image.Image] = []
     prepared_sizes: list[tuple[int, int]] = []
     bboxes: list[tuple[int, int, int, int] | None] = []
+    tight_bboxes: list[tuple[int, int, int, int] | None] = []
     frame_meta: list[dict[str, Any]] = []
     dropped_components = 0
     for index, path in enumerate(raw_frame_paths, start=1):
@@ -1696,10 +1715,12 @@ def _process_frames(
         clean_alpha = alpha.copy()
         clean_alpha[~subject_mask] = 0
         clean.putalpha(Image.fromarray(clean_alpha, mode="L"))
-        bbox = selection_bbox if selection_bbox is not None else _visible_bbox(clean)
+        tight_bbox = _visible_bbox(clean)
+        bbox = selection_bbox if selection_bbox is not None else tight_bbox
         prepared.append(clean)
         prepared_sizes.append(frame_size)
         bboxes.append(bbox)
+        tight_bboxes.append(tight_bbox)
         dropped_components += int(selection_meta.get("dropped_component_count") or 0)
         frame_meta.append(
             {
@@ -1714,6 +1735,7 @@ def _process_frames(
                     "selection": selection_meta,
                 },
                 "bbox": list(bbox) if bbox else None,
+                "tight_bbox": list(tight_bbox) if tight_bbox else None,
             }
         )
     common_size = (
@@ -1728,16 +1750,18 @@ def _process_frames(
         canvas = Image.new("RGBA", common_size, (0, 0, 0, 0))
         canvas.alpha_composite(image.convert("RGBA"), (0, 0))
         common_prepared.append(canvas)
-    union = _union_bbox(bboxes, common_size)
-    contents = [image.crop(union).convert("RGBA") for image in common_prepared]
+    selection_union = _union_bbox(bboxes, common_size)
+    tight_union = _union_bbox(tight_bboxes, common_size)
+    contents = [image.crop(tight_union).convert("RGBA") for image in common_prepared]
     contents = _apply_frame_edges(contents, edge_style=edge_style, feather=bg_feather)
-    frame_padding = max(2, min(8, int(round(min(common_size) * 0.08))))
-    max_w = max([common_size[0], *(content.width + frame_padding * 2 for content in contents)])
-    max_h = max([common_size[1], *(content.height + frame_padding * 2 for content in contents)])
-    required_frame_size = (max_w, max_h)
-    effective_size = _power_of_two_square_frame_size(required_frame_size, target_size=target_size)
+    required_frame_size = (
+        max([1, *(content.width for content in contents)]),
+        max([1, *(content.height for content in contents)]),
+    )
+    effective_size = _power_of_two_square_frame_size(required_frame_size)
+    content_origin = _sequence_content_origin(required_frame_size, canvas_size=effective_size, anchor=anchor)
     canvases = [
-        _paste_final_frame_content_to_canvas(content, size=effective_size, anchor=anchor, padding=frame_padding)
+        _paste_sequence_content_to_canvas(content, size=effective_size, origin=content_origin)
         for content in contents
     ]
     palette: list[str] = []
@@ -1777,12 +1801,15 @@ def _process_frames(
         canvas.save(path)
         final_paths.append(path)
     return final_paths, bboxes, effective_size, palette, {
-        "union_bbox": list(union),
-        "frame_padding": frame_padding,
+        "union_bbox": list(tight_union),
+        "tight_union_bbox": list(tight_union),
+        "selection_union_bbox": list(selection_union),
+        "frame_padding": 0,
+        "content_origin": list(content_origin),
         "target_size": list(target_size),
         "common_preprocess_size": list(common_size),
         "required_frame_size": list(required_frame_size),
-        "final_canvas_rule": "next_power_of_two_square_transparent_padding",
+        "final_canvas_rule": "tight_union_bbox_to_next_power_of_two_square_preserve_offsets",
         "legacy_frame_size_step": int(frame_size_step),
         "preserve_perfect_pixel_detected_size": True,
         "generated_preprocess_method": generated_preprocess_method,
