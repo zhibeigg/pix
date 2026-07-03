@@ -366,8 +366,8 @@ export function SpriteSequenceAlignmentEditor({ job, output, saving = false, onS
         </section>
 
         <aside className="grid min-h-0 content-start gap-3 overflow-y-auto pr-1">
-          <div className="pix-checkerboard grid min-h-[180px] place-items-center rounded-xl border border-border bg-muted/40 p-4 dark:border-[hsl(var(--pix-dark-hairline))]">
-            <canvas ref={previewCanvasRef} className="rounded-lg ring-1 ring-border [image-rendering:pixelated] dark:ring-[hsl(var(--pix-dark-hairline))]" style={{ width: `min(${frameSize.width * 3}px, 100%)`, height: 'auto', aspectRatio: `${frameSize.width} / ${frameSize.height}` }} />
+          <div className="pix-checkerboard flex h-44 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/40 p-3 dark:border-[hsl(var(--pix-dark-hairline))]">
+            <canvas ref={previewCanvasRef} className="h-full w-full rounded-lg object-contain [image-rendering:pixelated]" />
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => setPlaying((value) => !value)}>{playing ? <Pause /> : <Play />}{playing ? text('暂停', 'Pause') : text('播放', 'Play')}</Button>

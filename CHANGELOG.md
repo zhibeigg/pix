@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.116.15] - 2026-07-04
+
+### Fixed
+
+- 修复序列帧作品「序列帧对齐」调整界面布局错乱：右侧播放预览画布被强制为正方形（`aspectRatio` + `height:auto`）却塞进无裁剪的容器，导致画布下溢覆盖「暂停 / 首尾检查」按钮与 FPS 输入。现改为固定高度容器 + `object-contain` 自适应，画布按比例缩放填充、不再溢出。
+
 ## [1.116.14] - 2026-07-03
 
 ### Added
