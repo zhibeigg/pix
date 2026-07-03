@@ -17,7 +17,7 @@ from pix_web.config import WebSettings, load_web_settings
 from pix_web.db import init_db, make_engine, make_session_factory
 from pix_web.rate_limit import limiter, rate_limit_exceeded_handler
 from pix_web.referrals import frontend_invite_base_url
-from pix_web.routers import admin, admin_shares, announcements, api_keys, auth, batches, billing, characters, credits, external, files, jobs, packs, pricing, providers, referrals, settings as settings_router, shares, uploads
+from pix_web.routers import admin, admin_shares, announcements, api_keys, auth, batches, billing, characters, credits, external, files, jobs, membership, packs, pricing, providers, referrals, settings as settings_router, shares, uploads
 
 
 def _validate_production_settings(settings: WebSettings) -> None:
@@ -80,6 +80,7 @@ def create_app(settings: WebSettings | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(credits.router)
     app.include_router(billing.router)
+    app.include_router(membership.router)
     app.include_router(jobs.router)
     app.include_router(shares.router)
     app.include_router(batches.router)

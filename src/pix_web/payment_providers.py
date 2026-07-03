@@ -28,7 +28,13 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from pix_web.billing import create_custom_payment_order, create_payment_order, mark_order_paid, normalize_payment_provider
+from pix_web.billing import (
+    create_custom_payment_order,
+    create_membership_order,
+    create_payment_order,
+    mark_order_paid,
+    normalize_payment_provider,
+)
 from pix_web.config import WebSettings
 from pix_web.models import AlipayGatewayMessage, PaymentOrder, User
 
@@ -221,6 +227,22 @@ def _public_url(settings: WebSettings, path: str) -> str:
     return f"{settings.public_base_url.rstrip('/')}{path}"
 
 
+def _create_order_for_checkout(
+    db: Session,
+    user: User,
+    *,
+    provider: str,
+    package_key: str | None,
+    custom_credits: int | None,
+    membership_plan_key: str | None,
+) -> PaymentOrder:
+    if membership_plan_key is not None:
+        return create_membership_order(db, user, membership_plan_key, provider=provider)
+    if custom_credits is not None:
+        return create_custom_payment_order(db, user, custom_credits, provider=provider)
+    return create_payment_order(db, user, package_key or "", provider=provider)
+
+
 def create_checkout(
     db: Session,
     user: User,
@@ -229,14 +251,18 @@ def create_checkout(
     settings: WebSettings,
     package_key: str | None = None,
     custom_credits: int | None = None,
+    membership_plan_key: str | None = None,
     return_to: str | None = None,
 ) -> CheckoutResult:
     provider = normalize_payment_provider(provider)
     if provider == "mock":
-        order = (
-            create_custom_payment_order(db, user, custom_credits, provider="mock")
-            if custom_credits is not None
-            else create_payment_order(db, user, package_key or "", provider="mock")
+        order = _create_order_for_checkout(
+            db,
+            user,
+            provider="mock",
+            package_key=package_key,
+            custom_credits=custom_credits,
+            membership_plan_key=membership_plan_key,
         )
         return CheckoutResult(order=order, provider="mock")
     if provider == "alipay":
@@ -246,6 +272,7 @@ def create_checkout(
             settings,
             package_key=package_key,
             custom_credits=custom_credits,
+            membership_plan_key=membership_plan_key,
             return_to=return_to,
         )
     raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="不支持的支付方式")
@@ -262,6 +289,7 @@ def create_alipay_checkout(
     *,
     package_key: str | None = None,
     custom_credits: int | None = None,
+    membership_plan_key: str | None = None,
     return_to: str | None = None,
 ) -> CheckoutResult:
     mode = _alipay_mode(settings)
@@ -271,16 +299,20 @@ def create_alipay_checkout(
         _require(settings.alipay_root_cert, "ALIPAY_ROOT_CERT")
     else:
         _require(settings.alipay_public_key, "ALIPAY_PUBLIC_KEY")
-    order = (
-        create_custom_payment_order(db, user, custom_credits, provider="alipay")
-        if custom_credits is not None
-        else create_payment_order(db, user, package_key or "", provider="alipay")
+    order = _create_order_for_checkout(
+        db,
+        user,
+        provider="alipay",
+        package_key=package_key,
+        custom_credits=custom_credits,
+        membership_plan_key=membership_plan_key,
     )
-    subject = (
-        f"Pix Credits 自定义 {order.credits}"
-        if order.package_id is None
-        else f"Pix Credits {order.credits}"
-    )
+    if order.order_kind == "membership":
+        subject = f"Pix 月卡 {order.membership_plan_key or ''}".strip()
+    elif order.package_id is None:
+        subject = f"Pix Credits 自定义 {order.credits}"
+    else:
+        subject = f"Pix Credits {order.credits}"
     model = AlipayTradePagePayModel()
     model.out_trade_no = order.provider_order_id
     model.product_code = "FAST_INSTANT_TRADE_PAY"

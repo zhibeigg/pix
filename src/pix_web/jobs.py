@@ -18,7 +18,13 @@ from pix.config import AppConfig, load_config
 from pix.prompt_style import STYLE_PROFILE_POLICY_MAX_CHARS, style_profile_policy_text
 from pix.sprite_video_bridge import derive_video_bridge_duration_seconds
 from pix_web.config import WebSettings, load_web_settings
-from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, reserve_credits
+from pix_web.credits import (
+    InsufficientCreditsError,
+    available_total,
+    ensure_daily_quota,
+    insufficient_credits_http,
+    reserve_credits,
+)
 from pix_web.file_ownership import resolve_owned_input_path
 from pix_web.job_observability import record_policy_event
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
@@ -722,7 +728,9 @@ def create_jobs_batch(
     enforce_generation_limits(db, user, new_jobs=new_jobs)
 
     account = db.scalar(select(CreditAccount).where(CreditAccount.user_id == user.id))
-    available = account.available_credits if account is not None else 0
+    if account is not None:
+        ensure_daily_quota(db, account)
+    available = available_total(account) if account is not None else 0
     if available < total_price:
         raise insufficient_credits_http()
 
@@ -815,7 +823,9 @@ def retry_failed_job(
     price = _price_for_request(db, req, cfg)
 
     account = db.scalar(select(CreditAccount).where(CreditAccount.user_id == user.id))
-    available = account.available_credits if account is not None else 0
+    if account is not None:
+        ensure_daily_quota(db, account)
+    available = available_total(account) if account is not None else 0
     if available < price:
         raise insufficient_credits_http()
 
@@ -869,7 +879,9 @@ def retry_failed_jobs_in_batch(
     enforce_generation_limits(db, user, new_jobs=len(reqs))
 
     account = db.scalar(select(CreditAccount).where(CreditAccount.user_id == user.id))
-    available = account.available_credits if account is not None else 0
+    if account is not None:
+        ensure_daily_quota(db, account)
+    available = available_total(account) if account is not None else 0
     if available < total_price:
         raise insufficient_credits_http()
 

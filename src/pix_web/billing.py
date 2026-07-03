@@ -61,6 +61,8 @@ def _persist_payment_order(
     amount_cents: int,
     currency: str,
     package_id: int | None = None,
+    order_kind: str = "recharge",
+    membership_plan_key: str | None = None,
 ) -> PaymentOrder:
     provider = normalize_payment_provider(provider)
     order = PaymentOrder(
@@ -72,11 +74,33 @@ def _persist_payment_order(
         amount_cents=amount_cents,
         currency=currency,
         credits=credits,
+        order_kind=order_kind,
+        membership_plan_key=membership_plan_key,
     )
     db.add(order)
     db.commit()
     db.refresh(order)
     return order
+
+
+def create_membership_order(db: Session, user: User, plan_key: str, *, provider: str = "mock") -> PaymentOrder:
+    """创建月卡会员订单：金额取自档位，credits=0（到账时激活会员而非充点）。"""
+    from pix_web.membership import ensure_default_membership_plans, get_plan
+
+    ensure_default_membership_plans(db)
+    plan = get_plan(db, plan_key)
+    if plan is None or not plan.enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="月卡档位不存在或已停用")
+    return _persist_payment_order(
+        db,
+        user,
+        provider=provider,
+        credits=0,
+        amount_cents=plan.amount_cents,
+        currency=plan.currency,
+        order_kind="membership",
+        membership_plan_key=plan.key,
+    )
 
 
 def create_payment_order(db: Session, user: User, package_key: str, *, provider: str = "mock") -> PaymentOrder:
@@ -200,7 +224,12 @@ def mark_order_paid(db: Session, order: PaymentOrder, *, provider_event_id: str,
         user = db.get(User, order.user_id)
         if user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订单用户不存在")
-        recharge_credits(db, user, order.credits, note=f"充值订单 #{order.id} 到账")
+        if order.order_kind == "membership":
+            from pix_web.membership import activate_or_extend
+
+            activate_or_extend(db, user, order.membership_plan_key or "")
+        else:
+            recharge_credits(db, user, order.credits, note=f"充值订单 #{order.id} 到账")
         from pix_web.referrals import create_reward_for_paid_order
         from pix_web.system_settings import load_referral_settings
 

@@ -41,6 +41,13 @@ export type CreditBalance = {
   reserved_credits: number
   total_recharged: number
   total_consumed: number
+  daily_quota_balance?: number
+  daily_quota_limit?: number
+  reserved_quota?: number
+  available_total?: number
+  membership_plan_key?: string | null
+  membership_status?: string | null
+  membership_expires_at?: string | null
 }
 
 export type CreditTransaction = {
@@ -726,6 +733,26 @@ export type CreditPackage = {
   sort_order: number
 }
 
+export type MembershipPlan = {
+  key: string
+  name: string
+  daily_quota: number
+  amount_cents: number
+  currency: string
+  duration_days: number
+  enabled: boolean
+  sort_order: number
+}
+
+export type UserMembership = {
+  plan_key: string
+  name: string
+  daily_quota: number
+  status: string
+  expires_at: string | null
+  active: boolean
+}
+
 export type CustomRechargeOptions = {
   min_credits: number
   max_credits: number
@@ -740,6 +767,7 @@ export type CustomRechargeOptions = {
 export type RechargeRequest = {
   package_key?: string
   custom_credits?: number
+  membership_plan_key?: string
   provider?: string
 }
 
@@ -757,6 +785,8 @@ export type PaymentOrder = {
   amount_cents: number
   currency: string
   credits: number
+  order_kind: string
+  membership_plan_key: string | null
   created_at: string
   paid_at: string | null
 }

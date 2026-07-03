@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from pix_web.character_library import clean_character_text, create_character_item_from_job, is_character_asset_job
 from pix_web.config import WebSettings
-from pix_web.credits import ensure_credit_account
+from pix_web.credits import build_balance_response, ensure_credit_account
 from pix_web.external_api_keys import ExternalApiPrincipal, require_external_scope
 from pix_web.file_ownership import resolve_owned_input_path, run_job_id_for_file
 from pix_web.jobs import create_job, create_jobs_batch
@@ -184,12 +184,7 @@ def external_balance(
     db: Session = Depends(get_db),
 ) -> CreditBalanceResponse:
     account = ensure_credit_account(db, principal.user)
-    return CreditBalanceResponse(
-        available_credits=account.available_credits,
-        reserved_credits=account.reserved_credits,
-        total_recharged=account.total_recharged,
-        total_consumed=account.total_consumed,
-    )
+    return build_balance_response(db, account)
 
 
 @router.get("/models", response_model=ImageModelsResponse)

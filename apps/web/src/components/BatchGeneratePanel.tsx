@@ -98,7 +98,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
   const totalPrice = taskCount * discountedUnit
   const originalTotalPrice = taskCount * unitPrice
   const discountActive = !!discount?.active && discountedUnit < unitPrice
-  const availableCredits = balance?.available_credits ?? null
+  const availableCredits = balance?.available_total ?? balance?.available_credits ?? null
   const insufficientCredits = availableCredits !== null && totalPrice > availableCredits
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)

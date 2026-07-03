@@ -104,6 +104,7 @@ curl "$PIX_API_BASE/me" \
 
 curl "$PIX_API_BASE/balance" \
   -H "Authorization: Bearer $PIX_API_KEY"
+# balance 会返回永久点数 available_credits、当日临时额度 daily_quota_balance、总可用 available_total
 
 curl "$PIX_API_BASE/models" \
   -H "Authorization: Bearer $PIX_API_KEY"
@@ -117,6 +118,7 @@ curl "$PIX_API_BASE/me" \
 
 curl "$PIX_API_BASE/balance" \
   -H "Authorization: Bearer $PIX_API_KEY"
+# balance returns permanent available_credits, today's daily_quota_balance, and available_total
 
 curl "$PIX_API_BASE/models" \
   -H "Authorization: Bearer $PIX_API_KEY"

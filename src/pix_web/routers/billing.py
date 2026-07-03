@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from pix_web.config import WebSettings
 from pix_web.billing import (
     create_custom_payment_order,
+    create_membership_order,
     create_payment_order,
     custom_recharge_options,
     list_all_payment_orders,
@@ -131,6 +132,7 @@ def checkout(
         settings=settings,
         package_key=req.package_key,
         custom_credits=req.custom_credits,
+        membership_plan_key=req.membership_plan_key,
         return_to=_checkout_return_to(request, settings),
     )
     return PaymentCheckoutResponse(
@@ -147,6 +149,8 @@ def create_order(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PaymentOrder:
+    if req.membership_plan_key is not None:
+        return create_membership_order(db, user, req.membership_plan_key, provider=req.provider)
     if req.custom_credits is not None:
         return create_custom_payment_order(db, user, req.custom_credits, provider=req.provider)
     return create_payment_order(db, user, req.package_key or "", provider=req.provider)

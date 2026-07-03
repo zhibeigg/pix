@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Copy, Download, ExternalLink, RotateCcw, Search, Users } from 'lucide-react'
 import { useI18n } from '../i18n'
-import type { CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, PaymentCheckout, PaymentOrder } from '../types'
+import type { CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, MembershipPlan, PaymentCheckout, PaymentOrder } from '../types'
 import { formatDateTime } from '../lib/utils'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
@@ -14,13 +14,14 @@ import { StatusPill } from './data/StatusPill'
 import { PixMetric } from './pix/PixMetric'
 import { PixPanel } from './pix/PixPanel'
 
-const TX_TYPES = ['all', 'recharge', 'reserve', 'consume', 'refund', 'adjust', 'other'] as const
+const TX_TYPES = ['all', 'recharge', 'reserve', 'quota', 'consume', 'refund', 'adjust', 'other'] as const
 type TxFilter = typeof TX_TYPES[number]
 
 type Props = {
   balance: CreditBalance | null
   transactions: CreditTransaction[]
   packages: CreditPackage[]
+  membershipPlans: MembershipPlan[]
   customRechargeOptions: CustomRechargeOptions | null
   orders: PaymentOrder[]
   checkout: PaymentCheckout | null
@@ -30,6 +31,8 @@ type Props = {
   onCheckout: (packageKey: string, provider: string) => Promise<void>
   onCreateCustomOrder: (customCredits: number) => Promise<void>
   onCustomCheckout: (customCredits: number, provider: string) => Promise<void>
+  onCreateMembershipOrder: (planKey: string) => Promise<void>
+  onMembershipCheckout: (planKey: string, provider: string) => Promise<void>
   onMockPayOrder: (orderId: number) => Promise<void>
 }
 
@@ -38,7 +41,7 @@ function money(cents: number, currency = 'cny') {
   return `${prefix}${(cents / 100).toFixed(2)}`
 }
 
-export function CreditPanel({ balance, transactions, packages, customRechargeOptions, orders, checkout, isAdmin, onRefresh, onCreateOrder, onCheckout, onCreateCustomOrder, onCustomCheckout, onMockPayOrder }: Props) {
+export function CreditPanel({ balance, transactions, packages, membershipPlans, customRechargeOptions, orders, checkout, isAdmin, onRefresh, onCreateOrder, onCheckout, onCreateCustomOrder, onCustomCheckout, onCreateMembershipOrder, onMembershipCheckout, onMockPayOrder }: Props) {
   const { t } = useI18n()
   const [customCredits, setCustomCredits] = useState(100)
   const safeCustomCredits = Number.isFinite(customCredits) ? customCredits : 0
@@ -52,9 +55,14 @@ export function CreditPanel({ balance, transactions, packages, customRechargeOpt
   return (
     <PixPanel eyebrow={t('billing.account.eyebrow')} title={t('billing.account.title')} description={t('billing.account.description')} action={<Button variant="outline" onClick={onRefresh}>{t('common.refresh')}</Button>}>
       <div className="grid gap-6">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><PixMetric label={t('billing.account.available')} value={balance?.available_credits ?? '—'} /><PixMetric label={t('billing.account.reserved')} value={balance?.reserved_credits ?? '—'} /><PixMetric label={t('billing.account.totalRecharged')} value={balance?.total_recharged ?? '—'} tone="success" /><PixMetric label={t('billing.account.totalSpent')} value={balance?.total_consumed ?? '—'} tone="warning" /></div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6"><PixMetric label={t('billing.account.availableTotal')} value={balance?.available_total ?? balance?.available_credits ?? '—'} /><PixMetric label={t('billing.account.dailyQuota')} value={balance ? `${balance.daily_quota_balance ?? 0}/${balance.daily_quota_limit ?? 0}` : '—'} tone="success" /><PixMetric label={t('billing.account.available')} value={balance?.available_credits ?? '—'} /><PixMetric label={t('billing.account.reserved')} value={balance ? `${balance.reserved_credits}${(balance.reserved_quota ?? 0) > 0 ? ` + ${balance.reserved_quota}临` : ''}` : '—'} /><PixMetric label={t('billing.account.totalRecharged')} value={balance?.total_recharged ?? '—'} tone="success" /><PixMetric label={t('billing.account.totalSpent')} value={balance?.total_consumed ?? '—'} tone="warning" /></div>
 
         <CommunityCard />
+
+        <section className="grid gap-3">
+          <div className="flex flex-wrap items-end justify-between gap-3"><div><h3 className="text-lg font-semibold">{t('membership.title')}</h3><p className="text-sm text-muted-foreground">{t('membership.description')}</p></div><Badge variant="outline">{t('membership.priority')}</Badge></div>
+          <div className="grid gap-3 md:grid-cols-3">{membershipPlans.map((plan) => { const active = balance?.membership_plan_key === plan.key; return <article key={plan.key} className={`rounded-lg border p-4 ${active ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}><div className="grid gap-4"><div><div className="flex items-center gap-2"><h4 className="font-semibold">{plan.name}</h4>{active && <Badge>{t('membership.active')}</Badge>}</div><p className="mt-2 text-2xl font-semibold sm:text-3xl">{plan.daily_quota}<span className="ml-1 text-sm text-muted-foreground">{t('membership.dailyUnit')}</span></p><p className="text-sm text-muted-foreground">{money(plan.amount_cents, plan.currency)} · {t('membership.durationDays', { count: plan.duration_days })}</p>{active && balance?.membership_expires_at && <p className="mt-2 text-xs text-primary">{t('membership.expiresAt', { date: formatDateTime(balance.membership_expires_at) })}</p>}</div><div className="flex flex-wrap gap-2"><Button onClick={() => onMembershipCheckout(plan.key, 'alipay')}>{t('membership.buyAlipay')}</Button>{isAdmin && <Button variant="ghost" onClick={() => onCreateMembershipOrder(plan.key)}>{t('billing.packages.createMockOrder')}</Button>}</div></div></article> })}</div>
+        </section>
 
         <section className="grid gap-3">
           <div className="flex flex-wrap items-end justify-between gap-3"><div><h3 className="text-lg font-semibold">{t('billing.packages.title')}</h3><p className="text-sm text-muted-foreground">{t('billing.packages.description')}</p></div><Badge variant="outline">{t('billing.packages.priority')}</Badge></div>
@@ -92,7 +100,7 @@ export function CreditPanel({ balance, transactions, packages, customRechargeOpt
 
 function TopUpOrders({ orders, isAdmin, onMockPayOrder }: { orders: PaymentOrder[]; isAdmin: boolean; onMockPayOrder: (orderId: number) => Promise<void> }) {
   const { t } = useI18n()
-  return <section className="grid gap-3"><h3 className="text-lg font-semibold">{t('billing.orders.title')}</h3>{orders.length === 0 ? <p className="text-sm text-muted-foreground">{t('billing.orders.empty')}</p> : orders.map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4"><div><p className="font-bold">{t('billing.orders.order', { id: order.id })}</p><p className="text-sm text-muted-foreground">{t('common.points', { count: order.credits })} · {money(order.amount_cents, order.currency)} · {formatDateTime(order.created_at)}</p></div><div className="flex items-center gap-2"><Badge variant={order.status === 'paid' ? 'success' : 'warning'}>{order.status}</Badge>{isAdmin && order.status !== 'paid' && <Button size="sm" onClick={() => onMockPayOrder(order.id)}>{t('billing.orders.mockPay')}</Button>}</div></div>)}</section>
+  return <section className="grid gap-3"><h3 className="text-lg font-semibold">{t('billing.orders.title')}</h3>{orders.length === 0 ? <p className="text-sm text-muted-foreground">{t('billing.orders.empty')}</p> : orders.map((order) => { const label = order.order_kind === 'membership' ? t('membership.orderLabel', { plan: order.membership_plan_key ?? '' }) : t('common.points', { count: order.credits }); return <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4"><div><p className="font-bold">{t('billing.orders.order', { id: order.id })}</p><p className="text-sm text-muted-foreground">{label} · {money(order.amount_cents, order.currency)} · {formatDateTime(order.created_at)}</p></div><div className="flex items-center gap-2"><Badge variant={order.status === 'paid' ? 'success' : 'warning'}>{order.status}</Badge>{isAdmin && order.status !== 'paid' && <Button size="sm" onClick={() => onMockPayOrder(order.id)}>{t('billing.orders.mockPay')}</Button>}</div></div> })}</section>
 }
 
 function CommunityCard() {
@@ -197,14 +205,15 @@ function CreditLedgerTable({ balance, transactions, onRefresh }: { balance: Cred
 function txTypeTone(type: TxFilter): DataTone {
   if (type === 'recharge' || type === 'refund') return 'green'
   if (type === 'consume') return 'rose'
-  if (type === 'reserve') return 'amber'
+  if (type === 'reserve' || type === 'quota') return 'amber'
   if (type === 'adjust') return 'blue'
   return 'slate'
 }
 
 function txTypeGroup(type: string): TxFilter {
   const value = type.toLowerCase()
-  if (value.includes('recharge') || value.includes('top')) return 'recharge'
+  if (value.includes('recharge') || value.includes('top') || value.includes('membership')) return 'recharge'
+  if (value.includes('quota')) return 'quota'
   if (value.includes('reserve')) return 'reserve'
   if (value.includes('consume') || value.includes('spent')) return 'consume'
   if (value.includes('refund')) return 'refund'

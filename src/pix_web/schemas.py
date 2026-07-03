@@ -264,6 +264,14 @@ class CreditBalanceResponse(BaseModel):
     reserved_credits: int
     total_recharged: int
     total_consumed: int
+    # 月卡会员每日临时额度（优先消耗、仅生成任务、次日刷新）。
+    daily_quota_balance: int = 0
+    daily_quota_limit: int = 0
+    reserved_quota: int = 0
+    available_total: int = 0
+    membership_plan_key: str | None = None
+    membership_status: str | None = None
+    membership_expires_at: datetime | None = None
 
 
 class FileTicketResponse(BaseModel):
@@ -1482,6 +1490,54 @@ class CreditPackageResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class MembershipPlanResponse(BaseModel):
+    key: str
+    name: str
+    daily_quota: int
+    amount_cents: int
+    currency: str
+    duration_days: int
+    enabled: bool
+    sort_order: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class MembershipPlanCreateRequest(BaseModel):
+    key: str = Field(min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$")
+    name: str = Field(min_length=1, max_length=120)
+    daily_quota: int = Field(ge=1)
+    amount_cents: int = Field(ge=0)
+    currency: str = Field(default="cny", max_length=12)
+    duration_days: int = Field(default=30, ge=1, le=3660)
+    enabled: bool = True
+    sort_order: int = 0
+
+
+class MembershipPlanUpdateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    daily_quota: int = Field(ge=1)
+    amount_cents: int = Field(ge=0)
+    currency: str = Field(default="cny", max_length=12)
+    duration_days: int = Field(default=30, ge=1, le=3660)
+    enabled: bool = True
+    sort_order: int = 0
+
+
+class UserMembershipResponse(BaseModel):
+    plan_key: str
+    name: str = ""
+    daily_quota: int
+    status: str
+    expires_at: datetime | None = None
+    active: bool = False
+
+
+class MembershipCheckoutRequest(BaseModel):
+    plan_key: str = Field(min_length=1, max_length=64)
+    provider: str = Field(default="alipay", max_length=32)
+
+
 class CreditPackageCreateRequest(BaseModel):
     key: str = Field(min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$")
     name: str = Field(min_length=1, max_length=120)
@@ -1504,15 +1560,19 @@ class CreditPackageUpdateRequest(BaseModel):
 class PaymentRequestBase(BaseModel):
     package_key: str | None = Field(default=None, max_length=64)
     custom_credits: int | None = Field(default=None, ge=10, le=100000)
+    membership_plan_key: str | None = Field(default=None, max_length=64)
 
     @model_validator(mode="after")
-    def validate_single_recharge_source(self):
+    def validate_single_payment_source(self):
         has_package = bool((self.package_key or "").strip())
         has_custom = self.custom_credits is not None
-        if has_package == has_custom:
-            raise ValueError("package_key 与 custom_credits 必须二选一")
+        has_membership = bool((self.membership_plan_key or "").strip())
+        if sum([has_package, has_custom, has_membership]) != 1:
+            raise ValueError("package_key、custom_credits、membership_plan_key 必须三选一")
         if self.package_key is not None:
             self.package_key = self.package_key.strip() or None
+        if self.membership_plan_key is not None:
+            self.membership_plan_key = self.membership_plan_key.strip() or None
         return self
 
 
@@ -1532,6 +1592,8 @@ class PaymentOrderResponse(BaseModel):
     amount_cents: int
     currency: str
     credits: int
+    order_kind: str = "recharge"
+    membership_plan_key: str | None = None
     created_at: datetime
     paid_at: datetime | None
 

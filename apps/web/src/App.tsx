@@ -32,7 +32,7 @@ import { useReferralCode, LEGACY_REFERRAL_CODE_KEY } from './hooks/useReferralCo
 import { useBillingActions } from './hooks/useBillingActions'
 import { useAdminActions } from './hooks/useAdminActions'
 import { applyPageSeo } from './lib/seo'
-import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, CharacterItem, CharacterUpdatePayload, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GalleryQuota, GenerationJob, ImageModelsResponse, JobCreateRequest, PaymentCheckout, PaymentOrder, PricingDiscount, PricingRule, SequenceAlignmentRequest, SetupStatus, SharedWork, SystemSetting, User } from './types'
+import type { AdminDashboard, AnnouncementPublishPayload, AnnouncementPublishResponse, AssetPack, AssetPackQuota, CharacterItem, CharacterUpdatePayload, ContactSheetCandidate, CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, EmailCodeResponse, GalleryQuota, GenerationJob, ImageModelsResponse, JobCreateRequest, MembershipPlan, PaymentCheckout, PaymentOrder, PricingDiscount, PricingRule, SequenceAlignmentRequest, SetupStatus, SharedWork, SystemSetting, User } from './types'
 
 type AppProps = {
   themeMode: PixThemeMode
@@ -78,8 +78,10 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [balance, setBalance] = useState<CreditBalance | null>(null)
   const [transactions, setTransactions] = useState<CreditTransaction[]>([])
   const [packages, setPackages] = useState<CreditPackage[]>([])
+  const [membershipPlans, setMembershipPlans] = useState<MembershipPlan[]>([])
   const [customRechargeOptions, setCustomRechargeOptions] = useState<CustomRechargeOptions | null>(null)
   const [adminPackages, setAdminPackages] = useState<CreditPackage[]>([])
+  const [adminMembershipPlans, setAdminMembershipPlans] = useState<MembershipPlan[]>([])
   const [orders, setOrders] = useState<PaymentOrder[]>([])
   const [checkout, setCheckout] = useState<PaymentCheckout | null>(null)
   const [jobs, setJobs] = useState<GenerationJob[]>([])
@@ -176,11 +178,12 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     if (!activeToken) return
     // 与核心数据一起预取文件票据，确保作品/图片渲染时票据已就绪（避免 <img> 首帧无票据 401）。
     void prefetchFileTicket(activeToken)
-    const [me, nextBalance, nextTransactions, nextPackages, nextCustomRechargeOptions, nextOrders, nextJobs, nextGalleryQuota, nextSharedWorks, nextCharacters, nextPacks, nextPackQuota, nextPricing, nextImageModels, nextDiscount] = await Promise.all([
+    const [me, nextBalance, nextTransactions, nextPackages, nextMembershipPlans, nextCustomRechargeOptions, nextOrders, nextJobs, nextGalleryQuota, nextSharedWorks, nextCharacters, nextPacks, nextPackQuota, nextPricing, nextImageModels, nextDiscount] = await Promise.all([
       api.me(activeToken),
       api.balance(activeToken),
       api.transactions(activeToken),
       api.packages(),
+      api.membershipPlans(),
       api.customRechargeOptions(),
       api.orders(activeToken),
       api.jobs(activeToken),
@@ -197,6 +200,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setBalance(nextBalance)
     setTransactions(nextTransactions)
     setPackages(nextPackages)
+    setMembershipPlans(nextMembershipPlans)
     setCustomRechargeOptions(nextCustomRechargeOptions)
     setOrders(nextOrders)
     notifyJobCompletions(nextJobs)
@@ -213,17 +217,19 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       setSelectedPackJobs(await api.packJobs(activeToken, selectedPackId))
     }
     if (me.role === 'admin') {
-      const [users, settings, dashboard, nextAdminPackages, nextAdminJobs] = await Promise.all([
+      const [users, settings, dashboard, nextAdminPackages, nextAdminMembershipPlans, nextAdminJobs] = await Promise.all([
         api.adminUsers(activeToken),
         api.adminSettings(activeToken),
         api.adminDashboard(activeToken),
         api.adminPackages(activeToken),
+        api.adminMembershipPlans(activeToken),
         api.adminJobs(activeToken),
       ])
       setAdminUsers(users)
       setSystemSettings(settings)
       setAdminDashboard(dashboard)
       setAdminPackages(nextAdminPackages)
+      setAdminMembershipPlans(nextAdminMembershipPlans)
       setAdminJobs(nextAdminJobs)
     }
   }, [notifyJobCompletions, selectedPackId, token])
@@ -254,7 +260,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const confirmGalleryExpand = useCallback(() => { void confirmExpandGalleryQuota() }, [confirmExpandGalleryQuota])
   const confirmDeleteAction = useCallback(() => { void confirmDelete() }, [confirmDelete])
 
-  const { createPaymentOrder, startCheckout, createCustomPaymentOrder, startCustomCheckout, mockPayPaymentOrder, createAdminPackage, updateAdminPackage } = useBillingActions({ token, refreshCore, setMessage, showError, text, setCheckout })
+  const { createPaymentOrder, startCheckout, createCustomPaymentOrder, startCustomCheckout, createMembershipOrder, startMembershipCheckout, mockPayPaymentOrder, createAdminPackage, updateAdminPackage, createAdminMembershipPlan, updateAdminMembershipPlan } = useBillingActions({ token, refreshCore, setMessage, showError, text, setCheckout })
   const { adjustCredits, adjustCreditsBatch, updatePricing, updateSetting, testEmailSetting, adminRetryJob, adminCancelJob, adminFailRefundJob, publishAnnouncement, adminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, testAnnouncementEmail, listProviders, listProviderPresets, createProvider, updateProvider, deleteProvider } = useAdminActions({ token, refreshCore, setMessage, text })
 
   useEffect(() => {
@@ -330,7 +336,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
         const sig = JSON.stringify([
           nextJobs.map((job) => [job.id, job.status, job.outputs?.length ?? 0, job.error_message ?? '']),
           nextPacks.map((pack) => [pack.id, pack.status, pack.item_count]),
-          nextBalance?.available_credits, nextBalance?.reserved_credits,
+          nextBalance?.available_credits, nextBalance?.reserved_credits, nextBalance?.daily_quota_balance, nextBalance?.reserved_quota, nextBalance?.available_total, nextBalance?.membership_expires_at,
           nextGalleryQuota?.retained_count, nextGalleryQuota?.retained_limit,
           nextPackQuota?.pack_count, nextPackQuota?.pack_limit,
         ])
@@ -460,6 +466,8 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setBalance(null)
     setTransactions([])
     setPackages([])
+    setMembershipPlans([])
+    setAdminMembershipPlans([])
     setOrders([])
     setJobs([])
     setSharedWorks([])
@@ -994,10 +1002,10 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
             {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onDeleteJobs={deleteJobs} onSaveSequenceAlignment={saveSequenceAlignment} onPublishShare={publishJobShare} onUnpublishShare={unpublishJobShare} />}
             {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'characters' && <CharactersPage characters={characters} loading={busy} onUpdate={updateCharacter} onDelete={deleteCharacter} onGenerateCharacter={openCharacterGenerator} onRefresh={refreshCurrent} />}
-            {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onMockPayOrder={mockPayPaymentOrder} />}
+            {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} membershipPlans={membershipPlans} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onCreateMembershipOrder={createMembershipOrder} onMembershipCheckout={startMembershipCheckout} onMockPayOrder={mockPayPaymentOrder} />}
             {page === 'rewards' && <RewardsPage token={token} onRefresh={refreshCurrent} />}
             {page === 'api' && <ApiPage token={token} />}
-            {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} settings={systemSettings} onRefresh={refreshCurrent} onAdjustCredits={adjustCredits} onAdjustCreditsBatch={adjustCreditsBatch} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onUpdateSetting={updateSetting} onPublishAnnouncement={publishAnnouncement} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} onAdminAnnouncements={adminAnnouncements} onCreateAnnouncement={createAnnouncement} onUpdateAnnouncement={updateAnnouncement} onDeleteAnnouncement={deleteAnnouncement} onTestAnnouncementEmail={testAnnouncementEmail} onListProviders={listProviders} onListProviderPresets={listProviderPresets} onCreateProvider={createProvider} onUpdateProvider={updateProvider} onDeleteProvider={deleteProvider} token={token} />}
+            {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} membershipPlans={adminMembershipPlans} settings={systemSettings} onRefresh={refreshCurrent} onAdjustCredits={adjustCredits} onAdjustCreditsBatch={adjustCreditsBatch} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onCreateMembershipPlan={createAdminMembershipPlan} onUpdateMembershipPlan={updateAdminMembershipPlan} onUpdateSetting={updateSetting} onPublishAnnouncement={publishAnnouncement} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} onAdminAnnouncements={adminAnnouncements} onCreateAnnouncement={createAnnouncement} onUpdateAnnouncement={updateAnnouncement} onDeleteAnnouncement={deleteAnnouncement} onTestAnnouncementEmail={testAnnouncementEmail} onListProviders={listProviders} onListProviderPresets={listProviderPresets} onCreateProvider={createProvider} onUpdateProvider={updateProvider} onDeleteProvider={deleteProvider} token={token} />}
           </Suspense>
         </WorkspaceShell>
       ) : (

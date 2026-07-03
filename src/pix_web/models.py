@@ -78,6 +78,11 @@ class CreditAccount(Base):
     reserved_credits: Mapped[int] = mapped_column(Integer, default=0)
     total_recharged: Mapped[int] = mapped_column(Integer, default=0)
     total_consumed: Mapped[int] = mapped_column(Integer, default=0)
+    # 月卡会员每日临时额度：当日剩余量 + 已冻结量 + 所属业务日（YYYY-MM-DD）。
+    # 临时额度当天有效、次日按业务时区刷新，仅用于生成任务且优先于永久点数消耗。
+    daily_quota_balance: Mapped[int] = mapped_column(Integer, default=0)
+    reserved_quota: Mapped[int] = mapped_column(Integer, default=0)
+    daily_quota_date: Mapped[str] = mapped_column(String(10), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -142,6 +147,10 @@ class PaymentOrder(Base):
     amount_cents: Mapped[int] = mapped_column(Integer, default=0)
     currency: Mapped[str] = mapped_column(String(12), default="usd")
     credits: Mapped[int] = mapped_column(Integer, default=0)
+    # 订单类型：recharge=点数充值；membership=月卡会员。membership 订单 credits=0，
+    # 到账时激活/续期会员而非直接充值永久点数。
+    order_kind: Mapped[str] = mapped_column(String(24), default="recharge", index=True)
+    membership_plan_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -156,6 +165,39 @@ class PaymentEvent(Base):
     payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     processed: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class MembershipPlan(Base):
+    """月卡会员档位配置（可后台增删改）。"""
+
+    __tablename__ = "membership_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120), default="")
+    daily_quota: Mapped[int] = mapped_column(Integer, default=0)
+    amount_cents: Mapped[int] = mapped_column(Integer, default=0)
+    currency: Mapped[str] = mapped_column(String(12), default="cny")
+    duration_days: Mapped[int] = mapped_column(Integer, default=30)
+    enabled: Mapped[bool] = mapped_column(default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class UserMembership(Base):
+    """用户当前会员状态（每用户唯一，续期顺延 expires_at）。"""
+
+    __tablename__ = "user_memberships"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
+    plan_key: Mapped[str] = mapped_column(String(64), default="", index=True)
+    daily_quota: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
 class ReferralProfile(Base):
@@ -316,6 +358,10 @@ class GenerationJob(Base):
     params_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     price_credits: Mapped[int] = mapped_column(Integer, default=0)
     reserved_credits: Mapped[int] = mapped_column(Integer, default=0)
+    # 本次任务从会员每日临时额度冻结的点数（reserved_credits 为永久点数部分）。
+    reserved_quota: Mapped[int] = mapped_column(Integer, default=0)
+    # 冻结临时额度时所属的业务日（YYYY-MM-DD）；退款时据此判断是否同日退回，跨日作废。
+    reserved_quota_date: Mapped[str] = mapped_column(String(10), default="")
     error_message: Mapped[str] = mapped_column(Text, default="")
     user_error_message: Mapped[str] = mapped_column(Text, default="")
     error_diagnostics_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)

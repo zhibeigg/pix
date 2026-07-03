@@ -90,7 +90,8 @@ export function RawImagePage({ pricing, discount, balance, jobs, loading, token,
   const price = pricing.find((item) => item.key === billingKey)?.price_credits ?? 0
   const discountedPrice = applyDiscount(price, discount)
   const promptTooLong = prompt.length > rawImagePromptMaxLength
-  const insufficientCredits = typeof balance?.available_credits === 'number' && balance.available_credits < discountedPrice
+  const availableForGeneration = balance?.available_total ?? balance?.available_credits
+  const insufficientCredits = typeof availableForGeneration === 'number' && availableForGeneration < discountedPrice
   const isSelectedActive = selectedJob?.status === 'pending' || selectedJob?.status === 'running' || selectedJob?.status === 'waiting'
   const mainImageUrl = isSelectedActive ? null : rawSourceUrl(selectedJob)
   const failedError = selectedJob?.status === 'failed' ? summarizeJobError(selectedJob.error_message, text) : null
@@ -171,7 +172,7 @@ export function RawImagePage({ pricing, discount, balance, jobs, loading, token,
       <PixPanel
         eyebrow={text('原图炉', 'Raw forge')}
         title={text('原始生图', 'Raw image generation')}
-        action={<div className="flex flex-wrap gap-2"><Badge variant="outline">{text(`余额 ${balance?.available_credits ?? '—'} 点`, `Balance ${balance?.available_credits ?? '—'} credits`)}</Badge><EstimateBadge price={price} discount={discount} variant={insufficientCredits ? 'danger' : 'info'} /><Button type="button" variant="outline" onClick={() => void onRefresh()}><RefreshCw />{text('刷新', 'Refresh')}</Button></div>}
+        action={<div className="flex flex-wrap gap-2"><Badge variant="outline">{text(`可用 ${availableForGeneration ?? '—'} 点`, `Available ${availableForGeneration ?? '—'} credits`)}</Badge><EstimateBadge price={price} discount={discount} variant={insufficientCredits ? 'danger' : 'info'} /><Button type="button" variant="outline" onClick={() => void onRefresh()}><RefreshCw />{text('刷新', 'Refresh')}</Button></div>}
       >
         <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)_148px]">
           <div className="grid content-start gap-4">

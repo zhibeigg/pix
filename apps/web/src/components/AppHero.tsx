@@ -91,7 +91,7 @@ function WorkspaceMockup({ balance, activeJobs, batchCount }: { balance: CreditB
           </div>
           <div className="mt-6 rounded-lg border border-border bg-card p-3 dark:border-[hsl(var(--pix-paper-border))] dark:bg-[hsl(var(--pix-paper))]">
             <p className="text-[11px] font-semibold uppercase tracking-[1px] text-[hsl(var(--pix-text-subtle))] dark:text-[hsl(var(--pix-paper-steel))]">{text('点数', 'Credits')}</p>
-            <p className="mt-2 text-2xl font-semibold">{balance?.available_credits ?? '—'}</p>
+            <p className="mt-2 text-2xl font-semibold">{balance?.available_total ?? balance?.available_credits ?? '—'}</p>
           </div>
         </aside>
         <div className="p-4 md:p-6">
@@ -102,7 +102,7 @@ function WorkspaceMockup({ balance, activeJobs, batchCount }: { balance: CreditB
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
               <MiniStat label={text('队列', 'Queue')} value={`${activeJobs}`} />
-              <MiniStat label={text('点数', 'Credits')} value={`${balance?.available_credits ?? '—'}`} />
+              <MiniStat label={text('点数', 'Credits')} value={`${balance?.available_total ?? balance?.available_credits ?? '—'}`} />
               <MiniStat label={text('素材包', 'Packs')} value={`${batchCount}`} />
             </div>
           </div>

@@ -219,7 +219,7 @@ export function WorkspaceShell({ page, user, balance, activeJobs, completedJobs,
           <AppTabs page={page} user={user} onChange={onNavigate} orientation="side" />
           <div className="hidden lg:block" />
           <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
-            <SidebarMetric label={t('sidebar.credits')} value={balance?.available_credits ?? '—'} />
+            <SidebarMetric label={t('sidebar.credits')} value={balance?.available_total ?? balance?.available_credits ?? '—'} />
             <SidebarMetric label={t('sidebar.queue')} value={activeJobs} />
             <SidebarMetric label={t('sidebar.done')} value={completedJobs} />
             {failedJobs > 0 && <SidebarMetric label={t('sidebar.failed')} value={failedJobs} tone="danger" />}

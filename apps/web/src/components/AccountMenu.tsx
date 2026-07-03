@@ -23,7 +23,7 @@ export function AccountMenu({ user, balance, activeJobs, completedJobs, failedJo
   return (
     <div className="flex min-w-0 items-center justify-end gap-2">
       <div className="hidden items-center gap-2 sm:flex">
-        <Badge variant="outline" className="bg-card">{t('account.credits', { count: balance?.available_credits ?? '—' })}</Badge>
+        <Badge variant="outline" className="bg-card">{t('account.credits', { count: balance?.available_total ?? balance?.available_credits ?? '—' })}</Badge>
         <Badge variant={activeJobs ? 'info' : 'muted'} className="hidden lg:inline-flex">{t('account.queue', { count: activeJobs })}</Badge>
         {failedJobs > 0 && <Badge variant="danger" className="hidden lg:inline-flex">{t('account.failed', { count: failedJobs })}</Badge>}
       </div>
@@ -38,7 +38,7 @@ export function AccountMenu({ user, balance, activeJobs, completedJobs, failedJo
             <p className="truncate text-xs text-muted-foreground">{user.email}</p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               <Badge variant={isAdmin ? 'default' : 'secondary'}>{user.role}</Badge>
-              <Badge variant="outline">{t('account.credits', { count: balance?.available_credits ?? '—' })}</Badge>
+              <Badge variant="outline">{t('account.credits', { count: balance?.available_total ?? balance?.available_credits ?? '—' })}</Badge>
               <Badge variant={activeJobs ? 'info' : 'muted'}>{t('account.queue', { count: activeJobs })}</Badge>
               <Badge variant="success">{t('account.done', { count: completedJobs })}</Badge>
               <Badge variant={failedJobs ? 'danger' : 'muted'}>{t('account.failed', { count: failedJobs })}</Badge>

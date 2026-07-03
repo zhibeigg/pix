@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { api } from '../api'
-import type { CreditPackage, PaymentCheckout } from '../types'
+import type { CreditPackage, MembershipPlan, PaymentCheckout } from '../types'
 import type { ToastVariant } from '../components/AppOverlays'
 
 type TextFn = (zh: string, en: string) => string
@@ -73,12 +73,39 @@ export function useBillingActions({ token, refreshCore, setMessage, showError, t
     }
   }, [token, refreshCore, setMessage, showError, text, setCheckout])
 
+  const createMembershipOrder = useCallback(async (planKey: string) => {
+    if (!token) return
+    try {
+      const order = await api.createOrder(token, { membership_plan_key: planKey, provider: 'mock' })
+      setCheckout(null)
+      await refreshCore(token)
+      setMessage(text(`月卡订单 #${order.id} 已创建`, `Membership order #${order.id} created`))
+    } catch (error) {
+      showError(error)
+    }
+  }, [token, refreshCore, setMessage, showError, text, setCheckout])
+
+  const startMembershipCheckout = useCallback(async (planKey: string, provider: string) => {
+    if (!token) return
+    try {
+      const result = await api.membershipCheckout(token, planKey, provider)
+      setCheckout(result)
+      if (result.payment_url) {
+        window.open(result.payment_url, '_blank', 'noopener,noreferrer')
+      }
+      await refreshCore(token)
+      setMessage(text(`月卡订单 #${result.order.id} 已创建：${provider}`, `Membership order #${result.order.id} created: ${provider}`))
+    } catch (error) {
+      showError(error)
+    }
+  }, [token, refreshCore, setMessage, showError, text, setCheckout])
+
   const mockPayPaymentOrder = useCallback(async (orderId: number) => {
     if (!token) return
     try {
       await api.mockPayOrder(token, orderId)
       await refreshCore(token)
-      setMessage(text('模拟支付成功，点数已到账', 'Mock payment succeeded; credits received'))
+      setMessage(text('模拟支付成功，订单已到账', 'Mock payment succeeded; order fulfilled'))
     } catch (error) {
       showError(error)
     }
@@ -98,5 +125,19 @@ export function useBillingActions({ token, refreshCore, setMessage, showError, t
     setMessage(text('充值套餐已更新', 'Credit package updated'))
   }, [token, refreshCore, setMessage, text])
 
-  return { createPaymentOrder, startCheckout, createCustomPaymentOrder, startCustomCheckout, mockPayPaymentOrder, createAdminPackage, updateAdminPackage }
+  const createAdminMembershipPlan = useCallback(async (payload: MembershipPlan) => {
+    if (!token) return
+    await api.createAdminMembershipPlan(token, payload)
+    await refreshCore(token)
+    setMessage(text('月卡档位已创建', 'Membership plan created'))
+  }, [token, refreshCore, setMessage, text])
+
+  const updateAdminMembershipPlan = useCallback(async (key: string, payload: Omit<MembershipPlan, 'key'>) => {
+    if (!token) return
+    await api.updateAdminMembershipPlan(token, key, payload)
+    await refreshCore(token)
+    setMessage(text('月卡档位已更新', 'Membership plan updated'))
+  }, [token, refreshCore, setMessage, text])
+
+  return { createPaymentOrder, startCheckout, createCustomPaymentOrder, startCustomCheckout, createMembershipOrder, startMembershipCheckout, mockPayPaymentOrder, createAdminPackage, updateAdminPackage, createAdminMembershipPlan, updateAdminMembershipPlan }
 }

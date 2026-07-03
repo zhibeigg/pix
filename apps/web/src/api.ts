@@ -40,6 +40,8 @@ import type {
   ReferralSummary,
   CreditPackage,
   CustomRechargeOptions,
+  MembershipPlan,
+  UserMembership,
   RechargeRequest,
   SystemSetting,
   SetupStatus,
@@ -234,6 +236,18 @@ export const api = {
   },
   packages() {
     return request<CreditPackage[]>('/billing/packages')
+  },
+  membershipPlans() {
+    return request<MembershipPlan[]>('/membership/plans')
+  },
+  myMembership(token: string) {
+    return request<UserMembership>('/membership/me', {}, token)
+  },
+  membershipCheckout(token: string, planKey: string, provider: string) {
+    return request<PaymentCheckout>('/membership/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ plan_key: planKey, provider }),
+    }, token)
   },
   currentAnnouncement() {
     return request<PublicAnnouncement>('/announcements/current')
@@ -470,6 +484,15 @@ export const api = {
   },
   updateAdminPackage(token: string, key: string, payload: Omit<CreditPackage, 'key'>) {
     return request<CreditPackage>(`/admin/packages/${key}`, { method: 'PUT', body: JSON.stringify(payload) }, token)
+  },
+  adminMembershipPlans(token: string) {
+    return request<MembershipPlan[]>('/admin/membership-plans', {}, token)
+  },
+  createAdminMembershipPlan(token: string, payload: MembershipPlan) {
+    return request<MembershipPlan>('/admin/membership-plans', { method: 'POST', body: JSON.stringify(payload) }, token)
+  },
+  updateAdminMembershipPlan(token: string, key: string, payload: Omit<MembershipPlan, 'key'>) {
+    return request<MembershipPlan>(`/admin/membership-plans/${key}`, { method: 'PUT', body: JSON.stringify(payload) }, token)
   },
   adminSettings(token: string) {
     return request<SystemSetting[]>('/admin/settings', {}, token)

@@ -22,7 +22,7 @@ from pix_web.metrics import task_performance_metrics
 from pix_web.jobs import retry_failed_job
 from pix_web.email_sender import EmailDeliveryError, send_announcement_email, send_announcement_email_batch_task, send_verification_email
 from pix_web.email_verification import generate_code
-from pix_web.models import CreditPackage, GenerationJob, PricingRule, User
+from pix_web.models import CreditPackage, GenerationJob, MembershipPlan, PricingRule, User
 from pix_web.queue import enqueue_jobs
 from pix_web.referrals import frontend_invite_base_url
 from pix_web.schemas import (
@@ -43,6 +43,9 @@ from pix_web.schemas import (
     CreditPackageResponse,
     CreditPackageUpdateRequest,
     CreditTransactionResponse,
+    MembershipPlanCreateRequest,
+    MembershipPlanResponse,
+    MembershipPlanUpdateRequest,
     EmailTestRequest,
     EmailTestResponse,
     PricingRuleResponse,
@@ -263,6 +266,56 @@ def update_package(
     db.commit()
     db.refresh(package)
     return package
+
+
+@router.get("/membership-plans", response_model=list[MembershipPlanResponse])
+def membership_plans(_admin: User = Depends(require_admin), db: Session = Depends(get_db)) -> list[MembershipPlan]:
+    from pix_web.membership import ensure_default_membership_plans
+
+    ensure_default_membership_plans(db)
+    return list(
+        db.scalars(
+            select(MembershipPlan).order_by(MembershipPlan.sort_order.asc(), MembershipPlan.amount_cents.asc())
+        )
+    )
+
+
+@router.post("/membership-plans", response_model=MembershipPlanResponse)
+def create_membership_plan(
+    req: MembershipPlanCreateRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> MembershipPlan:
+    existing = db.scalar(select(MembershipPlan).where(MembershipPlan.key == req.key))
+    if existing is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="月卡档位 key 已存在")
+    plan = MembershipPlan(**req.model_dump())
+    db.add(plan)
+    db.commit()
+    db.refresh(plan)
+    return plan
+
+
+@router.put("/membership-plans/{key}", response_model=MembershipPlanResponse)
+def update_membership_plan(
+    key: str,
+    req: MembershipPlanUpdateRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> MembershipPlan:
+    plan = db.scalar(select(MembershipPlan).where(MembershipPlan.key == key))
+    if plan is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="月卡档位不存在")
+    plan.name = req.name
+    plan.daily_quota = req.daily_quota
+    plan.amount_cents = req.amount_cents
+    plan.currency = req.currency
+    plan.duration_days = req.duration_days
+    plan.enabled = req.enabled
+    plan.sort_order = req.sort_order
+    db.commit()
+    db.refresh(plan)
+    return plan
 
 
 @router.get("/settings", response_model=list[SystemSettingResponse])
