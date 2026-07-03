@@ -51,6 +51,8 @@ npm run dev
 
 主页「范例图鉴」包含物品图标、真实上游实测样例、平铺纹理和序列帧；登录后还会出现「用户分享」tab，仅展示管理员审核通过的用户作品，并可按实际输出尺寸、生图模型和直出类型快速筛选。序列帧分享会在卡片中按帧播放，并在用户分享筛选上以「序列帧」分类展示；参数按钮使用与作品库一致的分组弹窗展示公开快照。主体类素材的尺寸重试支持前端全部默认像素尺寸档位（16/24/32/48/64/96/128/256），按透明成品尺寸匹配 `pixelize.output_size`。用户在作品库点击「提交审核」后，作品先进入待审核队列，管理员通过后才会展示在首页、允许其他登录用户点赞/下载，并在通过时发放分享奖励。实测样例会展示本地真实流程生成的 Logo / 技能书结果，并在卡片和筛选器中标注使用的生成模型（如 `image2`、`gemini-3.1-flash-image-preview`），静态图片位于 `apps/web/public/homepage-examples/showcase/`。
 
+生产工作台「游戏素材直出」支持一次提交 1～8 张同参数素材（物品图标、UI 组件、平铺纹理、Logo、双瓦片、角色和参考图重绘）。前端会显示总价；提交时复用 `/jobs/batch` 创建多个独立 `asset` 任务，因此每张作品独立排队、冻结点数、进入作品库、下载、分享、保存角色或重试。
+
 前端构建：
 
 ```bash
@@ -226,7 +228,9 @@ npm run build
 
 ## 对外 API
 
-普通用户登录后可在网站「API」页面创建、停用或删除长期 API Key，并查看详细调用文档与 `curl` 示例。页面内置类似 sub2api 的令牌生成器：先在浏览器生成 `pix_live_` + 32 字节随机 hex 的候选令牌，提交创建后才生效；后端会校验格式与唯一性，数据库只保存 hash 与 prefix。API Key 明文只在创建成功时展示一次；列表页只展示名称、prefix、scope、创建时间、最后使用时间和撤销时间。外部程序使用 `Authorization: Bearer <api_key>` 调用 `/external/v1/...`，任务仍归属该 key 对应用户，并复用现有任务创建、扣点预留、队列入队、作品权限、角色库权限和文件下载逻辑。API 页面已覆盖认证、账号 / 余额 / 模型查询、上传参考图、角色库读写、素材直出、图生图、序列帧、轮询分页和下载输出等接入步骤。
+普通用户登录后可在网站「API」页面创建、停用或删除长期 API Key，并查看详细调用文档与 `curl` 示例。页面内置类似 sub2api 的令牌生成器：先在浏览器生成 `pix_live_` + 32 字节随机 hex 的候选令牌，提交创建后才生效；后端会校验格式与唯一性，数据库只保存 hash 与 prefix。API Key 明文只在创建成功时展示一次；列表页只展示名称、prefix、scope、创建时间、最后使用时间和撤销时间。外部程序使用 `Authorization: Bearer <api_key>` 调用 `/external/v1/...`，任务仍归属该 key 对应用户，并复用现有任务创建、扣点预留、队列入队、作品权限、角色库权限和文件下载逻辑。API 页面已覆盖认证、账号 / 余额 / 模型查询、上传参考图、角色库读写、素材直出、多张同参数素材直出、图生图、序列帧、轮询分页和下载输出等接入步骤。
+
+外部 API 也提供 `POST /external/v1/jobs/batch`，请求体与站内 `/jobs/batch` 一致：`jobs` 为 1～50 个 `JobCreateRequest`，`batch_name` / `mode` 可选。用于多张同参数素材直出时，调用方应复制同一 `job_type="asset"` payload 并为每个子任务设置不同 `client_request_id`；响应 `JobBatchCreateResponse` 会返回独立 `jobs[]`、`total_price_credits` 和 `batch_id`。
 
 `JobCreateRequest` 可选 `style_profile` 项目风格档案：`project_name`、`palette`、`line_style`、`lighting`、`view_rule`、`avoid_elements`。这些字段会由后端统一编译为 prompt 补充约束，用于素材直出、平铺纹理、双瓦片和序列帧；它不会替换像素尺寸、纯色背景、无缝瓦片或序列帧布局等硬约束。站内用户还可调用 `POST /jobs/prompt-preview` 在扣点前查看真实合成后的 prompt（外部 API 创建任务仍走 `/external/v1/jobs`）。
 
@@ -281,6 +285,20 @@ curl -X POST "https://example.com/api/external/v1/jobs" \
     "asset": {"name": "blue cloak knight", "asset_kind": "character", "subject_kind": "single_character"},
     "pixelize": {"output_size": [64, 64], "colors": 32, "remove_bg": true},
     "skip_vl": true
+  }'
+
+# 多张同参数素材直出：每个子任务独立入队、扣点和进入作品库
+curl -X POST "https://example.com/api/external/v1/jobs/batch" \
+  -H "Authorization: Bearer pix_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "batch_name": "blue sword draws",
+    "mode": "asset_multi",
+    "jobs": [
+      {"job_type":"asset","client_request_id":"sword-001","asset":{"name":"蓝色魔法剑","asset_kind":"item_icon"},"pixelize":{"output_size":[32,32],"colors":8,"remove_bg":true},"skip_vl":true},
+      {"job_type":"asset","client_request_id":"sword-002","asset":{"name":"蓝色魔法剑","asset_kind":"item_icon"},"pixelize":{"output_size":[32,32],"colors":8,"remove_bg":true},"skip_vl":true},
+      {"job_type":"asset","client_request_id":"sword-003","asset":{"name":"蓝色魔法剑","asset_kind":"item_icon"},"pixelize":{"output_size":[32,32],"colors":8,"remove_bg":true},"skip_vl":true}
+    ]
   }'
 
 # 查询任务

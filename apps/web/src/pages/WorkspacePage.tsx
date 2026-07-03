@@ -41,7 +41,7 @@ export function WorkspacePage({ mode, pricing, discount, balance, jobs, characte
           <TabsList><TabsTrigger value="single">{t('pages.workspace.single')}</TabsTrigger><TabsTrigger value="batch">{t('pages.workspace.batch')}</TabsTrigger></TabsList>
         </Tabs>
       )} />
-      {mode === 'single' ? <SingleGeneratePanel pricing={pricing} discount={discount} loading={loading} token={token} imageModels={imageModels} characters={characters} reuseJobSeed={reuseJobSeed} assetPresetSeed={assetPresetSeed} onSubmit={onCreateJob} /> : <BatchGeneratePanel pricing={pricing} discount={discount} balance={balance} loading={loading} token={token} imageModels={imageModels} onSubmitMany={onCreateJobs} />}
+      {mode === 'single' ? <SingleGeneratePanel pricing={pricing} discount={discount} loading={loading} token={token} imageModels={imageModels} characters={characters} reuseJobSeed={reuseJobSeed} assetPresetSeed={assetPresetSeed} onSubmit={onCreateJob} onSubmitMany={onCreateJobs} /> : <BatchGeneratePanel pricing={pricing} discount={discount} balance={balance} loading={loading} token={token} imageModels={imageModels} onSubmitMany={onCreateJobs} />}
       <JobList jobs={activeJobs} onRefresh={onRefresh} onCandidatePixelize={onCandidatePixelize} />
     </div>
   )

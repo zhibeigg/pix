@@ -19,11 +19,24 @@ from pix_web.config import WebSettings
 from pix_web.credits import ensure_credit_account
 from pix_web.external_api_keys import ExternalApiPrincipal, require_external_scope
 from pix_web.file_ownership import resolve_owned_input_path, run_job_id_for_file
-from pix_web.jobs import create_job
+from pix_web.jobs import create_job, create_jobs_batch
 from pix_web.models import CharacterLibraryItem, GenerationJob
 from pix_web.queue import enqueue_jobs
 from pix_web.routers.settings import ImageModelsResponse, available_image_models
-from pix_web.schemas import CharacterCreateRequest, CharacterFromJobRequest, CharacterResponse, CharacterUpdateRequest, CreditBalanceResponse, ExternalMeResponse, JobCreateRequest, JobResponse, UploadResponse, public_job_response
+from pix_web.schemas import (
+    CharacterCreateRequest,
+    CharacterFromJobRequest,
+    CharacterResponse,
+    CharacterUpdateRequest,
+    CreditBalanceResponse,
+    ExternalMeResponse,
+    JobBatchCreateRequest,
+    JobBatchCreateResponse,
+    JobCreateRequest,
+    JobResponse,
+    UploadResponse,
+    public_job_response,
+)
 from pix_web.security import get_db, get_settings
 from pix_web.storage import file_url, store_uploaded_image
 from pix_web.system_settings import enforce_upload_limit, record_upload_event
@@ -334,6 +347,31 @@ def external_create_job(
     if job.status == "pending":
         enqueue_jobs(settings, [job.id])
     return public_job_response(job)
+
+
+@router.post(
+    "/jobs/batch", response_model=JobBatchCreateResponse, status_code=status.HTTP_202_ACCEPTED
+)
+def external_create_jobs_batch(
+    req: JobBatchCreateRequest,
+    principal: ExternalApiPrincipal = Depends(require_external_scope("jobs:create")),
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> JobBatchCreateResponse:
+    jobs, total_price, batch = create_jobs_batch(
+        db,
+        principal.user,
+        req.jobs,
+        batch_name=req.batch_name,
+        mode=req.mode,
+        settings=settings,
+    )
+    enqueue_jobs(settings, [job.id for job in jobs if job.status == "pending"])
+    return JobBatchCreateResponse(
+        jobs=[JobResponse.model_validate(public_job_response(job)) for job in jobs],
+        total_price_credits=total_price,
+        batch_id=batch.id if batch else None,
+    )
 
 
 @router.get("/jobs", response_model=list[JobResponse])

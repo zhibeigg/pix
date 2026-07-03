@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.116.14] - 2026-07-03
+
+### Added
+
+- 工作台「游戏素材直出」新增 1～8 张同参数生成控件，提交时复用批量任务能力创建多个独立 `asset` 任务，并在价格徽章展示总价 / 折后总价。
+- 外部 API 新增 `POST /external/v1/jobs/batch`，复用 `JobBatchCreateRequest` / `JobBatchCreateResponse` 与 `jobs:create` scope，支持外部程序一次创建多个独立任务。
+
+### Documentation
+
+- 更新 README、API 页面示例和设计文档，说明多张同参数素材直出的站内与外部 API 用法。
+
+### Tests
+
+- 补充外部 API 批量创建同参数素材任务的回归测试。
+
 ## [1.115.14] - 2026-07-03
 
 ### Added

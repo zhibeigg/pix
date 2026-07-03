@@ -264,6 +264,79 @@ curl -X POST "$PIX_API_BASE/jobs" \
 
 # style_profile is optional: project_name / palette / line_style / lighting / view_rule / avoid_elements are appended to the prompt as a consistent project style.
 # 202 returns a JobResponse; record the id and poll /jobs/{id}`), [text])
+  const assetBatchCurl = useMemo(() => text(String.raw`# 多张同参数素材直出：用 /jobs/batch 一次创建多个独立 asset 任务
+# 每个子任务必须有自己的 client_request_id；每张会独立排队、扣点、进入作品库和素材包
+curl -X POST "$PIX_API_BASE/jobs/batch" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "batch_name": "蓝色魔法剑抽卡 × 3",
+    "mode": "asset_multi",
+    "jobs": [
+      {
+        "job_type": "asset",
+        "client_request_id": "sword-draw-001",
+        "asset": { "name": "蓝色魔法剑", "asset_kind": "item_icon" },
+        "pixelize": { "output_size": [32, 32], "colors": 16, "remove_bg": true },
+        "image_model": "image2",
+        "skip_vl": true
+      },
+      {
+        "job_type": "asset",
+        "client_request_id": "sword-draw-002",
+        "asset": { "name": "蓝色魔法剑", "asset_kind": "item_icon" },
+        "pixelize": { "output_size": [32, 32], "colors": 16, "remove_bg": true },
+        "image_model": "image2",
+        "skip_vl": true
+      },
+      {
+        "job_type": "asset",
+        "client_request_id": "sword-draw-003",
+        "asset": { "name": "蓝色魔法剑", "asset_kind": "item_icon" },
+        "pixelize": { "output_size": [32, 32], "colors": 16, "remove_bg": true },
+        "image_model": "image2",
+        "skip_vl": true
+      }
+    ]
+  }'
+
+# 202 返回 JobBatchCreateResponse：jobs[] 是独立任务，total_price_credits 是本批次冻结点数，batch_id 可用于站内素材包批次下载。`, String.raw`# Multi-output asset generation: create multiple independent asset jobs with one /jobs/batch request
+# Each child job needs its own client_request_id; every output is queued, billed, saved to the gallery, and pack-downloadable independently
+curl -X POST "$PIX_API_BASE/jobs/batch" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "batch_name": "Blue magic sword draws × 3",
+    "mode": "asset_multi",
+    "jobs": [
+      {
+        "job_type": "asset",
+        "client_request_id": "sword-draw-001",
+        "asset": { "name": "Blue magic sword", "asset_kind": "item_icon" },
+        "pixelize": { "output_size": [32, 32], "colors": 16, "remove_bg": true },
+        "image_model": "image2",
+        "skip_vl": true
+      },
+      {
+        "job_type": "asset",
+        "client_request_id": "sword-draw-002",
+        "asset": { "name": "Blue magic sword", "asset_kind": "item_icon" },
+        "pixelize": { "output_size": [32, 32], "colors": 16, "remove_bg": true },
+        "image_model": "image2",
+        "skip_vl": true
+      },
+      {
+        "job_type": "asset",
+        "client_request_id": "sword-draw-003",
+        "asset": { "name": "Blue magic sword", "asset_kind": "item_icon" },
+        "pixelize": { "output_size": [32, 32], "colors": 16, "remove_bg": true },
+        "image_model": "image2",
+        "skip_vl": true
+      }
+    ]
+  }'
+
+# 202 returns JobBatchCreateResponse: jobs[] are independent jobs, total_price_credits is the reserved total, and batch_id can be used by in-app pack batch downloads.`), [text])
   const imageCurl = useMemo(() => text(String.raw`# 图生图 / 参考图重绘：先上传图片，再把返回 path 放到 input_image_path
 # asset.asset_kind 可选 item_icon / ui_component / tile_texture / game_logo / dual_grid / character，决定按哪种素材规则重绘（默认 item_icon）
 curl -X POST "$PIX_API_BASE/jobs" \
@@ -671,11 +744,12 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
         <CodeBlock title={text('3. 上传参考图（可选）', '3. Upload a reference image (optional)')} description={text('上传返回的 path 可以写入 input_image_path；角色库只接收“素材直出 → 角色”的成功任务产物。', 'The returned path can be used as input_image_path; the character library only accepts successful asset → character job outputs.')} code={uploadCurl} copied={copied} onCopy={(code) => void copy(code, 'upload')} copyKey="upload" />
         <CodeBlock title={text('4. 角色库读写', '4. Read/write character library')} description={text('角色库需要 characters:read / characters:write；只有像素直出的角色类型会进入角色库，角色 image_path 可写入序列帧 sprite.reference_image_path。', 'Character library calls require characters:read / characters:write; only pixel-direct character jobs enter the library, and their image_path can be used as sprite.reference_image_path for sprite jobs.')} code={characterCurl} copied={copied} onCopy={(code) => void copy(code, 'characters')} copyKey="characters" />
         <CodeBlock title={text('5. 创建素材直出任务', '5. Create an asset job')} description={text('适合游戏图标、道具、UI 小物件等单图素材；创建成功返回 202 和任务 id。', 'Best for icons, props, UI items, and other single-image assets; returns 202 with a job id.')} code={assetCurl} copied={copied} onCopy={(code) => void copy(code, 'asset')} copyKey="asset" />
-        <CodeBlock title={text('6. 创建图生图 / 参考图重绘任务', '6. Create an image-to-image job')} description={text('先上传图片，再把上传结果 path 放到 input_image_path。', 'Upload an image first, then pass the returned path as input_image_path.')} code={imageCurl} copied={copied} onCopy={(code) => void copy(code, 'image')} copyKey="image" />
-        <CodeBlock title={text('7. 创建本地去背景任务', '7. Create a local background-removal job')} description={text('先上传图片，再选择 pixel_bg（像素）或 color_to_alpha（高清）算法；不调用 AI。', 'Upload an image first, then choose pixel_bg (pixel) or color_to_alpha (HD); no AI call is made.')} code={bgRemoveCurl} copied={copied} onCopy={(code) => void copy(code, 'bg-remove')} copyKey="bg-remove" />
-        <CodeBlock title={text('8. 创建序列帧任务', '8. Create a sprite-sheet job')} description={text('用于角色行走、攻击、待机等动画；rows × cols 决定动作行和帧数，可传入角色库 image_path 作为 reference_image_path。', 'Use this for walk, attack, idle, and other animations; rows × cols controls action rows and frame count. You can pass a character image_path as reference_image_path.')} code={spriteCurl} copied={copied} onCopy={(code) => void copy(code, 'sprite')} copyKey="sprite" />
-        <CodeBlock title={text('9. 轮询任务和分页列表', '9. Poll jobs and list pages')} description={text('任务状态通常为 pending / running / waiting / succeeded / failed；video_bridge 在 Ark 视频生成期间会显示 waiting，可重试的 Ark 上游/网络/超时错误也会保持 waiting 后续重试。', 'Job status is usually pending / running / waiting / succeeded / failed; video_bridge shows waiting while Ark renders, and retryable Ark upstream/network/timeout errors stay waiting for later retries.')} code={pollCurl} copied={copied} onCopy={(code) => void copy(code, 'poll')} copyKey="poll" />
-        <CodeBlock title={text('10. 下载输出文件', '10. Download output files')} description={text('下载接口需要 files:read 权限；文件不存在或任务未完成时会返回 404 / 409。', 'Download endpoints require files:read; unavailable files or unfinished jobs return 404 / 409.')} code={downloadCurl} copied={copied} onCopy={(code) => void copy(code, 'download')} copyKey="download" />
+        <CodeBlock title={text('6. 多张同参数素材直出', '6. Multi-output asset generation')} description={text('用 /jobs/batch 一次创建多个同参数 asset 任务；每张独立扣点、排队、入作品库。', 'Use /jobs/batch to create multiple same-parameter asset jobs; every output is billed, queued, and saved independently.')} code={assetBatchCurl} copied={copied} onCopy={(code) => void copy(code, 'asset-batch')} copyKey="asset-batch" />
+        <CodeBlock title={text('7. 创建图生图 / 参考图重绘任务', '7. Create an image-to-image job')} description={text('先上传图片，再把上传结果 path 放到 input_image_path。', 'Upload an image first, then pass the returned path as input_image_path.')} code={imageCurl} copied={copied} onCopy={(code) => void copy(code, 'image')} copyKey="image" />
+        <CodeBlock title={text('8. 创建本地去背景任务', '8. Create a local background-removal job')} description={text('先上传图片，再选择 pixel_bg（像素）或 color_to_alpha（高清）算法；不调用 AI。', 'Upload an image first, then choose pixel_bg (pixel) or color_to_alpha (HD); no AI call is made.')} code={bgRemoveCurl} copied={copied} onCopy={(code) => void copy(code, 'bg-remove')} copyKey="bg-remove" />
+        <CodeBlock title={text('9. 创建序列帧任务', '9. Create a sprite-sheet job')} description={text('用于角色行走、攻击、待机等动画；rows × cols 决定动作行和帧数，可传入角色库 image_path 作为 reference_image_path。', 'Use this for walk, attack, idle, and other animations; rows × cols controls action rows and frame count. You can pass a character image_path as reference_image_path.')} code={spriteCurl} copied={copied} onCopy={(code) => void copy(code, 'sprite')} copyKey="sprite" />
+        <CodeBlock title={text('10. 轮询任务和分页列表', '10. Poll jobs and list pages')} description={text('任务状态通常为 pending / running / waiting / succeeded / failed；video_bridge 在 Ark 视频生成期间会显示 waiting，可重试的 Ark 上游/网络/超时错误也会保持 waiting 后续重试。', 'Job status is usually pending / running / waiting / succeeded / failed; video_bridge shows waiting while Ark renders, and retryable Ark upstream/network/timeout errors stay waiting for later retries.')} code={pollCurl} copied={copied} onCopy={(code) => void copy(code, 'poll')} copyKey="poll" />
+        <CodeBlock title={text('11. 下载输出文件', '11. Download output files')} description={text('下载接口需要 files:read 权限；文件不存在或任务未完成时会返回 404 / 409。', 'Download endpoints require files:read; unavailable files or unfinished jobs return 404 / 409.')} code={downloadCurl} copied={copied} onCopy={(code) => void copy(code, 'download')} copyKey="download" />
       </section>
     </div>
   )

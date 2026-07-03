@@ -139,6 +139,42 @@ class ExternalApiTests(unittest.TestCase):
         self.assertEqual(listed.status_code, 200, listed.text)
         self.assertEqual(listed.json()[0]["id"], jobs[0].id)
 
+    def test_external_job_batch_create_submits_independent_same_parameter_assets(self) -> None:
+        raw = self._create_key()
+        payloads = []
+        for index in range(3):
+            payload = self._asset_payload()
+            payload["client_request_id"] = f"asset-draw-{index}"
+            payloads.append(payload)
+
+        response = self.client.post(
+            "/external/v1/jobs/batch",
+            headers={"Authorization": f"Bearer {raw}"},
+            json={"jobs": payloads, "batch_name": "Blue sword draws", "mode": "asset_multi"},
+        )
+        self.assertEqual(response.status_code, 202, response.text)
+        body = response.json()
+        self.assertEqual(len(body["jobs"]), 3)
+        self.assertEqual(body["total_price_credits"], 60)
+        self.assertIsNotNone(body["batch_id"])
+
+        ids = [item["id"] for item in body["jobs"]]
+        self.assertEqual(len(set(ids)), 3)
+        jobs = list(
+            self.db.scalars(
+                select(GenerationJob).where(GenerationJob.id.in_(ids)).order_by(GenerationJob.id)
+            )
+        )
+        self.assertEqual(len(jobs), 3)
+        self.assertEqual(
+            [job.client_request_id for job in jobs],
+            ["asset-draw-0", "asset-draw-1", "asset-draw-2"],
+        )
+        self.assertTrue(all(job.job_type == "asset" for job in jobs))
+        self.assertTrue(all(job.params_json["asset"]["name"] == "蓝色魔法剑" for job in jobs))
+        account = ensure_credit_account(self.db, self.user)
+        self.assertEqual(account.reserved_credits, 60)
+
     def test_external_job_create_accepts_character_asset_kind(self) -> None:
         raw = self._create_key()
         payload = self._asset_payload()

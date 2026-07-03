@@ -24,11 +24,12 @@ import { SizeRetryControls, DEFAULT_SIZE_RETRY, type SizeRetryState } from './Si
 import { StyleProfileControls, compactStyleProfile } from './StyleProfileControls'
 
 type AssetPresetSeed = { revision: number; assetKind: AssetKindChoice; assetName?: string }
-type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; characters: CharacterItem[]; reuseJobSeed?: { revision: number; job: GenerationJob } | null; assetPresetSeed?: AssetPresetSeed | null; onSubmit: (payload: JobCreateRequest) => Promise<void> }
+type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; characters: CharacterItem[]; reuseJobSeed?: { revision: number; job: GenerationJob } | null; assetPresetSeed?: AssetPresetSeed | null; onSubmit: (payload: JobCreateRequest) => Promise<void>; onSubmitMany: (payloads: JobCreateRequest[], batchName?: string, mode?: string) => Promise<void> }
 
 type TextureKindOption = { value: TextureKind; zh: string; en: string }
 
 const MAX_GRID_AXIS = 8
+const MAX_ASSET_GENERATE_COUNT = 8
 const LOGO_SIZE_OPTIONS = ['64x32', '96x48', '128x64', '192x96', '256x128']
 const DUAL_GRID_SIZE_OPTIONS = ['16x16', '24x24', '32x32', '48x48', '64x64', '96x96']
 const UI_COMPONENT_IMAGE_SIZE = 'auto'
@@ -217,7 +218,7 @@ function styleProfileValue(value: unknown): StyleProfile {
   }
 }
 
-export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, characters, reuseJobSeed, assetPresetSeed, onSubmit }: Props) {
+export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, characters, reuseJobSeed, assetPresetSeed, onSubmit, onSubmitMany }: Props) {
   const { text } = useI18n()
   const [jobType, setJobType] = useState<WorkbenchJobType>('sprite_sheet')
   const [imageModel, setImageModel] = useState(imageModels.default)
@@ -231,6 +232,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const reusedPixelizeRef = useRef<Record<string, unknown> | null>(null)
   const [reuseModelMissing, setReuseModelMissing] = useState(false)
   const [assetName, setAssetName] = useState(() => text('冰霜之心', 'Frost Heart'))
+  const [assetGenerateCount, setAssetGenerateCount] = useState(1)
   const [assetKind, setAssetKind] = useState<AssetKindChoice>('item_icon')
   const [textureKind, setTextureKind] = useState<TextureKind>('auto')
   const [dualMaterialA, setDualMaterialA] = useState(() => text('草地', 'Grass'))
@@ -299,6 +301,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     const billingKey = hasAssetReference ? 'image_to_image' : activeJobType
     return pricing.find((item) => item.key === billingKey)?.price_credits ?? 0
   }, [pricing, activeJobType, hasAssetReference])
+  const safeAssetGenerateCount = Math.max(1, Math.min(MAX_ASSET_GENERATE_COUNT, Math.round(assetGenerateCount || 1)))
   const safeRows = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(rows || 1)))
   const safeCols = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(cols || 1)))
   const totalFrames = safeRows * safeCols
@@ -402,6 +405,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     setReuseModelMissing(false)
     setSizeRetry(DEFAULT_SIZE_RETRY)
     setJobType('asset')
+    setAssetGenerateCount(1)
     setAssetKind(assetPresetSeed.assetKind)
     applyAssetKindDefaults(assetPresetSeed.assetKind)
     if (assetPresetSeed.assetName !== undefined) setAssetName(assetPresetSeed.assetName)
@@ -427,6 +431,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     // 直接回填，不再依赖 reset 副作用 / skip-ref；缓存原 pixelize 供提交时合并界面未暴露的高级参数。
     reusedPixelizeRef.current = pixelize
     setJobType(nextJobType)
+    setAssetGenerateCount(1)
 
     const model = stringValue(params?.image_model)
     if (model && availableImageModels.some((item) => item.id === model)) { setImageModel(model); setReuseModelMissing(false) }
@@ -779,13 +784,21 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
   async function submit(event: FormEvent) {
     event.preventDefault()
+    const count = isAsset ? safeAssetGenerateCount : 1
+    if (count > 1) {
+      const payloads = Array.from({ length: count }, () => buildCurrentPayload(crypto.randomUUID())).filter((item): item is JobCreateRequest => item !== null)
+      if (payloads.length !== count) return
+      const subject = payloads[0]?.asset?.name || assetName.trim() || text('游戏素材', 'Game asset')
+      await onSubmitMany(payloads, `${subject} × ${count}`, 'asset_multi')
+      return
+    }
     const payload = buildCurrentPayload()
     if (!payload) return
     await onSubmit(payload)
   }
 
   return (
-      <PixPanel eyebrow={text('单张试做', 'Single test')} title={text('任务配方', 'Job recipe')} action={<EstimateBadge price={price} discount={discount} sprite={isSprite && !isSpriteVideoBridge ? { billingUnits, basePrice, totalFrames } : null} videoBridge={isSpriteVideoBridge ? { durationSeconds: videoBridgeDurationSeconds, totalFrames, fps: playbackFps } : null} />}>
+      <PixPanel eyebrow={text('单张试做', 'Single test')} title={text('任务配方', 'Job recipe')} action={<EstimateBadge price={price} discount={discount} repeat={isAsset && safeAssetGenerateCount > 1 ? { count: safeAssetGenerateCount } : null} sprite={isSprite && !isSpriteVideoBridge ? { billingUnits, basePrice, totalFrames } : null} videoBridge={isSpriteVideoBridge ? { durationSeconds: videoBridgeDurationSeconds, totalFrames, fps: playbackFps } : null} />}>
       <form className="grid gap-5" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
           <PixField label={text('模式', 'Mode')}>
@@ -884,6 +897,29 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
               <Textarea value={assetName} rows={3} maxLength={assetSubjectMaxLength} placeholder={assetNamePlaceholder} onChange={(e) => setAssetName(e.target.value)} />
             )}
           </PixField>
+          <PixField
+            label={text('生成数量', 'Generation count')}
+            hint={text(
+              `一次提交多张同参数作品，最多 ${MAX_ASSET_GENERATE_COUNT} 张；每张独立排队、独立入作品库。`,
+              `Submit multiple outputs with the same parameters, up to ${MAX_ASSET_GENERATE_COUNT}; each is queued and saved as a separate gallery item.`,
+            )}
+          >
+            <Input
+              type="number"
+              min={1}
+              max={MAX_ASSET_GENERATE_COUNT}
+              value={safeAssetGenerateCount}
+              onChange={(event) => setAssetGenerateCount(Math.max(1, Math.min(MAX_ASSET_GENERATE_COUNT, Math.round(Number(event.target.value) || 1))))}
+            />
+          </PixField>
+          {safeAssetGenerateCount > 1 && (
+            <Alert variant="info">
+              {text(
+                `将创建 ${safeAssetGenerateCount} 个同参数素材任务，预计按 ${safeAssetGenerateCount} 张分别扣点；不用重复点击抽卡。`,
+                `This will create ${safeAssetGenerateCount} asset jobs with identical parameters and bill them per output, so you do not need to click repeatedly.`,
+              )}
+            </Alert>
+          )}
           {assetSupportsReference && (
             <PixField label={text('参考图（可选）', 'Reference image (optional)')}>
               <div className="grid gap-3">
@@ -1142,7 +1178,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         {missingRowPrompts && <Alert variant="destructive">{text('多行序列帧需要为每一行填写动作描述。', 'Multi-row sequences require an action description for each row.')}</Alert>}
         <div className="flex flex-wrap items-center gap-3">
           {(isAsset || isSprite) && <PromptPreviewDialog token={token} buildPayload={() => buildCurrentPayload('prompt-preview')} disabled={submitBlocked} />}
-          <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (isDualGridAsset ? text('生成双瓦片图集', 'Generate dual-grid atlas') : isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : isLogoAsset && hasAssetReference ? text('参考图生成 Logo', 'Generate logo from reference') : isLogoAsset ? text('生成游戏 Logo', 'Generate game logo') : hasAssetReference ? text('参考图重绘', 'Redraw from reference') : text('生成游戏素材', 'Generate game asset')) : isLocalBgRemove ? text('去除背景', 'Remove background') : text('生成单张素材', 'Generate single asset')}</Button>
+          <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (safeAssetGenerateCount > 1 ? text(`生成 ${safeAssetGenerateCount} 张素材`, `Generate ${safeAssetGenerateCount} assets`) : isDualGridAsset ? text('生成双瓦片图集', 'Generate dual-grid atlas') : isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : isLogoAsset && hasAssetReference ? text('参考图生成 Logo', 'Generate logo from reference') : isLogoAsset ? text('生成游戏 Logo', 'Generate game logo') : hasAssetReference ? text('参考图重绘', 'Redraw from reference') : text('生成游戏素材', 'Generate game asset')) : isLocalBgRemove ? text('去除背景', 'Remove background') : text('生成单张素材', 'Generate single asset')}</Button>
         </div>
       </form>
     </PixPanel>
