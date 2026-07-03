@@ -258,6 +258,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyleChoice>('hard')
   const [bgRemovalAlgorithm, setBgRemovalAlgorithm] = useState<BgRemovalAlgorithmChoice>('pixel_bg')
   const [skipVl, setSkipVl] = useState(false)
+  // 角色三视图：默认生成正/侧/背横向三视图拼合图（画布横向 3 倍宽）；可关闭回落单张角色。
+  const [characterThreeView, setCharacterThreeView] = useState(true)
   const [sizeRetry, setSizeRetry] = useState<SizeRetryState>(DEFAULT_SIZE_RETRY)
   const [styleProfile, setStyleProfile] = useState<StyleProfile>({})
   // 序列帧专用状态（mosaic / 首尾帧视频补间）
@@ -316,6 +318,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const parsedPixelSize = parsePixelSize(pixelSize)
   const invalidSubAssetSize = hasInvalidSubAssetSize(parsedPixelSize)
   const subjectKind = assetKind === 'ui_component' ? 'single_ui' : (assetKind === 'tile_texture' || assetKind === 'dual_grid') ? 'tileable_pattern' : assetKind === 'game_logo' ? 'logo_mark' : assetKind === 'character' ? 'single_character' : 'single_prop'
+  // 仅角色类型带 character_views；三视图开启时画布横向 3 倍宽，单视图尺寸 = 用户所选像素尺寸。
+  const characterViewsValue: 'single' | 'three_view' = assetKind === 'character' && characterThreeView ? 'three_view' : 'single'
   const uiComponentImageSize = assetKind === 'ui_component' ? UI_COMPONENT_IMAGE_SIZE : undefined
   const assetSubjectMaxLength = promptLimits.asset_subject_max_chars
   const spriteSubjectMaxLength = promptLimits.sprite_subject_max_chars
@@ -372,6 +376,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     setReuseModelMissing(false)
     setSizeRetry(DEFAULT_SIZE_RETRY)
     setAssetKind(kind)
+    // 切到角色时默认开启三视图（与后端默认一致）；切走时重置为开启，下次进入角色即默认三视图。
+    setCharacterThreeView(true)
     applyAssetKindDefaults(kind)
   }
 
@@ -500,6 +506,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     setDualMaterialATextureKind(nextDualMaterialATextureKind)
     setDualMaterialBTextureKind(nextDualMaterialBTextureKind)
     setDualTransitionStyle(transitionStyleValue(asset?.transition_style))
+    // 角色三视图回填：缺省视为三视图（与后端默认一致），仅当原任务显式 single 时才关闭。
+    setCharacterThreeView(nextAssetKind === 'character' ? stringValue(asset?.character_views) !== 'single' : true)
     const assetSubject = stringValue(asset?.name) || job.prompt?.trim() || ''
     setAssetName(assetSubject)
     setPrompt(job.prompt?.trim() || assetSubject)
@@ -706,7 +714,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           ...styleProfileFields,
           pixelize: assetPixelize,
           grid: buildGridDesign(),
-          asset: { name: subject, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false },
+          asset: { name: subject, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, character_views: isCharacterAsset ? characterViewsValue : undefined, no_preview: false },
         }
       }
       return {
@@ -722,7 +730,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         grid: buildGridDesign(),
         asset: isDualGridAsset
           ? { name: subject, asset_kind: 'dual_grid', subject_kind: 'tileable_pattern', material_a: materialA, material_b: materialB, material_a_texture_kind: dualMaterialATextureKind, material_b_texture_kind: dualMaterialBTextureKind, transition_style: dualTransitionStyle, no_preview: false }
-          : { name: subject, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false },
+          : { name: subject, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, character_views: isCharacterAsset ? characterViewsValue : undefined, no_preview: false },
       }
     }
 
@@ -843,6 +851,15 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
             </Select>
           </PixField>
           {isCharacterAsset && <Alert variant="info">{text('角色素材完成后会自动保存到角色库，之后可直接作为序列帧参考来源。', 'Character assets are saved to the character library automatically, ready to reuse as sprite references later.')}</Alert>}
+          {isCharacterAsset && (
+            <label className="flex items-start gap-2 rounded-lg border border-border bg-background/45 p-3 text-sm">
+              <Checkbox checked={characterThreeView} onCheckedChange={(value) => setCharacterThreeView(Boolean(value))} />
+              <span className="grid gap-1">
+                <span className="font-medium">{text('生成三视图（正 / 侧 / 背）', 'Generate three views (front / side / back)')}</span>
+                <span className="text-xs text-muted-foreground">{text('开启后一次生成横向排列的正面、侧面、背面拼合图；画布自动横向 3 倍宽，下方“像素尺寸”表示单个视图的尺寸。关闭则生成单张角色。', 'Generates a front/side/back turnaround in one image; the canvas becomes 3× wider automatically and the pixel size below is per single view. Turn off for a single-view character.')}</span>
+              </span>
+            </label>
+          )}
           {isDualGridAsset && <Alert variant="info">{text('一次生成 4×4 / 16 张过渡瓦片图集：先生成材质 A、B，再按 dual-grid 角掩码合成。B 留空或填 transparent 会生成透明边缘。', 'Generates a 4×4 / 16-tile transition atlas: material A and B are generated first, then composed with dual-grid corner masks. Leave B empty or use transparent for transparent edges.')}</Alert>}
           {isTileAsset && (
             <PixField label={text('纹理类型', 'Texture type')} hint={text('选择常见游戏地图纹理类型；自动识别会按主题关键词推断，并把对应规则写入 Prompt。', 'Choose a common game-map texture type. Auto detect infers from keywords and injects matching prompt rules.')}>
@@ -1163,7 +1180,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           </PixField>
         )}
 
-        {!isLocalBgRemove && <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : isDualGridAsset ? text('单张瓦片尺寸', 'Single tile size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : isDualGridAsset ? DUAL_GRID_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || isDualGridAsset || (!isSprite && !removeBg)} sizeHidden={isLocalPixelize} colorDescription={isSpriteVideoBridge ? text('默认保留视频抽帧原色；该数值仅写入关键帧 / motion prompt，显式选择限色策略时才作为上限。', 'Video bridge preserves sampled source colors by default; this value is used in keyframe / motion prompts and only caps colors when an explicit palette strategy is chosen.') : undefined} />}
+        {!isLocalBgRemove && <PixelControls pixelLabel={isSprite ? text('单帧尺寸', 'Frame size') : isDualGridAsset ? text('单张瓦片尺寸', 'Single tile size') : (isCharacterAsset && characterThreeView) ? text('单视图尺寸', 'Single view size') : text('像素尺寸', 'Pixel size')} pixelSize={pixelSize} onPixelSizeChange={setPixelSize} colors={colors} onColorsChange={setColors} sizeOptions={isLogoAsset ? LOGO_SIZE_OPTIONS : isDualGridAsset ? DUAL_GRID_SIZE_OPTIONS : undefined} edgeStyle={edgeStyle} onEdgeStyleChange={setEdgeStyle} edgeStyleDisabled={isTileAsset || isDualGridAsset || (!isSprite && !removeBg)} sizeHidden={isLocalPixelize} colorDescription={isSpriteVideoBridge ? text('默认保留视频抽帧原色；该数值仅写入关键帧 / motion prompt，显式选择限色策略时才作为上限。', 'Video bridge preserves sampled source colors by default; this value is used in keyframe / motion prompts and only caps colors when an explicit palette strategy is chosen.') : undefined} />}
 
         {isAsset && !isDualGridAsset && !isTileAsset && <SizeRetryControls value={sizeRetry} onChange={setSizeRetry} basePrice={price} discount={discount} imageSize={pixelSize} />}
 

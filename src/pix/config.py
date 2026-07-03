@@ -225,7 +225,11 @@ class PixelizeConfig:
 
 @dataclass
 class AssetConfig:
-    """游戏素材直出默认参数。"""
+    """游戏素材直出默认参数。
+
+    注：角色三视图开关（asset.character_views，默认 three_view）是请求级字段，
+    不在此配置；三视图画布尺寸由前端所选单视图 pixel_size 横向 ×3 推导，无需 TOML 项。
+    """
 
     output_dir: str = "图片"
     pixel_size: tuple[int, int] = (16, 16)

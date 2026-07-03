@@ -80,6 +80,8 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
   const [removeBg, setRemoveBg] = useState(true)
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyleChoice>('outline')
   const [skipVl, setSkipVl] = useState(false)
+  // 角色三视图：默认生成正/侧/背横向三视图拼合图（画布横向 3 倍宽）；可关闭回落单张角色。
+  const [characterThreeView, setCharacterThreeView] = useState(true)
   const [sizeRetry, setSizeRetry] = useState<SizeRetryState>(DEFAULT_SIZE_RETRY)
   const [styleProfile, setStyleProfile] = useState<StyleProfile>({})
 
@@ -170,7 +172,7 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
           size_retry_max_credits: sizeRetry.maxCredits,
         }
       : {}
-    return { job_type: 'asset', prompt: name, input_image_path: null, client_request_id: clientRequestId, image_size: uiComponentImageSize, image_model: modelOverride, ...sizeRetryFields, ...styleProfileFields, pixelize, grid, asset: { name, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, no_preview: false } }
+    return { job_type: 'asset', prompt: name, input_image_path: null, client_request_id: clientRequestId, image_size: uiComponentImageSize, image_model: modelOverride, ...sizeRetryFields, ...styleProfileFields, pixelize, grid, asset: { name, asset_kind: assetKind, subject_kind: subjectKind, texture_kind: isTileAsset ? textureKind : undefined, character_views: isCharacterAsset ? (characterThreeView ? 'three_view' : 'single') : undefined, no_preview: false } }
   }
 
   function buildBatchPreviewPayload(): JobCreateRequest | null {
@@ -215,6 +217,15 @@ export function BatchGeneratePanel({ pricing, discount, balance, loading, token,
             <PixField label={t('batchForm.assetKindLabel')}><Select value={assetKind} onValueChange={(value) => setAssetKind(value as AssetKindChoice)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="item_icon">{t('batchForm.assetKinds.item_icon')}</SelectItem><SelectItem value="ui_component">{t('batchForm.assetKinds.ui_component')}</SelectItem><SelectItem value="tile_texture">{t('batchForm.assetKinds.tile_texture')}</SelectItem><SelectItem value="game_logo">{t('batchForm.assetKinds.game_logo')}</SelectItem><SelectItem value="character">{t('batchForm.assetKinds.character')}</SelectItem></SelectContent></Select></PixField>
             {isTileAsset && <PixField label={t('batchForm.textureKindLabel')} hint={t('batchForm.textureKindHint')}><Select value={textureKind} onValueChange={(value) => setTextureKind(value as TextureKind)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TEXTURE_KIND_VALUES.map((value) => <SelectItem key={value} value={value}>{t(`batchForm.textureKinds.${value}`)}</SelectItem>)}</SelectContent></Select></PixField>}
             {isCharacterAsset && <Alert variant="info">{t('batchForm.characterAutoSaveHint')}</Alert>}
+            {isCharacterAsset && (
+              <label className="flex items-start gap-2 rounded-lg border border-border bg-background/45 p-3 text-sm">
+                <Checkbox checked={characterThreeView} onCheckedChange={(value) => setCharacterThreeView(Boolean(value))} />
+                <span className="grid gap-1">
+                  <span className="font-medium">{t('batchForm.characterThreeViewLabel')}</span>
+                  <span className="text-xs text-muted-foreground">{t('batchForm.characterThreeViewHint')}</span>
+                </span>
+              </label>
+            )}
           </div>}
           <PixField label={assetSubjectsLabel} hint={text(`每行最多 ${assetSubjectMaxLength} 字。`, `Up to ${assetSubjectMaxLength} characters per line.`)}><Textarea value={prompts} rows={8} placeholder={assetSubjectPlaceholder} onChange={(e) => setPrompts(e.target.value)} /></PixField>
           <StyleProfileControls value={styleProfile} onChange={setStyleProfile} />

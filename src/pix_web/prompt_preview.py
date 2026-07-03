@@ -76,21 +76,31 @@ def _asset_prompt_preview(req: JobCreateRequest, cfg: AppConfig) -> PromptPrevie
         )
 
     subject = _asset_subject(req)
+    character_views = req.asset.character_views if asset_kind == "character" else "single"
+    # 角色三视图预览：output_size 横向 ×3，让预览里的画布尺寸 / 列宽措辞与实际生成一致。
+    prompt_size = (
+        (params.output_size[0] * 3, params.output_size[1])
+        if character_views == "three_view"
+        else params.output_size
+    )
     key_hex, _ = resolve_key_color(cfg.image_gen.green_screen_color, subject)
     prompt = build_asset_prompt(
         cfg.asset.prompt_template,
         subject,
-        size=params.output_size,
+        size=prompt_size,
         extra_prompt=req.asset.extra_prompt or "",
         asset_kind=asset_kind,
         subject_kind=req.asset.subject_kind,
         texture_kind=req.asset.texture_kind,
+        character_views=character_views,
         key_color=key_hex,
         key_tolerance=cfg.image_gen.green_screen_tolerance,
         max_colors=params.colors,
         style_profile=style_profile,
     )
-    reference_appendix = _asset_reference_prompt_appendix(asset_kind, bool(req.input_image_path))
+    reference_appendix = _asset_reference_prompt_appendix(
+        asset_kind, bool(req.input_image_path), character_views=character_views
+    )
     if reference_appendix:
         prompt = f"{prompt} {reference_appendix}"
     if req.input_image_path:

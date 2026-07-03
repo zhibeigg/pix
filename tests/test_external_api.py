@@ -197,6 +197,12 @@ class ExternalApiTests(unittest.TestCase):
     def test_character_asset_schema_normalizes_and_auto_saves_library_item(self) -> None:
         params = AssetParamsSchema(asset_kind="character", subject_kind="single_prop")
         self.assertEqual(params.subject_kind, "single_character")
+        # 角色默认生成三视图；非角色类型即便显式传入也会被归一回落到 single。
+        self.assertEqual(params.character_views, "three_view")
+        self.assertEqual(
+            AssetParamsSchema(asset_kind="item_icon", character_views="three_view").character_views,
+            "single",
+        )
 
         job = GenerationJob(
             user_id=self.user.id,

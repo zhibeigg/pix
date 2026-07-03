@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.117.0] - 2026-07-04
+
+### Added
+
+- 角色素材（`asset_kind=character`）默认生成正 / 侧 / 背三视图横向拼合图（turnaround sheet）：同一角色、同比例、同配色，仅朝向变化，整张仍为透明背景 / 纯色抠色 / 像素网格对齐。新增请求字段 `asset.character_views`（默认 `three_view`，可置 `single` 回落单张角色）。
+- 画布自动横向 3 倍宽：前端「像素尺寸」在三视图下表示单视图尺寸，后端把画布宽度 ×3 得到拼合成品（如 `64x64 → 192x64`），并强制关闭自动裁剪 / 方形裁剪以保留三列；`size_retry` 目标尺寸同步对齐。
+- 生产工作台单张 / 批量面板新增「生成三视图（正 / 侧 / 背）」开关，参数快照与复用透传 `character_views`；外部 API 文档补充该字段与画布换算说明。
+
+### Documentation
+
+- 更新 README 角色素材章节、`config.example.toml` 素材类型注释、语言文件与外部 API 示例；新增设计文档 `docs/superpowers/specs/2026-07-04-character-three-view-design.md`。
+
+### Tests
+
+- 新增 `tests/test_character_three_view.py`（schema 默认 / 归一、尺寸 ×3、prompt 分支）；扩充 `test_asset_prompt_background.py` 三视图 prompt 断言；`test_external_api.py` 补 `character_views` 默认值与非角色归一断言。
+
 ## [1.116.15] - 2026-07-04
 
 ### Fixed

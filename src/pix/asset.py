@@ -542,6 +542,58 @@ def _canonical_tile_prompt(
     )
 
 
+def _canonical_character_three_view_prompt(
+    name: str,
+    width: int,
+    height: int,
+    key_tolerance: int,
+    max_colors: int,
+    asset_kind_label: str,
+    subject_kind_label: str,
+    profile: AssetPromptProfile,
+) -> str:
+    """角色三视图专用 prompt：一张横向排列的正/侧/背三视图拼合图（turnaround sheet）。
+
+    `width` 传入时已是单视图宽度的 3 倍（画布横向 3 倍宽），单视图宽度 = width // 3。
+    强调同一角色、姿势/比例/调色板一致、三视图等宽排列、视图间留纯背景间隔，
+    并保留纯色背景 chroma-key 与像素网格约束，使成品仍可整体抠色、居中复用。
+    """
+    view_width = max(1, width // 3)
+    return (
+        f"Convert the input image or described subject into a TRUE pixel-art game {asset_kind_label} "
+        f"designed for {profile.usage_label}, not a painted digital illustration. "
+        f"Subject: {name}. Subject kind: {subject_kind_label}. "
+        "Draw a CHARACTER TURNAROUND SHEET that shows the EXACT SAME single character from three views "
+        "arranged strictly left to right in this order: FRONT view (facing the viewer), SIDE view (facing "
+        "left in profile), and BACK view (facing away). "
+        f"Canvas size must be exactly {width}x{height} pixels, split into three equal-width columns of "
+        f"{view_width}x{height} pixels each; place exactly one view centered inside each column with clear "
+        "empty background pixels around it. "
+        "All three views must be the SAME character at the SAME scale, height, proportions, costume, and color "
+        "palette — only the facing direction changes. Keep the feet/baseline aligned across all three views. "
+        "Each pixel is one square cell of a conceptual pixel grid — do NOT draw any visible grid lines, "
+        "gridlines, graph-paper or checkerboard pattern. Use large, chunky readable pixels, limited colors, "
+        "and a simple silhouette per view. "
+        f"Use no more than {max_colors} visible subject colors total across all three views; background color "
+        "does not count. For human characters, make sure the face is flat and no shadow. "
+        "Fill the ENTIRE canvas edge to edge with one single flat uniform background color for chroma-key "
+        "removal, including the gaps between the three views: the background must be perfectly solid with NO "
+        "gradient, NO vignette, NO lighting or shading, NO drawn grid lines or graph paper, and NO border or "
+        "frame; it must reach all four image edges. "
+        "First decide the character's full color palette, THEN choose the background color: pick a single flat "
+        "color that MAXIMIZES the MINIMUM RGB Euclidean distance to EVERY visible subject color (a maximin "
+        "choice), strongly preferring a saturated opposite or complementary hue that the character does not use "
+        "at all. This minimum distance must be far greater than the removal tolerance "
+        f"({key_tolerance} RGB Euclidean distance), targeting at least 150 RGB Euclidean distance, so the "
+        "background never blends with the character and keys out cleanly. "
+        "No anti-aliasing or smoothing — every pixel must be a perfect square aligned to the conceptual pixel grid. "
+        "The output image should be pixel-perfect, each cell only contains one color. "
+        "No text, no watermark, no frame, no labels, no view captions, no arrows, no extra poses, "
+        "no inventory icon pedestal, no UI chrome, no cropped head-only portrait, no additional characters "
+        "beyond the three required views of the same character."
+    )
+
+
 def _asset_kind_key(value: str) -> str:
     key = (value or "item_icon").strip()
     return key if key in ASSET_KIND_LABELS else "item_icon"
@@ -611,12 +663,17 @@ def build_asset_prompt(
     asset_kind: str = "item_icon",
     subject_kind: str = "single_prop",
     texture_kind: str = "auto",
+    character_views: str = "single",
     key_color: str = "#00FF00",
     key_tolerance: int = 48,
     max_colors: int = 16,
     style_profile: Mapping[str, object] | None = None,
 ) -> str:
-    """按游戏素材模板生成最终生图 prompt。"""
+    """按游戏素材模板生成最终生图 prompt。
+
+    当 asset_kind=character 且 character_views="three_view" 时，走角色三视图专用 prompt，
+    此时 `size` 的宽度应已是单视图宽度的 3 倍（由调用方在计算 output_size 时横向 ×3）。
+    """
     width, height = size
     size_label = f"{width}×{height}"
     asset_kind_key = _asset_kind_key(asset_kind)
@@ -646,6 +703,7 @@ def build_asset_prompt(
     }
     template_text = _legacy_template_to_type_aware((template or "").strip())
     is_tile = asset_kind_key == "tile_texture"
+    is_character_three_view = asset_kind_key == "character" and character_views == "three_view"
     if is_tile:
         # 平铺纹理不复用普通 prompt 模板，用专用模板（强调"铺满+无缝"，不需要 chroma-key 占位符）
         resolved_texture_kind = resolve_tile_texture_kind(
@@ -663,6 +721,18 @@ def build_asset_prompt(
             subject_kind_label,
             profile,
             texture_profile,
+        )
+    elif is_character_three_view:
+        # 角色三视图不复用通用/用户模板（会退化成单图措辞），走专用三视图 prompt。
+        prompt = _canonical_character_three_view_prompt(
+            name,
+            width,
+            height,
+            int(key_tolerance),
+            int(max_colors),
+            asset_kind_label,
+            subject_kind_label,
+            profile,
         )
     elif template_text:
         try:

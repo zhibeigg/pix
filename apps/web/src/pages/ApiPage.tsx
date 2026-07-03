@@ -195,7 +195,8 @@ curl -X POST "$PIX_API_BASE/jobs" \
 # material_a 必填；material_b 空串或 "transparent" 即透明模式。material_a_texture_kind / material_b_texture_kind 复用上面的 texture_kind 枚举（默认 auto）。
 
 # 角色示例：把 asset 改为
-# { "name": "蓝袍骑士", "asset_kind": "character", "subject_kind": "single_character" }
+# { "name": "蓝袍骑士", "asset_kind": "character", "subject_kind": "single_character", "character_views": "three_view" }
+# character_views 默认 three_view：一次生成正/侧/背横向三视图拼合图，画布自动横向 3 倍宽（pixelize.output_size 表示单个视图尺寸，成品宽度 = 单视图宽 × 3）；改为 "single" 则生成单张角色。
 # 角色素材任务成功后会自动保存到角色库，可直接作为序列帧参考来源。
 
 # 尺寸重试示例：在请求体加入以下字段，反复重新生成直到透明成品尺寸匹配 pixelize.output_size 或达到上限。
@@ -247,7 +248,8 @@ curl -X POST "$PIX_API_BASE/jobs" \
 # material_a is required; an empty material_b or "transparent" enables transparent mode. material_a_texture_kind / material_b_texture_kind reuse the texture_kind enum above (default auto).
 
 # Character example: change asset to
-# { "name": "Blue Cloak Knight", "asset_kind": "character", "subject_kind": "single_character" }
+# { "name": "Blue Cloak Knight", "asset_kind": "character", "subject_kind": "single_character", "character_views": "three_view" }
+# character_views defaults to three_view: generates a front/side/back turnaround in one image and the canvas becomes 3x wider automatically (pixelize.output_size is the per-view size, final width = single view width x 3). Use "single" for a single-view character.
 # Successful character asset jobs are saved to the character library automatically and can be used directly as sprite references.
 
 # Size-retry example: add the fields below to keep regenerating until the transparent final output matches pixelize.output_size or a cap is hit.

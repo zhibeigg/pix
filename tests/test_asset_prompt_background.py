@@ -41,6 +41,7 @@ class AssetPromptBackgroundTests(unittest.TestCase):
             self.assertIn(needle, prompt, f"canonical fallback missing: {needle}")
 
     def test_character_asset_prompt_is_reusable_single_character_reference(self) -> None:
+        # 默认 character_views="single"：保持单张角色参考语义不变。
         prompt = build_asset_prompt(
             "",
             "蓝袍骑士",
@@ -53,6 +54,43 @@ class AssetPromptBackgroundTests(unittest.TestCase):
         self.assertIn("single character", prompt)
         self.assertIn("full character readable", prompt)
         self.assertIn("no multiple characters", prompt)
+        # 单图模式不应出现三视图措辞。
+        self.assertNotIn("FRONT view", prompt)
+
+    def test_character_three_view_prompt_describes_front_side_back(self) -> None:
+        # 三视图模式：宽度已由调用方 ×3（192 = 64*3），prompt 需明确正/侧/背与列宽。
+        prompt = build_asset_prompt(
+            "",
+            "蓝袍骑士",
+            size=(192, 64),
+            asset_kind="character",
+            subject_kind="single_character",
+            character_views="three_view",
+            max_colors=32,
+        )
+        self.assertIn("FRONT view", prompt)
+        self.assertIn("SIDE view", prompt)
+        self.assertIn("BACK view", prompt)
+        self.assertIn("TURNAROUND SHEET", prompt)
+        self.assertIn("192x64", prompt)
+        self.assertIn("64x64 pixels each", prompt)
+        # 三视图仍需保留纯色背景 chroma-key 与像素网格约束。
+        for needle in ANTI_PATTERNS:
+            self.assertIn(needle, prompt, f"three-view prompt missing: {needle}")
+
+    def test_three_view_flag_ignored_for_non_character_asset(self) -> None:
+        # 非角色类型即便误带 character_views，也不应触发三视图 prompt。
+        prompt = build_asset_prompt(
+            "",
+            "蓝色魔法剑",
+            size=(64, 64),
+            asset_kind="item_icon",
+            subject_kind="single_prop",
+            character_views="three_view",
+            max_colors=8,
+        )
+        self.assertNotIn("FRONT view", prompt)
+        self.assertNotIn("TURNAROUND SHEET", prompt)
 
 
 if __name__ == "__main__":

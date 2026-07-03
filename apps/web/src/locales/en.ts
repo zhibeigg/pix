@@ -332,6 +332,8 @@ export const en = {
     characterSubjects: 'Character briefs (one per line)',
     characterSubjectPlaceholder: 'Blue-cloak knight\nRed-haired mage\nPixel merchant NPC',
     characterAutoSaveHint: 'Character assets are saved to the character library automatically, ready to reuse as sprite references later.',
+    characterThreeViewLabel: 'Generate three views (front / side / back)',
+    characterThreeViewHint: 'Generates a front/side/back turnaround per character line in one image; the canvas becomes 3× wider automatically and the pixel size below is per single view. Turn off for a single-view character.',
     assetDescriptions: 'Asset descriptions (one per line)',
     sharedPrompt: 'Shared tuning prompt',
     uploading: 'Uploading…',

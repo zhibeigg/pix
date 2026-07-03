@@ -185,13 +185,40 @@ def pixelize_params_from_json(data: dict[str, Any]) -> PixelizeParams:
     )
 
 
+CHARACTER_THREE_VIEW_COLUMNS = 3
+
+
+def _character_views_mode(data: dict[str, Any]) -> str:
+    """读取角色视图模式；仅 asset_kind=character 时 three_view 生效，否则回落 single。"""
+    asset = data.get("asset") or {}
+    if not isinstance(asset, dict):
+        return "single"
+    if str(asset.get("asset_kind") or "") != "character":
+        return "single"
+    return "three_view" if str(asset.get("character_views") or "three_view") == "three_view" else "single"
+
+
+def _apply_character_three_view_size(
+    output_size: tuple[int, int], data: dict[str, Any]
+) -> tuple[int, int]:
+    """角色三视图：把单视图宽度横向扩成 3 倍，得到拼合画布尺寸（高度不变）。"""
+    if _character_views_mode(data) != "three_view":
+        return output_size
+    return (int(output_size[0]) * CHARACTER_THREE_VIEW_COLUMNS, int(output_size[1]))
+
+
 def asset_pixelize_params_from_json(data: dict[str, Any], cfg: AppConfig) -> PixelizeParams:
-    output_size = _value_from_json(data, "output_size", cfg.asset.pixel_size)
+    raw_output_size = _value_from_json(data, "output_size", cfg.asset.pixel_size)
+    # 角色三视图画布横向 ×3（单视图尺寸 → 拼合尺寸）；size_retry 的 target 也据此对齐。
+    output_size = _apply_character_three_view_size(
+        (int(raw_output_size[0]), int(raw_output_size[1])), data
+    )
     asset = data.get("asset") or {}
     no_preview = bool(asset.get("no_preview", False)) if isinstance(asset, dict) else False
     preview_scale = (
         0 if no_preview else int(_value_from_json(data, "preview_scale", cfg.asset.preview_scale))
     )
+    three_view = _character_views_mode(data) == "three_view"
     return PixelizeParams(
         output_size=(int(output_size[0]), int(output_size[1])),
         colors=int(_value_from_json(data, "colors", cfg.asset.colors)),
@@ -209,9 +236,10 @@ def asset_pixelize_params_from_json(data: dict[str, Any], cfg: AppConfig) -> Pix
         bg_removal_algorithm=str(
             _value_from_json(data, "bg_removal_algorithm", cfg.asset.bg_removal_algorithm)
         ),
-        auto_crop=bool(_value_from_json(data, "auto_crop", cfg.asset.auto_crop)),
+        # 三视图必须保留三列并排布局：强制关闭自动裁剪 / 方形裁剪，避免把三列裁成单一主体。
+        auto_crop=False if three_view else bool(_value_from_json(data, "auto_crop", cfg.asset.auto_crop)),
         crop_padding=float(_value_from_json(data, "crop_padding", cfg.asset.crop_padding)),
-        crop_square=bool(_value_from_json(data, "crop_square", cfg.asset.crop_square)),
+        crop_square=False if three_view else bool(_value_from_json(data, "crop_square", cfg.asset.crop_square)),
         palette_mode=str(_value_from_json(data, "palette_mode", cfg.asset.palette_mode)),  # type: ignore[arg-type]
         generated_preprocess_method=str(
             _value_from_json(
@@ -285,7 +313,9 @@ def _asset_skip_vl(data: dict[str, Any], cfg: AppConfig) -> bool:
     return bool(cfg.asset.skip_vl)
 
 
-def _asset_reference_prompt_appendix(asset_kind: str, has_reference: bool) -> str:
+def _asset_reference_prompt_appendix(
+    asset_kind: str, has_reference: bool, *, character_views: str = "single"
+) -> str:
     if not has_reference:
         return ""
     if asset_kind == "tile_texture":
@@ -304,6 +334,14 @@ def _asset_reference_prompt_appendix(asset_kind: str, has_reference: bool) -> st
             "the exact title, acronym, or brand text from the Subject; do not copy or invent any extra words from the reference."
         )
     if asset_kind == "character":
+        if character_views == "three_view":
+            return (
+                "Use the provided reference image as character inspiration: preserve the character identity, silhouette, "
+                "costume language, palette mood, and major body proportions where useful, then redraw it as a clean TRUE "
+                "pixel-art three-view turnaround (front, side, back) of that SAME character. Keep identity, scale, costume, "
+                "and palette identical across all three views; only the facing direction changes. "
+                "Do not turn the result into an item icon, UI component, logo, or an unrelated multi-character scene."
+            )
         return (
             "Use the provided reference image as character inspiration: preserve the character identity, silhouette, "
             "costume language, palette mood, and major body proportions where useful, then redraw it as a clean TRUE pixel-art "
@@ -375,6 +413,7 @@ def image_to_image_pipeline_input_from_job(
         return base
 
     params = base.pixelize_params
+    data = job.params_json or {}
     # 复用原作品的素材类型：参考图微调本质是“按原素材规则重绘”，写死 item_icon 会让
     # UI 组件 / Logo / 平铺纹理 都被当成物品图标。build_asset_prompt 内部会校验并纠正
     # 非法 asset_kind / 不匹配的 subject_kind，缺省时回退物品图标。
@@ -382,6 +421,13 @@ def image_to_image_pipeline_input_from_job(
     asset_kind = str(asset.get("asset_kind") or "item_icon")
     subject_kind = str(asset.get("subject_kind") or "single_prop")
     texture_kind = str(asset.get("texture_kind") or "auto")
+    character_views = _character_views_mode(data)
+    # 角色三视图微调：output_size 同样需要横向 ×3，并写回 base 的 pixelize_params，
+    # 保证 prompt 列宽推导与最终成品尺寸 / size_retry target 一致。
+    prompt_size = _apply_character_three_view_size(params.output_size, data)
+    if prompt_size != params.output_size:
+        params = replace(params, output_size=prompt_size)
+        base = replace(base, pixelize_params=params)
     key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, user_prompt)
     prompt = build_asset_prompt(
         cfg.asset.prompt_template,
@@ -390,12 +436,15 @@ def image_to_image_pipeline_input_from_job(
         asset_kind=asset_kind,
         subject_kind=subject_kind,
         texture_kind=texture_kind,
+        character_views=character_views,
         key_color=key_hex,
         key_tolerance=cfg.image_gen.green_screen_tolerance,
         max_colors=params.colors,
         style_profile=_style_profile_data(job),
     )
-    reference_appendix = _asset_reference_prompt_appendix(asset_kind, base.image_path is not None)
+    reference_appendix = _asset_reference_prompt_appendix(
+        asset_kind, base.image_path is not None, character_views=character_views
+    )
     if reference_appendix:
         prompt = f"{prompt} {reference_appendix}"
     prompt = f"{prompt} {RAW_REFERENCE_IMAGE_ALIAS}"
@@ -415,21 +464,27 @@ def asset_pipeline_input_from_job(
     key_hex, _key_rgb = resolve_key_color(cfg.image_gen.green_screen_color, name)
     asset_kind = str(asset.get("asset_kind") or "item_icon")
     texture_kind = str(asset.get("texture_kind") or "auto")
+    character_views = _character_views_mode(data)
     image_path = Path(job.input_image_path) if job.input_image_path else None
     prompt = build_asset_prompt(
         cfg.asset.prompt_template,
         name,
+        # params.output_size 已在 asset_pixelize_params_from_json 里对三视图做过 ×3；
+        # build_asset_prompt 内部据此推导单视图列宽。
         size=params.output_size,
         extra_prompt=str(asset.get("extra_prompt") or ""),
         asset_kind=asset_kind,
         subject_kind=str(asset.get("subject_kind") or "single_prop"),
         texture_kind=texture_kind,
+        character_views=character_views,
         key_color=key_hex,
         key_tolerance=cfg.image_gen.green_screen_tolerance,
         max_colors=params.colors,
         style_profile=_style_profile_data(job),
     )
-    reference_appendix = _asset_reference_prompt_appendix(asset_kind, image_path is not None)
+    reference_appendix = _asset_reference_prompt_appendix(
+        asset_kind, image_path is not None, character_views=character_views
+    )
     if reference_appendix:
         prompt = f"{prompt} {reference_appendix}"
     image_quality = (
@@ -557,6 +612,7 @@ def _write_asset_meta(result: PipelineResult, job: GenerationJob, inputs: Pipeli
         "extra_prompt": extra_prompt,
         "asset_kind": asset_kind,
         "subject_kind": str(asset.get("subject_kind") or "single_prop"),
+        "character_views": _character_views_mode(job.params_json or {}) if asset_kind == "character" else None,
         "texture_kind": requested_texture_kind if asset_kind == "tile_texture" else None,
         "requested_texture_kind": requested_texture_kind if asset_kind == "tile_texture" else None,
         "resolved_texture_kind": resolved_texture_kind,

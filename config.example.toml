@@ -251,7 +251,8 @@ palette_mode    = "auto"
 subject_max_chars = 160
 extra_prompt_max_chars = 3000
 # 默认模板只需要用户填写 Subject 后的主体内容；Web 可通过素材类型/主体类型选择入口参数。
-# asset_kind 支持 item_icon（物品图标）、ui_component（UI 组件）、tile_texture（平铺纹理）、game_logo（游戏 Logo）和 dual_grid（双瓦片）。
+# asset_kind 支持 item_icon（物品图标）、ui_component（UI 组件）、tile_texture（平铺纹理）、game_logo（游戏 Logo）、dual_grid（双瓦片）和 character（角色）。
+# 角色（character）默认走三视图：asset.character_views 缺省为 three_view，一次生成正/侧/背横向拼合图，画布自动横向 3 倍宽（pixelize.output_size 表示单个视图尺寸，成品宽 = 单视图宽 × 3，并强制关闭自动裁剪 / 方形裁剪以保留三列）；置为 single 则生成单张角色。character_views 仅对角色类型生效，其它类型会被后端归一回落到 single。
 # 平铺纹理会跳过下面的普通素材模板，改用专用 tile prompt；asset.texture_kind 可选 auto/generic_texture/terrain_ground/path_floor/wall_surface/wood_planks/water_liquid/foliage_canopy/roof_tile/metal_panel/fabric_carpet，用于注入常见像素游戏纹理规则。
 # 双瓦片（dual_grid）复用 tile prompt 生成两张无缝材质 A/B，再确定性合成 4×4 过渡瓦片图集，无新增 TOML 配置：material_a/material_b/material_a_texture_kind/material_b_texture_kind/transition_style 均为请求字段，outline 描边色按材质 A 最暗可见色自动计算。
 # UI 组件直出会使用 image_size="auto" 生图源尺寸，目标像素尺寸仍由 pixel_size / 请求 output_size 控制。

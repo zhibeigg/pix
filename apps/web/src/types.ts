@@ -259,6 +259,8 @@ export type AssetParams = {
   material_a_texture_kind?: TextureKind
   material_b_texture_kind?: TextureKind
   transition_style?: DualGridTransitionStyle
+  // 角色视图：three_view = 正/侧/背横向三视图拼合图（画布横向 3 倍宽）；single = 单张角色。
+  character_views?: 'single' | 'three_view'
 }
 
 export type SequenceFrameAlignment = {

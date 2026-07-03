@@ -407,12 +407,12 @@ Convert the input image or described subject into a TRUE pixel-art game {asset_k
 
 ### 角色素材（character）
 
-素材类型选择「角色」时，仍走普通素材直出链路，但 prompt 会转为单个完整角色参考图：清晰轮廓、透明背景、避免多角色、避免头像裁切或物品图标化，方便后续作为序列帧参考来源。
+素材类型选择「角色」时走普通素材直出链路，但**默认生成正 / 侧 / 背三视图拼合图**（turnaround sheet）：同一角色的正面、侧面（左向侧身）、背面从左到右等宽排列，姿势 / 比例 / 服装 / 配色一致、脚底基线对齐，整张图仍是透明背景、纯色抠色、像素网格对齐，方便作为角色设定参考与后续序列帧的多朝向来源。可在生成面板关闭「生成三视图」开关回落到单张角色。
 
-- 前端默认尺寸为 `64x64`，颜色数默认 32 色，默认透明背景与硬边缘，适合生成可复用的完整角色参考图。
-- 支持可选参考图：后端会保留参考图里的角色身份、剪影、服装语言、配色气质和主要体型，再重绘为干净的 TRUE pixel-art 单角色参考图；带参考图时按图生图价格计费。
-- 任务成功后，worker 会自动创建角色库记录（`source_job_id` 指向源任务，`parameter_snapshot_json.source = "auto_asset_character"`），角色库页面与序列帧表单可立即复用。
-- 外部 API 可在 `asset` 中传 `{"asset_kind":"character","subject_kind":"single_character"}`；即使旧客户端误传其它 `subject_kind`，后端也会归一为 `single_character`。
+- **画布自动横向 3 倍宽**：前端「像素尺寸」在三视图下表示**单个视图尺寸**（默认 `64x64`），后端把画布宽度 ×3 得到拼合成品（如 `192x64`），并强制关闭自动裁剪 / 方形裁剪以保留三列布局；`size_retry` 的目标尺寸也据此对齐。默认 32 色、透明背景、硬边缘。
+- 支持可选参考图：三视图模式下后端会保留参考图里的角色身份、剪影、服装语言、配色气质和主要体型，再重绘为正 / 侧 / 背三视图（三视图身份 / 比例 / 配色一致，仅朝向变化）；单张模式则重绘为单角色参考图。带参考图时按图生图价格计费。
+- 任务成功后，worker 会自动创建角色库记录（`source_job_id` 指向源任务，`parameter_snapshot_json.source = "auto_asset_character"`），角色库页面与序列帧表单可立即复用整张三视图。
+- 外部 API 可在 `asset` 中传 `{"asset_kind":"character","subject_kind":"single_character","character_views":"three_view"}`；`character_views` 缺省即 `three_view`，置为 `single` 生成单张角色。即使旧客户端误传其它 `subject_kind`，后端也会归一为 `single_character`；`character_views` 仅对角色类型生效，其它类型会被归一回落到 `single`。
 
 ### 尺寸重试（size-match retry）
 

@@ -332,6 +332,8 @@ export const zhCN = {
     characterSubjects: '角色描述（每行一个）',
     characterSubjectPlaceholder: '蓝袍骑士\n红发法师\n像素风商人 NPC',
     characterAutoSaveHint: '角色素材完成后会自动保存到角色库，之后可直接作为序列帧参考来源。',
+    characterThreeViewLabel: '生成三视图（正 / 侧 / 背）',
+    characterThreeViewHint: '开启后每行角色一次生成横向排列的正面、侧面、背面拼合图；画布自动横向 3 倍宽，下方“像素尺寸”表示单个视图的尺寸。关闭则生成单张角色。',
     assetDescriptions: '素材描述（每行一个）',
     sharedPrompt: '共用微调描述',
     uploading: '上传中…',

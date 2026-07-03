@@ -546,6 +546,9 @@ class AssetParamsSchema(BaseModel):
     material_a_texture_kind: str = "auto"
     material_b_texture_kind: str = "auto"
     transition_style: Literal["rounded", "hard", "outline"] = "rounded"
+    # 角色视图：three_view = 正/侧/背横向三视图拼合图（画布自动横向 3 倍宽）；single = 单张角色。
+    # 默认三视图；仅在 asset_kind=character 时生效，其它类型会在归一时强制回落到 single。
+    character_views: Literal["single", "three_view"] = "three_view"
 
     @model_validator(mode="after")
     def _normalize_subject_kind(self) -> "AssetParamsSchema":
@@ -563,6 +566,9 @@ class AssetParamsSchema(BaseModel):
             object.__setattr__(self, "subject_kind", "single_character")
         elif self.asset_kind == "item_icon" and self.subject_kind not in {"single_prop"}:
             object.__setattr__(self, "subject_kind", "single_prop")
+        # character_views 只对角色类型有意义；其它素材类型一律回落到 single，避免误带三视图标志。
+        if self.asset_kind != "character" and self.character_views != "single":
+            object.__setattr__(self, "character_views", "single")
         return self
 
 

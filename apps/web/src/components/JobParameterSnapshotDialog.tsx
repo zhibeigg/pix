@@ -63,6 +63,7 @@ export function JobParameterSnapshotDialog({ job }: { job: GenerationJob; output
   const assetRows = job.job_type === 'asset' ? compactRows([
     [text('素材类型', 'Asset type'), assetKindLabel(asset?.asset_kind, text)],
     [text('主体类型', 'Subject type'), subjectKindLabel(asset?.subject_kind, text)],
+    [text('角色视图', 'Character views'), asset?.asset_kind === 'character' ? (asset?.character_views === 'single' ? text('单张', 'Single view') : text('三视图（正 / 侧 / 背）', 'Three views (front / side / back)')) : '—'],
     [text('纹理类型', 'Texture type'), asset?.asset_kind === 'tile_texture' ? textureKindLabel(asset?.texture_kind, text) : '—'],
     [text('材质 A', 'Material A'), asset?.asset_kind === 'dual_grid' ? stringOrDash(asset?.material_a) : '—'],
     [text('材质 B', 'Material B'), asset?.asset_kind === 'dual_grid' ? dualMaterialBLabel(asset?.material_b, text) : '—'],
@@ -201,6 +202,7 @@ function buildUserInputSnapshot(job: GenerationJob) {
       extra_prompt: asset?.extra_prompt,
       asset_kind: asset?.asset_kind,
       subject_kind: asset?.subject_kind,
+      character_views: asset?.character_views,
       texture_kind: asset?.texture_kind,
       material_a: asset?.material_a,
       material_b: asset?.material_b,
