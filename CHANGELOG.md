@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.111.12] - 2026-07-03
+
+### Added
+
+- 首页「序列帧」展示新增仙侠灵纹野猪 video_bridge_loop 真实产物预览，并将野猪与所有 video_bridge 示例排序到 mosaic 示例之前。
+
+### Changed
+
+- 重新按 `preserve_source_colors` 后处理首页 05–10 的 video_bridge 展示 PNG，静态预览不再沿用旧的 VL ramp 限色结果，保留原视频 / 图像配色。
+
+### Tests
+
+- 通过 `npm --prefix apps/web run build`、`npm --prefix apps/web test` 与 `py -3 -m pytest tests/test_sprite_video_bridge.py -q -rA` 验证主页示例配置、前端构建和 video_bridge 后处理回归。
+
 ## [1.111.11] - 2026-07-03
 
 ### Fixed
