@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.111.10] - 2026-07-03
+
+### Fixed
+
+- 修复首页「序列帧」实时预览在单帧尺寸大于预览格时不会缩小、导致 128/256 帧画面被裁切显示不全的问题；容器较小时改为等比缩小，容器足够大时仍按整数倍放大保持像素感。
+
 ## [1.111.9] - 2026-07-03
 
 ### Changed

@@ -894,8 +894,14 @@ const SpriteCard = memo(function SpriteCard({ example }: { example: HomepageSpri
     return () => window.clearInterval(interval)
   }, [playing, example.frameCount, example.fps])
 
-  // 单帧整数倍放大：以预览容器宽度为准，按整数倍缩放避免亚像素糊。
-  const previewScale = previewWidth > 0 ? Math.max(1, Math.floor(previewWidth / example.frameWidth)) : 1
+  // 单帧预览需要完整塞进固定方形容器：容器足够大时按整数倍放大避免亚像素糊，
+  // 容器小于帧尺寸时允许等比缩小，避免 128/256 帧在 120/168px 预览格里被裁掉。
+  const maxFrameSide = Math.max(1, example.frameWidth, example.frameHeight)
+  const previewScale = previewWidth > 0
+    ? previewWidth >= maxFrameSide
+      ? Math.max(1, Math.floor(previewWidth / maxFrameSide))
+      : previewWidth / maxFrameSide
+    : 1
   const renderedFrameW = example.frameWidth * previewScale
   const renderedFrameH = example.frameHeight * previewScale
   const renderedSheetW = example.sheetWidth * previewScale
