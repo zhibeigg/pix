@@ -3,9 +3,9 @@ import { Upload } from 'lucide-react'
 import { api } from '../api'
 import { signedFileUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
-import type { CharacterItem, GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, JobType, PricingDiscount, PricingRule, StyleProfile, TextureKind, VideoBridgeModel } from '../types'
+import type { CharacterItem, GenerationJob, ImageModelInfo, ImageModelsResponse, JobCreateRequest, PricingDiscount, PricingRule, StyleProfile, TextureKind, VideoBridgeModel } from '../types'
 import { buildAssetPixelize, buildGridDesign, buildPixelize, edgeStylePixelize, hasInvalidSubAssetSize, parsePixelSize, type BgRemovalAlgorithmChoice, type EdgeStyleChoice } from '../pixelize'
-import { assetKindDefaults, jobTypeDefaults, mergeReusedPixelize, parseAssetKind, resolveReusableAssetKind, reusableWorkbenchType, sizeRetryStateFromJob, type AssetKindChoice, type DualGridTransitionStyle } from '../lib/jobReuse'
+import { assetKindDefaults, jobTypeDefaults, mergeReusedPixelize, normalizeWorkbenchJobType, parseAssetKind, resolveReusableAssetKind, reusableWorkbenchType, sizeRetryStateFromJob, type AssetKindChoice, type DualGridTransitionStyle, type WorkbenchJobType } from '../lib/jobReuse'
 import { promptLimitsFromModels } from '../lib/promptLimits'
 import { DEFAULT_VIDEO_BRIDGE_MODEL, VIDEO_BRIDGE_MODELS, deriveVideoBridgeDurationSeconds, normalizeVideoBridgeModel, rawVideoBridgeDurationSeconds, videoBridgePriceCredits } from '../lib/pricing'
 import { Alert } from './ui/alert'
@@ -226,7 +226,7 @@ function styleProfileValue(value: unknown): StyleProfile {
 
 export function SingleGeneratePanel({ pricing, discount, loading, token, imageModels, characters, reuseJobSeed, assetPresetSeed, onSubmit }: Props) {
   const { text } = useI18n()
-  const [jobType, setJobType] = useState<JobType>('sprite_sheet')
+  const [jobType, setJobType] = useState<WorkbenchJobType>('sprite_sheet')
   const [imageModel, setImageModel] = useState(imageModels.default)
   const promptLimits = useMemo(() => promptLimitsFromModels(imageModels), [imageModels])
   const availableImageModels = useMemo(() => modelItems(imageModels), [imageModels])
@@ -284,12 +284,13 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [refUploading, setRefUploading] = useState(false)
   const [refUploadMessage, setRefUploadMessage] = useState('')
 
-  const isAsset = jobType === 'asset'
-  const isSprite = jobType === 'sprite_sheet'
+  const activeJobType = normalizeWorkbenchJobType(jobType)
+  const isAsset = activeJobType === 'asset'
+  const isSprite = activeJobType === 'sprite_sheet'
   const isSpriteVideoBridge = isSprite && spriteMode === 'video_bridge'
   const selectedRefCharacter = useMemo(() => characters.find((item) => item.id === selectedRefCharacterId) ?? null, [characters, selectedRefCharacterId])
-  const isLocalPixelize = jobType === 'local_pixelize'
-  const isLocalBgRemove = jobType === 'local_bg_remove'
+  const isLocalPixelize = activeJobType === 'local_pixelize'
+  const isLocalBgRemove = activeJobType === 'local_bg_remove'
   const showsImageModel = !isLocalPixelize && !isLocalBgRemove
   const isTileAsset = isAsset && assetKind === 'tile_texture'
   const isLogoAsset = isAsset && assetKind === 'game_logo'
@@ -301,9 +302,9 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const hasAssetReference = assetSupportsReference && !!assetRefPath
   const basePrice = useMemo(() => {
     // 素材直出 + 参考图 时，按图生图价位计费；Logo 会保留 asset job_type，但后端同样按 image_to_image 取价。
-    const billingKey = hasAssetReference ? 'image_to_image' : jobType
+    const billingKey = hasAssetReference ? 'image_to_image' : activeJobType
     return pricing.find((item) => item.key === billingKey)?.price_credits ?? 0
-  }, [pricing, jobType, hasAssetReference])
+  }, [pricing, activeJobType, hasAssetReference])
   const safeRows = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(rows || 1)))
   const safeCols = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(cols || 1)))
   const totalFrames = safeRows * safeCols
@@ -377,7 +378,8 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     applyAssetKindDefaults(kind)
   }
 
-  function selectJobType(next: JobType) {
+  function selectJobType(value: WorkbenchJobType) {
+    const next = normalizeWorkbenchJobType(value)
     reusedPixelizeRef.current = null
     setReuseModelMissing(false)
     setSizeRetry(DEFAULT_SIZE_RETRY)
@@ -765,7 +767,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     }
 
     return {
-      job_type: jobType,
+      job_type: activeJobType,
       prompt: null,
       input_image_path: inputImagePath,
       client_request_id: clientRequestId,
@@ -787,7 +789,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       <form className="grid gap-5" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
           <PixField label={text('模式', 'Mode')}>
-            <Select value={jobType} onValueChange={(value) => selectJobType(value as JobType)}>
+            <Select value={activeJobType} onValueChange={(value) => selectJobType(value as WorkbenchJobType)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="asset">{text('游戏素材直出', 'Game asset output')}</SelectItem>

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.114.13] - 2026-07-03
+
+### Fixed
+
+- 修复带参考图 / 图生图历史作品点击「复用」后，单张工作台模式下拉保留为不可选的 `image_to_image`、导致模式显示为空且素材直出区块不显示的问题；现在会统一归一为「游戏素材直出」。
+
+### Tests
+
+- 补充单张工作台模式归一化回归测试，覆盖 `image_to_image` / `text_to_image` / `repixelize` 到可选模式的映射。
+
 ## [1.111.12] - 2026-07-03
 
 ### Added

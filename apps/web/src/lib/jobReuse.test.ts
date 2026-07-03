@@ -6,6 +6,7 @@ import {
   isRawImageJob,
   jobTypeDefaults,
   mergeReusedPixelize,
+  normalizeWorkbenchJobType,
   parseAssetKind,
   resolveReusableAssetKind,
   reusableWorkbenchType,
@@ -175,6 +176,22 @@ describe('isRawImageJob', () => {
   })
 })
 
+describe('normalizeWorkbenchJobType', () => {
+  test('keeps selectable single-workbench modes', () => {
+    expect(normalizeWorkbenchJobType('asset')).toBe('asset')
+    expect(normalizeWorkbenchJobType('sprite_sheet')).toBe('sprite_sheet')
+    expect(normalizeWorkbenchJobType('local_pixelize')).toBe('local_pixelize')
+    expect(normalizeWorkbenchJobType('local_bg_remove')).toBe('local_bg_remove')
+  })
+
+  test('maps history/API-only modes to selectable workbench modes', () => {
+    expect(normalizeWorkbenchJobType('repixelize')).toBe('local_pixelize')
+    expect(normalizeWorkbenchJobType('image_to_image')).toBe('asset')
+    expect(normalizeWorkbenchJobType('text_to_image')).toBe('asset')
+    expect(normalizeWorkbenchJobType('')).toBe('asset')
+  })
+})
+
 describe('reusableWorkbenchType', () => {
   test('maps concrete workbench types', () => {
     expect(reusableWorkbenchType(makeJob({ job_type: 'sprite_sheet' }))).toBe('sprite_sheet')
@@ -182,6 +199,11 @@ describe('reusableWorkbenchType', () => {
     expect(reusableWorkbenchType(makeJob({ job_type: 'local_pixelize' }))).toBe('local_pixelize')
     expect(reusableWorkbenchType(makeJob({ job_type: 'repixelize' }))).toBe('local_pixelize')
     expect(reusableWorkbenchType(makeJob({ job_type: 'asset' }))).toBe('asset')
+  })
+
+  test('maps reference-image generation jobs back to asset output', () => {
+    expect(reusableWorkbenchType(makeJob({ job_type: 'image_to_image', input_image_path: 'uploads/ref.png' }))).toBe('asset')
+    expect(reusableWorkbenchType(makeJob({ job_type: 'text_to_image' }))).toBe('asset')
   })
 })
 

@@ -2,6 +2,7 @@ import type { GenerationJob, JobType, PixelizeParams, SizeRetryMode, TextureKind
 import type { BgRemovalAlgorithmChoice, EdgeStyleChoice } from '../pixelize'
 
 export type AssetKindChoice = 'item_icon' | 'ui_component' | 'tile_texture' | 'game_logo' | 'dual_grid' | 'character'
+export type WorkbenchJobType = Extract<JobType, 'asset' | 'sprite_sheet' | 'local_pixelize' | 'local_bg_remove'>
 export type DualGridTransitionStyle = 'rounded' | 'hard' | 'outline'
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -164,12 +165,17 @@ export function isRawImageJob(job: GenerationJob): boolean {
   return false
 }
 
-/** 把作品类型映射到单图工作台可复用的 job_type（原始生图由路由层另行分流，不会进这里）。 */
-export function reusableWorkbenchType(job: GenerationJob): JobType {
-  if (job.job_type === 'sprite_sheet') return 'sprite_sheet'
-  if (job.job_type === 'local_bg_remove') return 'local_bg_remove'
-  if (job.job_type === 'local_pixelize' || job.job_type === 'repixelize') return 'local_pixelize'
+/** 单张工作台下拉只支持 4 个模式；历史 / API 任务类型进入这里时必须归一化。 */
+export function normalizeWorkbenchJobType(value: unknown): WorkbenchJobType {
+  if (value === 'sprite_sheet') return 'sprite_sheet'
+  if (value === 'local_bg_remove') return 'local_bg_remove'
+  if (value === 'local_pixelize' || value === 'repixelize') return 'local_pixelize'
   return 'asset'
+}
+
+/** 把作品类型映射到单图工作台可复用的 job_type（原始生图由路由层另行分流，不会进这里）。 */
+export function reusableWorkbenchType(job: GenerationJob): WorkbenchJobType {
+  return normalizeWorkbenchJobType(job.job_type)
 }
 
 export type RawReuseState = {
