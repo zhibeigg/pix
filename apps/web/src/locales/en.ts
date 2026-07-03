@@ -442,11 +442,17 @@ export const en = {
     description: 'Daily temporary credits refresh every day, apply only to generation jobs, and are consumed before permanent credits. Unused quota expires at the next daily reset.',
     priority: 'Generation uses quota first',
     active: 'Active',
+    metalPass: 'Metal Pass',
     dailyUnit: 'credits/day',
     durationDays: '{{count}} days',
     expiresAt: 'Valid until {{date}}',
-    buyAlipay: 'Buy membership',
+    buyAlipay: 'Unlock now',
     orderLabel: 'Membership {{plan}}',
+    valueMultiplier: '~{{multiplier}}× value',
+    breakEven: 'Break-even in',
+    breakEvenDays: '{{count}} days',
+    monthlyValue: '30-day value',
+    profitHint: '{{count}} extra days of quota after break-even',
   },
   billing: {
     page: {

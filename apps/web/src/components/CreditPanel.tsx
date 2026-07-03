@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { Copy, Download, ExternalLink, RotateCcw, Search, Users } from 'lucide-react'
 import { useI18n } from '../i18n'
 import type { CreditBalance, CreditPackage, CreditTransaction, CustomRechargeOptions, MembershipPlan, PaymentCheckout, PaymentOrder } from '../types'
@@ -41,6 +41,66 @@ function money(cents: number, currency = 'cny') {
   return `${prefix}${(cents / 100).toFixed(2)}`
 }
 
+function membershipNominalValueCents(plan: MembershipPlan) {
+  // 永久点数定价：10 点 = ¥1，即 1 点 = 10 分。
+  return Math.max(0, plan.daily_quota * Math.max(1, plan.duration_days || 30) * 10)
+}
+
+function membershipBreakEvenDays(plan: MembershipPlan) {
+  const dailyPermanentValueCents = Math.max(1, plan.daily_quota * 10)
+  return Math.max(1, Math.ceil(plan.amount_cents / dailyPermanentValueCents))
+}
+
+type MembershipMetal = {
+  key: string
+  labelClass: string
+  frameClass: string
+  buttonClass: string
+  style: CSSProperties
+  glowClass: string
+}
+
+function membershipMetal(key: string): MembershipMetal {
+  const normalized = key.toLowerCase()
+  if (normalized.includes('silver')) {
+    return {
+      key: 'silver',
+      labelClass: 'text-slate-950',
+      frameClass: 'border-slate-200/80 text-slate-950',
+      buttonClass: 'bg-slate-950 text-white hover:bg-slate-800',
+      glowClass: 'bg-white/55',
+      style: {
+        background: 'radial-gradient(circle at 18% 10%, rgba(255,255,255,.95), transparent 24%), radial-gradient(circle at 78% 2%, rgba(255,255,255,.72), transparent 18%), linear-gradient(135deg, #f8fafc 0%, #cbd5e1 19%, #ffffff 33%, #94a3b8 50%, #e2e8f0 65%, #64748b 82%, #f8fafc 100%)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.9), inset 0 -24px 56px rgba(15,23,42,.18), 0 22px 60px -38px rgba(15,23,42,.68)',
+      },
+    }
+  }
+  if (normalized.includes('gold')) {
+    return {
+      key: 'gold',
+      labelClass: 'text-amber-950',
+      frameClass: 'border-amber-300/80 text-amber-950',
+      buttonClass: 'bg-amber-950 text-amber-50 hover:bg-amber-900',
+      glowClass: 'bg-yellow-100/45',
+      style: {
+        background: 'radial-gradient(circle at 20% 8%, rgba(255,255,255,.88), transparent 22%), radial-gradient(circle at 76% 0%, rgba(255,245,157,.85), transparent 20%), linear-gradient(135deg, #fff7cc 0%, #f6c453 16%, #fff0a3 28%, #c18417 45%, #ffdb67 59%, #8b5a0a 79%, #ffe9a6 100%)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.8), inset 0 -26px 58px rgba(92,52,3,.24), 0 24px 70px -36px rgba(180,83,9,.72)',
+      },
+    }
+  }
+  return {
+    key: 'bronze',
+    labelClass: 'text-orange-950',
+    frameClass: 'border-orange-300/80 text-orange-950',
+    buttonClass: 'bg-orange-950 text-orange-50 hover:bg-orange-900',
+    glowClass: 'bg-orange-100/40',
+    style: {
+      background: 'radial-gradient(circle at 18% 8%, rgba(255,238,213,.85), transparent 24%), radial-gradient(circle at 82% 6%, rgba(255,255,255,.48), transparent 17%), linear-gradient(135deg, #f7c28b 0%, #b96d36 17%, #ffd0a3 31%, #8c4a24 48%, #d98a4d 64%, #623015 82%, #f2b879 100%)',
+      boxShadow: 'inset 0 1px 0 rgba(255,247,237,.78), inset 0 -26px 58px rgba(67,20,7,.24), 0 24px 70px -38px rgba(154,52,18,.70)',
+    },
+  }
+}
+
 export function CreditPanel({ balance, transactions, packages, membershipPlans, customRechargeOptions, orders, checkout, isAdmin, onRefresh, onCreateOrder, onCheckout, onCreateCustomOrder, onCustomCheckout, onCreateMembershipOrder, onMembershipCheckout, onMockPayOrder }: Props) {
   const { t } = useI18n()
   const [customCredits, setCustomCredits] = useState(100)
@@ -61,7 +121,7 @@ export function CreditPanel({ balance, transactions, packages, membershipPlans, 
 
         <section className="grid gap-3">
           <div className="flex flex-wrap items-end justify-between gap-3"><div><h3 className="text-lg font-semibold">{t('membership.title')}</h3><p className="text-sm text-muted-foreground">{t('membership.description')}</p></div><Badge variant="outline">{t('membership.priority')}</Badge></div>
-          <div className="grid gap-3 md:grid-cols-3">{membershipPlans.map((plan) => { const active = balance?.membership_plan_key === plan.key; return <article key={plan.key} className={`rounded-lg border p-4 ${active ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}><div className="grid gap-4"><div><div className="flex items-center gap-2"><h4 className="font-semibold">{plan.name}</h4>{active && <Badge>{t('membership.active')}</Badge>}</div><p className="mt-2 text-2xl font-semibold sm:text-3xl">{plan.daily_quota}<span className="ml-1 text-sm text-muted-foreground">{t('membership.dailyUnit')}</span></p><p className="text-sm text-muted-foreground">{money(plan.amount_cents, plan.currency)} · {t('membership.durationDays', { count: plan.duration_days })}</p>{active && balance?.membership_expires_at && <p className="mt-2 text-xs text-primary">{t('membership.expiresAt', { date: formatDateTime(balance.membership_expires_at) })}</p>}</div><div className="flex flex-wrap gap-2"><Button onClick={() => onMembershipCheckout(plan.key, 'alipay')}>{t('membership.buyAlipay')}</Button>{isAdmin && <Button variant="ghost" onClick={() => onCreateMembershipOrder(plan.key)}>{t('billing.packages.createMockOrder')}</Button>}</div></div></article> })}</div>
+          <div className="grid gap-4 md:grid-cols-3">{membershipPlans.map((plan) => <MembershipCard key={plan.key} plan={plan} active={balance?.membership_plan_key === plan.key} expiresAt={balance?.membership_expires_at ?? null} isAdmin={isAdmin} onCheckout={onMembershipCheckout} onCreateOrder={onCreateMembershipOrder} />)}</div>
         </section>
 
         <section className="grid gap-3">
@@ -95,6 +155,48 @@ export function CreditPanel({ balance, transactions, packages, membershipPlans, 
         <CreditLedgerTable balance={balance} transactions={transactions} onRefresh={onRefresh} />
       </div>
     </PixPanel>
+  )
+}
+
+function MembershipCard({ plan, active, expiresAt, isAdmin, onCheckout, onCreateOrder }: { plan: MembershipPlan; active: boolean; expiresAt: string | null; isAdmin: boolean; onCheckout: (planKey: string, provider: string) => Promise<void>; onCreateOrder: (planKey: string) => Promise<void> }) {
+  const { t } = useI18n()
+  const metal = membershipMetal(plan.key)
+  const nominalValue = membershipNominalValueCents(plan)
+  const breakEvenDays = membershipBreakEvenDays(plan)
+  const profitDays = Math.max(0, plan.duration_days - breakEvenDays)
+  const multiplier = Math.max(1, nominalValue / Math.max(1, plan.amount_cents))
+  return (
+    <article
+      className={`group relative isolate overflow-hidden rounded-2xl border p-[1px] transition duration-200 hover:-translate-y-1 hover:shadow-[0_28px_70px_-42px_rgba(15,15,15,.75)] ${metal.frameClass} ${active ? 'ring-2 ring-primary/55' : ''}`}
+      style={metal.style}
+    >
+      <div className="pointer-events-none absolute inset-0 opacity-45 [background-image:repeating-linear-gradient(100deg,rgba(255,255,255,.22)_0px,rgba(255,255,255,.22)_1px,transparent_1px,transparent_7px)]" />
+      <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-white/45 blur-2xl transition duration-300 group-hover:scale-125" />
+      <div className="pointer-events-none absolute inset-y-0 left-[-35%] w-1/2 -skew-x-12 bg-white/22 opacity-0 transition duration-500 group-hover:left-[120%] group-hover:opacity-100" />
+      <div className="relative grid min-h-[270px] gap-4 rounded-[15px] bg-[linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,.12))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,.5)] backdrop-saturate-150">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.18em] opacity-70">{t('membership.metalPass')}</p>
+            <div className="mt-1 flex items-center gap-2"><h4 className={`text-xl font-black tracking-tight ${metal.labelClass}`}>{plan.name}</h4>{active && <Badge className="bg-black/70 text-white hover:bg-black/70">{t('membership.active')}</Badge>}</div>
+          </div>
+          <div className={`rounded-full px-3 py-1 text-xs font-black shadow-[inset_0_1px_0_rgba(255,255,255,.45)] ${metal.glowClass}`}>{t('membership.valueMultiplier', { multiplier: multiplier.toFixed(1) })}</div>
+        </div>
+        <div>
+          <p className="text-[3.2rem] font-black leading-none tracking-[-.08em] drop-shadow-[0_1px_0_rgba(255,255,255,.45)]">{plan.daily_quota}</p>
+          <p className="mt-1 text-sm font-bold opacity-75">{t('membership.dailyUnit')}</p>
+        </div>
+        <div className="grid gap-2 rounded-xl bg-black/10 p-3 text-sm font-bold shadow-[inset_0_1px_8px_rgba(0,0,0,.10)]">
+          <div className="flex items-center justify-between gap-2"><span>{t('membership.breakEven')}</span><strong>{t('membership.breakEvenDays', { count: breakEvenDays })}</strong></div>
+          <div className="flex items-center justify-between gap-2"><span>{t('membership.monthlyValue')}</span><strong>{money(nominalValue, plan.currency)}</strong></div>
+          <div className="rounded-lg bg-white/30 px-3 py-2 text-center text-xs font-black tracking-wide">{t('membership.profitHint', { count: profitDays })}</div>
+        </div>
+        <div className="mt-auto grid gap-3">
+          <p className="text-sm font-bold">{money(plan.amount_cents, plan.currency)} · {t('membership.durationDays', { count: plan.duration_days })}</p>
+          {active && expiresAt && <p className="text-xs font-semibold opacity-75">{t('membership.expiresAt', { date: formatDateTime(expiresAt) })}</p>}
+          <div className="flex flex-wrap gap-2"><Button className={`shadow-[0_12px_26px_-18px_rgba(0,0,0,.9)] ${metal.buttonClass}`} onClick={() => onCheckout(plan.key, 'alipay')}>{t('membership.buyAlipay')}</Button>{isAdmin && <Button variant="ghost" className="bg-white/25 hover:bg-white/38" onClick={() => onCreateOrder(plan.key)}>{t('billing.packages.createMockOrder')}</Button>}</div>
+        </div>
+      </div>
+    </article>
   )
 }
 

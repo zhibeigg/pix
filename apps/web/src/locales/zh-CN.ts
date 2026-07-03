@@ -442,11 +442,17 @@ export const zhCN = {
     description: '每天刷新临时额度，仅用于生成任务，并优先于永久点数消耗。当天未用完会在次日清零刷新。',
     priority: '生成优先扣临时额度',
     active: '当前生效',
+    metalPass: 'Metal Pass',
     dailyUnit: '点/天',
     durationDays: '{{count}} 天',
     expiresAt: '有效期至 {{date}}',
-    buyAlipay: '购买月卡',
+    buyAlipay: '立即开卡',
     orderLabel: '月卡 {{plan}}',
+    valueMultiplier: '约 {{multiplier}}× 权益',
+    breakEven: '最快回本',
+    breakEvenDays: '{{count}} 天',
+    monthlyValue: '30 天相当于',
+    profitHint: '回本后 {{count}} 天额度都在帮你省钱',
   },
   billing: {
     page: {
