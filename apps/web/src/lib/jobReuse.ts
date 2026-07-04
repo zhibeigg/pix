@@ -178,9 +178,13 @@ export type ReusablePixelFallback = {
 /**
  * 复用作品时回填像素尺寸和颜色数。
  *
- * 优先使用原任务保存的请求参数，确保“复用”能还原用户当时选择的配方；
- * 老任务或异常任务缺字段时，再用已生成产物的实际尺寸 / 实际可读颜色数兜底；
- * 最后才使用调用方提供的模式默认值，避免沿用当前表单残留状态。
+ * 尺寸只还原「用户当时在表单里选择的请求配方」（pixelize.output_size）：
+ * 三视图拼合、透明补边、尺寸重试等会让成品实际尺寸（output.pixelized_size）
+ * 大于/不同于用户当时选的单视图/单帧尺寸，若拿它回填会让复用后的尺寸变成用户
+ * 从未选过的值。因此这里不再用产物尺寸兜底，缺请求配方时直接用调用方默认值。
+ *
+ * 颜色数仍允许用产物实际可读颜色兜底：老任务缺 colors 字段时，产物色数比表单
+ * 默认值更贴近用户当时的成品观感，且不会像尺寸那样被三视图/补边放大。
  */
 export function reusablePixelControlsFromJob(job: GenerationJob, fallback: ReusablePixelFallback): ReusablePixelControls {
   const params = asRecord(job.params_json) ?? {}
@@ -188,7 +192,7 @@ export function reusablePixelControlsFromJob(job: GenerationJob, fallback: Reusa
   const output = Array.isArray(job.outputs) ? job.outputs[0] as JobOutput | undefined : undefined
   const outputGrid = asRecord(output?.grid_readability)
   return {
-    pixelSize: pixelSizeValue(pixelize?.output_size) ?? pixelSizeValue(output?.pixelized_size) ?? fallback.pixelSize,
+    pixelSize: pixelSizeValue(pixelize?.output_size) ?? fallback.pixelSize,
     colors: positiveIntValue(pixelize?.colors) ?? positiveIntValue(outputGrid?.color_count) ?? fallback.colors,
   }
 }

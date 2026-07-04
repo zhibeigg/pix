@@ -155,10 +155,13 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   return body as T
 }
 
-async function downloadBlob(path: string, token: string): Promise<Blob> {
+async function downloadBlob(path: string, token: string, options: RequestInit = {}): Promise<Blob> {
   let response: Response
   try {
-    response = await fetch(apiUrl(path), { headers: { Authorization: `Bearer ${token}` } })
+    const headers = new Headers(options.headers)
+    headers.set('Authorization', `Bearer ${token}`)
+    if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+    response = await fetch(apiUrl(path), { ...options, headers })
   } catch (error) {
     throw networkApiError(error)
   }
@@ -296,6 +299,9 @@ export const api = {
   retryJob(token: string, jobId: number) {
     return request<GenerationJob>(`/jobs/${jobId}/retry`, { method: 'POST' }, token)
   },
+  regenerateJob(token: string, jobId: number) {
+    return request<GenerationJob>(`/jobs/${jobId}/regenerate`, { method: 'POST' }, token)
+  },
   saveSequenceAlignment(token: string, jobId: number, payload: SequenceAlignmentRequest) {
     return request<GenerationJob>(`/jobs/${jobId}/sequence-alignment`, { method: 'POST', body: JSON.stringify(payload) }, token)
   },
@@ -304,6 +310,9 @@ export const api = {
   },
   deleteJobs(token: string, jobIds: number[]) {
     return request<JobBulkDeleteResponse>('/jobs/bulk-delete', { method: 'POST', body: JSON.stringify({ job_ids: jobIds }) }, token)
+  },
+  bulkDownloadJobs(token: string, jobIds: number[]) {
+    return downloadBlob('/jobs/bulk-download', token, { method: 'POST', body: JSON.stringify({ job_ids: jobIds }) })
   },
   createJobsBatch(token: string, payloads: JobCreateRequest[], batchName = '', mode = 'mixed') {
     return request<JobBatchCreateResponse>('/jobs/batch', { method: 'POST', body: JSON.stringify({ jobs: payloads, batch_name: batchName, mode }) }, token)

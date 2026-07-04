@@ -25,7 +25,8 @@ import { SizeRetryControls, DEFAULT_SIZE_RETRY, type SizeRetryState } from './Si
 import { StyleProfileControls, compactStyleProfile } from './StyleProfileControls'
 
 type AssetPresetSeed = { revision: number; assetKind: AssetKindChoice; assetName?: string }
-type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; characters: CharacterItem[]; reuseJobSeed?: { revision: number; job: GenerationJob } | null; assetPresetSeed?: AssetPresetSeed | null; onSubmit: (payload: JobCreateRequest) => Promise<void>; onSubmitMany: (payloads: JobCreateRequest[], batchName?: string, mode?: string) => Promise<void> }
+type AssetReferenceItem = { id: string; path: string; url: string; fileName: string }
+type Props = { pricing: PricingRule[]; discount?: PricingDiscount | null; loading: boolean; token: string; imageModels: ImageModelsResponse; characters: CharacterItem[]; reuseJobSeed?: { revision: number; job: GenerationJob; mode?: 'reuse' | 'tune' } | null; assetPresetSeed?: AssetPresetSeed | null; onSubmit: (payload: JobCreateRequest) => Promise<void>; onSubmitMany: (payloads: JobCreateRequest[], batchName?: string, mode?: string) => Promise<void> }
 
 type TextureKindOption = { value: TextureKind; zh: string; en: string }
 
@@ -252,6 +253,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const [assetRefPath, setAssetRefPath] = useState('')
   const [assetRefUrl, setAssetRefUrl] = useState('')
   const [assetRefFile, setAssetRefFile] = useState<File | null>(null)
+  const [assetRefItems, setAssetRefItems] = useState<AssetReferenceItem[]>([])
   const [assetRefUploading, setAssetRefUploading] = useState(false)
   const [assetRefMessage, setAssetRefMessage] = useState('')
   const [pixelSize, setPixelSize] = useState('64x64')
@@ -299,13 +301,15 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
   const dualMaterialBTransparent = dualMaterialB.trim() === '' || dualMaterialB.trim().toLocaleLowerCase() === 'transparent'
   // 平铺纹理 / 双瓦片不走参考图模式；普通素材参考图仍保留 asset job_type，以便继续使用素材直出 prompt。
   const assetSupportsReference = isAsset && (assetKind === 'item_icon' || assetKind === 'ui_component' || assetKind === 'game_logo' || assetKind === 'character')
-  const hasAssetReference = assetSupportsReference && !!assetRefPath
+  const assetReferenceCount = assetRefItems.length > 0 ? assetRefItems.length : assetRefPath ? 1 : 0
+  const hasAssetReference = assetSupportsReference && assetReferenceCount > 0
   const basePrice = useMemo(() => {
     // 素材直出 + 参考图 时，按图生图价位计费；Logo 会保留 asset job_type，但后端同样按 image_to_image 取价。
     const billingKey = hasAssetReference ? 'image_to_image' : activeJobType
     return pricing.find((item) => item.key === billingKey)?.price_credits ?? 0
   }, [pricing, activeJobType, hasAssetReference])
   const safeAssetGenerateCount = Math.max(1, Math.min(MAX_ASSET_GENERATE_COUNT, Math.round(assetGenerateCount || 1)))
+  const effectiveAssetGenerateCount = hasAssetReference ? Math.max(1, assetReferenceCount) : safeAssetGenerateCount
   const safeRows = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(rows || 1)))
   const safeCols = Math.max(1, Math.min(MAX_GRID_AXIS, Math.round(cols || 1)))
   const totalFrames = safeRows * safeCols
@@ -370,7 +374,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     if (d.dualMaterialATextureKind !== undefined) setDualMaterialATextureKind(d.dualMaterialATextureKind)
     if (d.dualMaterialBTextureKind !== undefined) setDualMaterialBTextureKind(d.dualMaterialBTextureKind)
     if (d.dualTransitionStyle !== undefined) setDualTransitionStyle(d.dualTransitionStyle)
-    if (d.clearAssetRef) { setAssetRefPath(''); setAssetRefUrl(''); setAssetRefMessage('') }
+    if (d.clearAssetRef) { setAssetRefPath(''); setAssetRefUrl(''); setAssetRefFile(null); setAssetRefItems([]); setAssetRefMessage('') }
   }
 
   function selectAssetKind(kind: AssetKindChoice) {
@@ -417,7 +421,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     setAssetKind(assetPresetSeed.assetKind)
     applyAssetKindDefaults(assetPresetSeed.assetKind)
     if (assetPresetSeed.assetName !== undefined) setAssetName(assetPresetSeed.assetName)
-    setAssetRefPath(''); setAssetRefFile(null); setAssetRefUrl(''); setAssetRefMessage('')
+    setAssetRefPath(''); setAssetRefFile(null); setAssetRefUrl(''); setAssetRefItems([]); setAssetRefMessage('')
     setInputImagePath(''); setUploadFilePreview(null); setUploadUrl(''); setUploadMessage('')
     setRefSource('upload'); setSelectedRefCharacterId(null); setRefImagePath(''); setRefImageFile(null); setRefImageUrl(''); setRefUploadMessage('')
   }, [assetPresetSeed])
@@ -426,6 +430,57 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     if (!reuseJobSeed || lastAppliedReuseRevisionRef.current === reuseJobSeed.revision) return
     lastAppliedReuseRevisionRef.current = reuseJobSeed.revision
     const job = reuseJobSeed.job
+
+    // 微调：把作品成品像素图载入为参考图，强制走「素材 + 图生图」二次编辑，与「复用」区分。
+    if (reuseJobSeed.mode === 'tune') {
+      const tuneParams = asRecord(job.params_json)
+      const tunePixelize = asRecord(tuneParams?.pixelize)
+      const tuneAsset = asRecord(tuneParams?.asset)
+      // 参考图微调仅支持这些素材类型；平铺纹理 / 双瓦片 / 序列帧 / 原始生图等回落到物品图标。
+      const rawKind = resolveReusableAssetKind(tuneAsset)
+      const tuneAssetKind: AssetKindChoice = rawKind === 'ui_component' || rawKind === 'game_logo' || rawKind === 'character' ? rawKind : 'item_icon'
+      const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
+      const refPath = output?.pixelized_path || output?.source_path || ''
+      const refUrl = output?.pixelized_url ?? output?.source_url ?? undefined
+
+      reusedPixelizeRef.current = tunePixelize
+      setJobType('asset')
+      setAssetGenerateCount(1)
+      setAssetKind(tuneAssetKind)
+      applyAssetKindDefaults(tuneAssetKind)
+
+      const tuneModel = stringValue(tuneParams?.image_model)
+      if (tuneModel && availableImageModels.some((item) => item.id === tuneModel)) { setImageModel(tuneModel); setReuseModelMissing(false) }
+      else if (tuneModel) setReuseModelMissing(true)
+      else { setImageModel(imageModels.default || availableImageModels[0]?.id || 'image2'); setReuseModelMissing(false) }
+
+      const tuneControls = reusablePixelControlsFromJob(job, assetKindDefaults(tuneAssetKind))
+      setPixelSize(tuneControls.pixelSize)
+      setColors(tuneControls.colors)
+      const tuneRemoveBg = booleanValue(tunePixelize?.remove_bg)
+      if (tuneRemoveBg !== null) setRemoveBg(tuneRemoveBg)
+      const tuneEdgeStyle = edgeStyleValue(tunePixelize?.edge_style)
+      if (tuneEdgeStyle) setEdgeStyle(tuneEdgeStyle)
+      setBgRemovalAlgorithm(bgRemovalAlgorithmValue(tunePixelize?.bg_removal_algorithm))
+      setSkipVl(false)
+      setSizeRetry(DEFAULT_SIZE_RETRY)
+      setStyleProfile(styleProfileValue(tuneParams?.style_profile))
+
+      const tuneSubject = stringValue(tuneAsset?.name) || job.prompt?.trim() || ''
+      setAssetName(tuneSubject)
+      setPrompt(text('保留主体，优化材质和颜色', 'Keep the subject, improve material and color'))
+
+      // 载入成品为参考图；清空角色 / 序列帧参考 / 上传输入等其它来源。
+      setAssetRefPath(refPath)
+      setAssetRefFile(null)
+      setAssetRefItems([])
+      setAssetRefUrl(signedFileUrl(refUrl, token, true))
+      setAssetRefMessage('')
+      setRefSource('upload'); setSelectedRefCharacterId(null); setRefImagePath(''); setRefImageFile(null); setRefImageUrl(''); setRefUploadMessage('')
+      setInputImagePath(''); setUploadFilePreview(null); setUploadUrl(''); setUploadMessage('')
+      return
+    }
+
     const params = asRecord(job.params_json)
     const pixelize = asRecord(params?.pixelize)
     const sprite = asRecord(params?.sprite)
@@ -485,7 +540,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       setRefImageFile(null)
       setRefImageUrl(signedFileUrl(job.sprite_reference_image_url ?? undefined, undefined, true))
       setRefUploadMessage('')
-      setAssetRefPath(''); setAssetRefFile(null); setAssetRefUrl(''); setAssetRefMessage('')
+      setAssetRefPath(''); setAssetRefFile(null); setAssetRefUrl(''); setAssetRefItems([]); setAssetRefMessage('')
       setInputImagePath(''); setUploadFilePreview(null); setUploadUrl(''); setUploadMessage('')
       setRemoveBg(false)
       return
@@ -496,7 +551,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
       setUploadFilePreview(null)
       setUploadUrl(signedFileUrl(job.input_image_url ?? undefined, token, true))
       setUploadMessage(job.input_image_path ? text('已复用原任务的输入图片。', 'Reused the original input image.') : '')
-      setAssetRefPath(''); setAssetRefFile(null); setAssetRefUrl(''); setAssetRefMessage('')
+      setAssetRefPath(''); setAssetRefFile(null); setAssetRefUrl(''); setAssetRefItems([]); setAssetRefMessage('')
       setRefSource('upload'); setSelectedRefCharacterId(null); setRefImagePath(''); setRefImageFile(null); setRefImageUrl(''); setRefUploadMessage('')
       return
     }
@@ -516,6 +571,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     const referencePath = job.input_image_path ?? ''
     setAssetRefPath(referencePath)
     setAssetRefFile(null)
+    setAssetRefItems([])
     setAssetRefUrl(signedFileUrl(job.input_image_url ?? undefined, token, true))
     setAssetRefMessage('')
     setRefImagePath(''); setRefImageFile(null); setRefImageUrl(''); setRefUploadMessage('')
@@ -672,31 +728,81 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
     setRefImagePath(''); setRefImageUrl(''); setRefImageFile(null); setSelectedRefCharacterId(null); setRefUploadMessage('')
   }
 
-  async function uploadAssetReferenceFile(file: File | undefined) {
-    if (!file) return
-    const check = validateImageFile(file, maxUploadBytes)
-    if (!check.ok) {
-      setAssetRefMessage(imageValidationMessage(check, isEnglish))
+  async function uploadAssetReferenceFiles(files: File[]) {
+    if (!files.length) return
+    const valid: File[] = []
+    let invalidCount = 0
+    for (const file of files) {
+      const check = validateImageFile(file, maxUploadBytes)
+      if (check.ok) valid.push(file)
+      else {
+        invalidCount += 1
+        setAssetRefMessage(imageValidationMessage(check, isEnglish))
+      }
+    }
+    if (valid.length === 0) return
+
+    const appending = assetRefItems.length > 0
+    const remainingSlots = MAX_ASSET_GENERATE_COUNT - (appending ? assetRefItems.length : 0)
+    if (remainingSlots <= 0) {
+      setAssetRefMessage(text(`一次最多上传 ${MAX_ASSET_GENERATE_COUNT} 张参考图。`, `Upload up to ${MAX_ASSET_GENERATE_COUNT} reference images at once.`))
       return
     }
-    setAssetRefPath('')
-    setAssetRefUrl('')
-    setAssetRefFile(file)
-    setAssetRefUploading(true); setAssetRefMessage('')
+    const selected = valid.slice(0, remainingSlots)
+    const skippedCount = valid.length - selected.length
+
+    setAssetRefUploading(true)
+    setAssetRefMessage('')
     try {
-      const uploaded = await api.uploadImage(token, file)
-      setAssetRefPath(uploaded.path); setAssetRefMessage('')
-    } catch (error) {
+      const results = await Promise.allSettled(selected.map(async (file) => ({ file, upload: await api.uploadImage(token, file) })))
+      const uploadedItems = results.flatMap((result): AssetReferenceItem[] => {
+        if (result.status !== 'fulfilled') return []
+        const { file, upload } = result.value
+        return [{ id: crypto.randomUUID(), path: upload.path, url: signedFileUrl(upload.url, token, true), fileName: file.name }]
+      })
+      const failedCount = invalidCount + skippedCount + results.filter((result) => result.status === 'rejected').length
+      if (uploadedItems.length === 0) {
+        setAssetRefFile(null)
+        setAssetRefMessage(text('参考图上传失败', 'Reference upload failed'))
+        return
+      }
+      const nextItems = appending ? [...assetRefItems, ...uploadedItems] : uploadedItems
+      setAssetRefItems(nextItems)
+      setAssetRefPath(nextItems[0]?.path ?? '')
+      setAssetRefUrl(nextItems[0]?.url ?? '')
       setAssetRefFile(null)
-      setAssetRefMessage(error instanceof Error ? error.message : text('参考图上传失败', 'Reference upload failed'))
-    } finally { setAssetRefUploading(false) }
+      setAssetGenerateCount(nextItems.length)
+      setAssetRefMessage(failedCount > 0
+        ? text(`已上传 ${uploadedItems.length} 张参考图，另有 ${failedCount} 张未上传；将按 ${nextItems.length} 张参考图生成。`, `Uploaded ${uploadedItems.length} reference images; ${failedCount} were skipped or failed. ${nextItems.length} outputs will be generated.`)
+        : text(`已上传 ${nextItems.length} 张参考图，将生成 ${nextItems.length} 个同参数任务。`, `Uploaded ${nextItems.length} reference images; ${nextItems.length} jobs will be generated with the same parameters.`))
+    } finally {
+      setAssetRefUploading(false)
+    }
+  }
+
+  function removeAssetReferenceItem(id: string) {
+    setAssetRefItems((current) => {
+      const next = current.filter((item) => item.id !== id)
+      if (next.length === 0) {
+        setAssetRefPath('')
+        setAssetRefUrl('')
+        setAssetRefFile(null)
+        setAssetGenerateCount(1)
+      } else {
+        setAssetRefPath(next[0].path)
+        setAssetRefUrl(next[0].url)
+        setAssetRefFile(null)
+        setAssetGenerateCount(next.length)
+      }
+      return next
+    })
   }
 
   function clearAssetReference() {
-    setAssetRefPath(''); setAssetRefUrl(''); setAssetRefFile(null); setAssetRefMessage('')
+    setAssetRefPath(''); setAssetRefUrl(''); setAssetRefFile(null); setAssetRefItems([]); setAssetGenerateCount(1); setAssetRefMessage('')
   }
 
-  function buildCurrentPayload(clientRequestId: string = crypto.randomUUID()): JobCreateRequest | null {
+  function buildCurrentPayload(clientRequestId: string = crypto.randomUUID(), referencePathOverride?: string): JobCreateRequest | null {
     if (submitBlocked) return null
     const edge = edgeStylePixelize(edgeStyle)
     const modelOverride = imageModel !== imageModels.default ? imageModel : undefined
@@ -719,11 +825,12 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         : text(`${materialA}${materialB}过渡`, `${materialA} ${materialB} transition`)
       const subject = isDualGridAsset ? (assetName.trim() || generatedDualName) : assetName.trim()
       const assetPixelize = buildAssetPixelize(mergeReusedPixelize(reusedPixelizeRef.current, { output_size: parsedPixelSize, colors, remove_bg: isDualGridAsset ? false : removeBg, ...edge }))
-      if (hasAssetReference) {
+      const activeAssetRefPath = referencePathOverride ?? assetRefPath
+      if (assetSupportsReference && activeAssetRefPath) {
         return {
           job_type: 'asset',
           prompt: subject,
-          input_image_path: assetRefPath,
+          input_image_path: activeAssetRefPath,
           client_request_id: clientRequestId,
           image_size: uiComponentImageSize,
           image_model: modelOverride,
@@ -810,21 +917,25 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    const count = isAsset ? safeAssetGenerateCount : 1
+    const referencePaths = isAsset && hasAssetReference ? (assetRefItems.length > 0 ? assetRefItems.map((item) => item.path) : [assetRefPath]) : []
+    const count = isAsset ? (referencePaths.length > 0 ? referencePaths.length : safeAssetGenerateCount) : 1
     if (count > 1) {
-      const payloads = Array.from({ length: count }, () => buildCurrentPayload(crypto.randomUUID())).filter((item): item is JobCreateRequest => item !== null)
+      const payloads = (referencePaths.length > 0
+        ? referencePaths.map((path) => buildCurrentPayload(crypto.randomUUID(), path))
+        : Array.from({ length: count }, () => buildCurrentPayload(crypto.randomUUID())))
+        .filter((item): item is JobCreateRequest => item !== null)
       if (payloads.length !== count) return
       const subject = payloads[0]?.asset?.name || assetName.trim() || text('游戏素材', 'Game asset')
       await onSubmitMany(payloads, `${subject} × ${count}`, 'asset_multi')
       return
     }
-    const payload = buildCurrentPayload()
+    const payload = buildCurrentPayload(undefined, referencePaths[0])
     if (!payload) return
     await onSubmit(payload)
   }
 
   return (
-      <PixPanel eyebrow={text('单张试做', 'Single test')} title={text('任务配方', 'Job recipe')} action={<EstimateBadge price={price} discount={discount} repeat={isAsset && safeAssetGenerateCount > 1 ? { count: safeAssetGenerateCount } : null} sprite={isSprite && !isSpriteVideoBridge ? { billingUnits, basePrice, totalFrames } : null} videoBridge={isSpriteVideoBridge ? { durationSeconds: videoBridgeDurationSeconds, totalFrames, fps: playbackFps } : null} />}>
+      <PixPanel eyebrow={text('单张试做', 'Single test')} title={text('任务配方', 'Job recipe')} action={<EstimateBadge price={price} discount={discount} repeat={isAsset && effectiveAssetGenerateCount > 1 ? { count: effectiveAssetGenerateCount } : null} sprite={isSprite && !isSpriteVideoBridge ? { billingUnits, basePrice, totalFrames } : null} videoBridge={isSpriteVideoBridge ? { durationSeconds: videoBridgeDurationSeconds, totalFrames, fps: playbackFps } : null} />}>
       <form className="grid gap-5" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
           <PixField label={text('模式', 'Mode')}>
@@ -934,20 +1045,28 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
           </PixField>
           <PixField
             label={text('生成数量', 'Generation count')}
-            hint={text(
-              `一次提交多张同参数作品，最多 ${MAX_ASSET_GENERATE_COUNT} 张；每张独立排队、独立入作品库。`,
-              `Submit multiple outputs with the same parameters, up to ${MAX_ASSET_GENERATE_COUNT}; each is queued and saved as a separate gallery item.`,
-            )}
+            hint={hasAssetReference
+              ? text('参考图模式会按参考图数量生成，每张参考图创建一个同参数任务。', 'Reference mode generates one job per reference image with the same parameters.')
+              : text(
+                `一次提交多张同参数作品，最多 ${MAX_ASSET_GENERATE_COUNT} 张；每张独立排队、独立入作品库。`,
+                `Submit multiple outputs with the same parameters, up to ${MAX_ASSET_GENERATE_COUNT}; each is queued and saved as a separate gallery item.`,
+              )}
           >
-            <Input
-              type="number"
-              min={1}
-              max={MAX_ASSET_GENERATE_COUNT}
-              value={safeAssetGenerateCount}
-              onChange={(event) => setAssetGenerateCount(Math.max(1, Math.min(MAX_ASSET_GENERATE_COUNT, Math.round(Number(event.target.value) || 1))))}
-            />
+            {hasAssetReference ? (
+              <div className="rounded-lg border border-border bg-muted/35 px-3 py-2 text-sm font-semibold text-foreground dark:border-[hsl(var(--pix-dark-hairline))]">
+                {text(`按 ${effectiveAssetGenerateCount} 张参考图生成 ${effectiveAssetGenerateCount} 个任务`, `Generate ${effectiveAssetGenerateCount} jobs from ${effectiveAssetGenerateCount} reference images`)}
+              </div>
+            ) : (
+              <Input
+                type="number"
+                min={1}
+                max={MAX_ASSET_GENERATE_COUNT}
+                value={safeAssetGenerateCount}
+                onChange={(event) => setAssetGenerateCount(Math.max(1, Math.min(MAX_ASSET_GENERATE_COUNT, Math.round(Number(event.target.value) || 1))))}
+              />
+            )}
           </PixField>
-          {safeAssetGenerateCount > 1 && (
+          {!hasAssetReference && safeAssetGenerateCount > 1 && (
             <Alert variant="info">
               {text(
                 `将创建 ${safeAssetGenerateCount} 个同参数素材任务，预计按 ${safeAssetGenerateCount} 张分别扣点；不用重复点击抽卡。`,
@@ -956,18 +1075,33 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
             </Alert>
           )}
           {assetSupportsReference && (
-            <PixField label={text('参考图（可选）', 'Reference image (optional)')}>
+            <PixField label={text('参考图（可选，可多选）', 'Reference images (optional, multi-select)')} hint={text(`最多 ${MAX_ASSET_GENERATE_COUNT} 张；上传几张就生成几张同参数作品。`, `Up to ${MAX_ASSET_GENERATE_COUNT}; each reference image creates one output with the same parameters.`)}>
               <div className="grid gap-3">
                 <ImageDropzone
+                  multiple
                   maxBytes={maxUploadBytes}
-                  disabled={assetRefUploading}
-                  label={assetRefUploading ? text('上传参考图…', 'Uploading reference…') : assetRefPath ? text('替换参考图', 'Replace reference') : text('上传参考图', 'Upload reference')}
-                  ariaLabel={text('上传参考图', 'Upload reference')}
-                  onFiles={(files) => void uploadAssetReferenceFile(files[0])}
+                  disabled={assetRefUploading || assetRefItems.length >= MAX_ASSET_GENERATE_COUNT}
+                  label={assetRefUploading ? text('上传参考图…', 'Uploading references…') : assetReferenceCount > 0 ? text('继续添加参考图', 'Add more references') : text('上传参考图', 'Upload references')}
+                  ariaLabel={text('上传参考图', 'Upload reference images')}
+                  onFiles={(files) => void uploadAssetReferenceFiles(files)}
                   onError={(message) => setAssetRefMessage(message)}
                 />
-                {assetRefMessage && <Alert variant="destructive">{assetRefMessage}</Alert>}
-                {(assetRefUrl || assetRefFile) && (
+                {assetRefMessage && <Alert variant={assetRefMessage.includes('失败') || assetRefMessage.includes('failed') ? 'destructive' : 'info'}>{assetRefMessage}</Alert>}
+                {assetRefItems.length > 0 && (
+                  <div className="grid gap-3">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {assetRefItems.map((item, index) => (
+                        <div key={item.id} className="grid gap-1.5 rounded-lg border border-border bg-muted/25 p-2 dark:border-[hsl(var(--pix-dark-hairline))]">
+                          <PixPreviewFrame url={item.url} label={text(`参考图 ${index + 1}`, `Reference ${index + 1}`)} className="min-h-24" />
+                          <p className="truncate text-[11px] text-muted-foreground" title={item.fileName}>{item.fileName}</p>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => removeAssetReferenceItem(item.id)}>{text('移除', 'Remove')}</Button>
+                        </div>
+                      ))}
+                    </div>
+                    <Button type="button" variant="ghost" size="sm" onClick={clearAssetReference}>{text('清空参考图', 'Clear references')}</Button>
+                  </div>
+                )}
+                {assetRefItems.length === 0 && (assetRefUrl || assetRefFile) && (
                   <div className="grid gap-2">
                     <PixPreviewFrame url={assetRefUrl} file={assetRefFile} label={text('参考图预览', 'Reference preview')} />
                     <Button type="button" variant="ghost" size="sm" onClick={clearAssetReference}>{text('移除参考图', 'Remove reference')}</Button>
@@ -1217,7 +1351,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
         {missingRowPrompts && <Alert variant="destructive">{text('多行序列帧需要为每一行填写动作描述。', 'Multi-row sequences require an action description for each row.')}</Alert>}
         <div className="flex flex-wrap items-center gap-3">
           {(isAsset || isSprite) && <PromptPreviewDialog token={token} buildPayload={() => buildCurrentPayload('prompt-preview')} disabled={submitBlocked} />}
-          <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (safeAssetGenerateCount > 1 ? text(`生成 ${safeAssetGenerateCount} 张素材`, `Generate ${safeAssetGenerateCount} assets`) : isDualGridAsset ? text('生成双瓦片图集', 'Generate dual-grid atlas') : isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : isLogoAsset && hasAssetReference ? text('参考图生成 Logo', 'Generate logo from reference') : isLogoAsset ? text('生成游戏 Logo', 'Generate game logo') : hasAssetReference ? text('参考图重绘', 'Redraw from reference') : text('生成游戏素材', 'Generate game asset')) : isLocalBgRemove ? text('去除背景', 'Remove background') : text('生成单张素材', 'Generate single asset')}</Button>
+          <Button type="submit" size="lg" disabled={loading || submitBlocked}>{loading ? text('提交中…', 'Submitting…') : isSprite ? text('生成序列帧', 'Generate sprite sequence') : isAsset ? (effectiveAssetGenerateCount > 1 ? text(`生成 ${effectiveAssetGenerateCount} 张素材`, `Generate ${effectiveAssetGenerateCount} assets`) : isDualGridAsset ? text('生成双瓦片图集', 'Generate dual-grid atlas') : isTileAsset ? text('生成平铺纹理', 'Generate tile texture') : isLogoAsset && hasAssetReference ? text('参考图生成 Logo', 'Generate logo from reference') : isLogoAsset ? text('生成游戏 Logo', 'Generate game logo') : hasAssetReference ? text('参考图重绘', 'Redraw from reference') : text('生成游戏素材', 'Generate game asset')) : isLocalBgRemove ? text('去除背景', 'Remove background') : text('生成单张素材', 'Generate single asset')}</Button>
         </div>
       </form>
     </PixPanel>

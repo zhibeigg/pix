@@ -28,6 +28,7 @@ from pix_web.credits import (
 from pix_web.file_ownership import resolve_owned_input_path
 from pix_web.job_observability import record_policy_event
 from pix_web.models import CreditAccount, GenerationBatch, GenerationJob, User
+from pix_web.retention import _remove_safe_run_dir
 from pix_web.pricing import (
     VIDEO_BRIDGE_DEFAULT_DURATION_SECONDS,
     VIDEO_BRIDGE_IMAGE_PRICE_CREDITS,
@@ -40,7 +41,7 @@ from pix_web.pricing import (
     video_bridge_price_credits,
     video_bridge_price_key,
 )
-from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema, SpriteParamsSchema
+from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema, SpriteParamsSchema, StyleProfileSchema
 from pix_web.system_settings import (
     PricingDiscount,
     enforce_generation_limits,
@@ -771,18 +772,24 @@ def create_jobs_batch(
     return [by_id.get(job.id, job) for job in jobs], total_price, batch
 
 
-def _request_from_failed_job(job: GenerationJob) -> JobCreateRequest:
+def _request_from_existing_job(job: GenerationJob, *, prefix: str) -> JobCreateRequest:
+    """从已有任务的参数快照重建 JobCreateRequest。
+
+    供失败重试与成功作品「一键快速重新生成」共用：完整沿用原任务当时的配方
+    （尺寸/颜色/去背/边缘/风格档案等界面未必暴露的高级参数），仅换新的
+    client_request_id 触发一次全新生成。
+    """
     params = job.params_json or {}
     retry = params.get("size_retry") or {}
     retry_enabled = bool(retry.get("enabled")) if isinstance(retry, dict) else False
-    # 重试沿用原任务已折算好的最大尝试次数，统一按 attempts 模式重算计费（避免
+    # 沿用原任务已折算好的最大尝试次数，统一按 attempts 模式重算计费（避免
     # credits 模式因 max_credits 未持久化而被重算成 1 次）。
     retry_max_attempts = int(retry.get("max_attempts") or 3) if isinstance(retry, dict) else 3
     return JobCreateRequest(
         job_type=job.job_type,
         prompt=job.prompt,
         input_image_path=job.input_image_path,
-        client_request_id=f"retry-{job.id}-{uuid4().hex}",
+        client_request_id=f"{prefix}-{job.id}-{uuid4().hex}",
         image_size=params.get("image_size"),
         image_quality=params.get("image_quality"),
         image_model=params.get("image_model"),
@@ -796,7 +803,12 @@ def _request_from_failed_job(job: GenerationJob) -> JobCreateRequest:
         grid=params.get("grid") or {},
         sprite=SpriteParamsSchema.model_validate(params.get("sprite") or {}),
         asset=params.get("asset") or {},
+        style_profile=StyleProfileSchema.model_validate(params.get("style_profile") or {}),
     )
+
+
+def _request_from_failed_job(job: GenerationJob) -> JobCreateRequest:
+    return _request_from_existing_job(job, prefix="retry")
 
 
 def retry_failed_job(
@@ -805,10 +817,16 @@ def retry_failed_job(
     job_id: int,
     settings: WebSettings | None = None,
 ) -> GenerationJob:
+    """原地重试失败任务：复用原作品卡片重跑，不再新建作品。
+
+    与「一键快速重新生成」（regenerate_job，面向任意已完成作品并生成新卡片）不同，
+    这里直接把失败的原任务重置为 pending，清理旧产物、按当前价格重算并重新冻结点数，
+    交由 worker 重新拾取执行，作品库不会多出一张卡片。
+    """
     cfg = _effective_pix_config(db, settings)
     failed_job = db.scalar(
         select(GenerationJob)
-        .options(selectinload(GenerationJob.batch))
+        .options(selectinload(GenerationJob.batch), selectinload(GenerationJob.outputs))
         .where(GenerationJob.id == job_id, GenerationJob.user_id == user.id)
     )
     if failed_job is None:
@@ -817,6 +835,131 @@ def retry_failed_job(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只有失败任务可以重试")
 
     req = _request_from_failed_job(failed_job)
+    return _rerun_failed_job_in_place(db, user, failed_job, req, cfg=cfg, settings=settings)
+
+
+def _rerun_failed_job_in_place(
+    db: Session,
+    user: User,
+    job: GenerationJob,
+    req: JobCreateRequest,
+    *,
+    cfg: AppConfig,
+    settings: WebSettings | None,
+) -> GenerationJob:
+    """校验并把失败任务原地重置为待处理，重新按当前价格冻结点数。"""
+    validate_job_request(req, cfg)
+    _enforce_request_prompt_policy(db, user, req, cfg)
+    # 复用原卡片重跑，不新增作品数量，故 new_jobs=0：仅校验生成服务是否暂停。
+    enforce_generation_limits(db, user, new_jobs=0)
+
+    original_price = _original_price_for_request(db, req)
+    discount = load_pricing_discount(db)
+    price = apply_discount(original_price, discount.rate)
+    size_retry = _size_retry_plan(db, req, cfg, discount)
+    if size_retry.enabled:
+        price = size_retry.reserve_total
+    billing = _billing_snapshot_for_request(
+        db,
+        req,
+        original_total=original_price,
+        discounted_total=price,
+        discount=discount,
+        size_retry=size_retry,
+    )
+
+    account = db.scalar(select(CreditAccount).where(CreditAccount.user_id == user.id))
+    if account is not None:
+        ensure_daily_quota(db, account)
+    available = available_total(account) if account is not None else 0
+    if available < price:
+        raise insufficient_credits_http()
+
+    # 清理上一次运行遗留的产物记录与磁盘目录（失败任务通常无产物，稳妥起见仍清理）。
+    stale_run_dirs = [output.run_dir for output in job.outputs if output.run_dir]
+    for output in list(job.outputs):
+        db.delete(output)
+
+    # 重置任务为待处理状态，清空上一次的失败诊断信息。
+    job.params_json = params_json_from_request(req, billing=billing, size_retry=size_retry)
+    job.prompt = _job_prompt_for_record(req)
+    job.price_credits = price
+    job.status = "pending"
+    job.error_message = ""
+    job.user_error_message = ""
+    job.error_diagnostics_json = {}
+    job.failure_type = ""
+    job.failure_source = ""
+    job.failure_code = ""
+    job.provider = ""
+    job.candidate_failure_count = 0
+    job.pipeline_warning_count = 0
+    job.started_at = None
+    job.finished_at = None
+
+    try:
+        reserve_credits(db, user, job, price)
+    except InsufficientCreditsError as exc:
+        db.rollback()
+        raise insufficient_credits_http() from exc
+
+    db.flush()
+    db.commit()
+
+    if settings is not None:
+        for raw_dir in stale_run_dirs:
+            _remove_safe_run_dir(raw_dir, settings.storage_root)
+
+    return (
+        db.scalar(
+            select(GenerationJob)
+            .options(selectinload(GenerationJob.outputs), selectinload(GenerationJob.batch))
+            .where(GenerationJob.id == job.id)
+        )
+        or job
+    )
+
+
+# 一键快速重新生成允许再生的任务状态：进行中的任务（pending/running/waiting）不可再生。
+REGENERATE_BLOCKED_STATUSES = frozenset({"pending", "running", "waiting"})
+
+
+def regenerate_job(
+    db: Session,
+    user: User,
+    job_id: int,
+    settings: WebSettings | None = None,
+) -> GenerationJob:
+    """用原任务配方一键快速重新生成一份新任务。
+
+    与「重试」只针对失败任务不同，这里面向作品库里任意已结束的作品（成功/失败/取消），
+    完整沿用当时的提示词与参数直接提交新任务，无需回到工作台手动再点生成。
+    """
+    cfg = _effective_pix_config(db, settings)
+    source_job = db.scalar(
+        select(GenerationJob)
+        .options(selectinload(GenerationJob.batch))
+        .where(GenerationJob.id == job_id, GenerationJob.user_id == user.id)
+    )
+    if source_job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+    if source_job.status in REGENERATE_BLOCKED_STATUSES:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="任务尚未完成，无法重新生成")
+
+    req = _request_from_existing_job(source_job, prefix="regen")
+    return _submit_reused_request(db, user, req, cfg=cfg, batch=source_job.batch, settings=settings)
+
+
+def _submit_reused_request(
+    db: Session,
+    user: User,
+    req: JobCreateRequest,
+    *,
+    cfg: AppConfig,
+    batch: GenerationBatch | None,
+    settings: WebSettings | None,
+) -> GenerationJob:
+    """校验、限额、冻结点数并提交一个由已有任务复原出来的请求。"""
     validate_job_request(req, cfg)
     _enforce_request_prompt_policy(db, user, req, cfg)
     enforce_generation_limits(db, user, new_jobs=1)
@@ -830,7 +973,7 @@ def retry_failed_job(
         raise insufficient_credits_http()
 
     try:
-        job = create_job_in_transaction(db, user, req, reserve=False, batch=failed_job.batch, cfg=cfg, settings=settings)
+        job = create_job_in_transaction(db, user, req, reserve=False, batch=batch, cfg=cfg, settings=settings)
         reserve_credits(db, user, job, price)
     except InsufficientCreditsError as exc:
         db.rollback()

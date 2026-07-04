@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from pix_web.credits import adjust_credits, refund_reserved
-from pix_web.jobs import create_job_in_transaction, create_jobs_batch, retry_failed_job
+from pix_web.jobs import create_job_in_transaction, create_jobs_batch, regenerate_job, retry_failed_job
 from pix_web.models import Base, CreditAccount, SystemSetting, User
 from pix_web.pricing import DEFAULT_PRICES, VIDEO_BRIDGE_IMAGE_PRICE_CREDITS, apply_discount, video_bridge_price_credits, video_bridge_price_key
 from pix_web.routers.pricing import pricing_discount
@@ -336,9 +336,36 @@ class DiscountBillingTests(_DbTestCase):
 
         retried = retry_failed_job(self.db, self.user, job.id)
         self.db.commit()
+        assert retried.id == job.id                              # 原地复用同一作品卡片重跑
+        assert retried.status == "pending"
         assert retried.price_credits == 10                       # 20 * 0.5（当前折扣，未叠加）
         assert retried.reserved_credits == 10
         assert self._available() == 990                          # 1000 - 10
+
+    def test_regenerate_succeeded_job_creates_new_job(self) -> None:
+        # 一键快速重新生成：成功作品可再生，沿用原参数并按当前价冻结点数。
+        job = create_job_in_transaction(self.db, self.user, self._asset_req())
+        self.db.commit()
+        job.status = "succeeded"
+        self.db.commit()
+        assert self._available() == 980                          # 1000 - 20（原任务冻结）
+
+        regenerated = regenerate_job(self.db, self.user, job.id)
+        self.db.commit()
+        assert regenerated.id != job.id
+        assert regenerated.status == "pending"
+        assert regenerated.job_type == "asset"
+        assert regenerated.price_credits == 20
+        assert self._available() == 960                          # 再冻结 20
+
+    def test_regenerate_rejects_in_progress_job(self) -> None:
+        job = create_job_in_transaction(self.db, self.user, self._asset_req())
+        self.db.commit()
+        job.status = "running"
+        self.db.commit()
+        with self.assertRaises(HTTPException) as ctx:
+            regenerate_job(self.db, self.user, job.id)
+        assert ctx.exception.status_code == 409
 
 
 class PricingDiscountEndpointTests(_DbTestCase):

@@ -186,12 +186,14 @@ describe('reusablePixelControlsFromJob', () => {
     expect(reusablePixelControlsFromJob(job, { pixelSize: '16x16', colors: 4 })).toEqual({ pixelSize: '24x24', colors: 8 })
   })
 
-  test('falls back to generated output data when old jobs miss pixelize fields', () => {
+  test('keeps the requested size and never adopts the larger produced size (three-view / padded output)', () => {
+    // 三视图/补边会把成品放大成用户从未选过的尺寸，复用时尺寸必须回落到调用方默认值而非产物尺寸；
+    // 颜色数仍允许用产物实际可读色数兜底。
     const job = makeJob({
       params_json: { pixelize: {} },
-      outputs: [{ pixelized_size: [48, 48], grid_readability: { color_count: 12 } }] as any,
+      outputs: [{ pixelized_size: [192, 64], grid_readability: { color_count: 12 } }] as any,
     })
-    expect(reusablePixelControlsFromJob(job, { pixelSize: '16x16', colors: 8 })).toEqual({ pixelSize: '48x48', colors: 12 })
+    expect(reusablePixelControlsFromJob(job, { pixelSize: '64x64', colors: 8 })).toEqual({ pixelSize: '64x64', colors: 12 })
   })
 
   test('falls back to caller defaults instead of keeping stale form state', () => {

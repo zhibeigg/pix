@@ -14,12 +14,12 @@ from sqlalchemy.orm import Session, selectinload
 
 from pix_web.config import WebSettings
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, spend_credits
-from pix_web.jobs import create_job, create_jobs_batch, retry_failed_job, validate_job_request
+from pix_web.jobs import create_job, create_jobs_batch, regenerate_job, retry_failed_job, validate_job_request
 from pix_web.models import GenerationJob, User
 from pix_web.prompt_preview import build_prompt_preview
 from pix_web.queue import enqueue_jobs
 from pix_web.retention import GALLERY_EXPAND_PRICE_CREDITS, GALLERY_EXPAND_SLOTS, delete_user_job, delete_user_jobs, effective_gallery_limit, get_or_create_gallery_quota, prune_user_photos, retained_photo_count
-from pix_web.schemas import GalleryQuotaResponse, JobBatchCreateRequest, JobBatchCreateResponse, JobBulkDeleteRequest, JobBulkDeleteResponse, JobCreateRequest, JobResponse, PromptPreviewResponse, SequenceAlignmentRequest, public_job_response
+from pix_web.schemas import GalleryQuotaResponse, JobBatchCreateRequest, JobBatchCreateResponse, JobBulkDeleteRequest, JobBulkDeleteResponse, JobBulkDownloadRequest, JobCreateRequest, JobResponse, PromptPreviewResponse, SequenceAlignmentRequest, public_job_response
 from pix_web.sequence_alignment import apply_sequence_alignment
 from pix_web.routers.files import _file_user
 from pix_web.security import get_current_user, get_db, get_settings
@@ -191,6 +191,99 @@ def bulk_delete_jobs(
     return JobBulkDeleteResponse(deleted=True, deleted_count=len(deleted_ids), job_ids=deleted_ids)
 
 
+def _add_zip_file(zip_file: ZipFile, path_value: str | None, archive_name: str) -> bool:
+    """存在的本地文件才写入 zip；返回是否写入成功。"""
+    if not path_value:
+        return False
+    path = Path(path_value)
+    if not path.is_file():
+        return False
+    zip_file.write(path, archive_name)
+    return True
+
+
+def _add_job_delivery_files(zip_file: ZipFile, job: GenerationJob, item_dir: str, prefix: str) -> int:
+    """把单个成功作品的交付物写入 zip 的子目录，返回写入文件数。
+
+    通过 JobResponse 计算出 meta 关联的绝对路径（覆盖普通素材 / 序列帧 / 双瓦片），
+    再按类型挑选主要交付物，始终附带 meta.json 便于复现。
+    """
+    if not job.outputs:
+        return 0
+    out = JobResponse.model_validate(job).outputs[0]
+    added = 0
+    is_sprite = (
+        job.job_type == "sprite_sheet"
+        or bool(out.sprite_sheet_path or out.sprite_mosaic_path or out.sequence_json_path)
+    )
+    is_dual_grid = bool(out.dual_grid_atlas_path or out.dual_grid_preview_path)
+    if is_sprite:
+        added += int(_add_zip_file(zip_file, out.sprite_gif_path, f"{item_dir}/{prefix}_sprite.gif"))
+        added += int(_add_zip_file(zip_file, out.sprite_sheet_path or out.pixelized_path, f"{item_dir}/{prefix}_sprite_sheet.png"))
+        added += int(_add_zip_file(zip_file, out.sprite_mosaic_path or out.source_path, f"{item_dir}/{prefix}_sprite_mosaic.png"))
+        added += int(_add_zip_file(zip_file, out.sequence_json_path, f"{item_dir}/{prefix}_sequence.json"))
+    elif is_dual_grid:
+        added += int(_add_zip_file(zip_file, out.dual_grid_atlas_path or out.pixelized_path, f"{item_dir}/{prefix}_dual_grid_atlas.png"))
+        added += int(_add_zip_file(zip_file, out.dual_grid_preview_path or out.preview_path, f"{item_dir}/{prefix}_dual_grid_preview.png"))
+        added += int(_add_zip_file(zip_file, out.source_path, f"{item_dir}/{prefix}_01_source.png"))
+    else:
+        added += int(_add_zip_file(zip_file, out.source_path, f"{item_dir}/{prefix}_01_source.png"))
+        added += int(_add_zip_file(zip_file, out.pixelized_path, f"{item_dir}/{prefix}_03_pixelized.png"))
+    added += int(_add_zip_file(zip_file, out.meta_json_path, f"{item_dir}/{prefix}_meta.json"))
+    return added
+
+
+def _build_jobs_zip(jobs: list[GenerationJob]) -> bytes:
+    buffer = BytesIO()
+    added = 0
+    seen_dirs: dict[str, int] = {}
+    with ZipFile(buffer, "w", ZIP_DEFLATED) as zip_file:
+        for job in jobs:
+            if job.status != "succeeded" or not job.outputs:
+                continue
+            prefix = _job_file_prefix(job)
+            # 罕见的同名前缀（asset.name 相同）加序号避免子目录覆盖。
+            if prefix in seen_dirs:
+                seen_dirs[prefix] += 1
+                item_dir = f"{prefix}_{seen_dirs[prefix]}"
+            else:
+                seen_dirs[prefix] = 1
+                item_dir = prefix
+            added += _add_job_delivery_files(zip_file, job, item_dir, prefix)
+    if added == 0:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="没有可下载的成功作品")
+    return buffer.getvalue()
+
+
+@router.post("/bulk-download")
+def bulk_download_jobs(
+    req: JobBulkDownloadRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """把选中的多个成功作品打包成一个 ZIP 下载。"""
+    id_set = set(req.job_ids)
+    jobs = list(
+        db.scalars(
+            select(GenerationJob)
+            .options(selectinload(GenerationJob.outputs))
+            .where(GenerationJob.id.in_(id_set), GenerationJob.user_id == user.id)
+        ).unique()
+    )
+    if not jobs:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="作品不存在")
+    # 保持用户选择顺序打包。
+    order = {job_id: index for index, job_id in enumerate(req.job_ids)}
+    jobs.sort(key=lambda job: order.get(job.id, len(order)))
+    data = _build_jobs_zip(jobs)
+    filename = f"pix-works-{len(jobs)}.zip"
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("", response_model=list[JobResponse])
 def list_jobs(
     user: User = Depends(get_current_user),
@@ -266,6 +359,19 @@ def retry_job(
     settings: WebSettings = Depends(get_settings),
 ) -> dict:
     job = retry_failed_job(db, user, job_id, settings)
+    enqueue_jobs(settings, [job.id])
+    return public_job_response(job)
+
+
+@router.post("/{job_id}/regenerate", response_model=JobResponse)
+def regenerate_existing_job(
+    job_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> dict:
+    """用原作品的配方一键快速重新生成一份新任务（面向作品库任意已完成作品）。"""
+    job = regenerate_job(db, user, job_id, settings)
     enqueue_jobs(settings, [job.id])
     return public_job_response(job)
 

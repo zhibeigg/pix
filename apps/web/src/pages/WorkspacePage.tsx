@@ -9,7 +9,7 @@ import type { CharacterItem, ContactSheetCandidate, CreditBalance, GenerationJob
 import type { AssetKindChoice } from '../lib/jobReuse'
 
 export type WorkMode = 'single' | 'batch'
-export type ReuseJobSeed = { revision: number; job: GenerationJob }
+export type ReuseJobSeed = { revision: number; job: GenerationJob; mode?: 'reuse' | 'tune' }
 export type AssetGeneratorPresetSeed = { revision: number; assetKind: AssetKindChoice; assetName?: string }
 
 interface WorkspacePageProps {

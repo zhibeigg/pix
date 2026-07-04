@@ -105,7 +105,9 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(null)
   const [busy, setBusy] = useState(false)
   const [retryingJobId, setRetryingJobId] = useState<number | null>(null)
+  const [regeneratingJobId, setRegeneratingJobId] = useState<number | null>(null)
   const [downloadingPackId, setDownloadingPackId] = useState<number | null>(null)
+  const [downloadingJobs, setDownloadingJobs] = useState(false)
   const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null)
   const [setupLoading, setSetupLoading] = useState(true)
   const [mode, setMode] = useState<WorkMode>('single')
@@ -129,8 +131,6 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   const isAdmin = user?.role === 'admin'
   const selectedPack = useMemo(() => packs.find((pack) => pack.id === selectedPackId) ?? null, [packs, selectedPackId])
-  const selectedJobPool = page === 'packs' && selectedPackId ? selectedPackJobs : jobs
-  const selectedJob = useMemo(() => selectedJobPool.find((job) => job.id === selectedJobId) ?? null, [selectedJobPool, selectedJobId])
   const retainedPhotos = useMemo(() => retainedPhotoCount(jobs), [jobs])
   const galleryRetentionLimit = galleryQuota?.retained_limit ?? DEFAULT_PHOTO_RETENTION_LIMIT
   const activeJobs = useMemo(() => jobs.filter((job) => ['pending', 'running', 'waiting'].includes(job.status)).length, [jobs])
@@ -248,10 +248,19 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
       setMessage(text(`已复用任务 #${job.id} 的原始生图参数。`, `Reused raw-image parameters from job #${job.id}.`), 'success')
       return
     }
-    setReuseJobSeed({ revision, job })
+    setReuseJobSeed({ revision, job, mode: 'reuse' })
     setMode('single')
     navigate('workspace')
     setMessage(text(`已复用任务 #${job.id} 的提示词和参数。`, `Reused prompt and parameters from job #${job.id}.`), 'success')
+  }, [navigate, setMessage, text])
+  const tuneJobInWorkbench = useCallback((job: GenerationJob) => {
+    reuseRevisionRef.current += 1
+    const revision = reuseRevisionRef.current
+    setSelectedJobId(job.id)
+    setReuseJobSeed({ revision, job, mode: 'tune' })
+    setMode('single')
+    navigate('workspace')
+    setMessage(text(`已把作品 #${job.id} 的成品载入为参考图，可修改提示词后二次编辑出图。`, `Loaded work #${job.id} output as a reference; tweak the prompt and generate a second pass.`), 'success')
   }, [navigate, setMessage, text])
   const cancelPackExpand = useCallback(() => { setPackExpandConfirm(null) }, [])
   const cancelGalleryExpand = useCallback(() => { setGalleryExpandConfirm(null) }, [])
@@ -837,6 +846,33 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setDeleteConfirm({ kind: 'jobs', jobs: deletableJobs })
   }
 
+  async function downloadJobs(targetJobs: GenerationJob[]) {
+    if (!token) return
+    const downloadableJobs = targetJobs.filter((job) => job.status === 'succeeded' && job.outputs.length > 0)
+    if (downloadableJobs.length === 0) {
+      setMessage(text('请选择已成功且有产物的作品再下载。', 'Select succeeded works with outputs to download.'), 'info')
+      return
+    }
+    setDownloadingJobs(true)
+    setMessage('')
+    try {
+      const blob = await api.bulkDownloadJobs(token, downloadableJobs.map((job) => job.id))
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `pix-works-${downloadableJobs.length}.zip`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      setMessage(text(`已打包 ${downloadableJobs.length} 个作品开始下载`, `Packed ${downloadableJobs.length} works; download started`), 'info')
+    } catch (error) {
+      showError(error)
+    } finally {
+      setDownloadingJobs(false)
+    }
+  }
+
   async function confirmDelete() {
     if (!token || !deleteConfirm) return
     const target = deleteConfirm
@@ -878,21 +914,41 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   async function retryJob(job: GenerationJob) {
     if (!token || job.status !== 'failed') return
-    if (!(await confirmPhotoRetentionBeforeCreate(1))) return
-    if (!(await confirm({ title: text('重试任务', 'Retry job'), description: text(`重试任务 #${job.id}？将按当前价格重新冻结点数。`, `Retry job #${job.id}? Credits will be reserved at the current price.`), confirmText: text('确认重试', 'Retry') }))) return
+    if (!(await confirm({ title: text('重试任务', 'Retry job'), description: text(`重试任务 #${job.id}？将复用原作品卡片重跑，并按当前价格重新冻结点数。`, `Retry job #${job.id}? It reruns on the same work card and reserves credits at the current price.`), confirmText: text('确认重试', 'Retry') }))) return
     setRetryingJobId(job.id)
     setMessage('')
     try {
-      const created = await api.retryJob(token, job.id)
-      setSelectedJobId(created.id)
+      const updated = await api.retryJob(token, job.id)
+      setSelectedJobId(updated.id)
       setPage('gallery')
       window.location.hash = '/gallery'
-      setMessage(text(`任务 #${job.id} 已重试，新任务 #${created.id} 已提交。`, `Job #${job.id} retried; new job #${created.id} submitted.`))
+      setMessage(text(`任务 #${job.id} 已重新提交，正在重跑。`, `Job #${job.id} resubmitted and is rerunning.`))
       await refreshCore(token)
     } catch (error) {
       showError(error)
     } finally {
       setRetryingJobId(null)
+    }
+  }
+
+  async function regenerateJob(job: GenerationJob) {
+    if (!token) return
+    if (['pending', 'running', 'waiting'].includes(job.status)) return
+    if (!(await confirmPhotoRetentionBeforeCreate(1))) return
+    if (!(await confirm({ title: text('快速重新生成', 'Quick regenerate'), description: text(`用作品 #${job.id} 的原参数重新生成一份？将按当前价格冻结点数。`, `Regenerate using job #${job.id}'s original parameters? Credits will be reserved at the current price.`), confirmText: text('立即生成', 'Regenerate') }))) return
+    setRegeneratingJobId(job.id)
+    setMessage('')
+    try {
+      const created = await api.regenerateJob(token, job.id)
+      setSelectedJobId(created.id)
+      setPage('gallery')
+      window.location.hash = '/gallery'
+      setMessage(text(`已用作品 #${job.id} 的参数重新生成，新任务 #${created.id} 已提交。`, `Regenerated from job #${job.id}; new job #${created.id} submitted.`), 'success')
+      await refreshCore(token)
+    } catch (error) {
+      showError(error)
+    } finally {
+      setRegeneratingJobId(null)
     }
   }
 
@@ -999,7 +1055,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           <Suspense fallback={<div className="grid min-h-[calc(100vh-160px)] place-items-center px-4 text-sm text-muted-foreground">{t('app.checkingSetup')}</div>}>
             {page === 'workspace' && <WorkspacePage mode={mode} pricing={pricing} discount={discount} balance={balance} jobs={jobs} characters={characters} loading={busy} token={token} imageModels={imageModels} reuseJobSeed={reuseJobSeed} assetPresetSeed={assetPresetSeed} onModeChange={setMode} onCreateJob={createJob} onCreateJobs={createJobs} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'raw-image' && <RawImagePage pricing={pricing} discount={discount} balance={balance} jobs={jobs} loading={busy} token={token} imageModels={imageModels} selectedJobId={selectedRawJobId} reuseSeed={rawReuseSeed} onSelectJob={setSelectedRawJobId} onCreateJob={createRawImageJob} onRefresh={refreshCurrent} />}
-            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJob={selectedJob} selectedJobId={selectedJobId} pricing={pricing} loading={busy} retryingJobId={retryingJobId} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onCreateJob={createJob} onRetryJob={retryJob} onDeleteJob={deleteJob} onDeleteJobs={deleteJobs} onSaveSequenceAlignment={saveSequenceAlignment} onPublishShare={publishJobShare} onUnpublishShare={unpublishJobShare} />}
+            {page === 'gallery' && <GalleryPage jobs={jobs} selectedJobId={selectedJobId} loading={busy} retryingJobId={retryingJobId} regeneratingJobId={regeneratingJobId} downloadingJobs={downloadingJobs} galleryQuota={galleryQuota} onExpandGalleryQuota={expandGalleryQuota} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onTuneJob={tuneJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onRetryJob={retryJob} onRegenerateJob={regenerateJob} onDeleteJob={deleteJob} onDeleteJobs={deleteJobs} onDownloadJobs={downloadJobs} onSaveSequenceAlignment={saveSequenceAlignment} onPublishShare={publishJobShare} onUnpublishShare={unpublishJobShare} />}
             {page === 'packs' && <PacksPage packs={packs} packQuota={packQuota} selectedPack={selectedPack} selectedPackId={selectedPackId} selectedPackJobs={selectedPackJobs} jobs={jobs} selectedJobId={selectedJobId} downloading={downloadingPackId !== null} onSelectPack={selectPack} onClearSelection={clearPackSelection} onCreatePack={createPack} onRenamePack={renamePack} onToggleArchive={toggleArchivePack} onDeletePack={deletePack} onExpandPackLimit={expandPackLimit} onDownloadPack={downloadPack} onAddJobToPack={addJobToPack} onRemoveJobFromPack={removeJobFromPack} onSelectJob={selectJobById} onReuseJob={reuseJobInWorkbench} onCandidatePixelize={pixelizeCandidate} onRefresh={refreshCurrent} />}
             {page === 'characters' && <CharactersPage characters={characters} loading={busy} onUpdate={updateCharacter} onDelete={deleteCharacter} onGenerateCharacter={openCharacterGenerator} onRefresh={refreshCurrent} />}
             {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} membershipPlans={membershipPlans} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onCreateMembershipOrder={createMembershipOrder} onMembershipCheckout={startMembershipCheckout} onMockPayOrder={mockPayPaymentOrder} />}
