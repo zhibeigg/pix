@@ -25,7 +25,7 @@ from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, 
 from pix.config import AppConfig, require_vl_api_key
 from pix.contact_sheet import parse_hex_color
 from pix.io_utils import image_to_base64_data_url, new_run_dir
-from pix.pixelize.bg_removal import apply_pixel_bg_alpha
+from pix.pixelize.bg_removal import apply_key_color_soft_matte, apply_pixel_bg_alpha, suppress_key_spill
 from pix.pixelize.core import PixelizeParams, next_power_of_two
 from pix.pixelize.palette import kmeans_palette, rgb_to_hex
 from pix.pixelize.perfect_pixel import preprocess_generated_image
@@ -1840,6 +1840,10 @@ def _process_frames(
         method=generated_preprocess_method,
         target_size=target_size,
     )
+    despill_enabled = bool(getattr(cfg.sprite, "video_despill", True))
+    despill_softness = int(getattr(cfg.sprite, "video_despill_softness", 200))
+    despill_radius = int(getattr(cfg.sprite, "video_despill_radius", 3))
+    despill_passes = int(getattr(cfg.sprite, "video_despill_passes", 3))
     prepared: list[Image.Image] = []
     prepared_sizes: list[tuple[int, int]] = []
     bboxes: list[tuple[int, int, int, int] | None] = []
@@ -1860,6 +1864,30 @@ def _process_frames(
         normalized = preprocessed.image.convert("RGBA")
         frame_size = normalized.size
         transparent = apply_pixel_bg_alpha(normalized, key_rgb=key_rgb, tolerance=key_tolerance)
+        # 抠图后再对贴近 key 背景、仍带 key 色相的半透明混色边缘做一次反混合去污染：
+        # 二值抠图会把「主体×a + key×(1-a)」的辉光/烟雾/软边像素当作不透明主体保留，
+        # 其 RGB 里仍混着背景键色（青/品红/绿）。soft-matte 按到 key 的距离估算 alpha 并
+        # 反解出干净主体色，只作用在 key 色相像素上，避免误伤主体内部中性/暖色细节。
+        if despill_enabled:
+            transparent = apply_key_color_soft_matte(
+                transparent,
+                key_rgb=key_rgb,
+                tolerance=max(24, int(key_tolerance)),
+                softness=despill_softness,
+                alpha_floor=16,
+                radius=despill_radius,
+                passes=despill_passes,
+            )
+            # 边缘 soft-matte 只够到透明边附近；半透明能量雾 / 烟 / 拖尾会大范围透出 key 背景，
+            # 其内部像素离透明边太远、离纯 key 太远，既逃过二值抠图又够不到边缘 despill。
+            # 再做一次全局反混合：按到 key 的距离估算 alpha 并反解主体色，让键色雾淡出、
+            # 主体夹带的轻微污染还原本色（而非压成不透明灰 / 黑块）。
+            transparent = suppress_key_spill(
+                transparent,
+                key_rgb=key_rgb,
+                tolerance=max(24, int(key_tolerance)),
+                softness=despill_softness,
+            )
         alpha = np.asarray(transparent.getchannel("A"), dtype=np.uint8)
         foreground_mask = alpha > 8
         subject_mask, selection_bbox, selection_meta = _select_subject_mask(
@@ -1979,6 +2007,13 @@ def _process_frames(
             "enabled": True,
             "method": "connected_components_keep_main_subject",
             "dropped_component_count": dropped_components,
+        },
+        "key_despill": {
+            "enabled": despill_enabled,
+            "method": "edge_soft_matte_plus_global_key_spill_suppression" if despill_enabled else "disabled",
+            "softness": despill_softness,
+            "radius": despill_radius,
+            "passes": despill_passes,
         },
         "palette_mode": applied_palette_mode,
         "requested_palette_mode": normalized_palette_mode,

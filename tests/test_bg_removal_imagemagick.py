@@ -12,6 +12,7 @@ from pix.pixelize.bg_removal import (
     apply_imagemagick_fuzz_floodfill_alpha,
     remove_background,
     remove_background_with_result,
+    suppress_key_spill,
 )
 
 
@@ -184,6 +185,35 @@ class PixelBgBackgroundRemovalTests(unittest.TestCase):
         self.assertGreater(int(alpha[2, 1]), 0)
         self.assertLess(int(alpha[2, 1]), 255)
         self.assertEqual(int(alpha[2, 2]), 255)
+
+
+class SuppressKeySpillTests(unittest.TestCase):
+    def test_magenta_spill_fades_out_while_subject_preserved(self) -> None:
+        # 半透明品红雾（透出 #FF00FF 背景）应被反混合淡出；主体本色与青色反色应保留。
+        image = Image.new("RGBA", (4, 1), (0, 0, 0, 0))
+        image.putpixel((0, 0), (185, 22, 184, 255))   # 品红雾：明显偏 key 色相
+        image.putpixel((1, 0), (30, 200, 40, 255))    # 绿色主体：不带 key 色相
+        image.putpixel((2, 0), (20, 190, 200, 255))   # 青色主体（品红反色）
+        image.putpixel((3, 0), (120, 118, 122, 255))  # 中性灰：不带 key 色相
+
+        out = suppress_key_spill(image, key_rgb=(255, 0, 255), tolerance=48, softness=200)
+        rgba = np.asarray(out)
+
+        # 品红雾被降透明度（淡出），alpha 明显下降
+        self.assertLess(int(rgba[0, 0, 3]), 255)
+        # 主体与中性色保持不透明
+        self.assertEqual(int(rgba[0, 1, 3]), 255)
+        self.assertEqual(int(rgba[0, 2, 3]), 255)
+        self.assertEqual(int(rgba[0, 3, 3]), 255)
+        # 主体颜色不被改动
+        self.assertEqual(tuple(int(v) for v in rgba[0, 1, :3]), (30, 200, 40))
+        self.assertEqual(tuple(int(v) for v in rgba[0, 2, :3]), (20, 190, 200))
+
+    def test_no_op_when_background_not_chroma_key(self) -> None:
+        # 背景不是高饱和 chroma-key（例如灰底）时应原样返回，不误伤。
+        image = Image.new("RGBA", (2, 1), (150, 30, 148, 255))
+        out = suppress_key_spill(image, key_rgb=(128, 128, 128))
+        self.assertEqual(np.asarray(out).tolist(), np.asarray(image).tolist())
 
 
 if __name__ == "__main__":

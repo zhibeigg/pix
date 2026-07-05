@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.127.0] - 2026-07-06
+
+### Added
+
+- 视频补间（video_bridge）序列帧新增「键色去污染（despill）」后处理，修复半透明主体残留背景键色的问题：抽帧的辉光 / 烟雾 / 拖尾 / 光晕在视频里本是「主体×a + 键色×(1−a)」的混色，降采样后被烤成偏青 / 品红 / 绿的实色，既逃过二值抠图又够不到旧的 1px 边缘去溢色，导致成品在深色背景上露出一圈或一片背景色。现在抠图后依次做两道去污染：①边缘 soft-matte（对贴近透明背景的软边按到键色距离估算 alpha 并反解主体色）；②新增 `suppress_key_spill` 全局反混合（对整帧带键色相的像素按距离淡出 / 还原本色，覆盖半透明雾区内部）。二者只作用在带键色相的像素上，保护主体本色与反色（如品红场景里的青色主体）。新增 `sprite.video_despill` / `video_despill_softness` / `video_despill_radius` / `video_despill_passes` 配置项（默认开启），并在后台「序列帧」设置、config 示例、README 与帧 meta（`key_despill`）同步。实测两个真实任务（青鹿能量雾、道袍光雾）残留键色像素从上千降到 0，且不再产生灰 / 黑块。
+
 ## [1.126.0] - 2026-07-05
 
 ### Added

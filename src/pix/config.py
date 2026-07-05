@@ -327,6 +327,15 @@ class SpriteConfig:
     green_screen_color: str = "auto"
     green_screen_tolerance: int = 48
     bg_tolerance: int = 26
+    # 视频补间序列帧：抠图后对贴近 key 背景、仍带 key 色相的半透明混色边缘做一次
+    # 反混合去污染（despill / soft-matte），消除辉光/烟雾/软边残留的背景键色。
+    video_despill: bool = True
+    # despill 软过渡上限：与 key 距离 ≤ softness 且带 key 色相的像素按距离估算 alpha 并反解主体色。
+    video_despill_softness: int = 200
+    # despill 触达半径（像素）：从 key 背景向主体内膨胀多少圈来覆盖较宽的辉光/软边。
+    video_despill_radius: int = 3
+    # despill 迭代次数：多轮逐步剥离更深的混色层。
+    video_despill_passes: int = 3
     crop_padding: float = 0.12
     crop_square: bool = True
     shared_palette: bool = True

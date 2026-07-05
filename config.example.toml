@@ -297,6 +297,15 @@ crop_padding   = 0.12
 crop_square    = true
 # 对全部帧应用共享调色板，减少序列播放闪色
 shared_palette = true
+# video_bridge 视频序列帧去键色污染：抠图后对半透明辉光/烟雾/拖尾做反混合去污染，
+#   消除残留的背景键色（青/品红/绿）。分两道：边缘 soft-matte + 全局反混合。默认开启。
+video_despill = true
+# 反混合软过渡上限：与键色距离 ≤ 该值且带键色相的像素按距离估算 alpha 并反解主体色，越大越激进
+video_despill_softness = 200
+# 边缘 soft-matte 从透明背景向主体内膨胀的像素圈数，用于覆盖较宽的软边
+video_despill_radius = 3
+# 边缘 soft-matte 迭代次数，多轮逐步剥离更深的混色层
+video_despill_passes = 3
 # video_bridge 视频序列帧默认保留视频/图像原色，不限制色盘，避免角色或怪物配色被后处理带偏。
 #   由 pixelize.palette_mode 控制：auto=保色不量化；ramp=显式启用 VL 色阶（无 VL Key 或
 #   调用失败时优雅回退本地 build_local_ramp，绝不中断视频任务）；kmeans=显式启用旧的本地

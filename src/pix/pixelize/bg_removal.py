@@ -1214,6 +1214,66 @@ def _key_tinted_mask(rgb: np.ndarray, key: np.ndarray, *, min_chroma: float = 24
     return (high - low) >= float(min_chroma)
 
 
+def suppress_key_spill(
+    image: Image.Image,
+    *,
+    key_rgb: tuple[int, int, int],
+    tolerance: int = 48,
+    softness: int = 200,
+    alpha_floor: int = 8,
+    min_chroma: float = 24.0,
+) -> Image.Image:
+    """全局反混合去除半透明主体大范围透出的 chroma-key 背景色。
+
+    用于「半透明主体（能量雾 / 烟 / 拖尾 / 光晕）大范围透出 chroma-key 背景」的情况：
+    这类像素经降采样后变成「主体×a + key×(1-a)」的实色，离纯 key 太远逃过二值抠图，
+    又位于半透明区内部、离透明边太远，边缘 despill（soft-matte）够不到。
+
+    这里不限边缘，对所有可见且明显偏 key 色相的像素按到 key 的距离估算 alpha
+    （越接近 key → 越透明），再用 (rgb - key×(1-a)) / a 反解出干净主体色。因此纯 key 雾会
+    淡出消失、主体夹带的轻微 key 污染被还原为本色，而不是被压成不透明的灰 / 黑块。只作用在
+    带 key 色相的像素上，主体内部的中性 / 反色（如绿幕场景里的绿主体、品红场景里的青主体）
+    因不具 key 色方向而被保护。仅在背景确为高饱和 chroma-key 时生效。
+    """
+    rgba = np.asarray(image.convert("RGBA")).copy()
+    if rgba.ndim != 3 or rgba.shape[-1] < 4:
+        return image
+    key = np.asarray(key_rgb, dtype=np.float32)
+    if not _looks_like_chroma_key(key):
+        return Image.fromarray(rgba, mode="RGBA")
+
+    rgb = rgba[..., :3].astype(np.float32)
+    alpha = rgba[..., 3].astype(np.float32) / 255.0
+    visible = alpha > 0.0
+    tinted = _key_tinted_mask(rgb, key, min_chroma=float(min_chroma))
+    target = visible & tinted
+    if not target.any():
+        return Image.fromarray(rgba, mode="RGBA")
+
+    hard = max(0.0, float(tolerance))
+    soft = max(hard + 1.0, min(255.0, float(softness)))
+    floor = max(0.0, min(255.0, float(alpha_floor))) / 255.0
+    dist = np.sqrt(((rgb - key) ** 2).sum(axis=2))
+    estimated_alpha = np.clip((dist - hard) / max(1.0, soft - hard), 0.0, 1.0)
+    new_alpha = np.where(target, np.minimum(alpha, estimated_alpha), alpha)
+
+    improve = target & (new_alpha < alpha - (1.0 / 255.0))
+    if improve.any():
+        safe_alpha = np.maximum(new_alpha[improve], 1.0 / 255.0)
+        decontaminated = (rgb[improve] - key * (1.0 - safe_alpha[:, None])) / safe_alpha[:, None]
+        rgba[improve, :3] = np.clip(decontaminated, 0, 255).astype(np.uint8)
+        rgba[improve, 3] = np.clip(np.rint(new_alpha[improve] * 255.0), 0, 255).astype(np.uint8)
+        low_alpha = improve & (new_alpha <= floor)
+        if low_alpha.any():
+            rgba[low_alpha, :3] = 0
+            rgba[low_alpha, 3] = 0
+
+    transparent = rgba[..., 3] == 0
+    if transparent.any():
+        rgba[transparent, :3] = 0
+    return Image.fromarray(rgba, mode="RGBA")
+
+
 def apply_transparent_edge_style(
     image: Image.Image,
     *,
