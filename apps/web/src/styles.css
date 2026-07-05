@@ -585,9 +585,11 @@ code {
   to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
+/* 注意：居中由 Tailwind v4 的 translate 属性（-translate-x-1/2 等）负责，
+   动画只做淡入 + 上滑 + 缩放，避免 transform 与 translate 叠加导致弹窗偏移到左上角。 */
 @keyframes pix-dialog-enter {
-  from { opacity: 0; transform: translate(-50%, -48%) scale(.96); }
-  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  from { opacity: 0; transform: translateY(10px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes pix-popover-enter {

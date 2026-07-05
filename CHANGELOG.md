@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.125.1] - 2026-07-05
+
+### Fixed
+
+- 修复部分弹窗（如主页用户分享卡片的「参数」弹窗）打开后跑到屏幕左上角的问题：Tailwind v4 的 `-translate-x-1/2 / -translate-y-1/2` 改用独立的 `translate` 属性实现居中，而 `pix-dialog-enter` 入场动画在 `transform` 上又写入了 `translate(-50%, -50%)`，动画结束（fill: both）后 `transform` 与 `translate` 叠加，导致弹窗被平移两倍距离。现动画只保留淡入 + 上滑 + 缩放，居中完全交由 `translate` 属性负责。
+
 ## [1.125.0] - 2026-07-05
 
 ### Added
