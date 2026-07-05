@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { CopyPlus, Crosshair, Download, FileDown, PackagePlus, RotateCcw, Share2, Trash2, Wand2, X, Zap } from 'lucide-react'
-import { fileName, signedFileUrl, spriteActionsZipUrl } from '../fileUrls'
+import { fileName, signedFileUrl, spriteActionsZipUrl, spriteGifUrl } from '../fileUrls'
 import { useI18n } from '../i18n'
 import type { ContactSheetCandidate, GalleryQuota, GenerationJob, JobOutput, JobShareSummary, SequenceAlignmentRequest } from '../types'
 import { jobInputSummary } from '../pixelize'
@@ -529,7 +529,6 @@ function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: st
   const isSpriteOutput = job.job_type === 'sprite_sheet' || downloadOutput.sprite_frames.length > 0 || Boolean(downloadOutput.sprite_sheet_url || downloadOutput.sprite_mosaic_url || downloadOutput.sequence_json_url)
   const isDualGridOutput = Boolean(downloadOutput.dual_grid_atlas_url || downloadOutput.dual_grid_preview_url)
   const specs: Array<{ id: DownloadKind; label: string; description: string; path?: string | null; url?: string | null; fallback: string }> = isSpriteOutput ? [
-    { id: 'sprite_gif', label: t('downloads.spriteGif'), description: t('downloads.spriteGifDescription'), path: downloadOutput.sprite_gif_path, url: downloadOutput.sprite_gif_url, fallback: 'sprite.gif' },
     { id: 'sprite_sheet', label: t('downloads.spriteSheet'), description: t('downloads.spriteSheetDescription'), path: downloadOutput.sprite_sheet_path || downloadOutput.pixelized_path, url: downloadOutput.sprite_sheet_url || downloadOutput.pixelized_url, fallback: 'sprite-sheet.png' },
     { id: 'sprite_mosaic', label: t('downloads.spriteMosaic'), description: t('downloads.spriteMosaicDescription'), path: downloadOutput.sprite_mosaic_path || downloadOutput.source_path, url: downloadOutput.sprite_mosaic_url || downloadOutput.source_url, fallback: 'sprite-mosaic.png' },
     { id: 'sequence_json', label: t('downloads.sequenceJson'), description: t('downloads.sequenceJsonDescription'), path: downloadOutput.sequence_json_path, url: downloadOutput.sequence_json_url, fallback: 'sequence.json' },
@@ -551,6 +550,18 @@ function buildDownloadOptions(job: GenerationJob, output: JobOutput, t: (key: st
     seen.add(dedupeKey)
     return [{ id: spec.id, label: spec.label, description: spec.description, path: spec.path || '', url, filename: downloadFileName(job, spec.path || spec.fallback) }]
   })
+  // 序列帧作品恒定提供「动画 GIF」下载：生成时默认不产出 sprite.gif，改由后端
+  // /jobs/{id}/sprite.gif 从当前活跃帧按需合成（已有则走快路），置于下载列表首位。
+  if (isSpriteOutput) {
+    options.unshift({
+      id: 'sprite_gif',
+      label: t('downloads.spriteGif'),
+      description: t('downloads.spriteGifDescription'),
+      path: '',
+      url: spriteGifUrl(job.id),
+      filename: `${jobFileNamePrefix(job)}.gif`,
+    })
+  }
   // 多动作序列帧：追加「当前动作图」和「所有动作打包」。
   if (rowActions.length > 1) {
     const prefix = jobFileNamePrefix(job)

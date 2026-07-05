@@ -21,6 +21,7 @@ from pix_web.queue import enqueue_jobs
 from pix_web.retention import GALLERY_EXPAND_PRICE_CREDITS, GALLERY_EXPAND_SLOTS, delete_user_job, delete_user_jobs, effective_gallery_limit, get_or_create_gallery_quota, prune_user_photos, retained_photo_count
 from pix_web.schemas import GalleryQuotaResponse, JobBatchCreateRequest, JobBatchCreateResponse, JobBulkDeleteRequest, JobBulkDeleteResponse, JobBulkDownloadRequest, JobCreateRequest, JobResponse, PromptPreviewResponse, SequenceAlignmentRequest, public_job_response
 from pix_web.sequence_alignment import apply_sequence_alignment
+from pix_web.sprite_export import build_sprite_gif_bytes
 from pix_web.routers.files import _file_user
 from pix_web.security import get_current_user, get_db, get_settings
 from pix_web.system_settings import load_managed_pix_config
@@ -115,6 +116,38 @@ def download_sprite_actions(
     return Response(
         content=buffer.getvalue(),
         media_type="application/zip",
+        headers={"Content-Disposition": disposition},
+    )
+
+
+@router.get("/{job_id}/sprite.gif")
+def download_sprite_gif(
+    job_id: int,
+    user: User = Depends(_file_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """按需导出序列帧作品的动画 GIF；query token 鉴权，支持浏览器直接下载。
+
+    生成时默认不产出 sprite.gif（作品库用 sprite_sheet + sequence.json 播放），
+    这里从当前活跃帧实时合成（若磁盘已有 sprite.gif 则走快路直接返回）。
+    """
+    job = db.scalar(
+        select(GenerationJob).options(selectinload(GenerationJob.outputs)).where(GenerationJob.id == job_id)
+    )
+    if job is None or (job.user_id != user.id and user.role != "admin"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="作品不存在")
+    if not job.outputs:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="作品没有输出")
+    gif_bytes = build_sprite_gif_bytes(job.outputs[0].meta_json_path)
+    if gif_bytes is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="该作品不是可导出的序列帧")
+    filename = f"{_job_file_prefix(job)}.gif"
+    # 作品名可能含中文，HTTP header 只能 latin-1：ASCII 兜底 + RFC 5987 filename* 带 UTF-8 原名。
+    ascii_name = filename.encode("ascii", "ignore").decode().strip("_") or "sprite.gif"
+    disposition = f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
+    return Response(
+        content=gif_bytes,
+        media_type="image/gif",
         headers={"Content-Disposition": disposition},
     )
 

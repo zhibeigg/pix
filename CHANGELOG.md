@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.125.1] - 2026-07-05
+## [1.126.0] - 2026-07-05
+
+### Added
+
+- 序列帧作品新增「下载 GIF」能力：作品库卡片「下载图片」菜单里恒定提供「动画 GIF」选项（置于列表首位）。由于生成时默认 `gif_export=False`（作品库用 `sprite_sheet.png + sequence.json` 逐帧播放，零额外存储），新增后端 `GET /jobs/{job_id}/sprite.gif`（Web 票据鉴权）与外部 API `GET /external/v1/jobs/{job_id}/outputs/sprite-gif`（`files:read`），点击下载时从当前活跃帧实时按需合成 GIF（fps / loop 取自 meta；若磁盘已有 `sprite.gif` 则走快路直接返回），因此 GIF 始终反映最新对齐结果、文件命名 `{作品名}_{id}.gif`。新增共享助手 `pix_web/sprite_export.build_sprite_gif_bytes`，同步更新 API 文档页、README 与语言文件。
 
 ### Fixed
 

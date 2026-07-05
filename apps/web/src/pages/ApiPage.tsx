@@ -533,6 +533,11 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-sheet" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -o sprite-sheet.png
 
+# 序列帧动画 GIF（按当前帧实时合成，无需生成时开启 gif_export）
+curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-gif" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -o sprite.gif
+
 # 多行动作序列帧可打包下载每行动作图
 curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
   -H "Authorization: Bearer $PIX_API_KEY" \
@@ -545,6 +550,11 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/pixelized" \
 curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-sheet" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -o sprite-sheet.png
+
+# Sprite animation GIF (composed on demand from current frames; no gif_export needed)
+curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-gif" \
+  -H "Authorization: Bearer $PIX_API_KEY" \
+  -o sprite.gif
 
 # Multi-row action sprite sheets can bundle per-row action images
 curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
@@ -740,7 +750,7 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <ApiDocNote title={text('认证', 'Auth')} body={text('所有 /external/v1 接口都支持 Authorization: Bearer <API Key>，也兼容 X-Pix-Api-Key 请求头。', 'All /external/v1 endpoints accept Authorization: Bearer <API Key>, and X-Pix-Api-Key is also supported.')} />
           <ApiDocNote title={text('幂等', 'Idempotency')} body={text('创建任务建议传 Idempotency-Key；同一账号同一 key 重试会返回同一个任务，避免重复扣点。', 'Pass Idempotency-Key when creating jobs; retries with the same key reuse the same job and avoid duplicate charges.')} />
-          <ApiDocNote title={text('输出类型', 'Outputs')} body={text('单图下载 source / pixelized / preview；序列帧下载 sprite-sheet / sprite-mosaic / sprite-grid 或 sprite-actions.zip。', 'Single-image outputs: source / pixelized / preview; sprite outputs: sprite-sheet / sprite-mosaic / sprite-grid or sprite-actions.zip.')} />
+          <ApiDocNote title={text('输出类型', 'Outputs')} body={text('单图下载 source / pixelized / preview；序列帧下载 sprite-sheet / sprite-mosaic / sprite-grid / sprite-gif 或 sprite-actions.zip。', 'Single-image outputs: source / pixelized / preview; sprite outputs: sprite-sheet / sprite-mosaic / sprite-grid / sprite-gif or sprite-actions.zip.')} />
           <ApiDocNote title={text('权限 Scope', 'Scopes')} body={text('按最小权限创建 Key：jobs:create 创建任务，jobs:read 查询任务，files:read 下载结果，uploads:create 上传图片，characters:read/write 读写角色库。', 'Use least-privilege keys: jobs:create, jobs:read, files:read, uploads:create, and characters:read/write as needed.')} />
         </div>
         <CodeBlock title={text('1. 保存令牌并测试认证', '1. Save token and test auth')} description={text('把 API 页面创建出的令牌保存成环境变量，后续示例可直接复制运行。', 'Store the generated API token as an environment variable; later examples can be copied as-is.')} code={authCurl} copied={copied} onCopy={(code) => void copy(code, 'auth')} copyKey="auth" />

@@ -95,3 +95,9 @@ export function spriteActionsZipUrl(jobId: number): string {
   const path = `/jobs/${jobId}/sprite-actions.zip`
   return `${API_BASE}${ticket ? `${path}?token=${encodeURIComponent(ticket)}` : path}`
 }
+
+export function spriteGifUrl(jobId: number): string {
+  const ticket = currentTicket()
+  const path = `/jobs/${jobId}/sprite.gif`
+  return `${API_BASE}${ticket ? `${path}?token=${encodeURIComponent(ticket)}` : path}`
+}

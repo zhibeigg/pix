@@ -38,6 +38,7 @@ from pix_web.schemas import (
     public_job_response,
 )
 from pix_web.security import get_db, get_settings
+from pix_web.sprite_export import build_sprite_gif_bytes
 from pix_web.storage import file_url, store_uploaded_image
 from pix_web.system_settings import enforce_upload_limit, record_upload_event
 
@@ -434,6 +435,25 @@ def external_download_sprite_actions(
     ascii_name = filename.encode("ascii", "ignore").decode().strip("_") or "sprite_actions.zip"
     disposition = f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
     return Response(content=buffer.getvalue(), media_type="application/zip", headers={"Content-Disposition": disposition})
+
+
+@router.get("/jobs/{job_id}/outputs/sprite-gif")
+def external_download_sprite_gif(
+    job_id: int,
+    principal: ExternalApiPrincipal = Depends(require_external_scope("files:read")),
+    db: Session = Depends(get_db),
+) -> Response:
+    """按需导出序列帧动画 GIF；生成时默认不产出 sprite.gif，这里从当前活跃帧实时合成。"""
+    job = _job_for_principal(db, principal, job_id)
+    if not job.outputs:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="任务尚未产生输出")
+    gif_bytes = build_sprite_gif_bytes(job.outputs[0].meta_json_path)
+    if gif_bytes is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="该作品不是可导出的序列帧")
+    filename = f"{_job_file_prefix(job)}.gif"
+    ascii_name = filename.encode("ascii", "ignore").decode().strip("_") or "sprite.gif"
+    disposition = f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
+    return Response(content=gif_bytes, media_type="image/gif", headers={"Content-Disposition": disposition})
 
 
 @router.get("/jobs/{job_id}/outputs/{kind}")
