@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -19,10 +21,11 @@ from pix_web.credits import adjust_credits
 from pix_web.dashboard import admin_dashboard
 from pix_web.job_observability import admin_fail_job_and_refund, cancel_job_and_refund, load_job_with_outputs
 from pix_web.metrics import task_performance_metrics
+from pix_web.membership import is_active as is_membership_active
 from pix_web.jobs import retry_failed_job
 from pix_web.email_sender import EmailDeliveryError, send_announcement_email, send_announcement_email_batch_task, send_verification_email
 from pix_web.email_verification import generate_code
-from pix_web.models import CreditPackage, GenerationJob, MembershipPlan, PricingRule, User
+from pix_web.models import CreditAccount, CreditPackage, GenerationJob, MembershipPlan, PaymentOrder, PricingRule, User, UserMembership
 from pix_web.queue import enqueue_jobs
 from pix_web.referrals import frontend_invite_base_url
 from pix_web.schemas import (
@@ -31,6 +34,8 @@ from pix_web.schemas import (
     AdminBatchAdjustCreditsResponse,
     AdminDashboardResponse,
     AdminJobResponse,
+    AdminPaymentOrderResponse,
+    AdminUserResponse,
     PerformanceMetricsResponse,
     AnnouncementCreateRequest,
     AnnouncementItemResponse,
@@ -52,7 +57,6 @@ from pix_web.schemas import (
     PricingRuleUpdateRequest,
     SystemSettingResponse,
     SystemSettingUpdateRequest,
-    UserResponse,
 )
 from pix_web.security import get_db, get_settings, require_admin
 from pix_web.system_settings import AdminSettingView, list_admin_settings, load_effective_web_settings, update_system_setting
@@ -74,10 +78,85 @@ def performance_metrics(
     return task_performance_metrics(db, range)
 
 
-@router.get("/users", response_model=list[UserResponse])
-def users(_admin: User = Depends(require_admin), db: Session = Depends(get_db), limit: int = 100) -> list[User]:
-    stmt = select(User).order_by(User.created_at.desc()).limit(max(1, min(500, limit)))
-    return list(db.scalars(stmt))
+@router.get("/users", response_model=list[AdminUserResponse])
+def users(_admin: User = Depends(require_admin), db: Session = Depends(get_db), limit: int = 100) -> list[AdminUserResponse]:
+    """后台用户列表：附带点数余额与会员状态。批量取账户 / 会员避免 N+1；排序 / 筛选由前端完成。"""
+    capped = max(1, min(500, limit))
+    user_rows = list(db.scalars(select(User).order_by(User.created_at.desc()).limit(capped)))
+    if not user_rows:
+        return []
+    user_ids = [user.id for user in user_rows]
+    accounts = {
+        account.user_id: account
+        for account in db.scalars(select(CreditAccount).where(CreditAccount.user_id.in_(user_ids)))
+    }
+    memberships = {
+        membership.user_id: membership
+        for membership in db.scalars(select(UserMembership).where(UserMembership.user_id.in_(user_ids)))
+    }
+    now = datetime.now(timezone.utc)
+    result: list[AdminUserResponse] = []
+    for user in user_rows:
+        account = accounts.get(user.id)
+        membership = memberships.get(user.id)
+        membership_active = is_membership_active(membership, now)
+        result.append(
+            AdminUserResponse(
+                id=user.id,
+                email=user.email,
+                display_name=user.display_name,
+                role=user.role,
+                status=user.status,
+                created_at=user.created_at,
+                available_credits=account.available_credits if account else 0,
+                reserved_credits=account.reserved_credits if account else 0,
+                total_recharged=account.total_recharged if account else 0,
+                total_consumed=account.total_consumed if account else 0,
+                daily_quota_balance=account.daily_quota_balance if account else 0,
+                membership_status=(membership.status if membership else None),
+                membership_plan_key=(membership.plan_key if membership_active else None),
+                membership_expires_at=(membership.expires_at if membership else None),
+            )
+        )
+    return result
+
+
+@router.get("/orders", response_model=list[AdminPaymentOrderResponse])
+def orders(_admin: User = Depends(require_admin), db: Session = Depends(get_db), limit: int = 200) -> list[AdminPaymentOrderResponse]:
+    """后台订单列表：所有用户的充值 / 月卡订单，附带下单用户信息。排序 / 筛选由前端完成。"""
+    capped = max(1, min(500, limit))
+    order_rows = list(
+        db.scalars(select(PaymentOrder).order_by(PaymentOrder.created_at.desc()).limit(capped))
+    )
+    if not order_rows:
+        return []
+    owner_ids = {order.user_id for order in order_rows}
+    owners = {
+        owner.id: owner
+        for owner in db.scalars(select(User).where(User.id.in_(owner_ids)))
+    }
+    result: list[AdminPaymentOrderResponse] = []
+    for order in order_rows:
+        owner = owners.get(order.user_id)
+        result.append(
+            AdminPaymentOrderResponse(
+                id=order.id,
+                user_id=order.user_id,
+                user_email=(owner.email if owner else ""),
+                user_display_name=(owner.display_name if owner else ""),
+                provider=order.provider,
+                provider_order_id=order.provider_order_id,
+                status=order.status,
+                amount_cents=order.amount_cents,
+                currency=order.currency,
+                credits=order.credits,
+                order_kind=order.order_kind,
+                membership_plan_key=order.membership_plan_key,
+                created_at=order.created_at,
+                paid_at=order.paid_at,
+            )
+        )
+    return result
 
 
 @router.post("/users/{user_id}/adjust-credits", response_model=CreditTransactionResponse)

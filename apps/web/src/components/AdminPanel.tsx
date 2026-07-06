@@ -14,6 +14,7 @@ import { PixPanel } from './pix/PixPanel'
 import { api } from '../api'
 import { PerformanceMonitorTab } from './PerformanceMonitorTab'
 import { AdminSharesPanel } from './AdminSharesPanel'
+import { AdminOrdersPanel } from './AdminOrdersPanel'
 import { GalleryGrid } from './GalleryGrid'
 import { useConfirm } from './ConfirmDialog'
 
@@ -33,11 +34,12 @@ export function AdminPanel({ dashboard, users, jobs, pricing, packages, membersh
   return (
     <PixPanel eyebrow="Control Room" title="管理后台" description="配置站点、模型、邮件、套餐和运营保护。高风险环境项只显示状态。" action={<Button variant="outline" onClick={onRefresh}>刷新</Button>}>
       <div className="grid gap-6">
-        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="jobs">任务与作品</TabsTrigger><TabsTrigger value="shares">内容审核</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger><TabsTrigger value="membership">月卡档位</TabsTrigger><TabsTrigger value="providers">上游供应商</TabsTrigger><TabsTrigger value="performance">性能监控</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
+        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="jobs">任务与作品</TabsTrigger><TabsTrigger value="shares">内容审核</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="orders">订单</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger><TabsTrigger value="membership">月卡档位</TabsTrigger><TabsTrigger value="providers">上游供应商</TabsTrigger><TabsTrigger value="performance">性能监控</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
         {tab === 'dashboard' && dashboard && <DashboardGrid dashboard={dashboard} />}
         {tab === 'jobs' && <AdminJobsPanel jobs={jobs} users={users} onRetry={onAdminRetryJob} onCancel={onAdminCancelJob} onFailRefund={onAdminFailRefundJob} />}
         {tab === 'shares' && <AdminSharesPanel token={token} onRefresh={onRefresh} />}
         {tab === 'users' && <AdminCreditsPanel users={users} onAdjustSingle={onAdjustCredits} onAdjustBatch={onAdjustCreditsBatch} />}
+        {tab === 'orders' && <AdminOrdersPanel token={token} />}
         {tab === 'announcements' && <AnnouncementEditor onPublish={onPublishAnnouncement} onTestEmail={onTestEmail} onListAnnouncements={onAdminAnnouncements} onCreateAnnouncement={onCreateAnnouncement} onUpdateAnnouncement={onUpdateAnnouncement} onDeleteAnnouncement={onDeleteAnnouncement} onTestAnnouncementEmail={onTestAnnouncementEmail} />}
         {tab === 'pricing' && <div className="grid gap-3"><h3 className="text-lg font-semibold">价格规则</h3>{pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}</div>}
         {tab === 'packages' && <PackageEditor packages={packages} onCreate={onCreatePackage} onUpdate={onUpdatePackage} />}
@@ -52,6 +54,14 @@ export function AdminPanel({ dashboard, users, jobs, pricing, packages, membersh
 
 function groupSettings(settings: SystemSetting[]) { return settings.reduce<Record<string, SystemSetting[]>>((acc, setting) => { const category = setting.category || '其他'; acc[category] = acc[category] || []; acc[category].push(setting); return acc }, {}) }
 
+type UserSortKey = 'available_credits' | 'total_consumed' | 'total_recharged' | 'created_at'
+const USER_SORT_OPTIONS: { value: UserSortKey; label: string }[] = [
+  { value: 'created_at', label: '按注册时间' },
+  { value: 'available_credits', label: '按剩余点数' },
+  { value: 'total_consumed', label: '按已消耗' },
+  { value: 'total_recharged', label: '按已充值' },
+]
+
 function AdminCreditsPanel({ users, onAdjustSingle, onAdjustBatch }: { users: User[]; onAdjustSingle: (userId: number, amount: number, note: string) => Promise<void>; onAdjustBatch: (payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) => Promise<AdminBatchAdjustCreditsResponse | void> }) {
   const confirm = useConfirm()
   const [selectedIds, setSelectedIds] = useState<number[]>([])
@@ -61,7 +71,24 @@ function AdminCreditsPanel({ users, onAdjustSingle, onAdjustBatch }: { users: Us
   const [quickUser, setQuickUser] = useState('0')
   const [submitting, setSubmitting] = useState(false)
   const [resultText, setResultText] = useState('')
-  const pageUserIds = users.map((user) => user.id)
+  const [userQuery, setUserQuery] = useState('')
+  const [userSortKey, setUserSortKey] = useState<UserSortKey>('created_at')
+  const [userSortDir, setUserSortDir] = useState<'asc' | 'desc'>('desc')
+
+  const visibleUsers = useMemo(() => {
+    const keyword = userQuery.trim().toLowerCase()
+    const rows = users.filter((user) => {
+      if (!keyword) return true
+      return `${user.email} ${user.display_name} #${user.id}`.toLowerCase().includes(keyword)
+    })
+    const dir = userSortDir === 'asc' ? 1 : -1
+    return rows.slice().sort((a, b) => {
+      if (userSortKey === 'created_at') return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * dir
+      return ((a[userSortKey] ?? 0) - (b[userSortKey] ?? 0)) * dir
+    })
+  }, [users, userQuery, userSortKey, userSortDir])
+
+  const pageUserIds = visibleUsers.map((user) => user.id)
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
   const allPageSelected = pageUserIds.length > 0 && pageUserIds.every((id) => selectedSet.has(id))
   const targetCountLabel = allUsers ? '全部活跃用户' : `${selectedIds.length} 个已选用户`
@@ -114,35 +141,53 @@ function AdminCreditsPanel({ users, onAdjustSingle, onAdjustBatch }: { users: Us
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold">用户与点数</h3>
-            <p className="text-sm text-muted-foreground">选择单个或多个用户后统一调整点数；需要覆盖所有账户时使用“全部活跃用户”。</p>
+            <p className="text-sm text-muted-foreground">查看每个用户的剩余点数 / 已充值 / 已消耗与会员状态；选择用户后可统一调整点数。</p>
           </div>
           <Badge variant={allUsers || selectedIds.length > 0 ? 'info' : 'outline'}>{targetCountLabel}</Badge>
         </div>
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+          <div className="relative">
+            <Input value={userQuery} onChange={(event) => setUserQuery(event.target.value)} placeholder="搜索邮箱 / 昵称 / #ID" className="pl-3" />
+          </div>
+          <Select value={userSortKey} onValueChange={(value) => setUserSortKey(value as UserSortKey)}>
+            <SelectTrigger className="min-w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectContent>{USER_SORT_OPTIONS.map((item) => <SelectItem value={item.value} key={item.value}>{item.label}</SelectItem>)}</SelectContent>
+          </Select>
+          <Button type="button" variant="outline" onClick={() => setUserSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'))}>{userSortDir === 'asc' ? '升序 ↑' : '降序 ↓'}</Button>
+          <label className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+            <Checkbox checked={allPageSelected} onCheckedChange={(value) => toggleAllPage(Boolean(value))} />
+            全选当前
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
           <PixField label="快速选择单人">
             <Select value={quickUser} onValueChange={applyQuickUser}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="0">选择用户</SelectItem>{users.map((u) => <SelectItem value={String(u.id)} key={u.id}>{u.email} · {u.role}</SelectItem>)}</SelectContent>
             </Select>
           </PixField>
-          <label className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
-            <Checkbox checked={allPageSelected} onCheckedChange={(value) => toggleAllPage(Boolean(value))} />
-            全选当前列表
-          </label>
-          <label className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+          <label className="flex items-center gap-2 self-end rounded-lg border border-border px-3 py-2 text-sm">
             <Checkbox checked={allUsers} onCheckedChange={(value) => { const checked = Boolean(value); setAllUsers(checked); if (checked) setSelectedIds([]) }} />
             全部活跃用户
           </label>
+          <Badge variant="outline" className="self-end">{visibleUsers.length} / {users.length} 个用户</Badge>
         </div>
-        <div className="max-h-[360px] overflow-auto rounded-xl border border-border">
-          {users.length === 0 ? <p className="p-4 text-sm text-muted-foreground">暂无用户。</p> : users.map((user) => {
+        <div className="max-h-[420px] overflow-auto rounded-xl border border-border">
+          {visibleUsers.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{users.length === 0 ? '暂无用户。' : '没有匹配的用户。'}</p> : visibleUsers.map((user) => {
             const selected = selectedSet.has(user.id)
+            const membershipActive = user.membership_plan_key && user.membership_status === 'active'
             return (
-              <label key={user.id} className={`grid cursor-pointer gap-2 border-b border-border px-4 py-3 last:border-b-0 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center ${selected ? 'bg-primary/10' : 'bg-card'}`}>
+              <label key={user.id} className={`grid cursor-pointer gap-2 border-b border-border px-4 py-3 last:border-b-0 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center ${selected ? 'bg-primary/10' : 'bg-card'}`}>
                 <Checkbox checked={selected} onCheckedChange={(value) => toggleUser(user.id, Boolean(value))} />
                 <span className="min-w-0">
                   <span className="block truncate font-medium">{user.display_name || user.email}</span>
                   <span className="block truncate text-xs text-muted-foreground">#{user.id} · {user.email}</span>
+                </span>
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground sm:justify-end">
+                  <span title="可用点数">剩余 <strong className="text-foreground">{user.available_credits ?? 0}</strong></span>
+                  <span title="累计充值">充 {user.total_recharged ?? 0}</span>
+                  <span title="累计消耗">耗 {user.total_consumed ?? 0}</span>
+                  {membershipActive && <Badge variant="info">月卡·{user.membership_plan_key}</Badge>}
                 </span>
                 <Badge variant={user.role === 'admin' ? 'default' : user.status === 'active' ? 'secondary' : 'outline'}>{user.role} · {user.status}</Badge>
               </label>

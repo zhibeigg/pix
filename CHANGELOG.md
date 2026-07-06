@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.128.0] - 2026-07-06
+
+### Added
+
+- 管理后台新增「订单」标签页：总览所有用户的充值 / 月卡订单，支持按状态（全部 / 已支付 / 待支付 / 失败）、类型（充值 / 月卡）、关键词（邮箱 / 昵称 / 订单号 / #ID）筛选，以及按创建时间 / 金额 / 点数排序（升降序切换），并显示已收总额。新增后端 `GET /admin/orders`（`AdminPaymentOrderResponse` 附带下单用户邮箱 / 昵称，批量查用户避免 N+1）。
+- 管理后台「用户与点数」标签页增强：用户列表现在显示每个用户的剩余点数 / 累计充值 / 累计消耗与月卡状态，并支持关键词搜索与按剩余点数 / 已消耗 / 已充值 / 注册时间排序。`GET /admin/users` 返回改为 `AdminUserResponse`，批量查 `CreditAccount` / `UserMembership` 组装余额与会员字段（避免 N+1），仅只读展示、不改动计费逻辑。
+
+### Changed
+
+- `GET /admin/users` 响应模型由 `UserResponse` 升级为 `AdminUserResponse`（新增点数与会员字段，向后兼容原有字段）。
+
 ## [1.127.0] - 2026-07-06
 
 ### Added

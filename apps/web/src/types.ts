@@ -5,6 +5,32 @@ export type User = {
   role: 'user' | 'admin' | string
   status: string
   created_at: string
+  // 后台用户列表附带的点数与会员字段（仅 /admin/users 返回，前端展示 / 排序 / 筛选用）
+  available_credits?: number
+  reserved_credits?: number
+  total_recharged?: number
+  total_consumed?: number
+  daily_quota_balance?: number
+  membership_status?: string | null
+  membership_plan_key?: string | null
+  membership_expires_at?: string | null
+}
+
+export type AdminPaymentOrder = {
+  id: number
+  user_id: number
+  user_email: string
+  user_display_name: string
+  provider: string
+  provider_order_id: string
+  status: string
+  amount_cents: number
+  currency: string
+  credits: number
+  order_kind: string
+  membership_plan_key: string | null
+  created_at: string
+  paid_at: string | null
 }
 
 export type TokenResponse = {

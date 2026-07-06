@@ -253,6 +253,25 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AdminUserResponse(BaseModel):
+    """后台用户列表：在基础信息上附带点数余额与会员状态，供管理员总览 / 排序 / 筛选。"""
+
+    id: int
+    email: str
+    display_name: str
+    role: str
+    status: str
+    created_at: datetime
+    available_credits: int = 0
+    reserved_credits: int = 0
+    total_recharged: int = 0
+    total_consumed: int = 0
+    daily_quota_balance: int = 0
+    membership_status: str | None = None
+    membership_plan_key: str | None = None
+    membership_expires_at: datetime | None = None
+
+
 class BootstrapAdminResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -1617,6 +1636,25 @@ class PaymentOrderResponse(BaseModel):
     paid_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class AdminPaymentOrderResponse(BaseModel):
+    """后台订单列表：在订单字段上附带下单用户信息，供管理员总览 / 排序 / 筛选。"""
+
+    id: int
+    user_id: int
+    user_email: str = ""
+    user_display_name: str = ""
+    provider: str
+    provider_order_id: str
+    status: str
+    amount_cents: int
+    currency: str
+    credits: int
+    order_kind: str = "recharge"
+    membership_plan_key: str | None = None
+    created_at: datetime
+    paid_at: datetime | None = None
 
 
 class PaymentCheckoutResponse(BaseModel):

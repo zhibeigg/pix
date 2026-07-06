@@ -1,5 +1,6 @@
 import type {
   AdminDashboard,
+  AdminPaymentOrder,
   AdminSharedWork,
   AdminSharedWorkListResponse,
   PerformanceMetrics,
@@ -419,6 +420,9 @@ export const api = {
   },
   adminJobs(token: string) {
     return request<GenerationJob[]>('/admin/jobs?limit=500', {}, token)
+  },
+  adminOrders(token: string) {
+    return request<AdminPaymentOrder[]>('/admin/orders?limit=500', {}, token)
   },
   adminListShares(token: string, params: { status?: string; limit?: number; offset?: number } = {}) {
     const search = new URLSearchParams()
