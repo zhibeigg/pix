@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { AdminBatchAdjustCreditsResponse, AdminDashboard, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, MembershipPlan, PricingRule, SystemSetting, User, ImageProvider, ImageProviderPreset, ImageProviderCreatePayload, ImageProviderUpdatePayload, ImageProviderModelPayload } from '../types'
+import type { AdminBatchAdjustCreditsResponse, AdminDashboard, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, MembershipPlan, PricingRule, SystemSetting, User, ImageProvider, ImageProviderPreset, ImageProviderCreatePayload, ImageProviderUpdatePayload, ImageProviderModelPayload, PromoLinkStats, PromoLinkPayload } from '../types'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -18,10 +18,10 @@ import { AdminOrdersPanel } from './AdminOrdersPanel'
 import { GalleryGrid } from './GalleryGrid'
 import { useConfirm } from './ConfirmDialog'
 
-type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; membershipPlans: MembershipPlan[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onAdjustCreditsBatch: (payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) => Promise<AdminBatchAdjustCreditsResponse | void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onCreateMembershipPlan: (payload: MembershipPlan) => Promise<void>; onUpdateMembershipPlan: (key: string, payload: Omit<MembershipPlan, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onPublishAnnouncement: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void>; onAdminAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }>; onListProviders?: () => Promise<ImageProvider[]>; onListProviderPresets?: () => Promise<ImageProviderPreset[]>; onCreateProvider?: (payload: ImageProviderCreatePayload) => Promise<void>; onUpdateProvider?: (id: string, payload: ImageProviderUpdatePayload) => Promise<void>; onDeleteProvider?: (id: string) => Promise<void>; token: string }
+type Props = { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; membershipPlans: MembershipPlan[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onAdjustCreditsBatch: (payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) => Promise<AdminBatchAdjustCreditsResponse | void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onCreateMembershipPlan: (payload: MembershipPlan) => Promise<void>; onUpdateMembershipPlan: (key: string, payload: Omit<MembershipPlan, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onPublishAnnouncement: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void>; onAdminAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }>; onListProviders?: () => Promise<ImageProvider[]>; onListProviderPresets?: () => Promise<ImageProviderPreset[]>; onCreateProvider?: (payload: ImageProviderCreatePayload) => Promise<void>; onUpdateProvider?: (id: string, payload: ImageProviderUpdatePayload) => Promise<void>; onDeleteProvider?: (id: string) => Promise<void>; onListPromoLinks?: () => Promise<PromoLinkStats[]>; onCreatePromoLink?: (payload: PromoLinkPayload) => Promise<void>; onUpdatePromoLink?: (id: number, payload: Omit<PromoLinkPayload, 'code'>) => Promise<void>; onDeletePromoLink?: (id: number) => Promise<void>; token: string }
 const settingTabs = ['价格折扣', '运营保护', '邮件验证码', '模型与 API', '素材默认值', '序列帧', '支付与站点', '存储 / 队列 / 安全']
 
-export function AdminPanel({ dashboard, users, jobs, pricing, packages, membershipPlans, settings, onRefresh, onAdjustCredits, onAdjustCreditsBatch, onUpdatePricing, onCreatePackage, onUpdatePackage, onCreateMembershipPlan, onUpdateMembershipPlan, onUpdateSetting, onPublishAnnouncement, onTestEmail, onAdminRetryJob, onAdminCancelJob, onAdminFailRefundJob, onAdminAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement, onTestAnnouncementEmail, onListProviders, onListProviderPresets, onCreateProvider, onUpdateProvider, onDeleteProvider, token }: Props) {
+export function AdminPanel({ dashboard, users, jobs, pricing, packages, membershipPlans, settings, onRefresh, onAdjustCredits, onAdjustCreditsBatch, onUpdatePricing, onCreatePackage, onUpdatePackage, onCreateMembershipPlan, onUpdateMembershipPlan, onUpdateSetting, onPublishAnnouncement, onTestEmail, onAdminRetryJob, onAdminCancelJob, onAdminFailRefundJob, onAdminAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement, onTestAnnouncementEmail, onListProviders, onListProviderPresets, onCreateProvider, onUpdateProvider, onDeleteProvider, onListPromoLinks, onCreatePromoLink, onUpdatePromoLink, onDeletePromoLink, token }: Props) {
   const [tab, setTab] = useState('dashboard')
   const groups = useMemo(() => groupSettings(settings), [settings])
   const settingGroup = groups[tab]
@@ -34,7 +34,7 @@ export function AdminPanel({ dashboard, users, jobs, pricing, packages, membersh
   return (
     <PixPanel eyebrow="Control Room" title="管理后台" description="配置站点、模型、邮件、套餐和运营保护。高风险环境项只显示状态。" action={<Button variant="outline" onClick={onRefresh}>刷新</Button>}>
       <div className="grid gap-6">
-        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="jobs">任务与作品</TabsTrigger><TabsTrigger value="shares">内容审核</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="orders">订单</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger><TabsTrigger value="membership">月卡档位</TabsTrigger><TabsTrigger value="providers">上游供应商</TabsTrigger><TabsTrigger value="performance">性能监控</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
+        <Tabs value={tab} onValueChange={setTab}><TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="dashboard">概览</TabsTrigger><TabsTrigger value="jobs">任务与作品</TabsTrigger><TabsTrigger value="shares">内容审核</TabsTrigger><TabsTrigger value="users">用户与点数</TabsTrigger><TabsTrigger value="orders">订单</TabsTrigger><TabsTrigger value="announcements">系统公告</TabsTrigger><TabsTrigger value="pricing">价格规则</TabsTrigger><TabsTrigger value="packages">充值套餐</TabsTrigger><TabsTrigger value="membership">月卡档位</TabsTrigger><TabsTrigger value="promo">优惠链接</TabsTrigger><TabsTrigger value="providers">上游供应商</TabsTrigger><TabsTrigger value="performance">性能监控</TabsTrigger>{settingTabs.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}</TabsList></Tabs>
         {tab === 'dashboard' && dashboard && <DashboardGrid dashboard={dashboard} />}
         {tab === 'jobs' && <AdminJobsPanel jobs={jobs} users={users} onRetry={onAdminRetryJob} onCancel={onAdminCancelJob} onFailRefund={onAdminFailRefundJob} />}
         {tab === 'shares' && <AdminSharesPanel token={token} onRefresh={onRefresh} />}
@@ -44,6 +44,7 @@ export function AdminPanel({ dashboard, users, jobs, pricing, packages, membersh
         {tab === 'pricing' && <div className="grid gap-3"><h3 className="text-lg font-semibold">价格规则</h3>{pricing.map((rule) => <PricingRow rule={rule} onUpdate={onUpdatePricing} key={rule.key} />)}</div>}
         {tab === 'packages' && <PackageEditor packages={packages} onCreate={onCreatePackage} onUpdate={onUpdatePackage} />}
         {tab === 'membership' && <MembershipPlanEditor plans={membershipPlans} onCreate={onCreateMembershipPlan} onUpdate={onUpdateMembershipPlan} />}
+        {tab === 'promo' && <PromoLinkManager onList={onListPromoLinks} onCreate={onCreatePromoLink} onUpdate={onUpdatePromoLink} onDelete={onDeletePromoLink} />}
         {tab === 'providers' && <ProviderManager onList={onListProviders} onListPresets={onListProviderPresets} onCreate={onCreateProvider} onUpdate={onUpdateProvider} onDelete={onDeleteProvider} />}
         {tab === 'performance' && <PerformanceMonitorTab token={token} />}
         {settingGroup && <div className="grid gap-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-semibold">{tab}</h3><p className="text-sm text-muted-foreground">保存后只影响新请求/新任务；带"需重启"的项目请重启服务或 worker。</p></div>{tab === '邮件验证码' && <EmailTestBox onTest={onTestEmail} />}</div>{settingGroup.map((setting) => <SettingRow setting={setting} onUpdate={onUpdateSetting} key={setting.key} />)}</div>}
@@ -1110,3 +1111,78 @@ function PackageRow({ item, onUpdate }: { item: CreditPackage; onUpdate: (key: s
 function MembershipPlanEditor({ plans, onCreate, onUpdate }: { plans: MembershipPlan[]; onCreate: (payload: MembershipPlan) => Promise<void>; onUpdate: (key: string, payload: Omit<MembershipPlan, 'key'>) => Promise<void> }) { const [draft, setDraft] = useState<MembershipPlan>({ key: 'new_monthly', name: '新月卡', daily_quota: 100, amount_cents: 9900, currency: 'cny', duration_days: 30, enabled: true, sort_order: 40 }); return <div className="grid gap-3"><h3 className="text-lg font-semibold">月卡档位</h3><Alert variant="info">月卡仅用于生成任务临时额度；用户购买后按业务时区每天刷新。历史订单会引用档位 key，不需要的档位请停用。</Alert>{plans.map((item) => <MembershipPlanRow key={item.key} item={item} onUpdate={onUpdate} />)}<div className="grid gap-2 rounded-lg border border-border bg-card p-4 lg:grid-cols-4"><Input placeholder="key" value={draft.key} onChange={(e) => setDraft({ ...draft, key: e.target.value })} /><Input placeholder="名称" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /><Input type="number" placeholder="每日额度" value={draft.daily_quota} onChange={(e) => setDraft({ ...draft, daily_quota: Number(e.target.value) })} /><Input type="number" placeholder="金额（分）" value={draft.amount_cents} onChange={(e) => setDraft({ ...draft, amount_cents: Number(e.target.value) })} /><Input type="number" placeholder="天数" value={draft.duration_days} onChange={(e) => setDraft({ ...draft, duration_days: Number(e.target.value) })} /><Input placeholder="币种" value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value })} /><Input type="number" placeholder="排序" value={draft.sort_order} onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) })} /><label className="flex items-center gap-2 text-sm"><Checkbox checked={draft.enabled} onCheckedChange={(v) => setDraft({ ...draft, enabled: Boolean(v) })} />启用</label><Button onClick={() => onCreate(draft)}>新增</Button></div></div> }
 
 function MembershipPlanRow({ item, onUpdate }: { item: MembershipPlan; onUpdate: (key: string, payload: Omit<MembershipPlan, 'key'>) => Promise<void> }) { const [name, setName] = useState(item.name); const [dailyQuota, setDailyQuota] = useState(item.daily_quota); const [amount, setAmount] = useState(item.amount_cents); const [durationDays, setDurationDays] = useState(item.duration_days); const [currency, setCurrency] = useState(item.currency); const [enabled, setEnabled] = useState(item.enabled); const [sortOrder, setSortOrder] = useState(item.sort_order); return <div className="grid gap-2 rounded-lg border border-border bg-card p-4 lg:grid-cols-4"><div><p className="font-semibold">{item.key}</p><p className="text-xs text-muted-foreground">{item.enabled ? '公开展示' : '已停用'}</p></div><Input value={name} onChange={(e) => setName(e.target.value)} /><Input type="number" value={dailyQuota} onChange={(e) => setDailyQuota(Number(e.target.value))} /><Input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /><Input type="number" value={durationDays} onChange={(e) => setDurationDays(Number(e.target.value))} /><Input value={currency} onChange={(e) => setCurrency(e.target.value)} /><Input type="number" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} /><label className="flex items-center gap-2 text-sm"><Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(Boolean(v))} />启用</label><Button variant="outline" onClick={() => onUpdate(item.key, { name, daily_quota: dailyQuota, amount_cents: amount, currency, duration_days: durationDays, enabled, sort_order: sortOrder })}>保存</Button></div> }
+
+function PromoLinkManager({ onList, onCreate, onUpdate, onDelete }: { onList?: () => Promise<PromoLinkStats[]>; onCreate?: (payload: PromoLinkPayload) => Promise<void>; onUpdate?: (id: number, payload: Omit<PromoLinkPayload, 'code'>) => Promise<void>; onDelete?: (id: number) => Promise<void> }) {
+  const confirm = useConfirm()
+  const [links, setLinks] = useState<PromoLinkStats[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [draft, setDraft] = useState<PromoLinkPayload>({ code: '', name: '', discount_rate: 0.8, enabled: true, note: '' })
+
+  const reload = useCallback(async () => {
+    if (!onList) return
+    setLoading(true); setError('')
+    try { setLinks(await onList()) } catch (e) { setError(e instanceof Error ? e.message : '加载失败') } finally { setLoading(false) }
+  }, [onList])
+
+  useEffect(() => { void reload() }, [reload])
+
+  async function copyLink(url: string) {
+    try { await navigator.clipboard.writeText(url) } catch { /* ignore */ }
+  }
+
+  async function create() {
+    if (!onCreate) return
+    setError('')
+    try { await onCreate(draft); setDraft({ code: '', name: '', discount_rate: 0.8, enabled: true, note: '' }); await reload() } catch (e) { setError(e instanceof Error ? e.message : '创建失败') }
+  }
+
+  async function remove(item: PromoLinkStats) {
+    if (!onDelete) return
+    const ok = await confirm({ title: '删除优惠链接', description: `确认删除优惠码 ${item.code}？已绑定该码的用户仍保留折扣，但链接将失效。`, confirmText: '删除', tone: 'danger' })
+    if (!ok) return
+    try { await onDelete(item.id); await reload() } catch (e) { setError(e instanceof Error ? e.message : '删除失败') }
+  }
+
+  return <div className="grid gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-lg font-semibold">优惠链接</h3><Button variant="outline" onClick={() => void reload()} disabled={loading}>{loading ? '刷新中…' : '刷新'}</Button></div>
+    <Alert variant="info">通过优惠链接注册的用户会永久绑定该优惠码，之后所有充值 / 月卡按折扣倍率支付（折扣仅作用于付款金额，到账点数不变）。折扣倍率 0.8 = 8 折，0 = 限免，1 = 不打折。</Alert>
+    {error && <Alert variant="destructive">{error}</Alert>}
+    {links.map((item) => <PromoLinkRow key={item.id} item={item} onUpdate={onUpdate} onDelete={() => remove(item)} onCopy={copyLink} />)}
+    <div className="grid gap-2 rounded-lg border border-border bg-card p-4 lg:grid-cols-4">
+      <Input placeholder="优惠码（如 SUMMER）" value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value.toUpperCase() })} />
+      <Input placeholder="名称 / 备注标题" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+      <Input type="number" step="0.05" min="0" max="1" placeholder="折扣倍率 0~1" value={draft.discount_rate} onChange={(e) => setDraft({ ...draft, discount_rate: Number(e.target.value) })} />
+      <Input placeholder="备注" value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} />
+      <label className="flex items-center gap-2 text-sm"><Checkbox checked={draft.enabled} onCheckedChange={(v) => setDraft({ ...draft, enabled: Boolean(v) })} />启用</label>
+      <Button onClick={() => void create()} disabled={!draft.code.trim()}>新增</Button>
+    </div>
+  </div>
+}
+
+function PromoLinkRow({ item, onUpdate, onDelete, onCopy }: { item: PromoLinkStats; onUpdate?: (id: number, payload: Omit<PromoLinkPayload, 'code'>) => Promise<void>; onDelete: () => void; onCopy: (url: string) => void }) {
+  const [name, setName] = useState(item.name)
+  const [rate, setRate] = useState(item.discount_rate)
+  const [enabled, setEnabled] = useState(item.enabled)
+  const [note, setNote] = useState(item.note)
+  const percent = Math.round((1 - item.discount_rate) * 100)
+  return <div className="grid gap-3 rounded-lg border border-border bg-card p-4">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="min-w-0"><p className="font-semibold">{item.code} <Badge variant={item.enabled ? 'success' : 'muted'}>{item.enabled ? `享 ${percent}% 折扣` : '已停用'}</Badge></p>{item.promo_url && <button type="button" className="mt-1 max-w-full truncate text-left text-xs text-muted-foreground underline decoration-dotted hover:text-foreground" onClick={() => onCopy(item.promo_url || '')}>{item.promo_url}（点击复制）</button>}</div>
+    </div>
+    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-5">
+      <span>注册数：<b className="text-foreground">{item.signup_count}</b></span>
+      <span>绑定用户：<b className="text-foreground">{item.bound_user_count}</b></span>
+      <span>下单数：<b className="text-foreground">{item.order_count}</b></span>
+      <span>付费订单：<b className="text-foreground">{item.paid_order_count}</b></span>
+      <span>付费金额：<b className="text-foreground">¥{(item.paid_amount_cents / 100).toFixed(2)}</b></span>
+    </div>
+    <div className="grid gap-2 lg:grid-cols-4">
+      <Input value={name} placeholder="名称" onChange={(e) => setName(e.target.value)} />
+      <Input type="number" step="0.05" min="0" max="1" value={rate} onChange={(e) => setRate(Number(e.target.value))} />
+      <Input value={note} placeholder="备注" onChange={(e) => setNote(e.target.value)} />
+      <label className="flex items-center gap-2 text-sm"><Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(Boolean(v))} />启用</label>
+      <div className="flex gap-2 lg:col-span-4"><Button variant="outline" onClick={() => onUpdate?.(item.id, { name, discount_rate: rate, enabled, note })}>保存</Button><Button variant="destructive" onClick={onDelete}>删除</Button></div>
+    </div>
+  </div>
+}

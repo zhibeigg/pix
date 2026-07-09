@@ -696,6 +696,44 @@ export type PricingDiscount = {
   label: string
 }
 
+// 优惠链接：管理员创建的优惠码 + 折扣倍率，通过 ?promo= 注册的用户永久绑定并按折扣充值。
+export type PromoLink = {
+  id: number
+  code: string
+  name: string
+  discount_rate: number
+  enabled: boolean
+  note: string
+  signup_count: number
+  created_at: string
+  updated_at: string
+}
+
+export type PromoLinkStats = PromoLink & {
+  bound_user_count: number
+  order_count: number
+  paid_order_count: number
+  paid_amount_cents: number
+  paid_credits: number
+  promo_url: string
+}
+
+export type PromoLinkPayload = {
+  code: string
+  name: string
+  discount_rate: number
+  enabled: boolean
+  note: string
+}
+
+// 公开：前端按 ?promo=CODE 查询优惠码是否有效及折扣。
+export type PromoLinkInfo = {
+  code: string
+  active: boolean
+  discount_rate: number
+  name: string
+}
+
 export type SettingType = 'string' | 'number' | 'boolean' | 'textarea' | 'select' | 'secret' | 'status'
 
 export type PublicAnnouncement = {

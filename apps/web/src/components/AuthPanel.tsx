@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useI18n } from '../i18n'
 import { useTurnstile } from '../lib/turnstile'
-import type { EmailCodeResponse, User } from '../types'
+import { api } from '../api'
+import type { EmailCodeResponse, PromoLinkInfo, User } from '../types'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -21,13 +22,14 @@ type AuthPanelProps = {
   loading: boolean
   registrationBonusCredits: number
   referralCode: string
+  promoCode?: string
   localTestLoginAvailable: boolean
   localTestAccountEmail: string | null
   turnstileEnabled: boolean
   turnstileSiteKey: string
 }
 
-export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, onRequestResetCode, onResetPassword, onLocalTestLogin, onLogout, loading, registrationBonusCredits, referralCode, localTestLoginAvailable, localTestAccountEmail, turnstileEnabled, turnstileSiteKey }: AuthPanelProps) {
+export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, onRequestResetCode, onResetPassword, onLocalTestLogin, onLogout, loading, registrationBonusCredits, referralCode, promoCode = '', localTestLoginAvailable, localTestAccountEmail, turnstileEnabled, turnstileSiteKey }: AuthPanelProps) {
   const { text, t, language } = useI18n()
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login')
   const [email, setEmail] = useState('')
@@ -40,6 +42,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
   const [countdown, setCountdown] = useState(0)
   const [passwordHint, setPasswordHint] = useState('')
   const [turnstileRequired, setTurnstileRequired] = useState(false)
+  const [promoInfo, setPromoInfo] = useState<PromoLinkInfo | null>(null)
   const isRegister = mode === 'register'
   const isForgot = mode === 'forgot'
   const turnstileAvailable = turnstileEnabled && Boolean(turnstileSiteKey)
@@ -47,6 +50,13 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
   const turnstile = useTurnstile({ enabled: turnstileActive, siteKey: turnstileSiteKey, language })
 
   useEffect(() => { if (countdown > 0) { const tid = window.setTimeout(() => setCountdown((v) => Math.max(0, v - 1)), 1000); return () => window.clearTimeout(tid) } }, [countdown])
+  useEffect(() => {
+    if (!promoCode) { setPromoInfo(null); return }
+    let cancelled = false
+    api.promoInfo(promoCode).then((info) => { if (!cancelled) setPromoInfo(info) }).catch(() => { if (!cancelled) setPromoInfo(null) })
+    return () => { cancelled = true }
+  }, [promoCode])
+  const promoDiscountPercent = promoInfo && promoInfo.active ? Math.round((1 - promoInfo.discount_rate) * 100) : 0
   const registrationBonusCopy = registrationBonusCredits > 0 ? text(`新人注册赠送 ${registrationBonusCredits} 点数`, `New accounts get ${registrationBonusCredits} bonus credits`) : ''
 
   function isTurnstileRequiredError(error: unknown) {
@@ -195,6 +205,7 @@ export function AuthPanel({ user, onLogin, onRegister, onRequestRegisterCode, on
     >
       <form className="grid gap-4" onSubmit={submit}>
         {isRegister && referralCode && <Alert variant="success">{t('auth.referralDetected', { code: referralCode })}</Alert>}
+        {isRegister && promoInfo && promoInfo.active && promoDiscountPercent > 0 && <Alert variant="success">{text(`已识别优惠链接 ${promoInfo.code}，注册后充值一律享 ${promoDiscountPercent}% 折扣`, `Promo link ${promoInfo.code} detected. Enjoy ${promoDiscountPercent}% off all recharges after signup.`)}</Alert>}
         {isRegister && <PixField label={text('昵称', 'Display name')}><Input value={displayName} autoComplete="name" onChange={(e) => setDisplayName(e.target.value)} /></PixField>}
         <PixField label={text('邮箱', 'Email')}><Input type="email" value={email} autoComplete="email" onChange={(e) => updateEmail(e.target.value)} required /></PixField>
         {isRegister && (

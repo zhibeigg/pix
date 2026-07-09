@@ -101,11 +101,17 @@ def create_app(settings: WebSettings | None = None) -> FastAPI:
     @app.get("/", include_in_schema=False)
     def referral_root_redirect(request: Request):
         aff = (request.query_params.get("aff") or "").strip()
-        if not aff:
+        promo = (request.query_params.get("promo") or "").strip()
+        if not aff and not promo:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
         active_settings: WebSettings = request.app.state.web_settings
         frontend_base = frontend_invite_base_url(active_settings.frontend_base_url, active_settings.public_base_url)
-        return RedirectResponse(f"{frontend_base}/?{urlencode({'aff': aff})}#auth-panel", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+        params: dict[str, str] = {}
+        if aff:
+            params["aff"] = aff
+        if promo:
+            params["promo"] = promo
+        return RedirectResponse(f"{frontend_base}/?{urlencode(params)}#auth-panel", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     @app.get("/health")
     def health() -> dict[str, str]:

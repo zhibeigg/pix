@@ -186,6 +186,7 @@ class RegisterRequest(BaseModel):
     display_name: str = Field(default="", max_length=120)
     verification_code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
     referral_code: str = Field(default="", max_length=32)
+    promo_code: str = Field(default="", max_length=32)
 
     @field_validator("password")
     @classmethod
@@ -420,6 +421,62 @@ class ReferralWithdrawalRequest(BaseModel):
     amount_cents: int = Field(ge=1)
     currency: str = Field(default="cny", max_length=12)
     note: str = Field(default="", max_length=500)
+
+
+class PromoLinkCreateRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
+    name: str = Field(default="", max_length=120)
+    discount_rate: float = Field(default=1.0, ge=0.0, le=1.0)
+    enabled: bool = True
+    note: str = Field(default="", max_length=500)
+
+
+class PromoLinkUpdateRequest(BaseModel):
+    name: str = Field(default="", max_length=120)
+    discount_rate: float = Field(default=1.0, ge=0.0, le=1.0)
+    enabled: bool = True
+    note: str = Field(default="", max_length=500)
+
+
+class PromoLinkResponse(BaseModel):
+    id: int
+    code: str
+    name: str
+    discount_rate: float
+    enabled: bool
+    note: str
+    signup_count: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PromoLinkStatsResponse(BaseModel):
+    id: int
+    code: str
+    name: str
+    discount_rate: float
+    enabled: bool
+    note: str
+    signup_count: int
+    bound_user_count: int
+    order_count: int
+    paid_order_count: int
+    paid_amount_cents: int
+    paid_credits: int
+    promo_url: str = ""
+    created_at: datetime
+    updated_at: datetime
+
+
+class PromoLinkInfoResponse(BaseModel):
+    """公开：前端按 ?promo=CODE 查询优惠码是否有效及折扣。"""
+
+    code: str
+    active: bool
+    discount_rate: float
+    name: str = ""
 
 
 class PixelizeParamsSchema(BaseModel):

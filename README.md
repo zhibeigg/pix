@@ -225,6 +225,8 @@ npm run build
 
 管理后台「价格折扣」可开启全局点数折扣：设置 `pricing.discount_enabled` 开关、`pricing.discount_rate` 倍率（0~1，如 0.8 = 8 折，0 = 限免）与可选 `pricing.discount_label` 促销文案。折扣只作用于生成任务（asset / 文生图 / 图生图 / 序列帧），按「先算总价再打折、向下取整、原价>0 保底 1 点」扣点，并在创建任务时锁定；作品库 / 素材包扩容不受影响。前端通过公开接口 `GET /pricing/discount`（返回 `{active, rate, label}`）展示原价划线 + 折后价 + 折扣标签。折扣实扣点数会写入任务计费快照（`billing.original_total_points` / `total_points` / `discount`）。
 
+管理后台「优惠链接」可创建带折扣的注册推广链接：设置优惠码、折扣倍率（0~1，如 0.8 = 8 折、0 = 限免、1 = 不打折）、启停与备注，生成形如 `https://站点/?promo=CODE#auth-panel` 的链接。通过该链接注册的用户会**永久绑定**优惠码，之后所有充值 / 自定义充值 / 月卡订单都按折扣倍率支付（折扣只作用于**付款金额** `amount_cents`，到账点数 / 月卡额度不变），并在下单时锁定 `payment_orders.promo_code` 供审计与统计。与邀请返佣（`?aff=`）独立并存：`?aff=` 是好友充值后邀请人拿返佣，`?promo=` 是注册即绑定的长期折扣。后端 `GET/POST/PUT/DELETE /admin/promo-links` 提供增删改查与使用量统计（注册数、绑定用户数、下单数、付费订单数、付费金额），公开接口 `GET /pricing/promo/{code}` 返回优惠码是否有效及折扣供注册页展示。折扣倍率、绑定关系与统计以数据库 `promo_links` 表为准（迁移 `0025`），用户表 `users.promo_code` 记录绑定的优惠码。
+
 月卡会员提供仅用于生成任务的每日临时额度，默认档位为铜卡 100 点/天（¥99 / 30 天）、银卡 200 点/天（¥199 / 30 天）、金卡 300 点/天（¥299 / 30 天）。用户可在「点数中心」购买月卡；重复购买会在当前到期日基础上顺延，并可切换档位。临时额度按站点时区（`site.timezone`，默认 `Asia/Shanghai`）每日自然日刷新，当天未用完会清零；创建生成任务时按「临时额度 → 永久点数」顺序冻结，不足时可混合扣点，任务成功确认消费，失败同日退回临时额度，跨日临时额度退款作废并写入流水备注。作品库 / 素材包扩容等一次性消费仍只使用永久点数。管理后台「月卡档位」可调整档位名称、每日额度、价格、天数、启停和排序。余额接口额外返回 `daily_quota_balance`、`daily_quota_limit`、`reserved_quota`、`available_total`、`membership_plan_key`、`membership_expires_at` 等字段。
 
 管理后台「任务与作品」支持按作品库视角查看最新全站任务：管理员可按状态、用户、任务 ID / prompt / 批次 / 用户邮箱筛选，并直接预览、下载任务产物；同页保留操作列表用于重试失败任务、取消排队 / 运行任务并退款、标记失败并退款。后端 `GET /admin/jobs?limit=500` 返回 `JobResponse[]`，其中 `user_id` 暴露任务归属，`outputs` 继续包含受保护文件 URL；管理员前端使用自己的登录 token 调用 `/files` 打开这些产物。

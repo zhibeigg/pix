@@ -30,6 +30,7 @@ from pix_web.rate_limit import (
     REGISTER_RATE_LIMIT,
     limiter,
 )
+from pix_web.promo import bind_user_promo
 from pix_web.referrals import bind_referral_invite
 from pix_web.schemas import (
     BootstrapAdminRequest,
@@ -309,6 +310,7 @@ def register(
     ensure_credit_account(db, user)
     referral_settings = load_referral_settings(db)
     bind_referral_invite(db, user, req.referral_code, referral_settings)
+    bind_user_promo(db, user, req.promo_code)
     ops = load_operational_settings(db)
     if ops.registration_bonus_credits > 0:
         recharge_credits(db, user, ops.registration_bonus_credits, note="注册赠送")

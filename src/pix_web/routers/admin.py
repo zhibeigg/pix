@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -25,7 +25,8 @@ from pix_web.membership import is_active as is_membership_active
 from pix_web.jobs import retry_failed_job
 from pix_web.email_sender import EmailDeliveryError, send_announcement_email, send_announcement_email_batch_task, send_verification_email
 from pix_web.email_verification import generate_code
-from pix_web.models import CreditAccount, CreditPackage, GenerationJob, MembershipPlan, PaymentOrder, PricingRule, User, UserMembership
+from pix_web.models import CreditAccount, CreditPackage, GenerationJob, MembershipPlan, PaymentOrder, PricingRule, PromoLink, User, UserMembership
+from pix_web.promo import create_promo_link, delete_promo_link, list_promo_links, promo_link_stats, update_promo_link
 from pix_web.queue import enqueue_jobs
 from pix_web.referrals import frontend_invite_base_url
 from pix_web.schemas import (
@@ -55,6 +56,10 @@ from pix_web.schemas import (
     EmailTestResponse,
     PricingRuleResponse,
     PricingRuleUpdateRequest,
+    PromoLinkCreateRequest,
+    PromoLinkResponse,
+    PromoLinkStatsResponse,
+    PromoLinkUpdateRequest,
     SystemSettingResponse,
     SystemSettingUpdateRequest,
 )
@@ -395,6 +400,72 @@ def update_membership_plan(
     db.commit()
     db.refresh(plan)
     return plan
+
+
+@router.get("/promo-links", response_model=list[PromoLinkStatsResponse])
+def promo_links(
+    request: Request,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    web_settings: WebSettings = Depends(get_settings),
+) -> list[dict[str, object]]:
+    """优惠链接列表（附使用量统计与完整优惠链接 URL）。"""
+    effective = load_effective_web_settings(db, web_settings)
+    base = frontend_invite_base_url(effective.frontend_base_url, effective.public_base_url)
+    stats = promo_link_stats(db)
+    for item in stats:
+        item["promo_url"] = f"{base}/?promo={item['code']}#auth-panel"
+    return stats
+
+
+@router.post("/promo-links", response_model=PromoLinkResponse)
+def create_promo_link_route(
+    req: PromoLinkCreateRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> PromoLink:
+    link = create_promo_link(
+        db,
+        code=req.code,
+        name=req.name,
+        discount_rate=req.discount_rate,
+        enabled=req.enabled,
+        note=req.note,
+    )
+    db.commit()
+    db.refresh(link)
+    return link
+
+
+@router.put("/promo-links/{link_id}", response_model=PromoLinkResponse)
+def update_promo_link_route(
+    link_id: int,
+    req: PromoLinkUpdateRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> PromoLink:
+    link = update_promo_link(
+        db,
+        link_id,
+        name=req.name,
+        discount_rate=req.discount_rate,
+        enabled=req.enabled,
+        note=req.note,
+    )
+    db.commit()
+    db.refresh(link)
+    return link
+
+
+@router.delete("/promo-links/{link_id}")
+def delete_promo_link_route(
+    link_id: int,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    delete_promo_link(db, link_id)
+    db.commit()
+    return {"deleted": True}
 
 
 @router.get("/settings", response_model=list[SystemSettingResponse])

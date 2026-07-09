@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -26,6 +26,8 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(120), default="")
     role: Mapped[str] = mapped_column(String(32), default="user")
     status: Mapped[str] = mapped_column(String(32), default="active")
+    # 优惠链接绑定：注册时通过 ?promo=xxx 进入的用户永久绑定该优惠码，之后所有充值/月卡按折扣计费。
+    promo_code: Mapped[str] = mapped_column(String(32), default="", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -151,6 +153,12 @@ class PaymentOrder(Base):
     # 到账时激活/续期会员而非直接充值永久点数。
     order_kind: Mapped[str] = mapped_column(String(24), default="recharge", index=True)
     membership_plan_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # 下单用户绑定的优惠码（快照），用于统计各优惠链接的下单/付费金额。
+    promo_code: Mapped[str] = mapped_column(String(32), default="", index=True)
+    # 该订单实际享受的优惠折扣率（0~1）；未享受优惠为 1.0。仅统计/展示用。
+    promo_discount_rate: Mapped[float] = mapped_column(default=1.0)
+    # 未打折时的原始金额（分），用于统计优惠减免总额；无优惠时等于 amount_cents。
+    original_amount_cents: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -252,6 +260,28 @@ class ReferralSettlement(Base):
     credits: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
     note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class PromoLink(Base):
+    """优惠链接：管理员创建的优惠码，设置折扣倍率。
+
+    通过 ?promo=CODE 链接注册的用户永久绑定该码，之后所有充值/月卡订单按折扣计费。
+    used_count / signup_count 冗余统计各链接使用量，付费统计实时按订单聚合。
+    """
+
+    __tablename__ = "promo_links"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120), default="")
+    # 折扣倍率（0~1）：0.8 = 8 折付款；0 = 限免；1 = 不打折。
+    discount_rate: Mapped[float] = mapped_column(default=1.0)
+    enabled: Mapped[bool] = mapped_column(default=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    # 通过该链接注册的用户数（绑定时 +1）。
+    signup_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

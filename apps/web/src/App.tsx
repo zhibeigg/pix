@@ -29,6 +29,7 @@ import { useI18n } from './i18n'
 import { useToast } from './hooks/useToast'
 import { useHashRoute } from './hooks/useHashRoute'
 import { useReferralCode, LEGACY_REFERRAL_CODE_KEY } from './hooks/useReferralCode'
+import { usePromoCode } from './hooks/usePromoCode'
 import { useBillingActions } from './hooks/useBillingActions'
 import { useAdminActions } from './hooks/useAdminActions'
 import { applyPageSeo } from './lib/seo'
@@ -128,6 +129,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const { toast, setMessage, showError, dismissToast } = useToast(text)
   const { page, setPage, navigate } = useHashRoute(user, language)
   const { referralCode, setReferralCode } = useReferralCode()
+  const { promoCode, setPromoCode } = usePromoCode()
 
   const isAdmin = user?.role === 'admin'
   const selectedPack = useMemo(() => packs.find((pack) => pack.id === selectedPackId) ?? null, [packs, selectedPackId])
@@ -270,7 +272,7 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const confirmDeleteAction = useCallback(() => { void confirmDelete() }, [confirmDelete])
 
   const { createPaymentOrder, startCheckout, createCustomPaymentOrder, startCustomCheckout, createMembershipOrder, startMembershipCheckout, mockPayPaymentOrder, createAdminPackage, updateAdminPackage, createAdminMembershipPlan, updateAdminMembershipPlan } = useBillingActions({ token, refreshCore, setMessage, showError, text, setCheckout })
-  const { adjustCredits, adjustCreditsBatch, updatePricing, updateSetting, testEmailSetting, adminRetryJob, adminCancelJob, adminFailRefundJob, publishAnnouncement, adminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, testAnnouncementEmail, listProviders, listProviderPresets, createProvider, updateProvider, deleteProvider } = useAdminActions({ token, refreshCore, setMessage, text })
+  const { adjustCredits, adjustCreditsBatch, updatePricing, updateSetting, testEmailSetting, adminRetryJob, adminCancelJob, adminFailRefundJob, publishAnnouncement, adminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, testAnnouncementEmail, listProviders, listProviderPresets, createProvider, updateProvider, deleteProvider, listPromoLinks, createPromoLink, updatePromoLink, deletePromoLink } = useAdminActions({ token, refreshCore, setMessage, text })
 
   useEffect(() => {
     refreshSetupStatus().catch(showError)
@@ -427,13 +429,14 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     }
   }
 
-  async function register(email: string, password: string, displayName: string, verificationCode: string, nextReferralCode = referralCode) {
+  async function register(email: string, password: string, displayName: string, verificationCode: string, nextReferralCode = referralCode, nextPromoCode = promoCode) {
     setBusy(true)
     setMessage('')
     try {
-      await api.register(email, password, displayName, verificationCode, nextReferralCode)
+      await api.register(email, password, displayName, verificationCode, nextReferralCode, nextPromoCode)
       try { localStorage.removeItem(LEGACY_REFERRAL_CODE_KEY) } catch { /* ignore */ }
       setReferralCode('')
+      setPromoCode('')
       await login(email, password)
       await refreshSetupStatus()
       setMessage(text('注册成功', 'Registered successfully'))
@@ -1061,13 +1064,13 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
             {page === 'billing' && <BillingPage balance={balance} transactions={transactions} packages={packages} membershipPlans={membershipPlans} customRechargeOptions={customRechargeOptions} orders={orders} checkout={checkout} isAdmin={isAdmin} onRefresh={refreshCurrent} onCreateOrder={createPaymentOrder} onCheckout={startCheckout} onCreateCustomOrder={createCustomPaymentOrder} onCustomCheckout={startCustomCheckout} onCreateMembershipOrder={createMembershipOrder} onMembershipCheckout={startMembershipCheckout} onMockPayOrder={mockPayPaymentOrder} />}
             {page === 'rewards' && <RewardsPage token={token} onRefresh={refreshCurrent} />}
             {page === 'api' && <ApiPage token={token} />}
-            {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} membershipPlans={adminMembershipPlans} settings={systemSettings} onRefresh={refreshCurrent} onAdjustCredits={adjustCredits} onAdjustCreditsBatch={adjustCreditsBatch} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onCreateMembershipPlan={createAdminMembershipPlan} onUpdateMembershipPlan={updateAdminMembershipPlan} onUpdateSetting={updateSetting} onPublishAnnouncement={publishAnnouncement} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} onAdminAnnouncements={adminAnnouncements} onCreateAnnouncement={createAnnouncement} onUpdateAnnouncement={updateAnnouncement} onDeleteAnnouncement={deleteAnnouncement} onTestAnnouncementEmail={testAnnouncementEmail} onListProviders={listProviders} onListProviderPresets={listProviderPresets} onCreateProvider={createProvider} onUpdateProvider={updateProvider} onDeleteProvider={deleteProvider} token={token} />}
+            {page === 'admin' && isAdmin && <AdminPage dashboard={adminDashboard} users={adminUsers} jobs={adminJobs} pricing={pricing} packages={adminPackages} membershipPlans={adminMembershipPlans} settings={systemSettings} onRefresh={refreshCurrent} onAdjustCredits={adjustCredits} onAdjustCreditsBatch={adjustCreditsBatch} onUpdatePricing={updatePricing} onCreatePackage={createAdminPackage} onUpdatePackage={updateAdminPackage} onCreateMembershipPlan={createAdminMembershipPlan} onUpdateMembershipPlan={updateAdminMembershipPlan} onUpdateSetting={updateSetting} onPublishAnnouncement={publishAnnouncement} onTestEmail={testEmailSetting} onAdminRetryJob={adminRetryJob} onAdminCancelJob={adminCancelJob} onAdminFailRefundJob={adminFailRefundJob} onAdminAnnouncements={adminAnnouncements} onCreateAnnouncement={createAnnouncement} onUpdateAnnouncement={updateAnnouncement} onDeleteAnnouncement={deleteAnnouncement} onTestAnnouncementEmail={testAnnouncementEmail} onListProviders={listProviders} onListProviderPresets={listProviderPresets} onCreateProvider={createProvider} onUpdateProvider={updateProvider} onDeleteProvider={deleteProvider} onListPromoLinks={listPromoLinks} onCreatePromoLink={createPromoLink} onUpdatePromoLink={updatePromoLink} onDeletePromoLink={deletePromoLink} token={token} />}
           </Suspense>
         </WorkspaceShell>
       ) : (
         <div>
           <AppHero user={user} balance={balance} activeJobs={activeJobs} completedJobs={completedJobs} failedJobs={failedJobs} batchCount={packs.length} />
-          <LandingSections token={token} sharedWorks={sharedWorks} user={user} onToggleSharedWorkLike={toggleSharedWorkLike} authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onRequestResetCode={requestResetCode} onResetPassword={resetAndLogin} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} referralCode={referralCode} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} turnstileEnabled={setupStatus?.turnstile_enabled ?? false} turnstileSiteKey={setupStatus?.turnstile_site_key ?? ''} />} />
+          <LandingSections token={token} sharedWorks={sharedWorks} user={user} onToggleSharedWorkLike={toggleSharedWorkLike} authSlot={<AuthPanel user={user} onLogin={login} onRegister={register} onRequestRegisterCode={requestRegisterCode} onRequestResetCode={requestResetCode} onResetPassword={resetAndLogin} onLocalTestLogin={localTestLogin} onLogout={logout} loading={busy} registrationBonusCredits={setupStatus?.registration_bonus_credits ?? 0} referralCode={referralCode} promoCode={promoCode} localTestLoginAvailable={setupStatus?.local_test_login_available ?? false} localTestAccountEmail={setupStatus?.local_test_account_email ?? null} turnstileEnabled={setupStatus?.turnstile_enabled ?? false} turnstileSiteKey={setupStatus?.turnstile_site_key ?? ''} />} />
           <SiteFooter />
         </div>
       )}

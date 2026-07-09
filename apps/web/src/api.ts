@@ -35,6 +35,10 @@ import type {
   PaymentOrder,
   PricingRule,
   PricingDiscount,
+  PromoLink,
+  PromoLinkInfo,
+  PromoLinkPayload,
+  PromoLinkStats,
   PromptPreviewResponse,
   PublicAnnouncement,
   ReferralSettlement,
@@ -190,11 +194,14 @@ export const api = {
       body: JSON.stringify({ email, turnstile_token: turnstileToken }),
     })
   },
-  register(email: string, password: string, displayName: string, verificationCode: string, referralCode = '') {
+  register(email: string, password: string, displayName: string, verificationCode: string, referralCode = '', promoCode = '') {
     return request<User>('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password, display_name: displayName, verification_code: verificationCode, referral_code: referralCode }),
+      body: JSON.stringify({ email, password, display_name: displayName, verification_code: verificationCode, referral_code: referralCode, promo_code: promoCode }),
     })
+  },
+  promoInfo(code: string) {
+    return request<PromoLinkInfo>(`/pricing/promo/${encodeURIComponent(code)}`)
   },
   login(email: string, password: string) {
     return request<TokenResponse>('/auth/login', {
@@ -506,6 +513,18 @@ export const api = {
   },
   updateAdminMembershipPlan(token: string, key: string, payload: Omit<MembershipPlan, 'key'>) {
     return request<MembershipPlan>(`/admin/membership-plans/${key}`, { method: 'PUT', body: JSON.stringify(payload) }, token)
+  },
+  adminPromoLinks(token: string) {
+    return request<PromoLinkStats[]>('/admin/promo-links', {}, token)
+  },
+  createAdminPromoLink(token: string, payload: PromoLinkPayload) {
+    return request<PromoLink>('/admin/promo-links', { method: 'POST', body: JSON.stringify(payload) }, token)
+  },
+  updateAdminPromoLink(token: string, id: number, payload: Omit<PromoLinkPayload, 'code'>) {
+    return request<PromoLink>(`/admin/promo-links/${id}`, { method: 'PUT', body: JSON.stringify(payload) }, token)
+  },
+  deleteAdminPromoLink(token: string, id: number) {
+    return request<{ deleted: boolean }>(`/admin/promo-links/${id}`, { method: 'DELETE' }, token)
   },
   adminSettings(token: string) {
     return request<SystemSetting[]>('/admin/settings', {}, token)

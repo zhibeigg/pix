@@ -65,17 +65,24 @@ def _persist_payment_order(
     membership_plan_key: str | None = None,
 ) -> PaymentOrder:
     provider = normalize_payment_provider(provider)
+    # 优惠链接折扣：仅打折支付金额，到账点数 / 月卡额度不变。记录 promo_code 供统计。
+    from pix_web.promo import apply_promo_discount, resolve_user_discount_rate
+
+    promo_code = (user.promo_code or "").strip().upper()
+    discount_rate = resolve_user_discount_rate(db, user)
+    charged_amount_cents = apply_promo_discount(amount_cents, discount_rate)
     order = PaymentOrder(
         user_id=user.id,
         package_id=package_id,
         provider=provider,
         provider_order_id=f"{provider}-{uuid4().hex}",
         status="pending",
-        amount_cents=amount_cents,
+        amount_cents=charged_amount_cents,
         currency=currency,
         credits=credits,
         order_kind=order_kind,
         membership_plan_key=membership_plan_key,
+        promo_code=promo_code,
     )
     db.add(order)
     db.commit()

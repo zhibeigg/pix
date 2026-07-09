@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.129.0] - 2026-07-09
+
+### Added
+
+- 新增「优惠链接」功能（与邀请返佣独立并存）：管理员可在后台「优惠链接」标签页创建优惠码并设置折扣倍率（0~1，0.8 = 8 折付款、0 = 限免、1 = 不打折），生成形如 `https://站点/?promo=CODE#auth-panel` 的优惠链接。用户通过该链接注册后**永久绑定**优惠码，之后所有充值 / 自定义充值 / 月卡下单一律按折扣倍率支付（折扣仅作用于付款金额 `amount_cents`，到账点数 / 月卡额度不变）。后台列表实时统计各优惠链接的注册数、已绑定用户数、下单数、付费订单数与付费金额，可复制链接、编辑折扣 / 启停、删除。新增数据表 `promo_links`、`users.promo_code`、`payment_orders.promo_code`（迁移 `0025_promo_links`），后端服务 `pix_web/promo.py`，管理端 `GET/POST/PUT/DELETE /admin/promo-links`，公开查询 `GET /pricing/promo/{code}`，注册接口 `POST /auth/register` 支持 `promo_code`，后端根路由支持 `?promo=` 重定向。前端注册面板在识别到有效优惠链接时展示折扣提示。
+
 ## [1.128.0] - 2026-07-06
 
 ### Added

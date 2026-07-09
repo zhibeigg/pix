@@ -1121,7 +1121,7 @@ export function SingleGeneratePanel({ pricing, discount, loading, token, imageMo
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="video_bridge">{text('连贯动作序列帧（默认）', 'Smooth action sequence (default)')}</SelectItem>
-                  <SelectItem value="mosaic">{text('快速序列帧', 'Quick sprite sheet')}</SelectItem>
+                  <SelectItem value="mosaic">{text('快速序列帧（不推荐）', 'Quick sprite sheet (not recommended)')}</SelectItem>
                 </SelectContent>
               </Select>
             </PixField>

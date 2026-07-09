@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { api } from '../api'
-import type { AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, GenerationJob, ImageProvider, ImageProviderPreset, ImageProviderCreatePayload, ImageProviderUpdatePayload } from '../types'
+import type { AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, GenerationJob, ImageProvider, ImageProviderPreset, ImageProviderCreatePayload, ImageProviderUpdatePayload, PromoLinkStats, PromoLinkPayload } from '../types'
 import type { ToastVariant } from '../components/AppOverlays'
 
 type TextFn = (zh: string, en: string) => string
@@ -148,5 +148,28 @@ export function useAdminActions({ token, refreshCore, setMessage, text }: AdminA
     setMessage(text('供应商已删除', 'Provider deleted'))
   }, [refreshCore, setMessage, text, token])
 
-  return { adjustCredits, adjustCreditsBatch, updatePricing, updateSetting, testEmailSetting, adminRetryJob, adminCancelJob, adminFailRefundJob, publishAnnouncement, adminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, testAnnouncementEmail, listProviders, listProviderPresets, createProvider, updateProvider, deleteProvider }
+  const listPromoLinks = useCallback(async (): Promise<PromoLinkStats[]> => {
+    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
+    return api.adminPromoLinks(token)
+  }, [text, token])
+
+  const createPromoLink = useCallback(async (payload: PromoLinkPayload) => {
+    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
+    await api.createAdminPromoLink(token, payload)
+    setMessage(text('优惠链接已创建', 'Promo link created'))
+  }, [setMessage, text, token])
+
+  const updatePromoLink = useCallback(async (id: number, payload: Omit<PromoLinkPayload, 'code'>) => {
+    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
+    await api.updateAdminPromoLink(token, id, payload)
+    setMessage(text('优惠链接已更新', 'Promo link updated'))
+  }, [setMessage, text, token])
+
+  const deletePromoLink = useCallback(async (id: number) => {
+    if (!token) throw new Error(text('请先登录', 'Please sign in first'))
+    await api.deleteAdminPromoLink(token, id)
+    setMessage(text('优惠链接已删除', 'Promo link deleted'))
+  }, [setMessage, text, token])
+
+  return { adjustCredits, adjustCreditsBatch, updatePricing, updateSetting, testEmailSetting, adminRetryJob, adminCancelJob, adminFailRefundJob, publishAnnouncement, adminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, testAnnouncementEmail, listProviders, listProviderPresets, createProvider, updateProvider, deleteProvider, listPromoLinks, createPromoLink, updatePromoLink, deletePromoLink }
 }
