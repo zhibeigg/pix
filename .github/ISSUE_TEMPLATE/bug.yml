@@ -10,7 +10,7 @@ body:
     id: version
     attributes:
       label: Pix 版本
-      placeholder: 例如 1.130.0 / commit SHA
+      placeholder: 例如 1.130.1 / commit SHA
     validations:
       required: true
   - type: dropdown

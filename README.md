@@ -96,7 +96,7 @@ npm run build
 
 ### 自动发布与容器镜像
 
-推送形如 `v1.130.0` 的标签后，GitHub Actions 会先重新执行安全扫描、测试和构建，再创建 GitHub Release：
+推送形如 `vA.B.C` 的标签后，GitHub Actions 会先重新执行安全扫描、测试和构建，再创建 GitHub Release：
 
 - Python wheel 与 sdist；
 - `pix-web-A.B.C.zip` 前端静态包；
@@ -573,7 +573,7 @@ Pix 后端内置多层防护，部署时请配合下列配置项：
 
 ## 版本与发布
 
-当前版本：`1.130.0`。
+当前版本：`1.130.1`。
 
 版本号格式为 `A.B.C`：
 

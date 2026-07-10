@@ -51,12 +51,18 @@ def collect_versions() -> dict[str, str]:
     }
 
 
+def _default_github_tag() -> str:
+    if os.environ.get("GITHUB_REF_TYPE") != "tag":
+        return ""
+    return os.environ.get("GITHUB_REF_NAME", "")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="校验 Pix 发布版本在所有清单中保持一致。")
     parser.add_argument(
         "--tag",
-        default=os.environ.get("GITHUB_REF_NAME", ""),
-        help="可选的发布标签（格式 vA.B.C）；默认读取 GITHUB_REF_NAME。",
+        default=_default_github_tag(),
+        help="可选的发布标签（格式 vA.B.C）；标签工作流默认读取 GITHUB_REF_NAME。",
     )
     args = parser.parse_args()
 
