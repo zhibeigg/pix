@@ -59,7 +59,11 @@ Issues = "https://github.com/zhibeigg/pix/issues"
 Changelog = "https://github.com/zhibeigg/pix/releases"
 
 [project.optional-dependencies]
-dev = ["pytest>=9.0.3", "ruff>=0.15.13"]
+dev = [
+    "pytest>=9.0.3",
+    "ruff>=0.15.13",
+    "tomli>=2.0.1; python_version < '3.11'",
+]
 
 [project.scripts]
 pix-web-api = "pix_web.main:run_dev"

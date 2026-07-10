@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- 修复分支 push 的 CI 将 `GITHUB_REF_NAME=master` 误判为发布标签的问题；版本校验现在只在 `GITHUB_REF_TYPE=tag` 时自动读取标签，并新增分支/标签环境回归测试。
+- 修复分支 push 的 CI 将 `GITHUB_REF_NAME=master` 误判为发布标签的问题；版本校验现在只在 `GITHUB_REF_TYPE=tag` 时自动读取标签，补充 Python 3.10 的 `tomli` 兼容层，并新增分支/标签环境回归测试。
 - 修复前端 Dockerfile 复制不存在的 `tsconfig.app.json` / `tsconfig.node.json`，恢复 Linux BuildKit 镜像构建。
 
 ## [1.130.0] - 2026-07-10
