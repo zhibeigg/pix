@@ -129,7 +129,9 @@ npm run build
 | `PIX_WEB_DB_MAX_OVERFLOW` | 连接池允许的临时溢出连接数，默认 20；峰值连接上限 = size + overflow。 |
 | `PIX_WEB_DB_POOL_TIMEOUT` | 取连接的最大等待秒数，默认 30；超时即报错而非无限堆积。 |
 | `PIX_WEB_DB_POOL_RECYCLE` | 连接最大存活秒数，默认 1800，超过即回收，配合 pre_ping 防服务端空闲断连。 |
-| `PIX_WEB_JWT_SECRET` | 登录 token 签名密钥，生产必须替换为长随机值。 |
+| `PIX_WEB_JWT_SECRET` | 登录 token 签名密钥，生产必须替换为长随机值。浏览器端不会读取该 token，而是通过 HttpOnly Cookie 维持会话。 |
+| `PIX_WEB_SESSION_COOKIE_SECURE` | 浏览器会话 Cookie 是否仅通过 HTTPS 发送；留空时 `prod` 自动开启、`dev` 自动关闭，生产显式关闭会拒绝启动。 |
+| `PIX_WEB_SESSION_COOKIE_SAMESITE` | 浏览器会话 Cookie 的 SameSite 策略，支持 `lax` / `strict` / `none`，默认 `lax`；跨站部署使用 `none` 时必须同时启用 Secure。 |
 | `PIX_WEB_STORAGE_ROOT` | 用户上传、生成结果和任务文件根目录，默认 `web_outputs`。 |
 | `PIX_WEB_MAX_UPLOAD_BYTES` | 单张上传图片大小上限（字节），默认 `10485760`（10 MB）。前端会通过 `/settings/image-models` 读取该值做上传前置校验与提示，后端 storage 层仍是最终防线。 |
 | `PIX_WEB_QUEUE_BACKEND` | `database` 或 `rq`。生产推荐 `rq`。 |
@@ -262,6 +264,8 @@ npm run build
 ## 对外 API
 
 普通用户登录后可在网站「API」页面创建、停用或删除长期 API Key，并查看详细调用文档与 `curl` 示例。页面内置类似 sub2api 的令牌生成器：先在浏览器生成 `pix_live_` + 32 字节随机 hex 的候选令牌，提交创建后才生效；后端会校验格式与唯一性，数据库只保存 hash 与 prefix。API Key 明文只在创建成功时展示一次；列表页只展示名称、prefix、scope、创建时间、最后使用时间和撤销时间。外部程序使用 `Authorization: Bearer <api_key>` 调用 `/external/v1/...`，任务仍归属该 key 对应用户，并复用现有任务创建、扣点预留、队列入队、作品权限、角色库权限和文件下载逻辑。API 页面已覆盖认证、账号 / 余额 / 模型查询、上传参考图、角色库读写、素材直出、多张同参数素材直出、图生图、序列帧、轮询分页和下载输出等接入步骤。
+
+网站 SPA 登录与外部 API 认证相互独立：浏览器登录使用 `HttpOnly` 会话 Cookie，并对 Cookie 认证的写请求校验精确 `Origin`；现有 `/auth/login` Bearer JWT 与 `/external/v1` 的 `pix_live_` API Key 接口继续保留，便于 CLI、服务端程序和旧客户端兼容。
 
 外部 API 也提供 `POST /external/v1/jobs/batch`，请求体与站内 `/jobs/batch` 一致：`jobs` 为 1～50 个 `JobCreateRequest`，`batch_name` / `mode` 可选。用于多张同参数素材直出时，调用方应复制同一 `job_type="asset"` payload 并为每个子任务设置不同 `client_request_id`；响应 `JobBatchCreateResponse` 会返回独立 `jobs[]`、`total_price_credits` 和 `batch_id`。
 
@@ -563,17 +567,18 @@ JSON 示例：
 Pix 后端内置多层防护，部署时请配合下列配置项：
 
 - **文件访问归属校验**：`GET /files` 与任务输入图 `input_image_path` / `reference_image_path` 只允许访问本人上传目录或本人任务产物，杜绝跨用户越权与任意文件读取（LFI）。管理员可访问全部产物。
-- **文件访问票据**：受保护图片 / 下载链接使用短时效（默认 5 分钟）单用途票据（`POST /files/ticket`），前端主动预取并缓存，避免长期登录 token 出现在 URL、浏览器历史或反代日志中。
+- **浏览器会话与 CSRF**：网站 SPA 的长期 JWT 仅保存在 `HttpOnly` Cookie，不写入 `localStorage` 或返回给前端 JavaScript；Cookie 认证的写请求必须来自当前站点或 `PIX_WEB_CORS_ORIGINS` / `PIX_WEB_FRONTEND_BASE_URL` 明确允许的 Origin。
+- **文件访问票据**：受保护图片 / 下载链接使用短时效（默认 5 分钟）单用途票据（`POST /files/ticket`），前端通过 Cookie 会话主动预取并缓存；票据带独立 scope，不能作为完整 Bearer 会话调用普通接口，避免长期登录 token 出现在 URL、浏览器历史或反代日志中。
 - **出站 SSRF 防护**：服务端下载上游图片 / 视频前会校验目标 IP，拒绝回环 / 私网 / 链路本地 / 云元数据地址，并逐跳复验重定向。若上游确在可信内网，可设 `PIX_ALLOW_PRIVATE_DOWNLOAD=true` 放行。
 - **接口限流**：登录、注册、找回密码及验证码接口按客户端真实 IP 限流（读取 `X-Forwarded-For` / `X-Real-IP`）。反向代理需正确透传该头。可用 `PIX_WEB_RATE_LIMIT_ENABLED=false` 关闭（不建议生产关闭）。
-- **生产启动校验**：设 `PIX_WEB_ENV=prod` 后，若 `PIX_WEB_JWT_SECRET` 仍为默认值或长度不足 32 字符，服务会拒绝启动；同时自动附加 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy` 与 HSTS 安全响应头。
+- **生产启动校验**：设 `PIX_WEB_ENV=prod` 后，若 `PIX_WEB_JWT_SECRET` 仍为默认值、长度不足 32 字符，或浏览器会话 Cookie 被显式配置为非 Secure，服务会拒绝启动；同时自动附加 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy` 与 HSTS 安全响应头。
 - **数据库密码**：`docker-compose.yml` 不再提供 PostgreSQL 默认密码兜底，必须通过 `POSTGRES_PASSWORD` 显式提供强随机密码，否则容器拒绝启动。
 
 相关环境变量见 `.env.example` 与 `.env.production.example`。漏洞请按 [SECURITY.md](SECURITY.md) 使用私密渠道报告，不要在公开 Issue 中粘贴 API Key、JWT Secret、数据库密码或利用细节。
 
 ## 版本与发布
 
-当前版本：`1.130.1`。
+当前版本：`1.130.2`。
 
 版本号格式为 `A.B.C`：
 
