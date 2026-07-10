@@ -22,6 +22,15 @@ def test_boolean_server_defaults_are_cross_dialect() -> None:
     assert offenders == []
 
 
+def test_shared_settings_insert_uses_distinct_typed_key_parameters() -> None:
+    source = (MIGRATIONS / "0021_shared_works.py").read_text(encoding="utf-8")
+
+    assert ":insert_key" in source
+    assert ":lookup_key" in source
+    assert 'sa.bindparam("insert_key", type_=sa.String(length=96))' in source
+    assert 'sa.bindparam("lookup_key", type_=sa.String(length=96))' in source
+
+
 def test_revision_ids_fit_extended_version_table() -> None:
     revisions: list[str] = []
     for migration in sorted(MIGRATIONS.glob("*.py")):

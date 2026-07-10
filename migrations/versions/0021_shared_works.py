@@ -66,14 +66,20 @@ def upgrade() -> None:
 
     conn = op.get_bind()
     now = datetime.now(timezone.utc)
+    insert_default = sa.text(
+        "INSERT INTO system_settings (key, value, updated_at) "
+        "SELECT :insert_key, :value, :updated_at "
+        "WHERE NOT EXISTS (SELECT 1 FROM system_settings WHERE key = :lookup_key)"
+    ).bindparams(
+        sa.bindparam("insert_key", type_=sa.String(length=96)),
+        sa.bindparam("lookup_key", type_=sa.String(length=96)),
+        sa.bindparam("value", type_=sa.Text()),
+        sa.bindparam("updated_at", type_=sa.DateTime(timezone=True)),
+    )
     for key, value in _SHARE_DEFAULTS.items():
         conn.execute(
-            sa.text(
-                "INSERT INTO system_settings (key, value, updated_at) "
-                "SELECT :key, :value, :updated_at "
-                "WHERE NOT EXISTS (SELECT 1 FROM system_settings WHERE key = :key)"
-            ),
-            {"key": key, "value": value, "updated_at": now},
+            insert_default,
+            {"insert_key": key, "lookup_key": key, "value": value, "updated_at": now},
         )
 
 
