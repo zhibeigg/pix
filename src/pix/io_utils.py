@@ -24,7 +24,9 @@ class FileLockTimeout(TimeoutError):
 class FileLock:
     """跨进程排他文件锁，用于保护本地 CPU/磁盘重处理阶段。"""
 
-    def __init__(self, path: str | Path, *, timeout: float = 1800.0, poll_interval: float = 0.1) -> None:
+    def __init__(
+        self, path: str | Path, *, timeout: float = 1800.0, poll_interval: float = 0.1
+    ) -> None:
         self.path = Path(path)
         self.timeout = max(0.0, float(timeout))
         self.poll_interval = max(0.01, float(poll_interval))
@@ -106,7 +108,6 @@ def file_lock(path: str | Path, *, timeout: float = 1800.0, poll_interval: float
     return FileLock(path, timeout=timeout, poll_interval=poll_interval)
 
 
-
 def ensure_dir(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     return path
@@ -117,12 +118,12 @@ def new_run_dir(root: str | Path, seed: str = "") -> Path:
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     # uuid4 保证同一进程内多次调用不碰撞；seed 让人类读起来有区分
     unique = uuid.uuid4().hex
-    digest = hashlib.sha1(f"{seed}-{unique}".encode()).hexdigest()[:8]
+    digest = hashlib.sha1(f"{seed}-{unique}".encode(), usedforsecurity=False).hexdigest()[:8]
     path = Path(root) / f"{ts}-{digest}"
     # 极端情况若目录已存在（时间戳 + hash 同时撞上），再换一次
     while path.exists():
         unique = uuid.uuid4().hex
-        digest = hashlib.sha1(f"{seed}-{unique}".encode()).hexdigest()[:8]
+        digest = hashlib.sha1(f"{seed}-{unique}".encode(), usedforsecurity=False).hexdigest()[:8]
         path = Path(root) / f"{ts}-{digest}"
     return ensure_dir(path)
 
@@ -193,7 +194,11 @@ def download(
                 resp = safe_get_with_redirects(client, url)
                 resp.raise_for_status()
                 expected_length_header = resp.headers.get("content-length")
-                expected_length = int(expected_length_header) if expected_length_header and expected_length_header.isdigit() else None
+                expected_length = (
+                    int(expected_length_header)
+                    if expected_length_header and expected_length_header.isdigit()
+                    else None
+                )
                 data = resp.content
                 bytes_received = len(data)
                 if expected_length is not None and bytes_received != expected_length:

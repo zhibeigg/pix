@@ -1,0 +1,34 @@
+name: 功能建议
+description: 提议可维护、可测试的新能力
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决的问题
+      description: 描述用户场景，而不是只描述实现方式。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 备选方案与兼容性
+  - type: textarea
+    id: docs
+    attributes:
+      label: 配置、文档与 API 影响
+      description: 说明是否需要更新默认配置、示例配置、语言文件、README 或外部 API。
+  - type: checkboxes
+    id: assets
+    attributes:
+      label: 资产与安全
+      options:
+        - label: 建议中不包含真实凭据、用户数据或来源不明的第三方资产。
+          required: true

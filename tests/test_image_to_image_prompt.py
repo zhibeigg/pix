@@ -23,7 +23,7 @@ class ImageToImagePixelPromptTests(unittest.TestCase):
             database_url=f"sqlite:///{root / 't.db'}",
             storage_root=root / "outputs",
             queue_backend="database",
-            jwt_secret="test",
+            jwt_secret="test-secret-at-least-32-bytes-long",
         )
         self.cfg = load_config()
 
@@ -31,7 +31,9 @@ class ImageToImagePixelPromptTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def _job(self, **params) -> GenerationJob:
-        params_json: dict = {"pixelize": {"output_size": [128, 128], "colors": 8, "remove_bg": True}}
+        params_json: dict = {
+            "pixelize": {"output_size": [128, 128], "colors": 8, "remove_bg": True}
+        }
         params_json.update(params)
         return GenerationJob(
             job_type="image_to_image",
@@ -52,7 +54,9 @@ class ImageToImagePixelPromptTests(unittest.TestCase):
 
     def test_source_only_image_to_image_keeps_literal_prompt(self) -> None:
         """source_only（原生出大图）不应套像素风模板。"""
-        inp = image_to_image_pipeline_input_from_job(self._job(source_only=True), self.settings, self.cfg)
+        inp = image_to_image_pipeline_input_from_job(
+            self._job(source_only=True), self.settings, self.cfg
+        )
         self.assertEqual(inp.prompt, USER_PROMPT)
         self.assertNotIn("TRUE pixel-art", inp.prompt or "")
 

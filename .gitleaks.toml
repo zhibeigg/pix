@@ -1,0 +1,59 @@
+title = "Pix secret scanning rules"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "pix-long-sk-token"
+description = "Long sk-prefixed provider token"
+regex = '''\b(sk-[A-Za-z0-9_-]{32,})\b'''
+secretGroup = 1
+entropy = 3.5
+keywords = ["sk-"]
+tags = ["api-key", "provider"]
+
+[[rules.allowlists]]
+regexTarget = "secret"
+regexes = [
+  '''(?i)(?:your|example|placeholder|change[_-]?me|replace[_-]?me|dummy|not[_-]?a[_-]?real|test)[A-Za-z0-9_-]*''',
+]
+
+[[rules]]
+id = "pix-named-secret"
+description = "Secret assigned to a named API key, token, password, or credential"
+regex = '''(?i)(?:api[_-]?key|secret|token|password|credential)[A-Za-z0-9_-]{0,32}[ \t]*(?:=|:|\|)[ \t]*["'`]?([A-Za-z0-9_./+=-]{32,})'''
+secretGroup = 1
+entropy = 3.9
+keywords = ["key", "secret", "token", "password", "credential"]
+tags = ["api-key", "named-secret"]
+
+[[rules.allowlists]]
+regexTarget = "secret"
+regexes = [
+  '''(?i)(?:your|example|placeholder|change(?:[_-]?me|[_-]?this)?|replace(?:[_-]?me|[_-]?with)?|dummy|not[_-]?a[_-]?real|test)[A-Za-z0-9_./+=-]*''',
+  '''^\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\}$''',
+]
+
+[[rules]]
+id = "pix-url-safe-provider-token"
+description = "High-entropy URL-safe provider token"
+regex = '''(?:^|[\s|"'`=:])([A-Za-z0-9_-]{70,100})(?:$|[\s|"'`,])'''
+secretGroup = 1
+entropy = 4.2
+tags = ["api-key", "high-entropy", "provider"]
+
+[[rules.allowlists]]
+regexTarget = "secret"
+regexes = [
+  '''(?i)(?:your|example|placeholder|change[_-]?me|replace[_-]?me|dummy|not[_-]?a[_-]?real|test)[A-Za-z0-9_-]*''',
+]
+
+[[allowlists]]
+description = "Scanner configuration and deterministic dependency lock data"
+targetRules = ["pix-url-safe-provider-token"]
+paths = [
+  '''(^|/)\.gitleaks\.toml$''',
+  '''(^|/)uv\.lock$''',
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)src/pix_web/email_sender\.py$''',
+]

@@ -12,7 +12,14 @@ from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits, ensure_credit_account
 from pix_web.external_api_keys import create_external_api_key, hash_api_key
 from pix_web.main import create_app
-from pix_web.models import CharacterLibraryItem, ExternalApiKey, GenerationJob, GenerationOutput, SystemSetting, User
+from pix_web.models import (
+    CharacterLibraryItem,
+    ExternalApiKey,
+    GenerationJob,
+    GenerationOutput,
+    SystemSetting,
+    User,
+)
 from pix_web.schemas import AssetParamsSchema
 from pix_web.security import create_access_token
 
@@ -26,13 +33,25 @@ class ExternalApiTests(unittest.TestCase):
             storage_root=root / "outputs",
             queue_backend="database",
             auto_create_db=True,
-            jwt_secret="test-secret",
+            jwt_secret="test-secret-at-least-32-bytes-long",
         )
         self.app = create_app(self.settings)
         self.client = TestClient(self.app)
         self.db = self.app.state.SessionLocal()
-        self.user = User(email="api@example.com", password_hash="x", display_name="API User", role="user", status="active")
-        self.other = User(email="other@example.com", password_hash="x", display_name="Other", role="user", status="active")
+        self.user = User(
+            email="api@example.com",
+            password_hash="x",
+            display_name="API User",
+            role="user",
+            status="active",
+        )
+        self.other = User(
+            email="other@example.com",
+            password_hash="x",
+            display_name="Other",
+            role="user",
+            status="active",
+        )
         self.db.add_all([self.user, self.other])
         self.db.commit()
         self.db.refresh(self.user)
@@ -81,7 +100,9 @@ class ExternalApiTests(unittest.TestCase):
         self.assertEqual(listing.status_code, 200, listing.text)
         self.assertNotIn(raw_key, listing.text)
 
-        revoked = self.client.delete(f"/api-keys/{row.id}", headers={"Authorization": f"Bearer {self.jwt}"})
+        revoked = self.client.delete(
+            f"/api-keys/{row.id}", headers={"Authorization": f"Bearer {self.jwt}"}
+        )
         self.assertEqual(revoked.status_code, 200, revoked.text)
         self.assertFalse(revoked.json()["enabled"])
         self.assertIsNotNone(revoked.json()["revoked_at"])
@@ -128,7 +149,9 @@ class ExternalApiTests(unittest.TestCase):
         self.assertEqual(second.status_code, 202, second.text)
         self.assertEqual(first.json()["id"], second.json()["id"])
 
-        jobs = list(self.db.scalars(select(GenerationJob).where(GenerationJob.user_id == self.user.id)))
+        jobs = list(
+            self.db.scalars(select(GenerationJob).where(GenerationJob.user_id == self.user.id))
+        )
         self.assertEqual(len(jobs), 1)
         self.assertEqual(jobs[0].client_request_id, "external:demo-job-001")
         account = ensure_credit_account(self.db, self.user)
@@ -185,7 +208,9 @@ class ExternalApiTests(unittest.TestCase):
         }
         payload["pixelize"] = {"output_size": [64, 64], "colors": 32, "remove_bg": True}
 
-        response = self.client.post("/external/v1/jobs", headers={"Authorization": f"Bearer {raw}"}, json=payload)
+        response = self.client.post(
+            "/external/v1/jobs", headers={"Authorization": f"Bearer {raw}"}, json=payload
+        )
         self.assertEqual(response.status_code, 202, response.text)
 
         job = self.db.get(GenerationJob, response.json()["id"])
@@ -211,7 +236,11 @@ class ExternalApiTests(unittest.TestCase):
             status="succeeded",
             prompt="蓝袍骑士",
             params_json={
-                "asset": {"name": "蓝袍骑士", "asset_kind": "character", "subject_kind": "single_character"},
+                "asset": {
+                    "name": "蓝袍骑士",
+                    "asset_kind": "character",
+                    "subject_kind": "single_character",
+                },
                 "pixelize": {"output_size": [64, 64], "colors": 32, "remove_bg": True},
             },
         )
@@ -247,17 +276,25 @@ class ExternalApiTests(unittest.TestCase):
 
         duplicate = auto_save_character_for_job(self.db, job, output)
         self.assertEqual(duplicate.id, item.id)
-        active_items = list(self.db.scalars(select(CharacterLibraryItem).where(CharacterLibraryItem.source_job_id == job.id)))
+        active_items = list(
+            self.db.scalars(
+                select(CharacterLibraryItem).where(CharacterLibraryItem.source_job_id == job.id)
+            )
+        )
         self.assertEqual(len(active_items), 1)
 
     def test_external_job_access_is_limited_to_key_owner(self) -> None:
         raw, _row = create_external_api_key(self.db, self.user, name="owner", scopes=["jobs:read"])
-        other_job = GenerationJob(user_id=self.other.id, client_request_id="other", job_type="asset", status="pending")
+        other_job = GenerationJob(
+            user_id=self.other.id, client_request_id="other", job_type="asset", status="pending"
+        )
         self.db.add(other_job)
         self.db.commit()
         self.db.refresh(other_job)
 
-        response = self.client.get(f"/external/v1/jobs/{other_job.id}", headers={"Authorization": f"Bearer {raw}"})
+        response = self.client.get(
+            f"/external/v1/jobs/{other_job.id}", headers={"Authorization": f"Bearer {raw}"}
+        )
         self.assertEqual(response.status_code, 404, response.text)
 
     def test_external_job_create_uses_configured_asset_subject_limit(self) -> None:
@@ -271,7 +308,9 @@ class ExternalApiTests(unittest.TestCase):
         self.assertEqual(settings_response.status_code, 200, settings_response.text)
         self.assertEqual(settings_response.json()["limits"]["asset_subject_max_chars"], 3)
 
-        response = self.client.post("/external/v1/jobs", headers={"Authorization": f"Bearer {raw}"}, json=payload)
+        response = self.client.post(
+            "/external/v1/jobs", headers={"Authorization": f"Bearer {raw}"}, json=payload
+        )
         self.assertEqual(response.status_code, 422, response.text)
         self.assertIn("素材主体最多支持 3 字", response.text)
 
@@ -282,7 +321,9 @@ class ExternalApiTests(unittest.TestCase):
         image_path.write_bytes(b"img")
 
         no_scope_key = self._create_key(scopes=["me:read"])
-        forbidden = self.client.get("/external/v1/characters", headers={"Authorization": f"Bearer {no_scope_key}"})
+        forbidden = self.client.get(
+            "/external/v1/characters", headers={"Authorization": f"Bearer {no_scope_key}"}
+        )
         self.assertEqual(forbidden.status_code, 403, forbidden.text)
 
         raw = self._create_key(scopes=["characters:read", "characters:write"])
@@ -300,7 +341,13 @@ class ExternalApiTests(unittest.TestCase):
             job_type="asset",
             status="succeeded",
             prompt="Hero",
-            params_json={"asset": {"name": "Hero", "asset_kind": "character", "subject_kind": "single_character"}},
+            params_json={
+                "asset": {
+                    "name": "Hero",
+                    "asset_kind": "character",
+                    "subject_kind": "single_character",
+                }
+            },
         )
         self.db.add(job)
         self.db.flush()
@@ -308,7 +355,16 @@ class ExternalApiTests(unittest.TestCase):
         run_dir.mkdir(parents=True, exist_ok=True)
         pixelized = run_dir / "pixelized.png"
         pixelized.write_bytes(b"img")
-        self.db.add(GenerationOutput(job_id=job.id, run_dir=str(run_dir), source_path=str(pixelized), pixelized_path=str(pixelized), preview_path=str(pixelized), meta_json_path=str(run_dir / "meta.json")))
+        self.db.add(
+            GenerationOutput(
+                job_id=job.id,
+                run_dir=str(run_dir),
+                source_path=str(pixelized),
+                pixelized_path=str(pixelized),
+                preview_path=str(pixelized),
+                meta_json_path=str(run_dir / "meta.json"),
+            )
+        )
         self.db.commit()
 
         created = self.client.post(
@@ -321,7 +377,9 @@ class ExternalApiTests(unittest.TestCase):
         self.assertEqual(created.json()["name"], "Hero")
         self.assertEqual(created.json()["tags"], ["blue", "hero"])
 
-        listed = self.client.get("/external/v1/characters", headers={"Authorization": f"Bearer {raw}"})
+        listed = self.client.get(
+            "/external/v1/characters", headers={"Authorization": f"Bearer {raw}"}
+        )
         self.assertEqual(listed.status_code, 200, listed.text)
         self.assertEqual([item["id"] for item in listed.json()], [character_id])
 
@@ -333,7 +391,9 @@ class ExternalApiTests(unittest.TestCase):
         self.assertEqual(updated.status_code, 200, updated.text)
         self.assertEqual(updated.json()["status"], "archived")
 
-        deleted = self.client.delete(f"/external/v1/characters/{character_id}", headers={"Authorization": f"Bearer {raw}"})
+        deleted = self.client.delete(
+            f"/external/v1/characters/{character_id}", headers={"Authorization": f"Bearer {raw}"}
+        )
         self.assertEqual(deleted.status_code, 200, deleted.text)
         row = self.db.get(CharacterLibraryItem, character_id)
         self.assertIsNotNone(row)
@@ -347,7 +407,13 @@ class ExternalApiTests(unittest.TestCase):
             job_type="asset",
             status="succeeded",
             prompt="Hero",
-            params_json={"asset": {"name": "Hero", "asset_kind": "character", "subject_kind": "single_character"}},
+            params_json={
+                "asset": {
+                    "name": "Hero",
+                    "asset_kind": "character",
+                    "subject_kind": "single_character",
+                }
+            },
         )
         self.db.add(job)
         self.db.flush()
@@ -355,7 +421,16 @@ class ExternalApiTests(unittest.TestCase):
         run_dir.mkdir(parents=True, exist_ok=True)
         pixelized = run_dir / "pixelized.png"
         pixelized.write_bytes(b"img")
-        self.db.add(GenerationOutput(job_id=job.id, run_dir=str(run_dir), source_path=str(pixelized), pixelized_path=str(pixelized), preview_path=str(pixelized), meta_json_path=str(run_dir / "meta.json")))
+        self.db.add(
+            GenerationOutput(
+                job_id=job.id,
+                run_dir=str(run_dir),
+                source_path=str(pixelized),
+                pixelized_path=str(pixelized),
+                preview_path=str(pixelized),
+                meta_json_path=str(run_dir / "meta.json"),
+            )
+        )
         self.db.commit()
 
         response = self.client.post(
@@ -383,7 +458,16 @@ class ExternalApiTests(unittest.TestCase):
         run_dir.mkdir(parents=True, exist_ok=True)
         pixelized = run_dir / "pixelized.png"
         pixelized.write_bytes(b"img")
-        self.db.add(GenerationOutput(job_id=job.id, run_dir=str(run_dir), source_path=str(pixelized), pixelized_path=str(pixelized), preview_path=str(pixelized), meta_json_path=str(run_dir / "meta.json")))
+        self.db.add(
+            GenerationOutput(
+                job_id=job.id,
+                run_dir=str(run_dir),
+                source_path=str(pixelized),
+                pixelized_path=str(pixelized),
+                preview_path=str(pixelized),
+                meta_json_path=str(run_dir / "meta.json"),
+            )
+        )
         self.db.commit()
 
         response = self.client.post(

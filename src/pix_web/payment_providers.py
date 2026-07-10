@@ -63,7 +63,9 @@ def _read_secret(raw: str) -> str:
 def _require(value: str, name: str) -> str:
     clean = _read_secret(value)
     if not clean:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"{name} 未配置")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"{name} 未配置"
+        )
     return clean
 
 
@@ -86,10 +88,16 @@ def _with_pem_markers(value: str, marker: str) -> str:
 def _alipay_sdk_private_key(raw: str) -> str:
     """Return an RSA private key format accepted by alipay-sdk-python."""
     clean = _require(raw, "ALIPAY_PRIVATE_KEY")
-    candidates = [clean, _with_pem_markers(clean, "PRIVATE KEY"), _with_pem_markers(clean, "RSA PRIVATE KEY")]
+    candidates = [
+        clean,
+        _with_pem_markers(clean, "PRIVATE KEY"),
+        _with_pem_markers(clean, "RSA PRIVATE KEY"),
+    ]
     for candidate in candidates:
         try:
-            private_key = serialization.load_pem_private_key(candidate.encode("utf-8"), password=None)
+            private_key = serialization.load_pem_private_key(
+                candidate.encode("utf-8"), password=None
+            )
         except Exception:
             continue
         return private_key.private_bytes(
@@ -122,9 +130,7 @@ def _rsa_verify(public_key_raw: str, message: str, signature_b64: str) -> bool:
         return False
 
 
-_PEM_CERT_RE = re.compile(
-    r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", re.DOTALL
-)
+_PEM_CERT_RE = re.compile(r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", re.DOTALL)
 
 
 def _load_pem_certificates(raw: str, name: str) -> list[x509.Certificate]:
@@ -137,7 +143,9 @@ def _load_pem_certificates(raw: str, name: str) -> list[x509.Certificate]:
         try:
             certs.append(x509.load_pem_x509_certificate(block.encode("utf-8")))
         except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"{name} 格式不正确") from exc
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"{name} 格式不正确"
+            ) from exc
     return certs
 
 
@@ -148,7 +156,8 @@ def _load_pem_certificate(raw: str, name: str) -> x509.Certificate:
 def _certificate_sn(cert: x509.Certificate) -> str:
     issuer = cert.issuer.rfc4514_string()
     serial = str(cert.serial_number)
-    return hashlib.md5(f"{issuer}{serial}".encode("utf-8")).hexdigest()
+    # 支付宝证书 SN 规范要求 MD5；这里只生成协议标识，不用于密码或签名安全。
+    return hashlib.md5(f"{issuer}{serial}".encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 def _certificate_public_key(raw: str, name: str):
@@ -156,10 +165,14 @@ def _certificate_public_key(raw: str, name: str):
 
 
 def _certificate_public_key_pem(raw: str, name: str) -> str:
-    return _certificate_public_key(raw, name).public_bytes(
-        serialization.Encoding.PEM,
-        serialization.PublicFormat.SubjectPublicKeyInfo,
-    ).decode("utf-8")
+    return (
+        _certificate_public_key(raw, name)
+        .public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode("utf-8")
+    )
 
 
 def _is_rsa_certificate(cert: x509.Certificate) -> bool:
@@ -180,7 +193,10 @@ def _alipay_root_cert_sn(settings: WebSettings) -> str:
     certs = _load_pem_certificates(settings.alipay_root_cert, "ALIPAY_ROOT_CERT")
     serials = [_certificate_sn(cert) for cert in certs if _is_rsa_certificate(cert)]
     if not serials:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="ALIPAY_ROOT_CERT 未包含 RSA 根证书")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ALIPAY_ROOT_CERT 未包含 RSA 根证书",
+        )
     return "_".join(serials)
 
 
@@ -214,7 +230,11 @@ def _alipay_client(settings: WebSettings) -> DefaultAlipayClient:
 
 def _alipay_verify(settings: WebSettings, message: str, signature_b64: str) -> bool:
     try:
-        return bool(alipay_verify_with_rsa(_alipay_public_key_for_verify(settings), message.encode("utf-8"), signature_b64))
+        return bool(
+            alipay_verify_with_rsa(
+                _alipay_public_key_for_verify(settings), message.encode("utf-8"), signature_b64
+            )
+        )
     except Exception:
         return False
 
@@ -275,7 +295,9 @@ def create_checkout(
             membership_plan_key=membership_plan_key,
             return_to=return_to,
         )
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="不支持的支付方式")
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="不支持的支付方式"
+    )
 
 
 def _alipay_sign_content(params: dict[str, str]) -> str:
@@ -335,7 +357,10 @@ def create_alipay_checkout(
     try:
         payment_url = _alipay_client(settings).page_execute(request, http_method="GET")
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"支付宝 SDK 生成支付链接失败: {exc}") from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"支付宝 SDK 生成支付链接失败: {exc}",
+        ) from exc
     return CheckoutResult(order=order, provider="alipay", payment_url=payment_url)
 
 
@@ -347,7 +372,11 @@ def handle_alipay_notify(db: Session, form: dict[str, str], settings: WebSetting
     if form.get("trade_status") not in {"TRADE_SUCCESS", "TRADE_FINISHED"}:
         return "success"
     out_trade_no = form.get("out_trade_no", "")
-    order = db.scalar(select(PaymentOrder).where(PaymentOrder.provider_order_id == out_trade_no, PaymentOrder.provider == "alipay"))
+    order = db.scalar(
+        select(PaymentOrder).where(
+            PaymentOrder.provider_order_id == out_trade_no, PaymentOrder.provider == "alipay"
+        )
+    )
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="支付订单不存在")
     if form.get("total_amount") != _money_yuan(order.amount_cents):
@@ -360,7 +389,9 @@ def handle_alipay_notify(db: Session, form: dict[str, str], settings: WebSetting
 def _required_alipay_gateway_field(form: dict[str, str], field: str) -> str:
     value = form.get(field, "").strip()
     if not value:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"支付宝应用网关缺少 {field}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"支付宝应用网关缺少 {field}"
+        )
     return value
 
 
@@ -372,19 +403,27 @@ def _parse_alipay_gateway_biz_content(raw: str) -> dict[str, Any]:
     return parsed if isinstance(parsed, dict) else {"value": parsed}
 
 
-def handle_alipay_app_gateway_message(db: Session, form: dict[str, str], settings: WebSettings) -> str:
+def handle_alipay_app_gateway_message(
+    db: Session, form: dict[str, str], settings: WebSettings
+) -> str:
     signature = form.get("sign", "")
     payload = {key: value for key, value in form.items() if key not in {"sign", "sign_type"}}
     if not _alipay_verify(settings, _alipay_sign_content(payload), signature):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="支付宝应用网关消息验签失败")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="支付宝应用网关消息验签失败"
+        )
 
     app_id = _required_alipay_gateway_field(form, "app_id")
     expected_app_id = _require(settings.alipay_app_id, "ALIPAY_APP_ID")
     if app_id != expected_app_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="支付宝应用网关 app_id 不匹配")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="支付宝应用网关 app_id 不匹配"
+        )
 
     notify_id = _required_alipay_gateway_field(form, "notify_id")
-    existing = db.scalar(select(AlipayGatewayMessage).where(AlipayGatewayMessage.notify_id == notify_id))
+    existing = db.scalar(
+        select(AlipayGatewayMessage).where(AlipayGatewayMessage.notify_id == notify_id)
+    )
     if existing is not None:
         return "success"
 
@@ -426,7 +465,9 @@ def _wechat_authorization(settings: WebSettings, method: str, url: str, body: st
     return f"WECHATPAY2-SHA256-RSA2048 {token}"
 
 
-def create_wechat_checkout(db: Session, user: User, package_key: str, settings: WebSettings) -> CheckoutResult:
+def create_wechat_checkout(
+    db: Session, user: User, package_key: str, settings: WebSettings
+) -> CheckoutResult:
     app_id = _require(settings.wechat_app_id, "WECHATPAY_APP_ID")
     mchid = _require(settings.wechat_mch_id, "WECHATPAY_MCH_ID")
     order = create_payment_order(db, user, package_key, provider="wechat")
@@ -449,10 +490,14 @@ def create_wechat_checkout(db: Session, user: User, package_key: str, settings: 
         response = httpx.post(url, content=body.encode("utf-8"), headers=headers, timeout=15)
         response.raise_for_status()
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"微信下单失败: {exc}") from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"微信下单失败: {exc}"
+        ) from exc
     code_url = response.json().get("code_url")
     if not code_url:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="微信下单未返回 code_url")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="微信下单未返回 code_url"
+        )
     return CheckoutResult(order=order, provider="wechat", code_url=code_url)
 
 
@@ -468,7 +513,10 @@ def _wechat_verify(headers: dict[str, str], body: str, settings: WebSettings) ->
 def _wechat_decrypt_resource(resource: dict[str, Any], settings: WebSettings) -> dict[str, Any]:
     key = _require(settings.wechat_api_v3_key, "WECHATPAY_API_V3_KEY").encode("utf-8")
     if len(key) != 32:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="WECHATPAY_API_V3_KEY 必须为 32 字节")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="WECHATPAY_API_V3_KEY 必须为 32 字节",
+        )
     aesgcm = AESGCM(key)
     ciphertext = base64.b64decode(resource["ciphertext"])
     nonce = resource["nonce"].encode("utf-8")
@@ -476,11 +524,15 @@ def _wechat_decrypt_resource(resource: dict[str, Any], settings: WebSettings) ->
     try:
         plaintext = aesgcm.decrypt(nonce, ciphertext, aad)
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="微信通知解密失败") from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="微信通知解密失败"
+        ) from exc
     return json.loads(plaintext.decode("utf-8"))
 
 
-def handle_wechat_notify(db: Session, headers: dict[str, str], body: bytes, settings: WebSettings) -> dict[str, str]:
+def handle_wechat_notify(
+    db: Session, headers: dict[str, str], body: bytes, settings: WebSettings
+) -> dict[str, str]:
     raw = body.decode("utf-8")
     normalized_headers = {key.lower(): value for key, value in headers.items()}
     _wechat_verify(normalized_headers, raw, settings)
@@ -489,7 +541,11 @@ def handle_wechat_notify(db: Session, headers: dict[str, str], body: bytes, sett
     if data.get("trade_state") != "SUCCESS":
         return {"code": "SUCCESS", "message": "成功"}
     out_trade_no = data.get("out_trade_no", "")
-    order = db.scalar(select(PaymentOrder).where(PaymentOrder.provider_order_id == out_trade_no, PaymentOrder.provider == "wechat"))
+    order = db.scalar(
+        select(PaymentOrder).where(
+            PaymentOrder.provider_order_id == out_trade_no, PaymentOrder.provider == "wechat"
+        )
+    )
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="支付订单不存在")
     amount = data.get("amount") or {}

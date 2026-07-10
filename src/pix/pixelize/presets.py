@@ -26,9 +26,8 @@ class Preset:
 
 
 def _builtin_presets_dir() -> Path:
-    """返回仓库内置预设目录。"""
-    # 源码 / Docker 布局：src/pix/pixelize/presets.py → ../../../assets/presets
-    return Path(__file__).resolve().parents[3] / "assets" / "presets"
+    """返回随 pix.pixelize 包分发的内置预设目录。"""
+    return Path(__file__).resolve().parent / "presets"
 
 
 _BUILTIN_DIR = _builtin_presets_dir()

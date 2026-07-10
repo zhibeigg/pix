@@ -19,7 +19,15 @@ from pix_web.security import get_db, require_admin
 
 router = APIRouter(prefix="/admin/providers", tags=["admin"])
 
-PROTOCOL_WHITELIST = {"openai_images", "midjourney", "ideogram", "fal", "kling", "gemini_native", "shengsuanyun"}
+PROTOCOL_WHITELIST = {
+    "openai_images",
+    "midjourney",
+    "ideogram",
+    "fal",
+    "kling",
+    "gemini_native",
+    "shengsuanyun",
+}
 
 
 def _to_response(row: ImageProvider) -> ImageProviderResponse:
@@ -40,17 +48,27 @@ def _to_response(row: ImageProvider) -> ImageProviderResponse:
 
 def _validate(protocols: list[str], base_url: str) -> None:
     if not protocols:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="至少选择一个协议")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="至少选择一个协议"
+        )
     for proto in protocols:
         if proto not in PROTOCOL_WHITELIST:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"未知协议：{proto}")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"未知协议：{proto}"
+            )
     if not base_url.strip():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="base_url 不能为空")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="base_url 不能为空"
+        )
 
 
 @router.get("", response_model=list[ImageProviderResponse])
-def list_providers(_admin: User = Depends(require_admin), db: Session = Depends(get_db)) -> list[ImageProviderResponse]:
-    rows = db.scalars(select(ImageProvider).order_by(ImageProvider.priority.asc(), ImageProvider.id.asc())).all()
+def list_providers(
+    _admin: User = Depends(require_admin), db: Session = Depends(get_db)
+) -> list[ImageProviderResponse]:
+    rows = db.scalars(
+        select(ImageProvider).order_by(ImageProvider.priority.asc(), ImageProvider.id.asc())
+    ).all()
     return [_to_response(row) for row in rows]
 
 

@@ -80,7 +80,9 @@ def ensure_referral_profile(db: Session, user: User) -> ReferralProfile:
     raise RuntimeError("邀请码生成失败")
 
 
-def bind_referral_invite(db: Session, user: User, referral_code: str | None, settings: ReferralSettings) -> ReferralInvite | None:
+def bind_referral_invite(
+    db: Session, user: User, referral_code: str | None, settings: ReferralSettings
+) -> ReferralInvite | None:
     if not settings.enabled:
         return None
     code = _clean_code(referral_code)
@@ -92,19 +94,25 @@ def bind_referral_invite(db: Session, user: User, referral_code: str | None, set
     profile = db.scalar(select(ReferralProfile).where(ReferralProfile.code == code))
     if profile is None or profile.user_id == user.id:
         return None
-    invite = ReferralInvite(referrer_id=profile.user_id, referred_user_id=user.id, code=profile.code)
+    invite = ReferralInvite(
+        referrer_id=profile.user_id, referred_user_id=user.id, code=profile.code
+    )
     db.add(invite)
     db.flush()
     return invite
 
 
-def create_reward_for_paid_order(db: Session, order: PaymentOrder, settings: ReferralSettings) -> ReferralReward | None:
+def create_reward_for_paid_order(
+    db: Session, order: PaymentOrder, settings: ReferralSettings
+) -> ReferralReward | None:
     if not settings.enabled or order.amount_cents <= 0:
         return None
     existing = db.scalar(select(ReferralReward).where(ReferralReward.order_id == order.id))
     if existing is not None:
         return existing
-    invite = db.scalar(select(ReferralInvite).where(ReferralInvite.referred_user_id == order.user_id))
+    invite = db.scalar(
+        select(ReferralInvite).where(ReferralInvite.referred_user_id == order.user_id)
+    )
     if invite is None:
         return None
     amount_cents = order.amount_cents * max(0, min(10000, settings.commission_rate_bps)) // 10000
@@ -185,9 +193,13 @@ def _available_rewards(db: Session, user_id: int, currency: str) -> list[Referra
     )
 
 
-def _deduct_available_rewards(db: Session, user_id: int, *, currency: str, amount_cents: int) -> int:
+def _deduct_available_rewards(
+    db: Session, user_id: int, *, currency: str, amount_cents: int
+) -> int:
     if amount_cents <= 0:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="结算金额必须大于 0")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="结算金额必须大于 0"
+        )
     remaining = amount_cents
     for reward in _available_rewards(db, user_id, currency):
         if remaining <= 0:
@@ -200,19 +212,26 @@ def _deduct_available_rewards(db: Session, user_id: int, *, currency: str, amoun
             reward.settled_at = utcnow()
     deducted = amount_cents - remaining
     if remaining > 0:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="可用邀请收益不足")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="可用邀请收益不足"
+        )
     db.flush()
     return deducted
 
 
-def transfer_available_rewards_to_credits(db: Session, user: User, *, currency: str = DEFAULT_REFERRAL_CURRENCY) -> ReferralSettlement:
+def transfer_available_rewards_to_credits(
+    db: Session, user: User, *, currency: str = DEFAULT_REFERRAL_CURRENCY
+) -> ReferralSettlement:
     currency = (currency or DEFAULT_REFERRAL_CURRENCY).lower()
     rewards = _available_rewards(db, user.id, currency)
     available_cents = sum(reward.remaining_cents for reward in rewards)
     base_credits, base_amount_cents = _base_package_for_transfer(db, currency)
     credits = math.floor(available_cents * base_credits / base_amount_cents)
     if credits <= 0:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="可用收益不足 1 点，暂不可划转")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="可用收益不足 1 点，暂不可划转",
+        )
     spend_cents = math.ceil(credits * base_amount_cents / base_credits)
     spend_cents = min(spend_cents, available_cents)
     _deduct_available_rewards(db, user.id, currency=currency, amount_cents=spend_cents)
@@ -265,7 +284,9 @@ def create_withdrawal_request(
     return settlement
 
 
-def referral_summary(db: Session, user: User, *, public_base_url: str, frontend_base_url: str = "") -> dict[str, Any]:
+def referral_summary(
+    db: Session, user: User, *, public_base_url: str, frontend_base_url: str = ""
+) -> dict[str, Any]:
     settings = load_referral_settings(db)
     profile = ensure_referral_profile(db, user)
     mature_available_rewards(db, user.id)
@@ -298,8 +319,12 @@ def referral_summary(db: Session, user: User, *, public_base_url: str, frontend_
         )
     )
 
-    totals: dict[str, dict[str, int]] = defaultdict(lambda: {"pending_cents": 0, "available_cents": 0, "total_reward_cents": 0})
-    all_rewards = list(db.scalars(select(ReferralReward).where(ReferralReward.referrer_id == user.id)))
+    totals: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"pending_cents": 0, "available_cents": 0, "total_reward_cents": 0}
+    )
+    all_rewards = list(
+        db.scalars(select(ReferralReward).where(ReferralReward.referrer_id == user.id))
+    )
     for reward in all_rewards:
         currency = reward.currency or DEFAULT_REFERRAL_CURRENCY
         totals[currency]["total_reward_cents"] += reward.amount_cents
@@ -328,8 +353,7 @@ def referral_summary(db: Session, user: User, *, public_base_url: str, frontend_
         "total_reward_cents": primary["total_reward_cents"],
         "invited_count": len(invite_rows),
         "totals_by_currency": [
-            {"currency": currency, **amounts}
-            for currency, amounts in sorted(totals.items())
+            {"currency": currency, **amounts} for currency, amounts in sorted(totals.items())
         ],
         "invites": [
             {

@@ -35,6 +35,7 @@ services:
     env_file:
       - .env.production
     environment:
+      PIX_WEB_ENV: prod
       PIX_WEB_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pix}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必须设置}@postgres:5432/${POSTGRES_DB:-pix}
     command: ["alembic", "upgrade", "head"]
     depends_on:
@@ -46,9 +47,11 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    init: true
     env_file:
       - .env.production
     environment:
+      PIX_WEB_ENV: prod
       PIX_WEB_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pix}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必须设置}@postgres:5432/${POSTGRES_DB:-pix}
       PIX_WEB_REDIS_URL: redis://redis:6379/0
       PIX_WEB_QUEUE_BACKEND: rq
@@ -72,9 +75,11 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    init: true
     env_file:
       - .env.production
     environment:
+      PIX_WEB_ENV: prod
       PIX_WEB_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pix}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必须设置}@postgres:5432/${POSTGRES_DB:-pix}
       PIX_WEB_REDIS_URL: redis://redis:6379/0
       PIX_WEB_QUEUE_BACKEND: rq

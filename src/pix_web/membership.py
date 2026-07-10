@@ -14,14 +14,38 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from pix_web.models import MembershipPlan, User, UserMembership, utcnow
+from pix_web.models import MembershipPlan, User, UserMembership
 from pix_web.system_settings import resolve_site_timezone
 
 # 默认档位：铜/银/金。价格单位为分（cny）。可在后台增删改。
 DEFAULT_MEMBERSHIP_PLANS: list[dict[str, object]] = [
-    {"key": "bronze", "name": "铜卡", "daily_quota": 100, "amount_cents": 9900, "currency": "cny", "duration_days": 30, "sort_order": 10},
-    {"key": "silver", "name": "银卡", "daily_quota": 200, "amount_cents": 19900, "currency": "cny", "duration_days": 30, "sort_order": 20},
-    {"key": "gold", "name": "金卡", "daily_quota": 300, "amount_cents": 29900, "currency": "cny", "duration_days": 30, "sort_order": 30},
+    {
+        "key": "bronze",
+        "name": "铜卡",
+        "daily_quota": 100,
+        "amount_cents": 9900,
+        "currency": "cny",
+        "duration_days": 30,
+        "sort_order": 10,
+    },
+    {
+        "key": "silver",
+        "name": "银卡",
+        "daily_quota": 200,
+        "amount_cents": 19900,
+        "currency": "cny",
+        "duration_days": 30,
+        "sort_order": 20,
+    },
+    {
+        "key": "gold",
+        "name": "金卡",
+        "daily_quota": 300,
+        "amount_cents": 29900,
+        "currency": "cny",
+        "duration_days": 30,
+        "sort_order": 30,
+    },
 ]
 
 
@@ -126,7 +150,9 @@ def activate_or_extend(db: Session, user: User, plan_key: str) -> UserMembership
         membership.expires_at = new_expires
     db.flush()
 
-    _grant_today_quota(db, user, plan.daily_quota, previous_daily_quota=previous_daily_quota, now=now)
+    _grant_today_quota(
+        db, user, plan.daily_quota, previous_daily_quota=previous_daily_quota, now=now
+    )
     return membership
 
 

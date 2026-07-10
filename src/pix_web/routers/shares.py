@@ -16,8 +16,21 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.config import WebSettings
-from pix_web.models import CreditTransaction, GenerationJob, GenerationOutput, SharedWork, SharedWorkLike, User, utcnow
-from pix_web.schemas import JobOutputResponse, SharedDownloadOptionResponse, SharedWorkListResponse, SharedWorkResponse
+from pix_web.models import (
+    CreditTransaction,
+    GenerationJob,
+    GenerationOutput,
+    SharedWork,
+    SharedWorkLike,
+    User,
+    utcnow,
+)
+from pix_web.schemas import (
+    JobOutputResponse,
+    SharedDownloadOptionResponse,
+    SharedWorkListResponse,
+    SharedWorkResponse,
+)
 from pix_web.security import decode_file_ticket, get_current_user, get_db, get_settings
 from pix_web.storage import resolve_web_file
 from pix_web.system_settings import load_share_settings, resolve_site_timezone
@@ -46,19 +59,29 @@ def _file_ticket_user(
     票据只证明"已登录用户"，与公开池"任意登录用户可见"的级别一致。
     """
     bearer = request.headers.get("authorization", "")
-    raw_token = token or (bearer.removeprefix("Bearer ").strip() if bearer.lower().startswith("bearer ") else "")
+    raw_token = token or (
+        bearer.removeprefix("Bearer ").strip() if bearer.lower().startswith("bearer ") else ""
+    )
     if not raw_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录"
+        )
     user_id = decode_file_ticket(raw_token, settings)
     if user_id is None:
         try:
-            payload = jwt.decode(raw_token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+            payload = jwt.decode(
+                raw_token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
+            )
             user_id = int(payload.get("sub", "0"))
         except Exception as exc:  # noqa: BLE001
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录") from exc
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录"
+            ) from exc
     user = db.get(User, user_id)
     if user is None or user.status != "active":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录"
+        )
     return user
 
 
@@ -97,7 +120,7 @@ def _job_title(job: GenerationJob) -> str:
     if isinstance(asset, dict) and isinstance(asset.get("name"), str) and asset["name"].strip():
         return asset["name"].strip()[:160]
     prompt = (job.prompt or "").replace("\n", " ").strip()
-    return (prompt[:160] if prompt else f"作品 #{job.id}")
+    return prompt[:160] if prompt else f"作品 #{job.id}"
 
 
 def _as_record(value: object) -> dict[str, object]:
@@ -194,12 +217,19 @@ def _filter_options(shares: list[SharedWork]) -> dict[str, list[dict[str, object
             image_models[model] = image_models.get(model, 0) + 1
     return {
         "asset_kinds": [{"value": key, "count": asset_kinds[key]} for key in sorted(asset_kinds)],
-        "output_sizes": [{"value": key, "count": output_sizes[key]} for key in sorted(output_sizes, key=_sort_size_value)],
-        "image_models": [{"value": key, "count": image_models[key]} for key in sorted(image_models)],
+        "output_sizes": [
+            {"value": key, "count": output_sizes[key]}
+            for key in sorted(output_sizes, key=_sort_size_value)
+        ],
+        "image_models": [
+            {"value": key, "count": image_models[key]} for key in sorted(image_models)
+        ],
     }
 
 
-def _share_matches_filters(share: SharedWork, *, asset_kind: str, output_size: str, image_model: str) -> bool:
+def _share_matches_filters(
+    share: SharedWork, *, asset_kind: str, output_size: str, image_model: str
+) -> bool:
     if asset_kind and _share_asset_kind(share) != asset_kind:
         return False
     if output_size and _share_output_size_key(share) != output_size:
@@ -219,7 +249,9 @@ def _strip_empty(value: object) -> object:
             result[key] = cleaned
         return result
     if isinstance(value, list):
-        return [_strip_empty(item) for item in value if _strip_empty(item) not in (None, "", [], {})]
+        return [
+            _strip_empty(item) for item in value if _strip_empty(item) not in (None, "", [], {})
+        ]
     return value
 
 
@@ -229,50 +261,66 @@ def _parameter_snapshot(job: GenerationJob) -> dict[str, object]:
     sprite = _as_record(params.get("sprite"))
     asset = _as_record(params.get("asset"))
     is_raw_image = job.job_type == "text_to_image" and params.get("source_only") is True
-    return _strip_empty({
-        "mode": job.job_type,
-        "prompt": (job.prompt or "").strip() or None,
-        "input_image": "uploaded" if job.input_image_path else None,
-        "generation": {
-            "model": params.get("image_model"),
-            "image_size": params.get("image_size"),
-            "quality": params.get("image_quality"),
-        },
-        "raw_image": {
-            "model": params.get("image_model"),
-            "image_size": params.get("image_size"),
-            "quality": params.get("image_quality"),
-        } if is_raw_image else None,
-        "pixel": {
-            "output_size": pixelize.get("output_size"),
-            "colors": pixelize.get("colors"),
-            "remove_bg": None if job.job_type == "sprite_sheet" else pixelize.get("remove_bg"),
-            "edge_style": None if job.job_type in {"sprite_sheet", "local_bg_remove"} else pixelize.get("edge_style"),
-            "bg_removal_algorithm": None if job.job_type == "sprite_sheet" else pixelize.get("bg_removal_algorithm"),
-        } if not is_raw_image else None,
-        "asset": {
-            "name": asset.get("name"),
-            "extra_prompt": asset.get("extra_prompt"),
-            "asset_kind": asset.get("asset_kind"),
-            "subject_kind": asset.get("subject_kind"),
-            "texture_kind": asset.get("texture_kind"),
-            "material_a": asset.get("material_a"),
-            "material_b": asset.get("material_b"),
-            "material_a_texture_kind": asset.get("material_a_texture_kind"),
-            "material_b_texture_kind": asset.get("material_b_texture_kind"),
-            "transition_style": asset.get("transition_style"),
-        } if job.job_type == "asset" else None,
-        "sequence": {
-            "frame_count": sprite.get("frame_count"),
-            "fps": sprite.get("fps"),
-            "rows": sprite.get("rows"),
-            "cols": sprite.get("cols"),
-            "row_prompts": sprite.get("row_prompts"),
-        } if job.job_type == "sprite_sheet" else None,
-    })  # type: ignore[return-value]
+    return _strip_empty(
+        {
+            "mode": job.job_type,
+            "prompt": (job.prompt or "").strip() or None,
+            "input_image": "uploaded" if job.input_image_path else None,
+            "generation": {
+                "model": params.get("image_model"),
+                "image_size": params.get("image_size"),
+                "quality": params.get("image_quality"),
+            },
+            "raw_image": {
+                "model": params.get("image_model"),
+                "image_size": params.get("image_size"),
+                "quality": params.get("image_quality"),
+            }
+            if is_raw_image
+            else None,
+            "pixel": {
+                "output_size": pixelize.get("output_size"),
+                "colors": pixelize.get("colors"),
+                "remove_bg": None if job.job_type == "sprite_sheet" else pixelize.get("remove_bg"),
+                "edge_style": None
+                if job.job_type in {"sprite_sheet", "local_bg_remove"}
+                else pixelize.get("edge_style"),
+                "bg_removal_algorithm": None
+                if job.job_type == "sprite_sheet"
+                else pixelize.get("bg_removal_algorithm"),
+            }
+            if not is_raw_image
+            else None,
+            "asset": {
+                "name": asset.get("name"),
+                "extra_prompt": asset.get("extra_prompt"),
+                "asset_kind": asset.get("asset_kind"),
+                "subject_kind": asset.get("subject_kind"),
+                "texture_kind": asset.get("texture_kind"),
+                "material_a": asset.get("material_a"),
+                "material_b": asset.get("material_b"),
+                "material_a_texture_kind": asset.get("material_a_texture_kind"),
+                "material_b_texture_kind": asset.get("material_b_texture_kind"),
+                "transition_style": asset.get("transition_style"),
+            }
+            if job.job_type == "asset"
+            else None,
+            "sequence": {
+                "frame_count": sprite.get("frame_count"),
+                "fps": sprite.get("fps"),
+                "rows": sprite.get("rows"),
+                "cols": sprite.get("cols"),
+                "row_prompts": sprite.get("row_prompts"),
+            }
+            if job.job_type == "sprite_sheet"
+            else None,
+        }
+    )  # type: ignore[return-value]
 
 
-def _manifest_entry(kind: str, label: str, path: str | None, fallback: str, *, description: str = "") -> dict[str, object] | None:
+def _manifest_entry(
+    kind: str, label: str, path: str | None, fallback: str, *, description: str = ""
+) -> dict[str, object] | None:
     if not path:
         return None
     return {
@@ -284,36 +332,93 @@ def _manifest_entry(kind: str, label: str, path: str | None, fallback: str, *, d
     }
 
 
-def _build_download_manifest(job: GenerationJob, output: GenerationOutput) -> list[dict[str, object]]:
+def _build_download_manifest(
+    job: GenerationJob, output: GenerationOutput
+) -> list[dict[str, object]]:
     data = JobOutputResponse.model_validate(output).model_dump(mode="python")
     entries: list[dict[str, object]] = []
 
-    is_sprite = job.job_type == "sprite_sheet" or bool(data.get("sprite_frames") or data.get("sprite_sheet_path") or data.get("sprite_mosaic_path") or data.get("sequence_json_path"))
+    is_sprite = job.job_type == "sprite_sheet" or bool(
+        data.get("sprite_frames")
+        or data.get("sprite_sheet_path")
+        or data.get("sprite_mosaic_path")
+        or data.get("sequence_json_path")
+    )
     is_dual_grid = bool(data.get("dual_grid_atlas_path") or data.get("dual_grid_preview_path"))
 
     if is_sprite:
         specs = [
-            ("sprite_gif", "动画 GIF", data.get("sprite_gif_path"), "sprite.gif", "可播放的序列帧 GIF。"),
-            ("sprite_sheet", "横向精灵表", data.get("sprite_sheet_path") or data.get("pixelized_path"), "sprite-sheet.png", "横向排列的序列帧精灵图。"),
-            ("sprite_mosaic", "原版网格精灵表", data.get("sprite_mosaic_path") or data.get("source_path"), "sprite-mosaic.png", "保留原始 rows×cols 排版的单图序列帧。"),
-            ("sequence_json", "序列帧清单", data.get("sequence_json_path"), "sequence.json", "记录帧率、帧坐标和播放顺序的 JSON。"),
+            (
+                "sprite_gif",
+                "动画 GIF",
+                data.get("sprite_gif_path"),
+                "sprite.gif",
+                "可播放的序列帧 GIF。",
+            ),
+            (
+                "sprite_sheet",
+                "横向精灵表",
+                data.get("sprite_sheet_path") or data.get("pixelized_path"),
+                "sprite-sheet.png",
+                "横向排列的序列帧精灵图。",
+            ),
+            (
+                "sprite_mosaic",
+                "原版网格精灵表",
+                data.get("sprite_mosaic_path") or data.get("source_path"),
+                "sprite-mosaic.png",
+                "保留原始 rows×cols 排版的单图序列帧。",
+            ),
+            (
+                "sequence_json",
+                "序列帧清单",
+                data.get("sequence_json_path"),
+                "sequence.json",
+                "记录帧率、帧坐标和播放顺序的 JSON。",
+            ),
         ]
     elif is_dual_grid:
         specs = [
-            ("dual_grid_atlas", "双瓦片 4×4 图集", data.get("dual_grid_atlas_path") or data.get("pixelized_path"), "dual_grid_atlas.png", "包含 16 张过渡瓦片的最终 atlas。"),
-            ("dual_grid_preview", "双瓦片应用预览", data.get("dual_grid_preview_path") or data.get("preview_path"), "dual_grid_preview.png", "按确定性种子拼出的地图预览图。"),
+            (
+                "dual_grid_atlas",
+                "双瓦片 4×4 图集",
+                data.get("dual_grid_atlas_path") or data.get("pixelized_path"),
+                "dual_grid_atlas.png",
+                "包含 16 张过渡瓦片的最终 atlas。",
+            ),
+            (
+                "dual_grid_preview",
+                "双瓦片应用预览",
+                data.get("dual_grid_preview_path") or data.get("preview_path"),
+                "dual_grid_preview.png",
+                "按确定性种子拼出的地图预览图。",
+            ),
             ("source", "源图", data.get("source_path"), "01_source.png", "AI 原始输出或上传源图。"),
         ]
     else:
         specs = [
             ("source", "源图", data.get("source_path"), "01_source.png", "AI 原始输出或上传源图。"),
-            ("pixelized", "像素尺寸图", data.get("pixelized_path"), "03_pixelized.png", "按当前像素尺寸生成的最终 PNG。"),
-            ("contact_sheet", "候选总览图", data.get("contact_sheet_path"), "contact-sheet.png", "候选生成结果总览图。"),
+            (
+                "pixelized",
+                "像素尺寸图",
+                data.get("pixelized_path"),
+                "03_pixelized.png",
+                "按当前像素尺寸生成的最终 PNG。",
+            ),
+            (
+                "contact_sheet",
+                "候选总览图",
+                data.get("contact_sheet_path"),
+                "contact-sheet.png",
+                "候选生成结果总览图。",
+            ),
         ]
 
     seen: set[str] = set()
     for kind, label, path, fallback, description in specs:
-        entry = _manifest_entry(kind, label, str(path) if path else None, fallback, description=description)
+        entry = _manifest_entry(
+            kind, label, str(path) if path else None, fallback, description=description
+        )
         if entry is None:
             continue
         dedupe_key = str(entry["path"])
@@ -332,16 +437,22 @@ def _build_download_manifest(job: GenerationJob, output: GenerationOutput) -> li
             row_index = int(row.get("row_index") or len(items))
             phase = _safe_file_part(str(row.get("action_phase") or ""))
             number = row_index + 1
-            filename = f"{prefix}_action{number:02d}_{phase}.png" if phase else f"{prefix}_action{number:02d}.png"
+            filename = (
+                f"{prefix}_action{number:02d}_{phase}.png"
+                if phase
+                else f"{prefix}_action{number:02d}.png"
+            )
             items.append({"path": str(row["sheet_path"]), "filename": filename})
         if items:
-            entries.append({
-                "kind": "sprite_actions_zip",
-                "label": "所有动作打包",
-                "description": "把每个动作各一张横向图打包成 zip 下载。",
-                "filename": f"{prefix}_sprite_actions.zip",
-                "items": items,
-            })
+            entries.append(
+                {
+                    "kind": "sprite_actions_zip",
+                    "label": "所有动作打包",
+                    "description": "把每个动作各一张横向图打包成 zip 下载。",
+                    "filename": f"{prefix}_sprite_actions.zip",
+                    "items": items,
+                }
+            )
 
     return entries
 
@@ -366,7 +477,9 @@ def _preview_path(output: GenerationOutput, manifest: list[dict[str, object]]) -
 
 
 def _manifest_path_for_kind(share: SharedWork, kind: str) -> str | None:
-    manifest = share.download_manifest_json if isinstance(share.download_manifest_json, list) else []
+    manifest = (
+        share.download_manifest_json if isinstance(share.download_manifest_json, list) else []
+    )
     for raw in manifest:
         if not isinstance(raw, dict) or raw.get("kind") != kind:
             continue
@@ -419,7 +532,9 @@ def _share_actual_size(share: SharedWork) -> tuple[int, int] | None:
     return _size_pair(data.get("pixelized_size"))
 
 
-def _share_sprite_preview(share: SharedWork, parameter_snapshot: dict[str, object]) -> tuple[str | None, list[dict[str, object]], int | None]:
+def _share_sprite_preview(
+    share: SharedWork, parameter_snapshot: dict[str, object]
+) -> tuple[str | None, list[dict[str, object]], int | None]:
     if _share_asset_kind(share) != "sprite_sheet":
         return None, [], None
     sequence = _as_record(parameter_snapshot.get("sequence"))
@@ -438,7 +553,9 @@ def _share_sprite_preview(share: SharedWork, parameter_snapshot: dict[str, objec
 
 
 def _share_download_options(share: SharedWork) -> list[SharedDownloadOptionResponse]:
-    manifest = share.download_manifest_json if isinstance(share.download_manifest_json, list) else []
+    manifest = (
+        share.download_manifest_json if isinstance(share.download_manifest_json, list) else []
+    )
     options: list[SharedDownloadOptionResponse] = []
     for raw in manifest:
         if not isinstance(raw, dict):
@@ -446,13 +563,15 @@ def _share_download_options(share: SharedWork) -> list[SharedDownloadOptionRespo
         kind = str(raw.get("kind") or "")
         if not kind:
             continue
-        options.append(SharedDownloadOptionResponse(
-            kind=kind,
-            label=str(raw.get("label") or kind),
-            description=str(raw.get("description") or ""),
-            url=f"/shares/{share.id}/download/{quote(kind, safe='')}",
-            filename=str(raw.get("filename") or f"pix-share-{share.id}"),
-        ))
+        options.append(
+            SharedDownloadOptionResponse(
+                kind=kind,
+                label=str(raw.get("label") or kind),
+                description=str(raw.get("description") or ""),
+                url=f"/shares/{share.id}/download/{quote(kind, safe='')}",
+                filename=str(raw.get("filename") or f"pix-share-{share.id}"),
+            )
+        )
     return options
 
 
@@ -518,24 +637,30 @@ def _current_local_day_bounds(db: Session) -> tuple[datetime, datetime]:
 
 def _daily_reward_count(db: Session, user_id: int) -> int:
     start_utc, end_utc = _current_local_day_bounds(db)
-    return int(db.scalar(
-        select(func.count())
-        .select_from(CreditTransaction)
-        .where(
-            CreditTransaction.user_id == user_id,
-            CreditTransaction.type == SHARE_REWARD_TRANSACTION_TYPE,
-            CreditTransaction.amount > 0,
-            CreditTransaction.created_at >= start_utc,
-            CreditTransaction.created_at < end_utc,
+    return int(
+        db.scalar(
+            select(func.count())
+            .select_from(CreditTransaction)
+            .where(
+                CreditTransaction.user_id == user_id,
+                CreditTransaction.type == SHARE_REWARD_TRANSACTION_TYPE,
+                CreditTransaction.amount > 0,
+                CreditTransaction.created_at >= start_utc,
+                CreditTransaction.created_at < end_utc,
+            )
         )
-    ) or 0)
+        or 0
+    )
 
 
 def _reward_amount_for_publish(db: Session, user: User) -> int:
     settings = load_share_settings(db)
     if not settings.reward_enabled or settings.reward_credits <= 0:
         return 0
-    if settings.daily_reward_limit > 0 and _daily_reward_count(db, user.id) >= settings.daily_reward_limit:
+    if (
+        settings.daily_reward_limit > 0
+        and _daily_reward_count(db, user.id) >= settings.daily_reward_limit
+    ):
         return 0
     return settings.reward_credits
 
@@ -554,12 +679,16 @@ def list_shares(
     normalized_asset_kind = _normalized_filter_value(asset_kind)
     normalized_output_size = _size_key(output_size)
     normalized_image_model = _normalized_filter_value(image_model)
-    all_active_shares = list(db.scalars(
-        select(SharedWork)
-        .options(selectinload(SharedWork.job).selectinload(GenerationJob.outputs))
-        .where(SharedWork.status == SHARE_STATUS_ACTIVE)
-        .order_by(SharedWork.like_count.desc(), SharedWork.published_at.desc(), SharedWork.id.desc())
-    ))
+    all_active_shares = list(
+        db.scalars(
+            select(SharedWork)
+            .options(selectinload(SharedWork.job).selectinload(GenerationJob.outputs))
+            .where(SharedWork.status == SHARE_STATUS_ACTIVE)
+            .order_by(
+                SharedWork.like_count.desc(), SharedWork.published_at.desc(), SharedWork.id.desc()
+            )
+        )
+    )
     filters = _filter_options(all_active_shares)
     filtered_shares = [
         share
@@ -572,17 +701,22 @@ def list_shares(
         )
     ]
     total = len(filtered_shares)
-    shares = filtered_shares[offset: offset + limit]
+    shares = filtered_shares[offset : offset + limit]
     liked_ids: set[int] = set()
     if current_user is not None and shares:
-        liked_ids = set(db.scalars(
-            select(SharedWorkLike.shared_work_id).where(
-                SharedWorkLike.user_id == current_user.id,
-                SharedWorkLike.shared_work_id.in_([share.id for share in shares]),
+        liked_ids = set(
+            db.scalars(
+                select(SharedWorkLike.shared_work_id).where(
+                    SharedWorkLike.user_id == current_user.id,
+                    SharedWorkLike.shared_work_id.in_([share.id for share in shares]),
+                )
             )
-        ))
+        )
     return SharedWorkListResponse(
-        items=[_share_response(share, current_user=current_user, liked_ids=liked_ids) for share in shares],
+        items=[
+            _share_response(share, current_user=current_user, liked_ids=liked_ids)
+            for share in shares
+        ],
         total=total,
         limit=limit,
         offset=offset,
@@ -604,15 +738,21 @@ def publish_job_share(
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="作品不存在")
     if job.status != "succeeded":
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只有已完成作品可以公开分享")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="只有已完成作品可以公开分享"
+        )
     output = job.outputs[0] if job.outputs else None
     if output is None:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="作品没有可分享的输出")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="作品没有可分享的输出"
+        )
 
     now = utcnow()
     manifest = _build_download_manifest(job, output)
     if not manifest:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="作品没有可下载产物")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="作品没有可下载产物"
+        )
 
     share = job.shared_work
     # 已在展示或已在审核队列中，直接返回当前状态，避免重复提交。
@@ -681,7 +821,11 @@ def like_share(
     )
     if share is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品不存在")
-    existing = db.scalar(select(SharedWorkLike).where(SharedWorkLike.shared_work_id == share.id, SharedWorkLike.user_id == user.id))
+    existing = db.scalar(
+        select(SharedWorkLike).where(
+            SharedWorkLike.shared_work_id == share.id, SharedWorkLike.user_id == user.id
+        )
+    )
     if existing is not None:
         return _share_response(share, current_user=user, liked_ids={share.id})
     db.add(SharedWorkLike(shared_work_id=share.id, user_id=user.id))
@@ -707,7 +851,11 @@ def unlike_share(
     )
     if share is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品不存在")
-    existing = db.scalar(select(SharedWorkLike).where(SharedWorkLike.shared_work_id == share.id, SharedWorkLike.user_id == user.id))
+    existing = db.scalar(
+        select(SharedWorkLike).where(
+            SharedWorkLike.shared_work_id == share.id, SharedWorkLike.user_id == user.id
+        )
+    )
     if existing is not None:
         db.delete(existing)
         share.like_count = max(0, share.like_count - 1)
@@ -725,7 +873,11 @@ def shared_preview(
     settings: WebSettings = Depends(get_settings),
 ) -> FileResponse:
     _file_ticket_user(request, token, db, settings)  # 需登录（票据或 Bearer）
-    share = db.scalar(select(SharedWork).where(SharedWork.id == share_id, SharedWork.status == SHARE_STATUS_ACTIVE))
+    share = db.scalar(
+        select(SharedWork).where(
+            SharedWork.id == share_id, SharedWork.status == SHARE_STATUS_ACTIVE
+        )
+    )
     if share is None or not share.preview_path:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品不存在")
     resolved = resolve_web_file(share.preview_path, settings)
@@ -750,13 +902,17 @@ def shared_sprite_sheet(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品不存在")
     path = _manifest_path_for_kind(share, "sprite_sheet")
     if not path:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品没有可播放序列帧")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="分享作品没有可播放序列帧"
+        )
     resolved = resolve_web_file(path, settings)
     return FileResponse(resolved, filename=resolved.name, content_disposition_type="inline")
 
 
 def _manifest_item(share: SharedWork, kind: str) -> dict[str, object]:
-    manifest = share.download_manifest_json if isinstance(share.download_manifest_json, list) else []
+    manifest = (
+        share.download_manifest_json if isinstance(share.download_manifest_json, list) else []
+    )
     for item in manifest:
         if isinstance(item, dict) and item.get("kind") == kind:
             return item
@@ -786,7 +942,9 @@ def download_shared_work(
     if kind == "sprite_actions_zip":
         raw_items = item.get("items")
         if not isinstance(raw_items, list):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品没有可打包动作图")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="分享作品没有可打包动作图"
+            )
         buffer = BytesIO()
         added = 0
         with ZipFile(buffer, "w", ZIP_DEFLATED) as zip_file:
@@ -797,12 +955,18 @@ def download_shared_work(
                 zip_file.write(resolved, str(raw.get("filename") or resolved.name))
                 added += 1
         if added == 0:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分享作品没有可打包动作图")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="分享作品没有可打包动作图"
+            )
         share.download_count += 1
         db.commit()
         ascii_name = filename.encode("ascii", "ignore").decode().strip("_") or "shared_work.zip"
         disposition = f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
-        return Response(buffer.getvalue(), media_type="application/zip", headers={"Content-Disposition": disposition})
+        return Response(
+            buffer.getvalue(),
+            media_type="application/zip",
+            headers={"Content-Disposition": disposition},
+        )
 
     path = item.get("path")
     if not isinstance(path, str) or not path:

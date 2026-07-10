@@ -463,9 +463,10 @@ The system uses a Notion-Sans typeface (Inter-based) across every UI surface —
 - Centered hero layout (different from the left-aligned norm of most B2B SaaS)
 
 ### Pix Homepage Sample Atlas Interaction
-- 首页范例图谱只展示按 `homepage示例物品icon清单.md` 全流程重生成的 608 张 64×64 物品 PNG；不要再混入旧 UI 展示图、旧 64×64/32×32 对比图或精灵图流水线素材。
+- 首页范例图谱由 `apps/web/src/homepage*Examples.ts` 维护，展示 `apps/web/public/homepage-examples/` 中的物品图标、实测展示图、平铺纹理和序列帧；不得引用生成时的本地输出目录或失效 provenance 清单。
 - 图标墙保持图片优先：每张卡片显示真实尺寸 tag、题材风格 tag、物品主体和槽位，支持按尺寸、大类、题材筛选。
 - 单个物品格支持右键操作菜单，菜单只提供当前槽位的下载与 `主体：` 后 subject prompt 描述片段复制，并直接预览将复制内容，避免用户复制到整组旧 Prompt、单独物品名或完整模板。
+- 示例命名使用通用题材词，不直接使用第三方作品名；来源与授权遵循仓库根 `ASSETS.md`。
 
 ## Colors
 

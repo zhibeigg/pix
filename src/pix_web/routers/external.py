@@ -9,12 +9,27 @@ from pathlib import Path
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from pix_web.character_library import clean_character_text, create_character_item_from_job, is_character_asset_job
+from pix_web.character_library import (
+    clean_character_text,
+    create_character_item_from_job,
+    is_character_asset_job,
+)
 from pix_web.config import WebSettings
 from pix_web.credits import build_balance_response, ensure_credit_account
 from pix_web.external_api_keys import ExternalApiPrincipal, require_external_scope
@@ -65,13 +80,19 @@ def _job_for_principal(db: Session, principal: ExternalApiPrincipal, job_id: int
     return job
 
 
-def _normalize_character_path(raw_path: str, principal: ExternalApiPrincipal, db: Session, settings: WebSettings) -> Path:
+def _normalize_character_path(
+    raw_path: str, principal: ExternalApiPrincipal, db: Session, settings: WebSettings
+) -> Path:
     try:
         resolved = resolve_owned_input_path(raw_path, principal.user, db, settings)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="角色图片路径不合法") from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="角色图片路径不合法"
+        ) from exc
     if not resolved.is_file():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="角色图片不存在")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="角色图片不存在"
+        )
     return resolved
 
 
@@ -85,10 +106,14 @@ def _require_character_asset_source_job(
     source_job_id: int | None,
 ) -> GenerationJob:
     if source_job_id is None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只有像素直出的角色类型作品才能成为角色")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="只有像素直出的角色类型作品才能成为角色"
+        )
     job = _job_for_principal(db, principal, source_job_id)
     if not is_character_asset_job(job):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只有像素直出的角色类型作品才能成为角色")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="只有像素直出的角色类型作品才能成为角色"
+        )
     return job
 
 
@@ -96,7 +121,9 @@ def _external_character_response(item: CharacterLibraryItem) -> CharacterRespons
     return CharacterResponse.model_validate(item)
 
 
-def _character_for_principal(db: Session, principal: ExternalApiPrincipal, character_id: int) -> CharacterLibraryItem:
+def _character_for_principal(
+    db: Session, principal: ExternalApiPrincipal, character_id: int
+) -> CharacterLibraryItem:
     item = db.scalar(
         select(CharacterLibraryItem).where(
             CharacterLibraryItem.id == character_id,
@@ -175,8 +202,12 @@ def _job_file_prefix(job: GenerationJob) -> str:
 
 
 @router.get("/me", response_model=ExternalMeResponse)
-def external_me(principal: ExternalApiPrincipal = Depends(require_external_scope("me:read"))) -> ExternalMeResponse:
-    return ExternalMeResponse(user=principal.user, scopes=list(principal.scopes), key_prefix=principal.api_key.key_prefix)
+def external_me(
+    principal: ExternalApiPrincipal = Depends(require_external_scope("me:read")),
+) -> ExternalMeResponse:
+    return ExternalMeResponse(
+        user=principal.user, scopes=list(principal.scopes), key_prefix=principal.api_key.key_prefix
+    )
 
 
 @router.get("/balance", response_model=CreditBalanceResponse)
@@ -223,8 +254,14 @@ def external_create_character(
     settings: WebSettings = Depends(get_settings),
 ) -> CharacterResponse:
     image_file = _normalize_character_path(req.image_path, principal, db, settings)
-    preview_file = _normalize_character_path(req.preview_path, principal, db, settings) if req.preview_path else image_file
-    source_job_id = _source_job_id_for_file(image_file, settings) or _source_job_id_for_file(preview_file, settings)
+    preview_file = (
+        _normalize_character_path(req.preview_path, principal, db, settings)
+        if req.preview_path
+        else image_file
+    )
+    source_job_id = _source_job_id_for_file(image_file, settings) or _source_job_id_for_file(
+        preview_file, settings
+    )
     _require_character_asset_source_job(db, principal, source_job_id)
     image_path = str(image_file)
     preview_path = str(preview_file)
@@ -247,7 +284,11 @@ def external_create_character(
     return _external_character_response(item)
 
 
-@router.post("/characters/jobs/{job_id}", response_model=CharacterResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/characters/jobs/{job_id}",
+    response_model=CharacterResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def external_create_character_from_job(
     job_id: int,
     req: CharacterFromJobRequest,
@@ -256,7 +297,9 @@ def external_create_character_from_job(
 ) -> CharacterResponse:
     job = _job_for_principal(db, principal, job_id)
     if job.status != "succeeded" or not job.outputs:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只能把已完成任务保存为角色")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="只能把已完成任务保存为角色"
+        )
     try:
         item = create_character_item_from_job(
             db,
@@ -285,7 +328,9 @@ def external_update_character(
     if req.name is not None:
         name = clean_character_text(req.name, 160)
         if not name:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="角色名称不能为空")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="角色名称不能为空"
+            )
         item.name = name
     if req.description is not None:
         item.description = clean_character_text(req.description, 1000)
@@ -319,7 +364,13 @@ async def external_upload_image(
 ) -> UploadResponse:
     enforce_upload_limit(db, principal.user)
     stored = await store_uploaded_image(request.app.state.web_settings, principal.user.id, file)
-    record_upload_event(db, principal.user, filename=stored.filename, content_type=stored.content_type, size_bytes=stored.size_bytes)
+    record_upload_event(
+        db,
+        principal.user,
+        filename=stored.filename,
+        content_type=stored.content_type,
+        size_bytes=stored.size_bytes,
+    )
     return UploadResponse(
         path=str(stored.path),
         url=file_url(stored.path),
@@ -338,7 +389,9 @@ def external_create_job(
     settings: WebSettings = Depends(get_settings),
 ) -> dict:
     if not req.client_request_id and idempotency_key:
-        req = req.model_copy(update={"client_request_id": _external_client_request_id(idempotency_key)})
+        req = req.model_copy(
+            update={"client_request_id": _external_client_request_id(idempotency_key)}
+        )
     job = create_job(db, principal.user, req, settings)
     if job.status == "pending":
         enqueue_jobs(settings, [job.id])
@@ -424,9 +477,15 @@ def external_download_sprite_actions(
             sheet = _resolve_meta_path(output.meta_json_path, row.get("sheet"))
             if not sheet or not Path(sheet).is_file():
                 continue
-            row_index = int(row.get("row_index")) if isinstance(row.get("row_index"), int) else index
+            row_index = (
+                int(row.get("row_index")) if isinstance(row.get("row_index"), int) else index
+            )
             phase = _safe_file_part(str(row.get("action_phase") or ""))
-            name = f"{prefix}_action{row_index + 1:02d}_{phase}.png" if phase else f"{prefix}_action{row_index + 1:02d}.png"
+            name = (
+                f"{prefix}_action{row_index + 1:02d}_{phase}.png"
+                if phase
+                else f"{prefix}_action{row_index + 1:02d}.png"
+            )
             zip_file.write(sheet, name)
             added += 1
     if added == 0:
@@ -434,7 +493,11 @@ def external_download_sprite_actions(
     filename = f"{prefix}_sprite_actions.zip"
     ascii_name = filename.encode("ascii", "ignore").decode().strip("_") or "sprite_actions.zip"
     disposition = f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
-    return Response(content=buffer.getvalue(), media_type="application/zip", headers={"Content-Disposition": disposition})
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": disposition},
+    )
 
 
 @router.get("/jobs/{job_id}/outputs/sprite-gif")
@@ -453,7 +516,9 @@ def external_download_sprite_gif(
     filename = f"{_job_file_prefix(job)}.gif"
     ascii_name = filename.encode("ascii", "ignore").decode().strip("_") or "sprite.gif"
     disposition = f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
-    return Response(content=gif_bytes, media_type="image/gif", headers={"Content-Disposition": disposition})
+    return Response(
+        content=gif_bytes, media_type="image/gif", headers={"Content-Disposition": disposition}
+    )
 
 
 @router.get("/jobs/{job_id}/outputs/{kind}")

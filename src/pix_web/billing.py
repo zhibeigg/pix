@@ -12,9 +12,30 @@ from pix_web.credits import recharge_credits
 from pix_web.models import CreditPackage, PaymentEvent, PaymentOrder, User, utcnow
 
 DEFAULT_PACKAGES: list[dict[str, object]] = [
-    {"key": "starter", "name": "Starter", "credits": 100, "amount_cents": 990, "currency": "cny", "sort_order": 10},
-    {"key": "studio", "name": "Studio", "credits": 500, "amount_cents": 3900, "currency": "cny", "sort_order": 20},
-    {"key": "pro", "name": "Pro", "credits": 1500, "amount_cents": 9900, "currency": "cny", "sort_order": 30},
+    {
+        "key": "starter",
+        "name": "Starter",
+        "credits": 100,
+        "amount_cents": 990,
+        "currency": "cny",
+        "sort_order": 10,
+    },
+    {
+        "key": "studio",
+        "name": "Studio",
+        "credits": 500,
+        "amount_cents": 3900,
+        "currency": "cny",
+        "sort_order": 20,
+    },
+    {
+        "key": "pro",
+        "name": "Pro",
+        "credits": 1500,
+        "amount_cents": 9900,
+        "currency": "cny",
+        "sort_order": 30,
+    },
 ]
 CUSTOM_RECHARGE_MIN_CREDITS = 10
 CUSTOM_RECHARGE_MAX_CREDITS = 100000
@@ -46,9 +67,13 @@ def list_enabled_packages(db: Session) -> list[CreditPackage]:
 def normalize_payment_provider(provider: str) -> str:
     clean = provider.strip().lower()
     if clean == "wechat":
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="微信支付已关闭")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="微信支付已关闭"
+        )
     if clean not in {"mock", "alipay"}:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="不支持的支付方式")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="不支持的支付方式"
+        )
     return clean
 
 
@@ -90,7 +115,9 @@ def _persist_payment_order(
     return order
 
 
-def create_membership_order(db: Session, user: User, plan_key: str, *, provider: str = "mock") -> PaymentOrder:
+def create_membership_order(
+    db: Session, user: User, plan_key: str, *, provider: str = "mock"
+) -> PaymentOrder:
     """创建月卡会员订单：金额取自档位，credits=0（到账时激活会员而非充点）。"""
     from pix_web.membership import ensure_default_membership_plans, get_plan
 
@@ -110,10 +137,14 @@ def create_membership_order(db: Session, user: User, plan_key: str, *, provider:
     )
 
 
-def create_payment_order(db: Session, user: User, package_key: str, *, provider: str = "mock") -> PaymentOrder:
+def create_payment_order(
+    db: Session, user: User, package_key: str, *, provider: str = "mock"
+) -> PaymentOrder:
     ensure_default_packages(db)
     package = db.scalar(
-        select(CreditPackage).where(CreditPackage.key == package_key, CreditPackage.enabled.is_(True))
+        select(CreditPackage).where(
+            CreditPackage.key == package_key, CreditPackage.enabled.is_(True)
+        )
     )
     if package is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="充值套餐不存在或已停用")
@@ -132,7 +163,11 @@ def _custom_recharge_base(db: Session) -> CreditPackage | None:
     ensure_default_packages(db)
     return db.scalar(
         select(CreditPackage)
-        .where(CreditPackage.enabled.is_(True), CreditPackage.credits > 0, CreditPackage.amount_cents > 0)
+        .where(
+            CreditPackage.enabled.is_(True),
+            CreditPackage.credits > 0,
+            CreditPackage.amount_cents > 0,
+        )
         .order_by(CreditPackage.sort_order.asc(), CreditPackage.amount_cents.asc())
         .limit(1)
     )
@@ -169,7 +204,9 @@ def custom_recharge_options(db: Session) -> dict[str, object]:
 
 def calculate_custom_recharge_amount_cents(db: Session, credits: int) -> tuple[int, str]:
     if credits < CUSTOM_RECHARGE_MIN_CREDITS or credits > CUSTOM_RECHARGE_MAX_CREDITS:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="自定义充值点数超出允许范围")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="自定义充值点数超出允许范围"
+        )
     options = custom_recharge_options(db)
     base_credits = int(options["base_package_credits"])
     base_amount_cents = int(options["base_package_amount_cents"])
@@ -177,7 +214,9 @@ def calculate_custom_recharge_amount_cents(db: Session, credits: int) -> tuple[i
     return amount_cents, str(options["currency"])
 
 
-def create_custom_payment_order(db: Session, user: User, credits: int, *, provider: str = "mock") -> PaymentOrder:
+def create_custom_payment_order(
+    db: Session, user: User, credits: int, *, provider: str = "mock"
+) -> PaymentOrder:
     amount_cents, currency = calculate_custom_recharge_amount_cents(db, credits)
     return _persist_payment_order(
         db,
@@ -210,8 +249,12 @@ def list_all_payment_orders(db: Session, *, limit: int = 100) -> list[PaymentOrd
     )
 
 
-def mark_order_paid(db: Session, order: PaymentOrder, *, provider_event_id: str, payload: dict | None = None) -> PaymentOrder:
-    event = db.scalar(select(PaymentEvent).where(PaymentEvent.provider_event_id == provider_event_id))
+def mark_order_paid(
+    db: Session, order: PaymentOrder, *, provider_event_id: str, payload: dict | None = None
+) -> PaymentOrder:
+    event = db.scalar(
+        select(PaymentEvent).where(PaymentEvent.provider_event_id == provider_event_id)
+    )
     if event is not None:
         db.refresh(order)
         return order

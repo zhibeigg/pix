@@ -1,8 +1,11 @@
 {
   "name": "pix-web",
   "private": true,
-  "version": "1.129.0",
+  "version": "1.130.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -23,7 +26,6 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "@vitejs/plugin-react": "latest",
     "chart.js": "^4.4.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -31,19 +33,20 @@
     "lucide-react": "^1.16.0",
     "motion": "^12.40.0",
     "qrcode.react": "^4.2.0",
-    "react": "latest",
+    "react": "^19.2.7",
     "react-chartjs-2": "^5.2.0",
-    "react-dom": "latest",
+    "react-dom": "^19.2.7",
     "react-i18next": "^17.0.8",
-    "tailwind-merge": "^3.6.0",
-    "typescript": "latest",
-    "vite": "latest"
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.0",
+    "@vitejs/plugin-react": "^6.0.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "tailwindcss": "^4.3.0",
-    "vitest": "^4.1.9"
+    "typescript": "~6.0.3",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10"
   }
 }

@@ -40,7 +40,9 @@ class ExternalApiPrincipal:
     scopes: tuple[str, ...]
 
 
-def normalize_api_key_scopes(scopes: list[str] | tuple[str, ...] | None, *, default_all: bool = True) -> list[str]:
+def normalize_api_key_scopes(
+    scopes: list[str] | tuple[str, ...] | None, *, default_all: bool = True
+) -> list[str]:
     if not scopes:
         return list(DEFAULT_API_KEY_SCOPES) if default_all else []
     allowed = set(API_KEY_SCOPES)
@@ -51,7 +53,7 @@ def normalize_api_key_scopes(scopes: list[str] | tuple[str, ...] | None, *, defa
             continue
         if scope not in allowed:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"未知 API 权限：{scope}",
             )
         if scope not in normalized:
@@ -73,7 +75,7 @@ def normalize_custom_api_key(value: str | None) -> str | None:
         return None
     if not API_KEY_PATTERN.fullmatch(key):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="API Key 格式无效：必须以 pix_live_ 开头，并仅包含字母、数字、下划线或连字符",
         )
     return key
@@ -95,7 +97,9 @@ def create_external_api_key(
     raw_key = normalize_custom_api_key(custom_key) or generate_api_key()
     key_hash = hash_api_key(raw_key)
     if db.scalar(select(ExternalApiKey.id).where(ExternalApiKey.key_hash == key_hash)) is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="API Key 已存在，请重新生成")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="API Key 已存在，请重新生成"
+        )
     row = ExternalApiKey(
         user_id=user.id,
         name=(name or "").strip()[:120] or "API Key",
@@ -139,7 +143,9 @@ def authenticate_external_api_key(request: Request, db: Session) -> ExternalApiP
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API Key 无效或已停用")
     user = db.get(User, row.user_id)
     if user is None or user.status != "active":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API Key 所属用户不可用")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="API Key 所属用户不可用"
+        )
     scopes = tuple(normalize_api_key_scopes([str(scope) for scope in (row.scopes or [])]))
     row.last_used_at = utcnow()
     db.commit()
@@ -150,7 +156,9 @@ def require_external_scope(scope: str) -> Callable[[Request, Session], ExternalA
     def dependency(request: Request, db: Session = Depends(get_db)) -> ExternalApiPrincipal:
         principal = authenticate_external_api_key(request, db)
         if scope not in principal.scopes:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"API Key 缺少权限：{scope}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail=f"API Key 缺少权限：{scope}"
+            )
         return principal
 
     return dependency

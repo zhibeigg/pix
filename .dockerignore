@@ -13,10 +13,15 @@ venv
 node_modules
 apps/web/node_modules
 apps/web/dist
+apps/web/public
 apps/web/tsconfig.tsbuildinfo
+apps/web/coverage
 build
 dist
 *.egg-info
+test
+docs
+.github
 .env
 .env.*
 !.env.example

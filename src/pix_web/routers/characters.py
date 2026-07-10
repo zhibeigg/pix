@@ -8,7 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from pix_web.character_library import clean_character_text, create_character_item_from_job, is_character_asset_job
+from pix_web.character_library import (
+    clean_character_text,
+    create_character_item_from_job,
+    is_character_asset_job,
+)
 from pix_web.config import WebSettings
 from pix_web.file_ownership import resolve_owned_input_path, run_job_id_for_file
 from pix_web.models import CharacterLibraryItem, GenerationJob, User
@@ -43,11 +47,13 @@ def _normalize_owned_file(raw_path: str, user: User, db: Session, settings: WebS
         resolved = resolve_owned_input_path(raw_path, user, db, settings)
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="角色图片路径不合法",
         ) from exc
     if not resolved.is_file():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="角色图片不存在")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="角色图片不存在"
+        )
     return resolved
 
 
@@ -61,10 +67,18 @@ def _require_character_asset_source_job(
     source_job_id: int | None,
 ) -> GenerationJob:
     if source_job_id is None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只有像素直出的角色类型作品才能成为角色")
-    job = db.scalar(select(GenerationJob).where(GenerationJob.id == source_job_id, GenerationJob.user_id == user.id))
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="只有像素直出的角色类型作品才能成为角色"
+        )
+    job = db.scalar(
+        select(GenerationJob).where(
+            GenerationJob.id == source_job_id, GenerationJob.user_id == user.id
+        )
+    )
     if job is None or not is_character_asset_job(job):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只有像素直出的角色类型作品才能成为角色")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="只有像素直出的角色类型作品才能成为角色"
+        )
     return job
 
 
@@ -80,7 +94,10 @@ def list_characters(
 ) -> list[CharacterResponse]:
     stmt = (
         select(CharacterLibraryItem)
-        .where(CharacterLibraryItem.user_id == user.id, CharacterLibraryItem.status.in_(_ACTIVE_STATUSES))
+        .where(
+            CharacterLibraryItem.user_id == user.id,
+            CharacterLibraryItem.status.in_(_ACTIVE_STATUSES),
+        )
         .order_by(CharacterLibraryItem.updated_at.desc(), CharacterLibraryItem.created_at.desc())
         .limit(max(1, min(200, int(limit))))
     )
@@ -95,10 +112,16 @@ def create_character(
     settings: WebSettings = Depends(get_settings),
 ) -> CharacterResponse:
     image_file = _normalize_owned_file(req.image_path, user, db, settings)
-    preview_file = _normalize_owned_file(req.preview_path, user, db, settings) if req.preview_path else image_file
+    preview_file = (
+        _normalize_owned_file(req.preview_path, user, db, settings)
+        if req.preview_path
+        else image_file
+    )
     image_path = str(image_file)
     preview_path = str(preview_file)
-    source_job_id = _source_job_id_for_file(image_file, settings) or _source_job_id_for_file(preview_file, settings)
+    source_job_id = _source_job_id_for_file(image_file, settings) or _source_job_id_for_file(
+        preview_file, settings
+    )
     _require_character_asset_source_job(db, user, source_job_id)
     name = clean_character_text(req.name, 160) or image_file.stem[:160] or "未命名角色"
     snapshot_source = "asset_character_job_output"
@@ -119,7 +142,9 @@ def create_character(
     return _character_response(item)
 
 
-@router.post("/jobs/{job_id}", response_model=CharacterResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/jobs/{job_id}", response_model=CharacterResponse, status_code=status.HTTP_201_CREATED
+)
 def create_character_from_job(
     job_id: int,
     req: CharacterFromJobRequest,
@@ -134,7 +159,9 @@ def create_character_from_job(
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="作品不存在")
     if job.status != "succeeded" or not job.outputs:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只能把已完成作品保存为角色")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="只能把已完成作品保存为角色"
+        )
     output = job.outputs[0]
     try:
         item = create_character_item_from_job(
@@ -164,7 +191,9 @@ def update_character(
     if req.name is not None:
         name = clean_character_text(req.name, 160)
         if not name:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="角色名称不能为空")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="角色名称不能为空"
+            )
         item.name = name
     if req.description is not None:
         item.description = clean_character_text(req.description, 1000)

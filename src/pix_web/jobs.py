@@ -41,7 +41,12 @@ from pix_web.pricing import (
     video_bridge_price_credits,
     video_bridge_price_key,
 )
-from pix_web.schemas import JobCreateRequest, PixelizeParamsSchema, SpriteParamsSchema, StyleProfileSchema
+from pix_web.schemas import (
+    JobCreateRequest,
+    PixelizeParamsSchema,
+    SpriteParamsSchema,
+    StyleProfileSchema,
+)
 from pix_web.system_settings import (
     PricingDiscount,
     enforce_generation_limits,
@@ -106,7 +111,7 @@ def _enforce_text_max_chars(label: str, value: str | None, max_chars: int) -> No
     text = (value or "").strip()
     if len(text) > max_chars:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"{label}最多支持 {max_chars} 字",
         )
 
@@ -124,17 +129,21 @@ def _job_prompt_for_record(req: JobCreateRequest) -> str | None:
 def _prompt_policy_text(req: JobCreateRequest) -> str | None:
     style_text = style_profile_policy_text(req.style_profile)
     if req.job_type == "asset":
-        parts = _dedupe_prompt_parts([
-            req.asset.name,
-            req.asset.extra_prompt,
-            req.prompt or "",
-            req.asset.material_a,
-            req.asset.material_b,
-            style_text,
-        ])
+        parts = _dedupe_prompt_parts(
+            [
+                req.asset.name,
+                req.asset.extra_prompt,
+                req.prompt or "",
+                req.asset.material_a,
+                req.asset.material_b,
+                style_text,
+            ]
+        )
         return "\n".join(parts) or None
     if req.job_type == "sprite_sheet":
-        parts = _dedupe_prompt_parts([req.prompt or "", *req.sprite.row_prompts, req.sprite.video_action_prompt, style_text])
+        parts = _dedupe_prompt_parts(
+            [req.prompt or "", *req.sprite.row_prompts, req.sprite.video_action_prompt, style_text]
+        )
         return "\n".join(parts) or None
     if req.job_type in {"text_to_image", "image_to_image"}:
         parts = _dedupe_prompt_parts([req.prompt or "", style_text])
@@ -144,16 +153,26 @@ def _prompt_policy_text(req: JobCreateRequest) -> str | None:
 
 def _prompt_policy_max_chars(req: JobCreateRequest, cfg: AppConfig) -> int | None:
     if req.job_type == "asset":
-        return (_asset_subject_limit(cfg) * 4) + _asset_extra_prompt_limit(cfg) + STYLE_PROFILE_POLICY_MAX_CHARS
+        return (
+            (_asset_subject_limit(cfg) * 4)
+            + _asset_extra_prompt_limit(cfg)
+            + STYLE_PROFILE_POLICY_MAX_CHARS
+        )
     if req.job_type == "sprite_sheet":
         rows = max(1, min(8, req.sprite.rows))
-        return _sprite_subject_limit(cfg) + (_sprite_row_prompt_limit(cfg) * (rows + 1)) + STYLE_PROFILE_POLICY_MAX_CHARS
+        return (
+            _sprite_subject_limit(cfg)
+            + (_sprite_row_prompt_limit(cfg) * (rows + 1))
+            + STYLE_PROFILE_POLICY_MAX_CHARS
+        )
     if req.job_type in AI_JOB_TYPES:
         return _raw_image_prompt_limit(cfg) + STYLE_PROFILE_POLICY_MAX_CHARS
     return None
 
 
-def _enforce_request_prompt_policy(db: Session, user: User, req: JobCreateRequest, cfg: AppConfig) -> None:
+def _enforce_request_prompt_policy(
+    db: Session, user: User, req: JobCreateRequest, cfg: AppConfig
+) -> None:
     prompt_text = _prompt_policy_text(req)
     try:
         enforce_prompt_policy(
@@ -163,7 +182,7 @@ def _enforce_request_prompt_policy(db: Session, user: User, req: JobCreateReques
             max_chars=_prompt_policy_max_chars(req, cfg),
         )
     except HTTPException as exc:
-        if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
+        if exc.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT:
             try:
                 record_policy_event(
                     db,
@@ -202,52 +221,51 @@ def validate_job_request(req: JobCreateRequest, cfg: AppConfig | None = None) ->
         resolve_asset_generation_policy(tuple(req.pixelize.output_size))
     except AssetSizePolicyError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         ) from exc
     if req.job_type == "asset" and not _asset_name(req):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="素材直出任务需要主体内容"
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="素材直出任务需要主体内容"
         )
     if req.job_type == "asset" and req.input_image_path and not Path(req.input_image_path).exists():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="参考图不存在")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="参考图不存在"
+        )
     if req.job_type == "text_to_image" and not prompt:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="文生图任务需要 prompt"
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="文生图任务需要 prompt"
         )
     raw_prompt_limit = _raw_image_prompt_limit(cfg)
-    if (
-        req.job_type == "text_to_image"
-        and req.source_only
-        and len(prompt) > raw_prompt_limit
-    ):
+    if req.job_type == "text_to_image" and req.source_only and len(prompt) > raw_prompt_limit:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"原生生图 prompt 最多支持 {raw_prompt_limit} 字",
         )
     if req.job_type == "image_to_image" and not prompt:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="图生图任务需要 prompt"
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="图生图任务需要 prompt"
         )
     if req.job_type == "sprite_sheet" and not prompt:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="序列帧任务需要 prompt"
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="序列帧任务需要 prompt"
         )
     if req.job_type == "sprite_sheet":
         sprite = req.sprite
         if sprite.rows < 1 or sprite.rows > 8 or sprite.cols < 1 or sprite.cols > 8:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="序列帧每行/每列最多支持 8"
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="序列帧每行/每列最多支持 8",
             )
         total_frames = sprite.rows * sprite.cols
         if total_frames < 1:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="序列帧网格至少需要 1 个单元",
             )
         if sprite.mode == "video_bridge":
             if total_frames < 2:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="首尾帧视频补间至少需要 2 帧",
                 )
             if cfg is not None:
@@ -263,21 +281,21 @@ def validate_job_request(req: JobCreateRequest, cfg: AppConfig | None = None) ->
                     )
         elif sprite.rows >= 2 and len(sprite.row_prompts) < sprite.rows:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="多行序列帧需要为每一行填写动作描述",
             )
         if sprite.reference_image_path and not Path(sprite.reference_image_path).exists():
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="参考图不存在"
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="参考图不存在"
             )
     if req.job_type in IMAGE_JOB_TYPES:
         if not req.input_image_path:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="该任务需要输入图片"
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="该任务需要输入图片"
             )
         if not Path(req.input_image_path).exists():
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="输入图片不存在"
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="输入图片不存在"
             )
 
 
@@ -336,10 +354,8 @@ def _is_sprite_video_bridge(req: JobCreateRequest) -> bool:
     return req.job_type == "sprite_sheet" and req.sprite.mode == "video_bridge"
 
 
-
 def _frame_count_for_price(req: JobCreateRequest) -> int:
     if req.job_type != "sprite_sheet":
-
         return 1
     return max(1, req.sprite.rows * req.sprite.cols)
 
@@ -596,7 +612,7 @@ def _enforce_input_path_ownership(
             resolve_owned_input_path(raw_path, user, db, effective_settings)
         except ValueError as exc:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="输入图片路径不合法",
             ) from exc
 
@@ -698,7 +714,7 @@ def create_jobs_batch(
     cfg = _effective_pix_config(db, settings)
     if not reqs:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="批量任务不能为空"
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="批量任务不能为空"
         )
 
     total_price = 0
@@ -711,7 +727,7 @@ def create_jobs_batch(
         if request_id:
             if request_id in seen_request_ids:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="批量任务中存在重复 client_request_id",
                 )
             seen_request_ids.add(request_id)
@@ -752,7 +768,9 @@ def create_jobs_batch(
             if existing is not None:
                 jobs.append(existing)
                 continue
-            job = create_job_in_transaction(db, user, req, reserve=False, batch=batch, cfg=cfg, settings=settings)
+            job = create_job_in_transaction(
+                db, user, req, reserve=False, batch=batch, cfg=cfg, settings=settings
+            )
             reserve_credits(db, user, job, price)
             jobs.append(job)
     except InsufficientCreditsError as exc:
@@ -944,7 +962,9 @@ def regenerate_job(
     if source_job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
     if source_job.status in REGENERATE_BLOCKED_STATUSES:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="任务尚未完成，无法重新生成")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="任务尚未完成，无法重新生成"
+        )
 
     req = _request_from_existing_job(source_job, prefix="regen")
     return _submit_reused_request(db, user, req, cfg=cfg, batch=source_job.batch, settings=settings)
@@ -973,7 +993,9 @@ def _submit_reused_request(
         raise insufficient_credits_http()
 
     try:
-        job = create_job_in_transaction(db, user, req, reserve=False, batch=batch, cfg=cfg, settings=settings)
+        job = create_job_in_transaction(
+            db, user, req, reserve=False, batch=batch, cfg=cfg, settings=settings
+        )
         reserve_credits(db, user, job, price)
     except InsufficientCreditsError as exc:
         db.rollback()
@@ -1031,7 +1053,9 @@ def retry_failed_jobs_in_batch(
     jobs: list[GenerationJob] = []
     try:
         for req, price in zip(reqs, prices, strict=True):
-            job = create_job_in_transaction(db, user, req, reserve=False, batch=batch, cfg=cfg, settings=settings)
+            job = create_job_in_transaction(
+                db, user, req, reserve=False, batch=batch, cfg=cfg, settings=settings
+            )
             reserve_credits(db, user, job, price)
             jobs.append(job)
     except InsufficientCreditsError as exc:

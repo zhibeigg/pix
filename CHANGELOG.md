@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.130.0] - 2026-07-10
+
+### Added
+
+- 新增最小权限 GitHub Actions CI：完整历史 Gitleaks、Python 3.10/3.11/3.12 测试矩阵、Ruff、pip-audit、前端测试/构建/npm audit、Python 分发包隔离安装和 Docker/Compose 冒烟。
+- 新增标签驱动的自动发布：生成 wheel、sdist、前端静态包、SHA256SUMS 与 artifact provenance，并推送带 semver 标签和镜像证明的 `ghcr.io/zhibeigg/pix-backend` / `pix-web`。
+- 新增 Dependabot、pre-commit Gitleaks、版本一致性与 CHANGELOG 发布说明脚本，以及 SECURITY、CONTRIBUTING、CODE_OF_CONDUCT、ASSETS、Issue/PR 模板。
+
+### Changed
+
+- 内置 Game Boy、Modern Pixel、NES、PICO-8 预设迁入 `pix.pixelize` 包并随 wheel/sdist 分发；安装后的包不再依赖仓库根 `assets/`。
+- 后端 Docker 改为 uv 锁文件驱动的多阶段非 editable 安装和非 root 运行；前端镜像补齐 `public/`、修复 Vite 输出复制路径，并加固 Nginx 缓存与安全响应头。
+- Python 依赖升级到已修复漏洞的 FastAPI 0.139.0、Starlette 1.3.1、python-multipart 0.0.32、cryptography 49.0.0；前端升级到 Vite 8.1.4 并固定 React、TypeScript 和构建工具版本。
+- 示例序列帧去除第三方作品命名，统一改为通用 `dark_fantasy`；示例资产按 MIT 提供并补充来源/商标说明。
+- Python 项目元数据改用 PEP 639 SPDX license，移除公开个人邮箱；HTTP 422 状态常量更新为新名称。
+
+### Removed
+
+- 删除未被引用的 30 MB 手工测试/生成产物、失效的主页 provenance 清单和包含生产任务细节的内部备忘。
+
+### Security
+
+- 自定义 Gitleaks 规则覆盖 Markdown 密钥表、长 `sk-*` 和 URL-safe 高熵供应商 token；Release 和 PR 不接收长期发布凭据。
+- 修复 Python 与 Vite 已知依赖漏洞，并要求发布前依赖审计为零。
+
 ## [1.129.0] - 2026-07-09
 
 ### Added

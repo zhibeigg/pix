@@ -33,7 +33,7 @@ def db_session():
 
 def settings() -> WebSettings:
     return WebSettings(
-        jwt_secret="test-secret",
+        jwt_secret="test-secret-at-least-32-bytes-long",
         email_provider="console",
         email_code_resend_seconds=0,
         turnstile_enabled=True,

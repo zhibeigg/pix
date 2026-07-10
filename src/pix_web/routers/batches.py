@@ -14,7 +14,12 @@ from pix_web.config import WebSettings
 from pix_web.jobs import retry_failed_jobs_in_batch
 from pix_web.models import GenerationBatch, GenerationJob, GenerationOutput, User
 from pix_web.queue import enqueue_jobs
-from pix_web.schemas import BatchUpdateRequest, GenerationBatchResponse, JobBatchCreateResponse, JobResponse
+from pix_web.schemas import (
+    BatchUpdateRequest,
+    GenerationBatchResponse,
+    JobBatchCreateResponse,
+    JobResponse,
+)
 from pix_web.security import get_current_user, get_db, get_settings
 
 router = APIRouter(prefix="/batches", tags=["batches"])
@@ -43,7 +48,9 @@ def _job_item_prefix(job: GenerationJob) -> str:
     return f"{base or 'job'}_{job.id}"
 
 
-def _add_output_file(zip_file: ZipFile, job_id: int, path_value: str | None, archive_name: str) -> bool:
+def _add_output_file(
+    zip_file: ZipFile, job_id: int, path_value: str | None, archive_name: str
+) -> bool:
     if not path_value:
         return False
     path = Path(path_value)
@@ -64,10 +71,29 @@ def _build_batch_zip(batch: GenerationBatch) -> bytes:
             output: GenerationOutput = job.outputs[0]
             prefix = _job_item_prefix(job)
             item_dir = f"{root}/{prefix}"
-            added += int(_add_output_file(zip_file, job.id, output.source_path, f"{item_dir}/{prefix}_01_source.png"))
-            added += int(_add_output_file(zip_file, job.id, output.analysis_json_path, f"{item_dir}/{prefix}_02_analysis.json"))
-            added += int(_add_output_file(zip_file, job.id, output.pixelized_path, f"{item_dir}/{prefix}_03_pixelized.png"))
-            added += int(_add_output_file(zip_file, job.id, output.meta_json_path, f"{item_dir}/{prefix}_meta.json"))
+            added += int(
+                _add_output_file(
+                    zip_file, job.id, output.source_path, f"{item_dir}/{prefix}_01_source.png"
+                )
+            )
+            added += int(
+                _add_output_file(
+                    zip_file,
+                    job.id,
+                    output.analysis_json_path,
+                    f"{item_dir}/{prefix}_02_analysis.json",
+                )
+            )
+            added += int(
+                _add_output_file(
+                    zip_file, job.id, output.pixelized_path, f"{item_dir}/{prefix}_03_pixelized.png"
+                )
+            )
+            added += int(
+                _add_output_file(
+                    zip_file, job.id, output.meta_json_path, f"{item_dir}/{prefix}_meta.json"
+                )
+            )
     if added == 0:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="没有可下载的成功任务")
     return buffer.getvalue()
@@ -107,8 +133,12 @@ def list_batches(
     return [_batch_response(batch) for batch in db.scalars(stmt)]
 
 
-def _get_owned_batch(db: Session, user: User, batch_id: int, *, with_jobs: bool = False) -> GenerationBatch:
-    stmt = select(GenerationBatch).where(GenerationBatch.id == batch_id, GenerationBatch.user_id == user.id)
+def _get_owned_batch(
+    db: Session, user: User, batch_id: int, *, with_jobs: bool = False
+) -> GenerationBatch:
+    stmt = select(GenerationBatch).where(
+        GenerationBatch.id == batch_id, GenerationBatch.user_id == user.id
+    )
     if with_jobs:
         stmt = stmt.options(selectinload(GenerationBatch.jobs))
     batch = db.scalar(stmt)
@@ -128,11 +158,15 @@ def update_batch(
     if req.name is not None:
         name = req.name.strip()
         if not name:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="素材包名称不能为空")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="素材包名称不能为空"
+            )
         batch.name = name
     if req.status is not None:
         if req.status not in {"active", "archived"}:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="素材包状态无效")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="素材包状态无效"
+            )
         batch.status = req.status
     db.commit()
     db.refresh(batch)
@@ -147,7 +181,9 @@ def delete_batch(
 ) -> dict[str, bool]:
     batch = _get_owned_batch(db, user, batch_id, with_jobs=True)
     if batch.jobs:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只能删除空素材包，请先归档")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="只能删除空素材包，请先归档"
+        )
     db.delete(batch)
     db.commit()
     return {"deleted": True}

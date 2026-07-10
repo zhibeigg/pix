@@ -17,7 +17,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from pix_web.models import PaymentOrder, PromoLink, User, utcnow
+from pix_web.models import PaymentOrder, PromoLink, User
 
 
 def clean_code(value: str | None) -> str:
@@ -89,6 +89,7 @@ def _coerce_utc(value: datetime) -> datetime:
 
 # ── 管理端 CRUD ──────────────────────────────────────────────
 
+
 def list_promo_links(db: Session) -> list[PromoLink]:
     return list(
         db.scalars(select(PromoLink).order_by(PromoLink.created_at.desc(), PromoLink.id.desc()))
@@ -106,7 +107,9 @@ def create_promo_link(
 ) -> PromoLink:
     normalized = clean_code(code)
     if not normalized:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="优惠码不能为空")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="优惠码不能为空"
+        )
     existing = db.scalar(select(PromoLink).where(PromoLink.code == normalized))
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="优惠码已存在")
@@ -152,6 +155,7 @@ def delete_promo_link(db: Session, link_id: int) -> None:
 
 # ── 统计 ─────────────────────────────────────────────────────
 
+
 def promo_link_stats(db: Session) -> list[dict[str, object]]:
     """每个优惠链接的使用量统计：注册数、下单/付费数、付费金额与点数。
 
@@ -163,9 +167,7 @@ def promo_link_stats(db: Session) -> list[dict[str, object]]:
             PaymentOrder.promo_code,
             func.count(PaymentOrder.id),
             func.sum(case((PaymentOrder.status == "paid", 1), else_=0)),
-            func.sum(
-                case((PaymentOrder.status == "paid", PaymentOrder.amount_cents), else_=0)
-            ),
+            func.sum(case((PaymentOrder.status == "paid", PaymentOrder.amount_cents), else_=0)),
             func.sum(case((PaymentOrder.status == "paid", PaymentOrder.credits), else_=0)),
         )
         .where(PaymentOrder.promo_code != "")

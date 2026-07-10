@@ -1,0 +1,55 @@
+name: Bug 报告
+description: 报告可复现的功能或兼容性问题
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 请勿粘贴 API Key、JWT Secret、数据库密码、真实用户数据或未公开漏洞细节。
+  - type: input
+    id: version
+    attributes:
+      label: Pix 版本
+      placeholder: 例如 1.130.0 / commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影响范围
+      options: [后端 API, Worker, 前端, 像素化流水线, Docker/部署, 文档, 其他]
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 最小复现步骤
+      placeholder: 使用脱敏配置和可公开的测试素材。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 脱敏日志或截图
+      description: 删除凭据、邮箱、文件路径中的个人信息和用户内容。
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已确认这不是需要私密报告的安全漏洞。
+          required: true
+        - label: 我已删除日志和截图中的凭据与个人信息。
+          required: true

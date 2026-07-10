@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 私密安全报告
+    url: https://github.com/zhibeigg/pix/security/advisories/new
+    about: 漏洞、凭据泄漏和用户数据问题请使用私密渠道，不要创建公开 Issue。

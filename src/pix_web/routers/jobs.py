@@ -14,12 +14,39 @@ from sqlalchemy.orm import Session, selectinload
 
 from pix_web.config import WebSettings
 from pix_web.credits import InsufficientCreditsError, insufficient_credits_http, spend_credits
-from pix_web.jobs import create_job, create_jobs_batch, regenerate_job, retry_failed_job, validate_job_request
+from pix_web.jobs import (
+    create_job,
+    create_jobs_batch,
+    regenerate_job,
+    retry_failed_job,
+    validate_job_request,
+)
 from pix_web.models import GenerationJob, User
 from pix_web.prompt_preview import build_prompt_preview
 from pix_web.queue import enqueue_jobs
-from pix_web.retention import GALLERY_EXPAND_PRICE_CREDITS, GALLERY_EXPAND_SLOTS, delete_user_job, delete_user_jobs, effective_gallery_limit, get_or_create_gallery_quota, prune_user_photos, retained_photo_count
-from pix_web.schemas import GalleryQuotaResponse, JobBatchCreateRequest, JobBatchCreateResponse, JobBulkDeleteRequest, JobBulkDeleteResponse, JobBulkDownloadRequest, JobCreateRequest, JobResponse, PromptPreviewResponse, SequenceAlignmentRequest, public_job_response
+from pix_web.retention import (
+    GALLERY_EXPAND_PRICE_CREDITS,
+    GALLERY_EXPAND_SLOTS,
+    delete_user_job,
+    delete_user_jobs,
+    effective_gallery_limit,
+    get_or_create_gallery_quota,
+    prune_user_photos,
+    retained_photo_count,
+)
+from pix_web.schemas import (
+    GalleryQuotaResponse,
+    JobBatchCreateRequest,
+    JobBatchCreateResponse,
+    JobBulkDeleteRequest,
+    JobBulkDeleteResponse,
+    JobBulkDownloadRequest,
+    JobCreateRequest,
+    JobResponse,
+    PromptPreviewResponse,
+    SequenceAlignmentRequest,
+    public_job_response,
+)
 from pix_web.sequence_alignment import apply_sequence_alignment
 from pix_web.sprite_export import build_sprite_gif_bytes
 from pix_web.routers.files import _file_user
@@ -69,11 +96,13 @@ def _sprite_action_rows(meta_json_path: str | None) -> list[dict[str, object]]:
         if not sheet_rel:
             continue
         row_index = entry.get("row_index")
-        result.append({
-            "row_index": int(row_index) if isinstance(row_index, int) else len(result),
-            "action_phase": str(entry.get("action_phase") or ""),
-            "sheet_abs": str(path.parent / str(sheet_rel)),
-        })
+        result.append(
+            {
+                "row_index": int(row_index) if isinstance(row_index, int) else len(result),
+                "action_phase": str(entry.get("action_phase") or ""),
+                "sheet_abs": str(path.parent / str(sheet_rel)),
+            }
+        )
     return result
 
 
@@ -85,7 +114,9 @@ def download_sprite_actions(
 ) -> Response:
     """把序列帧作品每个动作（行）的横向 sheet 打包成 zip；query token 鉴权，支持浏览器直接下载。"""
     job = db.scalar(
-        select(GenerationJob).options(selectinload(GenerationJob.outputs)).where(GenerationJob.id == job_id)
+        select(GenerationJob)
+        .options(selectinload(GenerationJob.outputs))
+        .where(GenerationJob.id == job_id)
     )
     if job is None or (job.user_id != user.id and user.role != "admin"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="作品不存在")
@@ -104,7 +135,11 @@ def download_sprite_actions(
                 continue
             number = int(row["row_index"]) + 1
             phase = _safe_file_part(str(row["action_phase"]))
-            name = f"{prefix}_action{number:02d}_{phase}.png" if phase else f"{prefix}_action{number:02d}.png"
+            name = (
+                f"{prefix}_action{number:02d}_{phase}.png"
+                if phase
+                else f"{prefix}_action{number:02d}.png"
+            )
             zip_file.write(sheet, name)
             added += 1
     if added == 0:
@@ -132,7 +167,9 @@ def download_sprite_gif(
     这里从当前活跃帧实时合成（若磁盘已有 sprite.gif 则走快路直接返回）。
     """
     job = db.scalar(
-        select(GenerationJob).options(selectinload(GenerationJob.outputs)).where(GenerationJob.id == job_id)
+        select(GenerationJob)
+        .options(selectinload(GenerationJob.outputs))
+        .where(GenerationJob.id == job_id)
     )
     if job is None or (job.user_id != user.id and user.role != "admin"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="作品不存在")
@@ -235,7 +272,9 @@ def _add_zip_file(zip_file: ZipFile, path_value: str | None, archive_name: str) 
     return True
 
 
-def _add_job_delivery_files(zip_file: ZipFile, job: GenerationJob, item_dir: str, prefix: str) -> int:
+def _add_job_delivery_files(
+    zip_file: ZipFile, job: GenerationJob, item_dir: str, prefix: str
+) -> int:
     """把单个成功作品的交付物写入 zip 的子目录，返回写入文件数。
 
     通过 JobResponse 计算出 meta 关联的绝对路径（覆盖普通素材 / 序列帧 / 双瓦片），
@@ -245,23 +284,52 @@ def _add_job_delivery_files(zip_file: ZipFile, job: GenerationJob, item_dir: str
         return 0
     out = JobResponse.model_validate(job).outputs[0]
     added = 0
-    is_sprite = (
-        job.job_type == "sprite_sheet"
-        or bool(out.sprite_sheet_path or out.sprite_mosaic_path or out.sequence_json_path)
+    is_sprite = job.job_type == "sprite_sheet" or bool(
+        out.sprite_sheet_path or out.sprite_mosaic_path or out.sequence_json_path
     )
     is_dual_grid = bool(out.dual_grid_atlas_path or out.dual_grid_preview_path)
     if is_sprite:
-        added += int(_add_zip_file(zip_file, out.sprite_gif_path, f"{item_dir}/{prefix}_sprite.gif"))
-        added += int(_add_zip_file(zip_file, out.sprite_sheet_path or out.pixelized_path, f"{item_dir}/{prefix}_sprite_sheet.png"))
-        added += int(_add_zip_file(zip_file, out.sprite_mosaic_path or out.source_path, f"{item_dir}/{prefix}_sprite_mosaic.png"))
-        added += int(_add_zip_file(zip_file, out.sequence_json_path, f"{item_dir}/{prefix}_sequence.json"))
+        added += int(
+            _add_zip_file(zip_file, out.sprite_gif_path, f"{item_dir}/{prefix}_sprite.gif")
+        )
+        added += int(
+            _add_zip_file(
+                zip_file,
+                out.sprite_sheet_path or out.pixelized_path,
+                f"{item_dir}/{prefix}_sprite_sheet.png",
+            )
+        )
+        added += int(
+            _add_zip_file(
+                zip_file,
+                out.sprite_mosaic_path or out.source_path,
+                f"{item_dir}/{prefix}_sprite_mosaic.png",
+            )
+        )
+        added += int(
+            _add_zip_file(zip_file, out.sequence_json_path, f"{item_dir}/{prefix}_sequence.json")
+        )
     elif is_dual_grid:
-        added += int(_add_zip_file(zip_file, out.dual_grid_atlas_path or out.pixelized_path, f"{item_dir}/{prefix}_dual_grid_atlas.png"))
-        added += int(_add_zip_file(zip_file, out.dual_grid_preview_path or out.preview_path, f"{item_dir}/{prefix}_dual_grid_preview.png"))
+        added += int(
+            _add_zip_file(
+                zip_file,
+                out.dual_grid_atlas_path or out.pixelized_path,
+                f"{item_dir}/{prefix}_dual_grid_atlas.png",
+            )
+        )
+        added += int(
+            _add_zip_file(
+                zip_file,
+                out.dual_grid_preview_path or out.preview_path,
+                f"{item_dir}/{prefix}_dual_grid_preview.png",
+            )
+        )
         added += int(_add_zip_file(zip_file, out.source_path, f"{item_dir}/{prefix}_01_source.png"))
     else:
         added += int(_add_zip_file(zip_file, out.source_path, f"{item_dir}/{prefix}_01_source.png"))
-        added += int(_add_zip_file(zip_file, out.pixelized_path, f"{item_dir}/{prefix}_03_pixelized.png"))
+        added += int(
+            _add_zip_file(zip_file, out.pixelized_path, f"{item_dir}/{prefix}_03_pixelized.png")
+        )
     added += int(_add_zip_file(zip_file, out.meta_json_path, f"{item_dir}/{prefix}_meta.json"))
     return added
 
@@ -337,7 +405,9 @@ def list_jobs(
 
 
 @router.get("/gallery-quota", response_model=GalleryQuotaResponse)
-def get_gallery_quota(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> GalleryQuotaResponse:
+def get_gallery_quota(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> GalleryQuotaResponse:
     get_or_create_gallery_quota(db, user.id)
     response = _gallery_quota_response(db, user)
     db.commit()
@@ -345,11 +415,15 @@ def get_gallery_quota(user: User = Depends(get_current_user), db: Session = Depe
 
 
 @router.post("/gallery-quota/expand", response_model=GalleryQuotaResponse)
-def expand_gallery_quota(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> GalleryQuotaResponse:
+def expand_gallery_quota(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> GalleryQuotaResponse:
     quota = get_or_create_gallery_quota(db, user.id)
     current_limit = effective_gallery_limit(db, user.id)
     try:
-        spend_credits(db, user, GALLERY_EXPAND_PRICE_CREDITS, note=f"作品库容量 +{GALLERY_EXPAND_SLOTS}")
+        spend_credits(
+            db, user, GALLERY_EXPAND_PRICE_CREDITS, note=f"作品库容量 +{GALLERY_EXPAND_SLOTS}"
+        )
     except InsufficientCreditsError as exc:
         raise insufficient_credits_http() from exc
     quota.retained_limit = current_limit + GALLERY_EXPAND_SLOTS
@@ -373,14 +447,19 @@ def save_sequence_alignment(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
     output = job.outputs[0] if job.outputs else None
     if output is None:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="任务没有可调整的输出")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="任务没有可调整的输出"
+        )
     apply_sequence_alignment(job, output, req)
     db.commit()
-    refreshed = db.scalar(
-        select(GenerationJob)
-        .options(selectinload(GenerationJob.outputs))
-        .where(GenerationJob.id == job_id, GenerationJob.user_id == user.id)
-    ) or job
+    refreshed = (
+        db.scalar(
+            select(GenerationJob)
+            .options(selectinload(GenerationJob.outputs))
+            .where(GenerationJob.id == job_id, GenerationJob.user_id == user.id)
+        )
+        or job
+    )
     return public_job_response(refreshed)
 
 

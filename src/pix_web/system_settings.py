@@ -101,169 +101,1072 @@ class PublicAnnouncement:
 
 
 SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
-    SettingDefinition("generation_enabled", "生成总开关", "运营保护", "boolean", "true", "关闭后普通用户不能创建新生成任务。"),
-    SettingDefinition("max_pending_jobs_per_user", "每用户排队/运行上限（已停用）", "运营保护", "number", "0", "并发限制已取消；该字段仅兼容旧配置，不再限制任务提交。", editable=False),
-    SettingDefinition("daily_job_limit_per_user", "每用户每日任务上限", "运营保护", "number", "50", "0 表示不限制。"),
-    SettingDefinition("max_uploads_per_user_per_day", "每用户每日上传上限", "运营保护", "number", "50", "0 表示不限制。"),
-    SettingDefinition("registration_bonus_credits", "注册赠送点数", "运营保护", "number", "30", "新用户注册时赠送的点数，0 表示不赠送。"),
-    SettingDefinition("site.announcement.enabled", "系统公告启用", "系统公告", "boolean", "false", "启用后会在顶部公告按钮展示；通过公告发布面板上线新内容时会给活跃用户发送邮件通知。"),
-    SettingDefinition("site.announcement.title", "系统公告标题", "系统公告", "string", "", "公告标题，建议 8-24 个字。"),
-    SettingDefinition("site.announcement.body", "系统公告正文", "系统公告", "textarea", "", "公告正文，可用于维护通知、活动说明或版本提醒；邮件通知会以卡片样式展示正文和网站链接。"),
-    SettingDefinition("referral.enabled", "邀请奖励开关", "邀请奖励", "boolean", "true", "关闭后不再绑定新邀请或生成新返佣。"),
-    SettingDefinition("referral.commission_rate_bps", "返佣比例 bps", "邀请奖励", "number", "1000", "1000 = 10%；按好友实际支付金额计算。"),
-    SettingDefinition("referral.pending_days", "待到账天数", "邀请奖励", "number", "30", "好友充值后返佣进入待到账，达到天数后转为可用收益。"),
-    SettingDefinition("share.reward_enabled", "公开分享奖励开关", "作品分享", "boolean", "true", "开启后，用户首次公开一个成功作品时返还点数。"),
-    SettingDefinition("share.reward_credits", "公开分享奖励点数", "作品分享", "number", "1", "每个作品首次公开时返还的点数；0 表示只公开不返还。"),
-    SettingDefinition("share.daily_reward_limit", "每日分享奖励次数", "作品分享", "number", "0", "每用户每天最多获得多少次公开分享奖励；0 表示不限制。"),
-    SettingDefinition("site.timezone", "站点时区", "支付与站点", "string", "Asia/Shanghai", "统计「今日」数据用的业务时区（IANA 名，如 Asia/Shanghai = UTC+8）；概览的今日订单/任务/用户按它切分自然日。无效或缺 tzdata 时按 UTC+8 处理。"),
-    SettingDefinition("pricing.discount_enabled", "折扣总开关", "价格折扣", "boolean", "false", "开启后所有生成任务按折扣倍率扣点；作品库 / 素材包扩容不受影响。"),
-    SettingDefinition("pricing.discount_rate", "折扣倍率", "价格折扣", "number", "1.0", "0~1，例如 0.8 = 8 折；0 = 限免；1 = 不打折。向下取整，原价>0 的任务折后保底 1 点。"),
-    SettingDefinition("pricing.discount_label", "折扣标签", "价格折扣", "string", "", "可选促销文案，例如「限时 8 折」；留空时前端按倍率自动生成。"),
-    SettingDefinition("blocked_prompt_terms", "素材描述禁词", "运营保护", "textarea", "", "逗号、分号或换行分隔。"),
-    SettingDefinition("web.email_provider", "邮件发送方式", "邮件验证码", "select", "", "console 适合开发；smtp 用于生产投递。", ("console", "smtp")),
-    SettingDefinition("web.smtp_host", "SMTP Host", "邮件验证码", "string", "", "例如 smtp.example.com。", env_var="PIX_WEB_SMTP_HOST"),
-    SettingDefinition("web.smtp_port", "SMTP Port", "邮件验证码", "number", "", "常用 587/465/25。", env_var="PIX_WEB_SMTP_PORT"),
-    SettingDefinition("web.smtp_user", "SMTP 用户名", "邮件验证码", "string", "", env_var="PIX_WEB_SMTP_USER"),
-    SettingDefinition("web.smtp_password", "SMTP 密码", "邮件验证码", "secret", "", "保存到数据库会被遮罩显示；生产建议用环境变量或密钥管理。", secret=True, env_var="PIX_WEB_SMTP_PASSWORD"),
-    SettingDefinition("web.smtp_from", "发件人", "邮件验证码", "string", "", "例如 Pix <noreply@example.com>。", env_var="PIX_WEB_SMTP_FROM"),
-    SettingDefinition("web.smtp_tls", "启用 STARTTLS", "邮件验证码", "boolean", "", env_var="PIX_WEB_SMTP_TLS"),
-    SettingDefinition("web.smtp_ssl", "启用 SSL/465", "邮件验证码", "boolean", "", "用于 465 端口 implicit SSL；启用后不会再执行 STARTTLS。", env_var="PIX_WEB_SMTP_SSL"),
-    SettingDefinition("web.email_code_ttl_seconds", "验证码有效期（秒）", "邮件验证码", "number", "", env_var="PIX_WEB_EMAIL_CODE_TTL_SECONDS"),
-    SettingDefinition("web.email_code_resend_seconds", "重发间隔（秒）", "邮件验证码", "number", "", env_var="PIX_WEB_EMAIL_CODE_RESEND_SECONDS"),
-    SettingDefinition("web.email_code_max_attempts", "最大错误次数", "邮件验证码", "number", "", env_var="PIX_WEB_EMAIL_CODE_MAX_ATTEMPTS"),
-    SettingDefinition("web.email_debug_codes", "响应返回调试验证码", "邮件验证码", "boolean", "", "仅开发/内测建议启用。", env_var="PIX_WEB_EMAIL_DEBUG_CODES"),
-    SettingDefinition("web.turnstile_enabled", "启用 Cloudflare 人机校验", "邮件验证码", "boolean", "", "开启后不会默认打断注册；仅同邮箱或同 IP 频繁请求验证码时触发 Turnstile。需先填写 site key 与 secret key。", env_var="PIX_WEB_TURNSTILE_ENABLED"),
-    SettingDefinition("web.turnstile_site_key", "Turnstile Site Key", "邮件验证码", "string", "", "Cloudflare 控制台中 Turnstile 站点的 Site Key，前端可见。", env_var="PIX_WEB_TURNSTILE_SITE_KEY"),
-    SettingDefinition("web.turnstile_secret_key", "Turnstile Secret Key", "邮件验证码", "secret", "", "Cloudflare 控制台中的 Secret Key，仅后端验证使用；保存到数据库会被遮罩显示。", secret=True, env_var="PIX_WEB_TURNSTILE_SECRET_KEY"),
-    SettingDefinition("web.turnstile_verify_url", "Turnstile 校验地址", "邮件验证码", "string", "", "默认 https://challenges.cloudflare.com/turnstile/v0/siteverify；除非企业自建 endpoint 否则保持默认。", env_var="PIX_WEB_TURNSTILE_VERIFY_URL"),
-    SettingDefinition("web.turnstile_email_window_seconds", "同邮箱校验窗口（秒）", "邮件验证码", "number", "", "窗口内同邮箱请求验证码达到阈值后，下次发送需要 Turnstile；0 表示不按邮箱触发。", env_var="PIX_WEB_TURNSTILE_EMAIL_WINDOW_SECONDS"),
-    SettingDefinition("web.turnstile_email_max_without_challenge", "同邮箱免校验次数", "邮件验证码", "number", "", "例如 2 表示同邮箱窗口内前 2 次免校验，第 3 次开始需要 Turnstile；0 表示不按邮箱触发。", env_var="PIX_WEB_TURNSTILE_EMAIL_MAX_WITHOUT_CHALLENGE"),
-    SettingDefinition("web.turnstile_ip_window_seconds", "同 IP 校验窗口（秒）", "邮件验证码", "number", "", "窗口内同 IP 请求验证码达到阈值后，下次发送需要 Turnstile；0 表示不按 IP 触发。", env_var="PIX_WEB_TURNSTILE_IP_WINDOW_SECONDS"),
-    SettingDefinition("web.turnstile_ip_max_without_challenge", "同 IP 免校验次数", "邮件验证码", "number", "", "例如 5 表示同 IP 窗口内前 5 次免校验，第 6 次开始需要 Turnstile；0 表示不按 IP 触发。", env_var="PIX_WEB_TURNSTILE_IP_MAX_WITHOUT_CHALLENGE"),
-    SettingDefinition("web.public_base_url", "后端公开 URL", "支付与站点", "string", "", "用于支付异步通知和后端返回入口，例如 https://api.example.com。", env_var="PIX_WEB_PUBLIC_BASE_URL"),
-    SettingDefinition("web.frontend_base_url", "前端公开 URL", "支付与站点", "string", "", "支付完成后浏览器跳回的 Pix 前端地址，例如 https://www.example.com。留空时会优先使用当前请求来源/CORS 来源。", env_var="PIX_WEB_FRONTEND_BASE_URL"),
-    SettingDefinition("pix.api.timeout", "Provider 调用超时（秒）", "模型与 API", "number", "", "覆盖默认 600 秒；远端响应慢时建议增大。"),
-    SettingDefinition("pix.api.max_retries", "Provider 单家重试次数", "模型与 API", "number", "", "默认 3 次；只对 5xx/429/网络错误生效，之后可切换下一家 Provider。"),
-    SettingDefinition("pix.api.trust_env_proxies", "信任系统/环境代理", "模型与 API", "boolean", "", "默认关闭，避免本地 Clash 等代理在长 idle 连接上提前断开生图请求；需要走代理时再开启。"),
-    SettingDefinition("pix.api.proxy", "Provider 调用代理 URL", "模型与 API", "string", "", "可选；填写形如 http://127.0.0.1:7890 的代理。优先级高于系统代理；留空表示直连。"),
-    SettingDefinition("pix.image_gen.model", "默认生图模型", "模型与 API", "string", "", "Logical model，仅支持 image2、gemini-3.1-flash-image-preview、gemini-3-pro-image-preview；具体 Provider 由上游供应商和失败切换策略决定。"),
-    SettingDefinition("pix.image_gen.size", "源图尺寸", "模型与 API", "select", "", options=("auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048")),
-    SettingDefinition("pix.image_gen.quality", "生图质量", "模型与 API", "select", "", options=("low", "medium", "high", "auto")),
-    SettingDefinition("pix.image_gen.output_format", "源图格式", "模型与 API", "select", "", options=("png", "jpeg", "webp")),
-    SettingDefinition("pix.image_gen.edit_input_fidelity", "图生图保真", "模型与 API", "select", "", options=("low", "high")),
-    SettingDefinition("pix.image_gen.failover_enabled", "启用 Provider 失败切换", "模型与 API", "boolean", ""),
-    SettingDefinition("pix.image_gen.model_discovery_enabled", "启用模型发现", "模型与 API", "boolean", ""),
-    SettingDefinition("pix.image_gen.model_discovery_ttl_seconds", "模型发现缓存秒数", "模型与 API", "number", ""),
-    SettingDefinition("pix.image_gen.provider_poll_interval_seconds", "异步模型轮询间隔（秒）", "模型与 API", "number", ""),
-    SettingDefinition("pix.image_gen.contact_sheet_enabled", "启用多候选生图", "模型与 API", "boolean", "默认关闭，避免一次任务生成多张候选图导致上游成本放大。"),
+    SettingDefinition(
+        "generation_enabled",
+        "生成总开关",
+        "运营保护",
+        "boolean",
+        "true",
+        "关闭后普通用户不能创建新生成任务。",
+    ),
+    SettingDefinition(
+        "max_pending_jobs_per_user",
+        "每用户排队/运行上限（已停用）",
+        "运营保护",
+        "number",
+        "0",
+        "并发限制已取消；该字段仅兼容旧配置，不再限制任务提交。",
+        editable=False,
+    ),
+    SettingDefinition(
+        "daily_job_limit_per_user",
+        "每用户每日任务上限",
+        "运营保护",
+        "number",
+        "50",
+        "0 表示不限制。",
+    ),
+    SettingDefinition(
+        "max_uploads_per_user_per_day",
+        "每用户每日上传上限",
+        "运营保护",
+        "number",
+        "50",
+        "0 表示不限制。",
+    ),
+    SettingDefinition(
+        "registration_bonus_credits",
+        "注册赠送点数",
+        "运营保护",
+        "number",
+        "30",
+        "新用户注册时赠送的点数，0 表示不赠送。",
+    ),
+    SettingDefinition(
+        "site.announcement.enabled",
+        "系统公告启用",
+        "系统公告",
+        "boolean",
+        "false",
+        "启用后会在顶部公告按钮展示；通过公告发布面板上线新内容时会给活跃用户发送邮件通知。",
+    ),
+    SettingDefinition(
+        "site.announcement.title",
+        "系统公告标题",
+        "系统公告",
+        "string",
+        "",
+        "公告标题，建议 8-24 个字。",
+    ),
+    SettingDefinition(
+        "site.announcement.body",
+        "系统公告正文",
+        "系统公告",
+        "textarea",
+        "",
+        "公告正文，可用于维护通知、活动说明或版本提醒；邮件通知会以卡片样式展示正文和网站链接。",
+    ),
+    SettingDefinition(
+        "referral.enabled",
+        "邀请奖励开关",
+        "邀请奖励",
+        "boolean",
+        "true",
+        "关闭后不再绑定新邀请或生成新返佣。",
+    ),
+    SettingDefinition(
+        "referral.commission_rate_bps",
+        "返佣比例 bps",
+        "邀请奖励",
+        "number",
+        "1000",
+        "1000 = 10%；按好友实际支付金额计算。",
+    ),
+    SettingDefinition(
+        "referral.pending_days",
+        "待到账天数",
+        "邀请奖励",
+        "number",
+        "30",
+        "好友充值后返佣进入待到账，达到天数后转为可用收益。",
+    ),
+    SettingDefinition(
+        "share.reward_enabled",
+        "公开分享奖励开关",
+        "作品分享",
+        "boolean",
+        "true",
+        "开启后，用户首次公开一个成功作品时返还点数。",
+    ),
+    SettingDefinition(
+        "share.reward_credits",
+        "公开分享奖励点数",
+        "作品分享",
+        "number",
+        "1",
+        "每个作品首次公开时返还的点数；0 表示只公开不返还。",
+    ),
+    SettingDefinition(
+        "share.daily_reward_limit",
+        "每日分享奖励次数",
+        "作品分享",
+        "number",
+        "0",
+        "每用户每天最多获得多少次公开分享奖励；0 表示不限制。",
+    ),
+    SettingDefinition(
+        "site.timezone",
+        "站点时区",
+        "支付与站点",
+        "string",
+        "Asia/Shanghai",
+        "统计「今日」数据用的业务时区（IANA 名，如 Asia/Shanghai = UTC+8）；概览的今日订单/任务/用户按它切分自然日。无效或缺 tzdata 时按 UTC+8 处理。",
+    ),
+    SettingDefinition(
+        "pricing.discount_enabled",
+        "折扣总开关",
+        "价格折扣",
+        "boolean",
+        "false",
+        "开启后所有生成任务按折扣倍率扣点；作品库 / 素材包扩容不受影响。",
+    ),
+    SettingDefinition(
+        "pricing.discount_rate",
+        "折扣倍率",
+        "价格折扣",
+        "number",
+        "1.0",
+        "0~1，例如 0.8 = 8 折；0 = 限免；1 = 不打折。向下取整，原价>0 的任务折后保底 1 点。",
+    ),
+    SettingDefinition(
+        "pricing.discount_label",
+        "折扣标签",
+        "价格折扣",
+        "string",
+        "",
+        "可选促销文案，例如「限时 8 折」；留空时前端按倍率自动生成。",
+    ),
+    SettingDefinition(
+        "blocked_prompt_terms", "素材描述禁词", "运营保护", "textarea", "", "逗号、分号或换行分隔。"
+    ),
+    SettingDefinition(
+        "web.email_provider",
+        "邮件发送方式",
+        "邮件验证码",
+        "select",
+        "",
+        "console 适合开发；smtp 用于生产投递。",
+        ("console", "smtp"),
+    ),
+    SettingDefinition(
+        "web.smtp_host",
+        "SMTP Host",
+        "邮件验证码",
+        "string",
+        "",
+        "例如 smtp.example.com。",
+        env_var="PIX_WEB_SMTP_HOST",
+    ),
+    SettingDefinition(
+        "web.smtp_port",
+        "SMTP Port",
+        "邮件验证码",
+        "number",
+        "",
+        "常用 587/465/25。",
+        env_var="PIX_WEB_SMTP_PORT",
+    ),
+    SettingDefinition(
+        "web.smtp_user", "SMTP 用户名", "邮件验证码", "string", "", env_var="PIX_WEB_SMTP_USER"
+    ),
+    SettingDefinition(
+        "web.smtp_password",
+        "SMTP 密码",
+        "邮件验证码",
+        "secret",
+        "",
+        "保存到数据库会被遮罩显示；生产建议用环境变量或密钥管理。",
+        secret=True,
+        env_var="PIX_WEB_SMTP_PASSWORD",
+    ),
+    SettingDefinition(
+        "web.smtp_from",
+        "发件人",
+        "邮件验证码",
+        "string",
+        "",
+        "例如 Pix <noreply@example.com>。",
+        env_var="PIX_WEB_SMTP_FROM",
+    ),
+    SettingDefinition(
+        "web.smtp_tls", "启用 STARTTLS", "邮件验证码", "boolean", "", env_var="PIX_WEB_SMTP_TLS"
+    ),
+    SettingDefinition(
+        "web.smtp_ssl",
+        "启用 SSL/465",
+        "邮件验证码",
+        "boolean",
+        "",
+        "用于 465 端口 implicit SSL；启用后不会再执行 STARTTLS。",
+        env_var="PIX_WEB_SMTP_SSL",
+    ),
+    SettingDefinition(
+        "web.email_code_ttl_seconds",
+        "验证码有效期（秒）",
+        "邮件验证码",
+        "number",
+        "",
+        env_var="PIX_WEB_EMAIL_CODE_TTL_SECONDS",
+    ),
+    SettingDefinition(
+        "web.email_code_resend_seconds",
+        "重发间隔（秒）",
+        "邮件验证码",
+        "number",
+        "",
+        env_var="PIX_WEB_EMAIL_CODE_RESEND_SECONDS",
+    ),
+    SettingDefinition(
+        "web.email_code_max_attempts",
+        "最大错误次数",
+        "邮件验证码",
+        "number",
+        "",
+        env_var="PIX_WEB_EMAIL_CODE_MAX_ATTEMPTS",
+    ),
+    SettingDefinition(
+        "web.email_debug_codes",
+        "响应返回调试验证码",
+        "邮件验证码",
+        "boolean",
+        "",
+        "仅开发/内测建议启用。",
+        env_var="PIX_WEB_EMAIL_DEBUG_CODES",
+    ),
+    SettingDefinition(
+        "web.turnstile_enabled",
+        "启用 Cloudflare 人机校验",
+        "邮件验证码",
+        "boolean",
+        "",
+        "开启后不会默认打断注册；仅同邮箱或同 IP 频繁请求验证码时触发 Turnstile。需先填写 site key 与 secret key。",
+        env_var="PIX_WEB_TURNSTILE_ENABLED",
+    ),
+    SettingDefinition(
+        "web.turnstile_site_key",
+        "Turnstile Site Key",
+        "邮件验证码",
+        "string",
+        "",
+        "Cloudflare 控制台中 Turnstile 站点的 Site Key，前端可见。",
+        env_var="PIX_WEB_TURNSTILE_SITE_KEY",
+    ),
+    SettingDefinition(
+        "web.turnstile_secret_key",
+        "Turnstile Secret Key",
+        "邮件验证码",
+        "secret",
+        "",
+        "Cloudflare 控制台中的 Secret Key，仅后端验证使用；保存到数据库会被遮罩显示。",
+        secret=True,
+        env_var="PIX_WEB_TURNSTILE_SECRET_KEY",
+    ),
+    SettingDefinition(
+        "web.turnstile_verify_url",
+        "Turnstile 校验地址",
+        "邮件验证码",
+        "string",
+        "",
+        "默认 https://challenges.cloudflare.com/turnstile/v0/siteverify；除非企业自建 endpoint 否则保持默认。",
+        env_var="PIX_WEB_TURNSTILE_VERIFY_URL",
+    ),
+    SettingDefinition(
+        "web.turnstile_email_window_seconds",
+        "同邮箱校验窗口（秒）",
+        "邮件验证码",
+        "number",
+        "",
+        "窗口内同邮箱请求验证码达到阈值后，下次发送需要 Turnstile；0 表示不按邮箱触发。",
+        env_var="PIX_WEB_TURNSTILE_EMAIL_WINDOW_SECONDS",
+    ),
+    SettingDefinition(
+        "web.turnstile_email_max_without_challenge",
+        "同邮箱免校验次数",
+        "邮件验证码",
+        "number",
+        "",
+        "例如 2 表示同邮箱窗口内前 2 次免校验，第 3 次开始需要 Turnstile；0 表示不按邮箱触发。",
+        env_var="PIX_WEB_TURNSTILE_EMAIL_MAX_WITHOUT_CHALLENGE",
+    ),
+    SettingDefinition(
+        "web.turnstile_ip_window_seconds",
+        "同 IP 校验窗口（秒）",
+        "邮件验证码",
+        "number",
+        "",
+        "窗口内同 IP 请求验证码达到阈值后，下次发送需要 Turnstile；0 表示不按 IP 触发。",
+        env_var="PIX_WEB_TURNSTILE_IP_WINDOW_SECONDS",
+    ),
+    SettingDefinition(
+        "web.turnstile_ip_max_without_challenge",
+        "同 IP 免校验次数",
+        "邮件验证码",
+        "number",
+        "",
+        "例如 5 表示同 IP 窗口内前 5 次免校验，第 6 次开始需要 Turnstile；0 表示不按 IP 触发。",
+        env_var="PIX_WEB_TURNSTILE_IP_MAX_WITHOUT_CHALLENGE",
+    ),
+    SettingDefinition(
+        "web.public_base_url",
+        "后端公开 URL",
+        "支付与站点",
+        "string",
+        "",
+        "用于支付异步通知和后端返回入口，例如 https://api.example.com。",
+        env_var="PIX_WEB_PUBLIC_BASE_URL",
+    ),
+    SettingDefinition(
+        "web.frontend_base_url",
+        "前端公开 URL",
+        "支付与站点",
+        "string",
+        "",
+        "支付完成后浏览器跳回的 Pix 前端地址，例如 https://www.example.com。留空时会优先使用当前请求来源/CORS 来源。",
+        env_var="PIX_WEB_FRONTEND_BASE_URL",
+    ),
+    SettingDefinition(
+        "pix.api.timeout",
+        "Provider 调用超时（秒）",
+        "模型与 API",
+        "number",
+        "",
+        "覆盖默认 600 秒；远端响应慢时建议增大。",
+    ),
+    SettingDefinition(
+        "pix.api.max_retries",
+        "Provider 单家重试次数",
+        "模型与 API",
+        "number",
+        "",
+        "默认 3 次；只对 5xx/429/网络错误生效，之后可切换下一家 Provider。",
+    ),
+    SettingDefinition(
+        "pix.api.trust_env_proxies",
+        "信任系统/环境代理",
+        "模型与 API",
+        "boolean",
+        "",
+        "默认关闭，避免本地 Clash 等代理在长 idle 连接上提前断开生图请求；需要走代理时再开启。",
+    ),
+    SettingDefinition(
+        "pix.api.proxy",
+        "Provider 调用代理 URL",
+        "模型与 API",
+        "string",
+        "",
+        "可选；填写形如 http://127.0.0.1:7890 的代理。优先级高于系统代理；留空表示直连。",
+    ),
+    SettingDefinition(
+        "pix.image_gen.model",
+        "默认生图模型",
+        "模型与 API",
+        "string",
+        "",
+        "Logical model，仅支持 image2、gemini-3.1-flash-image-preview、gemini-3-pro-image-preview；具体 Provider 由上游供应商和失败切换策略决定。",
+    ),
+    SettingDefinition(
+        "pix.image_gen.size",
+        "源图尺寸",
+        "模型与 API",
+        "select",
+        "",
+        options=("auto", "1024x1024", "1536x1024", "1024x1536", "2048x1024", "1024x2048"),
+    ),
+    SettingDefinition(
+        "pix.image_gen.quality",
+        "生图质量",
+        "模型与 API",
+        "select",
+        "",
+        options=("low", "medium", "high", "auto"),
+    ),
+    SettingDefinition(
+        "pix.image_gen.output_format",
+        "源图格式",
+        "模型与 API",
+        "select",
+        "",
+        options=("png", "jpeg", "webp"),
+    ),
+    SettingDefinition(
+        "pix.image_gen.edit_input_fidelity",
+        "图生图保真",
+        "模型与 API",
+        "select",
+        "",
+        options=("low", "high"),
+    ),
+    SettingDefinition(
+        "pix.image_gen.failover_enabled", "启用 Provider 失败切换", "模型与 API", "boolean", ""
+    ),
+    SettingDefinition(
+        "pix.image_gen.model_discovery_enabled", "启用模型发现", "模型与 API", "boolean", ""
+    ),
+    SettingDefinition(
+        "pix.image_gen.model_discovery_ttl_seconds", "模型发现缓存秒数", "模型与 API", "number", ""
+    ),
+    SettingDefinition(
+        "pix.image_gen.provider_poll_interval_seconds",
+        "异步模型轮询间隔（秒）",
+        "模型与 API",
+        "number",
+        "",
+    ),
+    SettingDefinition(
+        "pix.image_gen.contact_sheet_enabled",
+        "启用多候选生图",
+        "模型与 API",
+        "boolean",
+        "默认关闭，避免一次任务生成多张候选图导致上游成本放大。",
+    ),
     SettingDefinition("pix.image_gen.contact_sheet_rows", "候选行数", "模型与 API", "number", ""),
     SettingDefinition("pix.image_gen.contact_sheet_cols", "候选列数", "模型与 API", "number", ""),
     SettingDefinition("pix.image_gen.green_screen_color", "抠色背景", "模型与 API", "string", ""),
-    SettingDefinition("pix.image_gen.green_screen_tolerance", "抠色容差", "模型与 API", "number", ""),
-    SettingDefinition("pix.image_gen.contact_sheet_prompt_template", "九宫格 Prompt 模板", "模型与 API", "textarea", ""),
-    SettingDefinition("pix.image_gen.prompt_guard_enabled", "启用描述审核", "模型与 API", "boolean", ""),
-    SettingDefinition("pix.image_gen.prompt_guard_remote", "启用模型描述审核", "模型与 API", "boolean", ""),
-    SettingDefinition("pix.image_gen.prompt_guard_model", "描述审核模型", "模型与 API", "string", ""),
-    SettingDefinition("pix.image_gen.prompt_guard_failure_policy", "审核失败策略", "模型与 API", "select", "", options=("local", "reject")),
-    SettingDefinition(PROMPT_GUARD_MAX_CHARS_SETTING, "描述最大字符数", "模型与 API", "number", PROMPT_GUARD_MAX_CHARS_DEFAULT, "Web 表单与 Worker 执行阶段统一为 3000 字；保存旧值 500 的本地库会自动同步。"),
-    SettingDefinition("pix.image_gen.candidate_vl_ranking_enabled", "候选 VL 评分排序", "模型与 API", "boolean", ""),
-    SettingDefinition("pix.image_gen.candidate_vl_ranking_model", "候选评分模型", "模型与 API", "string", "", "留空使用候选评分默认模型 claude-opus-4-8。"),
-    SettingDefinition("pix.image_gen.candidate_vl_ranking_failure_policy", "候选评分失败策略", "模型与 API", "select", "", options=("first", "reject")),
-    SettingDefinition("pix.image_gen.candidate_mode", "候选生成模式", "模型与 API", "select", "n_sample 直接调用 n=N 拿独立 full-res 图（推荐，质量更高）；contact_sheet 走旧 RxC 九宫格切图。", options=("n_sample", "contact_sheet")),
-    SettingDefinition("pix.image_gen.n_sample_count", "n-sample 候选数", "模型与 API", "number", "n_sample 模式下生成的独立图片数；默认 1，质量优先时可调高到 3~6。"),
-    SettingDefinition("pix.image_gen.size_retry_enabled", "启用尺寸重试", "模型与 API", "boolean", "用户生图时可选开启尺寸重试：反复重新生成直到实际像素尺寸匹配请求尺寸或达到上限。关闭后前端开关不再生效。"),
-    SettingDefinition("pix.image_gen.size_retry_discount_rate", "尺寸重试折扣倍率", "模型与 API", "number", "开启尺寸重试时每次尝试的计费倍率（0.6 = 6 折），与全局促销折扣取更优价。"),
-    SettingDefinition("pix.image_gen.size_retry_max_attempts_limit", "尺寸重试次数上限", "模型与 API", "number", "单任务最大尝试次数硬上限（含首次），前后端共同夹取，默认 8。"),
-    SettingDefinition("pix.video_bridge.enabled", "启用首尾帧视频补间", "视频补间", "boolean", "false", "启用后序列帧可选择首尾帧视频补间模式；需配置 Ark API Key。"),
-    SettingDefinition("pix.video_bridge.api_key", "Ark API Key", "视频补间", "secret", "", "火山方舟 API Key；也可用 ARK_API_KEY / VOLCENGINE_ARK_API_KEY 环境变量。", secret=True),
-    SettingDefinition("pix.video_bridge.base_url", "Ark Base URL", "视频补间", "string", "", "默认 https://ark.cn-beijing.volces.com/api/v3。"),
-    SettingDefinition("pix.video_bridge.model", "视频模型", "视频补间", "string", "", "例如 doubao-seedance-2-0-260128。"),
-    SettingDefinition("pix.video_bridge.resolution", "视频分辨率", "视频补间", "select", "", options=("480p", "720p", "1080p", "4k")),
-    SettingDefinition("pix.video_bridge.ratio", "视频宽高比", "视频补间", "select", "", options=("1:1", "16:9", "4:3", "3:4", "9:16", "21:9", "adaptive")),
-    SettingDefinition("pix.video_bridge.duration", "视频秒数兜底值", "视频补间", "number", "", "兼容旧配置的兜底值；sprite.mode=video_bridge 实际提交 Ark 的秒数会按 rows×cols 与 duration_ms 自动推导。"),
-    SettingDefinition("pix.video_bridge.poll_interval_seconds", "视频任务轮询间隔", "视频补间", "number", "", "worker 进入 waiting 后下一次查询 Ark 状态的间隔。"),
-    SettingDefinition("pix.video_bridge.task_timeout_seconds", "视频任务超时秒数", "视频补间", "number", "", "超过该时长未完成会标记失败并退款。"),
+    SettingDefinition(
+        "pix.image_gen.green_screen_tolerance", "抠色容差", "模型与 API", "number", ""
+    ),
+    SettingDefinition(
+        "pix.image_gen.contact_sheet_prompt_template",
+        "九宫格 Prompt 模板",
+        "模型与 API",
+        "textarea",
+        "",
+    ),
+    SettingDefinition(
+        "pix.image_gen.prompt_guard_enabled", "启用描述审核", "模型与 API", "boolean", ""
+    ),
+    SettingDefinition(
+        "pix.image_gen.prompt_guard_remote", "启用模型描述审核", "模型与 API", "boolean", ""
+    ),
+    SettingDefinition(
+        "pix.image_gen.prompt_guard_model", "描述审核模型", "模型与 API", "string", ""
+    ),
+    SettingDefinition(
+        "pix.image_gen.prompt_guard_failure_policy",
+        "审核失败策略",
+        "模型与 API",
+        "select",
+        "",
+        options=("local", "reject"),
+    ),
+    SettingDefinition(
+        PROMPT_GUARD_MAX_CHARS_SETTING,
+        "描述最大字符数",
+        "模型与 API",
+        "number",
+        PROMPT_GUARD_MAX_CHARS_DEFAULT,
+        "Web 表单与 Worker 执行阶段统一为 3000 字；保存旧值 500 的本地库会自动同步。",
+    ),
+    SettingDefinition(
+        "pix.image_gen.candidate_vl_ranking_enabled",
+        "候选 VL 评分排序",
+        "模型与 API",
+        "boolean",
+        "",
+    ),
+    SettingDefinition(
+        "pix.image_gen.candidate_vl_ranking_model",
+        "候选评分模型",
+        "模型与 API",
+        "string",
+        "",
+        "留空使用候选评分默认模型 claude-opus-4-8。",
+    ),
+    SettingDefinition(
+        "pix.image_gen.candidate_vl_ranking_failure_policy",
+        "候选评分失败策略",
+        "模型与 API",
+        "select",
+        "",
+        options=("first", "reject"),
+    ),
+    SettingDefinition(
+        "pix.image_gen.candidate_mode",
+        "候选生成模式",
+        "模型与 API",
+        "select",
+        "n_sample 直接调用 n=N 拿独立 full-res 图（推荐，质量更高）；contact_sheet 走旧 RxC 九宫格切图。",
+        options=("n_sample", "contact_sheet"),
+    ),
+    SettingDefinition(
+        "pix.image_gen.n_sample_count",
+        "n-sample 候选数",
+        "模型与 API",
+        "number",
+        "n_sample 模式下生成的独立图片数；默认 1，质量优先时可调高到 3~6。",
+    ),
+    SettingDefinition(
+        "pix.image_gen.size_retry_enabled",
+        "启用尺寸重试",
+        "模型与 API",
+        "boolean",
+        "用户生图时可选开启尺寸重试：反复重新生成直到实际像素尺寸匹配请求尺寸或达到上限。关闭后前端开关不再生效。",
+    ),
+    SettingDefinition(
+        "pix.image_gen.size_retry_discount_rate",
+        "尺寸重试折扣倍率",
+        "模型与 API",
+        "number",
+        "开启尺寸重试时每次尝试的计费倍率（0.6 = 6 折），与全局促销折扣取更优价。",
+    ),
+    SettingDefinition(
+        "pix.image_gen.size_retry_max_attempts_limit",
+        "尺寸重试次数上限",
+        "模型与 API",
+        "number",
+        "单任务最大尝试次数硬上限（含首次），前后端共同夹取，默认 8。",
+    ),
+    SettingDefinition(
+        "pix.video_bridge.enabled",
+        "启用首尾帧视频补间",
+        "视频补间",
+        "boolean",
+        "false",
+        "启用后序列帧可选择首尾帧视频补间模式；需配置 Ark API Key。",
+    ),
+    SettingDefinition(
+        "pix.video_bridge.api_key",
+        "Ark API Key",
+        "视频补间",
+        "secret",
+        "",
+        "火山方舟 API Key；也可用 ARK_API_KEY / VOLCENGINE_ARK_API_KEY 环境变量。",
+        secret=True,
+    ),
+    SettingDefinition(
+        "pix.video_bridge.base_url",
+        "Ark Base URL",
+        "视频补间",
+        "string",
+        "",
+        "默认 https://ark.cn-beijing.volces.com/api/v3。",
+    ),
+    SettingDefinition(
+        "pix.video_bridge.model",
+        "视频模型",
+        "视频补间",
+        "string",
+        "",
+        "例如 doubao-seedance-2-0-260128。",
+    ),
+    SettingDefinition(
+        "pix.video_bridge.resolution",
+        "视频分辨率",
+        "视频补间",
+        "select",
+        "",
+        options=("480p", "720p", "1080p", "4k"),
+    ),
+    SettingDefinition(
+        "pix.video_bridge.ratio",
+        "视频宽高比",
+        "视频补间",
+        "select",
+        "",
+        options=("1:1", "16:9", "4:3", "3:4", "9:16", "21:9", "adaptive"),
+    ),
+    SettingDefinition(
+        "pix.video_bridge.duration",
+        "视频秒数兜底值",
+        "视频补间",
+        "number",
+        "",
+        "兼容旧配置的兜底值；sprite.mode=video_bridge 实际提交 Ark 的秒数会按 rows×cols 与 duration_ms 自动推导。",
+    ),
+    SettingDefinition(
+        "pix.video_bridge.poll_interval_seconds",
+        "视频任务轮询间隔",
+        "视频补间",
+        "number",
+        "",
+        "worker 进入 waiting 后下一次查询 Ark 状态的间隔。",
+    ),
+    SettingDefinition(
+        "pix.video_bridge.task_timeout_seconds",
+        "视频任务超时秒数",
+        "视频补间",
+        "number",
+        "",
+        "超过该时长未完成会标记失败并退款。",
+    ),
     SettingDefinition("pix.vision.model", "VL 模型", "模型与 API", "string", ""),
     SettingDefinition("pix.vision.temperature", "VL 温度", "模型与 API", "number", ""),
     SettingDefinition("pix.vision.max_tokens", "VL 最大输出 tokens", "模型与 API", "number", ""),
     SettingDefinition("pix.vision.retry_on_parse", "VL 解析失败重试", "模型与 API", "number", ""),
-    SettingDefinition("pix.pixelize.generated_preprocess_method", "生成图预处理", "素材默认值", "select", "", "perfect_pixel=AI 生图/图生图源图先做网格对齐；legacy/none=旧流程。", options=("perfect_pixel", "legacy", "none")),
-    SettingDefinition("pix.asset.pixel_size", "默认素材尺寸", "素材默认值", "string", "", "格式 16x16。"),
+    SettingDefinition(
+        "pix.pixelize.generated_preprocess_method",
+        "生成图预处理",
+        "素材默认值",
+        "select",
+        "",
+        "perfect_pixel=AI 生图/图生图源图先做网格对齐；legacy/none=旧流程。",
+        options=("perfect_pixel", "legacy", "none"),
+    ),
+    SettingDefinition(
+        "pix.asset.pixel_size", "默认素材尺寸", "素材默认值", "string", "", "格式 16x16。"
+    ),
     SettingDefinition("pix.asset.colors", "默认颜色数", "素材默认值", "number", ""),
-    SettingDefinition("pix.asset.image_quality", "素材源图质量", "素材默认值", "select", "", options=("low", "medium", "high", "auto")),
+    SettingDefinition(
+        "pix.asset.image_quality",
+        "素材源图质量",
+        "素材默认值",
+        "select",
+        "",
+        options=("low", "medium", "high", "auto"),
+    ),
     SettingDefinition("pix.asset.skip_vl", "默认跳过普通 VL 分析", "素材默认值", "boolean", ""),
     SettingDefinition("pix.asset.remove_bg", "默认移除背景", "素材默认值", "boolean", ""),
     SettingDefinition("pix.asset.bg_tolerance", "背景容差", "素材默认值", "number", ""),
-    SettingDefinition("pix.asset.bg_feather", "边缘强度", "素材默认值", "number", "feather=羽化半径；outline=描边宽度；hard=不额外处理。"),
-    SettingDefinition("pix.asset.edge_style", "默认边缘处理", "素材默认值", "select", "hard=不需要；feather=羽化边缘；outline=描边。", options=("hard", "feather", "outline")),
-    SettingDefinition("pix.asset.bg_removal_algorithm", "背景移除算法", "素材默认值", "select", "pixel_bg=像素直出同款双阈值连通域 + 二值 alpha；color_to_alpha=高清 Color-to-Alpha 软 alpha；旧值自动兼容到像素算法。", options=("pixel_bg", "color_to_alpha")),
-    SettingDefinition("pix.asset.color_to_alpha_shape", "Color-to-Alpha 距离", "素材默认值", "select", "sphere=欧氏距离；cube=最大通道差。", options=("sphere", "cube")),
-    SettingDefinition("pix.asset.color_to_alpha_transparency", "CTA 透明阈值", "素材默认值", "number", "小于等于该距离的 key 色转全透明。"),
-    SettingDefinition("pix.asset.color_to_alpha_opacity", "CTA 不透明阈值", "素材默认值", "number", "大于等于该距离的颜色保持不透明。"),
-    SettingDefinition("pix.asset.color_to_alpha_interpolation", "CTA 插值", "素材默认值", "select", "透明到不透明的过渡曲线。", options=("linear", "smooth", "power", "root", "inverse-sin")),
+    SettingDefinition(
+        "pix.asset.bg_feather",
+        "边缘强度",
+        "素材默认值",
+        "number",
+        "feather=羽化半径；outline=描边宽度；hard=不额外处理。",
+    ),
+    SettingDefinition(
+        "pix.asset.edge_style",
+        "默认边缘处理",
+        "素材默认值",
+        "select",
+        "hard=不需要；feather=羽化边缘；outline=描边。",
+        options=("hard", "feather", "outline"),
+    ),
+    SettingDefinition(
+        "pix.asset.bg_removal_algorithm",
+        "背景移除算法",
+        "素材默认值",
+        "select",
+        "pixel_bg=像素直出同款双阈值连通域 + 二值 alpha；color_to_alpha=高清 Color-to-Alpha 软 alpha；旧值自动兼容到像素算法。",
+        options=("pixel_bg", "color_to_alpha"),
+    ),
+    SettingDefinition(
+        "pix.asset.color_to_alpha_shape",
+        "Color-to-Alpha 距离",
+        "素材默认值",
+        "select",
+        "sphere=欧氏距离；cube=最大通道差。",
+        options=("sphere", "cube"),
+    ),
+    SettingDefinition(
+        "pix.asset.color_to_alpha_transparency",
+        "CTA 透明阈值",
+        "素材默认值",
+        "number",
+        "小于等于该距离的 key 色转全透明。",
+    ),
+    SettingDefinition(
+        "pix.asset.color_to_alpha_opacity",
+        "CTA 不透明阈值",
+        "素材默认值",
+        "number",
+        "大于等于该距离的颜色保持不透明。",
+    ),
+    SettingDefinition(
+        "pix.asset.color_to_alpha_interpolation",
+        "CTA 插值",
+        "素材默认值",
+        "select",
+        "透明到不透明的过渡曲线。",
+        options=("linear", "smooth", "power", "root", "inverse-sin"),
+    ),
     SettingDefinition("pix.asset.auto_crop", "自动裁剪主体", "素材默认值", "boolean", ""),
     SettingDefinition("pix.asset.crop_padding", "裁剪留白", "素材默认值", "number", ""),
     SettingDefinition("pix.asset.crop_square", "裁剪为正方形", "素材默认值", "boolean", ""),
-    SettingDefinition("pix.asset.palette_mode", "调色板模式", "素材默认值", "select", "auto=经典 K-means/旧效果；ramp=VL 按色相阶梯设计 + Lab 最近色量化。", options=("auto", "ramp", "kmeans")),
-    SettingDefinition("pix.asset.subject_max_chars", "主体最大字符数", "素材默认值", "number", "", "素材主体 / Logo 标题 / 纹理主题 / 双瓦片材质描述的最大字符数，前端表单、外部 API 与后端校验共用。"),
-    SettingDefinition("pix.asset.extra_prompt_max_chars", "额外风格最大字符数", "素材默认值", "number", "", "素材额外风格描述的最大字符数，前端表单、外部 API 与后端校验共用。"),
+    SettingDefinition(
+        "pix.asset.palette_mode",
+        "调色板模式",
+        "素材默认值",
+        "select",
+        "auto=经典 K-means/旧效果；ramp=VL 按色相阶梯设计 + Lab 最近色量化。",
+        options=("auto", "ramp", "kmeans"),
+    ),
+    SettingDefinition(
+        "pix.asset.subject_max_chars",
+        "主体最大字符数",
+        "素材默认值",
+        "number",
+        "",
+        "素材主体 / Logo 标题 / 纹理主题 / 双瓦片材质描述的最大字符数，前端表单、外部 API 与后端校验共用。",
+    ),
+    SettingDefinition(
+        "pix.asset.extra_prompt_max_chars",
+        "额外风格最大字符数",
+        "素材默认值",
+        "number",
+        "",
+        "素材额外风格描述的最大字符数，前端表单、外部 API 与后端校验共用。",
+    ),
     SettingDefinition("pix.asset.grid_mode", "默认输出 Pixel Grid", "素材默认值", "boolean", ""),
     SettingDefinition("pix.asset.grid_cleanup", "Grid 清理噪点", "素材默认值", "boolean", ""),
     SettingDefinition("pix.asset.grid_outline", "Grid 轮廓后处理", "素材默认值", "boolean", ""),
     SettingDefinition("pix.asset.grid_outline_strength", "轮廓强度", "素材默认值", "number", ""),
     SettingDefinition("pix.asset.fit_canvas", "贴合画布", "素材默认值", "boolean", ""),
-    SettingDefinition("pix.asset.fit_mode", "贴合模式", "素材默认值", "select", "", options=("smart", "contain", "cover")),
+    SettingDefinition(
+        "pix.asset.fit_mode",
+        "贴合模式",
+        "素材默认值",
+        "select",
+        "",
+        options=("smart", "contain", "cover"),
+    ),
     SettingDefinition("pix.asset.fit_padding", "贴合留白", "素材默认值", "number", ""),
-    SettingDefinition("pix.asset.fit_min_axis_coverage", "主体最小覆盖率", "素材默认值", "number", ""),
-    SettingDefinition("pix.asset.prompt_template", "素材 Prompt 模板", "素材默认值", "textarea", "", "可用占位符：{width}/{height}/{name}/{max_colors}/{colors}/{key_tolerance}，也兼容 {green}/{key_color}/{size_label}/{asset_kind_label}/{asset_usage_label}/{subject_kind_label}/{placement_context}/{forbidden_elements}/{canvas_shape}；物品图标、UI 组件与游戏 Logo 语义会按 asset_kind 分开；平铺纹理会跳过此普通模板，改由 asset.texture_kind 注入专用规则；不要在同一模板写死 inventory/UI/No text，Logo 文字限制请交给 {forbidden_elements}。"),
-    SettingDefinition("pix.sprite.frame_count", "默认帧数", "序列帧", "number", "", "用户未指定时使用；mosaic 模式下取 rows×cols。"),
-    SettingDefinition("pix.sprite.max_frame_count", "最大总帧数", "序列帧", "number", "", "rows × cols 上限，默认 64（8×8）。"),
-    SettingDefinition("pix.sprite.max_grid_rows", "网格最大行数", "序列帧", "number", "", "默认 8。"),
-    SettingDefinition("pix.sprite.max_grid_cols", "网格最大列数", "序列帧", "number", "", "默认 8。"),
+    SettingDefinition(
+        "pix.asset.fit_min_axis_coverage", "主体最小覆盖率", "素材默认值", "number", ""
+    ),
+    SettingDefinition(
+        "pix.asset.prompt_template",
+        "素材 Prompt 模板",
+        "素材默认值",
+        "textarea",
+        "",
+        "可用占位符：{width}/{height}/{name}/{max_colors}/{colors}/{key_tolerance}，也兼容 {green}/{key_color}/{size_label}/{asset_kind_label}/{asset_usage_label}/{subject_kind_label}/{placement_context}/{forbidden_elements}/{canvas_shape}；物品图标、UI 组件与游戏 Logo 语义会按 asset_kind 分开；平铺纹理会跳过此普通模板，改由 asset.texture_kind 注入专用规则；不要在同一模板写死 inventory/UI/No text，Logo 文字限制请交给 {forbidden_elements}。",
+    ),
+    SettingDefinition(
+        "pix.sprite.frame_count",
+        "默认帧数",
+        "序列帧",
+        "number",
+        "",
+        "用户未指定时使用；mosaic 模式下取 rows×cols。",
+    ),
+    SettingDefinition(
+        "pix.sprite.max_frame_count",
+        "最大总帧数",
+        "序列帧",
+        "number",
+        "",
+        "rows × cols 上限，默认 64（8×8）。",
+    ),
+    SettingDefinition(
+        "pix.sprite.max_grid_rows", "网格最大行数", "序列帧", "number", "", "默认 8。"
+    ),
+    SettingDefinition(
+        "pix.sprite.max_grid_cols", "网格最大列数", "序列帧", "number", "", "默认 8。"
+    ),
     SettingDefinition("pix.sprite.fps", "默认播放 FPS", "序列帧", "number", ""),
     SettingDefinition("pix.sprite.pixel_size", "单帧尺寸", "序列帧", "string", "", "格式 64x64。"),
     SettingDefinition("pix.sprite.colors", "单帧颜色数", "序列帧", "number", ""),
-    SettingDefinition("pix.sprite.image_quality", "序列帧源图质量", "序列帧", "select", "", options=("low", "medium", "high", "auto")),
-    SettingDefinition("pix.sprite.gif_export", "兼容 GIF 导出", "序列帧", "boolean", "默认关闭；作品库优先播放 sprite_sheet.png + sequence.json。"),
-    SettingDefinition("pix.sprite.frame_size_step", "有效尺寸取整步长", "序列帧", "number", "默认 16 像素。"),
-    SettingDefinition("pix.sprite.anchor", "帧锚点", "序列帧", "select", "默认 bottom_center。", options=("bottom_center", "center")),
-    SettingDefinition("pix.sprite.subject_max_chars", "主体最大字符数", "序列帧", "number", "", "序列帧主体 / 角色描述的最大字符数，前端表单、外部 API 与后端校验共用。"),
-    SettingDefinition("pix.sprite.row_prompt_max_chars", "逐行动作最大字符数", "序列帧", "number", "", "序列帧每行动作描述的最大字符数，前端表单、外部 API 与后端校验共用。"),
+    SettingDefinition(
+        "pix.sprite.image_quality",
+        "序列帧源图质量",
+        "序列帧",
+        "select",
+        "",
+        options=("low", "medium", "high", "auto"),
+    ),
+    SettingDefinition(
+        "pix.sprite.gif_export",
+        "兼容 GIF 导出",
+        "序列帧",
+        "boolean",
+        "默认关闭；作品库优先播放 sprite_sheet.png + sequence.json。",
+    ),
+    SettingDefinition(
+        "pix.sprite.frame_size_step", "有效尺寸取整步长", "序列帧", "number", "默认 16 像素。"
+    ),
+    SettingDefinition(
+        "pix.sprite.anchor",
+        "帧锚点",
+        "序列帧",
+        "select",
+        "默认 bottom_center。",
+        options=("bottom_center", "center"),
+    ),
+    SettingDefinition(
+        "pix.sprite.subject_max_chars",
+        "主体最大字符数",
+        "序列帧",
+        "number",
+        "",
+        "序列帧主体 / 角色描述的最大字符数，前端表单、外部 API 与后端校验共用。",
+    ),
+    SettingDefinition(
+        "pix.sprite.row_prompt_max_chars",
+        "逐行动作最大字符数",
+        "序列帧",
+        "number",
+        "",
+        "序列帧每行动作描述的最大字符数，前端表单、外部 API 与后端校验共用。",
+    ),
     SettingDefinition("pix.sprite.green_screen_color", "序列帧抠色背景", "序列帧", "string", ""),
-    SettingDefinition("pix.sprite.green_screen_tolerance", "序列帧抠色容差", "序列帧", "number", ""),
-    SettingDefinition("pix.sprite.crop_padding", "裁剪留白（兼容）", "序列帧", "number", "保留给旧配置兼容；新流程按透明内容包围盒与有效单帧尺寸补齐。"),
-    SettingDefinition("pix.sprite.shared_palette", "序列帧共享调色板", "序列帧", "boolean", "减少逐帧播放闪色。"),
-    SettingDefinition("pix.sprite.video_despill", "视频序列帧去键色污染", "序列帧", "boolean", "默认开启；抠图后对半透明辉光 / 烟雾 / 拖尾做反混合去污染，消除残留的背景键色（青 / 品红 / 绿）。仅对视频补间（video_bridge）序列帧生效。"),
-    SettingDefinition("pix.sprite.video_despill_softness", "去污染软过渡上限", "序列帧", "number", "默认 200；与键色距离 ≤ 该值且带键色相的像素按距离估算 alpha 反解主体色，值越大清理越激进。"),
-    SettingDefinition("pix.sprite.video_despill_radius", "去污染边缘触达半径", "序列帧", "number", "默认 3；边缘 soft-matte 从透明背景向主体内膨胀的像素圈数，用于覆盖较宽的软边。"),
-    SettingDefinition("pix.sprite.video_despill_passes", "去污染迭代次数", "序列帧", "number", "默认 3；边缘 soft-matte 多轮逐步剥离更深的混色层。"),
-    SettingDefinition("pix.sprite.mosaic_prompt_template", "Mosaic Prompt 模板", "序列帧", "textarea", "", "占位符：{description}/{rows}/{cols}/{frame_width}/{frame_height}/{sheet_width}/{sheet_height}/{row_block}/{green}/{key_tolerance}/{max_colors}。"),
-    SettingDefinition("pix.sprite.mosaic_reference_prompt_template", "Mosaic 参考图 Prompt 模板", "序列帧", "textarea", "", "包含占位符 {base_template}（已渲染好的主模板）以及 {description}/{rows}/{cols}/... 同上。"),
-    SettingDefinition("web.poll_interval_seconds", "Worker 轮询间隔", "存储 / 队列 / 安全", "number", "", "保存后需重启 worker 才能稳定生效。", restart_required=True, env_var="PIX_WEB_POLL_INTERVAL_SECONDS"),
-    SettingDefinition("web.worker_concurrency", "Worker 并发上限", "存储 / 队列 / 安全", "number", "", "空闲槽位内任务会直接并发运行；超过该上限才保持排队。保存后需重启 worker。", restart_required=True, env_var="PIX_WEB_WORKER_CONCURRENCY"),
-    SettingDefinition("web.running_job_timeout_minutes", "运行任务超时（分钟）", "存储 / 队列 / 安全", "number", "", "running 任务超过该时间且未完成时会被自动标记失败并退款；保存后需重启 worker。", restart_required=True, env_var="PIX_WEB_RUNNING_JOB_TIMEOUT_MINUTES"),
-    SettingDefinition("web.running_job_cleanup_interval_seconds", "超时清理间隔（秒）", "存储 / 队列 / 安全", "number", "", "Worker 主循环扫描超时 running 任务的间隔；保存后需重启 worker。", restart_required=True, env_var="PIX_WEB_RUNNING_JOB_CLEANUP_INTERVAL_SECONDS"),
-    SettingDefinition("web.access_token_minutes", "登录 token 有效分钟", "存储 / 队列 / 安全", "number", "", "新签发 token 生效；不影响已签发 token。", env_var="PIX_WEB_ACCESS_TOKEN_MINUTES"),
-    SettingDefinition("env.database_url", "数据库连接", "存储 / 队列 / 安全", "status", "", "环境级配置，只显示状态，不在线修改。", editable=False, env_var="PIX_WEB_DATABASE_URL", source="environment_only"),
-    SettingDefinition("env.jwt_secret", "JWT Secret", "存储 / 队列 / 安全", "status", "", "环境级配置；在线修改会导致现有 token 失效，第一阶段不提供。", secret=True, editable=False, env_var="PIX_WEB_JWT_SECRET", source="environment_only"),
-    SettingDefinition("env.storage_root", "存储目录", "存储 / 队列 / 安全", "status", "", "环境级配置，只显示当前目录。", editable=False, env_var="PIX_WEB_STORAGE_ROOT", source="environment_only"),
-    SettingDefinition("env.queue_backend", "队列后端", "存储 / 队列 / 安全", "status", "", "需重启服务/worker。", editable=False, restart_required=True, env_var="PIX_WEB_QUEUE_BACKEND", source="environment_only"),
-    SettingDefinition("env.redis_url", "Redis URL", "存储 / 队列 / 安全", "status", "", "需重启服务/worker。", secret=True, editable=False, restart_required=True, env_var="PIX_WEB_REDIS_URL", source="environment_only"),
-    SettingDefinition("env.alipay_mode", "支付宝模式", "支付与站点", "status", "", "auto 会在检测到证书配置时自动使用证书模式。", editable=False, env_var="ALIPAY_MODE", source="environment_only"),
-    SettingDefinition("env.alipay_app_id", "支付宝 App ID", "支付与站点", "status", "", "环境级配置，只显示是否配置。", editable=False, env_var="ALIPAY_APP_ID", source="environment_only"),
-    SettingDefinition("env.alipay_private_key", "支付宝私钥", "支付与站点", "status", "", "高风险密钥，仅显示是否配置。", secret=True, editable=False, env_var="ALIPAY_PRIVATE_KEY", source="environment_only"),
-    SettingDefinition("env.alipay_public_key", "支付宝公钥", "支付与站点", "status", "", "公钥模式验签使用。", secret=True, editable=False, env_var="ALIPAY_PUBLIC_KEY", source="environment_only"),
-    SettingDefinition("env.alipay_app_cert", "支付宝应用公钥证书", "支付与站点", "status", "", "证书模式下用于 app_cert_sn。", secret=True, editable=False, env_var="ALIPAY_APP_CERT", source="environment_only"),
-    SettingDefinition("env.alipay_public_cert", "支付宝公钥证书", "支付与站点", "status", "", "证书模式下用于回调验签。", secret=True, editable=False, env_var="ALIPAY_PUBLIC_CERT", source="environment_only"),
-    SettingDefinition("env.alipay_root_cert", "支付宝根证书", "支付与站点", "status", "", "证书模式下用于 alipay_root_cert_sn。", secret=True, editable=False, env_var="ALIPAY_ROOT_CERT", source="environment_only"),
-    SettingDefinition("env.wechat_private_key", "微信支付私钥", "支付与站点", "status", "", "高风险密钥，第一阶段仅显示是否配置。", secret=True, editable=False, env_var="WECHATPAY_PRIVATE_KEY", source="environment_only"),
+    SettingDefinition(
+        "pix.sprite.green_screen_tolerance", "序列帧抠色容差", "序列帧", "number", ""
+    ),
+    SettingDefinition(
+        "pix.sprite.crop_padding",
+        "裁剪留白（兼容）",
+        "序列帧",
+        "number",
+        "保留给旧配置兼容；新流程按透明内容包围盒与有效单帧尺寸补齐。",
+    ),
+    SettingDefinition(
+        "pix.sprite.shared_palette", "序列帧共享调色板", "序列帧", "boolean", "减少逐帧播放闪色。"
+    ),
+    SettingDefinition(
+        "pix.sprite.video_despill",
+        "视频序列帧去键色污染",
+        "序列帧",
+        "boolean",
+        "默认开启；抠图后对半透明辉光 / 烟雾 / 拖尾做反混合去污染，消除残留的背景键色（青 / 品红 / 绿）。仅对视频补间（video_bridge）序列帧生效。",
+    ),
+    SettingDefinition(
+        "pix.sprite.video_despill_softness",
+        "去污染软过渡上限",
+        "序列帧",
+        "number",
+        "默认 200；与键色距离 ≤ 该值且带键色相的像素按距离估算 alpha 反解主体色，值越大清理越激进。",
+    ),
+    SettingDefinition(
+        "pix.sprite.video_despill_radius",
+        "去污染边缘触达半径",
+        "序列帧",
+        "number",
+        "默认 3；边缘 soft-matte 从透明背景向主体内膨胀的像素圈数，用于覆盖较宽的软边。",
+    ),
+    SettingDefinition(
+        "pix.sprite.video_despill_passes",
+        "去污染迭代次数",
+        "序列帧",
+        "number",
+        "默认 3；边缘 soft-matte 多轮逐步剥离更深的混色层。",
+    ),
+    SettingDefinition(
+        "pix.sprite.mosaic_prompt_template",
+        "Mosaic Prompt 模板",
+        "序列帧",
+        "textarea",
+        "",
+        "占位符：{description}/{rows}/{cols}/{frame_width}/{frame_height}/{sheet_width}/{sheet_height}/{row_block}/{green}/{key_tolerance}/{max_colors}。",
+    ),
+    SettingDefinition(
+        "pix.sprite.mosaic_reference_prompt_template",
+        "Mosaic 参考图 Prompt 模板",
+        "序列帧",
+        "textarea",
+        "",
+        "包含占位符 {base_template}（已渲染好的主模板）以及 {description}/{rows}/{cols}/... 同上。",
+    ),
+    SettingDefinition(
+        "web.poll_interval_seconds",
+        "Worker 轮询间隔",
+        "存储 / 队列 / 安全",
+        "number",
+        "",
+        "保存后需重启 worker 才能稳定生效。",
+        restart_required=True,
+        env_var="PIX_WEB_POLL_INTERVAL_SECONDS",
+    ),
+    SettingDefinition(
+        "web.worker_concurrency",
+        "Worker 并发上限",
+        "存储 / 队列 / 安全",
+        "number",
+        "",
+        "空闲槽位内任务会直接并发运行；超过该上限才保持排队。保存后需重启 worker。",
+        restart_required=True,
+        env_var="PIX_WEB_WORKER_CONCURRENCY",
+    ),
+    SettingDefinition(
+        "web.running_job_timeout_minutes",
+        "运行任务超时（分钟）",
+        "存储 / 队列 / 安全",
+        "number",
+        "",
+        "running 任务超过该时间且未完成时会被自动标记失败并退款；保存后需重启 worker。",
+        restart_required=True,
+        env_var="PIX_WEB_RUNNING_JOB_TIMEOUT_MINUTES",
+    ),
+    SettingDefinition(
+        "web.running_job_cleanup_interval_seconds",
+        "超时清理间隔（秒）",
+        "存储 / 队列 / 安全",
+        "number",
+        "",
+        "Worker 主循环扫描超时 running 任务的间隔；保存后需重启 worker。",
+        restart_required=True,
+        env_var="PIX_WEB_RUNNING_JOB_CLEANUP_INTERVAL_SECONDS",
+    ),
+    SettingDefinition(
+        "web.access_token_minutes",
+        "登录 token 有效分钟",
+        "存储 / 队列 / 安全",
+        "number",
+        "",
+        "新签发 token 生效；不影响已签发 token。",
+        env_var="PIX_WEB_ACCESS_TOKEN_MINUTES",
+    ),
+    SettingDefinition(
+        "env.database_url",
+        "数据库连接",
+        "存储 / 队列 / 安全",
+        "status",
+        "",
+        "环境级配置，只显示状态，不在线修改。",
+        editable=False,
+        env_var="PIX_WEB_DATABASE_URL",
+        source="environment_only",
+    ),
+    SettingDefinition(
+        "env.jwt_secret",
+        "JWT Secret",
+        "存储 / 队列 / 安全",
+        "status",
+        "",
+        "环境级配置；在线修改会导致现有 token 失效，第一阶段不提供。",
+        secret=True,
+        editable=False,
+        env_var="PIX_WEB_JWT_SECRET",
+        source="environment_only",
+    ),
+    SettingDefinition(
+        "env.storage_root",
+        "存储目录",
+        "存储 / 队列 / 安全",
+        "status",
+        "",
+        "环境级配置，只显示当前目录。",
+        editable=False,
+        env_var="PIX_WEB_STORAGE_ROOT",
+        source="environment_only",
+    ),
+    SettingDefinition(
+        "env.queue_backend",
+        "队列后端",
+        "存储 / 队列 / 安全",
+        "status",
+        "",
+        "需重启服务/worker。",
+        editable=False,
+        restart_required=True,
+        env_var="PIX_WEB_QUEUE_BACKEND",
+        source="environment_only",
+    ),
+    SettingDefinition(
+        "env.redis_url",
+        "Redis URL",
+        "存储 / 队列 / 安全",
+        "status",
+        "",
+        "需重启服务/worker。",
+        secret=True,
+        editable=False,
+        restart_required=True,
+        env_var="PIX_WEB_REDIS_URL",
+        source="environment_only",
+    ),
+    SettingDefinition(
+        "env.alipay_mode",
+        "支付宝模式",
+        "支付与站点",
+        "status",
+        "",
+        "auto 会在检测到证书配置时自动使用证书模式。",
+        editable=False,
+        env_var="ALIPAY_MODE",
+        source="environment_only",
+    ),
+    SettingDefinition(
+        "env.alipay_app_id",
+        "支付宝 App ID",
+        "支付与站点",
+        "status",
+        "",
+        "环境级配置，只显示是否配置。",
+        editable=False,
+        env_var="ALIPAY_APP_ID",
+        source="environment_only",
+    ),
+    SettingDefinition(
+        "env.alipay_private_key",
+        "支付宝私钥",
+        "支付与站点",
+        "status",
+        "",
+        "高风险密钥，仅显示是否配置。",
+        secret=True,
+        editable=False,
+        env_var="ALIPAY_PRIVATE_KEY",
+        source="environment_only",
+    ),
+    SettingDefinition(
+        "env.alipay_public_key",
+        "支付宝公钥",
+        "支付与站点",
+        "status",
+        "",
+        "公钥模式验签使用。",
+        secret=True,
+        editable=False,
+        env_var="ALIPAY_PUBLIC_KEY",
+        source="environment_only",
+    ),
+    SettingDefinition(
+        "env.alipay_app_cert",
+        "支付宝应用公钥证书",
+        "支付与站点",
+        "status",
+        "",
+        "证书模式下用于 app_cert_sn。",
+        secret=True,
+        editable=False,
+        env_var="ALIPAY_APP_CERT",
+        source="environment_only",
+    ),
+    SettingDefinition(
+        "env.alipay_public_cert",
+        "支付宝公钥证书",
+        "支付与站点",
+        "status",
+        "",
+        "证书模式下用于回调验签。",
+        secret=True,
+        editable=False,
+        env_var="ALIPAY_PUBLIC_CERT",
+        source="environment_only",
+    ),
+    SettingDefinition(
+        "env.alipay_root_cert",
+        "支付宝根证书",
+        "支付与站点",
+        "status",
+        "",
+        "证书模式下用于 alipay_root_cert_sn。",
+        secret=True,
+        editable=False,
+        env_var="ALIPAY_ROOT_CERT",
+        source="environment_only",
+    ),
+    SettingDefinition(
+        "env.wechat_private_key",
+        "微信支付私钥",
+        "支付与站点",
+        "status",
+        "",
+        "高风险密钥，第一阶段仅显示是否配置。",
+        secret=True,
+        editable=False,
+        env_var="WECHATPAY_PRIVATE_KEY",
+        source="environment_only",
+    ),
 )
 
 SETTING_DEFINITIONS_BY_KEY = {definition.key: definition for definition in SETTING_DEFINITIONS}
 DEFAULT_SYSTEM_SETTINGS: dict[str, str] = {
     definition.key: definition.default
     for definition in SETTING_DEFINITIONS
-    if definition.key in {
+    if definition.key
+    in {
         "generation_enabled",
         "max_pending_jobs_per_user",
         "daily_job_limit_per_user",
@@ -297,7 +1200,10 @@ def ensure_default_system_settings(db: Session) -> None:
     prompt_guard_limit = db.scalar(
         select(SystemSetting).where(SystemSetting.key == PROMPT_GUARD_MAX_CHARS_SETTING)
     )
-    if prompt_guard_limit is not None and prompt_guard_limit.value.strip() in PROMPT_GUARD_MAX_CHARS_LEGACY_DEFAULTS:
+    if (
+        prompt_guard_limit is not None
+        and prompt_guard_limit.value.strip() in PROMPT_GUARD_MAX_CHARS_LEGACY_DEFAULTS
+    ):
         prompt_guard_limit.value = PROMPT_GUARD_MAX_CHARS_DEFAULT
         changed = True
     if changed:
@@ -336,7 +1242,9 @@ def _definition_for(key: str) -> SettingDefinition:
 def get_system_setting(db: Session, key: str) -> SystemSetting:
     definition = _definition_for(key)
     if not definition.editable or definition.source != "database":
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="该设置不可在线修改")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="该设置不可在线修改"
+        )
     setting = db.scalar(select(SystemSetting).where(SystemSetting.key == key))
     if setting is None:
         setting = SystemSetting(key=key, value=definition.default)
@@ -361,7 +1269,10 @@ def _pix_default_value(cfg: AppConfig, key: str) -> str:
     if isinstance(value, tuple):
         return "x".join(str(part) for part in value)
     text = "" if value is None else str(value)
-    if key == PROMPT_GUARD_MAX_CHARS_SETTING and text.strip() in PROMPT_GUARD_MAX_CHARS_LEGACY_DEFAULTS:
+    if (
+        key == PROMPT_GUARD_MAX_CHARS_SETTING
+        and text.strip() in PROMPT_GUARD_MAX_CHARS_LEGACY_DEFAULTS
+    ):
         return PROMPT_GUARD_MAX_CHARS_DEFAULT
     return text
 
@@ -419,7 +1330,9 @@ def list_admin_settings(db: Session, settings: WebSettings) -> list[AdminSetting
     for definition in SETTING_DEFINITIONS:
         row = rows.get(definition.key)
         stored_value = row.value if row is not None else None
-        effective_value = stored_value if stored_value is not None else _default_value(definition, settings, cfg)
+        effective_value = (
+            stored_value if stored_value is not None else _default_value(definition, settings, cfg)
+        )
         masked = bool(definition.secret and effective_value)
         views.append(
             AdminSettingView(
@@ -450,28 +1363,45 @@ def _normalize_value(definition: SettingDefinition, value: str) -> str:
         try:
             number = float(clean) if "." in clean else int(clean)
         except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="数字格式不正确") from exc
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="数字格式不正确"
+            ) from exc
         if definition.key == "pricing.discount_rate":
             rate = float(number)
             if rate < 0.0 or rate > 1.0:
-                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="折扣倍率应在 0~1 之间")
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail="折扣倍率应在 0~1 之间",
+                )
             return str(rate)
-        if definition.key.endswith("_max_chars") or definition.key == PROMPT_GUARD_MAX_CHARS_SETTING:
+        if (
+            definition.key.endswith("_max_chars")
+            or definition.key == PROMPT_GUARD_MAX_CHARS_SETTING
+        ):
             return str(max(1, int(number)))
         if isinstance(number, float):
             return str(number)
         return str(max(0, number))
     if definition.type == "select" and definition.options and clean not in definition.options:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="选项不合法")
-    if definition.key in {"pix.asset.pixel_size", "pix.sprite.pixel_size"} and "x" not in clean.lower():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="尺寸格式应为 16x16")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="选项不合法")
+    if (
+        definition.key in {"pix.asset.pixel_size", "pix.sprite.pixel_size"}
+        and "x" not in clean.lower()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="尺寸格式应为 16x16"
+        )
     return clean
 
 
-def update_system_setting(db: Session, key: str, value: str, *, clear: bool = False) -> SystemSetting:
+def update_system_setting(
+    db: Session, key: str, value: str, *, clear: bool = False
+) -> SystemSetting:
     definition = _definition_for(key)
     if not definition.editable or definition.source != "database":
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="该设置不可在线修改")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="该设置不可在线修改"
+        )
     setting = get_system_setting(db, key)
     if definition.secret and value == "" and not clear:
         db.commit()
@@ -508,18 +1438,29 @@ def resolve_site_timezone(db: Session) -> tzinfo:
 def load_operational_settings(db: Session) -> OperationalSettings:
     values = _stored_values(db)
     return OperationalSettings(
-        generation_enabled=_parse_bool(values.get("generation_enabled", DEFAULT_SYSTEM_SETTINGS["generation_enabled"])),
+        generation_enabled=_parse_bool(
+            values.get("generation_enabled", DEFAULT_SYSTEM_SETTINGS["generation_enabled"])
+        ),
         daily_job_limit_per_user=_parse_positive_int(
-            values.get("daily_job_limit_per_user", DEFAULT_SYSTEM_SETTINGS["daily_job_limit_per_user"]),
+            values.get(
+                "daily_job_limit_per_user", DEFAULT_SYSTEM_SETTINGS["daily_job_limit_per_user"]
+            ),
             int(DEFAULT_SYSTEM_SETTINGS["daily_job_limit_per_user"]),
         ),
-        blocked_prompt_terms=values.get("blocked_prompt_terms", DEFAULT_SYSTEM_SETTINGS["blocked_prompt_terms"]),
+        blocked_prompt_terms=values.get(
+            "blocked_prompt_terms", DEFAULT_SYSTEM_SETTINGS["blocked_prompt_terms"]
+        ),
         max_uploads_per_user_per_day=_parse_positive_int(
-            values.get("max_uploads_per_user_per_day", DEFAULT_SYSTEM_SETTINGS["max_uploads_per_user_per_day"]),
+            values.get(
+                "max_uploads_per_user_per_day",
+                DEFAULT_SYSTEM_SETTINGS["max_uploads_per_user_per_day"],
+            ),
             int(DEFAULT_SYSTEM_SETTINGS["max_uploads_per_user_per_day"]),
         ),
         registration_bonus_credits=_parse_positive_int(
-            values.get("registration_bonus_credits", DEFAULT_SYSTEM_SETTINGS["registration_bonus_credits"]),
+            values.get(
+                "registration_bonus_credits", DEFAULT_SYSTEM_SETTINGS["registration_bonus_credits"]
+            ),
             int(DEFAULT_SYSTEM_SETTINGS["registration_bonus_credits"]),
         ),
     )
@@ -549,22 +1490,48 @@ def load_public_announcement(db: Session) -> PublicAnnouncement:
     enabled_row = rows.get("site.announcement.enabled")
     title_row = rows.get("site.announcement.title")
     body_row = rows.get("site.announcement.body")
-    enabled = _parse_bool(enabled_row.value if enabled_row is not None else DEFAULT_SYSTEM_SETTINGS["site.announcement.enabled"])
-    title = (title_row.value if title_row is not None else DEFAULT_SYSTEM_SETTINGS["site.announcement.title"]).strip()
-    body = (body_row.value if body_row is not None else DEFAULT_SYSTEM_SETTINGS["site.announcement.body"]).strip()
-    updated_candidates = [row.updated_at for row in (enabled_row, title_row, body_row) if row is not None and row.updated_at is not None]
+    enabled = _parse_bool(
+        enabled_row.value
+        if enabled_row is not None
+        else DEFAULT_SYSTEM_SETTINGS["site.announcement.enabled"]
+    )
+    title = (
+        title_row.value
+        if title_row is not None
+        else DEFAULT_SYSTEM_SETTINGS["site.announcement.title"]
+    ).strip()
+    body = (
+        body_row.value
+        if body_row is not None
+        else DEFAULT_SYSTEM_SETTINGS["site.announcement.body"]
+    ).strip()
+    updated_candidates = [
+        row.updated_at
+        for row in (enabled_row, title_row, body_row)
+        if row is not None and row.updated_at is not None
+    ]
     effective_enabled = enabled and bool(title or body)
-    return PublicAnnouncement(enabled=effective_enabled, title=title, body=body, updated_at=max(updated_candidates) if updated_candidates else None)
+    return PublicAnnouncement(
+        enabled=effective_enabled,
+        title=title,
+        body=body,
+        updated_at=max(updated_candidates) if updated_candidates else None,
+    )
 
 
 def load_referral_settings(db: Session) -> ReferralSettings:
     values = _stored_values(db)
     return ReferralSettings(
-        enabled=_parse_bool(values.get("referral.enabled", DEFAULT_SYSTEM_SETTINGS["referral.enabled"])),
+        enabled=_parse_bool(
+            values.get("referral.enabled", DEFAULT_SYSTEM_SETTINGS["referral.enabled"])
+        ),
         commission_rate_bps=min(
             10000,
             _parse_positive_int(
-                values.get("referral.commission_rate_bps", DEFAULT_SYSTEM_SETTINGS["referral.commission_rate_bps"]),
+                values.get(
+                    "referral.commission_rate_bps",
+                    DEFAULT_SYSTEM_SETTINGS["referral.commission_rate_bps"],
+                ),
                 int(DEFAULT_SYSTEM_SETTINGS["referral.commission_rate_bps"]),
             ),
         ),
@@ -578,13 +1545,17 @@ def load_referral_settings(db: Session) -> ReferralSettings:
 def load_share_settings(db: Session) -> ShareSettings:
     values = _stored_values(db)
     return ShareSettings(
-        reward_enabled=_parse_bool(values.get("share.reward_enabled", DEFAULT_SYSTEM_SETTINGS["share.reward_enabled"])),
+        reward_enabled=_parse_bool(
+            values.get("share.reward_enabled", DEFAULT_SYSTEM_SETTINGS["share.reward_enabled"])
+        ),
         reward_credits=_parse_positive_int(
             values.get("share.reward_credits", DEFAULT_SYSTEM_SETTINGS["share.reward_credits"]),
             int(DEFAULT_SYSTEM_SETTINGS["share.reward_credits"]),
         ),
         daily_reward_limit=_parse_positive_int(
-            values.get("share.daily_reward_limit", DEFAULT_SYSTEM_SETTINGS["share.daily_reward_limit"]),
+            values.get(
+                "share.daily_reward_limit", DEFAULT_SYSTEM_SETTINGS["share.daily_reward_limit"]
+            ),
             int(DEFAULT_SYSTEM_SETTINGS["share.daily_reward_limit"]),
         ),
     )
@@ -600,12 +1571,16 @@ def load_pricing_discount(db: Session) -> PricingDiscount:
         max(
             0.0,
             _parse_float(
-                values.get("pricing.discount_rate", DEFAULT_SYSTEM_SETTINGS["pricing.discount_rate"]),
+                values.get(
+                    "pricing.discount_rate", DEFAULT_SYSTEM_SETTINGS["pricing.discount_rate"]
+                ),
                 1.0,
             ),
         ),
     )
-    label = values.get("pricing.discount_label", DEFAULT_SYSTEM_SETTINGS["pricing.discount_label"]).strip()
+    label = values.get(
+        "pricing.discount_label", DEFAULT_SYSTEM_SETTINGS["pricing.discount_label"]
+    ).strip()
     return PricingDiscount(enabled=enabled, rate=rate, label=label)
 
 
@@ -671,7 +1646,9 @@ def managed_pix_overrides_from_db(db: Session) -> dict[str, dict[str, Any]]:
 
 
 def load_managed_pix_config(db: Session, settings: WebSettings) -> AppConfig:
-    cfg = load_config(config_file=settings.pix_config_file, overrides=managed_pix_overrides_from_db(db))
+    cfg = load_config(
+        config_file=settings.pix_config_file, overrides=managed_pix_overrides_from_db(db)
+    )
     return apply_db_image_providers(cfg, db)
 
 
@@ -701,12 +1678,17 @@ def enforce_prompt_policy(
         **prompt_guard_kwargs,
     )
     if not local.allowed:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=local.reason or "prompt 包含不允许的内容")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=local.reason or "prompt 包含不允许的内容",
+        )
     settings = load_operational_settings(db)
     text = prompt.lower()
     for term in _blocked_terms(settings.blocked_prompt_terms):
         if term in text:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="prompt 包含不允许的内容")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="prompt 包含不允许的内容"
+            )
 
 
 def enforce_upload_limit(db: Session, user: User) -> None:
@@ -714,18 +1696,29 @@ def enforce_upload_limit(db: Session, user: User) -> None:
     limit = settings.max_uploads_per_user_per_day
     if limit <= 0:
         return
-    today_count = db.scalar(
-        select(func.count()).select_from(UploadEvent).where(
-            UploadEvent.user_id == user.id,
-            UploadEvent.created_at >= _utc_day_start(),
+    today_count = (
+        db.scalar(
+            select(func.count())
+            .select_from(UploadEvent)
+            .where(
+                UploadEvent.user_id == user.id,
+                UploadEvent.created_at >= _utc_day_start(),
+            )
         )
-    ) or 0
+        or 0
+    )
     if today_count >= limit:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="今日上传次数已达上限")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="今日上传次数已达上限"
+        )
 
 
-def record_upload_event(db: Session, user: User, *, filename: str, content_type: str, size_bytes: int) -> UploadEvent:
-    event = UploadEvent(user_id=user.id, filename=filename, content_type=content_type, size_bytes=size_bytes)
+def record_upload_event(
+    db: Session, user: User, *, filename: str, content_type: str, size_bytes: int
+) -> UploadEvent:
+    event = UploadEvent(
+        user_id=user.id, filename=filename, content_type=content_type, size_bytes=size_bytes
+    )
     db.add(event)
     db.commit()
     db.refresh(event)
@@ -739,11 +1732,21 @@ def enforce_generation_limits(db: Session, user: User, *, new_jobs: int) -> None
     if new_jobs <= 0:
         return
 
-    today_count = db.scalar(
-        select(func.count()).select_from(GenerationJob).where(
-            GenerationJob.user_id == user.id,
-            GenerationJob.created_at >= _utc_day_start(),
+    today_count = (
+        db.scalar(
+            select(func.count())
+            .select_from(GenerationJob)
+            .where(
+                GenerationJob.user_id == user.id,
+                GenerationJob.created_at >= _utc_day_start(),
+            )
         )
-    ) or 0
-    if settings.daily_job_limit_per_user > 0 and today_count + new_jobs > settings.daily_job_limit_per_user:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="今日生成次数已达上限")
+        or 0
+    )
+    if (
+        settings.daily_job_limit_per_user > 0
+        and today_count + new_jobs > settings.daily_job_limit_per_user
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="今日生成次数已达上限"
+        )

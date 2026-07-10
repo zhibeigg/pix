@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -29,10 +29,14 @@ class User(Base):
     # 优惠链接绑定：注册时通过 ?promo=xxx 进入的用户永久绑定该优惠码，之后所有充值/月卡按折扣计费。
     promo_code: Mapped[str] = mapped_column(String(32), default="", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
     credit_account: Mapped["CreditAccount"] = relationship(back_populates="user", uselist=False)
-    shared_works: Mapped[list["SharedWork"]] = relationship(back_populates="user", foreign_keys="SharedWork.user_id")
+    shared_works: Mapped[list["SharedWork"]] = relationship(
+        back_populates="user", foreign_keys="SharedWork.user_id"
+    )
     shared_work_likes: Mapped[list["SharedWorkLike"]] = relationship(back_populates="user")
     characters: Mapped[list["CharacterLibraryItem"]] = relationship(back_populates="user")
 
@@ -50,9 +54,15 @@ class ExternalApiKey(Base):
     enabled: Mapped[bool] = mapped_column(default=True)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class EmailVerificationCode(Base):
@@ -66,9 +76,13 @@ class EmailVerificationCode(Base):
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class CreditAccount(Base):
@@ -86,7 +100,9 @@ class CreditAccount(Base):
     reserved_quota: Mapped[int] = mapped_column(Integer, default=0)
     daily_quota_date: Mapped[str] = mapped_column(String(10), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
     user: Mapped[User] = relationship(back_populates="credit_account")
 
@@ -99,7 +115,9 @@ class CreditTransaction(Base):
     type: Mapped[str] = mapped_column(String(32), index=True)
     amount: Mapped[int] = mapped_column(Integer)
     balance_after: Mapped[int] = mapped_column(Integer)
-    job_id: Mapped[int | None] = mapped_column(ForeignKey("generation_jobs.id"), nullable=True, index=True)
+    job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("generation_jobs.id"), nullable=True, index=True
+    )
     note: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -111,7 +129,9 @@ class PricingRule(Base):
     key: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     price_credits: Mapped[int] = mapped_column(Integer, default=0)
     enabled: Mapped[bool] = mapped_column(default=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class SystemSetting(Base):
@@ -120,7 +140,9 @@ class SystemSetting(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     key: Mapped[str] = mapped_column(String(96), unique=True, index=True)
     value: Mapped[str] = mapped_column(Text, default="")
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class CreditPackage(Base):
@@ -134,7 +156,9 @@ class CreditPackage(Base):
     currency: Mapped[str] = mapped_column(String(12), default="usd")
     enabled: Mapped[bool] = mapped_column(default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class PaymentOrder(Base):
@@ -142,7 +166,9 @@ class PaymentOrder(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    package_id: Mapped[int | None] = mapped_column(ForeignKey("credit_packages.id"), nullable=True, index=True)
+    package_id: Mapped[int | None] = mapped_column(
+        ForeignKey("credit_packages.id"), nullable=True, index=True
+    )
     provider: Mapped[str] = mapped_column(String(32), default="mock", index=True)
     provider_order_id: Mapped[str] = mapped_column(String(128), default="", index=True)
     status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
@@ -159,7 +185,9 @@ class PaymentOrder(Base):
     promo_discount_rate: Mapped[float] = mapped_column(default=1.0)
     # 未打折时的原始金额（分），用于统计优惠减免总额；无优惠时等于 amount_cents。
     original_amount_cents: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -169,7 +197,9 @@ class PaymentEvent(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     provider: Mapped[str] = mapped_column(String(32), default="mock", index=True)
     provider_event_id: Mapped[str] = mapped_column(String(160), unique=True, index=True)
-    order_id: Mapped[int | None] = mapped_column(ForeignKey("payment_orders.id"), nullable=True, index=True)
+    order_id: Mapped[int | None] = mapped_column(
+        ForeignKey("payment_orders.id"), nullable=True, index=True
+    )
     payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     processed: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -189,7 +219,9 @@ class MembershipPlan(Base):
     duration_days: Mapped[int] = mapped_column(Integer, default=30)
     enabled: Mapped[bool] = mapped_column(default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class UserMembership(Base):
@@ -205,7 +237,9 @@ class UserMembership(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class ReferralProfile(Base):
@@ -219,13 +253,17 @@ class ReferralProfile(Base):
 
 class ReferralInvite(Base):
     __tablename__ = "referral_invites"
-    __table_args__ = (UniqueConstraint("referred_user_id", name="uq_referral_invite_referred_user"),)
+    __table_args__ = (
+        UniqueConstraint("referred_user_id", name="uq_referral_invite_referred_user"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     referrer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     referred_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     code: Mapped[str] = mapped_column(String(32), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
 
 
 class ReferralReward(Base):
@@ -234,7 +272,9 @@ class ReferralReward(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     referrer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     referred_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    invite_id: Mapped[int | None] = mapped_column(ForeignKey("referral_invites.id"), nullable=True, index=True)
+    invite_id: Mapped[int | None] = mapped_column(
+        ForeignKey("referral_invites.id"), nullable=True, index=True
+    )
     order_id: Mapped[int] = mapped_column(ForeignKey("payment_orders.id"), unique=True, index=True)
     order_amount_cents: Mapped[int] = mapped_column(Integer, default=0)
     order_credits: Mapped[int] = mapped_column(Integer, default=0)
@@ -244,8 +284,12 @@ class ReferralReward(Base):
     rate_bps: Mapped[int] = mapped_column(Integer, default=1000)
     status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
     available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
     settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -260,8 +304,12 @@ class ReferralSettlement(Base):
     credits: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
     note: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class PromoLink(Base):
@@ -282,8 +330,12 @@ class PromoLink(Base):
     note: Mapped[str] = mapped_column(Text, default="")
     # 通过该链接注册的用户数（绑定时 +1）。
     signup_count: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class AlipayGatewayMessage(Base):
@@ -296,7 +348,9 @@ class AlipayGatewayMessage(Base):
     biz_content_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     raw_payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     processed: Mapped[bool] = mapped_column(default=False)
-    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
 
 
 class UploadEvent(Base):
@@ -307,7 +361,9 @@ class UploadEvent(Base):
     filename: Mapped[str] = mapped_column(String(260), default="")
     content_type: Mapped[str] = mapped_column(String(120), default="")
     size_bytes: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
 
 
 class GenerationBatch(Base):
@@ -318,8 +374,12 @@ class GenerationBatch(Base):
     name: Mapped[str] = mapped_column(String(160), default="")
     mode: Mapped[str] = mapped_column(String(32), default="mixed", index=True)
     status: Mapped[str] = mapped_column(String(32), default="active", index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
     jobs: Mapped[list["GenerationJob"]] = relationship(back_populates="batch")
 
@@ -331,7 +391,9 @@ class AssetPackQuota(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
     pack_limit: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class GalleryQuota(Base):
@@ -341,7 +403,9 @@ class GalleryQuota(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
     retained_limit: Mapped[int] = mapped_column(Integer, default=10)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class AssetPack(Base):
@@ -352,10 +416,16 @@ class AssetPack(Base):
     name: Mapped[str] = mapped_column(String(160), default="")
     status: Mapped[str] = mapped_column(String(32), default="active", index=True)
     capacity: Mapped[int] = mapped_column(Integer, default=100)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
-    items: Mapped[list["AssetPackItem"]] = relationship(back_populates="pack", cascade="all, delete-orphan")
+    items: Mapped[list["AssetPackItem"]] = relationship(
+        back_populates="pack", cascade="all, delete-orphan"
+    )
 
 
 class AssetPackItem(Base):
@@ -367,7 +437,9 @@ class AssetPackItem(Base):
     pack_id: Mapped[int] = mapped_column(ForeignKey("asset_packs.id"), index=True)
     job_id: Mapped[int] = mapped_column(ForeignKey("generation_jobs.id"), index=True)
     position: Mapped[int] = mapped_column(Integer, default=0, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
 
     pack: Mapped[AssetPack] = relationship(back_populates="items")
     job: Mapped["GenerationJob"] = relationship(back_populates="pack_items")
@@ -379,7 +451,9 @@ class GenerationJob(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    batch_id: Mapped[int | None] = mapped_column(ForeignKey("generation_batches.id"), nullable=True, index=True)
+    batch_id: Mapped[int | None] = mapped_column(
+        ForeignKey("generation_batches.id"), nullable=True, index=True
+    )
     client_request_id: Mapped[str] = mapped_column(String(128), default="", index=True)
     job_type: Mapped[str] = mapped_column(String(32), index=True)
     status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
@@ -402,7 +476,9 @@ class GenerationJob(Base):
     candidate_failure_count: Mapped[int] = mapped_column(Integer, default=0)
     pipeline_warning_count: Mapped[int] = mapped_column(Integer, default=0)
     queue_priority: Mapped[int] = mapped_column(Integer, default=0, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -410,7 +486,9 @@ class GenerationJob(Base):
     pack_items: Mapped[list[AssetPackItem]] = relationship(back_populates="job")
     outputs: Mapped[list["GenerationOutput"]] = relationship(back_populates="job")
     shared_work: Mapped["SharedWork | None"] = relationship(back_populates="job", uselist=False)
-    character_items: Mapped[list["CharacterLibraryItem"]] = relationship(back_populates="source_job")
+    character_items: Mapped[list["CharacterLibraryItem"]] = relationship(
+        back_populates="source_job"
+    )
 
 
 class GenerationPolicyEvent(Base):
@@ -418,12 +496,16 @@ class GenerationPolicyEvent(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    job_id: Mapped[int | None] = mapped_column(ForeignKey("generation_jobs.id"), nullable=True, index=True)
+    job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("generation_jobs.id"), nullable=True, index=True
+    )
     job_type: Mapped[str] = mapped_column(String(32), default="", index=True)
     source: Mapped[str] = mapped_column(String(64), default="pre_create", index=True)
     reason: Mapped[str] = mapped_column(Text, default="")
     prompt_excerpt: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
 
 
 class GenerationOutput(Base):
@@ -447,7 +529,9 @@ class CharacterLibraryItem(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    source_job_id: Mapped[int | None] = mapped_column(ForeignKey("generation_jobs.id"), nullable=True, index=True)
+    source_job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("generation_jobs.id"), nullable=True, index=True
+    )
     status: Mapped[str] = mapped_column(String(32), default="active", index=True)
     name: Mapped[str] = mapped_column(String(160), default="")
     description: Mapped[str] = mapped_column(Text, default="")
@@ -455,8 +539,12 @@ class CharacterLibraryItem(Base):
     image_path: Mapped[str] = mapped_column(Text, default="")
     preview_path: Mapped[str] = mapped_column(Text, default="")
     parameter_snapshot_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
     user: Mapped[User] = relationship(back_populates="characters")
     source_job: Mapped[GenerationJob | None] = relationship(back_populates="character_items")
@@ -467,7 +555,9 @@ class SharedWork(Base):
     __table_args__ = (UniqueConstraint("job_id", name="uq_shared_works_job_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    job_id: Mapped[int | None] = mapped_column(ForeignKey("generation_jobs.id"), nullable=True, index=True)
+    job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("generation_jobs.id"), nullable=True, index=True
+    )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     status: Mapped[str] = mapped_column(String(32), default="active", index=True)
     title: Mapped[str] = mapped_column(String(160), default="")
@@ -482,23 +572,35 @@ class SharedWork(Base):
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     review_note: Mapped[str] = mapped_column(String(500), default="")
     reviewed_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
     user: Mapped[User] = relationship(back_populates="shared_works", foreign_keys=[user_id])
     job: Mapped[GenerationJob | None] = relationship(back_populates="shared_work")
-    likes: Mapped[list["SharedWorkLike"]] = relationship(back_populates="shared_work", cascade="all, delete-orphan")
+    likes: Mapped[list["SharedWorkLike"]] = relationship(
+        back_populates="shared_work", cascade="all, delete-orphan"
+    )
 
 
 class SharedWorkLike(Base):
     __tablename__ = "shared_work_likes"
-    __table_args__ = (UniqueConstraint("shared_work_id", "user_id", name="uq_shared_work_likes_work_user"),)
+    __table_args__ = (
+        UniqueConstraint("shared_work_id", "user_id", name="uq_shared_work_likes_work_user"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     shared_work_id: Mapped[int] = mapped_column(ForeignKey("shared_works.id"), index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
 
     shared_work: Mapped[SharedWork] = relationship(back_populates="likes")
     user: Mapped[User] = relationship(back_populates="shared_work_likes")
@@ -512,9 +614,15 @@ class Announcement(Base):
     body: Mapped[str] = mapped_column(Text, default="")
     enabled: Mapped[bool] = mapped_column(default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, index=True)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class ImageProvider(Base):
@@ -534,4 +642,6 @@ class ImageProvider(Base):
     models: Mapped[list[Any]] = mapped_column(JSON, default=list)
     preset_key: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )

@@ -19,14 +19,33 @@ from pix_web.announcement_service import (
 from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits
 from pix_web.dashboard import admin_dashboard
-from pix_web.job_observability import admin_fail_job_and_refund, cancel_job_and_refund, load_job_with_outputs
+from pix_web.job_observability import (
+    admin_fail_job_and_refund,
+    cancel_job_and_refund,
+    load_job_with_outputs,
+)
 from pix_web.metrics import task_performance_metrics
 from pix_web.membership import is_active as is_membership_active
 from pix_web.jobs import retry_failed_job
-from pix_web.email_sender import EmailDeliveryError, send_announcement_email, send_announcement_email_batch_task, send_verification_email
+from pix_web.email_sender import (
+    EmailDeliveryError,
+    send_announcement_email,
+    send_announcement_email_batch_task,
+    send_verification_email,
+)
 from pix_web.email_verification import generate_code
-from pix_web.models import CreditAccount, CreditPackage, GenerationJob, MembershipPlan, PaymentOrder, PricingRule, PromoLink, User, UserMembership
-from pix_web.promo import create_promo_link, delete_promo_link, list_promo_links, promo_link_stats, update_promo_link
+from pix_web.models import (
+    CreditAccount,
+    CreditPackage,
+    GenerationJob,
+    MembershipPlan,
+    PaymentOrder,
+    PricingRule,
+    PromoLink,
+    User,
+    UserMembership,
+)
+from pix_web.promo import create_promo_link, delete_promo_link, promo_link_stats, update_promo_link
 from pix_web.queue import enqueue_jobs
 from pix_web.referrals import frontend_invite_base_url
 from pix_web.schemas import (
@@ -64,13 +83,20 @@ from pix_web.schemas import (
     SystemSettingUpdateRequest,
 )
 from pix_web.security import get_db, get_settings, require_admin
-from pix_web.system_settings import AdminSettingView, list_admin_settings, load_effective_web_settings, update_system_setting
+from pix_web.system_settings import (
+    AdminSettingView,
+    list_admin_settings,
+    load_effective_web_settings,
+    update_system_setting,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/dashboard", response_model=AdminDashboardResponse)
-def dashboard(_admin: User = Depends(require_admin), db: Session = Depends(get_db)) -> dict[str, int | float]:
+def dashboard(
+    _admin: User = Depends(require_admin), db: Session = Depends(get_db)
+) -> dict[str, int | float]:
     return admin_dashboard(db)
 
 
@@ -84,7 +110,9 @@ def performance_metrics(
 
 
 @router.get("/users", response_model=list[AdminUserResponse])
-def users(_admin: User = Depends(require_admin), db: Session = Depends(get_db), limit: int = 100) -> list[AdminUserResponse]:
+def users(
+    _admin: User = Depends(require_admin), db: Session = Depends(get_db), limit: int = 100
+) -> list[AdminUserResponse]:
     """后台用户列表：附带点数余额与会员状态。批量取账户 / 会员避免 N+1；排序 / 筛选由前端完成。"""
     capped = max(1, min(500, limit))
     user_rows = list(db.scalars(select(User).order_by(User.created_at.desc()).limit(capped)))
@@ -97,7 +125,9 @@ def users(_admin: User = Depends(require_admin), db: Session = Depends(get_db), 
     }
     memberships = {
         membership.user_id: membership
-        for membership in db.scalars(select(UserMembership).where(UserMembership.user_id.in_(user_ids)))
+        for membership in db.scalars(
+            select(UserMembership).where(UserMembership.user_id.in_(user_ids))
+        )
     }
     now = datetime.now(timezone.utc)
     result: list[AdminUserResponse] = []
@@ -127,7 +157,9 @@ def users(_admin: User = Depends(require_admin), db: Session = Depends(get_db), 
 
 
 @router.get("/orders", response_model=list[AdminPaymentOrderResponse])
-def orders(_admin: User = Depends(require_admin), db: Session = Depends(get_db), limit: int = 200) -> list[AdminPaymentOrderResponse]:
+def orders(
+    _admin: User = Depends(require_admin), db: Session = Depends(get_db), limit: int = 200
+) -> list[AdminPaymentOrderResponse]:
     """后台订单列表：所有用户的充值 / 月卡订单，附带下单用户信息。排序 / 筛选由前端完成。"""
     capped = max(1, min(500, limit))
     order_rows = list(
@@ -136,10 +168,7 @@ def orders(_admin: User = Depends(require_admin), db: Session = Depends(get_db),
     if not order_rows:
         return []
     owner_ids = {order.user_id for order in order_rows}
-    owners = {
-        owner.id: owner
-        for owner in db.scalars(select(User).where(User.id.in_(owner_ids)))
-    }
+    owners = {owner.id: owner for owner in db.scalars(select(User).where(User.id.in_(owner_ids)))}
     result: list[AdminPaymentOrderResponse] = []
     for order in order_rows:
         owner = owners.get(order.user_id)
@@ -191,12 +220,16 @@ def adjust_users_credits_batch(
     else:
         unique_ids = sorted({int(user_id) for user_id in req.user_ids if int(user_id) > 0})
         if not unique_ids:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="请选择至少一个有效用户")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="请选择至少一个有效用户"
+            )
         stmt = select(User).where(User.id.in_(unique_ids)).order_by(User.id.asc())
 
     target_users = list(db.scalars(stmt))
     if not target_users:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="没有找到可调整点数的用户")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="没有找到可调整点数的用户"
+        )
     if not req.all_users:
         found_ids = {user.id for user in target_users}
         missing_ids = [user_id for user_id in unique_ids if user_id not in found_ids]
@@ -206,7 +239,9 @@ def adjust_users_credits_batch(
                 detail=f"用户不存在：{', '.join(str(user_id) for user_id in missing_ids[:10])}",
             )
 
-    note = req.note or ("管理员批量调整点数（全部活跃用户）" if req.all_users else "管理员批量调整点数")
+    note = req.note or (
+        "管理员批量调整点数（全部活跃用户）" if req.all_users else "管理员批量调整点数"
+    )
     transactions = [adjust_credits(db, user, req.amount, note) for user in target_users]
     db.commit()
     for tx in transactions:
@@ -221,7 +256,9 @@ def adjust_users_credits_batch(
 
 
 @router.get("/jobs", response_model=list[AdminJobResponse])
-def jobs(_admin: User = Depends(require_admin), db: Session = Depends(get_db), limit: int = 100) -> list[GenerationJob]:
+def jobs(
+    _admin: User = Depends(require_admin), db: Session = Depends(get_db), limit: int = 100
+) -> list[GenerationJob]:
     stmt = (
         select(GenerationJob)
         .options(selectinload(GenerationJob.outputs), selectinload(GenerationJob.batch))
@@ -284,7 +321,9 @@ def fail_refund_admin_job(
 
 
 @router.get("/pricing", response_model=list[PricingRuleResponse])
-def pricing(_admin: User = Depends(require_admin), db: Session = Depends(get_db)) -> list[PricingRule]:
+def pricing(
+    _admin: User = Depends(require_admin), db: Session = Depends(get_db)
+) -> list[PricingRule]:
     return list(db.scalars(select(PricingRule).order_by(PricingRule.key.asc())))
 
 
@@ -307,10 +346,14 @@ def update_pricing(
 
 
 @router.get("/packages", response_model=list[CreditPackageResponse])
-def packages(_admin: User = Depends(require_admin), db: Session = Depends(get_db)) -> list[CreditPackage]:
+def packages(
+    _admin: User = Depends(require_admin), db: Session = Depends(get_db)
+) -> list[CreditPackage]:
     return list(
         db.scalars(
-            select(CreditPackage).order_by(CreditPackage.sort_order.asc(), CreditPackage.amount_cents.asc())
+            select(CreditPackage).order_by(
+                CreditPackage.sort_order.asc(), CreditPackage.amount_cents.asc()
+            )
         )
     )
 
@@ -353,13 +396,17 @@ def update_package(
 
 
 @router.get("/membership-plans", response_model=list[MembershipPlanResponse])
-def membership_plans(_admin: User = Depends(require_admin), db: Session = Depends(get_db)) -> list[MembershipPlan]:
+def membership_plans(
+    _admin: User = Depends(require_admin), db: Session = Depends(get_db)
+) -> list[MembershipPlan]:
     from pix_web.membership import ensure_default_membership_plans
 
     ensure_default_membership_plans(db)
     return list(
         db.scalars(
-            select(MembershipPlan).order_by(MembershipPlan.sort_order.asc(), MembershipPlan.amount_cents.asc())
+            select(MembershipPlan).order_by(
+                MembershipPlan.sort_order.asc(), MembershipPlan.amount_cents.asc()
+            )
         )
     )
 
@@ -510,7 +557,9 @@ def publish_announcement(
                 effective.email_provider == "smtp" and effective.smtp_host and effective.smtp_from
             )
             if smtp_ready:
-                site_url = frontend_invite_base_url(effective.frontend_base_url, effective.public_base_url)
+                site_url = frontend_invite_base_url(
+                    effective.frontend_base_url, effective.public_base_url
+                )
                 background_tasks.add_task(
                     send_announcement_email_batch_task,
                     effective,
@@ -576,7 +625,9 @@ def admin_create_announcement(
                 effective.email_provider == "smtp" and effective.smtp_host and effective.smtp_from
             )
             if smtp_ready:
-                site_url = frontend_invite_base_url(effective.frontend_base_url, effective.public_base_url)
+                site_url = frontend_invite_base_url(
+                    effective.frontend_base_url, effective.public_base_url
+                )
                 background_tasks.add_task(
                     send_announcement_email_batch_task,
                     effective,
@@ -637,9 +688,13 @@ def admin_test_announcement_email(
             site_url=site_url,
         )
     except EmailDeliveryError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
     return EmailTestResponse(
-        message="公告测试邮件已发送" if effective.email_provider == "smtp" else "console 公告测试邮件已生成",
+        message="公告测试邮件已发送"
+        if effective.email_provider == "smtp"
+        else "console 公告测试邮件已生成",
     )
 
 
@@ -655,8 +710,14 @@ def test_email_setting(
     try:
         send_verification_email(effective, str(req.email), code)
     except EmailDeliveryError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
     return EmailTestResponse(
-        message="测试邮件已发送" if effective.email_provider == "smtp" else "console 测试验证码已生成",
-        debug_code=code if effective.email_debug_codes or effective.email_provider == "console" else None,
+        message="测试邮件已发送"
+        if effective.email_provider == "smtp"
+        else "console 测试验证码已生成",
+        debug_code=code
+        if effective.email_debug_codes or effective.email_provider == "console"
+        else None,
     )

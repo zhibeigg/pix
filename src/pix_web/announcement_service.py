@@ -61,12 +61,16 @@ def _next_sort_order(db: Session) -> int:
     return int(max_order) + 1
 
 
-def publish_site_announcement(db: Session, *, title: str, body: str, enabled: bool) -> AnnouncementPublishOutcome:
+def publish_site_announcement(
+    db: Session, *, title: str, body: str, enabled: bool
+) -> AnnouncementPublishOutcome:
     """兼容旧接口：创建新公告并同步到 system_settings，返回是否需要邮件通知。"""
     clean_title = title.strip()
     clean_body = body.strip()
     if enabled and not (clean_title or clean_body):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="公告标题或正文不能为空")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="公告标题或正文不能为空"
+        )
 
     from pix_web.system_settings import ensure_default_system_settings
 
@@ -108,12 +112,16 @@ def publish_site_announcement(db: Session, *, title: str, body: str, enabled: bo
     )
 
 
-def create_announcement(db: Session, *, title: str, body: str, enabled: bool, publish_now: bool) -> Announcement:
+def create_announcement(
+    db: Session, *, title: str, body: str, enabled: bool, publish_now: bool
+) -> Announcement:
     """管理员创建公告。"""
     clean_title = title.strip()
     clean_body = body.strip()
     if enabled and not (clean_title or clean_body):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="公告标题或正文不能为空")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="公告标题或正文不能为空"
+        )
 
     from pix_web.system_settings import ensure_default_system_settings
 
@@ -171,7 +179,9 @@ def delete_announcement(db: Session, announcement_id: int) -> None:
     db.commit()
 
 
-def load_announcement_list(db: Session, *, include_disabled: bool = False, limit: int = 50) -> list[Announcement]:
+def load_announcement_list(
+    db: Session, *, include_disabled: bool = False, limit: int = 50
+) -> list[Announcement]:
     """加载公告列表，最新发布 / 最新创建的公告排在前面。"""
     stmt = select(Announcement)
     if not include_disabled:

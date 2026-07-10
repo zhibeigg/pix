@@ -1,6 +1,15 @@
 # Pix Web
 
-Pix 是一个面向网站的像素素材生成服务：React 前端 + FastAPI 后端 + `src/pix` 素材生成核心。当前仓库只保留网站运行所需内容；历史 CLI、桌面 GUI、旧素材、测试与临时输出已移除。
+[![CI](https://github.com/zhibeigg/pix/actions/workflows/ci.yml/badge.svg)](https://github.com/zhibeigg/pix/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/zhibeigg/pix)](https://github.com/zhibeigg/pix/releases)
+[![License](https://img.shields.io/github/license/zhibeigg/pix)](LICENSE)
+
+Pix 是一个面向网站的像素素材生成服务：React/Vite 前端 + FastAPI 后端 + `src/pix` 素材生成核心。当前仓库只保留网站运行所需内容；历史 CLI、桌面 GUI、旧素材、手工测试产物与临时输出已移除。
+
+- 生产站点：<https://www.mcwar.cn/>
+- 安全报告：[SECURITY.md](SECURITY.md)
+- 参与贡献：[CONTRIBUTING.md](CONTRIBUTING.md)
+- 示例资产：[ASSETS.md](ASSETS.md)
 
 ## 仓库结构
 
@@ -10,8 +19,7 @@ apps/web/public/homepage-examples/ # 主页示例物品 icon 静态资源
 migrations/                       # Alembic 数据库迁移
 src/pix/                          # 网站后端依赖的素材生成核心
 src/pix_web/                      # FastAPI API、worker、账号/计费/任务系统
-assets/presets/                   # 像素化预设，后端运行时会读取
-homepage示例物品icon清单.md        # 主页 608 个示例 icon 的维护清单
+src/pix/pixelize/presets/         # 随 Python 包分发的像素化预设
 config.example.toml               # Pix 核心可选配置示例
 .env.example                      # 本地后端环境变量示例
 .env.production.example           # Docker/生产环境变量示例
@@ -24,13 +32,15 @@ Dockerfile / docker-compose.yml    # 后端镜像与整站编排
 
 ### 后端
 
+推荐使用 [uv](https://docs.astral.sh/uv/) 和锁文件安装：
+
 ```bash
-py -m venv .venv
-. .venv/Scripts/activate
-pip install -e .
+uv sync --frozen --extra dev
 cp .env.example .env
-pix-web-api
+uv run pix-web-api
 ```
+
+项目支持 Python 3.10、3.11 和 3.12。发布前可运行 `uv run python scripts/check_release_version.py` 校验所有版本文件。
 
 常用后端命令：
 
@@ -45,7 +55,7 @@ pix-web-check         # 后端配置/环境检查
 
 ```bash
 cd apps/web
-npm install
+npm ci
 npm run dev
 ```
 
@@ -74,7 +84,7 @@ npm run build
 3. 启动：
 
    ```bash
-   docker compose up --build
+   docker compose --env-file .env.production up --build
    ```
 
 默认服务：
@@ -83,6 +93,20 @@ npm run build
 - `api`：FastAPI 后端。
 - `worker`：RQ 生成任务 worker。
 - `postgres` / `redis`：生产编排依赖。
+
+### 自动发布与容器镜像
+
+推送形如 `v1.130.0` 的标签后，GitHub Actions 会先重新执行安全扫描、测试和构建，再创建 GitHub Release：
+
+- Python wheel 与 sdist；
+- `pix-web-A.B.C.zip` 前端静态包；
+- `SHA256SUMS` 与 GitHub artifact provenance；
+- `ghcr.io/zhibeigg/pix-backend:A.B.C`；
+- `ghcr.io/zhibeigg/pix-web:A.B.C`。
+
+镜像同时提供 major/minor 与 `latest` 标签。可用 `sha256sum -c SHA256SUMS` 校验下载文件，用 `gh attestation verify` 验证 GitHub 制品或 GHCR 镜像来源。
+
+> PyPI 上的 `pix` 名称已被其他项目占用，因此本项目只通过 GitHub Release 分发 Python 安装包，不会自动发布 PyPI。
 
 ## 关键环境变量
 
@@ -514,14 +538,14 @@ JSON 示例：
 
 `sprite_sheet` 价格规则表示 mosaic「单帧组基础价」：总价 = `ceil(rows·cols / 9) × 基础价`（如 8×8 = 40 点，1×8 = 5 点）。`sprite.mode="video_bridge"` 改用所选 Seedance 2.0 视频模型与 4–15 秒完整时长价格表单任务价：Standard 47/57/66/75/84/94/103/112/121/131/140/149，Fast 40/48/55/62/70/77/85/92/100/107/114/122，Mini 29/34/38/43/47/52/57/61/66/70/75/80（公式 `ceil(视频价格 × 20 + 10)`），不再乘帧组数；`sprite.video_first_frame_only=true` 时仍按同一视频任务价计费，只改变关键帧生成方式。
 
-## 主页示例 icon 维护规则
+## 主页示例资产维护规则
 
-- `homepage示例物品icon清单.md` 必须保留，它是 76 个题材 × 8 个物品的维护清单。
-- 主页展示读取 `apps/web/public/homepage-examples/items/*.png` 中的最终 PNG。
-- 尺寸 tag 应来自最终 PNG 的真实宽高；不要把清单里的 `64x64` 当成最终固定尺寸。
-- 右键某个主页 icon 时，只复制主体 prompt 片段，例如“物品名 + 题材单个道具 + 可识别造型/材质特征”，不复制整组 prompt、尺寸或旧 64/32 说明。
+- 主页展示读取 `apps/web/public/homepage-examples/` 下的最终 PNG；对应元数据维护在 `apps/web/src/homepage*Examples.ts`。
+- 尺寸 tag 应来自最终 PNG 的真实宽高，不应假定所有素材都是固定 64×64 或 32×32。
+- 右键某个主页 icon 时，只复制主体 prompt 片段，例如“物品名 + 题材单个道具 + 可识别造型/材质特征”，不复制整组 prompt 或内部生成路径。
 - 新增或重生成主页素材时，必须走上方网站素材生成流水线；生成模型返回图进入本地处理后，第一步必须是 perfect pixel 预处理，然后再做 key 色抠图、裁剪、采样和调色板聚类。
 - 主页示例 icon 默认不做额外边缘处理：`edge_style=hard`、`bg_feather=0`，不要使用 `outline` 描边或 `feather` 羽化。
+- 资产来源、授权和第三方商标说明见 [ASSETS.md](ASSETS.md)。
 
 ## 前端 SEO
 
@@ -545,11 +569,11 @@ Pix 后端内置多层防护，部署时请配合下列配置项：
 - **生产启动校验**：设 `PIX_WEB_ENV=prod` 后，若 `PIX_WEB_JWT_SECRET` 仍为默认值或长度不足 32 字符，服务会拒绝启动；同时自动附加 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy` 与 HSTS 安全响应头。
 - **数据库密码**：`docker-compose.yml` 不再提供 PostgreSQL 默认密码兜底，必须通过 `POSTGRES_PASSWORD` 显式提供强随机密码，否则容器拒绝启动。
 
-相关环境变量见 `.env.example` 与 `.env.production.example`。
+相关环境变量见 `.env.example` 与 `.env.production.example`。漏洞请按 [SECURITY.md](SECURITY.md) 使用私密渠道报告，不要在公开 Issue 中粘贴 API Key、JWT Secret、数据库密码或利用细节。
 
 ## 版本与发布
 
-当前版本：`1.105.0`。
+当前版本：`1.130.0`。
 
 版本号格式为 `A.B.C`：
 
@@ -557,4 +581,4 @@ Pix 后端内置多层防护，部署时请配合下列配置项：
 - `B`：功能更新；
 - `C`：Bug 修复、兼容性修复。
 
-完整变更记录见 `CHANGELOG.md`。
+版本需同步更新 `pyproject.toml`、`src/pix/__init__.py`、前端 `package.json` / `package-lock.json` 与 `uv.lock`。完整变更记录见 [CHANGELOG.md](CHANGELOG.md)，发布和贡献流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。

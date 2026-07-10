@@ -8,13 +8,22 @@ from pix.asset import build_asset_prompt
 from pix.config import AppConfig
 from pix.contact_sheet import resolve_key_color
 from pix.prompt_style import compile_style_profile
-from pix.sprite_mosaic import SpriteMosaicInput, _ensure_row_prompts, _resolve_settings, build_mosaic_prompt
+from pix.sprite_mosaic import (
+    SpriteMosaicInput,
+    _ensure_row_prompts,
+    _resolve_settings,
+    build_mosaic_prompt,
+)
 from pix.sprite_video_bridge import (
     build_video_bridge_first_frame_prompt,
     build_video_bridge_keyframe_prompt,
     derive_video_bridge_duration_seconds,
 )
-from pix_web.pipeline_adapter import RAW_REFERENCE_IMAGE_ALIAS, _asset_reference_prompt_appendix, pixelize_params_from_json
+from pix_web.pipeline_adapter import (
+    RAW_REFERENCE_IMAGE_ALIAS,
+    _asset_reference_prompt_appendix,
+    pixelize_params_from_json,
+)
 from pix_web.schemas import JobCreateRequest, PromptPreviewResponse
 
 
@@ -119,7 +128,9 @@ def _sprite_prompt_preview(req: JobCreateRequest, cfg: AppConfig) -> PromptPrevi
         description = (req.prompt or "").strip()
         action_prompt = (req.sprite.video_action_prompt or "").strip()
         if not action_prompt:
-            action_prompt = next((item.strip() for item in req.sprite.row_prompts if item.strip()), description)
+            action_prompt = next(
+                (item.strip() for item in req.sprite.row_prompts if item.strip()), description
+            )
         inputs = SpriteMosaicInput(
             prompt=description,
             rows=req.sprite.rows,
@@ -129,7 +140,9 @@ def _sprite_prompt_preview(req: JobCreateRequest, cfg: AppConfig) -> PromptPrevi
             image_size=req.image_size,
             image_quality=req.image_quality,
             image_model=req.image_model,
-            pixelize_params=pixelize_params_from_json({"pixelize": req.pixelize.model_dump(mode="json")}),
+            pixelize_params=pixelize_params_from_json(
+                {"pixelize": req.pixelize.model_dump(mode="json")}
+            ),
             fps=req.sprite.fps,
             duration_ms=req.sprite.duration_ms,
             loop=req.sprite.loop,
@@ -181,7 +194,9 @@ def _sprite_prompt_preview(req: JobCreateRequest, cfg: AppConfig) -> PromptPrevi
                 f"并向上吸附到模型支持的时长档位后提交为 {derived_duration}s；抽帧仍按均匀采样取 {settings.frame_count} 帧，不影响最终播放节奏。",
             ]
             if req.sprite.video_return_to_first_frame:
-                warnings.append("已启用回到初始帧：视频 motion prompt 会要求先到尾帧，再平滑回到首帧以便循环。")
+                warnings.append(
+                    "已启用回到初始帧：视频 motion prompt 会要求先到尾帧，再平滑回到首帧以便循环。"
+                )
         return PromptPreviewResponse(
             mode="sprite_video_bridge",
             positive_prompt=prompt.strip(),
@@ -197,7 +212,9 @@ def _sprite_prompt_preview(req: JobCreateRequest, cfg: AppConfig) -> PromptPrevi
         image_size=req.image_size,
         image_quality=req.image_quality,
         image_model=req.image_model,
-        pixelize_params=pixelize_params_from_json({"pixelize": req.pixelize.model_dump(mode="json")}),
+        pixelize_params=pixelize_params_from_json(
+            {"pixelize": req.pixelize.model_dump(mode="json")}
+        ),
         fps=req.sprite.fps,
         duration_ms=req.sprite.duration_ms,
         loop=req.sprite.loop,
@@ -237,7 +254,7 @@ def build_prompt_preview(req: JobCreateRequest, cfg: AppConfig) -> PromptPreview
         return _sprite_prompt_preview(req, cfg)
     if req.job_type in {"local_pixelize", "local_bg_remove", "repixelize"}:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="当前模式不调用生图模型，没有可预览的 Prompt。",
         )
     if req.job_type in {"text_to_image", "image_to_image"}:
@@ -252,4 +269,6 @@ def build_prompt_preview(req: JobCreateRequest, cfg: AppConfig) -> PromptPreview
             applied_style_profile=compiled_style.applied_rules,
             warnings=["原生生图模式仅预览用户 Prompt 与风格档案，不包含素材后处理模板。"],
         )
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="不支持预览该任务类型。")
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="不支持预览该任务类型。"
+    )

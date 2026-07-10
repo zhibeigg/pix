@@ -9,7 +9,16 @@ from sqlalchemy import func, select
 
 from pix_web.config import WebSettings
 from pix_web.main import create_app
-from pix_web.models import CreditAccount, CreditTransaction, GenerationJob, GenerationOutput, SharedWork, SharedWorkLike, SystemSetting, User
+from pix_web.models import (
+    CreditAccount,
+    CreditTransaction,
+    GenerationJob,
+    GenerationOutput,
+    SharedWork,
+    SharedWorkLike,
+    SystemSetting,
+    User,
+)
 from pix_web.retention import prune_user_photos
 from pix_web.security import create_access_token, create_file_ticket
 
@@ -23,15 +32,33 @@ class SharedWorkTests(unittest.TestCase):
             storage_root=root / "outputs",
             queue_backend="database",
             auto_create_db=True,
-            jwt_secret="test-secret",
+            jwt_secret="test-secret-at-least-32-bytes-long",
         )
         self.settings.storage_root.mkdir(parents=True, exist_ok=True)
         self.app = create_app(self.settings)
         self.client = TestClient(self.app)
         self.db = self.app.state.SessionLocal()
-        self.user = User(email="share@example.com", password_hash="x", display_name="Share User", role="user", status="active")
-        self.other = User(email="other@example.com", password_hash="x", display_name="Other", role="user", status="active")
-        self.admin = User(email="admin@example.com", password_hash="x", display_name="Admin", role="admin", status="active")
+        self.user = User(
+            email="share@example.com",
+            password_hash="x",
+            display_name="Share User",
+            role="user",
+            status="active",
+        )
+        self.other = User(
+            email="other@example.com",
+            password_hash="x",
+            display_name="Other",
+            role="user",
+            status="active",
+        )
+        self.admin = User(
+            email="admin@example.com",
+            password_hash="x",
+            display_name="Admin",
+            role="admin",
+            status="active",
+        )
         self.db.add_all([self.user, self.other, self.admin])
         self.db.commit()
         self.db.refresh(self.user)
@@ -75,14 +102,26 @@ class SharedWorkTests(unittest.TestCase):
             status="succeeded",
             prompt=f"share prompt {index}",
             params_json={
-                "asset": {"name": f"分享飞剑 {index}", "asset_kind": asset_kind, "extra_prompt": "青玉质感"},
+                "asset": {
+                    "name": f"分享飞剑 {index}",
+                    "asset_kind": asset_kind,
+                    "extra_prompt": "青玉质感",
+                },
                 "pixelize": {"output_size": list(output_size), "colors": 16, "remove_bg": True},
                 "image_model": image_model,
             },
         )
         self.db.add(job)
         self.db.flush()
-        self.db.add(GenerationOutput(job_id=job.id, run_dir=str(run_dir), source_path=str(source), pixelized_path=str(pixel), meta_json_path=str(meta)))
+        self.db.add(
+            GenerationOutput(
+                job_id=job.id,
+                run_dir=str(run_dir),
+                source_path=str(source),
+                pixelized_path=str(pixel),
+                meta_json_path=str(meta),
+            )
+        )
         self.db.commit()
         self.db.refresh(job)
         return job
@@ -93,12 +132,18 @@ class SharedWorkTests(unittest.TestCase):
         return response.json()
 
     def _approve(self, share_id: int) -> dict:
-        response = self.client.post(f"/admin/shares/{share_id}/approve", headers=self._auth(self.admin_jwt))
+        response = self.client.post(
+            f"/admin/shares/{share_id}/approve", headers=self._auth(self.admin_jwt)
+        )
         self.assertEqual(response.status_code, 200, response.text)
         return response.json()
 
     def _reject(self, share_id: int, note: str = "画面含水印，请修改后重提") -> dict:
-        response = self.client.post(f"/admin/shares/{share_id}/reject", json={"note": note}, headers=self._auth(self.admin_jwt))
+        response = self.client.post(
+            f"/admin/shares/{share_id}/reject",
+            json={"note": note},
+            headers=self._auth(self.admin_jwt),
+        )
         self.assertEqual(response.status_code, 200, response.text)
         return response.json()
 
@@ -109,7 +154,14 @@ class SharedWorkTests(unittest.TestCase):
 
     def _share_reward_transactions(self, user_id: int) -> list[CreditTransaction]:
         with self.app.state.SessionLocal() as db:
-            return list(db.scalars(select(CreditTransaction).where(CreditTransaction.user_id == user_id, CreditTransaction.type == "share_reward")))
+            return list(
+                db.scalars(
+                    select(CreditTransaction).where(
+                        CreditTransaction.user_id == user_id,
+                        CreditTransaction.type == "share_reward",
+                    )
+                )
+            )
 
     def _share_row(self, share_id: int) -> dict[str, object]:
         with self.app.state.SessionLocal() as db:
@@ -132,7 +184,14 @@ class SharedWorkTests(unittest.TestCase):
 
     def _share_like_count(self, share_id: int) -> int:
         with self.app.state.SessionLocal() as db:
-            return int(db.scalar(select(func.count()).select_from(SharedWorkLike).where(SharedWorkLike.shared_work_id == share_id)) or 0)
+            return int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(SharedWorkLike)
+                    .where(SharedWorkLike.shared_work_id == share_id)
+                )
+                or 0
+            )
 
     def test_publish_enters_pending_and_public_listing_requires_login(self) -> None:
         job = self._successful_job(index=10)
@@ -155,9 +214,13 @@ class SharedWorkTests(unittest.TestCase):
         self.assertEqual(authed_list.json()["total"], 0)
 
         # 只有管理员审核列表能看到 pending。
-        user_admin_list = self.client.get("/admin/shares?status=pending", headers=self._auth(self.jwt))
+        user_admin_list = self.client.get(
+            "/admin/shares?status=pending", headers=self._auth(self.jwt)
+        )
         self.assertEqual(user_admin_list.status_code, 403, user_admin_list.text)
-        admin_list = self.client.get("/admin/shares?status=pending", headers=self._auth(self.admin_jwt))
+        admin_list = self.client.get(
+            "/admin/shares?status=pending", headers=self._auth(self.admin_jwt)
+        )
         self.assertEqual(admin_list.status_code, 200, admin_list.text)
         self.assertEqual(admin_list.json()["total"], 1)
         self.assertEqual(admin_list.json()["items"][0]["user_email"], self.user.email)
@@ -172,7 +235,9 @@ class SharedWorkTests(unittest.TestCase):
         self.assertEqual(duplicate["id"], first["id"])
         self.assertEqual(duplicate["status"], "pending")
 
-        withdrawn = self.client.post(f"/shares/{first['id']}/unpublish", headers=self._auth(self.jwt))
+        withdrawn = self.client.post(
+            f"/shares/{first['id']}/unpublish", headers=self._auth(self.jwt)
+        )
         self.assertEqual(withdrawn.status_code, 200, withdrawn.text)
         self.assertEqual(withdrawn.json()["status"], "hidden")
         resubmitted = self._publish(job)
@@ -216,7 +281,9 @@ class SharedWorkTests(unittest.TestCase):
 
         forbidden = self.client.post(f"/shares/{share_id}/unpublish", headers=self._auth(self.jwt))
         self.assertEqual(forbidden.status_code, 403, forbidden.text)
-        admin_hidden = self.client.post(f"/admin/shares/{share_id}/unpublish", headers=self._auth(self.admin_jwt))
+        admin_hidden = self.client.post(
+            f"/admin/shares/{share_id}/unpublish", headers=self._auth(self.admin_jwt)
+        )
         self.assertEqual(admin_hidden.status_code, 200, admin_hidden.text)
         self.assertEqual(admin_hidden.json()["status"], "hidden")
         after_hidden = self.client.get("/shares", headers=self._auth(self.jwt))
@@ -236,7 +303,9 @@ class SharedWorkTests(unittest.TestCase):
         self.assertEqual(liked.json()["like_count"], 1)
         self.assertEqual(self._share_like_count(share_id), 1)
 
-        deleted = self.client.delete(f"/admin/shares/{share_id}", headers=self._auth(self.admin_jwt))
+        deleted = self.client.delete(
+            f"/admin/shares/{share_id}", headers=self._auth(self.admin_jwt)
+        )
         self.assertEqual(deleted.status_code, 200, deleted.text)
         self.assertEqual(deleted.json(), {"deleted": True})
         row = self._share_row(share_id)
@@ -260,26 +329,56 @@ class SharedWorkTests(unittest.TestCase):
         self.assertIsNone(listed_job["share"])
         self.assertIsNotNone(self.db.get(GenerationJob, job.id))
 
-        admin_preview = self.client.get(f"/admin/shares/{share_id}/preview", headers=self._auth(self.admin_jwt))
+        admin_preview = self.client.get(
+            f"/admin/shares/{share_id}/preview", headers=self._auth(self.admin_jwt)
+        )
         self.assertEqual(admin_preview.status_code, 404, admin_preview.text)
-        like_deleted = self.client.post(f"/shares/{share_id}/like", headers=self._auth(self.other_jwt))
+        like_deleted = self.client.post(
+            f"/shares/{share_id}/like", headers=self._auth(self.other_jwt)
+        )
         self.assertEqual(like_deleted.status_code, 404, like_deleted.text)
 
     def test_public_listing_filters_by_asset_kind_size_and_image_model(self) -> None:
-        icon_32 = self._successful_job(index=21, asset_kind="item_icon", output_size=(32, 32), image_model="image2")
-        character_64 = self._successful_job(index=22, asset_kind="character", output_size=(64, 64), image_model="gemini-3.1-flash-image-preview")
-        icon_64 = self._successful_job(index=23, asset_kind="item_icon", output_size=(64, 64), image_model="gemini-3.1-flash-image-preview")
-        shares = [self._approve(self._publish(job)["id"]) for job in (icon_32, character_64, icon_64)]
+        icon_32 = self._successful_job(
+            index=21, asset_kind="item_icon", output_size=(32, 32), image_model="image2"
+        )
+        character_64 = self._successful_job(
+            index=22,
+            asset_kind="character",
+            output_size=(64, 64),
+            image_model="gemini-3.1-flash-image-preview",
+        )
+        icon_64 = self._successful_job(
+            index=23,
+            asset_kind="item_icon",
+            output_size=(64, 64),
+            image_model="gemini-3.1-flash-image-preview",
+        )
+        shares = [
+            self._approve(self._publish(job)["id"]) for job in (icon_32, character_64, icon_64)
+        ]
 
         all_list = self.client.get("/shares?limit=120", headers=self._auth(self.jwt))
         self.assertEqual(all_list.status_code, 200, all_list.text)
         self.assertEqual(all_list.json()["total"], 3)
         filters = all_list.json()["filters"]
-        self.assertEqual({item["value"]: item["count"] for item in filters["asset_kinds"]}, {"character": 1, "item_icon": 2})
-        self.assertEqual({item["value"]: item["count"] for item in filters["output_sizes"]}, {"32x32": 1, "64x64": 2})
-        self.assertEqual({item["value"]: item["count"] for item in filters["image_models"]}, {"gemini-3.1-flash-image-preview": 2, "image2": 1})
         self.assertEqual(
-            {item["parameter_snapshot"]["generation"]["model"] for item in all_list.json()["items"]},
+            {item["value"]: item["count"] for item in filters["asset_kinds"]},
+            {"character": 1, "item_icon": 2},
+        )
+        self.assertEqual(
+            {item["value"]: item["count"] for item in filters["output_sizes"]},
+            {"32x32": 1, "64x64": 2},
+        )
+        self.assertEqual(
+            {item["value"]: item["count"] for item in filters["image_models"]},
+            {"gemini-3.1-flash-image-preview": 2, "image2": 1},
+        )
+        self.assertEqual(
+            {
+                item["parameter_snapshot"]["generation"]["model"]
+                for item in all_list.json()["items"]
+            },
             {"gemini-3.1-flash-image-preview", "image2"},
         )
 
@@ -288,10 +387,14 @@ class SharedWorkTests(unittest.TestCase):
         self.assertEqual(size_list.json()["total"], 1)
         self.assertEqual(size_list.json()["items"][0]["id"], shares[0]["id"])
 
-        model_list = self.client.get("/shares?image_model=gemini-3.1-flash-image-preview", headers=self._auth(self.jwt))
+        model_list = self.client.get(
+            "/shares?image_model=gemini-3.1-flash-image-preview", headers=self._auth(self.jwt)
+        )
         self.assertEqual(model_list.status_code, 200, model_list.text)
         self.assertEqual(model_list.json()["total"], 2)
-        self.assertEqual({item["id"] for item in model_list.json()["items"]}, {shares[1]["id"], shares[2]["id"]})
+        self.assertEqual(
+            {item["id"] for item in model_list.json()["items"]}, {shares[1]["id"], shares[2]["id"]}
+        )
 
         kind_list = self.client.get("/shares?asset_kind=character", headers=self._auth(self.jwt))
         self.assertEqual(kind_list.status_code, 200, kind_list.text)
@@ -307,8 +410,12 @@ class SharedWorkTests(unittest.TestCase):
         self.assertEqual(combo_list.json()["items"][0]["id"], shares[2]["id"])
 
     def test_approval_rewards_respect_author_daily_limit(self) -> None:
-        reward_credits = self.db.scalar(select(SystemSetting).where(SystemSetting.key == "share.reward_credits"))
-        daily_limit = self.db.scalar(select(SystemSetting).where(SystemSetting.key == "share.daily_reward_limit"))
+        reward_credits = self.db.scalar(
+            select(SystemSetting).where(SystemSetting.key == "share.reward_credits")
+        )
+        daily_limit = self.db.scalar(
+            select(SystemSetting).where(SystemSetting.key == "share.daily_reward_limit")
+        )
         self.assertIsNotNone(reward_credits)
         self.assertIsNotNone(daily_limit)
         assert reward_credits is not None and daily_limit is not None
@@ -357,19 +464,25 @@ class SharedWorkTests(unittest.TestCase):
     def test_active_and_pending_source_jobs_are_locked_but_rejected_hidden_can_delete(self) -> None:
         pending_job = self._successful_job(index=50)
         self._publish(pending_job)
-        pending_delete = self.client.post("/jobs/bulk-delete", json={"job_ids": [pending_job.id]}, headers=self._auth(self.jwt))
+        pending_delete = self.client.post(
+            "/jobs/bulk-delete", json={"job_ids": [pending_job.id]}, headers=self._auth(self.jwt)
+        )
         self.assertEqual(pending_delete.status_code, 409, pending_delete.text)
 
         active_job = self._successful_job(index=51)
         active_share = self._publish(active_job)
         self._approve(active_share["id"])
-        active_delete = self.client.post("/jobs/bulk-delete", json={"job_ids": [active_job.id]}, headers=self._auth(self.jwt))
+        active_delete = self.client.post(
+            "/jobs/bulk-delete", json={"job_ids": [active_job.id]}, headers=self._auth(self.jwt)
+        )
         self.assertEqual(active_delete.status_code, 409, active_delete.text)
 
         rejected_job = self._successful_job(index=52)
         rejected_share = self._publish(rejected_job)
         self._reject(rejected_share["id"])
-        rejected_delete = self.client.post("/jobs/bulk-delete", json={"job_ids": [rejected_job.id]}, headers=self._auth(self.jwt))
+        rejected_delete = self.client.post(
+            "/jobs/bulk-delete", json={"job_ids": [rejected_job.id]}, headers=self._auth(self.jwt)
+        )
         self.assertEqual(rejected_delete.status_code, 200, rejected_delete.text)
         rejected_row = self._share_row(rejected_share["id"])
         self.assertEqual(rejected_row["status"], "deleted")
@@ -378,21 +491,29 @@ class SharedWorkTests(unittest.TestCase):
 
         hidden_job = self._successful_job(index=53)
         hidden_share = self._publish(hidden_job)
-        hidden = self.client.post(f"/shares/{hidden_share['id']}/unpublish", headers=self._auth(self.jwt))
+        hidden = self.client.post(
+            f"/shares/{hidden_share['id']}/unpublish", headers=self._auth(self.jwt)
+        )
         self.assertEqual(hidden.status_code, 200, hidden.text)
-        hidden_delete = self.client.post("/jobs/bulk-delete", json={"job_ids": [hidden_job.id]}, headers=self._auth(self.jwt))
+        hidden_delete = self.client.post(
+            "/jobs/bulk-delete", json={"job_ids": [hidden_job.id]}, headers=self._auth(self.jwt)
+        )
         self.assertEqual(hidden_delete.status_code, 200, hidden_delete.text)
         hidden_row = self._share_row(hidden_share["id"])
         self.assertEqual(hidden_row["status"], "deleted")
         self.assertIsNone(hidden_row["job_id"])
 
-    def test_preview_and_download_require_ticket_or_bearer_and_admin_preview_checks_admin(self) -> None:
+    def test_preview_and_download_require_ticket_or_bearer_and_admin_preview_checks_admin(
+        self,
+    ) -> None:
         pending_job = self._successful_job(index=60)
         pending_share = self._publish(pending_job)
         admin_preview_url = f"/admin/shares/{pending_share['id']}/preview"
 
         admin_preview_without_auth = self.client.get(admin_preview_url)
-        self.assertEqual(admin_preview_without_auth.status_code, 401, admin_preview_without_auth.text)
+        self.assertEqual(
+            admin_preview_without_auth.status_code, 401, admin_preview_without_auth.text
+        )
         user_ticket = create_file_ticket(self.user, self.settings)
         admin_preview_as_user = self.client.get(f"{admin_preview_url}?token={user_ticket}")
         self.assertEqual(admin_preview_as_user.status_code, 403, admin_preview_as_user.text)
@@ -402,7 +523,9 @@ class SharedWorkTests(unittest.TestCase):
         self.assertEqual(admin_preview.content, b"pixel")
 
         # 公开预览/下载即使是登录票据，也只允许 active 分享。
-        pending_public_preview = self.client.get(f"/shares/{pending_share['id']}/preview?token={user_ticket}")
+        pending_public_preview = self.client.get(
+            f"/shares/{pending_share['id']}/preview?token={user_ticket}"
+        )
         self.assertEqual(pending_public_preview.status_code, 404, pending_public_preview.text)
 
         active = self._approve(pending_share["id"])
@@ -418,7 +541,9 @@ class SharedWorkTests(unittest.TestCase):
         download_url = pending_share["download_options"][0]["url"]
         download_without_ticket = self.client.get(download_url)
         self.assertEqual(download_without_ticket.status_code, 401, download_without_ticket.text)
-        missing_kind = self.client.get(f"/shares/{active['id']}/download/not_allowed?token={user_ticket}")
+        missing_kind = self.client.get(
+            f"/shares/{active['id']}/download/not_allowed?token={user_ticket}"
+        )
         self.assertEqual(missing_kind.status_code, 404, missing_kind.text)
         download_with_ticket = self.client.get(f"{download_url}?token={user_ticket}")
         self.assertEqual(download_with_ticket.status_code, 200, download_with_ticket.text)
@@ -426,13 +551,22 @@ class SharedWorkTests(unittest.TestCase):
 
     def test_publish_rejects_non_owner_and_unfinished_work(self) -> None:
         job = self._successful_job(index=70)
-        forbidden = self.client.post(f"/shares/jobs/{job.id}/publish", headers=self._auth(self.other_jwt))
+        forbidden = self.client.post(
+            f"/shares/jobs/{job.id}/publish", headers=self._auth(self.other_jwt)
+        )
         self.assertEqual(forbidden.status_code, 404, forbidden.text)
 
-        pending = GenerationJob(user_id=self.user.id, client_request_id="pending-share", job_type="asset", status="pending")
+        pending = GenerationJob(
+            user_id=self.user.id,
+            client_request_id="pending-share",
+            job_type="asset",
+            status="pending",
+        )
         self.db.add(pending)
         self.db.commit()
-        blocked = self.client.post(f"/shares/jobs/{pending.id}/publish", headers=self._auth(self.jwt))
+        blocked = self.client.post(
+            f"/shares/jobs/{pending.id}/publish", headers=self._auth(self.jwt)
+        )
         self.assertEqual(blocked.status_code, 409, blocked.text)
 
     def test_prune_keeps_active_and_pending_shared_work_sources(self) -> None:
