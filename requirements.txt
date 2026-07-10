@@ -1,6 +1,6 @@
 httpx>=0.28.1
 pydantic>=2.13.4
-Pillow>=12.2.0
+Pillow>=12.3.0
 numpy>=2.2.6
 scipy>=1.15.3
 scikit-learn>=1.7.2
