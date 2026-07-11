@@ -897,7 +897,7 @@ wheels = [
 
 [[package]]
 name = "pix"
-version = "1.130.1"
+version = "1.130.2"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -934,6 +934,7 @@ dependencies = [
 dev = [
     { name = "pytest" },
     { name = "ruff" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
 
 [package.metadata]
@@ -964,6 +965,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "starlette", specifier = ">=1.3.1" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.4.1" },
+    { name = "tomli", marker = "python_full_version < '3.11' and extra == 'dev'", specifier = ">=2.0.1" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]
 provides-extras = ["dev"]

@@ -8,14 +8,17 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from pix.net_guard import UnsafeDownloadURLError, assert_safe_download_url
 from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits
 from pix_web.file_ownership import resolve_owned_input_path, user_owns_file
+from pix_web.jobs import create_jobs_batch, retry_failed_job, validate_job_request
 from pix_web.main import create_app
-from pix_web.models import CharacterLibraryItem, User
+from pix_web.models import CharacterLibraryItem, GenerationJob, User
+from pix_web.schemas import JobCreateRequest
 from pix_web.security import create_access_token, create_file_ticket, decode_file_ticket
 
 
@@ -96,6 +99,13 @@ class FileOwnershipTests(unittest.TestCase):
         # 完整登录 token 不是 file ticket
         self.assertIsNone(decode_file_ticket(jwt_token, self.settings))
 
+    def test_file_ticket_cannot_be_promoted_to_full_bearer_session(self) -> None:
+        ticket = create_file_ticket(self.user, self.settings)
+        headers = {"Authorization": f"Bearer {ticket}"}
+
+        self.assertEqual(self.client.get("/auth/me", headers=headers).status_code, 401)
+        self.assertEqual(self.client.post("/files/ticket", headers=headers).status_code, 401)
+
     def test_local_bg_remove_with_foreign_path_is_rejected(self) -> None:
         jwt_token = create_access_token(self.user, self.settings)
         resp = self.client.post(
@@ -108,6 +118,120 @@ class FileOwnershipTests(unittest.TestCase):
             },
         )
         self.assertEqual(resp.status_code, 422)
+
+    def test_validate_job_request_does_not_probe_raw_user_path(self) -> None:
+        req = JobCreateRequest(
+            job_type="local_bg_remove",
+            input_image_path=str(self.own_file),
+            pixelize={"remove_bg": True},
+        )
+        with patch.object(Path, "exists", side_effect=AssertionError("raw path probed")):
+            validate_job_request(req)
+
+    def test_owned_missing_input_is_checked_after_ownership(self) -> None:
+        jwt_token = create_access_token(self.user, self.settings)
+        missing = self.own_file.parent / "missing.png"
+        resp = self.client.post(
+            "/jobs",
+            headers={"Authorization": f"Bearer {jwt_token}"},
+            json={
+                "job_type": "local_bg_remove",
+                "input_image_path": str(missing),
+                "pixelize": {"remove_bg": True},
+            },
+        )
+        self.assertEqual(resp.status_code, 422)
+        self.assertEqual(resp.json()["detail"], "输入图片不存在")
+
+    def test_job_stores_resolved_path_and_idempotent_hit_skips_new_payload_probe(self) -> None:
+        jwt_token = create_access_token(self.user, self.settings)
+        request_id = "path-idempotency"
+        non_normalized = self.own_file.parent / "nested" / ".." / self.own_file.name
+        payload = {
+            "job_type": "local_bg_remove",
+            "input_image_path": str(non_normalized),
+            "client_request_id": request_id,
+            "pixelize": {"remove_bg": True},
+        }
+        first = self.client.post(
+            "/jobs",
+            headers={"Authorization": f"Bearer {jwt_token}"},
+            json=payload,
+        )
+        self.assertEqual(first.status_code, 200, first.text)
+
+        self.db.expire_all()
+        stored = self.db.get(GenerationJob, first.json()["id"])
+        self.assertIsNotNone(stored)
+        assert stored is not None
+        self.assertEqual(stored.input_image_path, str(self.own_file.resolve()))
+
+        payload["input_image_path"] = str(self.other_file)
+        with patch(
+            "pix_web.jobs.resolve_owned_input_path",
+            side_effect=AssertionError("idempotent payload path probed"),
+        ):
+            second = self.client.post(
+                "/jobs",
+                headers={"Authorization": f"Bearer {jwt_token}"},
+                json=payload,
+            )
+        self.assertEqual(second.status_code, 200, second.text)
+        self.assertEqual(second.json()["id"], first.json()["id"])
+
+    def test_batch_idempotent_hit_skips_new_payload_probe(self) -> None:
+        existing = GenerationJob(
+            user_id=self.user.id,
+            client_request_id="batch-path-idempotency",
+            job_type="local_bg_remove",
+            status="pending",
+            input_image_path=str(self.own_file.resolve()),
+            params_json={"pixelize": {"remove_bg": True}},
+            price_credits=0,
+        )
+        self.db.add(existing)
+        self.db.commit()
+        self.db.refresh(existing)
+        req = JobCreateRequest(
+            job_type="local_bg_remove",
+            input_image_path=str(self.other_file),
+            client_request_id=existing.client_request_id,
+            pixelize={"remove_bg": True},
+        )
+
+        with patch(
+            "pix_web.jobs.resolve_owned_input_path",
+            side_effect=AssertionError("batch idempotent payload path probed"),
+        ):
+            jobs, total_price, batch = create_jobs_batch(
+                self.db,
+                self.user,
+                [req],
+                settings=self.settings,
+            )
+
+        self.assertEqual([job.id for job in jobs], [existing.id])
+        self.assertEqual(total_price, 0)
+        self.assertIsNone(batch)
+
+    def test_failed_retry_rechecks_input_path_ownership(self) -> None:
+        job = GenerationJob(
+            user_id=self.user.id,
+            client_request_id="failed-foreign-path",
+            job_type="local_bg_remove",
+            status="failed",
+            input_image_path=str(self.other_file),
+            params_json={"pixelize": {"remove_bg": True}},
+            price_credits=0,
+        )
+        self.db.add(job)
+        self.db.commit()
+        self.db.refresh(job)
+
+        with self.assertRaises(HTTPException) as exc_info:
+            retry_failed_job(self.db, self.user, job.id, self.settings)
+        self.assertEqual(exc_info.exception.status_code, 422)
+        self.assertEqual(exc_info.exception.detail, "输入图片路径不合法")
 
     def test_character_library_file_is_owned_and_usable_as_sprite_reference(self) -> None:
         character_dir = self.storage_root / "characters" / str(self.user.id)

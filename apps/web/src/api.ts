@@ -29,7 +29,6 @@ import type {
   JobBatchCreateResponse,
   JobBulkDeleteResponse,
   JobCreateRequest,
-  BootstrapAdminResponse,
   EmailTestResponse,
   PaymentCheckout,
   PaymentOrder,
@@ -52,7 +51,6 @@ import type {
   SetupStatus,
   SharedWork,
   SharedWorkListResponse,
-  TokenResponse,
   UploadResponse,
   User,
   EmailCodeResponse,
@@ -74,7 +72,7 @@ function normalizeLocalApiBase(base: string) {
 }
 
 export const API_BASE = normalizeLocalApiBase((configuredApiBase || '/api').replace(/\/+$/, ''))
-export const TOKEN_KEY = 'pix_web_token'
+export const SESSION_AUTH_MARKER = 'cookie-session'
 
 export class ApiError extends Error {
   status: number
@@ -138,7 +136,7 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   if (!(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
-  if (token) {
+  if (token && token !== SESSION_AUTH_MARKER) {
     headers.set('Authorization', `Bearer ${token}`)
   }
 
@@ -146,7 +144,12 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   const timeoutId = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS)
   let response: Response
   try {
-    response = await fetch(apiUrl(path), { ...options, headers, signal: options.signal ?? controller.signal })
+    response = await fetch(apiUrl(path), {
+      ...options,
+      credentials: options.credentials ?? 'include',
+      headers,
+      signal: options.signal ?? controller.signal,
+    })
   } catch (error) {
     throw networkApiError(error)
   } finally {
@@ -164,9 +167,13 @@ async function downloadBlob(path: string, token: string, options: RequestInit = 
   let response: Response
   try {
     const headers = new Headers(options.headers)
-    headers.set('Authorization', `Bearer ${token}`)
+    if (token && token !== SESSION_AUTH_MARKER) headers.set('Authorization', `Bearer ${token}`)
     if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
-    response = await fetch(apiUrl(path), { ...options, headers })
+    response = await fetch(apiUrl(path), {
+      ...options,
+      credentials: options.credentials ?? 'include',
+      headers,
+    })
   } catch (error) {
     throw networkApiError(error)
   }
@@ -183,7 +190,7 @@ export const api = {
     return request<SetupStatus>('/auth/setup-status')
   },
   bootstrapAdmin(email: string, password: string, displayName: string) {
-    return request<BootstrapAdminResponse>('/auth/bootstrap-admin', {
+    return request<User>('/auth/session/bootstrap-admin', {
       method: 'POST',
       body: JSON.stringify({ email, password, display_name: displayName }),
     })
@@ -204,7 +211,7 @@ export const api = {
     return request<PromoLinkInfo>(`/pricing/promo/${encodeURIComponent(code)}`)
   },
   login(email: string, password: string) {
-    return request<TokenResponse>('/auth/login', {
+    return request<User>('/auth/session/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     })
@@ -216,13 +223,16 @@ export const api = {
     })
   },
   resetPassword(email: string, newPassword: string, verificationCode: string) {
-    return request<TokenResponse>('/auth/reset-password', {
+    return request<User>('/auth/session/reset-password', {
       method: 'POST',
       body: JSON.stringify({ email, new_password: newPassword, verification_code: verificationCode }),
     })
   },
   localTestLogin() {
-    return request<TokenResponse>('/auth/local-test-login', { method: 'POST' })
+    return request<User>('/auth/session/local-test-login', { method: 'POST' })
+  },
+  logout() {
+    return request<void>('/auth/session/logout', { method: 'POST' })
   },
   me(token: string) {
     return request<User>('/auth/me', {}, token)

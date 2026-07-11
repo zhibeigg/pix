@@ -25,6 +25,8 @@ class WebSettings:
     jwt_secret: str = "pix-web-dev-secret-change-me"
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 60 * 24 * 7
+    session_cookie_secure: bool | None = None
+    session_cookie_samesite: str = "lax"
     storage_root: Path = Path("web_outputs")
     max_upload_bytes: int = 10 * 1024 * 1024
     auto_create_db: bool = True
@@ -76,6 +78,12 @@ class WebSettings:
     turnstile_ip_window_seconds: int = 3600
     turnstile_ip_max_without_challenge: int = 5
 
+    def session_cookie_secure_enabled(self) -> bool:
+        """生产环境默认启用 Secure；开发环境可通过环境变量显式覆盖。"""
+        if self.session_cookie_secure is None:
+            return self.env == "prod"
+        return self.session_cookie_secure
+
     def engine_pool_kwargs(self) -> dict[str, Any]:
         """SQLAlchemy 连接池参数（SQLite 会在 make_engine 内忽略）。"""
         return {
@@ -93,6 +101,8 @@ _DEFAULTS = {
     "PIX_WEB_DB_POOL_TIMEOUT": str(WebSettings.db_pool_timeout),
     "PIX_WEB_DB_POOL_RECYCLE": str(WebSettings.db_pool_recycle),
     "PIX_WEB_JWT_SECRET": WebSettings.jwt_secret,
+    "PIX_WEB_SESSION_COOKIE_SECURE": "",
+    "PIX_WEB_SESSION_COOKIE_SAMESITE": WebSettings.session_cookie_samesite,
     "PIX_WEB_STORAGE_ROOT": str(WebSettings.storage_root),
     "PIX_WEB_MAX_UPLOAD_BYTES": str(WebSettings.max_upload_bytes),
     "PIX_WEB_AUTO_CREATE_DB": "true",
@@ -133,6 +143,13 @@ def _env_flag(name: str, default: bool) -> bool:
     return raw.lower() not in {"0", "false", "no", "off"}
 
 
+def _env_optional_flag(name: str) -> bool | None:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return None
+    return raw.strip().lower() not in {"0", "false", "no", "off"}
+
+
 def _env_int(name: str, default: int, minimum: int) -> int:
     raw = os.getenv(name, str(default))
     try:
@@ -166,6 +183,12 @@ def load_web_settings() -> WebSettings:
     except ValueError:
         db_pool_timeout = WebSettings.db_pool_timeout
     jwt_secret = os.getenv("PIX_WEB_JWT_SECRET", _DEFAULTS["PIX_WEB_JWT_SECRET"])
+    session_cookie_secure = _env_optional_flag("PIX_WEB_SESSION_COOKIE_SECURE")
+    session_cookie_samesite = os.getenv(
+        "PIX_WEB_SESSION_COOKIE_SAMESITE", _DEFAULTS["PIX_WEB_SESSION_COOKIE_SAMESITE"]
+    ).strip().lower()
+    if session_cookie_samesite not in {"lax", "strict", "none"}:
+        session_cookie_samesite = WebSettings.session_cookie_samesite
     storage_root = Path(os.getenv("PIX_WEB_STORAGE_ROOT", _DEFAULTS["PIX_WEB_STORAGE_ROOT"]))
     pix_config_raw = os.getenv("PIX_WEB_PIX_CONFIG")
     upload_raw = os.getenv("PIX_WEB_MAX_UPLOAD_BYTES", _DEFAULTS["PIX_WEB_MAX_UPLOAD_BYTES"])
@@ -214,6 +237,8 @@ def load_web_settings() -> WebSettings:
         db_pool_timeout=db_pool_timeout,
         db_pool_recycle=db_pool_recycle,
         jwt_secret=jwt_secret,
+        session_cookie_secure=session_cookie_secure,
+        session_cookie_samesite=session_cookie_samesite,
         storage_root=storage_root,
         max_upload_bytes=max_upload_bytes,
         auto_create_db=auto_create_raw.lower() not in {"0", "false", "no", "off"},
