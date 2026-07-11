@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
 
@@ -227,10 +226,6 @@ def validate_job_request(req: JobCreateRequest, cfg: AppConfig | None = None) ->
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="素材直出任务需要主体内容"
         )
-    if req.job_type == "asset" and req.input_image_path and not Path(req.input_image_path).exists():
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="参考图不存在"
-        )
     if req.job_type == "text_to_image" and not prompt:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="文生图任务需要 prompt"
@@ -284,18 +279,10 @@ def validate_job_request(req: JobCreateRequest, cfg: AppConfig | None = None) ->
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="多行序列帧需要为每一行填写动作描述",
             )
-        if sprite.reference_image_path and not Path(sprite.reference_image_path).exists():
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="参考图不存在"
-            )
     if req.job_type in IMAGE_JOB_TYPES:
         if not req.input_image_path:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="该任务需要输入图片"
-            )
-        if not Path(req.input_image_path).exists():
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="输入图片不存在"
             )
 
 
@@ -596,25 +583,48 @@ def _billing_snapshot_for_request(
     return snapshot
 
 
-def _enforce_input_path_ownership(
+def _prepare_owned_input_paths(
     db: Session, user: User, req: JobCreateRequest, settings: WebSettings | None
-) -> None:
-    """校验用户提交的输入图/参考图路径必须归属自己，防止任意文件读取（LFI）。
-
-    合法来源：用户自己的上传目录，或用户自己任务的 run 目录（本地像素化 / 重新像素化 /
-    复用源图等链路会把这些产物路径回填到 input_image_path）。指向他人文件或系统任意路径时拒绝。
-    """
+) -> JobCreateRequest:
+    """先校验路径归属，再检查解析后的目标是文件，并返回规范化请求。"""
     effective_settings = settings if settings is not None else load_web_settings()
-    for raw_path in (req.input_image_path, req.sprite.reference_image_path):
+    input_image_path = req.input_image_path
+    reference_image_path = req.sprite.reference_image_path
+
+    for field_name, raw_path in (
+        ("input_image_path", input_image_path),
+        ("reference_image_path", reference_image_path),
+    ):
         if not raw_path:
             continue
         try:
-            resolve_owned_input_path(raw_path, user, db, effective_settings)
+            resolved = resolve_owned_input_path(raw_path, user, db, effective_settings)
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="输入图片路径不合法",
             ) from exc
+        if not resolved.is_file():
+            detail = (
+                "参考图不存在"
+                if field_name == "reference_image_path" or req.job_type == "asset"
+                else "输入图片不存在"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=detail,
+            )
+        if field_name == "input_image_path":
+            input_image_path = str(resolved)
+        else:
+            reference_image_path = str(resolved)
+
+    sprite = req.sprite
+    if reference_image_path != sprite.reference_image_path:
+        sprite = sprite.model_copy(update={"reference_image_path": reference_image_path})
+    if input_image_path == req.input_image_path and sprite is req.sprite:
+        return req
+    return req.model_copy(update={"input_image_path": input_image_path, "sprite": sprite})
 
 
 def create_job_in_transaction(
@@ -627,13 +637,13 @@ def create_job_in_transaction(
     cfg: AppConfig | None = None,
     settings: WebSettings | None = None,
 ) -> GenerationJob:
-    validate_job_request(req, cfg)
-    _enforce_input_path_ownership(db, user, req, settings)
     client_request_id = req.client_request_id.strip()
     existing = _existing_job(db, user, client_request_id)
     if existing is not None:
         return existing
 
+    validate_job_request(req, cfg)
+    req = _prepare_owned_input_paths(db, user, req, settings)
     original_price = _original_price_for_request(db, req)
     discount = load_pricing_discount(db)
     price = apply_discount(original_price, discount.rate)
@@ -721,8 +731,8 @@ def create_jobs_batch(
     prices: list[int] = []
     seen_request_ids: set[str] = set()
     existing_by_index: dict[int, GenerationJob] = {}
+    prepared_reqs = list(reqs)
     for index, req in enumerate(reqs):
-        validate_job_request(req, cfg)
         request_id = req.client_request_id.strip()
         if request_id:
             if request_id in seen_request_ids:
@@ -736,6 +746,9 @@ def create_jobs_batch(
             existing_by_index[index] = existing
             prices.append(0)
             continue
+        validate_job_request(req, cfg)
+        req = _prepare_owned_input_paths(db, user, req, settings)
+        prepared_reqs[index] = req
         _enforce_request_prompt_policy(db, user, req, cfg)
         price = _price_for_request(db, req, cfg)
         prices.append(price)
@@ -763,7 +776,7 @@ def create_jobs_batch(
 
     jobs: list[GenerationJob] = []
     try:
-        for index, (req, price) in enumerate(zip(reqs, prices, strict=True)):
+        for index, (req, price) in enumerate(zip(prepared_reqs, prices, strict=True)):
             existing = existing_by_index.get(index)
             if existing is not None:
                 jobs.append(existing)
@@ -867,6 +880,7 @@ def _rerun_failed_job_in_place(
 ) -> GenerationJob:
     """校验并把失败任务原地重置为待处理，重新按当前价格冻结点数。"""
     validate_job_request(req, cfg)
+    req = _prepare_owned_input_paths(db, user, req, settings)
     _enforce_request_prompt_policy(db, user, req, cfg)
     # 复用原卡片重跑，不新增作品数量，故 new_jobs=0：仅校验生成服务是否暂停。
     enforce_generation_limits(db, user, new_jobs=0)
@@ -901,6 +915,7 @@ def _rerun_failed_job_in_place(
     # 重置任务为待处理状态，清空上一次的失败诊断信息。
     job.params_json = params_json_from_request(req, billing=billing, size_retry=size_retry)
     job.prompt = _job_prompt_for_record(req)
+    job.input_image_path = req.input_image_path
     job.price_credits = price
     job.status = "pending"
     job.error_message = ""
@@ -981,6 +996,7 @@ def _submit_reused_request(
 ) -> GenerationJob:
     """校验、限额、冻结点数并提交一个由已有任务复原出来的请求。"""
     validate_job_request(req, cfg)
+    req = _prepare_owned_input_paths(db, user, req, settings)
     _enforce_request_prompt_policy(db, user, req, cfg)
     enforce_generation_limits(db, user, new_jobs=1)
     price = _price_for_request(db, req, cfg)
@@ -1034,8 +1050,11 @@ def retry_failed_jobs_in_batch(
     reqs = [_request_from_failed_job(job) for job in failed_jobs]
     total_price = 0
     prices: list[int] = []
+    prepared_reqs: list[JobCreateRequest] = []
     for req in reqs:
         validate_job_request(req, cfg)
+        req = _prepare_owned_input_paths(db, user, req, settings)
+        prepared_reqs.append(req)
         _enforce_request_prompt_policy(db, user, req, cfg)
         price = _price_for_request(db, req, cfg)
         prices.append(price)
@@ -1052,7 +1071,7 @@ def retry_failed_jobs_in_batch(
 
     jobs: list[GenerationJob] = []
     try:
-        for req, price in zip(reqs, prices, strict=True):
+        for req, price in zip(prepared_reqs, prices, strict=True):
             job = create_job_in_transaction(
                 db, user, req, reserve=False, batch=batch, cfg=cfg, settings=settings
             )

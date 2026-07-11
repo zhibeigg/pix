@@ -27,6 +27,10 @@ def _validate_production_settings(settings: WebSettings) -> None:
         problems.append("PIX_WEB_JWT_SECRET 仍为默认值")
     elif len(settings.jwt_secret) < 32:
         problems.append("PIX_WEB_JWT_SECRET 长度不足 32 字符")
+    if settings.env == "prod" and not settings.session_cookie_secure_enabled():
+        problems.append("浏览器会话 Cookie 未启用 Secure")
+    if settings.session_cookie_samesite == "none" and not settings.session_cookie_secure_enabled():
+        problems.append("SameSite=None 必须同时启用 Secure")
     if not problems:
         return
     detail = "；".join(problems)

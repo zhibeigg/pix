@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -47,6 +47,7 @@ from pix_web.schemas import (
 )
 from pix_web.system_settings import load_effective_web_settings, load_operational_settings, load_referral_settings
 from pix_web.security import (
+    clear_session_cookie,
     create_access_token,
     find_user_by_email,
     get_current_user,
@@ -54,6 +55,8 @@ from pix_web.security import (
     get_settings,
     hash_password,
     is_local_request,
+    require_browser_origin,
+    set_session_cookie,
     verify_password,
 )
 
@@ -197,12 +200,7 @@ def setup_status(
     )
 
 
-@router.post("/bootstrap-admin", response_model=BootstrapAdminResponse)
-def bootstrap_admin(
-    req: BootstrapAdminRequest,
-    db: Session = Depends(get_db),
-    settings: WebSettings = Depends(get_settings),
-) -> BootstrapAdminResponse:
+def _create_bootstrap_admin(req: BootstrapAdminRequest, db: Session) -> User:
     if _admin_count(db) != 0:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="站点已完成初始化")
     email = normalize_email(str(req.email))
@@ -220,11 +218,36 @@ def bootstrap_admin(
         recharge_credits(db, user, ops.registration_bonus_credits, note="注册赠送")
     db.commit()
     db.refresh(user)
+    return user
+
+
+@router.post("/bootstrap-admin", response_model=BootstrapAdminResponse)
+def bootstrap_admin(
+    req: BootstrapAdminRequest,
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> BootstrapAdminResponse:
+    user = _create_bootstrap_admin(req, db)
     effective = load_effective_web_settings(db, settings)
     return BootstrapAdminResponse(
         access_token=create_access_token(user, effective),
         user=UserResponse.model_validate(user),
     )
+
+
+@router.post("/session/bootstrap-admin", response_model=UserResponse)
+def session_bootstrap_admin(
+    req: BootstrapAdminRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> User:
+    require_browser_origin(request, settings)
+    user = _create_bootstrap_admin(req, db)
+    effective = load_effective_web_settings(db, settings)
+    set_session_cookie(response, create_access_token(user, effective), effective)
+    return user
 
 
 @router.post("/local-test-login", response_model=TokenResponse)
@@ -240,6 +263,24 @@ def local_test_login(
     db.commit()
     db.refresh(user)
     return TokenResponse(access_token=create_access_token(user, effective, local_only=True))
+
+
+@router.post("/session/local-test-login", response_model=UserResponse)
+def session_local_test_login(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> User:
+    require_browser_origin(request, settings)
+    if not is_local_request(request):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    effective = load_effective_web_settings(db, settings)
+    user = _ensure_local_test_user(db)
+    db.commit()
+    db.refresh(user)
+    set_session_cookie(response, create_access_token(user, effective, local_only=True), effective)
+    return user
 
 
 @router.post("/register-code", response_model=EmailCodeResponse)
@@ -319,21 +360,42 @@ def register(
     return user
 
 
+def _authenticate_user(req: LoginRequest, db: Session) -> User:
+    user = find_user_by_email(db, req.email.lower())
+    if user is None or not verify_password(req.password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="邮箱或密码错误")
+    if user.status != "active":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账号不可用")
+    return user
+
+
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit(LOGIN_RATE_LIMIT)
 def login(
     req: LoginRequest,
     request: Request,
     db: Session = Depends(get_db),
-    settings=Depends(get_settings),
+    settings: WebSettings = Depends(get_settings),
 ) -> TokenResponse:
     effective = load_effective_web_settings(db, settings)
-    user = find_user_by_email(db, req.email.lower())
-    if user is None or not verify_password(req.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="邮箱或密码错误")
-    if user.status != "active":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账号不可用")
+    user = _authenticate_user(req, db)
     return TokenResponse(access_token=create_access_token(user, effective))
+
+
+@router.post("/session/login", response_model=UserResponse)
+@limiter.limit(LOGIN_RATE_LIMIT)
+def session_login(
+    req: LoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> User:
+    require_browser_origin(request, settings)
+    effective = load_effective_web_settings(db, settings)
+    user = _authenticate_user(req, db)
+    set_session_cookie(response, create_access_token(user, effective), effective)
+    return user
 
 
 @router.post("/reset-code", response_model=EmailCodeResponse)
@@ -381,6 +443,26 @@ def request_reset_code(
     )
 
 
+def _reset_password_user(
+    req: ResetPasswordRequest,
+    db: Session,
+    settings: WebSettings,
+) -> User:
+    email = normalize_email(str(req.email))
+    user = find_user_by_email(db, email)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="验证码错误或已过期")
+    try:
+        consume_email_code(db, settings, email, req.verification_code, purpose=PASSWORD_RESET_PURPOSE)
+    except EmailCodeError as exc:
+        db.commit()
+        _raise_email_code_error(exc)
+    user.password_hash = hash_password(req.new_password)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @router.post("/reset-password", response_model=TokenResponse)
 @limiter.limit(PASSWORD_RESET_RATE_LIMIT)
 def reset_password(
@@ -391,19 +473,36 @@ def reset_password(
 ) -> TokenResponse:
     """验证邮箱验证码后重置密码，成功后返回新 token 自动登录。"""
     effective = load_effective_web_settings(db, settings)
-    email = normalize_email(str(req.email))
-    user = find_user_by_email(db, email)
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="验证码错误或已过期")
-    try:
-        consume_email_code(db, effective, email, req.verification_code, purpose=PASSWORD_RESET_PURPOSE)
-    except EmailCodeError as exc:
-        db.commit()
-        _raise_email_code_error(exc)
-    user.password_hash = hash_password(req.new_password)
-    db.commit()
-    db.refresh(user)
+    user = _reset_password_user(req, db, effective)
     return TokenResponse(access_token=create_access_token(user, effective))
+
+
+@router.post("/session/reset-password", response_model=UserResponse)
+@limiter.limit(PASSWORD_RESET_RATE_LIMIT)
+def session_reset_password(
+    req: ResetPasswordRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> User:
+    require_browser_origin(request, settings)
+    effective = load_effective_web_settings(db, settings)
+    user = _reset_password_user(req, db, effective)
+    set_session_cookie(response, create_access_token(user, effective), effective)
+    return user
+
+
+@router.post("/session/logout", status_code=status.HTTP_204_NO_CONTENT)
+def session_logout(
+    request: Request,
+    response: Response,
+    settings: WebSettings = Depends(get_settings),
+) -> Response:
+    require_browser_origin(request, settings)
+    clear_session_cookie(response, settings)
+    response.status_code = status.HTTP_204_NO_CONTENT
+    return response
 
 
 @router.get("/me", response_model=UserResponse)

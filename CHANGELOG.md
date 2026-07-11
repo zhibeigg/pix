@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.130.2] - 2026-07-11
+
+### Security
+
+- 浏览器登录迁移到 `HttpOnly` 会话 Cookie，移除前端 `localStorage` 长期 JWT；Cookie 认证的写请求新增精确 Origin 校验，短时文件票据禁止提升为完整会话，同时保留现有 Bearer JWT 与 `pix_live_` 外部 API Key 兼容。
+- 任务创建不再在用户归属校验前探测原始路径；输入图和参考图统一先解析、校验归属，再确认普通文件并以规范化绝对路径落库，覆盖批量、重试和重新生成流程。
+- 重写直接复刻提示词的英文正则，消除多项式回溯导致的 ReDoS 风险，并补充长空白边界测试。
+
+### Fixed
+
+- 修复幂等任务重放仍可能验证新 payload 路径、失败任务重试遗漏输入路径归属复查的问题。
+
+## [1.130.1] - 2026-07-10
+
+### Fixed
+
+- 修复分支 push 的 CI 将 `GITHUB_REF_NAME=master` 误判为发布标签的问题；版本校验现在只在 `GITHUB_REF_TYPE=tag` 时自动读取标签，补充 Python 3.10 的 `tomli` 兼容层，并新增分支/标签环境回归测试。
+- 修复前端 Dockerfile 复制不存在的 `tsconfig.app.json` / `tsconfig.node.json`，恢复 Linux BuildKit 镜像构建。
+- 修复旧迁移中的 PostgreSQL 非法 `BOOLEAN DEFAULT 1/0`、Alembic revision 表长度不足及共享设置条件插入参数类型冲突；Compose 冒烟失败时现在会输出完整启动诊断。
+
 ## [1.130.0] - 2026-07-10
 
 ### Added

@@ -6,7 +6,11 @@ import os
 from pathlib import Path
 import re
 import sys
-import tomllib
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10 compatibility
+    import tomli as tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION_RE = re.compile(r'^__version__\s*=\s*["\']([^"\']+)["\']\s*$', re.MULTILINE)
@@ -51,12 +55,18 @@ def collect_versions() -> dict[str, str]:
     }
 
 
+def _default_github_tag() -> str:
+    if os.environ.get("GITHUB_REF_TYPE") != "tag":
+        return ""
+    return os.environ.get("GITHUB_REF_NAME", "")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="校验 Pix 发布版本在所有清单中保持一致。")
     parser.add_argument(
         "--tag",
-        default=os.environ.get("GITHUB_REF_NAME", ""),
-        help="可选的发布标签（格式 vA.B.C）；默认读取 GITHUB_REF_NAME。",
+        default=_default_github_tag(),
+        help="可选的发布标签（格式 vA.B.C）；标签工作流默认读取 GITHUB_REF_NAME。",
     )
     args = parser.parse_args()
 

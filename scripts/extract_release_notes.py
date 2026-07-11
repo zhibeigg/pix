@@ -29,7 +29,7 @@ def main() -> int:
         "version",
         nargs="?",
         default=os.environ.get("GITHUB_REF_NAME", ""),
-        help="版本或标签，例如 1.130.0 / v1.130.0；默认读取 GITHUB_REF_NAME。",
+        help="版本或标签，例如 1.2.3 / v1.2.3；默认读取 GITHUB_REF_NAME。",
     )
     parser.add_argument("--changelog", type=Path, default=DEFAULT_CHANGELOG)
     parser.add_argument("--output", type=Path)
