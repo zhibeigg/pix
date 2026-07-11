@@ -8,7 +8,7 @@ ENV VITE_PIX_API_BASE=${VITE_PIX_API_BASE}
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
-COPY index.html tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.ts ./
+COPY index.html tsconfig.json vite.config.ts ./
 COPY public ./public
 COPY src ./src
 RUN npm run build

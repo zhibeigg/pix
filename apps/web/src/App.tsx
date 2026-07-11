@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PixLanguage, PixThemeMode, PixThemePreference } from './theme'
-import { api, ApiError, TOKEN_KEY } from './api'
+import { api, ApiError, SESSION_AUTH_MARKER } from './api'
 import { prefetchFileTicket, clearFileTicket } from './fileUrls'
 import { AppTabs, type AppPage } from './components/AppTabs'
 import { AccountMenu } from './components/AccountMenu'
@@ -45,6 +45,7 @@ type AppProps = {
 }
 
 const DEFAULT_PHOTO_RETENTION_LIMIT = 10
+const LEGACY_TOKEN_KEY = 'pix_web_token'
 
 type PaymentReturnInfo = { provider: string; status: string; orderId: string }
 
@@ -74,7 +75,8 @@ function shareSourceLocked(job: GenerationJob) {
 export function App({ themeMode, themePreference, systemThemeMode, language, onThemePreferenceChange, onLanguageChange }: AppProps) {
   const { text, t } = useI18n()
   const confirm = useConfirm()
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? '')
+  // 仅作为前端“已启用 Cookie 会话”的非敏感状态标记；长期 JWT 只存在 HttpOnly Cookie 中。
+  const [token, setToken] = useState(SESSION_AUTH_MARKER)
   const [user, setUser] = useState<User | null>(null)
   const [balance, setBalance] = useState<CreditBalance | null>(null)
   const [transactions, setTransactions] = useState<CreditTransaction[]>([])
@@ -178,10 +180,11 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
 
   const refreshCore = useCallback(async (activeToken = token) => {
     if (!activeToken) return
+    // 先单独探测 Cookie 会话，避免匿名首屏并发触发全部受保护接口。
+    const me = await api.me(activeToken)
     // 与核心数据一起预取文件票据，确保作品/图片渲染时票据已就绪（避免 <img> 首帧无票据 401）。
     void prefetchFileTicket(activeToken)
-    const [me, nextBalance, nextTransactions, nextPackages, nextMembershipPlans, nextCustomRechargeOptions, nextOrders, nextJobs, nextGalleryQuota, nextSharedWorks, nextCharacters, nextPacks, nextPackQuota, nextPricing, nextImageModels, nextDiscount] = await Promise.all([
-      api.me(activeToken),
+    const [nextBalance, nextTransactions, nextPackages, nextMembershipPlans, nextCustomRechargeOptions, nextOrders, nextJobs, nextGalleryQuota, nextSharedWorks, nextCharacters, nextPacks, nextPackQuota, nextPricing, nextImageModels, nextDiscount] = await Promise.all([
       api.balance(activeToken),
       api.transactions(activeToken),
       api.packages(),
@@ -275,6 +278,10 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   const { adjustCredits, adjustCreditsBatch, updatePricing, updateSetting, testEmailSetting, adminRetryJob, adminCancelJob, adminFailRefundJob, publishAnnouncement, adminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, testAnnouncementEmail, listProviders, listProviderPresets, createProvider, updateProvider, deleteProvider, listPromoLinks, createPromoLink, updatePromoLink, deletePromoLink } = useAdminActions({ token, refreshCore, setMessage, text })
 
   useEffect(() => {
+    localStorage.removeItem(LEGACY_TOKEN_KEY)
+  }, [])
+
+  useEffect(() => {
     refreshSetupStatus().catch(showError)
   }, [refreshSetupStatus, showError])
 
@@ -287,10 +294,9 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
   useEffect(() => {
     if (!token) return
     refreshCore(token).catch((error) => {
-      localStorage.removeItem(TOKEN_KEY)
       setToken('')
       setUser(null)
-      showError(error)
+      if (!(error instanceof ApiError && error.status === 401)) showError(error)
     })
   }, [refreshCore, showError, token])
 
@@ -361,7 +367,14 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
           setBalance(nextBalance)
         }
         pollFailuresRef.current = 0
-      } catch {
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          cancelled = true
+          clearFileTicket()
+          setToken('')
+          setUser(null)
+          return
+        }
         pollFailuresRef.current += 1
       }
     }
@@ -377,10 +390,9 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setBusy(true)
     setMessage('')
     try {
-      const result = await api.login(email, password)
-      localStorage.setItem(TOKEN_KEY, result.access_token)
-      setToken(result.access_token)
-      await refreshCore(result.access_token)
+      await api.login(email, password)
+      setToken(SESSION_AUTH_MARKER)
+      await refreshCore(SESSION_AUTH_MARKER)
       await refreshSetupStatus()
       setMessage(text('登录成功', 'Signed in'))
     } catch (error) {
@@ -398,10 +410,9 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setBusy(true)
     setMessage('')
     try {
-      const result = await api.resetPassword(email, newPassword, verificationCode)
-      localStorage.setItem(TOKEN_KEY, result.access_token)
-      setToken(result.access_token)
-      await refreshCore(result.access_token)
+      await api.resetPassword(email, newPassword, verificationCode)
+      setToken(SESSION_AUTH_MARKER)
+      await refreshCore(SESSION_AUTH_MARKER)
       await refreshSetupStatus()
       setMessage(text('密码重置成功，已自动登录', 'Password reset successfully. Logged in automatically.'))
     } catch (error) {
@@ -416,10 +427,9 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setBusy(true)
     setMessage('')
     try {
-      const result = await api.localTestLogin()
-      localStorage.setItem(TOKEN_KEY, result.access_token)
-      setToken(result.access_token)
-      await refreshCore(result.access_token)
+      await api.localTestLogin()
+      setToken(SESSION_AUTH_MARKER)
+      await refreshCore(SESSION_AUTH_MARKER)
       await refreshSetupStatus()
       setMessage(text('已进入本地测试账号', 'Entered local test account'))
     } catch (error) {
@@ -452,13 +462,12 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     setMessage('')
     try {
       const result = await api.bootstrapAdmin(email, password, displayName)
-      localStorage.setItem(TOKEN_KEY, result.access_token)
-      setToken(result.access_token)
-      setUser(result.user)
+      setToken(SESSION_AUTH_MARKER)
+      setUser(result)
       window.location.hash = '/admin'
       setPage('admin')
       await refreshSetupStatus()
-      await refreshCore(result.access_token)
+      await refreshCore(SESSION_AUTH_MARKER)
       setMessage(text('管理员账户已创建', 'Admin account created'))
     } catch (error) {
       showError(error)
@@ -471,8 +480,16 @@ export function App({ themeMode, themePreference, systemThemeMode, language, onT
     return api.requestRegisterCode(email, turnstileToken)
   }
 
-  function logout() {
-    localStorage.removeItem(TOKEN_KEY)
+  async function logout() {
+    setBusy(true)
+    try {
+      await api.logout()
+    } catch (error) {
+      showError(error)
+      return
+    } finally {
+      setBusy(false)
+    }
     setToken('')
     setUser(null)
     setBalance(null)
