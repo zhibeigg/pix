@@ -1,38 +1,133 @@
-# Pix Web
+<div align="center">
+  <img src="apps/web/public/pix-logo-64.png" width="80" alt="Pix Forge Logo">
+  <h1>Pix Forge</h1>
+  <p><strong>把 AI 生图锻造成可直接进入游戏工程的像素资产。</strong></p>
+  <p>物品图标 · UI 组件 · 游戏 Logo · 平铺纹理 · Dual Grid · 角色设定 · Sprite Sheet</p>
 
-[![CI](https://github.com/zhibeigg/pix/actions/workflows/ci.yml/badge.svg)](https://github.com/zhibeigg/pix/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/zhibeigg/pix)](https://github.com/zhibeigg/pix/releases)
-[![License](https://img.shields.io/github/license/zhibeigg/pix)](LICENSE)
+  <p>
+    <a href="https://github.com/zhibeigg/pix/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/zhibeigg/pix/ci.yml?branch=master&style=flat-square&label=CI"></a>
+    <a href="https://github.com/zhibeigg/pix/releases"><img alt="Release" src="https://img.shields.io/github/v/release/zhibeigg/pix?style=flat-square"></a>
+    <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/zhibeigg/pix?style=flat-square"></a>
+    <img alt="Python 3.10-3.12" src="https://img.shields.io/badge/Python-3.10--3.12-3776AB?style=flat-square&logo=python&logoColor=white">
+    <img alt="Node.js 22+" src="https://img.shields.io/badge/Node.js-22%2B-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white">
+  </p>
 
-Pix 是一个面向网站的像素素材生成服务：React/Vite 前端 + FastAPI 后端 + `src/pix` 素材生成核心。当前仓库只保留网站运行所需内容；历史 CLI、桌面 GUI、旧素材、手工测试产物与临时输出已移除。
+  <p>
+    <strong><a href="https://www.mcwar.cn/">在线体验</a></strong>
+    · <a href="#快速开始">快速开始</a>
+    · <a href="#docker-部署">Docker 部署</a>
+    · <a href="#对外-api">外部 API</a>
+    · <a href="https://github.com/zhibeigg/pix/releases">下载发行版</a>
+  </p>
+</div>
 
-- 生产站点：<https://www.mcwar.cn/>
-- 安全报告：[SECURITY.md](SECURITY.md)
-- 参与贡献：[CONTRIBUTING.md](CONTRIBUTING.md)
-- 示例资产：[ASSETS.md](ASSETS.md)
+<p align="center">
+  <a href="https://www.mcwar.cn/"><img src="apps/web/public/og-image.png" width="100%" alt="Pix Forge — AI 像素素材生成器"></a>
+</p>
+
+Pix 是一套面向**游戏开发者、独立工作室与像素美术生产流程**的 Web 像素资产平台。它不是简单的图片缩放器，而是把多家 AI 生图 Provider、像素网格检测、去背景、限色、尺寸规范化、序列帧处理、资产管理和生产运营整合成一条可部署的完整流水线。
+
+仓库采用 React/Vite 前端、FastAPI 后端与 `src/pix` 图像处理核心，只保留网站生产运行所需代码；历史 CLI、桌面 GUI、旧素材与临时产物均已清理。
+
+## 快速导航
+
+| 目标 | 入口 |
+|---|---|
+| 直接体验产品 | [www.mcwar.cn](https://www.mcwar.cn/) |
+| 本地启动前后端 | [快速开始](#快速开始) |
+| 部署完整生产栈 | [Docker 部署](#docker-部署) |
+| 接入自动化工作流 | [对外 API](#对外-api) |
+| 理解素材处理逻辑 | [网站素材生成流水线](#网站素材生成流水线) |
+| 查看安全边界 | [安全与防护](#安全与防护) · [SECURITY.md](SECURITY.md) |
+| 参与开发 | [CONTRIBUTING.md](CONTRIBUTING.md) · [CHANGELOG.md](CHANGELOG.md) |
+| 查看示例资产授权 | [ASSETS.md](ASSETS.md) |
+
+## 核心能力
+
+| 能力 | 说明 |
+|---|---|
+| **游戏素材直出** | 生成物品图标、UI 组件、游戏 Logo、角色三视图、平铺纹理与 Dual Grid 过渡瓦片。 |
+| **像素级后处理** | 自动检测真实像素网格，执行 perfect pixel、纯色抠图、透明裁切、限色、描边与 2 的幂画布填充。 |
+| **序列帧动画** | 支持 mosaic Sprite Sheet、首尾帧视频补间、逐帧对齐编辑、GIF 与多动作 ZIP 导出。 |
+| **多 Provider 编排** | 将 logical model 映射到多家上游，按优先级自动切换，并记录脱敏诊断与供应商成功率。 |
+| **完整 Web 产品** | 内置账号、点数、月卡、支付、作品库、角色库、公开分享、内容审核与运营后台。 |
+| **开放 API** | 提供长期 API Key、细粒度 scope、幂等任务创建、批量生成、上传、轮询与安全下载。 |
+| **可验证发布** | GitHub Actions 自动测试、构建 Release 与 GHCR 镜像，并生成 SHA-256 和 SLSA provenance。 |
+
+## 生成效果
+
+<table>
+  <tr>
+    <td align="center" width="25%">
+      <img src="apps/web/public/homepage-examples/items/11_swordsorcery_item_01.png" width="96" alt="像素物品图标"><br>
+      <strong>物品图标</strong><br><sub>透明 PNG · 小尺寸高识别度</sub>
+    </td>
+    <td align="center" width="25%">
+      <img src="apps/web/public/homepage-examples/textures/01_cobblestone_moss.png" width="96" alt="像素平铺纹理"><br>
+      <strong>平铺纹理</strong><br><sub>四边无缝 · 可重复铺设</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="apps/web/public/homepage-examples/showcase/logo_zhuxian_image2_job19_pixelized.png" width="220" alt="像素游戏 Logo"><br>
+      <strong>游戏 Logo</strong><br><sub>宽幅画布 · 透明背景</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center">
+      <img src="apps/web/public/homepage-examples/sprites/04_knight_1x9.png" width="720" alt="骑士序列帧动画"><br>
+      <strong>Sprite Sheet</strong> · 连贯动作帧、共享角色设计与可直接导出的动画序列
+    </td>
+  </tr>
+</table>
+
+## 技术架构
+
+```mermaid
+flowchart LR
+    Browser[浏览器 / API 客户端] --> Web[React + Vite]
+    Browser --> API[FastAPI]
+    Web --> API
+    API --> DB[(PostgreSQL / SQLite)]
+    API --> Queue[(Redis / Database Queue)]
+    Queue --> Worker[异步 Worker]
+    Worker --> Core[src/pix 生成与像素化核心]
+    Core --> Providers[AI Image Providers]
+    Core --> Storage[(上传与生成产物)]
+```
+
+生成任务通过数据库队列或 Redis/RQ 异步执行；API 主进程负责认证、计费、任务编排和文件权限，Worker 调用 `src/pix` 完成生图、像素化与产物落盘。
 
 ## 仓库结构
 
 ```text
-apps/web/                         # React/Vite 前端
-apps/web/public/homepage-examples/ # 主页示例物品 icon 静态资源
-migrations/                       # Alembic 数据库迁移
-src/pix/                          # 网站后端依赖的素材生成核心
-src/pix_web/                      # FastAPI API、worker、账号/计费/任务系统
-src/pix/pixelize/presets/         # 随 Python 包分发的像素化预设
-config.example.toml               # Pix 核心可选配置示例
-.env.example                      # 本地后端环境变量示例
-.env.production.example           # Docker/生产环境变量示例
-Dockerfile / docker-compose.yml    # 后端镜像与整站编排
+apps/web/                           # React/Vite 前端
+apps/web/public/homepage-examples/  # 主页示例与 README 展示资产
+migrations/                         # Alembic 数据库迁移
+src/pix/                            # 素材生成、像素化与序列帧核心
+src/pix_web/                        # FastAPI、worker、账号、计费与任务系统
+src/pix/pixelize/presets/           # 随 Python 包分发的像素化预设
+config.example.toml                 # Pix 核心可选配置示例
+.env.example                        # 本地开发环境变量示例
+.env.production.example             # Docker / 生产环境变量示例
+Dockerfile / docker-compose.yml      # 后端镜像与整站编排
 ```
 
-> 注意：Web 后端不仅依赖 `src/pix_web`，还依赖 `src/pix` 中的 `asset.py`、`pipeline.py`、`pixelize/*`、`grid/*`、`api/*`、`sprite_mosaic.py`（mosaic 序列帧 pipeline）、`sprite_video_bridge.py`（首尾帧视频补间 pipeline）、`sprite.py`（序列帧通用工具与数据类）等核心代码。
+> [!NOTE]
+> Web 后端同时依赖 `src/pix_web` 与 `src/pix`。其中 `pipeline.py`、`pixelize/*`、`grid/*`、`sprite_mosaic.py` 和 `sprite_video_bridge.py` 等模块共同组成实际生产流水线。
 
-## 本地开发
+## 快速开始
 
-### 后端
+### 环境要求
 
-推荐使用 [uv](https://docs.astral.sh/uv/) 和锁文件安装：
+| 依赖 | 版本 / 用途 |
+|---|---|
+| Python | 3.10、3.11 或 3.12 |
+| [uv](https://docs.astral.sh/uv/) | Python 依赖与虚拟环境管理 |
+| Node.js | 22.12 或更高版本 |
+| PostgreSQL / Redis | 本地可选，生产环境推荐 |
+
+### 启动后端
+
+使用 `uv.lock` 安装可复现的开发环境：
 
 ```bash
 uv sync --frozen --extra dev
@@ -51,7 +146,7 @@ pix-web-rq-worker     # Redis/RQ worker
 pix-web-check         # 后端配置/环境检查
 ```
 
-### 前端
+### 启动前端
 
 ```bash
 cd apps/web
@@ -59,13 +154,20 @@ npm ci
 npm run dev
 ```
 
+开发环境默认由 Vite 提供前端热更新，FastAPI 提供后端接口；跨源访问时请同步配置 `PIX_WEB_CORS_ORIGINS`。
+
+<details>
+<summary><strong>前端交互与批量生产说明</strong></summary>
+
 全站图片预览（作品库、生产工作台、角色库、微调工位、批量生成、原始生图页、落地页示例等）都支持「放大查看」：鼠标悬停预览区（触摸设备常显）时右上角出现放大按钮，点击进入全屏 Lightbox，可滚轮缩放、拖拽平移、双击缩放、双指捏合缩放、ESC 关闭。像素成品用锐利渲染（`pixelated`），原始 AI 生图用平滑渲染（`auto`）。放大按钮会阻止事件冒泡，不影响画廊卡片选择等交互。
 
 主页「范例图鉴」包含物品图标、真实上游实测样例、平铺纹理和序列帧；登录后还会出现「用户分享」tab，仅展示管理员审核通过的用户作品，并可按实际输出尺寸、生图模型和直出类型快速筛选。序列帧分享会在卡片中按帧播放，并在用户分享筛选上以「序列帧」分类展示；参数按钮使用与作品库一致的分组弹窗展示公开快照。主体类素材的尺寸重试支持前端全部默认像素尺寸档位（16/24/32/48/64/96/128/256），按透明成品尺寸匹配 `pixelize.output_size`。用户在作品库点击「提交审核」后，作品先进入待审核队列，管理员通过后才会展示在首页、允许其他登录用户点赞/下载，并在通过时发放分享奖励。实测样例会展示本地真实流程生成的 Logo / 技能书结果，并在卡片和筛选器中标注使用的生成模型（如 `image2`、`gemini-3.1-flash-image-preview`），静态图片位于 `apps/web/public/homepage-examples/showcase/`。
 
 生产工作台「游戏素材直出」支持一次提交 1～8 张同参数素材（物品图标、UI 组件、平铺纹理、Logo、双瓦片、角色和参考图重绘）。普通素材 / UI / Logo / 角色的参考图上传支持多选：一次上传几张参考图就生成几张同参数图生图任务，每张任务使用对应参考图并独立排队、冻结点数、进入作品库；无参考图时仍可用「生成数量」手动抽多张。前端会显示总价；提交时复用 `/jobs/batch` 创建多个独立 `asset` 任务，因此每张作品独立排队、冻结点数、进入作品库、下载、分享、保存角色或重试。
 
-前端构建：
+</details>
+
+### 构建前端
 
 ```bash
 cd apps/web
