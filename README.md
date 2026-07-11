@@ -37,7 +37,7 @@ Pix 是一套面向**游戏开发者、独立工作室与像素美术生产流�
 | 本地启动前后端 | [快速开始](#快速开始) |
 | 部署完整生产栈 | [Docker 部署](#docker-部署) |
 | 接入自动化工作流 | [对外 API](#对外-api) |
-| 理解素材处理逻辑 | [网站素材生成流水线](#网站素材生成流水线) |
+| 理解不同生成算法 | [生成技术路径](#生成技术路径) · [核心算法解析](#核心算法解析) |
 | 查看安全边界 | [安全与防护](#安全与防护) · [SECURITY.md](SECURITY.md) |
 | 参与开发 | [CONTRIBUTING.md](CONTRIBUTING.md) · [CHANGELOG.md](CHANGELOG.md) |
 | 查看示例资产授权 | [ASSETS.md](ASSETS.md) |
@@ -320,28 +320,441 @@ npm run build
 
 公告邮件复用注册验证码的邮件配置：开发环境 `PIX_WEB_EMAIL_PROVIDER=console` 时只写入日志；生产环境请配置 `smtp`、`PIX_WEB_SMTP_HOST`、`PIX_WEB_SMTP_FROM`、TLS/SSL 和认证信息。
 
-## 网站素材生成流水线
+## 生成技术路径
 
-当前 `job_type = asset` 的网站直出流程是单图素材流水线，不再使用旧的“逐图补 64×64 / 32×32 outline”静态流程。
+Pix 不把所有任务塞进同一条“生图后缩小”流水线。原始大图、游戏素材、地图纹理、Dual Grid、本地处理和两种序列帧使用不同的算法与交付契约；选择正确路径，通常比单纯更换模型更重要。
 
-实际步骤：
+<div align="center">
+  <strong>先选择生产目标，再选择模型和参数</strong><br>
+  <sub>下表中的“AI”表示是否会请求图像或视频生成 Provider；本地算法不会产生新的上游生图调用。</sub>
+</div>
 
-1. `build_asset_prompt` 根据用户主体、素材类型、尺寸、颜色数和抠色容差构建 prompt。
-2. 本地 prompt guard 只审核用户原始输入，不把服务端模板暴露给审核模型；“直接复刻/抄袭参考图”类请求会在创建任务前拒绝，不入队、不冻结点数，并写入策略审计事件供后台统计。
-3. 使用当前配置的 logical 生图模型生成单张源图；同一模型可由 Crazyrouter、Packy 等多个 Provider 承载并自动失败切换。普通素材上传参考图时仍走 `job_type=asset` 的素材直出链路（按图生图价格计费）：后端先要求模型把参考图理解 / 转译为 TRUE pixel-art，再套用素材模板中的尺寸、颜色数、纯色背景、禁文字等约束重绘，避免退化成简单处理上传图。`asset_kind=character` 会按单个完整角色参考图约束生成，任务成功后自动保存到角色库。
-4. 默认 `skip_vl = true`，不走普通 VL 分析。
-5. Pixel Grid extract：
-   - `perfect_pixel` 网格对齐，并保存 `02_perfect_pixel_preprocess.png`；
-   - `remove_background` 去背景；默认使用参考项目 `pixel_bg` 方法：边框中位数探测 key 色，按 `t_core/t_grow` 双阈值连通域生长生成背景 mask，去 key 色溢色并输出硬边二值 alpha；也可选择 `color_to_alpha`，按背景 key 色距离生成软 alpha，适合高清原图保留抗锯齿边；
-   - 序列帧任务（mosaic 单图模式）：1 次 API 调用直接产出 rows×cols 网格 sprite sheet（rows/cols 各最大 8）。后端会先按 rows×cols 与目标帧尺寸自动计算适合的 API 渲染分辨率（不再继承通用 `image_gen.size=1024x1024`；例如 4×8、64×64 会渲染到 3072×1536，4×8、48×64 会渲染到 3072×2048，满足最大边 ≤3840、16 倍数、长短边比 ≤3:1、总像素 ≤8.3M 等约束），让每个像素艺术像素至少占 8×8 / 6×6 渲染像素。生成后按格切图（整轴逐像素扫掠找真实 gutter：先跳过同色背景，经过主体杂色段后，在下一段同色空隙与再下一段杂色之间取中线，避免主体溢出、拖尾粒子或近似背景色特效被切断）+ 复用 `perfectPixel` + 显式 key 色的 pixel_bg 双阈值 alpha + 共享调色板等成熟后处理流程，最终输出横向 `sprite_sheet.png`（兼容预览）+ 原版 `sprite_mosaic.png`（保留 rows×cols 排版可下载）+ `sequence.json`。多行 mosaic（rows>1）会先按上下动作组切行，再在每行动作图内独立横向切帧，并额外输出 `sprite_sheet_grid.png`（rows×cols 二维网格预览）以及 `row_sheets/row_NN.png` + `previews/row_NN.gif`（每行一张横向 sheet + 一个独立动画 GIF），让 4×8 行走表这种「每行一个动作」的素材直接拿到 4 个独立动画。提供「角色参考图」时切换到 `edit_image`，让每个 cell 复用同一角色设计。作品库可打开「调整」编辑器：逐帧拖动主体、滚轮缩放、查看上一帧半透明影子并实时预览，保存时仅本地重合成（含 fps 与每帧 offset/scale），不重新生图也不额外扣点；
-   - `auto_crop` / tight bbox 贴主体裁剪；
-   - `transparent_canvas_pad` 补到预设尺寸档；
-   - sample cells / cluster palette；
-   - 渲染最终 PNG 与 `.grid.json`。
+| 目标 | 推荐路径 | AI | 主要输出 | 核心技术 |
+|---|---|:---:|---|---|
+| 保留模型原始分辨率和画面风格 | [原始文生图 / 原始图生图](#1-原始文生图--原始图生图) | 是 | 原始大图 | Provider generation/edit、`source_only` 直通 |
+| 生成可直接进入游戏的透明图标、UI、Logo、角色 | [游戏素材直出](#2-游戏素材直出) | 是 | 透明 PNG、预览、Grid JSON | 受控 Prompt、Perfect Pixel、抠图、Cell 采样、限色 |
+| 基于现有作品或参考图重新设计像素素材 | [参考图重绘 / AI 微调](#3-参考图重绘--ai-微调) | 是 | 新像素素材 | Image Edit、素材类型约束、完整像素后处理 |
+| 生成可四边重复铺设的地图材质 | [平铺纹理](#4-平铺纹理) | 是 | 无缝纹理 PNG | 纹理类型 Prompt、Perfect Pixel、最近邻兜底 |
+| 生成两种地形的自动过渡瓦片 | [Dual Grid 双瓦片](#5-dual-grid-双瓦片) | 部分 | 4×4 Atlas、应用预览 | 两张 AI 材质、16 个角掩码、确定性合成 |
+| 把上传图或历史候选转成像素素材 | [本地像素化](#6-本地像素化--重新像素化) | 否 | 像素 PNG、可选 Grid JSON | Perfect Pixel、Smart Resample、K-means / Ramp |
+| 只去背景，不改变原图内容与分辨率 | [本地去背景](#7-本地去背景) | 否 | 原尺寸透明 PNG | `pixel_bg` 双阈值连通域或 Color-to-Alpha |
+| 低成本快速生成整张动作表 | [Mosaic 序列帧](#8-mosaic-快速序列帧) | 是 | 帧、Sheet、GIF、JSON | 单次整表生图、投影切格、共享调色板 |
+| 生成更连贯的行走、攻击、施法动画 | [Video Bridge 序列帧](#9-video-bridge-连贯动作序列帧) | 是 | 视频抽帧、Sheet、GIF、JSON | 关键帧、Seedance 视频、统一网格、Despill |
+| 修正已有序列帧的抖动、位置和缩放 | [序列帧对齐编辑](#10-序列帧对齐编辑) | 否 | Alignment 版 Sheet / GIF / JSON | 最近邻缩放、逐帧位移、本地重合成 |
 
-> 参考图微调（`job_type=image_to_image` 且会进入像素化的任务，如作品库「AI 微调」）现在与素材直出共用同一套像素风 prompt：复用 `build_asset_prompt` + 参考图 appendix，把上传图当参考图、按 TRUE pixel-art 重绘（不再把用户原文直接发给模型），并声明上传图即「图1」，用户可在提示词用「图1」指代参考图（如「把图1重绘成像素风戏台」）。作品库「AI 微调」会沿用原作品的素材类型（物品图标 / UI 组件 / Logo / 平铺纹理 / 角色）重绘，外部 API 也可在 `asset.asset_kind` 指定，缺省按物品图标处理。可用 `[image_gen].image_to_image_pixel_prompt = false` 回退原始 prompt 直传；`source_only` 的原生大图（参考图直出 1024 大图）不受影响。
->
-> `job_type=local_bg_remove` 提供纯本地去背景，不调用 AI、不做像素化。`pixelize.bg_removal_algorithm="pixel_bg"` 对应前端「像素」算法（与像素直出当前抠色一致），`"color_to_alpha"` 对应「高清」算法（Color-to-Alpha 软边）。输出仍通过 `pixelized` 下载通道返回透明 PNG。
+> [!IMPORTANT]
+> 批量生成不是新的图像算法。`POST /jobs/batch` 只是一次创建多个独立任务，每个子任务仍按下述对应路径独立排队、计费、处理和进入作品库。
+
+### 1. 原始文生图 / 原始图生图
+
+| 项目 | 技术说明 |
+|---|---|
+| 产品入口 | 「原始生图」页面；无参考图为 `text_to_image`，有参考图为 `image_to_image` |
+| 关键开关 | `source_only=true`、`grid.mode=off`、`remove_bg=false`、`auto_crop=false` |
+| 输入 | 用户原始 Prompt、可选参考图、logical model、Provider 尺寸与质量参数 |
+| 输出 | `01_source.png` 与 `meta.json` |
+| 适用 | 插画、概念图、高清应用图标，或准备稍后再进行本地像素化的源图 |
+
+这条路径保留 Provider 原始画面，不执行 Perfect Pixel、去背景、裁切、限色、Grid 提取或 2 的幂填充。它与“游戏素材直出”的区别不是模型，而是**是否进入工程化像素后处理**。
+
+```mermaid
+flowchart LR
+    A[原始生图页面] --> B{是否提供参考图}
+    B -- 否 --> C[text_to_image]
+    B -- 是 --> D[image_to_image]
+    C --> E[图像 Provider 生成]
+    D --> F[图像 Provider 编辑]
+    E --> G[source_only 直通]
+    F --> G
+    G --> H[跳过 Perfect Pixel / 抠图 / 限色 / Grid]
+    H --> I[01_source.png]
+```
+
+---
+
+### 2. 游戏素材直出
+
+普通素材直出覆盖 `item_icon`、`ui_component`、`game_logo` 和 `character`。平铺纹理与 Dual Grid 虽然同样使用 `job_type=asset`，但它们拥有独立 Pipeline，见后续章节。
+
+| 项目 | 技术说明 |
+|---|---|
+| 入口 | 工作台「游戏素材直出」或 `job_type=asset` |
+| Prompt | `build_asset_prompt` 根据素材类型、目标尺寸、颜色上限、使用场景和禁用元素编译完整约束 |
+| 背景策略 | 先确定主体色板，再选与所有主体颜色最小 RGB 欧氏距离最大的纯色 Key 背景，目标距离至少 150 |
+| 默认分析 | `skip_vl=true`，普通素材不依赖额外视觉分析 |
+| 输出 | 源图、Perfect Pixel 中间图、透明像素 PNG、预览、`.grid.json`、`meta.json` |
+
+#### 普通素材算法链
+
+1. Prompt Guard 只审核用户输入，不把服务端模板暴露给审核模型；策略拒绝发生在入队和冻结点数之前。
+2. logical model 映射到 Provider 候选，按优先级调用，网络错误、超时、429/5xx 和临时不可用可自动切换。
+3. Perfect Pixel 检测源图真实像素网格，优先相信自动检测尺寸，而不是机械压到用户填写尺寸。
+4. `pixel_bg` 或 `color_to_alpha` 去除纯色 Key 背景。
+5. 按 Alpha tight bounding box 贴合主体裁剪，并预留描边、羽化与透明安全边。
+6. Pixel Grid 模式按每个 Cell 的中心区域取样，再对 Cell 颜色做 K-means 聚类。
+7. 可执行孤立 Cell 清理、描边、画布适配和 Ramp 色阶重映射。
+8. `evaluate_grid_readability` 检查空主体、颜色过多、主体过小、触边、孤立像素和连通块过多等问题。
+9. 渲染透明 PNG、Grid JSON 和元数据；目标画布放得下时透明居中填充，放不下时升到可容纳内容的最近 2 的幂尺寸，绝不为了命中尺寸裁掉主体。
+
+```mermaid
+flowchart TD
+    A[素材描述与 asset_kind] --> B[Prompt Guard]
+    B --> C[build_asset_prompt]
+    C --> D{是否有参考图}
+    D -- 否 --> E[Provider 文生图]
+    D -- 是 --> F[Provider Image Edit]
+    E --> G[Perfect Pixel 自动网格检测]
+    F --> G
+    G --> H[pixel_bg 或 Color-to-Alpha]
+    H --> I[Alpha Tight BBox 裁剪]
+    I --> J[透明安全边与画布预留]
+    J --> K[Grid Cell 中心采样]
+    K --> L[K-means 聚类有限调色板]
+    L --> M[清噪 / Outline / Ramp / Fit Canvas]
+    M --> N[Grid 可读性检查]
+    N --> O[PNG + grid.json + meta.json]
+```
+
+#### 素材类型的默认差异
+
+| 类型 | 默认策略 | 适用场景 |
+|---|---|---|
+| `item_icon` | 小尺寸、8 色、透明背景、`edge_style=hard` | 背包、掉落物、技能栏、道具栏 |
+| `ui_component` | 源图尺寸 `auto`、目标通常 32×32、默认 outline | 按钮、边框、面板、HUD 组件 |
+| `game_logo` | 宽幅画布、24 色、默认不描边，禁止模型自造额外文字 | 标题页、主菜单、启动页 |
+| `character` | 默认正 / 侧 / 背三视图，单视图尺寸横向扩展为 3 倍总宽 | 角色设定、后续多朝向序列帧 |
+
+角色三视图会强制关闭自动裁剪和方形裁剪，避免三列视图被误裁成一个主体；任务成功后自动写入角色库。尺寸重试则会重复完整素材链，以**最终透明 PNG 尺寸**判断是否命中，而不是比较 AI 原始画布尺寸。
+
+---
+
+### 3. 参考图重绘 / AI 微调
+
+作品库“微调”在产品界面实际复用的是 `asset + input_image_path`：把成品像素图载入工作台作为参考图，并沿用原作品的素材类型、像素参数和模型。外部 API 也可以显式提交 `image_to_image`；只要不是 `source_only`，最终都会进入受控像素素材 Prompt 与后处理链。
+
+| 项目 | 技术说明 |
+|---|---|
+| 不是 | 简单缩放、描边滤镜、posterize 或逐像素照抄 |
+| 是 | 先理解参考图身份、轮廓、构图、材质和配色，再按目标素材类型重新设计为 TRUE pixel art |
+| Prompt | `build_asset_prompt` + 对应 `asset_kind` 的 Reference Appendix |
+| 输出 | 一项新的独立作品，不覆盖原作品 |
+
+```mermaid
+flowchart TD
+    A[上传参考图或点击作品微调] --> B{入口}
+    B -- 产品工作台 --> C[asset + input_image_path]
+    B -- 外部 API --> D[image_to_image]
+    C --> E[按 asset_kind 选择重绘规则]
+    D --> E
+    E --> F[build_asset_prompt + Reference Appendix]
+    F --> G[Provider Image Edit]
+    G --> H[Perfect Pixel / 抠图 / Grid / 限色]
+    H --> I[新的像素素材作品]
+```
+
+---
+
+### 4. 平铺纹理
+
+平铺纹理不是“透明主体素材”。专用 Prompt 要求每一个像素都属于纹理、四边可无缝相接，并禁止中心主体、地标、边框和透视断层。
+
+| 项目 | 技术说明 |
+|---|---|
+| 输入 | 材质主题、`texture_kind`、目标尺寸、颜色数、可选风格档案 |
+| 类型 | 地表、道路、墙体、木板、水面、树冠、屋顶、金属、布料等 |
+| 跳过 | 去背景、自动裁主体、Grid extract、共享调色板、候选 VL 排序 |
+| 保留 | Perfect Pixel 自动网格检测；检测失败或尺寸异常时使用 `Image.NEAREST` 兜底 |
+| 输出 | `01_source.png`、`03_pixelized.png`、可选预览和 `meta.json` |
+
+```mermaid
+flowchart LR
+    A[tile_texture] --> B[解析或推断 texture_kind]
+    B --> C[构建四边无缝纹理 Prompt]
+    C --> D[Provider 生成铺满画布的纹理]
+    D --> E[Perfect Pixel 自动检测]
+    E --> F{网格检测是否有效}
+    F -- 是 --> G[保留真实像素网格]
+    F -- 否 --> H[NEAREST 缩放兜底]
+    G --> I[无缝纹理 PNG]
+    H --> I
+```
+
+---
+
+### 5. Dual Grid 双瓦片
+
+Dual Grid 不让模型直接猜一整张过渡图集。AI 只负责生成材质 A 与材质 B，16 张拓扑瓦片由本地代码确定性合成，因此共享边可以逐像素验证一致。
+
+| 项目 | 技术说明 |
+|---|---|
+| 输入 | `material_a`、`material_b`、单瓦片尺寸、A/B 纹理类型、`transition_style` |
+| 透明模式 | `material_b` 为空或 `transparent` 时，B 区直接使用透明像素 |
+| 角编码 | `TL=bit0`、`TR=bit1`、`BL=bit2`、`BR=bit3`，A=1，B=0 |
+| 输出 | `dual_grid_atlas.png`、`dual_grid_preview.png`、材质图和 bitmask mapping |
+
+`hard` 按四象限直接分配材质；`rounded` 对四角 0/1 状态做双线性插值并以 `field >= 0.5` 判定材质归属；`outline` 在 rounded 掩码基础上，仅在 A 区内缘绘制 1px 最暗色描边。任意瓦片外边的归属只由该边两个端点决定，因此相邻瓦片共享同样的边不变量。
+
+```mermaid
+flowchart TD
+    A[Dual Grid 参数] --> B[生成无缝材质 A]
+    A --> C{材质 B 是否透明}
+    C -- 否 --> D[生成无缝材质 B]
+    C -- 是 --> E[B 区使用透明像素]
+    B --> F[NEAREST 统一单瓦片尺寸]
+    D --> F
+    E --> F
+    F --> G[遍历 0 到 15 四角 Bitmask]
+    G --> H{transition_style}
+    H -- hard --> I[四象限硬边掩码]
+    H -- rounded --> J[双线性角场阈值掩码]
+    H -- outline --> K[Rounded 掩码 + A 区内缘描边]
+    I --> L[按本地坐标采样材质 A/B]
+    J --> L
+    K --> L
+    L --> M[拼接 4×4 Atlas]
+    M --> N[确定性世界格应用预览]
+```
+
+详细映射与引擎接入见 [`docs/dual-grid-rules.md`](docs/dual-grid-rules.md)。
+
+---
+
+### 6. 本地像素化 / 重新像素化
+
+`local_pixelize` 对上传图、历史候选图或已有作品重新执行本地像素处理，不调用图像 Provider。旧 `repixelize` 只是兼容名称，新接入统一使用 `local_pixelize`。
+
+| 项目 | 技术说明 |
+|---|---|
+| 输入 | 上传图或候选图、颜色数、背景、边缘、调色板和 Grid 参数 |
+| 网格行为 | 把输入视为生成源图，重新运行 Perfect Pixel，并采用自动检测出的真实网格尺寸 |
+| Grid 模式 | Cell 中心采样、颜色聚类、清噪、描边、Grid JSON |
+| 非 Grid 模式 | Smart Resample / 最近邻等缩放，再执行 K-means、预设色板或 Ramp 量化 |
+| 适用 | 只调整颜色数、抖动、透明背景、描边或像素网格，不重新支付生图成本 |
+
+```mermaid
+flowchart TD
+    A[上传图 / 历史候选 / 兼容 repixelize] --> B[local_pixelize]
+    B --> C[按 Generated Source 处理]
+    C --> D[Perfect Pixel 自动检测真实网格]
+    D --> E[可选去背景与 Alpha 裁剪]
+    E --> F{grid.mode}
+    F -- extract --> G[Cell 采样 + 聚类 + Grid JSON]
+    F -- off --> H[Smart Resample + 调色板量化]
+    G --> I[Outline / Ramp / 画布适配]
+    H --> I
+    I --> J[透明填充到目标或最近 2 的幂]
+    J --> K[新像素作品]
+```
+
+---
+
+### 7. 本地去背景
+
+`local_bg_remove` 只改变 Alpha，不做 Perfect Pixel、不缩放、不裁主体、不限色。前端“像素”和“高清”分别对应两种完全不同的去背景算法。
+
+| 算法 | 关键步骤 | 输出特征 | 推荐输入 |
+|---|---|---|---|
+| `pixel_bg` | 边框中位数 Key 色 → RGB 欧氏距离 → `t_core/t_grow` 双阈值 → 连通域区域生长 → Despill | 硬边二值 Alpha | 像素图、纯色键背景 |
+| `color_to_alpha` | Key 色距离 → 透明/不透明阈值插值 → Alpha 曲线 → RGB 反混合 | 软边连续 Alpha | 高清图、抗锯齿、头发和半透明边缘 |
+
+`pixel_bg` 把 `distance < t_core` 视为高置信背景种子，把 `distance < t_grow` 视为可扩张区域，使用 SciPy `ndimage.label` 保留包含种子的连通域；边框越纯，算法会自动收紧 grow 阈值，避免吞掉与背景颜色接近的主体。Color-to-Alpha 则按估算 Alpha 反解前景色：`foreground = (rgb - key × (1-alpha)) / alpha`，减少键色在软边中的残留。
+
+```mermaid
+flowchart TD
+    A[上传图片] --> B{去背景算法}
+    B -- pixel_bg --> C[边框中位数探测 Key 色]
+    C --> D[RGB 欧氏距离]
+    D --> E[t_core / t_grow 双阈值]
+    E --> F[连通域区域生长]
+    F --> G[封闭背景清理 + Despill]
+    G --> H[硬边二值 Alpha]
+    B -- color_to_alpha --> I[边框探测 Key 色]
+    I --> J[球形或 Cube 色距]
+    J --> K[阈值区间插值 Alpha]
+    K --> L[RGB 反混合]
+    L --> M[软边连续 Alpha]
+    H --> N[原尺寸透明 PNG]
+    M --> N
+```
+
+---
+
+### 8. Mosaic 快速序列帧
+
+Mosaic 用一次图像生成请求直接产出 `rows × cols` 整张动作表，再由本地算法寻找真实行列间隙、切格、抠图和统一调色板。它速度快、成本较低，但动作中间姿势的连贯性取决于单次整表生图质量。
+
+| 项目 | 技术说明 |
+|---|---|
+| 输入 | 主体、动作行、每行帧数、单帧尺寸、FPS、角色参考图、颜色数 |
+| API 画布 | 根据单帧尺寸与 rows×cols 估算理想渲染画布，再满足最大边、16 倍数、宽高比和总像素限制 |
+| 切格 | 先切动作行，再对每行做前景投影；从背景扫到主体、内部 Gutter 和下一主体，在 Gutter 中线落刀 |
+| 单帧 | Perfect Pixel、显式 Key 色 `pixel_bg`、Alpha bbox、可选描边/羽化 |
+| 对齐 | 水平按不透明像素质心，垂直按底部锚点；默认使用整段共享 K-means 调色板减少闪色 |
+| 输出 | 原始 Mosaic、逐帧目录、横向 Sheet、二维 Grid Sheet、每行动作 Sheet/GIF、`sequence.json` |
+
+```mermaid
+flowchart TD
+    A[Mosaic 参数与逐行动作描述] --> B[计算合法 API 渲染尺寸]
+    B --> C{是否有角色参考图}
+    C -- 否 --> D[一次文生图生成整张动作表]
+    C -- 是 --> E[一次 Image Edit 生成整张动作表]
+    D --> F[前景投影分析]
+    E --> F
+    F --> G[先切动作行]
+    G --> H[每行扫描主体与 Gutter]
+    H --> I[切出每个 Cell]
+    I --> J[逐帧 Perfect Pixel]
+    J --> K[显式 Key 色 pixel_bg]
+    K --> L[Alpha BBox 与边缘处理]
+    L --> M[质心水平对齐 + 底部锚定]
+    M --> N[整段共享 K-means 调色板]
+    N --> O[Frames / Sheets / GIF / sequence.json]
+```
+
+---
+
+### 9. Video Bridge 连贯动作序列帧
+
+Video Bridge 是“关键帧图像 + 视频补间 + 均匀抽帧 + 全序列像素清理”路径，适合行走、攻击、施法、跳跃、烟雾和拖尾等需要连续中间姿势的动画。
+
+| 阶段 | 技术说明 |
+|---|---|
+| 关键帧 | 首尾帧模式生成双栏 Start/End；`video_first_frame_only=true` 只生成首帧，适合待机与呼吸 |
+| Motion Prompt | 固定正交精灵相机，限制身份、轮廓、脚底、朝向和色彩漂移；禁止模糊、抗锯齿以及旋转/倾斜像素块 |
+| 视频 | Ark / Seedance 异步任务；任务进入 `waiting`，到 `next_poll_at` 再轮询，不长期占用 Worker |
+| 时长 | `rows × cols × duration_ms` 推导需求时长，再向上吸附到 4–15 秒合法档位 |
+| 抽帧 | 在完整视频时间轴上均匀采样 N 帧 |
+| 网格统一 | 每帧先独立检测 Perfect Pixel，然后按宽、高分别取检测网格的最大值，用固定网格重跑全部帧 |
+| 去污染 | Key 色二值抠图 → 边缘 Soft Matte 反混合 → 全局 Key Spill 抑制 → 连通域主体筛选 |
+| 画布 | 全序列 tight bbox union，统一原点贴入可容纳内容的最近 2 的幂正方形透明画布，不缩放内容 |
+| 调色板 | `auto` 保留视频原色；显式 `ramp` 才调用整段共享 VL Ramp；显式 `kmeans` 才做 K-means |
+
+> [!NOTE]
+> 旧文档曾描述“统计众数网格”。当前实现 `_max_grid_size` 为保护高频细节，实际按轴取全部有效检测结果的**最大网格尺寸**，再固定网格统一处理所有帧。
+
+```mermaid
+flowchart TD
+    A[Video Bridge 参数] --> B{关键帧模式}
+    B -- 首尾帧 --> C[生成双栏 Start / End]
+    B -- 仅首帧 --> D[生成 First Frame]
+    C --> E[自适应 Gutter 切分关键帧]
+    D --> F[整理首帧输入]
+    E --> G[关键帧 Perfect Pixel 与 Key 色处理]
+    F --> G
+    G --> H[构建 Motion Prompt]
+    H --> I[可选 VL 优化动作计划]
+    I --> J[创建 Ark / Seedance 异步视频任务]
+    J --> K[waiting 状态轮询]
+    K --> L[下载完成视频]
+    L --> M[沿完整时间轴均匀抽取 N 帧]
+    M --> N[逐帧 Perfect Pixel 检测]
+    N --> O[按轴取最大网格尺寸]
+    O --> P[固定网格重跑全部帧]
+    P --> Q[pixel_bg 二值抠图]
+    Q --> R[边缘 Soft Matte Despill]
+    R --> S[全局 Key Spill 反混合]
+    S --> T[连通域主体筛选]
+    T --> U[全序列 Tight Union 裁切]
+    U --> V[统一 2 的幂正方形透明画布]
+    V --> W{palette_mode}
+    W -- auto --> X[保留源颜色]
+    W -- ramp --> Y[整段共享 Ramp]
+    W -- kmeans --> Z[共享或逐帧 K-means]
+    X --> AA[Frames / Sheets / GIF / JSON]
+    Y --> AA
+    Z --> AA
+```
+
+---
+
+### 10. 序列帧对齐编辑
+
+作品库“调整”不重新调用 AI。编辑器叠加上一帧或闭环帧的半透明洋葱皮，允许逐帧修改 `offset_x`、`offset_y` 和 `scale`；保存后仅在服务器本地重合成。
+
+| 项目 | 技术说明 |
+|---|---|
+| 平移 | 在原透明画布上重新贴图，超出画布的部分裁掉 |
+| 缩放 | 围绕帧中心使用 `Image.NEAREST`，避免生成新的模糊像素 |
+| 色板 | 对调整后的全部帧重新统一量化 |
+| 重建 | 帧目录、横向 Sheet、二维 Grid Sheet、每行动作 Sheet/GIF、总 GIF、`sequence.json`、`alignment.json` |
+
+```mermaid
+flowchart LR
+    A[已生成序列帧] --> B[对齐编辑器]
+    B --> C[逐帧 Offset X/Y]
+    B --> D[逐帧 Scale]
+    D --> E[NEAREST 围绕帧中心缩放]
+    C --> F[透明画布内重新贴图]
+    E --> F
+    F --> G[全序列统一调色板]
+    G --> H[重建 Frames / Sheets / GIF]
+    H --> I[sequence.json + alignment.json]
+```
+
+### 核心算法解析
+
+#### Perfect Pixel：检测真实像素网格，而不是固定缩放
+
+实现位于 `src/pix/pixelize/perfect_pixel.py`，优先调用项目内置的 `vendor/perfectPixel-noCV2`，异常时回退 NumPy 实现。它的目标是识别 AI 大图里“一个艺术像素实际占多少渲染像素”，再按真实 Cell 采样出对齐的小尺寸像素图。
+
+1. 将 RGB 转为灰度图。
+2. 对灰度图执行二维 FFT，通过频谱周期峰估计横纵像素块周期。
+3. 若 FFT 不稳定，使用 Sobel 横纵梯度峰间距估计网格。
+4. 检查横纵像素块比例、最小块尺寸和最大块尺寸，异常时切换估计策略。
+5. 以理论网格线为中心，在局部 Sobel 梯度峰中细化每条网格边界。
+6. 对每个 Cell 使用中心采样或中位数采样，得到真实低分辨率图。
+7. 固定网格模式使用内置 NumPy 路径和等距坐标，保证序列帧输出形状稳定。
+
+`target_size` 通常只是后续 Grid 的目标提示，不会强行覆盖 Perfect Pixel 自动检测结果；这样可以避免把已经对齐的 106×106 网格再次压成错误的 64×64。
+
+```mermaid
+flowchart TD
+    A[AI 渲染大图] --> B[RGB 转灰度]
+    B --> C[二维 FFT 频谱周期估计]
+    C --> D{周期是否可信}
+    D -- 否 --> E[Sobel 梯度峰间距估计]
+    D -- 是 --> F[得到横纵网格规模]
+    E --> F
+    F --> G[检查块尺寸与横纵比例]
+    G --> H[局部梯度峰细化网格线]
+    H --> I{采样方式}
+    I -- center --> J[Cell 中心采样]
+    I -- median --> K[Cell 中位数采样]
+    J --> L[真实低分辨率像素图]
+    K --> L
+```
+
+#### 调色板与量化
+
+| 模式 | 算法 | 特点 |
+|---|---|---|
+| K-means | 固定随机种子 42，最多采样 16384 个可见像素；sklearn 不可用时回退 Pillow FASTOCTREE | 自动提取主色，适合通用素材 |
+| Preset | 锁定 Game Boy、NES、PICO-8、Modern Pixel 等预设色，再用分析色或 K-means 补足 | 保持项目统一美术规范 |
+| Ramp | 组织 outline → shadow → mid → highlight 语义色阶，使用 Lab 最近色量化，可选 Floyd–Steinberg 抖动 | 光影层次更可控，适合角色和动画 |
+| Grid Cell | 对每个概念像素 Cell 取样，再聚类 Cell 颜色 | 避免直接对高分辨率抗锯齿像素聚类 |
+
+#### 描边、羽化与透明画布
+
+去背景发生在量化之前；Outline 和 Feather 在量化之后执行。描边前会先向画布内缩主体，为外扩描边预留至少 `strength + 1` 的透明空间，最外圈继续保持透明，避免边缘被裁掉。普通素材优先填充到用户目标尺寸；只有内容放不下时才扩到最近的 2 的幂。Video Bridge 则对整段动画使用同一裁剪 Union、同一原点和同一正方形画布，避免逐帧居中造成运动轨迹漂移。
+
+#### 可选多候选与 VL 排序
+
+多候选不是普通素材直出的默认步骤：默认 `contact_sheet_enabled=false`、`n_sample_count=1`，素材 Pipeline 还会主动关闭 Contact Sheet。显式启用后可生成 N 张独立图或一张 RxC Contact Sheet；候选先去 Key 色并裁主体，再以 multipart 文件上传给 VL 排序模型，按描述匹配、单主体、轮廓可读性、背景干净度、裁切和噪声评分。VL 失败时可配置回退第一张或直接拒绝任务；用户也可把任意候选送入 `local_pixelize` 重新处理。
+
+```mermaid
+flowchart LR
+    A[显式启用多候选] --> B{候选模式}
+    B -- n_sample --> C[N 张独立图片]
+    B -- contact_sheet --> D[RxC 候选表]
+    D --> E[切分候选 Cell]
+    C --> F[候选收集]
+    E --> G[去 Key 色与裁主体]
+    F --> G
+    G --> H[Multipart 上传 VL]
+    H --> I[描述 / 轮廓 / 背景 / 噪声评分]
+    I --> J[选择最佳候选]
+    J --> K[进入对应像素处理链]
+```
 
 ## 管理后台运营能力
 
@@ -512,7 +925,7 @@ OpenAI Images 兼容模型走 `/v1/images/generations` / `/v1/images/edits` 或 
 
 作品库卡片支持“参数”快览与“复用”：展开作品后可以查看任务提交时的 prompt、输入图、模型、像素化、素材直出、序列帧、计费快照和输出文件路径；快览里的完整 JSON 可一键复制，用于复现生成或排查问题；点击“复用”会回到生产工作台并自动填充原任务的提示词、素材 / 序列帧参数、像素尺寸、颜色数、模型与可复用参考图路径，适合长 prompt 快速再生成。
 
-非序列帧的成功作品卡片还提供“微调”按钮：点击后回到生产工作台单图模式，并把该作品的**成品像素图**自动载入为参考图（走素材 + 图生图 image_to_image，按 `image_to_image` 计费），同时沿用原作品的素材类型（平铺纹理 / 双瓦片等不支持参考图的类型回落为物品图标）、像素尺寸、颜色数与模型，提示词默认填“保留主体，优化材质和颜色”。用户改写提示词后即可基于已风格化的成品做二次编辑出图。
+非序列帧的成功作品卡片还提供“微调”按钮：点击后回到生产工作台单图模式，并把该作品的**成品像素图**自动载入为参考图。产品界面实际提交 `asset + input_image_path`，按图生图价格计费，并沿用原作品的素材类型（平铺纹理 / 双瓦片等不支持参考图的类型回落为物品图标）、像素尺寸、颜色数与模型；后端使用 `build_asset_prompt` 与参考图约束重新设计像素素材，而不是执行简单滤镜。提示词默认填“保留主体，优化材质和颜色”，用户可改写后生成一项独立新作品。
 
 作品库支持“多选”批量操作：进入多选后可跨页勾选已完成作品、选择本页、清空选择，并通过一次确认批量删除。批量删除会同步移除素材包引用、清理输出文件并保留点数流水记录；生产中作品不可选择删除。多选时还可“下载所选”：调用 `POST /jobs/bulk-download` 把选中的成功作品打包成一个 ZIP（每个作品一个子目录，按类型收录源图 / 像素成品、序列帧 sheet/GIF/JSON、双瓦片图集与 meta.json），只有已成功且有产物的作品会被计入下载。
 
@@ -638,7 +1051,7 @@ JSON 示例：
 
 图集采用 `pix-dualgrid-v1` 约定：4×4 行优先排布，角位 `TL=bit0, TR=bit1, BL=bit2, BR=bit3`、地形 `A=1/B=0`、`idx = row*4 + col`。产物为 `dual_grid_atlas.png`（4×4 图集）、`dual_grid_preview.png`（确定性种子的应用预览）、`materials/material_a.png`(+`material_b.png`) 与含 `convention` / `mapping`（bitmask→cell 表）/ `preview_seed` 的 `meta.json`；外部 API 的 `JobOutputResponse` 额外暴露 `dual_grid_atlas_path/url`、`dual_grid_preview_path/url`。详细字段、bitmask→cell 映射表与引擎用法见 [`docs/dual-grid-rules.md`](docs/dual-grid-rules.md)。
 
-默认 sprite 模板使用 `mosaic_prompt_template` / `mosaic_reference_prompt_template`：1 次 API 调用产出 rows×cols 整张 sheet（`rows × cols ≤ 64`），prompt 中包含 `Layout by Row` 段落 + 行级动作描述 + 整图尺寸契约。`sprite.mode = "video_bridge"` 是独立的视频转序列帧链路：同样复用 `pixelize.output_size`（单帧尺寸）、`pixelize.colors`（颜色上限）、`edge_style/bg_feather`（抽帧后描边 / 羽化）、`generated_preprocess_method`（抽帧 perfectPixel 预处理）与 `dither`，这些信息会同步写入首尾关键帧 prompt 与 Ark motion prompt；Ark 视频时长会按 `rows×cols×duration_ms` 推导后向上吸附到 `[video_bridge].allowed_durations`（默认 Seedance 价格计算器 4–15 秒完整档位）中最近的合法档位并锁定（抽帧按均匀采样取 N 帧，档位被拉长不影响最终播放节奏），确保视频补间时间轴匹配最终 GIF / 序列帧播放节奏；视频 prompt 会要求所有像素方块保持横平竖直的正交方块网格，不允许通过旋转、倾斜、斜切或菱形化像素块来制造运动感；视频抽帧后会先对全部原始帧执行 perfectPixel 自动检测并统计众数网格，再用该众数网格固定重跑所有帧，并保留 perfectPixel 的实际输出尺寸（不再强制缩回 `pixelize.output_size`），随后执行 key-color 去背景、连通域去杂色，再做两道 **键色去污染（despill，默认开启 `sprite.video_despill`）**：先对贴近透明背景的半透明软边做边缘 soft-matte（按到键色距离估算 alpha 并反解主体色），再对整帧带键色相的像素做一次全局反混合——半透明辉光 / 烟雾 / 拖尾会大范围透出 chroma-key 背景，其内部像素离纯键色太远逃过二值抠图、离透明边太远够不到边缘 despill，全局反混合把这些「主体×a + 键色×(1−a)」的实色按距离淡出 / 还原本色，消除残留的青 / 品红 / 绿背景块（而非压成不透明灰 / 黑块），且只作用在带键色相的像素上、保护主体本色与反色（如品红场景里的青色主体）；默认 **保留视频/图像原始颜色**，不再对序列帧做 VL ramp 或 K-means 限色；仅当用户显式设置 `pixelize.palette_mode = "ramp"` 时，才把去杂色后的主体帧合成参考图、调用一次 VL 生成整段序列共享的 ramp 色阶并逐帧量化（VL 不可用 / 失败时优雅回退本地 ramp），显式设置 `pixelize.palette_mode = "kmeans"` 时才使用旧的本地 K-means 限色（共享调色板关闭时逐帧限色）。最终透明填充到不小于检测尺寸、透明安全边和 `pixelize.output_size` 的最小 2 的幂 1:1 方形画布（不缩放内容，例如 106×106 → 128×128），不新增单独开关。后端会为 sprite mosaic 独立选择 API 渲染尺寸，而不是复用通用 `image_gen.size`；内部先按 `target_frame_size × rows×cols × 8` 估算理想渲染画布，再按 API 约束（最大边 ≤3840、16 倍数、长短边比 ≤3:1、总像素 655,360—8,294,400）缩放到合法尺寸。fallback prompt 还会显式告诉模型每个 cell 的 render pixel 尺寸、真实可绘像素网格与 pixel-art 像素块大小（`render_width/render_height/cell_render_width/cell_render_height/upscale/cell_art_width/cell_art_height/anchor_text` 占位符），并要求主体按自然比例锚定单元格指定锚点、上方留白填背景键色，减少低分辨率生成造成的 perfectPixel 检测漂移。其中 `cell_art_width/cell_art_height = cell_render ÷ upscale` 始终与块大小自洽：横排方形帧（如 64×64 的 1×8）被 API ≤3:1 约束撑成竖长单元格（384×1024）时，不会再出现「单元格尺寸 vs 帧尺寸」自相矛盾、模型瞎猜帧高的问题。竖长主体（如站立角色）按「内容多高、帧就多高」自适应输出（如 64×128），`meta.json` / `sequence.json` 用 `delivered_frame_size` / `frame_size_adapted` 显式标注实际交付帧尺寸（不再是隐性 mismatch）。提供参考图时自动套用 `mosaic_reference_prompt_template`，让每个 cell 复用同一角色设计。后端单帧后处理链路为「整轴逐像素扫掠切分每一帧（多行动作先切上下组动作图，再切每行横向帧）→ perfect pixel 全帧自动检测 → 统计众数网格 → 用众数网格固定重跑 perfect pixel → 显式 key_rgb 的 pixel_bg 双阈值 alpha → alpha bbox 裁剪 → 共享调色板统一限色 → 每帧可选描边/羽化（复用 pixelize 的 `edge_style`/`bg_feather`，描边前补透明边距、不会被自适应画布裁掉；前端「边缘处理」选项对序列帧已解禁）」，不再复用全局 Color-to-Alpha，也不会从 cell 四角重新采样背景色，避免多行 mosaic 中主体越界 cell 边界时四角采样到主体色而抠不干净。最终保留原版 `sprite_mosaic.png` + 横向 `sprite_sheet.png`，多行模式额外输出 `sprite_sheet_grid.png` + `row_sheets/` + `previews/`，作品库预览组件读 `sprite_sheet.png + sequence.json` 逐帧播放。序列帧作品在作品库卡片「下载图片」里恒定提供「动画 GIF」选项（后端 `GET /jobs/{job_id}/sprite.gif`，外部 API 为 `GET /external/v1/jobs/{job_id}/outputs/sprite-gif`）：生成时默认不产出 `sprite.gif`（作品库用 `sprite_sheet.png + sequence.json` 逐帧播放，零额外存储），点击下载时后端从当前活跃帧实时合成 GIF（fps / loop 取自 meta，若磁盘已有 `sprite.gif` 则走快路直接返回），因此 GIF 始终反映最新对齐结果、文件命名 `{作品名}_{id}.gif`。多动作作品在作品库卡片选中某个动作后，「下载图片」可选「当前动作图」（该行 `row_sheets/row_NN.png`）或「所有动作打包」（后端 `GET /jobs/{job_id}/sprite-actions.zip` 把每行各一张横向图打包），文件统一命名 `{作品名}_action{NN}_{动作名}.png`。切图时还会用整轴状态翻转自动检测实际网格行 / 列数，纠正模型「少画 / 多画一行一列」导致的空帧 / 错位。
+默认 sprite 模板使用 `mosaic_prompt_template` / `mosaic_reference_prompt_template`：1 次 API 调用产出 rows×cols 整张 sheet（`rows × cols ≤ 64`），prompt 中包含 `Layout by Row` 段落 + 行级动作描述 + 整图尺寸契约。`sprite.mode = "video_bridge"` 是独立的视频转序列帧链路：同样复用 `pixelize.output_size`（单帧尺寸）、`pixelize.colors`（颜色上限）、`edge_style/bg_feather`（抽帧后描边 / 羽化）、`generated_preprocess_method`（抽帧 perfectPixel 预处理）与 `dither`，这些信息会同步写入首尾关键帧 prompt 与 Ark motion prompt；Ark 视频时长会按 `rows×cols×duration_ms` 推导后向上吸附到 `[video_bridge].allowed_durations`（默认 Seedance 价格计算器 4–15 秒完整档位）中最近的合法档位并锁定（抽帧按均匀采样取 N 帧，档位被拉长不影响最终播放节奏），确保视频补间时间轴匹配最终 GIF / 序列帧播放节奏；视频 prompt 会要求所有像素方块保持横平竖直的正交方块网格，不允许通过旋转、倾斜、斜切或菱形化像素块来制造运动感；视频抽帧后会先对全部原始帧执行 perfectPixel 自动检测，再按宽、高分别取检测结果的最大网格尺寸，并用该固定网格重跑所有帧，并保留 perfectPixel 的实际输出尺寸（不再强制缩回 `pixelize.output_size`），随后执行 key-color 去背景、连通域去杂色，再做两道 **键色去污染（despill，默认开启 `sprite.video_despill`）**：先对贴近透明背景的半透明软边做边缘 soft-matte（按到键色距离估算 alpha 并反解主体色），再对整帧带键色相的像素做一次全局反混合——半透明辉光 / 烟雾 / 拖尾会大范围透出 chroma-key 背景，其内部像素离纯键色太远逃过二值抠图、离透明边太远够不到边缘 despill，全局反混合把这些「主体×a + 键色×(1−a)」的实色按距离淡出 / 还原本色，消除残留的青 / 品红 / 绿背景块（而非压成不透明灰 / 黑块），且只作用在带键色相的像素上、保护主体本色与反色（如品红场景里的青色主体）；默认 **保留视频/图像原始颜色**，不再对序列帧做 VL ramp 或 K-means 限色；仅当用户显式设置 `pixelize.palette_mode = "ramp"` 时，才把去杂色后的主体帧合成参考图、调用一次 VL 生成整段序列共享的 ramp 色阶并逐帧量化（VL 不可用 / 失败时优雅回退本地 ramp），显式设置 `pixelize.palette_mode = "kmeans"` 时才使用旧的本地 K-means 限色（共享调色板关闭时逐帧限色）。最终透明填充到不小于检测尺寸、透明安全边和 `pixelize.output_size` 的最小 2 的幂 1:1 方形画布（不缩放内容，例如 106×106 → 128×128），不新增单独开关。后端会为 sprite mosaic 独立选择 API 渲染尺寸，而不是复用通用 `image_gen.size`；内部先按 `target_frame_size × rows×cols × 8` 估算理想渲染画布，再按 API 约束（最大边 ≤3840、16 倍数、长短边比 ≤3:1、总像素 655,360—8,294,400）缩放到合法尺寸。fallback prompt 还会显式告诉模型每个 cell 的 render pixel 尺寸、真实可绘像素网格与 pixel-art 像素块大小（`render_width/render_height/cell_render_width/cell_render_height/upscale/cell_art_width/cell_art_height/anchor_text` 占位符），并要求主体按自然比例锚定单元格指定锚点、上方留白填背景键色，减少低分辨率生成造成的 perfectPixel 检测漂移。其中 `cell_art_width/cell_art_height = cell_render ÷ upscale` 始终与块大小自洽：横排方形帧（如 64×64 的 1×8）被 API ≤3:1 约束撑成竖长单元格（384×1024）时，不会再出现「单元格尺寸 vs 帧尺寸」自相矛盾、模型瞎猜帧高的问题。竖长主体（如站立角色）按「内容多高、帧就多高」自适应输出（如 64×128），`meta.json` / `sequence.json` 用 `delivered_frame_size` / `frame_size_adapted` 显式标注实际交付帧尺寸（不再是隐性 mismatch）。提供参考图时自动套用 `mosaic_reference_prompt_template`，让每个 cell 复用同一角色设计。后端单帧后处理链路为「整轴逐像素扫掠切分每一帧（多行动作先切上下组动作图，再切每行横向帧）→ 逐 Cell 独立执行 perfect pixel 自动检测 → 显式 key_rgb 的 pixel_bg 双阈值 alpha → alpha bbox 裁剪 → 共享调色板统一限色 → 每帧可选描边/羽化（复用 pixelize 的 `edge_style`/`bg_feather`，描边前补透明边距、不会被自适应画布裁掉；前端「边缘处理」选项对序列帧已解禁）」，不再复用全局 Color-to-Alpha，也不会从 cell 四角重新采样背景色，避免多行 mosaic 中主体越界 cell 边界时四角采样到主体色而抠不干净。最终保留原版 `sprite_mosaic.png` + 横向 `sprite_sheet.png`，多行模式额外输出 `sprite_sheet_grid.png` + `row_sheets/` + `previews/`，作品库预览组件读 `sprite_sheet.png + sequence.json` 逐帧播放。序列帧作品在作品库卡片「下载图片」里恒定提供「动画 GIF」选项（后端 `GET /jobs/{job_id}/sprite.gif`，外部 API 为 `GET /external/v1/jobs/{job_id}/outputs/sprite-gif`）：生成时默认不产出 `sprite.gif`（作品库用 `sprite_sheet.png + sequence.json` 逐帧播放，零额外存储），点击下载时后端从当前活跃帧实时合成 GIF（fps / loop 取自 meta，若磁盘已有 `sprite.gif` 则走快路直接返回），因此 GIF 始终反映最新对齐结果、文件命名 `{作品名}_{id}.gif`。多动作作品在作品库卡片选中某个动作后，「下载图片」可选「当前动作图」（该行 `row_sheets/row_NN.png`）或「所有动作打包」（后端 `GET /jobs/{job_id}/sprite-actions.zip` 把每行各一张横向图打包），文件统一命名 `{作品名}_action{NN}_{动作名}.png`。切图时还会用整轴状态翻转自动检测实际网格行 / 列数，纠正模型「少画 / 多画一行一列」导致的空帧 / 错位。
 
 作品库支持「调整」编辑器：前端用 Canvas 叠加上一帧/闭环帧半透明影子，用户可拖动每帧主体、用滚轮缩放当前帧主体（绕帧中心），保存时本地重合成 alignment 版本（含 fps、每帧 offset 与 scale），不重新调用 AI，不额外扣点。序列帧作品不再提供「重新像素化」或「AI 微调」入口，避免把整张 sprite sheet 当普通单图再次处理；如需改帧位置使用「调整」，如需导出使用下载。
 
@@ -649,7 +1062,7 @@ JSON 示例：
 - 主页展示读取 `apps/web/public/homepage-examples/` 下的最终 PNG；对应元数据维护在 `apps/web/src/homepage*Examples.ts`。
 - 尺寸 tag 应来自最终 PNG 的真实宽高，不应假定所有素材都是固定 64×64 或 32×32。
 - 右键某个主页 icon 时，只复制主体 prompt 片段，例如“物品名 + 题材单个道具 + 可识别造型/材质特征”，不复制整组 prompt 或内部生成路径。
-- 新增或重生成主页素材时，必须走上方网站素材生成流水线；生成模型返回图进入本地处理后，第一步必须是 perfect pixel 预处理，然后再做 key 色抠图、裁剪、采样和调色板聚类。
+- 新增或重生成主页素材时，必须走上方对应的[生成技术路径](#生成技术路径)；主体类素材在模型返回图进入本地处理后，第一步必须是 Perfect Pixel 预处理，然后再做 Key 色抠图、裁剪、采样和调色板聚类。
 - 主页示例 icon 默认不做额外边缘处理：`edge_style=hard`、`bg_feather=0`，不要使用 `outline` 描边或 `feather` 羽化。
 - 资产来源、授权和第三方商标说明见 [ASSETS.md](ASSETS.md)。
 
