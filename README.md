@@ -1091,6 +1091,23 @@ Pix 后端内置多层防护，部署时请配合下列配置项：
 
 相关环境变量见 `.env.example` 与 `.env.production.example`。漏洞请按 [SECURITY.md](SECURITY.md) 使用私密渠道报告，不要在公开 Issue 中粘贴 API Key、JWT Secret、数据库密码或利用细节。
 
+## 特别鸣谢
+
+<table>
+  <tr>
+    <td align="center" width="220">
+      <a href="https://www.poke2api.com/">
+        <img src="apps/web/public/pokeapi-promo.png" width="200" alt="Poke API">
+      </a>
+    </td>
+    <td>
+      <strong>Poke API · 高效可靠的 AI API 中继服务平台</strong><br><br>
+      感谢 <a href="https://www.poke2api.com/">Poke API</a> 对本项目的支持。Poke API 为开发者提供稳定高效的 AI API 中继服务，覆盖 Claude Code、Codex、Gemini 等主流 AI 模型与开发工具生态，帮助个人开发者和团队更轻松地接入 AI 能力、优化工作流并提升生产效率。<br><br>
+      无论是日常开发辅助、代码生成、问题排查，还是团队级 AI 能力接入，Poke API 都能提供便捷可靠的服务支持。欢迎访问 <a href="https://www.poke2api.com/"><strong>www.poke2api.com</strong></a> 了解更多。
+    </td>
+  </tr>
+</table>
+
 ## 版本与发布
 
 当前版本：`1.130.2`。
