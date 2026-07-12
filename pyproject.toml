@@ -49,7 +49,7 @@ dependencies = [
     "psycopg[binary]>=3.3.4",
     "cryptography>=49.0.0",
     "alipay-sdk-python>=3.7.1160",
-    "slowapi>=0.1.9",
+    "slowapi>=0.1.10",
 ]
 
 [project.urls]

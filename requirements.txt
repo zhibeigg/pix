@@ -19,4 +19,4 @@ rq>=2
 psycopg[binary]>=3.3.4
 cryptography>=42
 alipay-sdk-python>=3.7.1160
-slowapi>=0.1.9
+slowapi>=0.1.10
