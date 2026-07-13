@@ -1,116 +1,253 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode, type SyntheticEvent } from 'react'
 import type { SpriteFrameOutput } from '../types'
 import { cn } from '../lib/utils'
 import { PixPreviewFrame } from './pix/PixPreviewFrame'
-import { ImageLightbox } from './ImageLightbox'
 import { ZoomButton } from './pix/ZoomButton'
+import { ImageLightbox } from './ImageLightbox'
 
-type Props = {
+type SpriteSequencePreviewProps = {
   sheetUrl?: string | null
-  frames?: SpriteFrameOutput[]
-  fps?: number
+  frames?: SpriteFrameOutput[] | null
+  frameCount?: number | null
+  fps?: number | null
   fallbackUrl?: string | null
-  loading?: boolean
+  alt?: string
   label?: ReactNode
+  children?: ReactNode
   className?: string
   imageClassName?: string
+  loading?: boolean
   trim?: boolean
-  children?: ReactNode
-  /** 是否允许放大查看，默认开启。 */
   zoomable?: boolean
-  /** 放大查看的渲染模式，默认 pixelated。 */
+  zoomSrc?: string | null
   zoomRendering?: 'pixelated' | 'auto'
 }
 
-export function SpriteSequencePreview({ sheetUrl, frames = [], fps = 8, fallbackUrl, loading = false, label, className, imageClassName, trim = false, children, zoomable = true, zoomRendering = 'pixelated' }: Props) {
-  const playableFrames = useMemo(() => frames.filter((frame) => frame.sheet_rect && frame.sheet_rect.w > 0 && frame.sheet_rect.h > 0).sort((a, b) => Number(a.index) - Number(b.index)), [frames])
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
+type SpritePlaybackState = {
+  frameCount: number
+  isVisible: boolean
+  isDocumentVisible: boolean
+  prefersReducedMotion: boolean
+}
+
+const MAX_INFERRED_SPRITE_FRAMES = 256
+
+export function inferHorizontalSpriteFrames(
+  frameCount: number | null | undefined,
+  sheetWidth: number,
+  sheetHeight: number,
+): SpriteFrameOutput[] {
+  const count = Math.floor(Number(frameCount))
+  const width = Math.floor(Number(sheetWidth))
+  const height = Math.floor(Number(sheetHeight))
+  if (
+    !Number.isFinite(count)
+    || count <= 1
+    || count > MAX_INFERRED_SPRITE_FRAMES
+    || !Number.isFinite(width)
+    || width <= 0
+    || !Number.isFinite(height)
+    || height <= 0
+    || width % count !== 0
+  ) return []
+
+  const frameWidth = width / count
+  return Array.from({ length: count }, (_, frameIndex) => ({
+    index: frameIndex + 1,
+    row: 0,
+    col: frameIndex,
+    path: '',
+    url: null,
+    sheet_rect: {
+      x: frameIndex * frameWidth,
+      y: 0,
+      w: frameWidth,
+      h: height,
+    },
+  }))
+}
+
+export function shouldAnimateSpriteSequence({ frameCount, isVisible, isDocumentVisible, prefersReducedMotion }: SpritePlaybackState) {
+  return frameCount > 1 && isVisible && isDocumentVisible && !prefersReducedMotion
+}
+
+export function SpriteSequencePreview({ sheetUrl, frames, frameCount, fps, fallbackUrl, alt, label, children, className, imageClassName, loading = false, trim = false, zoomable = true, zoomSrc, zoomRendering = 'pixelated' }: SpriteSequencePreviewProps) {
+  const suppliedFrames = useMemo(
+    () => (frames || [])
+      .filter((frame) => frame.sheet_rect && frame.sheet_rect.w > 0 && frame.sheet_rect.h > 0)
+      .sort((a, b) => Number(a.index || 0) - Number(b.index || 0)),
+    [frames],
+  )
+  const normalizedFrameCount = useMemo(() => {
+    const count = Math.floor(Number(frameCount))
+    return Number.isFinite(count) && count > 1 && count <= MAX_INFERRED_SPRITE_FRAMES ? count : 0
+  }, [frameCount])
+  const inferenceKey = `${sheetUrl || ''}:${normalizedFrameCount}`
+  const [inferredState, setInferredState] = useState<{ key: string; frames: SpriteFrameOutput[] }>({ key: '', frames: [] })
+  const inferredFrames = inferredState.key === inferenceKey ? inferredState.frames : []
+  const playableFrames = suppliedFrames.length > 0 ? suppliedFrames : inferredFrames
+  const canInferFrames = Boolean(sheetUrl && suppliedFrames.length === 0 && normalizedFrameCount > 1)
   const [frameIndex, setFrameIndex] = useState(0)
-  const [isVisible, setIsVisible] = useState(true)
+  const [isVisible, setIsVisible] = useState(false)
+  const [isDocumentVisible, setIsDocumentVisible] = useState(() => typeof document === 'undefined' || document.visibilityState !== 'hidden')
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
-  const activeFrame = playableFrames.length > 0 ? playableFrames[frameIndex % playableFrames.length] : null
-  const rect = activeFrame?.sheet_rect ?? null
-  const sheetSize = useMemo(() => {
-    if (!rect || playableFrames.length === 0) return null
-    const width = Math.max(...playableFrames.map((frame) => (frame.sheet_rect?.x ?? 0) + (frame.sheet_rect?.w ?? 0)))
-    const height = Math.max(...playableFrames.map((frame) => (frame.sheet_rect?.y ?? 0) + (frame.sheet_rect?.h ?? 0)))
-    return width > 0 && height > 0 ? { width, height } : null
-  }, [playableFrames, rect])
-
-  useEffect(() => {
-    const node = containerRef.current
-    if (!node) return
-    const update = () => setContainerSize({ width: node.clientWidth, height: node.clientHeight })
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [])
-
-  useEffect(() => {
-    const node = containerRef.current
-    if (!node) return
-    const observer = new IntersectionObserver(([entry]) => setIsVisible(entry.isIntersecting), { rootMargin: '150px' })
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [sheetUrl, playableFrames.length])
-
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const update = () => setPrefersReducedMotion(query.matches)
-    update()
-    query.addEventListener('change', update)
-    return () => query.removeEventListener('change', update)
-  }, [])
-
-  useEffect(() => {
-    if (!sheetUrl || playableFrames.length <= 1 || loading || !isVisible || prefersReducedMotion) return
-    const interval = window.setInterval(() => {
-      setFrameIndex((current) => (current + 1) % playableFrames.length)
-    }, Math.max(20, Math.round(1000 / Math.max(1, fps || 8))))
-    return () => window.clearInterval(interval)
-  }, [sheetUrl, playableFrames.length, fps, loading, isVisible, prefersReducedMotion])
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [containerSize, setContainerSize] = useState({ width: 1, height: 1 })
 
   useEffect(() => {
     setFrameIndex(0)
   }, [sheetUrl, playableFrames.length])
 
-  if (!sheetUrl || !rect || !sheetSize) {
-    return <PixPreviewFrame url={fallbackUrl} loading={loading} label={label} className={className} imageClassName={imageClassName} trim={trim} zoomable={zoomable} zoomRendering={zoomRendering}>{children}</PixPreviewFrame>
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setIsVisible(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting && entry.intersectionRatio > 0),
+      { threshold: 0.1 },
+    )
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [sheetUrl, playableFrames.length, canInferFrames])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const syncVisibility = () => setIsDocumentVisible(document.visibilityState !== 'hidden')
+    syncVisibility()
+    document.addEventListener('visibilitychange', syncVisibility)
+    return () => document.removeEventListener('visibilitychange', syncVisibility)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setPrefersReducedMotion(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element) return
+    const update = () => {
+      setContainerSize({ width: Math.max(1, element.clientWidth), height: Math.max(1, element.clientHeight) })
+    }
+    update()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(update)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [sheetUrl, playableFrames.length, canInferFrames])
+
+  useEffect(() => {
+    if (prefersReducedMotion) setFrameIndex(0)
+  }, [prefersReducedMotion])
+
+  const delay = Math.max(16, Math.round(1000 / Math.max(1, Number(fps) || 8)))
+  const shouldAnimate = Boolean(sheetUrl) && !loading && shouldAnimateSpriteSequence({
+    frameCount: playableFrames.length,
+    isVisible,
+    isDocumentVisible,
+    prefersReducedMotion,
+  })
+
+  useEffect(() => {
+    if (!shouldAnimate) return
+    const timer = window.setInterval(() => {
+      setFrameIndex((current) => (current + 1) % playableFrames.length)
+    }, delay)
+    return () => window.clearInterval(timer)
+  }, [delay, playableFrames.length, shouldAnimate])
+
+  const activeFrame = playableFrames[frameIndex] || playableFrames[0]
+  const rect = activeFrame?.sheet_rect
+  const sheetSize = useMemo(() => {
+    let width = 0
+    let height = 0
+    for (const frame of playableFrames) {
+      const frameRect = frame.sheet_rect
+      if (!frameRect) continue
+      width = Math.max(width, frameRect.x + frameRect.w)
+      height = Math.max(height, frameRect.y + frameRect.h)
+    }
+    return width > 0 && height > 0 ? { width, height } : null
+  }, [playableFrames])
+
+  const handleSheetLoad = (event: SyntheticEvent<HTMLImageElement>) => {
+    if (!canInferFrames) return
+    const image = event.currentTarget
+    setInferredState({
+      key: inferenceKey,
+      frames: inferHorizontalSpriteFrames(normalizedFrameCount, image.naturalWidth, image.naturalHeight),
+    })
   }
 
-  const fit = fitRect(rect.w, rect.h, Math.max(1, containerSize.width - 24), Math.max(1, containerSize.height - 24))
-  const scaleX = fit.width / rect.w
-  const scaleY = fit.height / rect.h
-  const backgroundSize = `${sheetSize.width * scaleX}px ${sheetSize.height * scaleY}px`
-  const backgroundPosition = `${-rect.x * scaleX}px ${-rect.y * scaleY}px`
+  if (loading) {
+    return <PixPreviewFrame url={fallbackUrl || sheetUrl} alt={alt} label={label} className={className} imageClassName={imageClassName} loading trim={trim} zoomable={zoomable} zoomSrc={zoomSrc} zoomRendering={zoomRendering}>{children}</PixPreviewFrame>
+  }
+  if (!sheetUrl) {
+    return <PixPreviewFrame url={fallbackUrl} alt={alt} label={label} className={className} imageClassName={imageClassName} trim={trim} zoomable={zoomable} zoomSrc={zoomSrc} zoomRendering={zoomRendering}>{children}</PixPreviewFrame>
+  }
 
-  const zoomSrc = fallbackUrl || sheetUrl
-  const canZoom = zoomable && !loading && !!zoomSrc
+  const frameStyle = rect && sheetSize
+    ? fitRect(Math.max(1, containerSize.width - 24), Math.max(1, containerSize.height - 24), rect, sheetSize)
+    : null
+  if (!frameStyle && !canInferFrames) {
+    return <PixPreviewFrame url={fallbackUrl || sheetUrl} alt={alt} label={label} className={className} imageClassName={imageClassName} trim={trim} zoomable={zoomable} zoomSrc={zoomSrc} zoomRendering={zoomRendering}>{children}</PixPreviewFrame>
+  }
+
+  const resolvedZoomSrc = zoomSrc || fallbackUrl || sheetUrl
+  const canZoom = zoomable && !!resolvedZoomSrc
+  const sequenceState = frameStyle
+    ? prefersReducedMotion
+      ? 'reduced-motion'
+      : shouldAnimate
+        ? 'playing'
+        : 'paused'
+    : 'detecting'
 
   return (
-    <div ref={containerRef} data-loading={loading ? 'true' : undefined} className={cn('pix-checkerboard pix-preview-frame group relative grid min-h-40 place-items-center overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-muted p-3 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]', loading && 'pix-preview-frame-loading', className)}>
-      <div
-        role="img"
-        aria-label={typeof label === 'string' ? label : '序列帧预览'}
-        className="bg-no-repeat [image-rendering:pixelated]"
-        style={{
-          width: fit.width,
-          height: fit.height,
-          backgroundImage: `url(${sheetUrl})`,
-          backgroundSize,
-          backgroundPosition,
-        }}
-      />
+    <div
+      ref={containerRef}
+      data-sequence-state={sequenceState}
+      className={cn(
+        'pix-checkerboard pix-preview-frame group relative grid min-h-40 place-items-center overflow-hidden rounded-lg border border-[hsl(var(--pix-paper-border))] bg-muted p-3 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band-soft))]',
+        className,
+      )}
+    >
+      {frameStyle ? (
+        <div
+          role="img"
+          aria-label={alt || '序列帧预览'}
+          className="h-full w-full bg-no-repeat [image-rendering:pixelated]"
+          style={{
+            backgroundImage: `url("${sheetUrl.replace(/"/g, '\\"')}")`,
+            backgroundSize: `${sheetSize!.width * frameStyle.scale}px ${sheetSize!.height * frameStyle.scale}px`,
+            backgroundPosition: `${frameStyle.offsetX - rect!.x * frameStyle.scale}px ${frameStyle.offsetY - rect!.y * frameStyle.scale}px`,
+          }}
+          data-frame={frameIndex}
+        />
+      ) : (
+        <img
+          src={sheetUrl}
+          alt={alt || '序列帧预览'}
+          loading="lazy"
+          decoding="async"
+          onLoad={handleSheetLoad}
+          className={cn('h-full max-h-[420px] w-full object-contain [image-rendering:pixelated]', imageClassName)}
+        />
+      )}
       {canZoom && <ZoomButton onClick={() => setLightboxOpen(true)} />}
       {children}
-      {canZoom && zoomSrc && (
+      {canZoom && resolvedZoomSrc && (
         <ImageLightbox
-          src={zoomSrc}
-          alt={typeof label === 'string' ? label : undefined}
+          src={resolvedZoomSrc}
+          alt={typeof label === 'string' ? label : alt}
           open={lightboxOpen}
           onClose={() => setLightboxOpen(false)}
           rendering={zoomRendering}
@@ -120,7 +257,16 @@ export function SpriteSequencePreview({ sheetUrl, frames = [], fps = 8, fallback
   )
 }
 
-function fitRect(width: number, height: number, maxWidth: number, maxHeight: number) {
-  const scale = Math.max(0.01, Math.min(maxWidth / width, maxHeight / height))
-  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) }
+function fitRect(containerWidth: number, containerHeight: number, rect: { w: number; h: number }, sheetSize: { width: number; height: number }) {
+  const sourceRatio = rect.w / Math.max(1, rect.h)
+  const containerRatio = containerWidth / Math.max(1, containerHeight)
+  const targetWidth = containerRatio > sourceRatio ? containerHeight * sourceRatio : containerWidth
+  const targetHeight = containerRatio > sourceRatio ? containerHeight : containerWidth / sourceRatio
+  const scale = Math.min(targetWidth / rect.w, targetHeight / rect.h)
+  return {
+    scale,
+    offsetX: (containerWidth - rect.w * scale) / 2,
+    offsetY: (containerHeight - rect.h * scale) / 2,
+    sheetSize,
+  }
 }

@@ -489,19 +489,31 @@ function sharedSpriteFps(work: SharedWork) {
   return Number.isFinite(fps) && fps > 0 ? fps : 8
 }
 
+function sharedSpriteFrameCount(work: SharedWork) {
+  const positionedFrameCount = (work.sprite_frames || []).filter((frame) => {
+    const rect = frame.sheet_rect
+    return rect && rect.w > 0 && rect.h > 0
+  }).length
+  if (positionedFrameCount > 1) return positionedFrameCount
+  const sequence = asSharedRecord(work.parameter_snapshot.sequence)
+  const snapshotCount = Math.floor(Number(sequence.frame_count))
+  return Number.isFinite(snapshotCount) && snapshotCount > 1 ? Math.min(snapshotCount, 256) : 0
+}
+
 const SharedWorkCard = memo(function SharedWorkCard({ work, user, onToggleLike }: { work: SharedWork; user: User | null; onToggleLike?: (work: SharedWork) => void | Promise<void> }) {
   const { text } = useI18n()
   const previewUrl = signedFileUrl(work.preview_url)
   const spriteSheetUrl = sharedSpriteSheetUrl(work)
   const spriteFrames = work.sprite_frames ?? []
-  const canPlaySprite = Boolean(spriteSheetUrl && spriteFrames.length > 1)
+  const spriteFrameCount = sharedSpriteFrameCount(work)
+  const canPlaySprite = Boolean(spriteSheetUrl && spriteFrameCount > 1)
   const primaryDownload = work.download_options[0]
   const summary = sharedSnapshotSummary(work.parameter_snapshot)
   return (
     <article className="overflow-hidden rounded-lg border border-border bg-card transition hover:-translate-y-0.5 hover:border-primary/55 hover:shadow-[0_10px_24px_-18px_rgba(15,15,15,0.45)] dark:bg-[hsl(var(--pix-dark-card))]">
       <a href={previewUrl} target="_blank" rel="noreferrer" className="block" title={text(`打开 ${work.title} 预览`, `Open preview for ${work.title}`)}>
         {canPlaySprite ? (
-          <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={spriteFrames} fps={sharedSpriteFps(work)} fallbackUrl={previewUrl} label={text(`${work.title} 序列帧播放`, `${work.title} sprite playback`)} className="aspect-square min-h-0 rounded-none border-0 border-b" trim>
+          <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={spriteFrames} frameCount={spriteFrameCount} fps={sharedSpriteFps(work)} fallbackUrl={previewUrl} label={text(`${work.title} 序列帧播放`, `${work.title} sprite playback`)} className="aspect-square min-h-0 rounded-none border-0 border-b" trim zoomable={false}>
             <div className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-card/92 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur dark:border-white/10 dark:bg-[hsl(var(--pix-dark-card-raised)/.9)]">
               <Play className="size-3 fill-current" />{text('序列帧播放', 'Sprite playback')}
             </div>

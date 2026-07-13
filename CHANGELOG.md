@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.135.9] - 2026-07-14
+
+### Added
+
+- 首页「用户分享」中的序列帧作品支持自动播放，并兼容历史分享仅保留横向 sprite sheet、缺少逐帧坐标的情况；播放器会根据帧数与图片实际尺寸安全推导帧坐标。
+
+### Changed
+
+- 序列帧预览仅在进入可视区域且页面处于前台时推进帧；启用 `prefers-reduced-motion` 时固定展示首帧，离屏卡片不再持续运行计时器。
+
 ## [1.134.9] - 2026-07-14
 
 ### Added
