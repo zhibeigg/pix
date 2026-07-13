@@ -527,6 +527,7 @@ def _packy_provider_from_legacy(cfg: AppConfig) -> ImageProviderConfig | None:
                 operations=["text_to_image", "image_to_image"],
                 sizes=["auto", "1024x1024", "1536x1024", "1024x1536"],
                 output_formats=["png"],
+                edit_mode="image_input",
             ),
             ImageProviderModelConfig(
                 id="gemini-3-pro-image-preview",
@@ -536,6 +537,7 @@ def _packy_provider_from_legacy(cfg: AppConfig) -> ImageProviderConfig | None:
                 operations=["text_to_image", "image_to_image"],
                 sizes=["auto", "1024x1024", "1536x1024", "1024x1536"],
                 output_formats=["png"],
+                edit_mode="image_input",
             ),
         ],
     )

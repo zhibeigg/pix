@@ -45,6 +45,8 @@ def _model_to_dict(model: ImageProviderModelConfig) -> dict[str, Any]:
         "qualities": list(model.qualities),
         "output_formats": list(model.output_formats),
         "edit_mode": model.edit_mode,
+        "supports_n": bool(model.supports_n),
+        "requires_public_image_url": bool(model.requires_public_image_url),
         "extra": dict(model.extra),
     }
 

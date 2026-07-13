@@ -7,7 +7,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse
 
 from pix_web.models import User
-from pix_web.security import create_file_ticket, decode_file_ticket, get_current_user, get_db, get_settings
+from pix_web.security import (
+    create_file_ticket,
+    decode_file_ticket,
+    file_ticket_allows_path,
+    get_current_user,
+    get_db,
+    get_settings,
+)
 from sqlalchemy.orm import Session
 
 from pix_web.config import WebSettings
@@ -18,14 +25,18 @@ from pix_web.storage import resolve_web_file
 router = APIRouter(prefix="/files", tags=["files"])
 
 
+def _raw_file_token(request: Request, token: str | None = None) -> str:
+    bearer = request.headers.get("authorization", "")
+    return token or (bearer.removeprefix("Bearer ").strip() if bearer.lower().startswith("bearer ") else "")
+
+
 def _file_user(
     request: Request,
     token: str | None = None,
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> User:
-    bearer = request.headers.get("authorization", "")
-    raw_token = token or (bearer.removeprefix("Bearer ").strip() if bearer.lower().startswith("bearer ") else "")
+    raw_token = _raw_file_token(request, token)
     if not raw_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录")
     # 优先按短时效文件票据校验（scope=file）；失败再回退旧的完整登录 token（过渡兼容）。
@@ -58,11 +69,17 @@ def issue_file_ticket(
 def get_file(
     path: str,
     request: Request,
+    token: str | None = None,
     user: User = Depends(_file_user),
     db: Session = Depends(get_db),
     settings: WebSettings = Depends(get_settings),
 ) -> FileResponse:
     resolved = resolve_web_file(path, settings)
+    raw_token = _raw_file_token(request, token)
+    if decode_file_ticket(raw_token, settings) is not None and not file_ticket_allows_path(
+        raw_token, resolved, settings
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="文件票据与目标文件不匹配")
     if not user_owns_file(resolved, user, db, settings):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="文件不允许访问")
     return FileResponse(resolved)

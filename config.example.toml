@@ -42,6 +42,31 @@ output_formats = ["png", "jpeg", "webp"]
 # image2 会映射到上游 gpt-image-2；当前不支持 input_fidelity，Provider 请求会按此能力决定是否发参。
 extra = { supports_input_fidelity = false }
 
+[[image_providers.models]]
+id = "gemini-3.1-flash-image-preview"
+provider_model = "gemini-3.1-flash-image-preview"
+label = "Gemini 3.1 Flash Image Preview"
+protocol = "openai_images"
+operations = ["text_to_image", "image_to_image"]
+sizes = ["auto", "1024x1024", "1536x1024", "1024x1536"]
+qualities = []
+output_formats = ["png"]
+edit_mode = "image_input"
+# Crazyrouter 的 Gemini 原生兼容端点只接受 HTTP(S) 参考图；Web worker 会生成短时、单文件绑定的 /files URL。
+requires_public_image_url = true
+
+[[image_providers.models]]
+id = "gemini-3-pro-image-preview"
+provider_model = "gemini-3-pro-image-preview"
+label = "Gemini 3 Pro Image Preview"
+protocol = "openai_images"
+operations = ["text_to_image", "image_to_image"]
+sizes = ["auto", "1024x1024", "1536x1024", "1024x1536"]
+qualities = []
+output_formats = ["png"]
+edit_mode = "image_input"
+requires_public_image_url = true
+
 [[image_providers]]
 id = "packy"
 display_name = "Packy（兼容旧部署）"
@@ -63,6 +88,31 @@ qualities = ["auto", "low", "medium", "high"]
 output_formats = ["png", "jpeg", "webp"]
 # image2 会映射到上游 gpt-image-2；当前不支持 input_fidelity，Provider 请求会按此能力决定是否发参。
 extra = { supports_input_fidelity = false }
+
+[[image_providers.models]]
+id = "gemini-3.1-flash-image-preview"
+provider_model = "gemini-3.1-flash-image-preview"
+label = "Gemini 3.1 Flash Image Preview"
+protocol = "openai_images"
+operations = ["text_to_image", "image_to_image"]
+sizes = ["auto", "1024x1024", "1536x1024", "1024x1536"]
+qualities = []
+output_formats = ["png"]
+edit_mode = "image_input"
+# Packy 当前兼容 data URL；保留 false 避免额外回源请求。
+requires_public_image_url = false
+
+[[image_providers.models]]
+id = "gemini-3-pro-image-preview"
+provider_model = "gemini-3-pro-image-preview"
+label = "Gemini 3 Pro Image Preview"
+protocol = "openai_images"
+operations = ["text_to_image", "image_to_image"]
+sizes = ["auto", "1024x1024", "1536x1024", "1024x1536"]
+qualities = []
+output_formats = ["png"]
+edit_mode = "image_input"
+requires_public_image_url = false
 
 # 胜算云（ShengSuanYun）：异步任务协议（POST 提交 + GET 轮询），OpenAI gpt-image 兼容请求体。
 # 检测到 SHENGSUANYUN_API_KEY 环境变量时也会自动注入，无需在此显式配置。

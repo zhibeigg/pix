@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
 from pix.api.http_client import ProviderError
 from pix.api.image_dispatcher import dispatch_image_request
 from pix.api.image_model_registry import IMAGE_TO_IMAGE, TEXT_TO_IMAGE, available_model_infos, built_in_model, candidates_for_model, public_image_model_id
-from pix.api.image_providers import ImageProviderRequest, ImageProviderResult, OpenAIImagesProvider
+from pix.api.image_providers import (
+    ImageProviderRequest,
+    ImageProviderResult,
+    OpenAIImagesProvider,
+    set_public_image_url_resolver,
+)
 from pix.config import AppConfig, ImageProviderConfig, ImageProviderModelConfig, load_config
 
 
@@ -65,6 +72,13 @@ class ImageProviderConfigTests(unittest.TestCase):
         self.assertEqual(built_in_model("gpt-image-2").id, "image2")
         self.assertEqual(public_image_model_id("gpt-image-2"), "image2")
 
+    def test_builtin_gemini_uses_public_reference_url(self) -> None:
+        model = built_in_model("gemini-3.1-flash-image-preview")
+        self.assertIsNotNone(model)
+        assert model is not None
+        self.assertEqual(model.edit_mode, "image_input")
+        self.assertTrue(model.requires_public_image_url)
+
 
 class ImageProviderPayloadTests(unittest.TestCase):
     def _payload_for_model(self, model: ImageProviderModelConfig) -> dict:
@@ -82,6 +96,32 @@ class ImageProviderPayloadTests(unittest.TestCase):
                 input_fidelity="high",
             ),
         )
+
+    def _generate_image_input_payload(
+        self, model: ImageProviderModelConfig, image_path: Path, cfg: AppConfig | None = None
+    ) -> dict:
+        sent: dict = {}
+
+        class StubClient:
+            def post_json(self, _path: str, payload: dict) -> dict:
+                sent.update(payload)
+                return {"data": [{"b64_json": "aGVsbG8="}]}
+
+        provider = object.__new__(OpenAIImagesProvider)
+        provider.cfg = cfg or AppConfig()
+        provider.provider = ImageProviderConfig(id="test-provider")
+        provider.model = model
+        provider.client = StubClient()
+        provider.generate(
+            ImageProviderRequest(
+                operation=IMAGE_TO_IMAGE,
+                prompt="test",
+                model=model.id,
+                size="1024x1024",
+                image_path=image_path,
+            )
+        )
+        return sent
 
     def test_gpt_image_2_omits_input_fidelity(self) -> None:
         payload = self._payload_for_model(
@@ -122,6 +162,60 @@ class ImageProviderPayloadTests(unittest.TestCase):
             )
         )
         self.assertNotIn("input_fidelity", payload)
+
+    def test_image_input_defaults_to_base64_data_url(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "reference.png"
+            image_path.write_bytes(b"png-bytes")
+            payload = self._generate_image_input_payload(
+                ImageProviderModelConfig(
+                    id="gemini-test",
+                    provider_model="gemini-test",
+                    edit_mode="image_input",
+                ),
+                image_path,
+            )
+        self.assertTrue(str(payload.get("image_input") or "").startswith("data:image/png;base64,"))
+
+    def test_image_input_uses_resolved_url_when_model_requires_it(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "reference.png"
+            image_path.write_bytes(b"png-bytes")
+            cfg = AppConfig()
+            set_public_image_url_resolver(
+                cfg, lambda path: f"https://pix.example/api/files?path={path.name}&token=short-lived"
+            )
+            payload = self._generate_image_input_payload(
+                ImageProviderModelConfig(
+                    id="gemini-test",
+                    provider_model="gemini-test",
+                    edit_mode="image_input",
+                    requires_public_image_url=True,
+                ),
+                image_path,
+                cfg,
+            )
+        self.assertEqual(
+            payload.get("image_input"),
+            "https://pix.example/api/files?path=reference.png&token=short-lived",
+        )
+
+    def test_required_public_url_without_resolver_is_retryable_provider_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "reference.png"
+            image_path.write_bytes(b"png-bytes")
+            with self.assertRaises(ProviderError) as ctx:
+                self._generate_image_input_payload(
+                    ImageProviderModelConfig(
+                        id="gemini-test",
+                        provider_model="gemini-test",
+                        edit_mode="image_input",
+                        requires_public_image_url=True,
+                    ),
+                    image_path,
+                )
+        self.assertEqual(ctx.exception.category, "provider_unavailable")
+        self.assertTrue(ctx.exception.retryable)
 
 
 class _StubProvider:

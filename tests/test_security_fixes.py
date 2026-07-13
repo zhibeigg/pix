@@ -94,6 +94,22 @@ class FileOwnershipTests(unittest.TestCase):
         other = self.client.get("/files", params={"path": str(self.other_file), "token": ticket})
         self.assertEqual(other.status_code, 403)
 
+    def test_bound_file_ticket_only_serves_its_reference_image(self) -> None:
+        second_own_file = self.own_file.parent / "second.png"
+        second_own_file.write_bytes(b"second")
+        ticket = create_file_ticket(self.user, self.settings, bound_path=self.own_file)
+
+        bound = self.client.get(
+            "/files", params={"path": str(self.own_file), "token": ticket}
+        )
+        changed = self.client.get(
+            "/files", params={"path": str(second_own_file), "token": ticket}
+        )
+
+        self.assertEqual(bound.status_code, 200, bound.text)
+        self.assertEqual(changed.status_code, 403)
+        self.assertEqual(changed.json()["detail"], "文件票据与目标文件不匹配")
+
     def test_configured_legacy_storage_root_rebases_without_bypassing_ownership(self) -> None:
         ticket = create_file_ticket(self.user, self.settings)
 

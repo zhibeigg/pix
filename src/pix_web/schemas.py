@@ -1911,6 +1911,9 @@ class ImageProviderModelPayload(BaseModel):
     qualities: list[str] = Field(default_factory=list)
     output_formats: list[str] = Field(default_factory=list)
     edit_mode: str = "multipart"
+    supports_n: bool = False
+    requires_public_image_url: bool = False
+    extra: dict[str, Any] = Field(default_factory=dict)
 
 
 class ImageProviderCreateRequest(BaseModel):

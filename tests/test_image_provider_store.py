@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from pix.api.image_model_registry import TEXT_TO_IMAGE, candidates_for_model, provider_api_key
-from pix.config import AppConfig
+from pix.config import AppConfig, ImageProviderConfig, ImageProviderModelConfig
 from pix_web.models import Base, ImageProvider
 from pix_web.provider_store import apply_db_image_providers, ensure_seeded_image_providers
 
@@ -55,6 +55,35 @@ class ProviderStoreTests(unittest.TestCase):
         self.assertGreaterEqual(count, 1)
         self.assertEqual(first, same)
 
+    def test_seed_persists_public_url_capability_flags(self) -> None:
+        cfg = AppConfig()
+        cfg.image_providers = [
+            ImageProviderConfig(
+                id="url-provider",
+                display_name="URL Provider",
+                base_url="https://provider.example",
+                api_key="key",
+                models=[
+                    ImageProviderModelConfig(
+                        id="gemini-3.1-flash-image-preview",
+                        provider_model="gemini-3.1-flash-image-preview",
+                        edit_mode="image_input",
+                        supports_n=True,
+                        requires_public_image_url=True,
+                    )
+                ],
+            )
+        ]
+        with patch("pix_web.provider_store.load_config", return_value=cfg):
+            ensure_seeded_image_providers(self.db)
+
+        row = self.db.get(ImageProvider, "url-provider")
+        self.assertIsNotNone(row)
+        assert row is not None
+        model = row.models[0]
+        self.assertTrue(model["supports_n"])
+        self.assertTrue(model["requires_public_image_url"])
+
     def test_apply_replaces_and_sorts_by_priority(self) -> None:
         self._row(id="p2", display_name="P2", base_url="https://p2.example", api_key="k2", priority=5)
         self._row(id="p1", priority=20)
@@ -76,6 +105,26 @@ class ProviderStoreTests(unittest.TestCase):
         provider = next(p for p in cfg.image_providers if p.id == "p1")
         with patch.dict(os.environ, {"MY_PROVIDER_KEY": "from-env"}, clear=True):
             self.assertEqual(provider_api_key(provider), "from-env")
+
+    def test_apply_restores_public_url_capability_flags(self) -> None:
+        self._row(
+            models=[
+                {
+                    "id": "gemini-3.1-flash-image-preview",
+                    "provider_model": "gemini-3.1-flash-image-preview",
+                    "protocol": "openai_images",
+                    "operations": ["text_to_image", "image_to_image"],
+                    "edit_mode": "image_input",
+                    "supports_n": True,
+                    "requires_public_image_url": True,
+                }
+            ]
+        )
+        cfg = AppConfig()
+        apply_db_image_providers(cfg, self.db)
+        model = cfg.image_providers[0].models[0]
+        self.assertTrue(model.supports_n)
+        self.assertTrue(model.requires_public_image_url)
 
     def test_db_providers_flow_into_candidates(self) -> None:
         self._row(id="p1", priority=10)

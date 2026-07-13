@@ -1004,7 +1004,7 @@ export function ProviderManager({ onList, onListPresets, onCreate, onUpdate, onD
           {editing && <label className="flex items-center gap-2 text-xs text-muted-foreground"><Checkbox checked={clearKey} onCheckedChange={(value) => setClearKey(Boolean(value))} />清空当前值</label>}
           <label className="flex items-center gap-2 text-sm"><Checkbox checked={enabled} onCheckedChange={(value) => setEnabled(Boolean(value))} />启用供应商</label>
           <label className="flex items-center gap-2 text-sm"><Checkbox checked={discoverModels} onCheckedChange={(value) => setDiscoverModels(Boolean(value))} />自动发现模型</label>
-          <PixField label="模型配置（JSON 数组）"><Textarea value={modelsText} rows={10} className="font-mono text-xs" placeholder='[{"id":"...","provider_model":"...","label":"...","protocol":"...","operations":[],"sizes":[],"qualities":[],"output_formats":[],"edit_mode":""}]' onChange={(event) => setModelsText(event.target.value)} /></PixField>
+          <PixField label="模型配置（JSON 数组）"><Textarea value={modelsText} rows={10} className="font-mono text-xs" placeholder='[{"id":"...","provider_model":"...","label":"...","protocol":"...","operations":[],"sizes":[],"qualities":[],"output_formats":[],"edit_mode":"image_input","requires_public_image_url":false,"extra":{}}]' onChange={(event) => setModelsText(event.target.value)} /></PixField>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={saving || !displayName.trim() || (!editing && !id.trim())}>{saving ? '保存中…' : editing ? '保存修改' : '新增供应商'}</Button>
             <Button type="button" variant="outline" disabled={saving} onClick={cancelForm}>取消</Button>

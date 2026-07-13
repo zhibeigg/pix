@@ -222,8 +222,8 @@ export function RawImagePage({ pricing, discount, balance, jobs, loading, token,
 
 function buildRawPayload({ prompt, imageSize, quality, model, referenceImagePath }: { prompt: string; imageSize: string; quality: string; model: string; referenceImagePath: string | null }): JobCreateRequest {
   if (referenceImagePath) {
-    // 参考图存在时走 image_to_image。后端会调 /v1/images/edits 单次出图，
-    // source_only=true 让 pipeline 跳过候选 / VL / 像素化后处理，仅落原图。
+    // 参考图存在时走 image_to_image。后端会按 Provider 能力选择 multipart /images/edits
+    // 或 generations + image_input；source_only=true 跳过候选 / VL / 像素化后处理，仅落原图。
     return {
       job_type: 'image_to_image',
       prompt,

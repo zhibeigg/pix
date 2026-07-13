@@ -8,6 +8,7 @@ import json
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, urlsplit
 
 import numpy as np
 from PIL import Image
@@ -20,6 +21,7 @@ from pix.api.image_gen import (
     last_size_retry_outcome,
     parse_size,
 )
+from pix.api.image_providers import set_public_image_url_resolver
 from pix.api.prompt_guard import PromptPolicyError, RAW_IMAGE_PROMPT_MAX_CHARS, validate_user_prompt
 from pix.asset import build_asset_prompt, resolve_tile_texture_kind
 from pix.config import AppConfig, load_config
@@ -35,6 +37,8 @@ from pix.sprite_mosaic import SpriteMosaicInput, run_sprite_mosaic_pipeline
 from pix.sprite_video_bridge import SpriteVideoBridgeInput, run_sprite_video_bridge_pipeline
 from pix_web.config import WebSettings
 from pix_web.models import GenerationJob
+from pix_web.security import FILE_TICKET_TTL_SECONDS, create_file_ticket_for_user_id
+from pix_web.storage import file_url, resolve_storage_path
 
 
 _LOCAL_STAGE_LOCK_TIMEOUT_SECONDS = 1800.0
@@ -74,6 +78,43 @@ def _local_stage_context(settings: WebSettings):
         timeout=_LOCAL_STAGE_LOCK_TIMEOUT_SECONDS,
         poll_interval=_LOCAL_STAGE_LOCK_POLL_SECONDS,
     )
+
+
+def _configure_provider_public_image_urls(
+    cfg: AppConfig, job: GenerationJob, settings: WebSettings
+) -> None:
+    """为只接受 HTTP(S) 参考图的 Provider 注入短时、用户归属且单文件绑定的 URL。"""
+    base_url = (settings.public_base_url or "").strip().rstrip("/")
+    parsed = urlsplit(base_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        # 保留一个会抛出清晰错误的解析器；data URL Provider 不会调用它。
+        def unavailable(_path: Path) -> str:
+            raise ValueError("PIX_WEB_PUBLIC_BASE_URL 不是有效的 HTTP(S) 地址")
+
+        set_public_image_url_resolver(cfg, unavailable)
+        return
+
+    try:
+        provider_timeout = max(0, int(float(cfg.api.timeout or 0)))
+    except (TypeError, ValueError):
+        provider_timeout = 0
+    ticket_ttl = max(FILE_TICKET_TTL_SECONDS, provider_timeout + 120)
+
+    def resolve(path: Path) -> str:
+        resolved = resolve_storage_path(path, settings)
+        route = file_url(resolved)
+        if not route:
+            raise ValueError("参考图路径为空")
+        ticket = create_file_ticket_for_user_id(
+            job.user_id,
+            settings,
+            ttl_seconds=ticket_ttl,
+            bound_path=resolved,
+        )
+        separator = "&" if "?" in route else "?"
+        return f"{base_url}{route}{separator}token={quote(ticket, safe='')}"
+
+    set_public_image_url_resolver(cfg, resolve)
 
 
 def _as_fields(value: Any) -> set[str] | None:
@@ -1330,6 +1371,7 @@ def run_job_pipeline(
     job: GenerationJob, settings: WebSettings, *, cfg: AppConfig | None = None
 ) -> PipelineResult | SpritePipelineResult:
     resolved_cfg = cfg or load_config(config_file=settings.pix_config_file)
+    _configure_provider_public_image_urls(resolved_cfg, job, settings)
     if job.job_type == "asset":
         asset = _asset_data(job)
         kind = str(asset.get("asset_kind") or "item_icon")

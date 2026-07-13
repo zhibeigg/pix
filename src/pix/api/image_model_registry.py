@@ -111,6 +111,8 @@ def built_in_model(model_id: str) -> ImageProviderModelConfig | None:
         qualities=[],
         output_formats=["png"],
         edit_mode="image_input",
+        # Crazyrouter 等 Gemini 原生兼容端点拒绝 data URL，只接受可回源的 HTTP(S) 地址。
+        requires_public_image_url=True,
     )
 
 

@@ -7,12 +7,22 @@ import mimetypes
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+from urllib.parse import urlsplit
 
 from pix.api.http_client import ProviderError, ProviderHttpClient
 from pix.api.image_model_registry import IMAGE_TO_IMAGE, ProviderCandidate, provider_api_key
 from pix.config import AppConfig, ImageProviderModelConfig
 from pix.io_utils import image_to_base64_data_url
+
+
+PublicImageUrlResolver = Callable[[Path], str]
+_PUBLIC_IMAGE_URL_RESOLVER_ATTR = "_pix_public_image_url_resolver"
+
+
+def set_public_image_url_resolver(cfg: AppConfig, resolver: PublicImageUrlResolver) -> None:
+    """注入 Web 运行时的受保护文件 URL 解析器；核心配置序列化不会持久化该闭包。"""
+    setattr(cfg, _PUBLIC_IMAGE_URL_RESOLVER_ATTR, resolver)
 
 
 @dataclass(frozen=True)
@@ -80,6 +90,37 @@ class BaseImageProvider:
             retryable=False,
         )
 
+    def _reference_value(self, image_path: Path) -> str:
+        path = Path(image_path)
+        if not self.model.requires_public_image_url:
+            return image_to_base64_data_url(path)
+        resolver = getattr(self.cfg, _PUBLIC_IMAGE_URL_RESOLVER_ATTR, None)
+        if not callable(resolver):
+            raise ProviderError(
+                f"Provider {self.provider.id} 的模型 {self.model.id} 要求公网参考图 URL，但当前运行环境未提供安全 URL 解析器",
+                category="provider_unavailable",
+                provider_id=self.provider.id,
+                retryable=True,
+            )
+        try:
+            value = str(resolver(path)).strip()
+        except Exception as exc:
+            raise ProviderError(
+                f"Provider {self.provider.id} 的安全参考图 URL 生成失败",
+                category="provider_unavailable",
+                provider_id=self.provider.id,
+                retryable=True,
+            ) from exc
+        parsed = urlsplit(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ProviderError(
+                f"Provider {self.provider.id} 的安全参考图 URL 无效",
+                category="provider_unavailable",
+                provider_id=self.provider.id,
+                retryable=True,
+            )
+        return value
+
     def _result_from_response(self, resp: dict[str, Any]) -> ImageProviderResult:
         url, b64 = pick_image_entry(resp)
         if not url and not b64:
@@ -104,7 +145,7 @@ class OpenAIImagesProvider(BaseImageProvider):
         if request.operation == IMAGE_TO_IMAGE and self.model.edit_mode == "image_input":
             if request.image_path is None:
                 raise ProviderError("图生图缺少参考图", category="invalid_request", provider_id=self.provider.id, retryable=False)
-            payload["image_input"] = image_to_base64_data_url(request.image_path)
+            payload["image_input"] = self._reference_value(request.image_path)
         resp = self.client.post_json(self.model.endpoint or "/v1/images/generations", payload)
         return self._result_from_response(resp)
 
@@ -187,7 +228,7 @@ class FalProvider(BaseImageProvider):
         endpoint = self.model.endpoint or f"/{self.model.provider_model or self.model.id}"
         payload: dict[str, Any] = {"prompt": request.prompt}
         if request.operation == IMAGE_TO_IMAGE and request.image_path is not None:
-            payload["image_url"] = image_to_base64_data_url(request.image_path)
+            payload["image_url"] = self._reference_value(request.image_path)
         if request.size and request.size != "auto":
             payload["image_size"] = request.size
         resp = self.client.post_json(endpoint, payload)
@@ -254,7 +295,7 @@ class ShengSuanYunProvider(BaseImageProvider):
                 retryable=False,
             )
         payload = self._base_payload(request)
-        payload["image"] = image_to_base64_data_url(request.image_path)
+        payload["image"] = self._reference_value(request.image_path)
         return self._submit_and_poll(payload)
 
     def _base_payload(self, request: ImageProviderRequest) -> dict[str, Any]:

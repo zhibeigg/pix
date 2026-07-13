@@ -959,6 +959,9 @@ export interface ImageProviderModelPayload {
   qualities: string[]
   output_formats: string[]
   edit_mode: string
+  supports_n: boolean
+  requires_public_image_url: boolean
+  extra: Record<string, unknown>
 }
 
 export interface ImageProvider {

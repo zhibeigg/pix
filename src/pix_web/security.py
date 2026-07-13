@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import hashlib
+import hmac
 from ipaddress import ip_address, ip_network
+from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit
 
 import jwt
@@ -231,33 +235,83 @@ def create_access_token(user: User, settings: WebSettings, *, local_only: bool =
 
 # 文件访问票据：短时效、单用途（scope=file）令牌，供 <img>/下载链接以 query 参数携带，
 # 避免把长期登录 token 暴露在 URL、浏览器历史、Referer 与反代日志中。
+# Provider 图生图使用的票据会额外绑定单一文件摘要，防止上游改写 path 后读取用户其它文件。
 FILE_TICKET_SCOPE = "file"
 FILE_TICKET_TTL_SECONDS = 300
 
 
-def create_file_ticket(user: User, settings: WebSettings, *, ttl_seconds: int = FILE_TICKET_TTL_SECONDS) -> str:
+def _file_path_digest(path: str | Path) -> str:
+    canonical = str(Path(path).expanduser().resolve())
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def create_file_ticket_for_user_id(
+    user_id: int,
+    settings: WebSettings,
+    *,
+    ttl_seconds: int = FILE_TICKET_TTL_SECONDS,
+    bound_path: str | Path | None = None,
+) -> str:
     now = datetime.now(timezone.utc)
-    payload = {
-        "sub": str(user.id),
+    payload: dict[str, Any] = {
+        "sub": str(user_id),
         "scope": FILE_TICKET_SCOPE,
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(seconds=max(30, ttl_seconds))).timestamp()),
     }
+    if bound_path is not None:
+        payload["path_sha256"] = _file_path_digest(bound_path)
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
-def decode_file_ticket(token: str, settings: WebSettings) -> int | None:
-    """校验文件票据，返回用户 id；非票据或无效时返回 None（调用方可回退旧 token 校验）。"""
+def create_file_ticket(
+    user: User,
+    settings: WebSettings,
+    *,
+    ttl_seconds: int = FILE_TICKET_TTL_SECONDS,
+    bound_path: str | Path | None = None,
+) -> str:
+    return create_file_ticket_for_user_id(
+        user.id,
+        settings,
+        ttl_seconds=ttl_seconds,
+        bound_path=bound_path,
+    )
+
+
+def decode_file_ticket_claims(token: str, settings: WebSettings) -> dict[str, Any] | None:
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
     except Exception:
         return None
-    if payload.get("scope") != FILE_TICKET_SCOPE:
+    if not isinstance(payload, dict) or payload.get("scope") != FILE_TICKET_SCOPE:
         return None
     try:
-        return int(payload.get("sub", "0"))
+        int(payload.get("sub", "0"))
     except (TypeError, ValueError):
         return None
+    return payload
+
+
+def decode_file_ticket(token: str, settings: WebSettings) -> int | None:
+    """校验文件票据，返回用户 id；非票据或无效时返回 None（调用方可回退旧 token 校验）。"""
+    payload = decode_file_ticket_claims(token, settings)
+    if payload is None:
+        return None
+    return int(payload["sub"])
+
+
+def file_ticket_allows_path(token: str, path: str | Path, settings: WebSettings) -> bool:
+    """普通文件票据允许该用户所有自有文件；带摘要的 Provider 票据仅允许绑定文件。"""
+    payload = decode_file_ticket_claims(token, settings)
+    if payload is None:
+        return False
+    expected = payload.get("path_sha256")
+    if expected is None:
+        return True
+    if not isinstance(expected, str) or len(expected) != 64:
+        return False
+    return hmac.compare_digest(expected, _file_path_digest(path))
 
 
 def get_db(request: Request) -> Session:

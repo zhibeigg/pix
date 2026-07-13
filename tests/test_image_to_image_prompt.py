@@ -3,14 +3,17 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from pix.config import load_config
 from pix_web.config import WebSettings
 from pix_web.models import GenerationJob
 from pix_web.pipeline_adapter import (
     RAW_REFERENCE_IMAGE_ALIAS,
+    _configure_provider_public_image_urls,
     image_to_image_pipeline_input_from_job,
 )
+from pix_web.security import decode_file_ticket, file_ticket_allows_path
 
 USER_PROMPT = "戏台：中式风格，黑白红为主色调"
 
@@ -24,6 +27,7 @@ class ImageToImagePixelPromptTests(unittest.TestCase):
             storage_root=root / "outputs",
             queue_backend="database",
             jwt_secret="test-secret-at-least-32-bytes-long",
+            public_base_url="https://pix.example/api",
         )
         self.cfg = load_config()
 
@@ -59,6 +63,26 @@ class ImageToImagePixelPromptTests(unittest.TestCase):
         )
         self.assertEqual(inp.prompt, USER_PROMPT)
         self.assertNotIn("TRUE pixel-art", inp.prompt or "")
+
+    def test_provider_public_url_is_short_lived_and_bound_to_reference(self) -> None:
+        reference = self.settings.storage_root / "uploads" / "7" / "reference.png"
+        other = reference.with_name("other.png")
+        reference.parent.mkdir(parents=True, exist_ok=True)
+        reference.write_bytes(b"reference")
+        other.write_bytes(b"other")
+        job = self._job(source_only=True)
+        job.user_id = 7
+
+        _configure_provider_public_image_urls(self.cfg, job, self.settings)
+        resolver = self.cfg._pix_public_image_url_resolver  # type: ignore[attr-defined]
+        value = resolver(reference)
+        parsed = urlsplit(value)
+        token = parse_qs(parsed.query)["token"][0]
+
+        self.assertEqual(f"{parsed.scheme}://{parsed.netloc}{parsed.path}", "https://pix.example/api/files")
+        self.assertEqual(decode_file_ticket(token, self.settings), 7)
+        self.assertTrue(file_ticket_allows_path(token, reference, self.settings))
+        self.assertFalse(file_ticket_allows_path(token, other, self.settings))
 
     def test_toggle_off_keeps_literal_prompt(self) -> None:
         """关闭开关后回退原始 prompt 直传。"""
