@@ -77,6 +77,16 @@ class WebSettings:
     turnstile_email_max_without_challenge: int = 2
     turnstile_ip_window_seconds: int = 3600
     turnstile_ip_max_without_challenge: int = 5
+    update_check_enabled: bool = True
+    update_apply_enabled: bool = False
+    update_repository: str = "zhibeigg/pix"
+    update_channel: str = "stable"
+    update_github_api_base: str = "https://api.github.com"
+    update_timeout_seconds: float = 5.0
+    update_cache_ttl_seconds: int = 300
+    update_agent_url: str = ""
+    update_agent_token_file: Path | None = None
+    update_step_up_ttl_seconds: int = 300
 
     def session_cookie_secure_enabled(self) -> bool:
         """生产环境默认启用 Secure；开发环境可通过环境变量显式覆盖。"""
@@ -133,6 +143,15 @@ _DEFAULTS = {
     "PIX_WEB_TURNSTILE_EMAIL_MAX_WITHOUT_CHALLENGE": str(WebSettings.turnstile_email_max_without_challenge),
     "PIX_WEB_TURNSTILE_IP_WINDOW_SECONDS": str(WebSettings.turnstile_ip_window_seconds),
     "PIX_WEB_TURNSTILE_IP_MAX_WITHOUT_CHALLENGE": str(WebSettings.turnstile_ip_max_without_challenge),
+    "PIX_WEB_UPDATE_CHECK_ENABLED": "true",
+    "PIX_WEB_UPDATE_APPLY_ENABLED": "false",
+    "PIX_WEB_UPDATE_REPOSITORY": WebSettings.update_repository,
+    "PIX_WEB_UPDATE_CHANNEL": WebSettings.update_channel,
+    "PIX_WEB_UPDATE_GITHUB_API_BASE": WebSettings.update_github_api_base,
+    "PIX_WEB_UPDATE_TIMEOUT_SECONDS": str(WebSettings.update_timeout_seconds),
+    "PIX_WEB_UPDATE_CACHE_TTL_SECONDS": str(WebSettings.update_cache_ttl_seconds),
+    "PIX_WEB_UPDATE_AGENT_URL": WebSettings.update_agent_url,
+    "PIX_WEB_UPDATE_STEP_UP_TTL_SECONDS": str(WebSettings.update_step_up_ttl_seconds),
 }
 
 
@@ -154,6 +173,14 @@ def _env_int(name: str, default: int, minimum: int) -> int:
     raw = os.getenv(name, str(default))
     try:
         return max(minimum, int(raw))
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float, minimum: float) -> float:
+    raw = os.getenv(name, str(default))
+    try:
+        return max(minimum, float(raw))
     except ValueError:
         return default
 
@@ -217,6 +244,23 @@ def load_web_settings() -> WebSettings:
     alipay_mode_raw = os.getenv("ALIPAY_MODE", _DEFAULTS["ALIPAY_MODE"]).strip().lower()
     smtp_port = _env_int("PIX_WEB_SMTP_PORT", WebSettings.smtp_port, 1)
     smtp_ssl = _env_flag("PIX_WEB_SMTP_SSL", smtp_port == 465 or WebSettings.smtp_ssl)
+    update_repository = os.getenv(
+        "PIX_WEB_UPDATE_REPOSITORY", _DEFAULTS["PIX_WEB_UPDATE_REPOSITORY"]
+    ).strip()
+    if not update_repository or update_repository.count("/") != 1:
+        update_repository = WebSettings.update_repository
+    update_channel = os.getenv(
+        "PIX_WEB_UPDATE_CHANNEL", _DEFAULTS["PIX_WEB_UPDATE_CHANNEL"]
+    ).strip().lower()
+    if update_channel not in {"stable", "prerelease"}:
+        update_channel = WebSettings.update_channel
+    update_github_api_base = os.getenv(
+        "PIX_WEB_UPDATE_GITHUB_API_BASE", _DEFAULTS["PIX_WEB_UPDATE_GITHUB_API_BASE"]
+    ).strip().rstrip("/") or WebSettings.update_github_api_base
+    update_agent_url = os.getenv(
+        "PIX_WEB_UPDATE_AGENT_URL", _DEFAULTS["PIX_WEB_UPDATE_AGENT_URL"]
+    ).strip().rstrip("/")
+    update_agent_token_raw = os.getenv("PIX_WEB_UPDATE_AGENT_TOKEN_FILE", "").strip()
     try:
         poll_interval = max(0.1, float(poll_raw))
     except ValueError:
@@ -314,5 +358,25 @@ def load_web_settings() -> WebSettings:
             "PIX_WEB_TURNSTILE_IP_MAX_WITHOUT_CHALLENGE",
             WebSettings.turnstile_ip_max_without_challenge,
             0,
+        ),
+        update_check_enabled=_env_flag(
+            "PIX_WEB_UPDATE_CHECK_ENABLED", WebSettings.update_check_enabled
+        ),
+        update_apply_enabled=_env_flag(
+            "PIX_WEB_UPDATE_APPLY_ENABLED", WebSettings.update_apply_enabled
+        ),
+        update_repository=update_repository,
+        update_channel=update_channel,
+        update_github_api_base=update_github_api_base,
+        update_timeout_seconds=_env_float(
+            "PIX_WEB_UPDATE_TIMEOUT_SECONDS", WebSettings.update_timeout_seconds, 0.5
+        ),
+        update_cache_ttl_seconds=_env_int(
+            "PIX_WEB_UPDATE_CACHE_TTL_SECONDS", WebSettings.update_cache_ttl_seconds, 0
+        ),
+        update_agent_url=update_agent_url,
+        update_agent_token_file=(Path(update_agent_token_raw) if update_agent_token_raw else None),
+        update_step_up_ttl_seconds=_env_int(
+            "PIX_WEB_UPDATE_STEP_UP_TTL_SECONDS", WebSettings.update_step_up_ttl_seconds, 30
         ),
     )

@@ -1,0 +1,151 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-pix}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [pix_internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pix} -d ${POSTGRES_DB:-pix}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks: [pix_internal]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: ${PIX_BACKEND_IMAGE:?PIX_BACKEND_IMAGE must be an immutable digest}
+    env_file: ${PIX_APP_ENV_FILE:-.env.production}
+    environment:
+      PIX_WEB_ENV: prod
+      PIX_WEB_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pix}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-pix}
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [pix_internal]
+
+  api:
+    image: ${PIX_BACKEND_IMAGE:?PIX_BACKEND_IMAGE must be an immutable digest}
+    restart: unless-stopped
+    init: true
+    env_file: ${PIX_APP_ENV_FILE:-.env.production}
+    environment:
+      PIX_WEB_ENV: prod
+      PIX_WEB_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pix}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-pix}
+      PIX_WEB_REDIS_URL: redis://redis:6379/0
+      PIX_WEB_QUEUE_BACKEND: rq
+      PIX_WEB_AUTO_CREATE_DB: "false"
+      PIX_WEB_UPDATE_AGENT_URL: ${PIX_WEB_UPDATE_AGENT_URL:-http://updater:8090}
+      PIX_WEB_UPDATE_AGENT_TOKEN_FILE: /run/secrets/pix_updater_token
+    volumes:
+      - web_outputs:/app/web_outputs
+      - pix_outputs:/app/outputs
+      - ${PIX_UPDATER_TOKEN_HOST_FILE:-./pix-updater.token}:/run/secrets/pix_updater_token:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [pix_internal]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    image: ${PIX_BACKEND_IMAGE:?PIX_BACKEND_IMAGE must be an immutable digest}
+    restart: unless-stopped
+    init: true
+    env_file: ${PIX_APP_ENV_FILE:-.env.production}
+    environment:
+      PIX_WEB_ENV: prod
+      PIX_WEB_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pix}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-pix}
+      PIX_WEB_REDIS_URL: redis://redis:6379/0
+      PIX_WEB_QUEUE_BACKEND: rq
+      PIX_WEB_AUTO_CREATE_DB: "false"
+      PIX_WEB_RQ_WORKER_CLASS: default
+    command: ["pix-web-rq-worker"]
+    volumes:
+      - web_outputs:/app/web_outputs
+      - pix_outputs:/app/outputs
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [pix_internal]
+
+  web:
+    image: ${PIX_FRONTEND_IMAGE:?PIX_FRONTEND_IMAGE must be an immutable digest}
+    restart: unless-stopped
+    ports:
+      - "${PIX_WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [pix_internal]
+
+  updater:
+    image: ${PIX_UPDATER_IMAGE:?PIX_UPDATER_IMAGE must be an immutable digest}
+    profiles: ["updater"]
+    restart: unless-stopped
+    init: true
+    user: "10001:10001"
+    group_add:
+      - "${DOCKER_GID:-999}"
+    environment:
+      PIX_UPDATER_ENABLED: ${PIX_UPDATER_ENABLED:-false}
+      PIX_UPDATER_REPOSITORY: ${PIX_UPDATER_REPOSITORY:-zhibeigg/pix}
+      PIX_UPDATER_BACKEND_IMAGE: ${PIX_UPDATER_BACKEND_IMAGE:-ghcr.io/zhibeigg/pix-backend}
+      PIX_UPDATER_FRONTEND_IMAGE: ${PIX_UPDATER_FRONTEND_IMAGE:-ghcr.io/zhibeigg/pix-web}
+      PIX_UPDATER_UPDATER_IMAGE: ${PIX_UPDATER_UPDATER_IMAGE:-ghcr.io/zhibeigg/pix-updater}
+      PIX_UPDATER_COMPOSE_FILE: /deployment/compose.release.yml
+      PIX_UPDATER_COMPOSE_PROJECT: ${PIX_UPDATER_COMPOSE_PROJECT:-pix}
+      PIX_UPDATER_DEPLOYMENT_ROOT: /deployment
+      PIX_UPDATER_APP_ENV_FILE: /deployment/.env.production
+      PIX_UPDATER_RELEASE_ENV: /deployment/release.env
+      PIX_UPDATER_STATE_DIR: /var/lib/pix-updater/state
+      PIX_UPDATER_BACKUP_DIR: /var/lib/pix-updater/backups
+      PIX_UPDATER_LOG_DIR: /var/lib/pix-updater/logs
+      PIX_UPDATER_TOKEN_FILE: /run/secrets/pix_updater_token
+      PIX_UPDATER_HEALTH_URL: http://api:8000/health
+      PIX_UPDATER_BACKUP_RETENTION: ${PIX_UPDATER_BACKUP_RETENTION:-5}
+      PIX_UPDATER_LOG_RETENTION: ${PIX_UPDATER_LOG_RETENTION:-20}
+      PIX_UPDATER_POSTGRES_HOST: postgres
+      PIX_UPDATER_POSTGRES_PORT: 5432
+      PIX_UPDATER_POSTGRES_USER: ${POSTGRES_USER:-pix}
+      PIX_UPDATER_POSTGRES_DB: ${POSTGRES_DB:-pix}
+      PIX_UPDATER_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PIX_DEPLOYMENT_ROOT:-.}:/deployment
+      - ${PIX_UPDATER_STATE_HOST_DIR:-./updater-state}:/var/lib/pix-updater/state
+      - ${PIX_UPDATER_BACKUP_HOST_DIR:-./updater-backups}:/var/lib/pix-updater/backups
+      - ${PIX_UPDATER_LOG_HOST_DIR:-./updater-logs}:/var/lib/pix-updater/logs
+      - ${PIX_UPDATER_TOKEN_HOST_FILE:-./pix-updater.token}:/run/secrets/pix_updater_token:ro
+    networks: [pix_internal]
+
+networks:
+  pix_internal:
+
+volumes:
+  postgres_data:
+  redis_data:
+  web_outputs:
+  pix_outputs:

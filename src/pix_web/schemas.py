@@ -230,6 +230,89 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class StepUpUpdateRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+    model_config = {"extra": "forbid"}
+
+
+class StepUpUpdateResponse(BaseModel):
+    ok: bool = True
+    expires_in_seconds: int
+
+
+class UpdateReleaseResponse(BaseModel):
+    version: str
+    tag: str
+    commit: str
+    notes: str = ""
+    manifest_sha256: str
+    alembic_head: str
+    rollback_supported: bool
+    trusted: bool = True
+
+
+class UpdateAgentStatusResponse(BaseModel):
+    configured: bool = False
+    available: bool = False
+    state: str = "unconfigured"
+    updater_version: str = ""
+    current_version: str = ""
+    can_rollback: bool = False
+    active_operation_id: str | None = None
+    error: str | None = None
+
+
+class UpdateOperationResponse(BaseModel):
+    operation_id: str
+    action: Literal["apply", "rollback"]
+    state: str
+    target_version: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    transitions: list[str] = Field(default_factory=list)
+    message: str = ""
+    error: str | None = None
+
+
+class AdminUpdateStatusResponse(BaseModel):
+    current_version: str
+    latest_release: UpdateReleaseResponse | None = None
+    update_state: str
+    update_available: bool = False
+    check_enabled: bool
+    apply_enabled: bool
+    agent: UpdateAgentStatusResponse
+    operation: UpdateOperationResponse | None = None
+    can_apply: bool = False
+    can_rollback: bool = False
+    error: str | None = None
+
+
+class AdminUpdateApplyRequest(BaseModel):
+    target_version: str = Field(pattern=r"^\d+\.\d+\.\d+$", max_length=64)
+    expected_manifest_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    idempotency_key: str = Field(min_length=8, max_length=128, pattern=r"^[A-Za-z0-9._:-]+$")
+    model_config = {"extra": "forbid"}
+
+
+class AdminUpdateRollbackRequest(BaseModel):
+    idempotency_key: str = Field(min_length=8, max_length=128, pattern=r"^[A-Za-z0-9._:-]+$")
+    model_config = {"extra": "forbid"}
+
+
+class UpdaterAgentStatus(BaseModel):
+    state: str = Field(min_length=1, max_length=64)
+    updater_version: str = Field(default="", max_length=64)
+    current_version: str = Field(default="", max_length=64)
+    can_rollback: bool = False
+    active_operation_id: str | None = Field(default=None, max_length=128)
+    model_config = {"extra": "forbid"}
+
+
+class UpdaterAgentOperation(UpdateOperationResponse):
+    model_config = {"extra": "forbid"}
+
+
 class SetupStatusResponse(BaseModel):
     needs_admin: bool
     user_count: int

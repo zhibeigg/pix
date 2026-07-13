@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.131.2] - 2026-07-13
+
+### Added
+
+- 管理后台新增「版本与更新」控制面：检测固定 GitHub Release、校验机器可读发布 manifest、显示 GHCR digest 与 updater 状态，并通过短时管理员重新认证提交更新、查询操作进度或回滚上一已知良好版本。
+- 新增独立 Pix Updater 与 digest 驱动的生产 Compose；updater 负责 provenance 校验、PostgreSQL 更新前备份、Alembic 迁移、服务健康验证和失败恢复，API 容器不再需要也不会获得 Docker socket。
+
+### Changed
+
+- 管理后台重构为「观测 / 运营 / 商业 / 系统」四组高密度运维台，模块与筛选支持深链接，后台数据改为按模块懒加载和独立刷新，系统设置分类改为动态二级导航。
+- Release 工作流新增 updater 镜像和绑定 tag、commit、Alembic head 与三组镜像 digest 的 `pix-release-manifest.json`，并为 manifest 与 OCI 镜像生成 GitHub provenance。
+
+### Security
+
+- 更新与回滚只允许 Cookie 管理员通过密码 step-up 后执行；浏览器不能提交任意命令、URL、镜像或 Compose 路径，所有 Docker 权限隔离在不暴露公网端口的 updater 服务。
+
 ## [1.130.2] - 2026-07-11
 
 ### Security

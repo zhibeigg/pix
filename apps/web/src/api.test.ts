@@ -49,6 +49,19 @@ describe('Cookie session API requests', () => {
     expect(headers.get('Authorization')).toBe('Bearer legacy-bearer-token')
   })
 
+  it('sends the exact signed update apply contract', async () => {
+    const operation = { id: 'op-1', kind: 'apply', status: 'queued', target_version: '1.2.3', started_at: null, updated_at: null, finished_at: null, error: null, steps: [] }
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(operation), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.applyAdminUpdate(SESSION_AUTH_MARKER, { target_version: '1.2.3', expected_manifest_sha256: 'abc123', idempotency_key: 'update-1' })
+
+    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/admin/updates/apply')
+    expect(options.method).toBe('POST')
+    expect(JSON.parse(String(options.body))).toEqual({ target_version: '1.2.3', expected_manifest_sha256: 'abc123', idempotency_key: 'update-1' })
+  })
+
   it('uses the session login endpoint and never returns a token contract to the SPA', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ id: 1, email: 'user@example.com', role: 'user' }), {

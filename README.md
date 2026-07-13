@@ -176,37 +176,87 @@ npm run build
 
 ## Docker 部署
 
+### 源码构建部署
+
+源码构建适合本地开发、首次迁移前验证或需要自定义镜像的环境：
+
 1. 复制生产环境变量：
 
    ```bash
    cp .env.production.example .env.production
    ```
 
-2. 修改 `.env.production` 中的数据库密码、JWT secret、生图 Provider API key（推荐 Crazyrouter，可保留 Packy fallback）、邮件与支付配置。
-3. 启动：
+2. 修改 `.env.production` 中的数据库密码、JWT secret、生图 Provider、邮件与支付配置。
+3. 构建并启动：
 
    ```bash
    docker compose --env-file .env.production up --build
    ```
 
+### Release digest 部署与后台更新
+
+生产更新使用 `compose.release.yml`。应用服务只消费 GitHub Release manifest 中记录的不可变 GHCR digest；`postgres` / `redis` 不跟随应用按钮更新。
+
+首次 bootstrap 必须人工完成一次：
+
+1. 准备 `.env.production`，保持 `PIX_WEB_UPDATE_APPLY_ENABLED=false` 与 `PIX_UPDATER_ENABLED=false`。
+2. 创建至少 32 字符的随机 `pix-updater.token`，并限制文件权限；该 token 只挂载给 API 与 updater。
+3. 从已验证的 `pix-release-manifest.json` 取得 backend、frontend、updater 三个 digest，创建未纳入 Git 的 `release.env`：
+
+   ```env
+   PIX_BACKEND_IMAGE=ghcr.io/zhibeigg/pix-backend@sha256:...
+   PIX_FRONTEND_IMAGE=ghcr.io/zhibeigg/pix-web@sha256:...
+   PIX_UPDATER_IMAGE=ghcr.io/zhibeigg/pix-updater@sha256:...
+   PIX_RELEASE_VERSION=A.B.C
+   PIX_RELEASE_COMMIT=<40 位提交 SHA>
+   PIX_RELEASE_MANIFEST_SHA256=<64 位 SHA-256>
+   ```
+
+4. 创建 `updater-state/`、`updater-backups/`、`updater-logs/`，确认 updater UID/GID 可写；把宿主机 Docker socket 的组 ID 写入 `DOCKER_GID`。
+5. 同时加载业务环境与 release digest，执行首次迁移并启动业务栈：
+
+   ```bash
+   docker compose --env-file .env.production --env-file release.env -f compose.release.yml run --rm migrate
+   docker compose --env-file .env.production --env-file release.env -f compose.release.yml up -d postgres redis api worker web
+   ```
+
+6. 将当前已验证的 `manifest.json` / `release.env` 放入 `updater-state/last-known-good/` 作为首个已知良好版本，再启动 updater profile：
+
+   ```bash
+   docker compose --env-file .env.production --env-file release.env -f compose.release.yml --profile updater up -d updater
+   ```
+
+7. 确认 API 可通过 Compose 内网访问 `http://updater:8090`、updater 可访问 `http://api:8000/health`，完成一次数据库恢复演练后，再设置 `PIX_UPDATER_ENABLED=true` 与 `PIX_WEB_UPDATE_APPLY_ENABLED=true` 并重建对应服务。
+
+之后管理员可在「系统 → 版本与更新」检测版本、重新输入密码并键入目标版本确认。FastAPI 不挂 Docker socket；只有不发布公网端口的 updater 拥有 Docker 权限。updater 会重新验证 manifest 与三组 OCI provenance，按 digest 拉取镜像，创建 PostgreSQL custom-format 备份，停止应用服务、运行 Alembic、验证目标版本健康状态；失败时按 manifest 策略恢复上一已知良好版本和必要的数据库备份。单机 Compose 更新会产生短暂维护窗口，不承诺零停机。
+
+为避免 updater 在执行过程中自我替换，后台操作成功后不会重建正在运行的 updater 容器。确认业务服务健康且操作状态为 `succeeded` 后，由宿主机执行一次安全轮换，使 updater 切换到新 manifest 固定的 digest：
+
+```bash
+docker compose --env-file .env.production --env-file release.env -f compose.release.yml --profile updater up -d updater
+```
+
 默认服务：
 
 - `web`：Nginx 托管前端，默认宿主机 `8080`。
-- `api`：FastAPI 后端。
+- `api`：FastAPI 后端；只负责更新控制面，不接触 Docker socket。
 - `worker`：RQ 生成任务 worker。
-- `postgres` / `redis`：生产编排依赖。
+- `postgres` / `redis`：生产编排依赖，不随应用按钮更新。
+- `updater`：可选 profile，内部端口 `8090`，唯一挂载 Docker socket 的服务。
 
 ### 自动发布与容器镜像
 
-推送形如 `vA.B.C` 的标签后，GitHub Actions 会先重新执行安全扫描、测试和构建，再创建 GitHub Release：
+推送形如 `vA.B.C` 的标签后，GitHub Actions 会先确认 tag commit 属于主分支历史，再执行安全扫描、测试和构建，并创建 GitHub Release：
 
 - Python wheel 与 sdist；
 - `pix-web-A.B.C.zip` 前端静态包；
 - `SHA256SUMS` 与 GitHub artifact provenance；
+- `pix-release-manifest.json`，绑定 tag、commit、Alembic head、回滚策略和三组不可变镜像 digest；
 - `ghcr.io/zhibeigg/pix-backend:A.B.C`；
-- `ghcr.io/zhibeigg/pix-web:A.B.C`。
+- `ghcr.io/zhibeigg/pix-web:A.B.C`；
+- `ghcr.io/zhibeigg/pix-updater:A.B.C`。
 
-镜像同时提供 major/minor 与 `latest` 标签。可用 `sha256sum -c SHA256SUMS` 校验下载文件，用 `gh attestation verify` 验证 GitHub 制品或 GHCR 镜像来源。
+镜像仍提供 semver 与 `latest` 标签，方便人工查看；生产部署和后台更新只使用 manifest 中的 `image@sha256:...`。可用 `sha256sum -c SHA256SUMS` 校验下载文件，用 `gh attestation verify` 验证 manifest、制品或 GHCR 镜像来源。
 
 > PyPI 上的 `pix` 名称已被其他项目占用，因此本项目只通过 GitHub Release 分发 Python 安装包，不会自动发布 PyPI。
 
@@ -245,6 +295,11 @@ npm run build
 | `PIX_WEB_PUBLIC_BASE_URL` | 后端公开 URL，例如 `https://example.com/api`；支付回调和链接推导会使用。 |
 | `PIX_WEB_FRONTEND_BASE_URL` | 前端公开 URL；公告邮件按钮优先使用它，留空时从 `PIX_WEB_PUBLIC_BASE_URL` 推导。 |
 | `PIX_WEB_CORS_ORIGINS` | 前后端不同源部署时填写允许的 Origin，多个用逗号分隔。 |
+| `PIX_WEB_UPDATE_CHECK_ENABLED` / `PIX_WEB_UPDATE_APPLY_ENABLED` | 管理后台版本检测与执行更新开关；生产默认允许检测、禁止执行，完成 updater bootstrap 后再开启执行。 |
+| `PIX_WEB_UPDATE_REPOSITORY` / `PIX_WEB_UPDATE_CHANNEL` | 固定可信 GitHub 仓库与发布频道，默认 `zhibeigg/pix` / `stable`；浏览器不能覆盖。 |
+| `PIX_WEB_UPDATE_AGENT_URL` / `PIX_WEB_UPDATE_AGENT_TOKEN_FILE` | API 访问内部 updater 的地址和只读 token 文件路径；不得暴露 updater 公网端口或把 token 保存进数据库设置。 |
+| `PIX_WEB_UPDATE_STEP_UP_TTL_SECONDS` | 管理员更新/回滚密码二次验证的短时授权秒数，默认 300。 |
+| `PIX_UPDATER_ENABLED` / `PIX_UPDATER_*` | updater 的固定部署根目录、镜像 allowlist、备份/日志保留与 PostgreSQL 连接配置；详见环境示例。 |
 | `PIX_WEB_EMAIL_PROVIDER` | 邮件发送方式，开发可用 `console`，生产公告通知和验证码建议使用 `smtp`。 |
 | `PIX_WEB_SMTP_HOST` / `PIX_WEB_SMTP_PORT` / `PIX_WEB_SMTP_FROM` | SMTP 投递配置；系统公告邮件和注册验证码共用。 |
 | `PIX_WEB_TURNSTILE_ENABLED` | 是否启用 Cloudflare Turnstile 自适应反刷码；启用后仅同邮箱 / 同 IP 频繁请求验证码时触发，默认关闭。 |
@@ -758,7 +813,9 @@ flowchart LR
 
 ## 管理后台运营能力
 
-管理后台「概览」展示今日任务、成功 / 失败、订单充值、今日消费、今日新增用户、DAU、今日付费用户、今日新订单、付费订单、上传量和失败诊断等核心运营指标。其中「订单充值」只汇总今日已支付订单的点数，不再把注册赠送或管理员补点计入充值数据；DAU 以今日注册、创建任务、上传或创建 / 支付订单的去重用户数统计。「今日新订单」按 `created_at` 统计（含未支付 `pending`），「付费订单」按 `paid_at` 只统计已支付，两者并列便于发现支付回调未到的订单。所有「今日」指标按**站点时区**（系统设置 `site.timezone`，默认 `Asia/Shanghai` = UTC+8）切分自然日，避免 UTC+8 用户凌晨—早 8 点的订单被算到前一天；概览在「概览」标签页每 30s 自动刷新，不再需要手动点「刷新」。
+管理后台采用面向站长与可信运营的高密度运维台：一级导航收口为「观测 / 运营 / 商业 / 系统」四组，当前模块和关键筛选保存在 `#/admin?tab=...`，刷新页面、浏览器前进后退或复制链接都能保留位置。后台资源按模块懒加载并独立刷新，不再在管理员登录后一次性拉取全部用户、任务、配置和商业数据；系统设置分类作为动态二级导航展示，后端新增分类也能直接进入。
+
+「概览」展示今日任务、成功 / 失败、订单充值、今日消费、今日新增用户、DAU、今日付费用户、今日新订单、付费订单、上传量和失败诊断等核心运营指标，并优先突出异常、待处理事项与系统版本状态。其中「订单充值」只汇总今日已支付订单的点数，不再把注册赠送或管理员补点计入充值数据；DAU 以今日注册、创建任务、上传或创建 / 支付订单的去重用户数统计。「今日新订单」按 `created_at` 统计（含未支付 `pending`），「付费订单」按 `paid_at` 只统计已支付，两者并列便于发现支付回调未到的订单。所有「今日」指标按**站点时区**（系统设置 `site.timezone`，默认 `Asia/Shanghai` = UTC+8）切分自然日，避免 UTC+8 用户凌晨—早 8 点的订单被算到前一天。
 
 管理后台「用户与点数」支持单用户调整、当前用户列表多选、全选当前列表，以及通过 `POST /admin/users/adjust-credits-batch` 对全部 active 用户批量补点 / 扣点。批量操作会为每个目标用户写入独立 `adjustment` 点数流水，并在提交前显示目标范围、每人点数变化与备注，便于运营补偿或活动发放。用户列表还会展示每个用户的剩余点数 / 累计充值 / 累计消耗与月卡状态，并支持关键词搜索（邮箱 / 昵称 / #ID）与按剩余点数 / 已消耗 / 已充值 / 注册时间排序；后端 `GET /admin/users` 返回 `AdminUserResponse`，批量查 `CreditAccount` / `UserMembership` 组装余额与会员字段（避免 N+1），仅只读展示不改计费。
 
@@ -775,6 +832,19 @@ flowchart LR
 管理后台「性能监控」面板提供生图任务的实时可观测：成功率、活跃并发、任务量与成功率时间序列、提供商成功率对比、失败分类与最近任务流，可在 `1h / 24h / 7d` 范围间切换，前端每 8 秒轮询刷新。数据来自后端 `GET /admin/performance-metrics` 聚合接口；提供商成功率以后台已添加的 `image_providers` 为基准，优先读取任务 meta / diagnostics 中的 provider 尝试历史，因此 fallback 中前置失败供应商和最终成功供应商都会计入各自统计。
 
 管理后台「上游供应商」面板统一管理生图上游：从内置预设（胜算云 / Packy / Crazyrouter / OpenAI / Midjourney / Ideogram / Fal / Kling）或「自定义（OpenAI 兼容）」一键新增供应商，填入 API Key 即可；支持编辑、删除、启停与调整 `priority`。供应商配置以数据库 `image_providers` 表为单一真相源（迁移 `0017`），后端 `GET/POST/PUT/DELETE /admin/providers` 提供增删改查、`GET /admin/providers/presets` 返回预设目录。首次启动会把 `config.toml` 的 `[[image_providers]]` 与 `.env` 各家 Key 导入数据库做种子；之后改动即时生效、无需重启（worker 每个任务都通过 `load_managed_pix_config` 重新加载有效配置并叠加数据库供应商）。API Key 写入后仅展示「已配置 / 未配置」状态、提交空值保持不变，与其它密钥设置一致。
+
+「版本与更新」模块从固定 GitHub 仓库检测稳定 Release，展示当前版本、最新可信 manifest、镜像 digest、updater 在线状态和更新操作时间线。检测接口故障不会影响管理员登录；执行更新默认关闭，且必须由管理员 Cookie 会话重新输入密码获得短时 step-up 授权。FastAPI 容器不接触 Docker socket，真正的镜像校验、PostgreSQL 备份、迁移、Compose 部署、健康检查和回滚由内部 Pix Updater 执行；浏览器不能提交任意 URL、镜像、命令或部署路径。
+
+管理员更新 API：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/admin/updates/status` | 返回当前/最新版本、可信 Release、agent 和最近操作状态。 |
+| `POST` | `/admin/updates/check` | 强制重新检测固定仓库的稳定 Release。 |
+| `POST` | `/auth/session/step-up-update` | 当前管理员使用密码获取短时更新授权；只接受 Cookie 会话。 |
+| `POST` | `/admin/updates/apply` | 更新到当前检测到的可信目标版本；要求 step-up 与幂等键。 |
+| `GET` | `/admin/updates/operations/{operation_id}` | 查询备份、迁移、部署、验证或回滚进度。 |
+| `POST` | `/admin/updates/rollback` | 回滚到 updater 记录的上一已知良好版本；要求 step-up。 |
 
 ## 对外 API
 

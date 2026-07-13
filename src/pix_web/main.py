@@ -17,7 +17,9 @@ from pix_web.config import WebSettings, load_web_settings
 from pix_web.db import init_db, make_engine, make_session_factory
 from pix_web.rate_limit import limiter, rate_limit_exceeded_handler
 from pix_web.referrals import frontend_invite_base_url
-from pix_web.routers import admin, admin_shares, announcements, api_keys, auth, batches, billing, characters, credits, external, files, jobs, membership, packs, pricing, providers, referrals, settings as settings_router, shares, uploads
+from pix_web.release_updates import ReleaseUpdateChecker
+from pix_web.routers import admin, admin_shares, admin_updates, announcements, api_keys, auth, batches, billing, characters, credits, external, files, jobs, membership, packs, pricing, providers, referrals, settings as settings_router, shares, uploads
+from pix_web.update_agent_client import UpdateAgentClient
 
 
 def _validate_production_settings(settings: WebSettings) -> None:
@@ -80,6 +82,8 @@ def create_app(settings: WebSettings | None = None) -> FastAPI:
     app.state.web_settings = settings
     app.state.engine = engine
     app.state.SessionLocal = session_factory
+    app.state.release_update_checker = ReleaseUpdateChecker(settings)
+    app.state.update_agent_client = UpdateAgentClient(settings)
 
     app.include_router(auth.router)
     app.include_router(credits.router)
@@ -100,6 +104,7 @@ def create_app(settings: WebSettings | None = None) -> FastAPI:
     app.include_router(announcements.router)
     app.include_router(admin.router)
     app.include_router(admin_shares.router)
+    app.include_router(admin_updates.router)
     app.include_router(providers.router)
 
     @app.get("/", include_in_schema=False)
