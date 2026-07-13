@@ -318,7 +318,10 @@ def request_register_code(
         send_verification_email(effective, email, result.code)
     except EmailDeliveryError as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=exc.user_message,
+        ) from exc
     db.commit()
     return EmailCodeResponse(
         retry_after_seconds=result.retry_after_seconds,
@@ -459,7 +462,10 @@ def request_reset_code(
         send_password_reset_email(effective, email, result.code)
     except EmailDeliveryError as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=exc.user_message,
+        ) from exc
     db.commit()
     return EmailCodeResponse(
         retry_after_seconds=result.retry_after_seconds,

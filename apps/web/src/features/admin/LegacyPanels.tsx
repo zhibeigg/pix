@@ -455,7 +455,36 @@ function formatDateTime(value: string) {
   try { return new Date(value).toLocaleString() } catch { return value }
 }
 
-export function EmailTestBox({ onTest }: { onTest: (email: string) => Promise<void> }) { const [email, setEmail] = useState('admin@example.com'); return <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void onTest(email) }}><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /><Button type="submit" variant="outline">发送测试</Button></form> }
+export function EmailTestBox({ onTest }: { onTest: (email: string) => Promise<void> }) {
+  const { text } = useI18n()
+  const [email, setEmail] = useState('admin@example.com')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (!email.trim() || sending) return
+    setSending(true)
+    setError('')
+    try {
+      await onTest(email.trim())
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : text('测试邮件发送失败，请稍后重试。', 'Failed to send the test email. Try again later.'))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="grid gap-2">
+      <form className="flex gap-2" onSubmit={submit}>
+        <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+        <Button type="submit" variant="outline" disabled={sending || !email.trim()}>{sending ? text('发送中…', 'Sending…') : text('发送测试', 'Send test')}</Button>
+      </form>
+      {error && <Alert variant="destructive">{error}</Alert>}
+    </div>
+  )
+}
 
 export function AnnouncementEditor({ onPublish, onTestEmail, onListAnnouncements, onCreateAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement, onTestAnnouncementEmail }: { onPublish: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onListAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }> }) {
   const confirm = useConfirm()

@@ -713,7 +713,8 @@ def admin_test_announcement_email(
         )
     except EmailDeliveryError as exc:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=exc.admin_message,
         ) from exc
     return EmailTestResponse(
         message="公告测试邮件已发送"
@@ -735,7 +736,8 @@ def test_email_setting(
         send_verification_email(effective, str(req.email), code)
     except EmailDeliveryError as exc:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=exc.admin_message,
         ) from exc
     return EmailTestResponse(
         message="测试邮件已发送"

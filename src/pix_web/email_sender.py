@@ -8,7 +8,9 @@ from email.message import EmailMessage
 from html import escape
 import logging
 import smtplib
-from typing import Sequence
+import socket
+import ssl
+from typing import Callable, Sequence
 
 from pix_web.config import WebSettings
 from pix_web.referrals import frontend_invite_base_url
@@ -17,7 +19,247 @@ logger = logging.getLogger(__name__)
 
 
 class EmailDeliveryError(RuntimeError):
-    """邮件发送失败。"""
+    """可安全返回给客户端的邮件发送错误。"""
+
+    def __init__(
+        self,
+        code: str,
+        user_message: str,
+        *,
+        admin_message: str | None = None,
+    ) -> None:
+        super().__init__(user_message)
+        self.code = code
+        self.user_message = user_message
+        self.admin_message = admin_message or user_message
+
+
+_EMAIL_DELIVERY_MESSAGES: dict[str, tuple[str, str]] = {
+    "recipient_unavailable": (
+        "这个邮箱地址可能不存在或无法接收邮件，请检查拼写后重试，或更换邮箱。",
+        "收件邮箱可能不存在或无法接收邮件，请检查邮箱地址后重试。",
+    ),
+    "mailbox_full": (
+        "这个邮箱的收件箱可能已满，暂时无法接收邮件。请清理空间后重试，或更换邮箱。",
+        "收件邮箱可能已满，请清理邮箱空间后重试，或更换测试邮箱。",
+    ),
+    "recipient_rejected": (
+        "收件方暂时拒收了这封邮件，请稍后重试，或更换常用邮箱。",
+        "收件方拒收了邮件，请检查收件地址、反垃圾策略或更换测试邮箱。",
+    ),
+    "smtp_busy": (
+        "邮件服务当前繁忙，请稍后再试。",
+        "SMTP 服务暂时繁忙或触发限流，请稍后重试。",
+    ),
+    "smtp_connection": (
+        "暂时无法连接邮件服务，请稍后再试。",
+        "无法连接 SMTP 服务器，请检查主机、端口、DNS 和网络。",
+    ),
+    "smtp_authentication": (
+        "邮件服务暂时无法使用，请稍后再试；如持续失败，请联系管理员。",
+        "SMTP 登录失败，请检查用户名、密码或邮箱授权码。",
+    ),
+    "smtp_sender_rejected": (
+        "邮件服务暂时无法使用，请稍后再试；如持续失败，请联系管理员。",
+        "SMTP 发件人被拒绝，请检查发件人地址与账号授权。",
+    ),
+    "smtp_security": (
+        "邮件服务暂时无法使用，请稍后再试；如持续失败，请联系管理员。",
+        "SMTP 安全连接失败，请检查端口与 SSL/STARTTLS 配置。",
+    ),
+    "smtp_not_configured": (
+        "邮件服务暂时无法使用，请稍后再试；如持续失败，请联系管理员。",
+        "SMTP 配置不完整，请先填写服务器地址和发件人。",
+    ),
+    "email_provider_invalid": (
+        "邮件服务暂时无法使用，请稍后再试；如持续失败，请联系管理员。",
+        "邮件发送方式配置无效，请选择 console 或 smtp。",
+    ),
+    "smtp_unknown": (
+        "邮件暂时无法发送，请稍后再试；如持续失败，请联系管理员。",
+        "SMTP 发送失败，请检查邮件服务配置或稍后重试。",
+    ),
+}
+
+_RECIPIENT_UNAVAILABLE_MARKERS = (
+    "mailbox not found",
+    "mailbox unavailable",
+    "user unknown",
+    "unknown user",
+    "no such user",
+    "no such mailbox",
+    "account does not exist",
+    "invalid recipient",
+    "recipient address rejected",
+    "recipient not found",
+    "用户不存在",
+    "邮箱不存在",
+    "收件人不存在",
+    "地址不存在",
+)
+_MAILBOX_FULL_MARKERS = (
+    "mailbox full",
+    "mailbox is full",
+    "quota exceeded",
+    "over quota",
+    "storage allocation",
+    "insufficient storage",
+    "邮箱已满",
+    "邮箱空间不足",
+    "超出容量",
+)
+_RECIPIENT_REJECTED_MARKERS = (
+    "access denied",
+    "message rejected",
+    "recipient rejected",
+    "policy",
+    "spam",
+    "blacklist",
+    "blocked",
+    "not allowed",
+    "relay denied",
+    "拒收",
+    "黑名单",
+    "策略限制",
+)
+_AUTHENTICATION_MARKERS = (
+    "authentication failed",
+    "authentication unsuccessful",
+    "invalid credentials",
+    "bad credentials",
+    "authorization failed",
+    "登录失败",
+    "认证失败",
+    "授权失败",
+)
+_SECURITY_MARKERS = (
+    "starttls",
+    "tls",
+    "ssl",
+    "certificate",
+    "安全连接",
+    "证书",
+)
+
+
+def _delivery_error(code: str) -> EmailDeliveryError:
+    user_message, admin_message = _EMAIL_DELIVERY_MESSAGES.get(
+        code, _EMAIL_DELIVERY_MESSAGES["smtp_unknown"]
+    )
+    return EmailDeliveryError(code, user_message, admin_message=admin_message)
+
+
+def _smtp_response_text(value: object) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value or "")
+
+
+def _smtp_exception_details(exc: Exception) -> tuple[int | None, str]:
+    if isinstance(exc, smtplib.SMTPRecipientsRefused):
+        codes: list[int] = []
+        responses: list[str] = []
+        for value in exc.recipients.values():
+            if isinstance(value, tuple) and len(value) >= 2:
+                raw_code, raw_response = value[0], value[1]
+                if isinstance(raw_code, int):
+                    codes.append(raw_code)
+                text = _smtp_response_text(raw_response).strip()
+                if text:
+                    responses.append(text)
+        return (codes[0] if codes else None, " | ".join(responses))
+    if isinstance(exc, smtplib.SMTPResponseException):
+        code = exc.smtp_code if isinstance(exc.smtp_code, int) else None
+        return code, _smtp_response_text(exc.smtp_error).strip()
+    return None, str(exc).strip()
+
+
+def _contains_marker(value: str, markers: tuple[str, ...]) -> bool:
+    return any(marker in value for marker in markers)
+
+
+def _classify_smtp_error(exc: Exception) -> tuple[str, int | None, str]:
+    smtp_code, response = _smtp_exception_details(exc)
+    normalized = " ".join(response.casefold().split())
+
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        return "smtp_authentication", smtp_code, response
+    if isinstance(exc, smtplib.SMTPSenderRefused):
+        return "smtp_sender_rejected", smtp_code, response
+    if isinstance(exc, (smtplib.SMTPNotSupportedError, ssl.SSLError)):
+        return "smtp_security", smtp_code, response
+
+    if _contains_marker(normalized, _MAILBOX_FULL_MARKERS):
+        return "mailbox_full", smtp_code, response
+
+    if isinstance(exc, smtplib.SMTPRecipientsRefused):
+        if _contains_marker(normalized, _RECIPIENT_UNAVAILABLE_MARKERS) or smtp_code in {
+            550,
+            551,
+            553,
+        }:
+            return "recipient_unavailable", smtp_code, response
+        if smtp_code == 552:
+            return "mailbox_full", smtp_code, response
+        if smtp_code is not None and 400 <= smtp_code < 500:
+            return "smtp_busy", smtp_code, response
+        return "recipient_rejected", smtp_code, response
+
+    if _contains_marker(normalized, _RECIPIENT_UNAVAILABLE_MARKERS):
+        return "recipient_unavailable", smtp_code, response
+    if smtp_code in {530, 534, 535} or _contains_marker(
+        normalized, _AUTHENTICATION_MARKERS
+    ):
+        return "smtp_authentication", smtp_code, response
+    if _contains_marker(normalized, _SECURITY_MARKERS):
+        return "smtp_security", smtp_code, response
+    if smtp_code in {421, 450, 451, 452} or (
+        smtp_code is not None and 400 <= smtp_code < 500
+    ):
+        return "smtp_busy", smtp_code, response
+    if _contains_marker(normalized, _RECIPIENT_REJECTED_MARKERS):
+        return "recipient_rejected", smtp_code, response
+    if isinstance(
+        exc,
+        (
+            smtplib.SMTPServerDisconnected,
+            socket.timeout,
+            socket.gaierror,
+            TimeoutError,
+            ConnectionError,
+        ),
+    ):
+        return "smtp_connection", smtp_code, response
+    if isinstance(exc, OSError):
+        return "smtp_connection", smtp_code, response
+    return "smtp_unknown", smtp_code, response
+
+
+def _masked_email(email: str) -> str:
+    local, separator, domain = email.strip().partition("@")
+    if not separator or not domain:
+        return "***"
+    prefix = local[:1] if local else "*"
+    return f"{prefix}***@{domain}"
+
+
+def _safe_log_text(value: str, *, limit: int = 500) -> str:
+    return " ".join(value.replace("\r", " ").replace("\n", " ").split())[:limit]
+
+
+def _smtp_delivery_error(exc: Exception, *, purpose: str, email: str) -> EmailDeliveryError:
+    code, smtp_code, response = _classify_smtp_error(exc)
+    logger.warning(
+        "Pix SMTP 投递失败 purpose=%s recipient=%s category=%s smtp_code=%s "
+        "response=%s exception=%s",
+        purpose,
+        _masked_email(email),
+        code,
+        smtp_code if smtp_code is not None else "-",
+        _safe_log_text(response) or "-",
+        type(exc).__name__,
+    )
+    return _delivery_error(code)
 
 
 def _verification_subject() -> str:
@@ -62,7 +304,7 @@ def _site_url_from_settings(settings: WebSettings) -> str:
 
 def _require_smtp_config(settings: WebSettings) -> None:
     if not settings.smtp_host or not settings.smtp_from:
-        raise EmailDeliveryError("SMTP 配置不完整：需要 PIX_WEB_SMTP_HOST 和 PIX_WEB_SMTP_FROM")
+        raise _delivery_error("smtp_not_configured")
 
 
 def _new_smtp_client(settings: WebSettings) -> smtplib.SMTP:
@@ -83,6 +325,21 @@ def _send_smtp_message(settings: WebSettings, message: EmailMessage) -> None:
     with _new_smtp_client(settings) as client:
         _prepare_smtp_client(settings, client)
         client.send_message(message)
+
+
+def _deliver_smtp_message(
+    settings: WebSettings,
+    message_factory: Callable[[], EmailMessage],
+    *,
+    purpose: str,
+    email: str,
+) -> None:
+    try:
+        _send_smtp_message(settings, message_factory())
+    except EmailDeliveryError:
+        raise
+    except Exception as exc:
+        raise _smtp_delivery_error(exc, purpose=purpose, email=email) from exc
 
 
 def _base_message(settings: WebSettings, email: str, subject: str) -> EmailMessage:
@@ -231,35 +488,35 @@ def _reset_message(settings: WebSettings, email: str, code: str) -> EmailMessage
 
 
 def send_verification_email(settings: WebSettings, email: str, code: str) -> None:
-    """发送注册验证码；失败时抛出 EmailDeliveryError。"""
+    """发送注册验证码；失败时抛出可安全返回给客户端的 EmailDeliveryError。"""
     if settings.email_provider == "console":
         logger.warning("Pix 注册验证码 email=%s code=%s", email, code)
         return
     if settings.email_provider != "smtp":
-        raise EmailDeliveryError(f"未知邮件发送方式: {settings.email_provider}")
-    try:
-        _send_smtp_message(settings, _verification_message(settings, email, code))
-    except EmailDeliveryError:
-        raise
-    except Exception as exc:
-        raise EmailDeliveryError(f"SMTP 注册验证码邮件发送失败: {exc}") from exc
+        raise _delivery_error("email_provider_invalid")
+    _deliver_smtp_message(
+        settings,
+        lambda: _verification_message(settings, email, code),
+        purpose="register_code",
+        email=email,
+    )
 
 
 
 def send_password_reset_email(settings: WebSettings, email: str, code: str) -> None:
 
-    """发送密码重置验证码；失败时抛出 EmailDeliveryError。"""
+    """发送密码重置验证码；失败时抛出可安全返回给客户端的 EmailDeliveryError。"""
     if settings.email_provider == "console":
         logger.warning("Pix 密码重置验证码 email=%s code=%s", email, code)
         return
     if settings.email_provider != "smtp":
-        raise EmailDeliveryError(f"未知邮件发送方式: {settings.email_provider}")
-    try:
-        _send_smtp_message(settings, _reset_message(settings, email, code))
-    except EmailDeliveryError:
-        raise
-    except Exception as exc:
-        raise EmailDeliveryError(f"SMTP 密码重置邮件发送失败: {exc}") from exc
+        raise _delivery_error("email_provider_invalid")
+    _deliver_smtp_message(
+        settings,
+        lambda: _reset_message(settings, email, code),
+        purpose="password_reset_code",
+        email=email,
+    )
 
 
 async def send_password_reset_email_task(settings: WebSettings, email: str, code: str) -> None:
@@ -354,18 +611,18 @@ def send_announcement_email(
     site_url: str,
     updated_at: datetime | None = None,
 ) -> None:
-    """发送单封系统公告邮件；失败时抛出 EmailDeliveryError。"""
+    """发送单封系统公告邮件；失败时抛出可安全返回给客户端的 EmailDeliveryError。"""
     if settings.email_provider == "console":
         logger.warning("Pix 系统公告邮件 email=%s title=%s link=%s", email, title.strip() or "新的系统公告", site_url)
         return
     if settings.email_provider != "smtp":
-        raise EmailDeliveryError(f"未知邮件发送方式: {settings.email_provider}")
-    try:
-        _send_smtp_message(settings, _announcement_message(settings, email, title, body, site_url, updated_at))
-    except EmailDeliveryError:
-        raise
-    except Exception as exc:
-        raise EmailDeliveryError(f"SMTP 公告邮件发送失败: {exc}") from exc
+        raise _delivery_error("email_provider_invalid")
+    _deliver_smtp_message(
+        settings,
+        lambda: _announcement_message(settings, email, title, body, site_url, updated_at),
+        purpose="announcement_test",
+        email=email,
+    )
 
 
 def send_announcement_email_batch(
@@ -387,7 +644,7 @@ def send_announcement_email_batch(
             logger.warning("Pix 系统公告邮件 email=%s title=%s link=%s", email, title.strip() or "新的系统公告", site_url)
         return
     if settings.email_provider != "smtp":
-        raise EmailDeliveryError(f"未知邮件发送方式: {settings.email_provider}")
+        raise _delivery_error("email_provider_invalid")
 
     _require_smtp_config(settings)
     delivered = 0
