@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.135.12] - 2026-07-14
+
+### Fixed
+
+- 修复素材直出任务因参数快照携带默认 `sprite.frame_count` 而被作品库和管理后台误判为序列帧的问题；普通素材现在始终展示完整静态图片，不再被横向切成细线或空白帧。
+- 序列帧播放器改为以 `job_type=sprite_sheet` 或显式 `sprite_sheet_url`、`sequence_json_url`、`sprite_frames` 元数据作为硬门禁，同时继续兼容历史序列帧与迁移数据。
+
 ## [1.135.11] - 2026-07-14
 
 ### Fixed

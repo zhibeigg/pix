@@ -9,6 +9,8 @@ export function spriteFpsFromJob(job: GenerationJob) {
 }
 
 export function spriteFrameCountFromJob(job: GenerationJob, output?: JobOutput | null) {
+  if (!isSpriteOutput(job, output)) return 0
+
   const positionedFrameCount = (output?.sprite_frames ?? []).filter((frame) => {
     const rect = frame.sheet_rect
     return rect && rect.w > 0 && rect.h > 0
@@ -32,12 +34,11 @@ export function spriteSheetUrlFromJob(job: GenerationJob, output?: JobOutput | n
   return output.sprite_sheet_url || output.pixelized_url || null
 }
 
-function isSpriteOutput(job: GenerationJob, output: JobOutput) {
+function isSpriteOutput(job: GenerationJob, output?: JobOutput | null) {
   return job.job_type === 'sprite_sheet'
-    || Boolean(output.sprite_sheet_url)
-    || Boolean(output.sequence_json_url)
-    || Boolean(output.sprite_frames?.length)
-    || spriteFrameCountFromJob(job, output) > 1
+    || Boolean(output?.sprite_sheet_url)
+    || Boolean(output?.sequence_json_url)
+    || Boolean(output?.sprite_frames?.length)
 }
 
 function normalizedFrameCount(value: unknown) {

@@ -55,11 +55,28 @@ describe('sprite preview compatibility', () => {
     expect(spriteFpsFromJob(modernJob)).toBe(12)
   })
 
-  it('does not reinterpret a normal asset pixelized image as a sprite sheet', () => {
-    const assetJob = job({ job_type: 'asset', params_json: {} })
+  it('does not reinterpret an asset image with default sprite parameters as a sprite sheet', () => {
+    const assetJob = job({
+      job_type: 'asset',
+      params_json: {
+        request_fields: ['asset', 'job_type', 'pixelize', 'prompt'],
+        sprite: { mode: 'mosaic', frame_count: 8, rows: 1, cols: 8, fps: 8 },
+      },
+    })
     const assetOutput = output({ pixelized_url: '/files?path=item.png' })
 
     expect(spriteSheetUrlFromJob(assetJob, assetOutput)).toBeNull()
     expect(spriteFrameCountFromJob(assetJob, assetOutput)).toBe(0)
+  })
+
+  it('still recognizes explicit sprite output metadata on migrated non-sprite jobs', () => {
+    const migratedJob = job({ job_type: 'asset', params_json: {} })
+    const migratedOutput = output({
+      sprite_sheet_url: '/files?path=migrated_sprite_sheet.png',
+      sprite_frames: positionedFrames(8),
+    })
+
+    expect(spriteSheetUrlFromJob(migratedJob, migratedOutput)).toBe('/files?path=migrated_sprite_sheet.png')
+    expect(spriteFrameCountFromJob(migratedJob, migratedOutput)).toBe(8)
   })
 })
