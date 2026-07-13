@@ -88,6 +88,19 @@ def test_config_defaults_to_disabled_and_rejects_missing_files(tmp_path: Path) -
     assert any("release env" in error for error in errors)
 
 
+def test_config_requires_complete_untagged_ghcr_repository() -> None:
+    settings = UpdaterSettings(backend_image="ghcr.io/zhibeigg/pix-backend")
+    assert settings.backend_image == "ghcr.io/zhibeigg/pix-backend"
+    for value in (
+        "https://attacker.example/ghcr.io/zhibeigg/pix-backend",
+        "attacker.example/ghcr.io/zhibeigg/pix-backend",
+        "ghcr.io/zhibeigg/pix-backend:latest",
+        "ghcr.io/zhibeigg/pix-backend@sha256:" + "a" * 64,
+    ):
+        with pytest.raises(ValidationError):
+            UpdaterSettings(backend_image=value)
+
+
 def test_request_models_forbid_arbitrary_inputs() -> None:
     with pytest.raises(ValidationError):
         ApplyRequest.model_validate(

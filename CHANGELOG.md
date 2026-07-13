@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - updater 镜像不再依赖可能拒绝匿名拉取的 `ghcr.io/cli/cli`，改为下载并校验 GitHub CLI 2.67.0 官方 Release 二进制，恢复干净服务器上的可重复构建。
 - Python 分发包烟测现在验证 `pix-update-agent` 命令，CI lint 同步覆盖发布 manifest 生成脚本。
 
+### Security
+
+- updater 镜像 allowlist 改为对完整 `ghcr.io/owner/image` 仓库名执行严格全字符串匹配，拒绝前缀注入、tag 和 digest 混入固定配置。
+
 ## [1.131.2] - 2026-07-13
 
 ### Added

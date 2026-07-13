@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Annotated
 
@@ -60,7 +61,10 @@ class UpdaterSettings(BaseSettings):
     @field_validator("backend_image", "frontend_image", "updater_image")
     @classmethod
     def validate_image(cls, value: str) -> str:
-        if not value.startswith("ghcr.io/") or "@" in value or ":" in value:
+        if re.fullmatch(
+            r"ghcr\.io/[a-z0-9](?:[a-z0-9._-]{0,254})/[a-z0-9](?:[a-z0-9._-]{0,254})",
+            value,
+        ) is None:
             raise ValueError("allowlisted image must be an untagged GHCR repository")
         return value
 
