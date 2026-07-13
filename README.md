@@ -244,7 +244,11 @@ docker compose --env-file .env.production --env-file release.env -f compose.rele
 - `postgres` / `redis`：生产编排依赖，不随应用按钮更新。
 - `updater`：可选 profile，内部端口 `8090`，唯一挂载 Docker socket 的服务。
 
-### 自动发布与容器镜像
+### CI 与自动发布
+
+日常 CI 采用与 Sub2API 相同的 push / pull request 验证入口，但保留 Pix 所需的完整安全基线：Gitleaks、Ruff、依赖审计、Python 3.10–3.12 测试、Python 分发包隔离安装、前端测试/构建、backend/frontend/updater 三镜像构建、源码 Compose 健康烟测和 Release Compose 配置展开。`Compose health smoke` 会在 PR 合并前真实运行，不再以 skipped 状态占用必需检查。
+
+CI 只验证代码与容器，不直接部署生产环境。CD 继续由可信 tag Release 驱动，生产主机只通过经过 provenance 校验的 manifest/digest 更新。updater 镜像中的 GitHub CLI 固定为 2.67.0，并使用官方 Release SHA-256 校验后安装，避免依赖匿名 GHCR 基础镜像拉取。
 
 推送形如 `vA.B.C` 的标签后，GitHub Actions 会先确认 tag commit 属于主分支历史，再执行安全扫描、测试和构建，并创建 GitHub Release：
 

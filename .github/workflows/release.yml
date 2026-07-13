@@ -248,7 +248,7 @@ jobs:
             --frontend-digest digests/frontend.digest \
             --updater-digest digests/updater.digest \
             --alembic-head "${alembic_head}" \
-            --minimum-updater-version "1.131.2" \
+            --minimum-updater-version "1.132.2" \
             --output release/pix-release-manifest.json
           (cd release && sha256sum pix-release-manifest.json >> SHA256SUMS)
       - name: Attest release manifest

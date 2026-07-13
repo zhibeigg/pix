@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.132.2] - 2026-07-13
+
+### Changed
+
+- 日常 CI 调整为与 Sub2API 相同的 push / pull request 完整验证模式，同时保留 Pix 标签驱动的 Release/CD；每个 PR 现在都会执行 Compose 健康烟测、Release Compose 配置校验以及 backend、frontend、updater 三镜像构建。
+- 合并并组合验证 SQLAlchemy、RQ、SlowAPI、email-validator 依赖下限更新，同时纳入冲突 PR 中的 Uvicorn 0.51.0 与 Redis 8.0.1 下限。
+
+### Fixed
+
+- updater 镜像不再依赖可能拒绝匿名拉取的 `ghcr.io/cli/cli`，改为下载并校验 GitHub CLI 2.67.0 官方 Release 二进制，恢复干净服务器上的可重复构建。
+- Python 分发包烟测现在验证 `pix-update-agent` 命令，CI lint 同步覆盖发布 manifest 生成脚本。
+
 ## [1.131.2] - 2026-07-13
 
 ### Added
