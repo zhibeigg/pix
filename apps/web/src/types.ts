@@ -862,8 +862,31 @@ export type PaymentCheckout = {
   code_url: string | null
 }
 
+export type AdminDashboardHistoryPoint = {
+  date: string
+  jobs: number
+  succeeded: number
+  failed: number
+  credits_consumed: number
+  credits_recharged: number
+  orders_created: number
+  orders_paid: number
+  uploads: number
+  new_users: number
+}
+
 export type AdminDashboard = {
   total_users: number
+  total_jobs: number
+  total_succeeded: number
+  total_failed: number
+  total_credits_consumed: number
+  total_credits_recharged: number
+  total_orders_created: number
+  total_orders_paid: number
+  total_uploads: number
+  history_days: number
+  history: AdminDashboardHistoryPoint[]
   new_users_today: number
   active_users_today: number
   paying_users_today: number

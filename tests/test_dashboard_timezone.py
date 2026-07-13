@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from pix_web.dashboard import _business_day_start
+from pix_web.dashboard import _business_day_start, _local_date
 from pix_web.system_settings import _parse_timezone
 
 UTC8 = timezone(timedelta(hours=8))
@@ -35,6 +35,10 @@ class BusinessDayStartTests(unittest.TestCase):
         now = datetime(2026, 6, 17, 20, 0, tzinfo=timezone.utc)
         start = _business_day_start(UTC8, now=now)
         self.assertEqual(start, datetime(2026, 6, 17, 16, 0, tzinfo=timezone.utc))
+
+    def test_history_bucket_uses_business_timezone_date(self) -> None:
+        event_at = datetime(2026, 6, 17, 18, 30, tzinfo=timezone.utc)
+        self.assertEqual(_local_date(event_at, UTC8).isoformat(), "2026-06-18")
 
 
 class ParseTimezoneTests(unittest.TestCase):

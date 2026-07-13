@@ -96,7 +96,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.get("/dashboard", response_model=AdminDashboardResponse)
 def dashboard(
     _admin: User = Depends(require_admin), db: Session = Depends(get_db)
-) -> dict[str, int | float]:
+) -> dict[str, object]:
     return admin_dashboard(db)
 
 

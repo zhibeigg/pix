@@ -1820,8 +1820,31 @@ class MockWebhookRequest(BaseModel):
     event_id: str = Field(max_length=160)
 
 
+class AdminDashboardHistoryPoint(BaseModel):
+    date: str
+    jobs: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    credits_consumed: int = 0
+    credits_recharged: int = 0
+    orders_created: int = 0
+    orders_paid: int = 0
+    uploads: int = 0
+    new_users: int = 0
+
+
 class AdminDashboardResponse(BaseModel):
     total_users: int
+    total_jobs: int = 0
+    total_succeeded: int = 0
+    total_failed: int = 0
+    total_credits_consumed: int = 0
+    total_credits_recharged: int = 0
+    total_orders_created: int = 0
+    total_orders_paid: int = 0
+    total_uploads: int = 0
+    history_days: int = 14
+    history: list[AdminDashboardHistoryPoint] = Field(default_factory=list)
     new_users_today: int = 0
     active_users_today: int = 0
     paying_users_today: int = 0

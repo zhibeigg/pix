@@ -545,6 +545,17 @@ export const zhCN = {
     common: { refresh: '刷新', loading: '加载中…', submitting: '提交中…' },
     messages: { creditsAdjusted: '点数已调整', jobRetried: '任务已重新提交', jobCancelled: '任务已取消并退款', jobRefunded: '任务已标记失败并退款', pricingUpdated: '价格规则已更新', packageCreated: '充值套餐已创建', packageUpdated: '充值套餐已更新', membershipCreated: '月卡档位已创建', membershipUpdated: '月卡档位已更新', settingUpdated: '配置已更新' },
     settings: { categories: '设置分类', description: '保存后影响新请求；标记需重启的设置需要重启相应服务。', empty: '暂无设置' },
+    overview: {
+      today: { title: '今日运行', description: '按站点时区统计当前自然日。' },
+      totals: { title: '历史累计', description: '直接汇总生产数据库中保留的全部记录。' },
+      metrics: {
+        jobsToday: '今日任务', succeededFailed: '成功 / 失败', newUsersToday: '今日新增用户', activeUsersToday: 'DAU', payingUsersToday: '今日付费用户', creditsRechargedToday: '订单充值', ordersCreatedToday: '今日新订单', ordersPaidToday: '付费订单', creditsConsumedToday: '今日消费', uploadsToday: '今日上传', policyBlockedToday: '策略拦截', upstreamTimeout: '上游 / 超时', pipelineErrorsToday: 'Pipeline 异常', pendingRunning: '排队 / 运行', runningOver30m: '运行超 30 分钟', candidateWarnings: '候选失败 / 警告', averageDuration: '平均耗时', p95Duration: 'P95 耗时', failureRate: '失败率', totalUsers: '累计用户', totalJobs: '累计任务', totalSucceededFailed: '累计成功 / 失败', totalCreditsRecharged: '累计充值点数', totalCreditsConsumed: '累计消费点数', totalOrders: '累计订单', totalPaidOrders: '累计付费订单', totalUploads: '累计上传',
+      },
+      history: {
+        title: '最近 {{days}} 天', description: '逐日查看历史任务、点数、订单与活跃数据；无记录的日期会保留为零，便于发现真实变化。', timezone: '站点时区', empty: '数据库中暂时没有可展示的历史记录。', today: '今天', jobsUnit: '个任务', jobBarLabel: '成功 {{succeeded}}，失败 {{failed}}', newUsersValue: '新增 {{count}}', uploadsValue: '上传 {{count}}',
+        columns: { date: '日期', jobs: '任务 · 成功 / 失败', credits: '充值 / 消费', orders: '下单 / 付费', activity: '新增 / 上传' },
+      },
+    },
     performance: { range: { '1h': '近 1 小时', '24h': '近 24 小时', '7d': '近 7 天' }, refreshing: '刷新中…', updatedAt: '更新于 {{time}}', loadFailed: '加载失败：{{error}}', succeeded: '成功', failed: '失败', successRate: '成功率', running: '活跃并发', inFlight: '运行中任务', totalTasks: '任务总数', failedCount: '{{count}} 个失败', averageTime: '平均耗时', volume: '任务量与成功率', throughput: '任务吞吐（每桶任务数）', providers: '供应商成功率', unknown: '未知', noData: '暂无数据', failures: '失败分类', noFailures: '无失败', recent: '最近任务', noTasks: '暂无任务', disabled: '停用' },
     updates: {
       title: '版本与更新', description: '检查发布清单，通过页内密码二次验证后执行更新或回滚。', check: '检查更新', checking: '检查中…', currentVersion: '当前版本', latestVersion: '最新版本', available: '可更新', upToDate: '已是最新', agent: '更新代理', manifest: '发布清单', noManifest: '暂无可用清单', agentOfflineWarning: '更新代理未配置或离线，更新与回滚操作已禁用。', readOnlyWarning: '检测到新版本，但执行更新仍处于只读模式。完成 updater bootstrap 并开启执行开关后才能更新。', releaseNotes: '发布说明',
