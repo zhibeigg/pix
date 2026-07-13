@@ -68,12 +68,34 @@ def _is_relative_to(path: Path, root: Path) -> bool:
         return False
 
 
-def resolve_web_file(raw_path: str, settings: WebSettings) -> Path:
-    """解析并限制 Web 可访问文件范围。"""
+def resolve_storage_path(raw_path: str | Path, settings: WebSettings) -> Path:
+    """解析存储路径，并把显式配置的旧根目录安全映射到当前存储根。"""
     candidate = Path(raw_path).expanduser()
     if not candidate.is_absolute():
         candidate = Path.cwd() / candidate
     resolved = candidate.resolve()
+    storage_root = settings.storage_root.resolve()
+    if _is_relative_to(resolved, storage_root):
+        return resolved
+
+    for raw_legacy_root in settings.legacy_storage_roots:
+        legacy_root = Path(raw_legacy_root).expanduser()
+        if not legacy_root.is_absolute():
+            legacy_root = Path.cwd() / legacy_root
+        try:
+            relative = resolved.relative_to(legacy_root.resolve())
+        except ValueError:
+            continue
+        rebased = (storage_root / relative).resolve()
+        if _is_relative_to(rebased, storage_root):
+            return rebased
+
+    return resolved
+
+
+def resolve_web_file(raw_path: str, settings: WebSettings) -> Path:
+    """解析并限制 Web 可访问文件范围。"""
+    resolved = resolve_storage_path(raw_path, settings)
     allowed_roots = [settings.storage_root.resolve()]
     allowed_roots.extend((Path.cwd() / root).resolve() for root in ALLOWED_FILE_ROOTS)
     if not any(_is_relative_to(resolved, root) for root in allowed_roots):

@@ -289,6 +289,7 @@ CI 只验证代码与容器，不直接部署生产环境。CD 继续由可信 t
 | `PIX_WEB_SESSION_COOKIE_SECURE` | 浏览器会话 Cookie 是否仅通过 HTTPS 发送；留空时 `prod` 自动开启、`dev` 自动关闭，生产显式关闭会拒绝启动。 |
 | `PIX_WEB_SESSION_COOKIE_SAMESITE` | 浏览器会话 Cookie 的 SameSite 策略，支持 `lax` / `strict` / `none`，默认 `lax`；跨站部署使用 `none` 时必须同时启用 Secure。 |
 | `PIX_WEB_STORAGE_ROOT` | 用户上传、生成结果和任务文件根目录，默认 `web_outputs`。 |
+| `PIX_WEB_LEGACY_STORAGE_ROOTS` | 可选、逗号分隔的旧存储绝对根目录。迁移部署后，数据库中的旧绝对路径会按相对部分安全重映射到当前 `PIX_WEB_STORAGE_ROOT`，并继续执行文件范围、类型和用户归属校验。 |
 | `PIX_WEB_MAX_UPLOAD_BYTES` | 单张上传图片大小上限（字节），默认 `10485760`（10 MB）。前端会通过 `/settings/image-models` 读取该值做上传前置校验与提示，后端 storage 层仍是最终防线。 |
 | `PIX_WEB_QUEUE_BACKEND` | `database` 或 `rq`。生产推荐 `rq`。 |
 | `PIX_WEB_WORKER_CONCURRENCY` | Worker 并发任务数。 |

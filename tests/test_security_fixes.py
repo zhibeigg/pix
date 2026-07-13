@@ -12,7 +12,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from pix.net_guard import UnsafeDownloadURLError, assert_safe_download_url
-from pix_web.config import WebSettings
+from pix_web.config import WebSettings, load_web_settings
 from pix_web.credits import adjust_credits
 from pix_web.file_ownership import resolve_owned_input_path, user_owns_file
 from pix_web.jobs import create_jobs_batch, retry_failed_job, validate_job_request
@@ -26,9 +26,11 @@ class FileOwnershipTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmpdir = tempfile.TemporaryDirectory()
         root = Path(self.tmpdir.name)
+        self.legacy_storage_root = root / "legacy-web-outputs"
         self.settings = WebSettings(
             database_url=f"sqlite:///{root / 'sec-test.db'}",
             storage_root=root / "outputs",
+            legacy_storage_roots=(self.legacy_storage_root,),
             queue_backend="database",
             auto_create_db=True,
             jwt_secret="test-secret-please-change-32chars!!",
@@ -52,6 +54,12 @@ class FileOwnershipTests(unittest.TestCase):
         self.own_file.write_bytes(b"img")
         self.other_file = self.storage_root / "uploads" / str(self.other.id) / "b.png"
         self.other_file.write_bytes(b"img")
+        self.legacy_own_file = (
+            self.legacy_storage_root / "uploads" / str(self.user.id) / self.own_file.name
+        )
+        self.legacy_other_file = (
+            self.legacy_storage_root / "uploads" / str(self.other.id) / self.other_file.name
+        )
 
     def tearDown(self) -> None:
         self.db.close()
@@ -85,6 +93,80 @@ class FileOwnershipTests(unittest.TestCase):
         self.assertEqual(own.status_code, 200)
         other = self.client.get("/files", params={"path": str(self.other_file), "token": ticket})
         self.assertEqual(other.status_code, 403)
+
+    def test_configured_legacy_storage_root_rebases_without_bypassing_ownership(self) -> None:
+        ticket = create_file_ticket(self.user, self.settings)
+
+        own = self.client.get(
+            "/files",
+            params={"path": str(self.legacy_own_file), "token": ticket},
+        )
+        other = self.client.get(
+            "/files",
+            params={"path": str(self.legacy_other_file), "token": ticket},
+        )
+
+        self.assertEqual(own.status_code, 200, own.text)
+        self.assertEqual(own.content, b"img")
+        self.assertEqual(other.status_code, 403)
+        self.assertEqual(
+            resolve_owned_input_path(
+                str(self.legacy_own_file), self.user, self.db, self.settings
+            ),
+            self.own_file.resolve(),
+        )
+
+    def test_admin_preview_ticket_serves_rebased_legacy_job_output(self) -> None:
+        relative = Path("runs/job-3487/legacy-run/03_pixelized.png")
+        current_file = self.storage_root / relative
+        current_file.parent.mkdir(parents=True, exist_ok=True)
+        current_file.write_bytes(b"legacy-preview")
+        legacy_file = self.legacy_storage_root / relative
+        ticket = create_file_ticket(self.admin, self.settings)
+
+        response = self.client.get(
+            "/files",
+            params={"path": str(legacy_file), "token": ticket},
+        )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.content, b"legacy-preview")
+
+    def test_unconfigured_legacy_storage_root_remains_forbidden(self) -> None:
+        ticket = create_file_ticket(self.user, self.settings)
+        unexpected = (
+            self.storage_root.parent
+            / "unexpected-web-outputs"
+            / "uploads"
+            / str(self.user.id)
+            / self.own_file.name
+        )
+
+        response = self.client.get(
+            "/files",
+            params={"path": str(unexpected), "token": ticket},
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_legacy_storage_roots_load_from_environment(self) -> None:
+        second_root = self.legacy_storage_root.parent / "older-web-outputs"
+        with patch.dict(
+            "os.environ",
+            {
+                "PIX_DISABLE_DOTENV": "1",
+                "PIX_WEB_LEGACY_STORAGE_ROOTS": (
+                    f"{self.legacy_storage_root},{second_root}"
+                ),
+            },
+            clear=True,
+        ):
+            settings = load_web_settings()
+
+        self.assertEqual(
+            settings.legacy_storage_roots,
+            (self.legacy_storage_root, second_root),
+        )
 
     def test_files_endpoint_requires_auth(self) -> None:
         resp = self.client.get("/files", params={"path": str(self.own_file)})

@@ -28,6 +28,7 @@ class WebSettings:
     session_cookie_secure: bool | None = None
     session_cookie_samesite: str = "lax"
     storage_root: Path = Path("web_outputs")
+    legacy_storage_roots: tuple[Path, ...] = ()
     max_upload_bytes: int = 10 * 1024 * 1024
     auto_create_db: bool = True
     pix_config_file: Path | None = None
@@ -114,6 +115,7 @@ _DEFAULTS = {
     "PIX_WEB_SESSION_COOKIE_SECURE": "",
     "PIX_WEB_SESSION_COOKIE_SAMESITE": WebSettings.session_cookie_samesite,
     "PIX_WEB_STORAGE_ROOT": str(WebSettings.storage_root),
+    "PIX_WEB_LEGACY_STORAGE_ROOTS": "",
     "PIX_WEB_MAX_UPLOAD_BYTES": str(WebSettings.max_upload_bytes),
     "PIX_WEB_AUTO_CREATE_DB": "true",
     "PIX_WEB_WORKER_CONCURRENCY": str(WebSettings.worker_concurrency),
@@ -190,6 +192,11 @@ def _env_csv(name: str) -> tuple[str, ...]:
     return tuple(item.strip().rstrip("/") for item in raw.split(",") if item.strip())
 
 
+def _env_path_csv(name: str) -> tuple[Path, ...]:
+    raw = os.getenv(name, _DEFAULTS.get(name, ""))
+    return tuple(Path(item.strip()).expanduser() for item in raw.split(",") if item.strip())
+
+
 def load_web_settings() -> WebSettings:
     """从 .env 与环境变量加载 Web 配置。"""
     if not os.getenv("PIX_DISABLE_DOTENV"):
@@ -217,6 +224,7 @@ def load_web_settings() -> WebSettings:
     if session_cookie_samesite not in {"lax", "strict", "none"}:
         session_cookie_samesite = WebSettings.session_cookie_samesite
     storage_root = Path(os.getenv("PIX_WEB_STORAGE_ROOT", _DEFAULTS["PIX_WEB_STORAGE_ROOT"]))
+    legacy_storage_roots = _env_path_csv("PIX_WEB_LEGACY_STORAGE_ROOTS")
     pix_config_raw = os.getenv("PIX_WEB_PIX_CONFIG")
     upload_raw = os.getenv("PIX_WEB_MAX_UPLOAD_BYTES", _DEFAULTS["PIX_WEB_MAX_UPLOAD_BYTES"])
     poll_raw = os.getenv("PIX_WEB_POLL_INTERVAL_SECONDS", "2.0")
@@ -284,6 +292,7 @@ def load_web_settings() -> WebSettings:
         session_cookie_secure=session_cookie_secure,
         session_cookie_samesite=session_cookie_samesite,
         storage_root=storage_root,
+        legacy_storage_roots=legacy_storage_roots,
         max_upload_bytes=max_upload_bytes,
         auto_create_db=auto_create_raw.lower() not in {"0", "false", "no", "off"},
         pix_config_file=Path(pix_config_raw) if pix_config_raw else None,
