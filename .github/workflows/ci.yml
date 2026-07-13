@@ -1,10 +1,8 @@
 name: CI
 
 on:
-  pull_request:
-    branches: [master]
   push:
-    branches: [master]
+  pull_request:
 
 permissions:
   contents: read
@@ -50,7 +48,7 @@ jobs:
       - name: Install locked development environment
         run: uv sync --frozen --extra dev
       - name: Check lint
-        run: uv run ruff check src tests scripts/check_release_version.py scripts/extract_release_notes.py
+        run: uv run ruff check src tests scripts/check_release_version.py scripts/extract_release_notes.py scripts/generate_release_manifest.py
       - name: Check version consistency
         run: uv run python scripts/check_release_version.py
       - name: Audit locked runtime dependencies
@@ -111,7 +109,7 @@ jobs:
           expected_presets = {"auto", "gameboy", "modern_pixel", "nes", "pico8"}
           assert expected_presets.issubset(set(list_presets()))
           scripts = {entry.name for entry in entry_points(group="console_scripts")}
-          expected_scripts = {"pix-web-api", "pix-web-worker", "pix-web-rq-worker", "pix-web-check"}
+          expected_scripts = {"pix-web-api", "pix-web-worker", "pix-web-rq-worker", "pix-web-check", "pix-update-agent"}
           assert expected_scripts.issubset(scripts)
           PY
       - name: Upload Python artifacts
@@ -156,9 +154,46 @@ jobs:
   docker-build:
     name: Docker build
     runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-only-postgres-password-not-a-secret
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Create non-secret release Compose environment
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          Path(".env.production").write_text(
+              "\n".join(
+                  [
+                      "PIX_WEB_ENV=prod",
+                      "PIX_WEB_JWT_SECRET=ci-only-jwt-secret-at-least-32-bytes-long",
+                      "PIX_WEB_EMAIL_PROVIDER=console",
+                      "PIX_WEB_UPDATE_APPLY_ENABLED=false",
+                      "PIX_UPDATER_ENABLED=false",
+                  ]
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          Path("release.env").write_text(
+              "\n".join(
+                  [
+                      "PIX_BACKEND_IMAGE=ghcr.io/zhibeigg/pix-backend@sha256:" + "1" * 64,
+                      "PIX_FRONTEND_IMAGE=ghcr.io/zhibeigg/pix-web@sha256:" + "2" * 64,
+                      "PIX_UPDATER_IMAGE=ghcr.io/zhibeigg/pix-updater@sha256:" + "3" * 64,
+                      "PIX_RELEASE_VERSION=0.0.0",
+                      "PIX_RELEASE_COMMIT=" + "0" * 40,
+                      "PIX_RELEASE_MANIFEST_SHA256=" + "4" * 64,
+                  ]
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          PY
+      - name: Validate release Compose configuration
+        run: docker compose --env-file .env.production --env-file release.env --file compose.release.yml config --quiet
       - name: Set up Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
       - name: Build backend image
@@ -177,10 +212,17 @@ jobs:
           push: false
           cache-from: type=gha,scope=frontend-ci
           cache-to: type=gha,mode=max,scope=frontend-ci
+      - name: Build updater image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: Dockerfile.updater
+          push: false
+          cache-from: type=gha,scope=updater-ci
+          cache-to: type=gha,mode=max,scope=updater-ci
 
   compose-smoke:
     name: Compose health smoke
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: [secrets, python-quality, python-tests, python-dist, frontend, docker-build]
     runs-on: ubuntu-latest
     env:

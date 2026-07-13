@@ -42,6 +42,8 @@ from pix_web.schemas import (
     ResetCodeRequest,
     ResetPasswordRequest,
     SetupStatusResponse,
+    StepUpUpdateRequest,
+    StepUpUpdateResponse,
     TokenResponse,
     UserResponse,
 )
@@ -49,6 +51,7 @@ from pix_web.system_settings import load_effective_web_settings, load_operationa
 from pix_web.security import (
     clear_session_cookie,
     create_access_token,
+    create_update_step_up_token,
     find_user_by_email,
     get_current_user,
     get_db,
@@ -56,7 +59,9 @@ from pix_web.security import (
     hash_password,
     is_local_request,
     require_browser_origin,
+    require_cookie_admin,
     set_session_cookie,
+    set_update_step_up_cookie,
     verify_password,
 )
 
@@ -396,6 +401,26 @@ def session_login(
     user = _authenticate_user(req, db)
     set_session_cookie(response, create_access_token(user, effective), effective)
     return user
+
+
+@router.post("/session/step-up-update", response_model=StepUpUpdateResponse)
+def session_step_up_update(
+    req: StepUpUpdateRequest,
+    response: Response,
+    admin: User = Depends(require_cookie_admin),
+    settings: WebSettings = Depends(get_settings),
+) -> StepUpUpdateResponse:
+    if not verify_password(req.password, admin.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="密码错误",
+        )
+    set_update_step_up_cookie(
+        response,
+        create_update_step_up_token(admin, settings),
+        settings,
+    )
+    return StepUpUpdateResponse(expires_in_seconds=max(30, settings.update_step_up_ttl_seconds))
 
 
 @router.post("/reset-code", response_model=EmailCodeResponse)

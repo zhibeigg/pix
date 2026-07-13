@@ -20,6 +20,8 @@ from pix_web.models import User
 _password_hasher = PasswordHasher()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 SESSION_COOKIE_NAME = "pix_web_session"
+UPDATE_STEP_UP_COOKIE_NAME = "pix_web_update_step_up"
+UPDATE_STEP_UP_SCOPE = "update"
 _SAFE_BROWSER_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 _PRIVATE_PROXY_NETWORKS = tuple(
     ip_network(network)
@@ -172,6 +174,35 @@ def clear_session_cookie(response: Response, settings: WebSettings) -> None:
     )
 
 
+def create_update_step_up_token(user: User, settings: WebSettings) -> str:
+    now = datetime.now(timezone.utc)
+    ttl_seconds = max(30, settings.update_step_up_ttl_seconds)
+    payload = {
+        "sub": str(user.id),
+        "scope": UPDATE_STEP_UP_SCOPE,
+        "token_type": "step_up",
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(seconds=ttl_seconds)).timestamp()),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def set_update_step_up_cookie(
+    response: Response, token: str, settings: WebSettings
+) -> None:
+    response.set_cookie(
+        key=UPDATE_STEP_UP_COOKIE_NAME,
+        value=token,
+        max_age=max(30, settings.update_step_up_ttl_seconds),
+        # 公网通常通过 /api 反代；使用根路径才能同时覆盖浏览器中的
+        # /api/admin/updates 与后端测试中的 /admin/updates。
+        path="/",
+        secure=True,
+        httponly=True,
+        samesite="strict",
+    )
+
+
 def hash_password(password: str) -> str:
     return _password_hasher.hash(password)
 
@@ -242,6 +273,38 @@ def get_settings(request: Request) -> WebSettings:
     return request.app.state.web_settings
 
 
+def require_cookie_admin(
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: WebSettings = Depends(get_settings),
+) -> User:
+    """Authenticate an administrator from the browser session cookie only."""
+    if request.headers.get("authorization"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="此操作仅支持浏览器 Cookie 会话",
+        )
+    require_browser_origin(request, settings)
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="请先登录管理员账号")
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        user_id = int(payload.get("sub", "0"))
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录") from exc
+    if payload.get("scope") is not None or payload.get("token_type") not in {None, "access"}:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录")
+    if payload.get("local_only") is True and not is_local_request(request):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录")
+    user = db.get(User, user_id)
+    if user is None or user.status != "active":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已失效，请重新登录")
+    if user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
+    return user
+
+
 def get_current_user(
     request: Request,
     token: str | None = Depends(oauth2_scheme),
@@ -278,6 +341,49 @@ def get_current_user(
 def require_admin(user: User = Depends(get_current_user)) -> User:
     if user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
+    return user
+
+
+def require_update_step_up(
+    request: Request,
+    user: User = Depends(require_admin),
+    settings: WebSettings = Depends(get_settings),
+) -> User:
+    """Require a short-lived update-scoped JWT tied to the current active admin."""
+    if request.headers.get("authorization"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="更新与回滚仅支持浏览器 Cookie 会话",
+        )
+    if not request.cookies.get(SESSION_COOKIE_NAME):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="请先登录管理员账号",
+        )
+    require_browser_origin(request, settings)
+    token = request.cookies.get(UPDATE_STEP_UP_COOKIE_NAME)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+            detail="需要更新操作二次验证",
+        )
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        subject = int(payload.get("sub", "0"))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="更新操作二次验证已失效",
+        ) from exc
+    if (
+        payload.get("scope") != UPDATE_STEP_UP_SCOPE
+        or payload.get("token_type") != "step_up"
+        or subject != user.id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="更新操作二次验证无效",
+        )
     return user
 
 

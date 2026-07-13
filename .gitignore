@@ -59,6 +59,13 @@ pix_web.db.bak*
 .coverage
 htmlcov/
 
+# Pix release updater runtime state and secrets
+release.env
+pix-updater.token
+updater-state/
+updater-backups/
+updater-logs/
+
 # 本地图片素材与生成/测试产物
 test/
 图片/

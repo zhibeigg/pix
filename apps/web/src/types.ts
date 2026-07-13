@@ -896,6 +896,59 @@ export type PerfFailure = { code: string; count: number }
 export type PerfRecentJob = { id: number; job_type: string; status: string; provider: string; provider_display_name: string; failure_code: string; seconds: number; created_at: string }
 export type PerformanceMetrics = { range: string; bucket_seconds: number; generated_at: string; kpi: PerfKpi; series: PerfSeriesPoint[]; providers: PerfProvider[]; failures: PerfFailure[]; recent: PerfRecentJob[] }
 
+export type UpdateReleaseStatus = {
+  version: string
+  tag: string
+  commit: string
+  notes: string
+  manifest_sha256: string
+  alembic_head: string
+  rollback_supported: boolean
+  trusted: boolean
+}
+
+export type UpdateAgentStatus = {
+  configured: boolean
+  available: boolean
+  state: string
+  updater_version: string
+  current_version: string
+  can_rollback: boolean
+  active_operation_id: string | null
+  error: string | null
+}
+
+export type UpdateOperation = {
+  operation_id: string
+  action: 'apply' | 'rollback'
+  state: string
+  target_version: string | null
+  created_at: string | null
+  updated_at: string | null
+  transitions: string[]
+  message: string
+  error: string | null
+}
+
+export type AdminUpdateStatus = {
+  current_version: string
+  latest_release: UpdateReleaseStatus | null
+  update_state: string
+  update_available: boolean
+  check_enabled: boolean
+  apply_enabled: boolean
+  agent: UpdateAgentStatus
+  operation: UpdateOperation | null
+  can_apply: boolean
+  can_rollback: boolean
+  error: string | null
+}
+
+export type UpdateStepUpResponse = {
+  ok: boolean
+  expires_in_seconds: number
+}
+
 export interface ImageProviderModelPayload {
   id: string
   provider_model: string

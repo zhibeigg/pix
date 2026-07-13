@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.132.2] - 2026-07-13
+
+### Changed
+
+- 日常 CI 调整为与 Sub2API 相同的 push / pull request 完整验证模式，同时保留 Pix 标签驱动的 Release/CD；每个 PR 现在都会执行 Compose 健康烟测、Release Compose 配置校验以及 backend、frontend、updater 三镜像构建。
+- 合并并组合验证 SQLAlchemy、RQ、SlowAPI、email-validator 依赖下限更新，同时纳入冲突 PR 中的 Uvicorn 0.51.0 与 Redis 8.0.1 下限。
+
+### Fixed
+
+- updater 镜像不再依赖可能拒绝匿名拉取的 `ghcr.io/cli/cli`，改为下载并校验 GitHub CLI 2.67.0 官方 Release 二进制，恢复干净服务器上的可重复构建。
+- Python 分发包烟测现在验证 `pix-update-agent` 命令，CI lint 同步覆盖发布 manifest 生成脚本。
+
+### Security
+
+- updater 镜像 allowlist 改为对完整 `ghcr.io/owner/image` 仓库名执行严格全字符串匹配，拒绝前缀注入、tag 和 digest 混入固定配置。
+
+## [1.131.2] - 2026-07-13
+
+### Added
+
+- 管理后台新增「版本与更新」控制面：检测固定 GitHub Release、校验机器可读发布 manifest、显示 GHCR digest 与 updater 状态，并通过短时管理员重新认证提交更新、查询操作进度或回滚上一已知良好版本。
+- 新增独立 Pix Updater 与 digest 驱动的生产 Compose；updater 负责 provenance 校验、PostgreSQL 更新前备份、Alembic 迁移、服务健康验证和失败恢复，API 容器不再需要也不会获得 Docker socket。
+
+### Changed
+
+- 管理后台重构为「观测 / 运营 / 商业 / 系统」四组高密度运维台，模块与筛选支持深链接，后台数据改为按模块懒加载和独立刷新，系统设置分类改为动态二级导航。
+- Release 工作流新增 updater 镜像和绑定 tag、commit、Alembic head 与三组镜像 digest 的 `pix-release-manifest.json`，并为 manifest 与 OCI 镜像生成 GitHub provenance。
+
+### Security
+
+- 更新与回滚只允许 Cookie 管理员通过密码 step-up 后执行；浏览器不能提交任意命令、URL、镜像或 Compose 路径，所有 Docker 权限隔离在不暴露公网端口的 updater 服务。
+
 ## [1.130.2] - 2026-07-11
 
 ### Security

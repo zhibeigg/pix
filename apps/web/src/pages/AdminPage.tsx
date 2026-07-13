@@ -1,11 +1,10 @@
-import { useI18n } from '../i18n'
 import { AdminPanel } from '../components/AdminPanel'
-import { PageHeader } from '../components/PageHeader'
-import type { AdminBatchAdjustCreditsResponse, AdminDashboard, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, MembershipPlan, PricingRule, SystemSetting, User, ImageProvider, ImageProviderPreset, ImageProviderCreatePayload, ImageProviderUpdatePayload, PromoLinkStats, PromoLinkPayload } from '../types'
 
-interface AdminPageProps { dashboard: AdminDashboard | null; users: User[]; jobs: GenerationJob[]; pricing: PricingRule[]; packages: CreditPackage[]; membershipPlans: MembershipPlan[]; settings: SystemSetting[]; onRefresh: () => void; onAdjustCredits: (userId: number, amount: number, note: string) => Promise<void>; onAdjustCreditsBatch: (payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) => Promise<AdminBatchAdjustCreditsResponse | void>; onUpdatePricing: (key: string, priceCredits: number, enabled: boolean) => Promise<void>; onCreatePackage: (payload: CreditPackage) => Promise<void>; onUpdatePackage: (key: string, payload: Omit<CreditPackage, 'key'>) => Promise<void>; onCreateMembershipPlan: (payload: MembershipPlan) => Promise<void>; onUpdateMembershipPlan: (key: string, payload: Omit<MembershipPlan, 'key'>) => Promise<void>; onUpdateSetting: (key: string, value: string, clear?: boolean) => Promise<void>; onPublishAnnouncement: (payload: AnnouncementPublishPayload) => Promise<AnnouncementPublishResponse>; onTestEmail: (email: string) => Promise<void>; onAdminRetryJob: (job: GenerationJob) => Promise<void>; onAdminCancelJob: (job: GenerationJob) => Promise<void>; onAdminFailRefundJob: (job: GenerationJob) => Promise<void>; onAdminAnnouncements?: () => Promise<AnnouncementListResponse>; onCreateAnnouncement?: (payload: { title: string; body: string; enabled: boolean; publish_now: boolean; notify: boolean }) => Promise<AnnouncementItem>; onUpdateAnnouncement?: (id: number, payload: { title?: string; body?: string; enabled?: boolean }) => Promise<AnnouncementItem>; onDeleteAnnouncement?: (id: number) => Promise<{ deleted: boolean }>; onTestAnnouncementEmail?: (email: string, title: string, body: string) => Promise<{ message: string }>; onListProviders?: () => Promise<ImageProvider[]>; onListProviderPresets?: () => Promise<ImageProviderPreset[]>; onCreateProvider?: (payload: ImageProviderCreatePayload) => Promise<void>; onUpdateProvider?: (id: string, payload: ImageProviderUpdatePayload) => Promise<void>; onDeleteProvider?: (id: string) => Promise<void>; onListPromoLinks?: () => Promise<PromoLinkStats[]>; onCreatePromoLink?: (payload: PromoLinkPayload) => Promise<void>; onUpdatePromoLink?: (id: number, payload: Omit<PromoLinkPayload, 'code'>) => Promise<void>; onDeletePromoLink?: (id: number) => Promise<void>; token: string }
+type AdminPageProps = {
+  token: string
+  onNotify?: (message: string, variant?: 'info' | 'success' | 'error') => void
+}
 
-export function AdminPage(props: AdminPageProps) {
-  const { t } = useI18n()
-  return <div className="grid gap-6"><PageHeader eyebrow={t('pages.admin.eyebrow')} title={t('pages.admin.title')} description={t('pages.admin.description')} /><AdminPanel {...props} /></div>
+export function AdminPage({ token, onNotify }: AdminPageProps) {
+  return <AdminPanel token={token} onNotify={onNotify} />
 }

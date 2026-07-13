@@ -396,6 +396,42 @@ code {
   transform: translateY(-1px);
 }
 
+[data-admin-density="compact"] {
+  --admin-control-height: 2rem;
+  color: hsl(var(--foreground));
+}
+
+[data-admin-density="compact"] :where(input, textarea, select):focus-visible {
+  transform: none;
+}
+
+[data-admin-density="compact"] :where(input, select, button[role="combobox"]) {
+  min-height: var(--admin-control-height);
+}
+
+[data-admin-density="compact"] :where(table th, table td) {
+  padding-block: .45rem;
+}
+
+[data-admin-density="compact"] :where(.rounded-xl) {
+  border-radius: .6rem;
+}
+
+[data-admin-density="compact"] .admin-console {
+  isolation: isolate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-admin-density="compact"] *,
+  [data-admin-density="compact"] *::before,
+  [data-admin-density="compact"] *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

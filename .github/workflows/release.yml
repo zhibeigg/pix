@@ -21,10 +21,14 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+      - name: Verify tag commit belongs to master history
+        run: |
+          git fetch origin master --no-tags
+          test "$(git rev-list -n 1 "${GITHUB_REF_NAME}")" = "${GITHUB_SHA}"
+          git merge-base --is-ancestor "${GITHUB_SHA}" origin/master
       - name: Install verified Gitleaks 8.30.1
         run: |
-          curl --fail --location --silent --show-error \
-            --output gitleaks.tar.gz \
+          curl --fail --location --silent --show-error --output gitleaks.tar.gz \
             https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
           echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum --check --strict
           tar -xzf gitleaks.tar.gz gitleaks
@@ -42,7 +46,7 @@ jobs:
       - name: Verify Python code and tag
         run: |
           uv sync --frozen --extra dev
-          uv run ruff check src tests scripts/check_release_version.py scripts/extract_release_notes.py
+          uv run ruff check src tests scripts/check_release_version.py scripts/extract_release_notes.py scripts/generate_release_manifest.py
           uv run python scripts/check_release_version.py --tag "${GITHUB_REF_NAME}"
           uv run pytest -q
           uv export --frozen --no-dev --no-hashes --no-emit-project --output-file audit-requirements.txt
@@ -81,29 +85,25 @@ jobs:
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.10.7"
-          enable-cache: true
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
-      - name: Build Python distributions
-        run: uv build --wheel --sdist --out-dir release
-      - name: Build frontend archive
+      - name: Build release files
         run: |
+          uv build --wheel --sdist --out-dir release
           npm ci --no-audit --no-fund --prefix apps/web
           npm run build --prefix apps/web
           version="${GITHUB_REF_NAME#v}"
           (cd dist/web && zip -r "../../release/pix-web-${version}.zip" .)
-      - name: Extract release notes and checksums
-        run: |
           uv run python scripts/extract_release_notes.py "${GITHUB_REF_NAME}" --output release/RELEASE_NOTES.md
           (cd release && sha256sum pix-*.whl pix-*.tar.gz pix-web-*.zip > SHA256SUMS)
-      - name: Upload release artifact bundle
+      - name: Upload base release bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-artifacts
+          name: release-base
           path: release/*
           if-no-files-found: error
           retention-days: 14
@@ -139,6 +139,11 @@ jobs:
             context: ./apps/web
             file: ./apps/web/Dockerfile
             cache-scope: release-frontend
+          - name: updater
+            image: ghcr.io/zhibeigg/pix-updater
+            context: .
+            file: ./Dockerfile.updater
+            cache-scope: release-updater
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -181,18 +186,94 @@ jobs:
           subject-name: ${{ matrix.image }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+      - name: Save immutable digest
+        run: |
+          mkdir -p digest
+          printf '%s\n' '${{ steps.push.outputs.digest }}' > "digest/${{ matrix.name }}.digest"
+      - name: Upload digest artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: image-digest-${{ matrix.name }}
+          path: digest/${{ matrix.name }}.digest
+          if-no-files-found: error
+          retention-days: 14
+
+  manifest:
+    name: Generate and attest release manifest
+    needs: [artifacts, images]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.10.7"
+      - name: Download base release bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-base
+          path: release
+      - name: Download image digests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: image-digest-*
+          path: digests
+          merge-multiple: true
+      - name: Generate manifest and checksum
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          alembic_head="$(uv run alembic heads | awk '{print $1}')"
+          uv run python scripts/generate_release_manifest.py \
+            --repository "${GITHUB_REPOSITORY}" \
+            --version "${version}" \
+            --tag "${GITHUB_REF_NAME}" \
+            --commit "${GITHUB_SHA}" \
+            --workflow-name "${GITHUB_WORKFLOW}" \
+            --workflow-run-id "${GITHUB_RUN_ID}" \
+            --workflow-run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --workflow-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --backend-image ghcr.io/zhibeigg/pix-backend \
+            --frontend-image ghcr.io/zhibeigg/pix-web \
+            --updater-image ghcr.io/zhibeigg/pix-updater \
+            --backend-digest digests/backend.digest \
+            --frontend-digest digests/frontend.digest \
+            --updater-digest digests/updater.digest \
+            --alembic-head "${alembic_head}" \
+            --minimum-updater-version "1.132.2" \
+            --output release/pix-release-manifest.json
+          (cd release && sha256sum pix-release-manifest.json >> SHA256SUMS)
+      - name: Attest release manifest
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: release/pix-release-manifest.json
+      - name: Upload publishable release bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-publish
+          path: release/*
+          if-no-files-found: error
+          retention-days: 14
 
   github-release:
     name: Publish GitHub Release
-    needs: [artifacts, images]
+    needs: manifest
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Download artifacts
+      - name: Download release bundle
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-artifacts
+          name: release-publish
           path: release
       - name: Create release
         env:
@@ -202,6 +283,7 @@ jobs:
             release/*.whl \
             release/*.tar.gz \
             release/pix-web-*.zip \
+            release/pix-release-manifest.json \
             release/SHA256SUMS \
             --repo "${GITHUB_REPOSITORY}" \
             --verify-tag \

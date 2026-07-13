@@ -58,6 +58,9 @@ import type {
   ImageProviderPreset,
   ImageProviderCreatePayload,
   ImageProviderUpdatePayload,
+  AdminUpdateStatus,
+  UpdateStepUpResponse,
+  UpdateOperation,
 } from './types'
 
 const configuredApiBase = (import.meta.env.VITE_PIX_API_BASE as string | undefined)?.trim()
@@ -577,5 +580,23 @@ export const api = {
   },
   deleteAdminProvider(token: string, id: string) {
     return request<{ deleted: boolean }>(`/admin/providers/${id}`, { method: 'DELETE' }, token)
+  },
+  adminUpdateStatus(token: string) {
+    return request<AdminUpdateStatus>('/admin/updates/status', {}, token)
+  },
+  checkAdminUpdates(token: string) {
+    return request<AdminUpdateStatus>('/admin/updates/check', { method: 'POST' }, token)
+  },
+  stepUpAdminUpdate(token: string, password: string) {
+    return request<UpdateStepUpResponse>('/auth/session/step-up-update', { method: 'POST', body: JSON.stringify({ password }) }, token)
+  },
+  applyAdminUpdate(token: string, payload: { target_version: string; expected_manifest_sha256: string; idempotency_key: string }) {
+    return request<AdminUpdateStatus>('/admin/updates/apply', { method: 'POST', body: JSON.stringify(payload) }, token)
+  },
+  adminUpdateOperation(token: string, operationId: string) {
+    return request<UpdateOperation>(`/admin/updates/operations/${encodeURIComponent(operationId)}`, {}, token)
+  },
+  rollbackAdminUpdate(token: string, idempotencyKey: string) {
+    return request<AdminUpdateStatus>('/admin/updates/rollback', { method: 'POST', body: JSON.stringify({ idempotency_key: idempotencyKey }) }, token)
   },
 }
