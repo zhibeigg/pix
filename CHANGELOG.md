@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.132.3] - 2026-07-13
+
+### Fixed
+
+- 新增 `0026_promo_order_snapshots`，修复已应用 `0025_promo_links` 的数据库缺少 `payment_orders.promo_discount_rate` 与 `payment_orders.original_amount_cents` 的问题；迁移会为历史订单回填折扣率和原始金额快照，并通过 `0024 → 0025 → 0026 → 0025 → 0026` 往返测试及生产 reconciliation 兼容测试验证升级与降级。
+
 ## [1.132.2] - 2026-07-13
 
 ### Changed
