@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.132.7] - 2026-07-14
+
+### Fixed
+
+- 修复管理后台「概览」只轮询业务统计、却不刷新同页版本摘要的问题；定时刷新和手动刷新现在会同时更新 `/admin/dashboard` 与 `/admin/updates/status`，浏览器标签从后台恢复可见时也会立即同步，避免部署后继续显示旧版本和旧更新状态。
+
 ## [1.132.3] - 2026-07-13
 
 ### Fixed

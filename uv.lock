@@ -893,7 +893,7 @@ wheels = [
 
 [[package]]
 name = "pix"
-version = "1.132.6"
+version = "1.132.7"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
