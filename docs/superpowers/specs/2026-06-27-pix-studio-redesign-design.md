@@ -85,7 +85,7 @@
 
 1. **设计 token 层** — styles.css 变量 + tokens.ts + 字体自托管。改完整站底色/主色/字体自动联动。
 2. **基础组件** — button / card / input / textarea / badge / chip / select / tabs / panel / dialog 等统一新规格。
-3. **落地页** — Hero + LandingSections + Header + Footer，精简文案、重排结构。
+3. **落地页** — Hero + LandingSections + Header + Footer，精简文案、重排结构。登录态桌面顶栏将点数余额与紧凑的充值 CTA 作为相邻操作，直接进入 `#/billing`；窄屏继续通过账号菜单提供点数中心入口，避免挤压品牌与全局工具。
 4. **工作区** — 生成面板 / 作品库 / 素材包 / WorkspaceShell。
 5. **其余页面** — 计费 / 奖励 / API 文档 / 后台 / 弹窗 Toast。
 

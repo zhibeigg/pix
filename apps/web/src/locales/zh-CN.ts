@@ -142,6 +142,8 @@ export const zhCN = {
     button: '账号',
     current: '当前账户',
     credits: '点数 {{count}}',
+    recharge: '充值',
+    rechargeCredits: '充值点数',
     queue: '队列 {{count}}',
     done: '完成 {{count}}',
     failed: '失败 {{count}}',

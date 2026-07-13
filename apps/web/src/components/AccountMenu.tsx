@@ -1,4 +1,4 @@
-import { GalleryHorizontalEnd, Gift, KeyRound, LogOut, RefreshCw, Settings, UserRound, WalletCards } from 'lucide-react'
+import { GalleryHorizontalEnd, Gift, KeyRound, LogOut, Plus, RefreshCw, Settings, UserRound, WalletCards } from 'lucide-react'
 import { useI18n } from '../i18n'
 import type { CreditBalance, User } from '../types'
 import { Badge } from './ui/badge'
@@ -23,7 +23,15 @@ export function AccountMenu({ user, balance, activeJobs, completedJobs, failedJo
   return (
     <div className="flex min-w-0 items-center justify-end gap-2">
       <div className="hidden items-center gap-2 sm:flex">
-        <Badge variant="outline" className="bg-card">{t('account.credits', { count: balance?.available_total ?? balance?.available_credits ?? '—' })}</Badge>
+        <div className="flex items-center gap-1">
+          <Badge variant="outline" className="bg-card">{t('account.credits', { count: balance?.available_total ?? balance?.available_credits ?? '—' })}</Badge>
+          <Button asChild size="sm" className="h-7 rounded-full px-2.5 shadow-none">
+            <a href="#/billing" aria-label={t('account.rechargeCredits')}>
+              <Plus />
+              {t('account.recharge')}
+            </a>
+          </Button>
+        </div>
         <Badge variant={activeJobs ? 'info' : 'muted'} className="hidden lg:inline-flex">{t('account.queue', { count: activeJobs })}</Badge>
         {failedJobs > 0 && <Badge variant="danger" className="hidden lg:inline-flex">{t('account.failed', { count: failedJobs })}</Badge>}
       </div>

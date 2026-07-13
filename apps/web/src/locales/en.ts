@@ -142,6 +142,8 @@ export const en = {
     button: 'Account',
     current: 'Current account',
     credits: 'Credits {{count}}',
+    recharge: 'Top up',
+    rechargeCredits: 'Top up credits',
     queue: 'Queue {{count}}',
     done: 'Done {{count}}',
     failed: 'Failed {{count}}',

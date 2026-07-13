@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.134.9] - 2026-07-14
+
+### Added
+
+- 登录用户右上角点数区域新增紧凑的「充值」按钮，可直接进入点数中心；窄屏继续通过账号菜单保留同一入口。
+
 ## [1.133.9] - 2026-07-14
 
 ### Added
