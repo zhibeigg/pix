@@ -5,6 +5,7 @@ import { jobTypeLabel } from '../labels'
 import { jobInputSummary } from '../pixelize'
 import type { ContactSheetCandidate, GenerationJob, JobOutput } from '../types'
 import { formatDateTime } from '../lib/utils'
+import { spriteFpsFromJob, spriteFrameCountFromJob, spriteSheetUrlFromJob } from '../lib/spritePreview'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { PixPanel } from './pix/PixPanel'
@@ -33,11 +34,12 @@ function JobCard({ job, onCandidatePixelize }: { job: GenerationJob; onCandidate
   const output = Array.isArray(job.outputs) ? job.outputs[0] : undefined
   const isActive = job.status === 'pending' || job.status === 'running' || job.status === 'waiting'
   const preview = isActive ? null : signedFileUrl(output?.preview_url || output?.pixelized_url || output?.source_url || job.input_image_url)
-  const spriteSheetUrl = isActive ? null : signedFileUrl(output?.sprite_sheet_url || undefined)
+  const spriteSheetUrl = isActive ? null : signedFileUrl(spriteSheetUrlFromJob(job, output) || undefined)
+  const spriteFrameCount = spriteFrameCountFromJob(job, output)
   const spriteFps = spriteFpsFromJob(job)
   return (
     <article className={`grid gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-[120px_minmax(0,1fr)] ${isActive ? 'pix-work-card-loading' : ''}`}>
-      <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={output?.sprite_frames ?? []} fps={spriteFps} fallbackUrl={preview} loading={isActive} label={job.status === 'pending' ? t('jobs.status.pending') : job.status === 'running' ? t('jobs.status.running') : job.status === 'waiting' ? t('jobs.status.waiting') : job.status} className="min-h-28" />
+      <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={output?.sprite_frames ?? []} frameCount={spriteFrameCount} fps={spriteFps} fallbackUrl={preview} loading={isActive} label={job.status === 'pending' ? t('jobs.status.pending') : job.status === 'running' ? t('jobs.status.running') : job.status === 'waiting' ? t('jobs.status.waiting') : job.status} className="min-h-28" />
       <div className="min-w-0 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-semibold">#{job.id} · {jobTypeLabel(job.job_type, language)}</h3><p className="mt-1 text-sm text-muted-foreground">{jobInputSummary(job, t('gallery.noInputSummary'))}</p></div><PixStatusBadge status={job.status} /></div>
         <div className="flex flex-wrap gap-1.5"><Badge variant="outline">{t('common.points', { count: job.price_credits })}</Badge><Badge variant="outline">{t('queue.reserved', { count: job.reserved_credits })}</Badge><Badge variant="outline">{formatDateTime(job.created_at)}</Badge></div>
@@ -77,16 +79,6 @@ function candidateTooltip(candidate: ContactSheetCandidate, t: (key: string, opt
 
 function formatCandidateSize(size?: [number, number] | null) {
   return size ? `${size[0]}×${size[1]}` : ''
-}
-
-function spriteFpsFromJob(job: GenerationJob) {
-  const sprite = asRecord(job.params_json?.sprite)
-  const fps = Number(sprite?.fps)
-  return Number.isFinite(fps) && fps > 0 ? fps : 8
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null
 }
 
 function GridQualitySummary({ output }: { output: JobOutput }) {

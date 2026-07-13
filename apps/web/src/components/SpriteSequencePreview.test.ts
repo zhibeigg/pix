@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { inferHorizontalSpriteFrames, shouldAnimateSpriteSequence } from './SpriteSequencePreview'
+import { fitSpriteFrame, inferHorizontalSpriteFrames, shouldAnimateSpriteSequence } from './SpriteSequencePreview'
 
 describe('inferHorizontalSpriteFrames', () => {
   it('derives legacy horizontal sprite-strip coordinates from the loaded image size', () => {
@@ -16,6 +16,17 @@ describe('inferHorizontalSpriteFrames', () => {
     expect(inferHorizontalSpriteFrames(16, 2047, 128)).toEqual([])
     expect(inferHorizontalSpriteFrames(1, 128, 128)).toEqual([])
     expect(inferHorizontalSpriteFrames(257, 32896, 128)).toEqual([])
+  })
+})
+
+describe('fitSpriteFrame', () => {
+  it('uses the single-frame bounds instead of exposing adjacent frames in a wide card', () => {
+    expect(fitSpriteFrame(296, 120, { w: 128, h: 128 })).toEqual({
+      width: 120,
+      height: 120,
+      scaleX: 0.9375,
+      scaleY: 0.9375,
+    })
   })
 })
 

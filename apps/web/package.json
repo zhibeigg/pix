@@ -1,7 +1,7 @@
 {
   "name": "pix-web",
   "private": true,
-  "version": "1.135.9",
+  "version": "1.135.10",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"

@@ -195,7 +195,7 @@ export function SpriteSequencePreview({ sheetUrl, frames, frameCount, fps, fallb
   }
 
   const frameStyle = rect && sheetSize
-    ? fitRect(Math.max(1, containerSize.width - 24), Math.max(1, containerSize.height - 24), rect, sheetSize)
+    ? fitSpriteFrame(Math.max(1, containerSize.width - 24), Math.max(1, containerSize.height - 24), rect)
     : null
   if (!frameStyle && !canInferFrames) {
     return <PixPreviewFrame url={fallbackUrl || sheetUrl} alt={alt} label={label} className={className} imageClassName={imageClassName} trim={trim} zoomable={zoomable} zoomSrc={zoomSrc} zoomRendering={zoomRendering}>{children}</PixPreviewFrame>
@@ -224,11 +224,13 @@ export function SpriteSequencePreview({ sheetUrl, frames, frameCount, fps, fallb
         <div
           role="img"
           aria-label={alt || '序列帧预览'}
-          className="h-full w-full bg-no-repeat [image-rendering:pixelated]"
+          className="bg-no-repeat [image-rendering:pixelated]"
           style={{
+            width: frameStyle.width,
+            height: frameStyle.height,
             backgroundImage: `url("${sheetUrl.replace(/"/g, '\\"')}")`,
-            backgroundSize: `${sheetSize!.width * frameStyle.scale}px ${sheetSize!.height * frameStyle.scale}px`,
-            backgroundPosition: `${frameStyle.offsetX - rect!.x * frameStyle.scale}px ${frameStyle.offsetY - rect!.y * frameStyle.scale}px`,
+            backgroundSize: `${sheetSize!.width * frameStyle.scaleX}px ${sheetSize!.height * frameStyle.scaleY}px`,
+            backgroundPosition: `${-rect!.x * frameStyle.scaleX}px ${-rect!.y * frameStyle.scaleY}px`,
           }}
           data-frame={frameIndex}
         />
@@ -257,16 +259,14 @@ export function SpriteSequencePreview({ sheetUrl, frames, frameCount, fps, fallb
   )
 }
 
-function fitRect(containerWidth: number, containerHeight: number, rect: { w: number; h: number }, sheetSize: { width: number; height: number }) {
-  const sourceRatio = rect.w / Math.max(1, rect.h)
-  const containerRatio = containerWidth / Math.max(1, containerHeight)
-  const targetWidth = containerRatio > sourceRatio ? containerHeight * sourceRatio : containerWidth
-  const targetHeight = containerRatio > sourceRatio ? containerHeight : containerWidth / sourceRatio
-  const scale = Math.min(targetWidth / rect.w, targetHeight / rect.h)
+export function fitSpriteFrame(containerWidth: number, containerHeight: number, rect: { w: number; h: number }) {
+  const scale = Math.min(containerWidth / Math.max(1, rect.w), containerHeight / Math.max(1, rect.h))
+  const width = Math.max(1, Math.round(rect.w * scale))
+  const height = Math.max(1, Math.round(rect.h * scale))
   return {
-    scale,
-    offsetX: (containerWidth - rect.w * scale) / 2,
-    offsetY: (containerHeight - rect.h * scale) / 2,
-    sheetSize,
+    width,
+    height,
+    scaleX: width / Math.max(1, rect.w),
+    scaleY: height / Math.max(1, rect.h),
   }
 }

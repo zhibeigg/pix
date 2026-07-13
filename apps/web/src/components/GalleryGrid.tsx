@@ -7,6 +7,7 @@ import type { ContactSheetCandidate, GalleryQuota, GenerationJob, JobOutput, Job
 import { jobInputSummary } from '../pixelize'
 import { jobTypeLabel } from '../labels'
 import { formatDateTime } from '../lib/utils'
+import { spriteFpsFromJob, spriteFrameCountFromJob, spriteSheetUrlFromJob } from '../lib/spritePreview'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Checkbox } from './ui/checkbox'
@@ -135,8 +136,9 @@ function GalleryCard({ job, selected, bulkMode, bulkSelected, bulkDisabled, retr
   const actionPreviewUrl = selectedAction ? signedFileUrl(selectedAction.gifUrl || selectedAction.sheetUrl || undefined) : null
   const sizeRetryPreviewUrl = displayedSizeRetryCandidate ? signedFileUrl(displayedSizeRetryCandidate.preview_url ?? displayedSizeRetryCandidate.pixelized_url ?? displayedSizeRetryCandidate.url ?? undefined) : null
   const previewUrl = isActive ? null : actionPreviewUrl || sizeRetryPreviewUrl || (output ? signedFileUrl(output.dual_grid_preview_url || output.pixelized_url || output.preview_url || output.source_url || undefined) : signedFileUrl(job.input_image_url))
-  const spriteSheetUrl = isActive || selectedAction || displayedSizeRetryCandidate ? null : signedFileUrl(output?.sprite_sheet_url || undefined)
+  const spriteSheetUrl = isActive || selectedAction || displayedSizeRetryCandidate ? null : signedFileUrl(spriteSheetUrlFromJob(job, output) || undefined)
   const spriteFrames = selectedAction || displayedSizeRetryCandidate ? [] : (output?.sprite_frames ?? [])
+  const spriteFrameCount = selectedAction || displayedSizeRetryCandidate ? 0 : spriteFrameCountFromJob(job, output)
   const spriteFps = spriteFpsFromJob(job)
   const typeLabel = jobTypeLabel(job.job_type, language)
   const sizeTag = sizeRetryPixelSizeTag(displayedSizeRetryCandidate) ?? jobPixelSizeTag(job, output)
@@ -187,7 +189,7 @@ function GalleryCard({ job, selected, bulkMode, bulkSelected, bulkDisabled, retr
       }}
       className={`overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/55 hover:pix-shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-[hsl(var(--pix-dark-card))] ${bulkMode && bulkDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} ${isActive ? 'pix-work-card-loading' : ''} ${bulkMode ? (bulkSelected ? 'border-primary bg-primary/5 pix-shadow-raised ring-2 ring-primary/20' : 'border-border dark:border-[hsl(var(--pix-dark-hairline))]') : selected ? 'border-primary pix-shadow-raised ring-2 ring-primary/15' : job.status === 'failed' ? 'border-destructive/40' : 'border-border dark:border-[hsl(var(--pix-dark-hairline))]'}`}
     >
-      <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={spriteFrames} fps={spriteFps} fallbackUrl={previewUrl} loading={isActive} label={previewLabel} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" imageClassName="absolute inset-0 h-full max-h-none w-full p-0 bg-contain" trim ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div>{bulkMode && <div className="absolute left-2 top-2 rounded-lg border border-border bg-card/92 p-1.5 shadow-sm backdrop-blur dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised)/.92)]" onClick={(event) => event.stopPropagation()}><Checkbox checked={bulkSelected} disabled={bulkDisabled} aria-label={t('gallery.bulkToggleWork', { id: job.id })} onCheckedChange={(checked) => onBulkToggle(job, checked === true)} /></div>}</SpriteSequencePreview>
+      <SpriteSequencePreview sheetUrl={spriteSheetUrl} frames={spriteFrames} frameCount={spriteFrameCount} fps={spriteFps} fallbackUrl={previewUrl} loading={isActive} label={previewLabel} className="h-36 min-h-0 rounded-none border-0 border-b sm:h-40 xl:h-36 2xl:h-40" imageClassName="absolute inset-0 h-full max-h-none w-full p-0 bg-contain" trim ><div className="absolute right-2 top-2"><PixStatusBadge status={job.status} /></div>{bulkMode && <div className="absolute left-2 top-2 rounded-lg border border-border bg-card/92 p-1.5 shadow-sm backdrop-blur dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card-raised)/.92)]" onClick={(event) => event.stopPropagation()}><Checkbox checked={bulkSelected} disabled={bulkDisabled} aria-label={t('gallery.bulkToggleWork', { id: job.id })} onCheckedChange={(checked) => onBulkToggle(job, checked === true)} /></div>}</SpriteSequencePreview>
       <div className="grid gap-2.5 p-3">
         <div className="grid gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -699,12 +701,6 @@ function pixelSizeBadgeClass(size: [number, number]) {
   if (side <= 32) return 'border-[hsl(var(--pix-brand-yellow)/.42)] bg-[hsl(var(--pix-yellow)/.9)] text-[hsl(var(--pix-brand-brown))] dark:border-[hsl(var(--pix-brand-yellow)/.5)] dark:bg-[hsl(var(--pix-brand-yellow)/.18)] dark:text-[hsl(var(--pix-yellow))]'
   if (side <= 64) return 'border-[hsl(var(--pix-brand-purple)/.26)] bg-[hsl(var(--pix-lavender)/.9)] text-[hsl(var(--pix-brand-purple-800))] dark:border-[hsl(var(--pix-brand-purple-300)/.36)] dark:bg-[hsl(var(--pix-brand-purple-800)/.46)] dark:text-[hsl(var(--pix-brand-purple-300))]'
   return 'border-[hsl(var(--pix-brand-orange)/.28)] bg-[hsl(var(--pix-peach)/.92)] text-[hsl(var(--pix-brand-orange-deep))] dark:border-[hsl(var(--pix-brand-orange)/.45)] dark:bg-[hsl(var(--pix-brand-orange)/.18)] dark:text-[hsl(var(--pix-peach))]'
-}
-
-function spriteFpsFromJob(job: GenerationJob) {
-  const sprite = asRecord(job.params_json?.sprite)
-  const fps = Number(sprite?.fps)
-  return Number.isFinite(fps) && fps > 0 ? fps : 8
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

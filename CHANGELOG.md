@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.135.10] - 2026-07-14
+
+### Fixed
+
+- 修复作品库、任务队列和管理后台「任务与作品」中的旧序列帧任务只显示整条横向 sprite sheet、不进入播放器的问题；旧输出现在可从 `pixelized_url` 和任务 `frame_count` 恢复播放。
+- 修复宽卡片中的序列帧背景层没有按单帧边界裁剪、导致当前帧左右相邻画面同时露出的问题；现代逐帧坐标和历史推导坐标现在都只显示一个居中帧。
+
 ## [1.135.9] - 2026-07-14
 
 ### Added
