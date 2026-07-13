@@ -207,7 +207,7 @@ export function WorkspaceShell({ page, user, balance, activeJobs, completedJobs,
   const { t } = useI18n()
   return (
     <div className="grid min-h-[calc(100vh-65px)] bg-[hsl(var(--pix-cream)/.42)] lg:grid-cols-[260px_minmax(0,1fr)] dark:bg-[hsl(var(--pix-navy-deep))]">
-      <aside className="border-b border-border bg-[hsl(var(--pix-paper-soft))] p-4 text-[hsl(var(--pix-ink))] lg:border-b-0 lg:border-r dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band))] dark:text-white">
+      <aside className="hidden border-b border-border bg-[hsl(var(--pix-paper-soft))] p-4 text-[hsl(var(--pix-ink))] lg:block lg:border-b-0 lg:border-r dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-band))] dark:text-white">
         <div className="grid gap-6 lg:sticky lg:top-20 lg:min-h-[calc(100vh-97px)] lg:grid-rows-[auto_auto_1fr_auto]">
           <div>
             <p className="text-[11px] font-semibold uppercase leading-[1.4] tracking-[1px] text-[hsl(var(--pix-steel))] dark:text-white/58">{t('sidebar.workspace')}</p>
@@ -228,8 +228,8 @@ export function WorkspaceShell({ page, user, balance, activeJobs, completedJobs,
         </div>
       </aside>
       <section className="min-w-0 bg-[linear-gradient(180deg,hsl(var(--pix-paper))_0%,hsl(var(--background))_36rem)] px-4 py-5 md:px-8 md:py-8 dark:bg-[linear-gradient(180deg,hsl(var(--pix-navy))_0%,hsl(var(--pix-navy-deep))_42rem)]">
-        <div key={page} className="motion-page-enter grid w-full gap-6">
-          <div className="block lg:hidden">
+        <div key={page} className="motion-page-enter grid min-w-0 w-full gap-6">
+          <div className="min-w-0 max-w-full overflow-hidden lg:hidden">
             <AppTabs page={page} user={user} onChange={onNavigate} />
           </div>
           {children}

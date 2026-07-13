@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { AdminBatchAdjustCreditsResponse, AdminDashboard, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, MembershipPlan, PricingRule, SystemSetting, User, ImageProvider, ImageProviderPreset, ImageProviderCreatePayload, ImageProviderUpdatePayload, ImageProviderModelPayload, PromoLinkStats, PromoLinkPayload } from '../../types'
+import type { AdminBatchAdjustCreditsResponse, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, MembershipPlan, PricingRule, SystemSetting, User, ImageProvider, ImageProviderPreset, ImageProviderCreatePayload, ImageProviderUpdatePayload, ImageProviderModelPayload, PromoLinkStats, PromoLinkPayload } from '../../types'
 import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../../components/ui/textarea'
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { PixField } from '../../components/pix/PixField'
-import { PixMetric } from '../../components/pix/PixMetric'
 import { GalleryGrid } from '../../components/GalleryGrid'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { useI18n } from '../../i18n'
@@ -170,131 +169,6 @@ export function AdminCreditsPanel({ users, onAdjustSingle, onAdjustBatch }: { us
         {resultText && <Alert variant="success">{resultText}</Alert>}
       </div>
     </form>
-  )
-}
-
-export function DashboardGrid({ dashboard }: { dashboard: AdminDashboard }) {
-  const { language, t } = useI18n()
-  const history = dashboard.history ?? []
-  const maxJobs = Math.max(1, ...history.map((point) => point.jobs))
-  const number = useMemo(() => new Intl.NumberFormat(language === 'en' ? 'en-US' : 'zh-CN'), [language])
-  const date = useMemo(
-    () => new Intl.DateTimeFormat(language === 'en' ? 'en-US' : 'zh-CN', { month: 'short', day: 'numeric', weekday: 'short' }),
-    [language],
-  )
-
-  return (
-    <div className="grid gap-7 tabular-nums">
-      <section className="grid gap-3" aria-labelledby="dashboard-today-heading">
-        <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border pb-2">
-          <div>
-            <h2 id="dashboard-today-heading" className="text-lg font-semibold">{t('admin.overview.today.title')}</h2>
-            <p className="text-sm text-muted-foreground">{t('admin.overview.today.description')}</p>
-          </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <PixMetric label={t('admin.overview.metrics.jobsToday')} value={number.format(dashboard.jobs_today)} tone="info" />
-          <PixMetric label={t('admin.overview.metrics.succeededFailed')} value={`${number.format(dashboard.succeeded_today)} / ${number.format(dashboard.failed_today)}`} tone={dashboard.failed_today > 0 ? 'danger' : 'success'} />
-          <PixMetric label={t('admin.overview.metrics.newUsersToday')} value={number.format(dashboard.new_users_today)} tone="info" />
-          <PixMetric label={t('admin.overview.metrics.activeUsersToday')} value={number.format(dashboard.active_users_today)} tone="info" />
-          <PixMetric label={t('admin.overview.metrics.payingUsersToday')} value={number.format(dashboard.paying_users_today)} tone={dashboard.paying_users_today > 0 ? 'success' : 'default'} />
-          <PixMetric label={t('admin.overview.metrics.creditsRechargedToday')} value={number.format(dashboard.credits_recharged_today)} tone="success" />
-          <PixMetric label={t('admin.overview.metrics.ordersCreatedToday')} value={number.format(dashboard.orders_created_today ?? 0)} tone="info" />
-          <PixMetric label={t('admin.overview.metrics.ordersPaidToday')} value={number.format(dashboard.orders_paid_today)} tone={dashboard.orders_paid_today > 0 ? 'success' : 'default'} />
-          <PixMetric label={t('admin.overview.metrics.creditsConsumedToday')} value={number.format(dashboard.credits_consumed_today)} tone="warning" />
-          <PixMetric label={t('admin.overview.metrics.uploadsToday')} value={number.format(dashboard.uploads_today)} />
-          <PixMetric label={t('admin.overview.metrics.policyBlockedToday')} value={number.format(dashboard.policy_blocked_today)} tone={dashboard.policy_blocked_today > 0 ? 'warning' : 'success'} />
-          <PixMetric label={t('admin.overview.metrics.upstreamTimeout')} value={`${number.format(dashboard.upstream_errors_today)} / ${number.format(dashboard.timeout_jobs_today)}`} tone={(dashboard.upstream_errors_today + dashboard.timeout_jobs_today) > 0 ? 'danger' : 'success'} />
-          <PixMetric label={t('admin.overview.metrics.pipelineErrorsToday')} value={number.format(dashboard.pipeline_errors_today)} tone={dashboard.pipeline_errors_today > 0 ? 'danger' : 'success'} />
-          <PixMetric label={t('admin.overview.metrics.pendingRunning')} value={`${number.format(dashboard.pending_jobs)} / ${number.format(dashboard.running_jobs)}`} tone="info" />
-          <PixMetric label={t('admin.overview.metrics.runningOver30m')} value={number.format(dashboard.running_over_30m_jobs)} tone={dashboard.running_over_30m_jobs > 0 ? 'warning' : 'success'} />
-          <PixMetric label={t('admin.overview.metrics.candidateWarnings')} value={`${number.format(dashboard.candidate_failures_today)} / ${number.format(dashboard.pipeline_warnings_today)}`} tone={(dashboard.candidate_failures_today + dashboard.pipeline_warnings_today) > 0 ? 'warning' : 'success'} />
-          <PixMetric label={t('admin.overview.metrics.averageDuration')} value={`${Math.round(dashboard.average_generation_seconds_today)}s`} />
-          <PixMetric label={t('admin.overview.metrics.p95Duration')} value={`${Math.round(dashboard.p95_generation_seconds_today)}s`} />
-          <PixMetric label={t('admin.overview.metrics.failureRate')} value={`${Math.round(dashboard.failure_rate * 100)}%`} tone={dashboard.failure_rate > 0.1 ? 'danger' : 'success'} />
-        </div>
-      </section>
-
-      <section className="grid gap-3" aria-labelledby="dashboard-totals-heading">
-        <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border pb-2">
-          <div>
-            <h2 id="dashboard-totals-heading" className="text-lg font-semibold">{t('admin.overview.totals.title')}</h2>
-            <p className="text-sm text-muted-foreground">{t('admin.overview.totals.description')}</p>
-          </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <PixMetric label={t('admin.overview.metrics.totalUsers')} value={number.format(dashboard.total_users)} />
-          <PixMetric label={t('admin.overview.metrics.totalJobs')} value={number.format(dashboard.total_jobs)} tone="info" />
-          <PixMetric label={t('admin.overview.metrics.totalSucceededFailed')} value={`${number.format(dashboard.total_succeeded)} / ${number.format(dashboard.total_failed)}`} tone={(dashboard.total_failed / Math.max(1, dashboard.total_jobs)) > 0.1 ? 'warning' : 'default'} />
-          <PixMetric label={t('admin.overview.metrics.totalCreditsRecharged')} value={number.format(dashboard.total_credits_recharged)} tone="success" />
-          <PixMetric label={t('admin.overview.metrics.totalCreditsConsumed')} value={number.format(dashboard.total_credits_consumed)} tone="warning" />
-          <PixMetric label={t('admin.overview.metrics.totalOrders')} value={number.format(dashboard.total_orders_created)} />
-          <PixMetric label={t('admin.overview.metrics.totalPaidOrders')} value={number.format(dashboard.total_orders_paid)} tone="success" />
-          <PixMetric label={t('admin.overview.metrics.totalUploads')} value={number.format(dashboard.total_uploads)} />
-        </div>
-      </section>
-
-      <section className="grid gap-3" aria-labelledby="dashboard-history-heading">
-        <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border pb-2">
-          <div>
-            <h2 id="dashboard-history-heading" className="text-lg font-semibold">{t('admin.overview.history.title', { days: dashboard.history_days })}</h2>
-            <p className="max-w-[70ch] text-sm text-muted-foreground">{t('admin.overview.history.description')}</p>
-          </div>
-          <Badge variant="outline">{t('admin.overview.history.timezone')}</Badge>
-        </div>
-        {history.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">{t('admin.overview.history.empty')}</p>
-        ) : (
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
-            <div className="hidden grid-cols-[96px_minmax(190px,1.4fr)_minmax(140px,.9fr)_minmax(130px,.8fr)_minmax(130px,.8fr)] gap-4 border-b border-border bg-muted/45 px-3 py-2 text-xs font-medium text-muted-foreground sm:grid">
-              <span>{t('admin.overview.history.columns.date')}</span>
-              <span>{t('admin.overview.history.columns.jobs')}</span>
-              <span>{t('admin.overview.history.columns.credits')}</span>
-              <span>{t('admin.overview.history.columns.orders')}</span>
-              <span>{t('admin.overview.history.columns.activity')}</span>
-            </div>
-            <div className="divide-y divide-border">
-              {history.map((point, index) => {
-                const succeededWidth = Math.min(100, (point.succeeded / maxJobs) * 100)
-                const failedWidth = Math.min(100 - succeededWidth, (point.failed / maxJobs) * 100)
-                const isToday = index === history.length - 1
-                return (
-                  <div key={point.date} className="grid grid-cols-2 gap-3 px-3 py-3 text-sm sm:grid-cols-[96px_minmax(190px,1.4fr)_minmax(140px,.9fr)_minmax(130px,.8fr)_minmax(130px,.8fr)] sm:items-center sm:gap-4">
-                    <time dateTime={point.date} className="col-span-2 flex items-center gap-2 font-medium sm:col-span-1">
-                      {date.format(new Date(`${point.date}T12:00:00`))}
-                      {isToday && <Badge variant="info">{t('admin.overview.history.today')}</Badge>}
-                    </time>
-                    <div className="col-span-2 min-w-0 sm:col-span-1">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="font-medium">{number.format(point.jobs)} <span className="font-normal text-muted-foreground">{t('admin.overview.history.jobsUnit')}</span></span>
-                        <span className="text-xs text-muted-foreground">{number.format(point.succeeded)} / {number.format(point.failed)}</span>
-                      </div>
-                      <div role="img" className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-muted" aria-label={t('admin.overview.history.jobBarLabel', { succeeded: point.succeeded, failed: point.failed })}>
-                        <span className="bg-[hsl(var(--tone-success-line))]" style={{ width: `${succeededWidth}%` }} />
-                        <span className="bg-[hsl(var(--destructive))]" style={{ width: `${failedWidth}%` }} />
-                      </div>
-                    </div>
-                    <HistoryValue label={t('admin.overview.history.columns.credits')} primary={`+${number.format(point.credits_recharged)}`} secondary={`−${number.format(point.credits_consumed)}`} />
-                    <HistoryValue label={t('admin.overview.history.columns.orders')} primary={number.format(point.orders_created)} secondary={number.format(point.orders_paid)} />
-                    <HistoryValue label={t('admin.overview.history.columns.activity')} primary={t('admin.overview.history.newUsersValue', { count: point.new_users })} secondary={t('admin.overview.history.uploadsValue', { count: point.uploads })} />
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </section>
-    </div>
-  )
-}
-
-function HistoryValue({ label, primary, secondary }: { label: string; primary: string; secondary: string }) {
-  return (
-    <div className="min-w-0">
-      <p className="text-xs text-muted-foreground sm:hidden">{label}</p>
-      <p className="truncate font-medium">{primary}</p>
-      <p className="truncate text-xs text-muted-foreground">{secondary}</p>
-    </div>
   )
 }
 

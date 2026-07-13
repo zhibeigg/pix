@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -18,7 +18,12 @@ from pix_web.announcement_service import (
 )
 from pix_web.config import WebSettings
 from pix_web.credits import adjust_credits
-from pix_web.dashboard import admin_dashboard
+from pix_web.dashboard import (
+    DashboardGranularity,
+    DashboardQueryError,
+    DashboardRange,
+    admin_dashboard,
+)
 from pix_web.job_observability import (
     admin_fail_job_and_refund,
     cancel_job_and_refund,
@@ -95,9 +100,28 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.get("/dashboard", response_model=AdminDashboardResponse)
 def dashboard(
-    _admin: User = Depends(require_admin), db: Session = Depends(get_db)
+    range_value: DashboardRange = Query(default="14d", alias="range"),
+    granularity: DashboardGranularity = Query(default="auto"),
+    compare: bool = Query(default=True),
+    from_date: date | None = Query(default=None, alias="from"),
+    to_date: date | None = Query(default=None, alias="to"),
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    return admin_dashboard(db)
+    try:
+        return admin_dashboard(
+            db,
+            range=range_value,
+            granularity=granularity,
+            compare=compare,
+            from_date=from_date,
+            to_date=to_date,
+        )
+    except DashboardQueryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get("/performance-metrics", response_model=PerformanceMetricsResponse)

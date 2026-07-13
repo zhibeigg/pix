@@ -2,12 +2,12 @@ import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'r
 import i18next, { type TFunction } from 'i18next'
 import { initReactI18next, I18nextProvider, useTranslation } from 'react-i18next'
 import { zhCN } from './locales/zh-CN'
-import { en } from './locales/en'
+import { enUS } from './locales/en-US'
 import type { PixLanguage } from './theme'
 
 export const resources = {
   'zh-CN': { translation: zhCN },
-  en: { translation: en },
+    en: { translation: enUS },
 } as const
 
 export const i18n = i18next.createInstance()

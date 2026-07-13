@@ -862,6 +862,56 @@ export type PaymentCheckout = {
   code_url: string | null
 }
 
+export type AdminDashboardRange = '24h' | '7d' | '14d' | '30d' | '90d' | 'custom'
+export type AdminDashboardGranularity = 'auto' | 'hour' | 'day' | 'week'
+export type AdminDashboardTopic = 'quality' | 'credits' | 'orders' | 'users'
+
+export type AdminDashboardQueryParams = {
+  range: AdminDashboardRange
+  granularity: AdminDashboardGranularity
+  compare: boolean
+  from?: string
+  to?: string
+}
+
+export type AdminDashboardWindow = {
+  range: AdminDashboardRange
+  granularity: Exclude<AdminDashboardGranularity, 'auto'>
+  timezone: string
+  start_at: string
+  end_at: string
+  generated_at: string
+  data_cutoff_at: string
+  compare_enabled: boolean
+  comparison_start_at: string | null
+  comparison_end_at: string | null
+}
+
+export type AdminDashboardPeriodSummary = {
+  jobs: number
+  succeeded: number
+  failed: number
+  credits_consumed: number
+  credits_recharged: number
+  net_credits: number
+  orders_created: number
+  orders_paid: number
+  orders_converted: number
+  uploads: number
+  new_users: number
+  active_users: number
+  paying_users: number
+  success_rate: number
+  payment_rate: number
+  active_to_paying_rate: number
+  has_data: boolean
+}
+
+export type AdminDashboardSeriesPoint = AdminDashboardPeriodSummary & {
+  start_at: string
+  end_at: string
+}
+
 export type AdminDashboardHistoryPoint = {
   date: string
   jobs: number
@@ -910,6 +960,11 @@ export type AdminDashboard = {
   orders_paid_today: number
   uploads_today: number
   failure_rate: number
+  window?: AdminDashboardWindow
+  current_period?: AdminDashboardPeriodSummary
+  previous_period?: AdminDashboardPeriodSummary | null
+  series?: AdminDashboardSeriesPoint[]
+  previous_series?: AdminDashboardSeriesPoint[]
 }
 
 export type PerfKpi = { success_rate: number; running: number; total: number; failed: number; avg_seconds: number; p95_seconds: number }

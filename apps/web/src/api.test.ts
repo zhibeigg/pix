@@ -62,6 +62,17 @@ describe('Cookie session API requests', () => {
     expect(JSON.parse(String(options.body))).toEqual({ target_version: '1.2.3', expected_manifest_sha256: 'abc123', idempotency_key: 'update-1' })
   })
 
+  it('serializes dashboard data query fields without a presentation topic', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.adminDashboard(SESSION_AUTH_MARKER, { range: 'custom', granularity: 'day', compare: false, from: '2026-06-01', to: '2026-06-20' })
+
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/admin/dashboard?range=custom&granularity=day&compare=false&from=2026-06-01&to=2026-06-20')
+    expect(url).not.toContain('topic')
+  })
+
   it('uses the session login endpoint and never returns a token contract to the SPA', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ id: 1, email: 'user@example.com', role: 'user' }), {

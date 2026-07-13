@@ -59,7 +59,7 @@ export function AppTabs({ page, user, onChange, orientation = 'top' }: AppTabsPr
   }
 
   return (
-    <nav aria-label={t('nav.mainNavigation')} className="flex w-full gap-1 overflow-x-auto rounded-full border border-border bg-transparent p-1 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card)/.55)]">
+    <nav aria-label={t('nav.mainNavigation')} className="flex min-w-0 max-w-full gap-1 overflow-x-auto rounded-full border border-border bg-transparent p-1 dark:border-[hsl(var(--pix-dark-hairline))] dark:bg-[hsl(var(--pix-dark-card)/.55)]">
       {visibleTabs.map((tab) => {
         const active = page === tab.page
         return (

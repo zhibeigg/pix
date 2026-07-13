@@ -1820,6 +1820,10 @@ class MockWebhookRequest(BaseModel):
     event_id: str = Field(max_length=160)
 
 
+AdminDashboardRange = Literal["24h", "7d", "14d", "30d", "90d", "custom"]
+AdminDashboardGranularity = Literal["hour", "day", "week"]
+
+
 class AdminDashboardHistoryPoint(BaseModel):
     date: str
     jobs: int = 0
@@ -1831,6 +1835,44 @@ class AdminDashboardHistoryPoint(BaseModel):
     orders_paid: int = 0
     uploads: int = 0
     new_users: int = 0
+
+
+class AdminDashboardWindow(BaseModel):
+    range: AdminDashboardRange
+    granularity: AdminDashboardGranularity
+    timezone: str
+    start_at: datetime
+    end_at: datetime
+    generated_at: datetime
+    data_cutoff_at: datetime
+    compare_enabled: bool = True
+    comparison_start_at: datetime | None = None
+    comparison_end_at: datetime | None = None
+
+
+class AdminDashboardPeriodSummary(BaseModel):
+    jobs: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    credits_consumed: int = 0
+    credits_recharged: int = 0
+    net_credits: int = 0
+    orders_created: int = 0
+    orders_paid: int = 0
+    orders_converted: int = 0
+    uploads: int = 0
+    new_users: int = 0
+    active_users: int = 0
+    paying_users: int = 0
+    success_rate: float = 0.0
+    payment_rate: float = 0.0
+    active_to_paying_rate: float = 0.0
+    has_data: bool = False
+
+
+class AdminDashboardSeriesPoint(AdminDashboardPeriodSummary):
+    start_at: datetime
+    end_at: datetime
 
 
 class AdminDashboardResponse(BaseModel):
@@ -1868,6 +1910,11 @@ class AdminDashboardResponse(BaseModel):
     orders_paid_today: int
     uploads_today: int
     failure_rate: float
+    window: AdminDashboardWindow
+    current_period: AdminDashboardPeriodSummary
+    previous_period: AdminDashboardPeriodSummary | None = None
+    series: list[AdminDashboardSeriesPoint] = Field(default_factory=list)
+    previous_series: list[AdminDashboardSeriesPoint] = Field(default_factory=list)
 
 
 class PerfKpi(BaseModel):

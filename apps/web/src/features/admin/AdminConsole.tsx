@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Activity, BadgeDollarSign, ChevronRight, CircleGauge, CreditCard, FileCheck2, Megaphone, PackageOpen, RefreshCw, ServerCog, Settings2, ShieldCheck, Sparkles, Tags, Users, Wrench } from 'lucide-react'
 import { api } from '../../api'
 import { useI18n } from '../../i18n'
@@ -10,7 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { AdminOrdersPanel } from '../../components/AdminOrdersPanel'
 import { AdminSharesPanel } from '../../components/AdminSharesPanel'
 import { PerformanceMonitorTab } from '../../components/PerformanceMonitorTab'
-import { AdminCreditsPanel, AdminJobsPanel, AnnouncementEditor, DashboardGrid, EmailTestBox, MembershipPlanEditor, PackageEditor, PricingRow, PromoLinkManager, ProviderManager, SettingRow } from './LegacyPanels'
+import { AdminCreditsPanel, AdminJobsPanel, AnnouncementEditor, EmailTestBox, MembershipPlanEditor, PackageEditor, PricingRow, PromoLinkManager, ProviderManager, SettingRow } from './LegacyPanels'
+import { DashboardOverview } from './DashboardOverview'
+import { dashboardRequestKey, dashboardRequestParams, parseDashboardQuery, writeDashboardQuery, type DashboardQueryState } from './dashboardQuery'
 import { UpdatesPanel } from './UpdatesPanel'
 import { buildAdminHash, normalizeAdminTab, parseAdminHash, type AdminTab } from './route'
 import { useAdminResource } from './useAdminResource'
@@ -69,7 +71,9 @@ export function AdminConsole({ token, onNotify }: AdminConsoleProps) {
   }, [])
 
   const notify = useCallback((key: string, variant: NotifyVariant = 'success') => onNotify?.(t(key), variant), [onNotify, t])
-  const loadDashboard = useCallback(() => api.adminDashboard(token), [token])
+  const dashboardQuery = useMemo(() => parseDashboardQuery(params), [params])
+  const dashboardKey = dashboardRequestKey(dashboardQuery)
+  const loadDashboard = useCallback(() => api.adminDashboard(token, dashboardRequestParams(dashboardQuery)), [dashboardKey, token])
   const loadUpdateSummary = useCallback(() => api.adminUpdateStatus(token), [token])
   const loadUsers = useCallback(() => api.adminUsers(token), [token])
   const loadJobs = useCallback(() => api.adminJobs(token), [token])
@@ -86,6 +90,13 @@ export function AdminConsole({ token, onNotify }: AdminConsoleProps) {
   const packages = useAdminResource(tab === 'packages', loadPackages)
   const membership = useAdminResource(tab === 'membership', loadMembership)
   const settings = useAdminResource(tab === 'settings', loadSettings)
+  const dashboardKeyRef = useRef(dashboardKey)
+
+  useEffect(() => {
+    if (tab !== 'overview' || dashboardKeyRef.current === dashboardKey) return
+    dashboardKeyRef.current = dashboardKey
+    void dashboard.refresh()
+  }, [dashboard.refresh, dashboardKey, tab])
 
   const refreshOverview = useCallback(
     () => refreshAdminOverview(dashboard.refresh, updateSummary.refresh),
@@ -110,12 +121,17 @@ export function AdminConsole({ token, onNotify }: AdminConsoleProps) {
   const busy = tab === 'overview'
     ? dashboard.loading || dashboard.refreshing || updateSummary.loading || updateSummary.refreshing
     : currentBusy(tab, dashboard, users, jobs, pricing, packages, membership, settings)
-  const error = currentError(tab, dashboard, users, jobs, pricing, packages, membership, settings)
+  const error = tab === 'overview' && dashboard.data ? '' : currentError(tab, dashboard, users, jobs, pricing, packages, membership, settings)
 
   function navigate(nextTab: string, patch: Record<string, string | null> = {}) {
     const normalized = normalizeAdminTab(nextTab)
     const next = buildAdminHash(normalized, params, patch)
     window.location.hash = next.slice(1)
+  }
+
+  function updateDashboardQuery(nextQuery: DashboardQueryState) {
+    const nextParams = writeDashboardQuery(params, nextQuery)
+    window.location.hash = buildAdminHash('overview', nextParams).slice(1)
   }
 
   const groupedSettings = useMemo(() => groupSettings(settings.data ?? []), [settings.data])
@@ -162,7 +178,7 @@ export function AdminConsole({ token, onNotify }: AdminConsoleProps) {
 
         {error && <Alert variant="destructive">{error}</Alert>}
         <div className="mt-3 min-w-0 rounded-lg border border-border bg-background p-3 sm:p-4">
-          {tab === 'overview' && <ResourceBody state={dashboard}>{dashboard.data && <div className="grid gap-4"><DashboardGrid dashboard={dashboard.data} /><section className="grid gap-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold">{t('admin.updates.title')}</h2>{updateSummary.data && <Badge variant={updateSummary.data.update_available ? 'warning' : 'success'}>{updateSummary.data.update_available ? t('admin.updates.available') : t('admin.updates.upToDate')}</Badge>}</div><p className="mt-1 text-sm text-muted-foreground">{updateSummary.loading ? t('admin.common.loading') : updateSummary.error || updateSummary.data?.error || `${t('admin.updates.currentVersion')}: ${updateSummary.data?.current_version || '—'} · ${t('admin.updates.latestVersion')}: ${updateSummary.data?.latest_release?.version || '—'}`}</p></div><Button type="button" variant="outline" size="sm" onClick={() => navigate('updates')}>{t('admin.tabs.updates')}<ChevronRight className="h-3.5 w-3.5" /></Button></section></div>}</ResourceBody>}
+          {tab === 'overview' && <ResourceBody state={dashboard}>{dashboard.data && <div className="grid gap-4"><DashboardOverview dashboard={dashboard.data} query={dashboardQuery} refreshing={dashboard.refreshing} error={dashboard.error} onQueryChange={updateDashboardQuery} onRetry={() => void dashboard.refresh()} /><section className="grid gap-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold">{t('admin.updates.title')}</h2>{updateSummary.data && <Badge variant={updateSummary.data.update_available ? 'warning' : 'success'}>{updateSummary.data.update_available ? t('admin.updates.available') : t('admin.updates.upToDate')}</Badge>}</div><p className="mt-1 text-sm text-muted-foreground">{updateSummary.loading ? t('admin.common.loading') : updateSummary.error || updateSummary.data?.error || `${t('admin.updates.currentVersion')}: ${updateSummary.data?.current_version || '—'} · ${t('admin.updates.latestVersion')}: ${updateSummary.data?.latest_release?.version || '—'}`}</p></div><Button type="button" variant="outline" size="sm" onClick={() => navigate('updates')}>{t('admin.tabs.updates')}<ChevronRight className="h-3.5 w-3.5" /></Button></section></div>}</ResourceBody>}
           {tab === 'jobs' && <ResourceBody state={jobs}>{jobs.data && users.data && <AdminJobsPanel jobs={jobs.data} users={users.data} onRetry={retryJob} onCancel={cancelJob} onFailRefund={refundJob} />}</ResourceBody>}
           {tab === 'shares' && <AdminSharesPanel token={token} />}
           {tab === 'users' && <ResourceBody state={users}>{users.data && <AdminCreditsPanel users={users.data} onAdjustSingle={adjustSingle} onAdjustBatch={adjustBatch} />}</ResourceBody>}

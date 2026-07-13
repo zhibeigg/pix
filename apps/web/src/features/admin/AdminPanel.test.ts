@@ -5,7 +5,8 @@ import { AdminPanel } from '../../components/AdminPanel'
 import { I18nProvider } from '../../i18n'
 import type { AdminDashboard } from '../../types'
 import { refreshAdminOverview } from './AdminConsole'
-import { DashboardGrid } from './LegacyPanels'
+import { DashboardOverview } from './DashboardOverview'
+import { DEFAULT_DASHBOARD_QUERY } from './dashboardQuery'
 
 const dashboardFixture: AdminDashboard = {
   total_users: 808,
@@ -55,16 +56,15 @@ describe('AdminPanel compatibility export', () => {
     const html = renderToStaticMarkup(
       createElement(I18nProvider, {
         language: 'zh-CN',
-        children: createElement(DashboardGrid, { dashboard: dashboardFixture }),
+        children: createElement(DashboardOverview, { dashboard: dashboardFixture, query: DEFAULT_DASHBOARD_QUERY, refreshing: false, error: '', onQueryChange: () => undefined, onRetry: () => undefined }),
       }),
     )
 
-    expect(html).toContain('历史累计')
-    expect(html).toContain('最近 14 天')
+    expect(html).toContain('周期核心指标')
+    expect(html).toContain('累计数据账本')
+    expect(html).toContain('逐桶明细')
     expect(html).toContain('1,522')
     expect(html).toContain('21,327')
-    expect(html).toContain('+500')
-    expect(html).toContain('−169')
   })
 
   it('refreshes dashboard metrics and update summary together', async () => {

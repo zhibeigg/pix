@@ -1,5 +1,6 @@
 import type {
   AdminDashboard,
+  AdminDashboardQueryParams,
   AdminPaymentOrder,
   AdminSharedWork,
   AdminSharedWorkListResponse,
@@ -432,8 +433,17 @@ export const api = {
   deleteBatch(token: string, batchId: number) {
     return request<{ deleted: boolean }>(`/batches/${batchId}`, { method: 'DELETE' }, token)
   },
-  adminDashboard(token: string) {
-    return request<AdminDashboard>('/admin/dashboard', {}, token)
+  adminDashboard(token: string, params?: AdminDashboardQueryParams) {
+    const search = new URLSearchParams()
+    if (params) {
+      search.set('range', params.range)
+      search.set('granularity', params.granularity)
+      search.set('compare', String(params.compare))
+      if (params.range === 'custom' && params.from) search.set('from', params.from)
+      if (params.range === 'custom' && params.to) search.set('to', params.to)
+    }
+    const query = search.toString()
+    return request<AdminDashboard>(`/admin/dashboard${query ? `?${query}` : ''}`, {}, token)
   },
   adminUsers(token: string) {
     return request<User[]>('/admin/users?limit=500', {}, token)
