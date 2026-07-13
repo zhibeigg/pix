@@ -87,15 +87,29 @@ export function AdminConsole({ token, onNotify }: AdminConsoleProps) {
   const membership = useAdminResource(tab === 'membership', loadMembership)
   const settings = useAdminResource(tab === 'settings', loadSettings)
 
+  const refreshOverview = useCallback(
+    () => refreshAdminOverview(dashboard.refresh, updateSummary.refresh),
+    [dashboard.refresh, updateSummary.refresh],
+  )
+
   useEffect(() => {
-    if (tab !== 'overview' || document.visibilityState === 'hidden') return
-    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void dashboard.refresh() }, 30000)
-    return () => window.clearInterval(timer)
-  }, [dashboard.refresh, tab])
+    if (tab !== 'overview') return
+    const refreshVisible = () => {
+      if (document.visibilityState === 'visible') void refreshOverview()
+    }
+    const timer = window.setInterval(refreshVisible, 30000)
+    document.addEventListener('visibilitychange', refreshVisible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', refreshVisible)
+    }
+  }, [refreshOverview, tab])
 
   const selectedNav = ALL_NAV_ITEMS.find((item) => item.tab === tab) ?? ALL_NAV_ITEMS[0]
-  const refresh = currentRefresh(tab, dashboard.refresh, users.refresh, jobs.refresh, pricing.refresh, packages.refresh, membership.refresh, settings.refresh)
-  const busy = currentBusy(tab, dashboard, users, jobs, pricing, packages, membership, settings)
+  const refresh = currentRefresh(tab, refreshOverview, users.refresh, jobs.refresh, pricing.refresh, packages.refresh, membership.refresh, settings.refresh)
+  const busy = tab === 'overview'
+    ? dashboard.loading || dashboard.refreshing || updateSummary.loading || updateSummary.refreshing
+    : currentBusy(tab, dashboard, users, jobs, pricing, packages, membership, settings)
   const error = currentError(tab, dashboard, users, jobs, pricing, packages, membership, settings)
 
   function navigate(nextTab: string, patch: Record<string, string | null> = {}) {
@@ -187,6 +201,13 @@ function groupSettings(settings: SystemSetting[]) {
     ;(groups[category] ||= []).push(setting)
     return groups
   }, {})
+}
+
+export async function refreshAdminOverview(
+  dashboard: () => Promise<void>,
+  updateSummary: () => Promise<void>,
+) {
+  await Promise.all([dashboard(), updateSummary()])
 }
 
 function currentRefresh(tab: AdminTab, dashboard: () => Promise<void>, users: () => Promise<void>, jobs: () => Promise<void>, pricing: () => Promise<void>, packages: () => Promise<void>, membership: () => Promise<void>, settings: () => Promise<void>) {
