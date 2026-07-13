@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.132.8] - 2026-07-14
+
+### Fixed
+
+- 修复 GitHub Release 资产 API 返回 `302` 下载跳转时，管理后台版本摘要误报 `invalid_github_response` 的问题；发布清单现在会在限定次数内跟随 GitHub 官方 HTTPS 资产域名跳转，并兼容 Release 工作流实际发布的 `pix-web` 前端镜像仓库名，恢复「最新版本 / 已是最新」状态。
+
+### Security
+
+- 发布清单下载仍禁止任意重定向：仅接受无用户信息、标准 HTTPS 端口且属于 `github.com` / `githubusercontent.com` 的目标，拒绝外部主机以避免重定向型 SSRF。
+
 ## [1.132.7] - 2026-07-14
 
 ### Fixed

@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urljoin, urlsplit
 
 import httpx
 
@@ -27,6 +27,8 @@ _ROLLBACK_ALLOWED = frozenset({"allowed", "automatic", "safe", "supported"})
 _ROLLBACK_BLOCKED = frozenset({"forbidden", "manual", "none", "unsupported"})
 _MAX_MANIFEST_BYTES = 256 * 1024
 _MAX_NOTES_CHARS = 1200
+_GITHUB_ASSET_REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
+_MAX_GITHUB_ASSET_REDIRECTS = 3
 
 
 @dataclass(frozen=True)
@@ -84,6 +86,26 @@ def _utc_now_text() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _trusted_github_asset_url(value: str) -> bool:
+    parts = urlsplit(value)
+    host = (parts.hostname or "").lower()
+    try:
+        port = parts.port
+    except ValueError:
+        return False
+    return bool(
+        parts.scheme == "https"
+        and parts.username is None
+        and parts.password is None
+        and port in {None, 443}
+        and (
+            host == "github.com"
+            or host.endswith(".github.com")
+            or host.endswith(".githubusercontent.com")
+        )
+    )
+
+
 def _plain_notes(value: Any) -> str:
     if not isinstance(value, str):
         return ""
@@ -119,11 +141,18 @@ def _normalize_digest(value: Any, *, name: str) -> str:
 
 def _allowed_image_repositories(repository: str, component: str) -> set[str]:
     owner, project = repository.lower().split("/", 1)
+    names = {component}
+    if component == "frontend":
+        names.add("web")
     return {
-        f"ghcr.io/{owner}/{project}-{component}",
-        f"ghcr.io/{owner}/{project}/{component}",
-        f"docker.io/{owner}/{project}-{component}",
-        f"{owner}/{project}-{component}",
+        image
+        for name in names
+        for image in (
+            f"ghcr.io/{owner}/{project}-{name}",
+            f"ghcr.io/{owner}/{project}/{name}",
+            f"docker.io/{owner}/{project}-{name}",
+            f"{owner}/{project}-{name}",
+        )
     }
 
 
@@ -398,6 +427,30 @@ class ReleaseUpdateChecker:
             raise ValueError("GitHub commit response invalid")
         return commit.lower()
 
+    async def _download_manifest_asset(
+        self, client: httpx.AsyncClient, asset_id: int
+    ) -> httpx.Response:
+        url = self._asset_path(asset_id)
+        headers = {
+            "Accept": "application/octet-stream",
+            "User-Agent": "pix-forge-update-checker",
+        }
+        for redirect_count in range(_MAX_GITHUB_ASSET_REDIRECTS + 1):
+            response = await client.get(url, headers=headers)
+            if response.status_code not in _GITHUB_ASSET_REDIRECT_CODES:
+                response.raise_for_status()
+                return response
+            if redirect_count >= _MAX_GITHUB_ASSET_REDIRECTS:
+                raise ValueError("GitHub release asset redirected too many times")
+            location = response.headers.get("location")
+            if not location:
+                raise ValueError("GitHub release asset redirect missing location")
+            target = urljoin(url, location)
+            if not _trusted_github_asset_url(target):
+                raise ValueError("GitHub release asset redirected to an untrusted host")
+            url = target
+        raise ValueError("GitHub release asset download failed")
+
     async def _trusted_release(
         self, client: httpx.AsyncClient, release: dict[str, Any]
     ) -> ReleaseCheckResult:
@@ -423,14 +476,7 @@ class ReleaseUpdateChecker:
             expected_sha256 = _normalize_digest(expected_digest, name="manifest")
         except ManifestValidationError:
             return ReleaseCheckResult(error="manifest_digest_missing", checked_at=_utc_now_text())
-        response = await client.get(
-            self._asset_path(asset_id),
-            headers={
-                "Accept": "application/octet-stream",
-                "User-Agent": "pix-forge-update-checker",
-            },
-        )
-        response.raise_for_status()
+        response = await self._download_manifest_asset(client, asset_id)
         content = response.content
         if not content or len(content) > _MAX_MANIFEST_BYTES:
             return ReleaseCheckResult(error="manifest_invalid", checked_at=_utc_now_text())

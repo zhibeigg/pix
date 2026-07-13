@@ -119,6 +119,18 @@ def test_strict_version_and_manifest_validation() -> None:
     assert head == "0025_promo_links"
     assert rollback is True
 
+    published_manifest = _manifest()
+    published_manifest["images"]["frontend"]["repository"] = "ghcr.io/zhibeigg/pix-web"
+    published_head, published_rollback = validate_release_manifest(
+        published_manifest,
+        repository="zhibeigg/pix",
+        tag="v9.0.0",
+        version="9.0.0",
+        commit=_COMMIT,
+    )
+    assert published_head == "0025_promo_links"
+    assert published_rollback is True
+
     invalid_repo = _manifest(repository="attacker/pix")
     invalid_image = _manifest(image_repository="ghcr.io/attacker/pix")
     for payload in (invalid_repo, invalid_image, {**_manifest(), "unexpected": True}):
@@ -185,6 +197,80 @@ def test_release_selection_manifest_sha_and_ttl_cache() -> None:
     assert len(fake.calls) == 2
     assert fake.calls[0][0].endswith("/repos/zhibeigg/pix/releases?per_page=30")
     assert fake.calls[1][0].endswith("/repos/zhibeigg/pix/releases/assets/41")
+
+
+def test_release_manifest_follows_trusted_github_asset_redirect() -> None:
+    manifest_bytes = json.dumps(_manifest(), separators=(",", ":")).encode()
+    manifest_sha = hashlib.sha256(manifest_bytes).hexdigest()
+    releases = [
+        {
+            "tag_name": "v9.0.0",
+            "draft": False,
+            "prerelease": False,
+            "target_commitish": _COMMIT,
+            "assets": [
+                {
+                    "id": 43,
+                    "name": "pix-release-manifest.json",
+                    "digest": f"sha256:{manifest_sha}",
+                }
+            ],
+        }
+    ]
+    redirect_url = "https://release-assets.githubusercontent.com/github-production-release-asset/manifest"
+    fake = _FakeGitHubClient(
+        [
+            _response(200, json_data=releases),
+            _response(302, headers={"location": redirect_url}),
+            _response(200, content=manifest_bytes),
+        ]
+    )
+    checker = ReleaseUpdateChecker(
+        WebSettings(update_github_api_base="https://api.github.test")
+    )
+
+    with patch("pix_web.release_updates.httpx.AsyncClient", return_value=fake):
+        result = asyncio.run(checker.check(force=True))
+
+    assert result.release is not None
+    assert result.release.version == "9.0.0"
+    assert fake.calls[2][0] == redirect_url
+
+
+def test_release_manifest_rejects_untrusted_asset_redirect() -> None:
+    manifest_bytes = json.dumps(_manifest(), separators=(",", ":")).encode()
+    manifest_sha = hashlib.sha256(manifest_bytes).hexdigest()
+    releases = [
+        {
+            "tag_name": "v9.0.0",
+            "draft": False,
+            "prerelease": False,
+            "target_commitish": _COMMIT,
+            "assets": [
+                {
+                    "id": 44,
+                    "name": "pix-release-manifest.json",
+                    "digest": f"sha256:{manifest_sha}",
+                }
+            ],
+        }
+    ]
+    fake = _FakeGitHubClient(
+        [
+            _response(200, json_data=releases),
+            _response(302, headers={"location": "https://attacker.example/manifest"}),
+        ]
+    )
+    checker = ReleaseUpdateChecker(
+        WebSettings(update_github_api_base="https://api.github.test")
+    )
+
+    with patch("pix_web.release_updates.httpx.AsyncClient", return_value=fake):
+        result = asyncio.run(checker.check(force=True))
+
+    assert result.release is None
+    assert result.error == "invalid_github_response"
+    assert len(fake.calls) == 2
 
 
 def test_release_uses_etag_and_degrades_rate_limit_without_500() -> None:
