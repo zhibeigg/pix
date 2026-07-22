@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - 创建账户接口拒绝客户端传入角色、状态或点数字段，不允许借此创建管理员；响应不会包含明文密码或密码哈希。
+- 锁定依赖中的 `pyasn1` 至已修复 CVE-2026-59885 / CVE-2026-59886 的 `0.6.4`，并为历史中的确定性密码测试夹具增加精确 Gitleaks 例外，避免扩大秘密扫描豁免范围。
 
 ## [1.135.12] - 2026-07-14
 

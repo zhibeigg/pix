@@ -57,3 +57,11 @@ paths = [
   '''(^|/)package-lock\.json$''',
   '''(^|/)src/pix_web/email_sender\.py$''',
 ]
+
+[[allowlists]]
+description = "Deterministic password-strength test fixture retained in Git history"
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+regexes = [
+  '''^StrongPass123$''',
+]

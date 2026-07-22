@@ -69,14 +69,14 @@ class AdminCreateUserTests(unittest.TestCase):
     def _payload(**overrides: str) -> dict[str, str]:
         payload = {
             "email": "New.User@Example.COM",
-            "password": "StrongPass123",
+            "password": "test-password1",
             "display_name": "",
         }
         payload.update(overrides)
         return payload
 
     def test_admin_creates_active_user_with_normalized_defaults_hash_and_bonus(self) -> None:
-        password = "StrongPass123"
+        password = "test-password1"
         response = self.client.post(
             "/admin/users",
             headers=self._auth(self.admin_token),
