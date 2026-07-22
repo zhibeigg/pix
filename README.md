@@ -315,6 +315,19 @@ CI 只验证代码与容器，不直接部署生产环境。CD 继续由可信 t
 
 更多配置见 `.env.example`、`.env.production.example` 和 `config.example.toml`。
 
+### 管理后台创建账户
+
+管理员可在「运营 → 用户与点数」中直接创建普通用户账户，填写邮箱、可选昵称和临时密码。该入口会跳过邮箱验证码并立即激活账户，但不会提供创建管理员或自定义角色的能力；密码仍必须为 9～128 字符并同时包含英文字母和数字，后端只保存 Argon2 哈希。创建成功后会建立点数账户，并按当前数据库系统设置 `registration_bonus_credits` 发放与公开注册相同的赠送点数。
+
+管理员用户 API：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/admin/users?limit=500` | 管理员用户列表，附带点数余额与会员状态。 |
+| `POST` | `/admin/users` | 创建普通激活用户；请求字段为 `email`、`password`、可选 `display_name`，成功返回 `201`；重复邮箱返回 `409`，非法邮箱、弱密码或越权字段返回 `422`。 |
+
+上述接口必须使用管理员浏览器会话或管理员 Bearer Token，不接受外部 API Key，也不会在响应中返回明文密码或密码哈希。
+
 ### 输入长度限制配置
 
 后台「素材默认值」和「序列帧」现支持调整 Web 表单与外部 API 共用的描述长度限制：`pix.asset.subject_max_chars`、`pix.asset.extra_prompt_max_chars`、`pix.sprite.subject_max_chars`、`pix.sprite.row_prompt_max_chars`。同名字段也可写入 `config.toml` 的 `[asset]` / `[sprite]` 段。公开接口 `GET /settings/image-models` 与外部 API `GET /external/v1/models` 会在 `limits` 中返回当前生效值，前端据此显示字数计数、超限提示并禁用提交；后端创建任务、批量创建和失败重试也会按同一配置二次校验。

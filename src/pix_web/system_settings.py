@@ -140,7 +140,7 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
         "运营保护",
         "number",
         "30",
-        "新用户注册时赠送的点数，0 表示不赠送。",
+        "新用户注册或由管理员创建时赠送的点数，0 表示不赠送。",
     ),
     SettingDefinition(
         "site.announcement.enabled",

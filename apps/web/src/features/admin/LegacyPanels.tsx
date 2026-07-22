@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { AdminBatchAdjustCreditsResponse, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, MembershipPlan, PricingRule, SystemSetting, User, ImageProvider, ImageProviderPreset, ImageProviderCreatePayload, ImageProviderUpdatePayload, ImageProviderModelPayload, PromoLinkStats, PromoLinkPayload } from '../../types'
+import type { AdminBatchAdjustCreditsResponse, AdminUserCreatePayload, AnnouncementItem, AnnouncementListResponse, AnnouncementPublishPayload, AnnouncementPublishResponse, CreditPackage, GenerationJob, MembershipPlan, PricingRule, SystemSetting, User, ImageProvider, ImageProviderPreset, ImageProviderCreatePayload, ImageProviderUpdatePayload, ImageProviderModelPayload, PromoLinkStats, PromoLinkPayload } from '../../types'
 import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
@@ -23,7 +23,84 @@ const USER_SORT_OPTIONS: { value: UserSortKey; label: string }[] = [
   { value: 'total_recharged', label: '按已充值' },
 ]
 
-export function AdminCreditsPanel({ users, onAdjustSingle, onAdjustBatch }: { users: User[]; onAdjustSingle: (userId: number, amount: number, note: string) => Promise<void>; onAdjustBatch: (payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) => Promise<AdminBatchAdjustCreditsResponse | void> }) {
+export function AdminUserCreateForm({ onCreate }: { onCreate: (payload: AdminUserCreatePayload) => Promise<void> }) {
+  const { t } = useI18n()
+  const [email, setEmail] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    const normalizedEmail = email.trim()
+    const normalizedDisplayName = displayName.trim()
+    if (!normalizedEmail) {
+      setError(t('admin.users.create.errors.emailRequired'))
+      return
+    }
+    if (password.length < 9 || password.length > 128) {
+      setError(t('admin.users.create.errors.passwordLength'))
+      return
+    }
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      setError(t('admin.users.create.errors.passwordComposition'))
+      return
+    }
+
+    setSubmitting(true)
+    setError('')
+    try {
+      await onCreate({
+        email: normalizedEmail,
+        password,
+        ...(normalizedDisplayName ? { display_name: normalizedDisplayName } : {}),
+      })
+      setEmail('')
+      setDisplayName('')
+      setPassword('')
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : t('admin.users.create.errors.createFailed'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form className="grid gap-4 rounded-xl border border-border bg-card p-4" autoComplete="off" onSubmit={submit}>
+      <div>
+        <h3 className="text-base font-semibold">{t('admin.users.create.title')}</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{t('admin.users.create.description')}</p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <PixField label={t('admin.users.create.fields.email')}>
+          <Input type="email" inputMode="email" value={email} placeholder={t('admin.users.create.placeholders.email')} disabled={submitting} onChange={(event) => { setEmail(event.target.value); setError('') }} required />
+        </PixField>
+        <PixField label={t('admin.users.create.fields.displayName')} hint={t('admin.users.create.optional')}>
+          <Input value={displayName} maxLength={120} placeholder={t('admin.users.create.placeholders.displayName')} disabled={submitting} onChange={(event) => { setDisplayName(event.target.value); setError('') }} />
+        </PixField>
+        <PixField label={t('admin.users.create.fields.password')} hint={t('admin.users.create.passwordRule')}>
+          <Input type="password" autoComplete="new-password" minLength={9} maxLength={128} value={password} placeholder={t('admin.users.create.placeholders.password')} disabled={submitting} onChange={(event) => { setPassword(event.target.value); setError('') }} required />
+        </PixField>
+      </div>
+      <div className="grid gap-3 rounded-lg border border-border bg-muted/40 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <div>
+          <p className="text-sm font-medium text-foreground">{t('admin.users.create.securityTitle')}</p>
+          <ul className="mt-1 grid list-disc gap-1 pl-4 text-xs leading-5 text-muted-foreground sm:grid-cols-2">
+            <li>{t('admin.users.create.security.activation')}</li>
+            <li>{t('admin.users.create.security.verification')}</li>
+            <li>{t('admin.users.create.security.role')}</li>
+            <li>{t('admin.users.create.security.bonus')}</li>
+          </ul>
+        </div>
+        <Button type="submit" disabled={submitting || !email.trim() || !password}>{submitting ? t('admin.users.create.submitting') : t('admin.users.create.submit')}</Button>
+      </div>
+      {error && <Alert variant="destructive">{error}</Alert>}
+    </form>
+  )
+}
+
+export function AdminCreditsPanel({ users, onCreateUser, onAdjustSingle, onAdjustBatch }: { users: User[]; onCreateUser: (payload: AdminUserCreatePayload) => Promise<void>; onAdjustSingle: (userId: number, amount: number, note: string) => Promise<void>; onAdjustBatch: (payload: { userIds: number[]; allUsers: boolean; amount: number; note: string }) => Promise<AdminBatchAdjustCreditsResponse | void> }) {
   const confirm = useConfirm()
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [allUsers, setAllUsers] = useState(false)
@@ -97,8 +174,10 @@ export function AdminCreditsPanel({ users, onAdjustSingle, onAdjustBatch }: { us
   }
 
   return (
-    <form className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]" onSubmit={submitBatch}>
-      <div className="grid gap-4 rounded-xl border border-border bg-card p-4">
+    <div className="grid gap-4">
+      <AdminUserCreateForm onCreate={onCreateUser} />
+      <form className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]" onSubmit={submitBatch}>
+        <div className="grid gap-4 rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold">用户与点数</h3>
@@ -165,10 +244,11 @@ export function AdminCreditsPanel({ users, onAdjustSingle, onAdjustBatch }: { us
           <p>每人：{amount > 0 ? '+' : ''}{amount} 点</p>
           <p className="truncate">备注：{note || '管理员批量调整点数'}</p>
         </div>
-        <Button type="submit" disabled={!canSubmit}>{submitting ? '调整中…' : '批量调整点数'}</Button>
-        {resultText && <Alert variant="success">{resultText}</Alert>}
-      </div>
-    </form>
+          <Button type="submit" disabled={!canSubmit}>{submitting ? '调整中…' : '批量调整点数'}</Button>
+          {resultText && <Alert variant="success">{resultText}</Alert>}
+        </div>
+      </form>
+    </div>
   )
 }
 

@@ -180,6 +180,12 @@ _RE_PASSWORD_LETTER = re.compile(r"[a-zA-Z]")
 _RE_PASSWORD_DIGIT = re.compile(r"\d")
 
 
+def _validate_password_strength(value: str) -> str:
+    if not _RE_PASSWORD_LETTER.search(value) or not _RE_PASSWORD_DIGIT.search(value):
+        raise ValueError("密码必须同时包含英文和数字")
+    return value
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=9, max_length=128)
@@ -191,9 +197,7 @@ class RegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def _check_password_mixed(cls, v: str) -> str:
-        if not _RE_PASSWORD_LETTER.search(v) or not _RE_PASSWORD_DIGIT.search(v):
-            raise ValueError("密码必须同时包含英文和数字")
-        return v
+        return _validate_password_strength(v)
 
 
 class LoginRequest(BaseModel):
@@ -214,9 +218,7 @@ class ResetPasswordRequest(BaseModel):
     @field_validator("new_password")
     @classmethod
     def _check_password_mixed(cls, v: str) -> str:
-        if not _RE_PASSWORD_LETTER.search(v) or not _RE_PASSWORD_DIGIT.search(v):
-            raise ValueError("密码必须同时包含英文和数字")
-        return v
+        return _validate_password_strength(v)
 
 
 class BootstrapAdminRequest(BaseModel):
@@ -335,6 +337,19 @@ class UserResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class AdminUserCreateRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=9, max_length=128)
+    display_name: str = Field(default="", max_length=120)
+
+    @field_validator("password")
+    @classmethod
+    def _check_password_mixed(cls, v: str) -> str:
+        return _validate_password_strength(v)
+
+    model_config = {"extra": "forbid"}
 
 
 class AdminUserResponse(BaseModel):

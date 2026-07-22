@@ -16,6 +16,12 @@ export type User = {
   membership_expires_at?: string | null
 }
 
+export type AdminUserCreatePayload = {
+  email: string
+  display_name?: string
+  password: string
+}
+
 export type AdminPaymentOrder = {
   id: number
   user_id: number

@@ -6,6 +6,7 @@ from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from pix_web.announcement_service import (
@@ -17,7 +18,7 @@ from pix_web.announcement_service import (
     update_announcement,
 )
 from pix_web.config import WebSettings
-from pix_web.credits import adjust_credits
+from pix_web.credits import adjust_credits, ensure_credit_account, recharge_credits
 from pix_web.dashboard import (
     DashboardGranularity,
     DashboardQueryError,
@@ -38,7 +39,7 @@ from pix_web.email_sender import (
     send_announcement_email_batch_task,
     send_verification_email,
 )
-from pix_web.email_verification import generate_code
+from pix_web.email_verification import generate_code, normalize_email
 from pix_web.models import (
     CreditAccount,
     CreditPackage,
@@ -60,6 +61,7 @@ from pix_web.schemas import (
     AdminDashboardResponse,
     AdminJobResponse,
     AdminPaymentOrderResponse,
+    AdminUserCreateRequest,
     AdminUserResponse,
     PerformanceMetricsResponse,
     AnnouncementCreateRequest,
@@ -87,11 +89,12 @@ from pix_web.schemas import (
     SystemSettingResponse,
     SystemSettingUpdateRequest,
 )
-from pix_web.security import get_db, get_settings, require_admin
+from pix_web.security import get_db, get_settings, hash_password, require_admin
 from pix_web.system_settings import (
     AdminSettingView,
     list_admin_settings,
     load_effective_web_settings,
+    load_operational_settings,
     update_system_setting,
 )
 
@@ -133,6 +136,32 @@ def performance_metrics(
     return task_performance_metrics(db, range)
 
 
+def _admin_user_response(
+    user: User,
+    account: CreditAccount | None,
+    membership: UserMembership | None,
+    *,
+    now: datetime | None = None,
+) -> AdminUserResponse:
+    membership_active = is_membership_active(membership, now or datetime.now(timezone.utc))
+    return AdminUserResponse(
+        id=user.id,
+        email=user.email,
+        display_name=user.display_name,
+        role=user.role,
+        status=user.status,
+        created_at=user.created_at,
+        available_credits=account.available_credits if account else 0,
+        reserved_credits=account.reserved_credits if account else 0,
+        total_recharged=account.total_recharged if account else 0,
+        total_consumed=account.total_consumed if account else 0,
+        daily_quota_balance=account.daily_quota_balance if account else 0,
+        membership_status=(membership.status if membership else None),
+        membership_plan_key=(membership.plan_key if membership_active else None),
+        membership_expires_at=(membership.expires_at if membership else None),
+    )
+
+
 @router.get("/users", response_model=list[AdminUserResponse])
 def users(
     _admin: User = Depends(require_admin), db: Session = Depends(get_db), limit: int = 100
@@ -154,30 +183,61 @@ def users(
         )
     }
     now = datetime.now(timezone.utc)
-    result: list[AdminUserResponse] = []
-    for user in user_rows:
-        account = accounts.get(user.id)
-        membership = memberships.get(user.id)
-        membership_active = is_membership_active(membership, now)
-        result.append(
-            AdminUserResponse(
-                id=user.id,
-                email=user.email,
-                display_name=user.display_name,
-                role=user.role,
-                status=user.status,
-                created_at=user.created_at,
-                available_credits=account.available_credits if account else 0,
-                reserved_credits=account.reserved_credits if account else 0,
-                total_recharged=account.total_recharged if account else 0,
-                total_consumed=account.total_consumed if account else 0,
-                daily_quota_balance=account.daily_quota_balance if account else 0,
-                membership_status=(membership.status if membership else None),
-                membership_plan_key=(membership.plan_key if membership_active else None),
-                membership_expires_at=(membership.expires_at if membership else None),
-            )
+    return [
+        _admin_user_response(
+            user,
+            accounts.get(user.id),
+            memberships.get(user.id),
+            now=now,
         )
-    return result
+        for user in user_rows
+    ]
+
+
+@router.post(
+    "/users",
+    response_model=AdminUserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="创建普通用户账户",
+    description="管理员跳过邮箱验证码创建立即激活的普通用户，并按当前注册赠送规则初始化点数账户。",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"description": "未认证"},
+        status.HTTP_403_FORBIDDEN: {"description": "需要管理员权限"},
+        status.HTTP_409_CONFLICT: {"description": "邮箱已注册"},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "请求字段或密码策略不合法"},
+    },
+)
+def create_user(
+    req: AdminUserCreateRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> AdminUserResponse:
+    email = normalize_email(str(req.email))
+    if db.scalar(select(User).where(User.email == email)) is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="邮箱已注册")
+
+    user = User(
+        email=email,
+        password_hash=hash_password(req.password),
+        display_name=req.display_name.strip() or email.split("@", 1)[0],
+        role="user",
+        status="active",
+    )
+    try:
+        db.add(user)
+        db.flush()
+        account = ensure_credit_account(db, user)
+        bonus_credits = load_operational_settings(db).registration_bonus_credits
+        if bonus_credits > 0:
+            recharge_credits(db, user, bonus_credits, note="注册赠送")
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="邮箱已注册") from exc
+
+    db.refresh(user)
+    db.refresh(account)
+    return _admin_user_response(user, account, None)
 
 
 @router.get("/orders", response_model=list[AdminPaymentOrderResponse])

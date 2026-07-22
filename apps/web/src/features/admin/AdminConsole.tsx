@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Activity, BadgeDollarSign, ChevronRight, CircleGauge, CreditCard, FileCheck2, Megaphone, PackageOpen, RefreshCw, ServerCog, Settings2, ShieldCheck, Sparkles, Tags, Users, Wrench } from 'lucide-react'
 import { api } from '../../api'
 import { useI18n } from '../../i18n'
-import type { CreditPackage, GenerationJob, ImageProviderCreatePayload, ImageProviderUpdatePayload, MembershipPlan, PromoLinkPayload, SystemSetting } from '../../types'
+import type { AdminUserCreatePayload, CreditPackage, GenerationJob, ImageProviderCreatePayload, ImageProviderUpdatePayload, MembershipPlan, PromoLinkPayload, SystemSetting } from '../../types'
 import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
@@ -139,6 +139,11 @@ export function AdminConsole({ token, onNotify }: AdminConsoleProps) {
   const requestedSection = params.get('section') || ''
   const settingSection = groupedSettings[requestedSection] ? requestedSection : settingCategories[0] || ''
 
+  const createUser = async (payload: AdminUserCreatePayload) => {
+    await api.createAdminUser(token, payload)
+    await users.refresh()
+    notify('admin.messages.userCreated')
+  }
   const adjustSingle = async (userId: number, amount: number, note: string) => {
     await api.adjustCredits(token, userId, amount, note)
     await users.refresh()
@@ -181,7 +186,7 @@ export function AdminConsole({ token, onNotify }: AdminConsoleProps) {
           {tab === 'overview' && <ResourceBody state={dashboard}>{dashboard.data && <div className="grid gap-4"><DashboardOverview dashboard={dashboard.data} query={dashboardQuery} refreshing={dashboard.refreshing} error={dashboard.error} onQueryChange={updateDashboardQuery} onRetry={() => void dashboard.refresh()} /><section className="grid gap-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold">{t('admin.updates.title')}</h2>{updateSummary.data && <Badge variant={updateSummary.data.update_available ? 'warning' : 'success'}>{updateSummary.data.update_available ? t('admin.updates.available') : t('admin.updates.upToDate')}</Badge>}</div><p className="mt-1 text-sm text-muted-foreground">{updateSummary.loading ? t('admin.common.loading') : updateSummary.error || updateSummary.data?.error || `${t('admin.updates.currentVersion')}: ${updateSummary.data?.current_version || '—'} · ${t('admin.updates.latestVersion')}: ${updateSummary.data?.latest_release?.version || '—'}`}</p></div><Button type="button" variant="outline" size="sm" onClick={() => navigate('updates')}>{t('admin.tabs.updates')}<ChevronRight className="h-3.5 w-3.5" /></Button></section></div>}</ResourceBody>}
           {tab === 'jobs' && <ResourceBody state={jobs}>{jobs.data && users.data && <AdminJobsPanel jobs={jobs.data} users={users.data} onRetry={retryJob} onCancel={cancelJob} onFailRefund={refundJob} />}</ResourceBody>}
           {tab === 'shares' && <AdminSharesPanel token={token} />}
-          {tab === 'users' && <ResourceBody state={users}>{users.data && <AdminCreditsPanel users={users.data} onAdjustSingle={adjustSingle} onAdjustBatch={adjustBatch} />}</ResourceBody>}
+          {tab === 'users' && <ResourceBody state={users}>{users.data && <AdminCreditsPanel users={users.data} onCreateUser={createUser} onAdjustSingle={adjustSingle} onAdjustBatch={adjustBatch} />}</ResourceBody>}
           {tab === 'orders' && <AdminOrdersPanel token={token} />}
           {tab === 'announcements' && <AnnouncementEditor onPublish={(payload) => api.publishAnnouncement(token, payload)} onTestEmail={testEmail} onListAnnouncements={() => api.adminAnnouncements(token)} onCreateAnnouncement={(payload) => api.createAnnouncement(token, payload)} onUpdateAnnouncement={(id, payload) => api.updateAnnouncement(token, id, payload)} onDeleteAnnouncement={(id) => api.deleteAnnouncement(token, id)} onTestAnnouncementEmail={(email, title, body) => api.testAnnouncementEmail(token, { email, title, body })} />}
           {tab === 'pricing' && <ResourceBody state={pricing}><div className="grid gap-3">{pricing.data?.map((rule) => <PricingRow rule={rule} onUpdate={updatePricing} key={rule.key} />)}</div></ResourceBody>}

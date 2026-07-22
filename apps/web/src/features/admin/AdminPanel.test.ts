@@ -2,9 +2,10 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { AdminPanel } from '../../components/AdminPanel'
-import { I18nProvider } from '../../i18n'
+import { i18n, I18nProvider } from '../../i18n'
 import type { AdminDashboard } from '../../types'
 import { refreshAdminOverview } from './AdminConsole'
+import { AdminUserCreateForm } from './LegacyPanels'
 import { DashboardOverview } from './DashboardOverview'
 import { DEFAULT_DASHBOARD_QUERY } from './dashboardQuery'
 
@@ -65,6 +66,42 @@ describe('AdminPanel compatibility export', () => {
     expect(html).toContain('逐桶明细')
     expect(html).toContain('1,522')
     expect(html).toContain('21,327')
+  })
+
+  it('renders the Chinese admin user creation fields and safety rules', async () => {
+    await i18n.changeLanguage('zh-CN')
+    const html = renderToStaticMarkup(
+      createElement(I18nProvider, {
+        language: 'zh-CN',
+        children: createElement(AdminUserCreateForm, { onCreate: async () => undefined }),
+      }),
+    )
+
+    expect(html).toContain('创建普通用户')
+    expect(html).toContain('临时密码')
+    expect(html).toContain('type="password"')
+    expect(html).toContain('账户创建后立即激活')
+    expect(html).toContain('无需发送或填写邮箱验证码')
+    expect(html).toContain('只能创建普通用户')
+    expect(html).toContain('当前注册赠送规则')
+  })
+
+  it('renders the English admin user creation fields and safety rules', async () => {
+    await i18n.changeLanguage('en')
+    const html = renderToStaticMarkup(
+      createElement(I18nProvider, {
+        language: 'en',
+        children: createElement(AdminUserCreateForm, { onCreate: async () => undefined }),
+      }),
+    )
+
+    expect(html).toContain('Create standard user')
+    expect(html).toContain('Temporary password')
+    expect(html).toContain('type="password"')
+    expect(html).toContain('activated immediately')
+    expect(html).toContain('No email verification code is required')
+    expect(html).toContain('Only a standard user can be created')
+    expect(html).toContain('current registration bonus rules')
   })
 
   it('refreshes dashboard metrics and update summary together', async () => {

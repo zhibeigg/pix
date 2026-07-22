@@ -545,7 +545,22 @@ export const en = {
     groups: { observability: 'Observe', operations: 'Operate', commercial: 'Commercial', system: 'System' },
     tabs: { overview: 'Overview', jobs: 'Jobs & works', shares: 'Content review', users: 'Users & credits', orders: 'Orders', announcements: 'Announcements', pricing: 'Pricing rules', packages: 'Credit packages', membership: 'Membership plans', promo: 'Promo links', providers: 'Providers', performance: 'Performance', updates: 'Versions & updates', settings: 'Settings' },
     common: { refresh: 'Refresh', loading: 'Loading…', submitting: 'Submitting…' },
-    messages: { creditsAdjusted: 'Credits adjusted', jobRetried: 'Job resubmitted', jobCancelled: 'Job cancelled and refunded', jobRefunded: 'Job failed and refunded', pricingUpdated: 'Pricing rule updated', packageCreated: 'Credit package created', packageUpdated: 'Credit package updated', membershipCreated: 'Membership plan created', membershipUpdated: 'Membership plan updated', settingUpdated: 'Setting updated' },
+    messages: { userCreated: 'Standard user account created', creditsAdjusted: 'Credits adjusted', jobRetried: 'Job resubmitted', jobCancelled: 'Job cancelled and refunded', jobRefunded: 'Job failed and refunded', pricingUpdated: 'Pricing rule updated', packageCreated: 'Credit package created', packageUpdated: 'Credit package updated', membershipCreated: 'Membership plan created', membershipUpdated: 'Membership plan updated', settingUpdated: 'Setting updated' },
+    users: {
+      create: {
+        title: 'Create standard user',
+        description: 'Create an immediately usable standard account and set a temporary password to share securely with the user.',
+        fields: { email: 'Email', displayName: 'Display name', password: 'Temporary password' },
+        placeholders: { email: 'user@example.com', displayName: 'Optional display name', password: '9–128 characters with letters and numbers' },
+        optional: 'Optional; the server uses its default display name when blank.',
+        passwordRule: 'Use 9–128 characters and include at least one letter and one number.',
+        securityTitle: 'Account rules',
+        security: { activation: 'The account is activated immediately.', verification: 'No email verification code is required.', role: 'Only a standard user can be created; admin access cannot be granted.', bonus: 'Credits follow the current registration bonus rules.' },
+        submit: 'Create account',
+        submitting: 'Creating…',
+        errors: { emailRequired: 'Enter the user email.', passwordLength: 'The temporary password must be 9–128 characters.', passwordComposition: 'The temporary password must contain both letters and numbers.', createFailed: 'Could not create the account. Try again.' },
+      },
+    },
     settings: { categories: 'Setting categories', description: 'Saved values affect new requests; restart services for settings marked as requiring restart.', empty: 'No settings' },
     overview: {
       today: { title: 'Today', description: 'Current calendar day in the configured site timezone.' },

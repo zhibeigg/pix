@@ -3,6 +3,7 @@
 # 网站版管理后台也可以覆盖 [api] 调用策略、[image_gen]、[vision] 和 [asset] 中的常用字段；
 # 供应商密钥和 Base URL 请优先使用后台「上游供应商」；环境级密钥/数据库/队列配置仍建议使用环境变量或密钥管理。
 # 公开分享奖励属于 Web 系统设置（数据库）：在后台「作品分享」中调整 share.reward_enabled、share.reward_credits、share.daily_reward_limit。
+# 注册赠送点数同样属于数据库系统设置；普通注册和后台管理员创建账户都会读取 registration_bonus_credits。
 
 [api]
 # 通用上游调用网络参数；base_url 仅保留给旧 PACKY_* 兼容路径和首次种子导入，新部署请使用「上游供应商」。

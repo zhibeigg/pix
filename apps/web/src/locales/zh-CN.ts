@@ -545,7 +545,22 @@ export const zhCN = {
     groups: { observability: '观测', operations: '运营', commercial: '商业', system: '系统' },
     tabs: { overview: '概览', jobs: '任务与作品', shares: '内容审核', users: '用户与点数', orders: '订单', announcements: '系统公告', pricing: '价格规则', packages: '充值套餐', membership: '月卡档位', promo: '优惠链接', providers: '上游供应商', performance: '性能监控', updates: '版本与更新', settings: '设置' },
     common: { refresh: '刷新', loading: '加载中…', submitting: '提交中…' },
-    messages: { creditsAdjusted: '点数已调整', jobRetried: '任务已重新提交', jobCancelled: '任务已取消并退款', jobRefunded: '任务已标记失败并退款', pricingUpdated: '价格规则已更新', packageCreated: '充值套餐已创建', packageUpdated: '充值套餐已更新', membershipCreated: '月卡档位已创建', membershipUpdated: '月卡档位已更新', settingUpdated: '配置已更新' },
+    messages: { userCreated: '普通用户账户已创建', creditsAdjusted: '点数已调整', jobRetried: '任务已重新提交', jobCancelled: '任务已取消并退款', jobRefunded: '任务已标记失败并退款', pricingUpdated: '价格规则已更新', packageCreated: '充值套餐已创建', packageUpdated: '充值套餐已更新', membershipCreated: '月卡档位已创建', membershipUpdated: '月卡档位已更新', settingUpdated: '配置已更新' },
+    users: {
+      create: {
+        title: '创建普通用户',
+        description: '由管理员直接创建可登录的普通账户，并设置一次性告知用户的临时密码。',
+        fields: { email: '邮箱', displayName: '昵称', password: '临时密码' },
+        placeholders: { email: 'user@example.com', displayName: '可选昵称', password: '9–128 位字母与数字' },
+        optional: '可选；留空时由服务端使用默认显示名。',
+        passwordRule: '密码长度 9–128 位，且必须同时包含字母和数字。',
+        securityTitle: '创建规则',
+        security: { activation: '账户创建后立即激活。', verification: '无需发送或填写邮箱验证码。', role: '只能创建普通用户，不能授予管理员权限。', bonus: '点数按当前注册赠送规则自动发放。' },
+        submit: '创建账户',
+        submitting: '创建中…',
+        errors: { emailRequired: '请输入用户邮箱。', passwordLength: '临时密码长度必须为 9–128 位。', passwordComposition: '临时密码必须同时包含字母和数字。', createFailed: '创建账户失败，请重试。' },
+      },
+    },
     settings: { categories: '设置分类', description: '保存后影响新请求；标记需重启的设置需要重启相应服务。', empty: '暂无设置' },
     overview: {
       controls: { label: '运营总览查询控制', range: '时间范围', granularity: '粒度', compare: '上一周期', timezone: '站点时区', updatedAt: '更新于 {{time}}' },

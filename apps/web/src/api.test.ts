@@ -49,6 +49,28 @@ describe('Cookie session API requests', () => {
     expect(headers.get('Authorization')).toBe('Bearer legacy-bearer-token')
   })
 
+  it('creates an admin-managed standard user with the exact request contract', async () => {
+    const createdUser = { id: 42, email: 'new-user@example.com', display_name: 'New User', role: 'user', status: 'active', created_at: '2026-07-22T00:00:00Z' }
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(createdUser), { status: 201, headers: { 'Content-Type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await api.createAdminUser(SESSION_AUTH_MARKER, {
+      email: 'new-user@example.com',
+      display_name: 'New User',
+      password: 'Temporary9',
+    })
+
+    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const headers = new Headers(options.headers)
+    expect(url).toContain('/admin/users')
+    expect(url).not.toContain('/admin/users?')
+    expect(options.method).toBe('POST')
+    expect(options.credentials).toBe('include')
+    expect(headers.has('Authorization')).toBe(false)
+    expect(JSON.parse(String(options.body))).toEqual({ email: 'new-user@example.com', display_name: 'New User', password: 'Temporary9' })
+    expect(result).toEqual(createdUser)
+  })
+
   it('sends the exact signed update apply contract', async () => {
     const operation = { id: 'op-1', kind: 'apply', status: 'queued', target_version: '1.2.3', started_at: null, updated_at: null, finished_at: null, error: null, steps: [] }
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(operation), { status: 200, headers: { 'Content-Type': 'application/json' } }))

@@ -2,6 +2,7 @@ import type {
   AdminDashboard,
   AdminDashboardQueryParams,
   AdminPaymentOrder,
+  AdminUserCreatePayload,
   AdminSharedWork,
   AdminSharedWorkListResponse,
   PerformanceMetrics,
@@ -447,6 +448,9 @@ export const api = {
   },
   adminUsers(token: string) {
     return request<User[]>('/admin/users?limit=500', {}, token)
+  },
+  createAdminUser(token: string, payload: AdminUserCreatePayload) {
+    return request<User>('/admin/users', { method: 'POST', body: JSON.stringify(payload) }, token)
   },
   adminJobs(token: string) {
     return request<GenerationJob[]>('/admin/jobs?limit=500', {}, token)
