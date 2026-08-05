@@ -48,7 +48,7 @@ dependencies = [
     "redis>=8.0.1",
     "rq>=2.10.0",
     "psycopg[binary]>=3.3.4",
-    "cryptography>=49.0.0",
+    "cryptography>=50.0.0",
     "alipay-sdk-python>=3.7.1160",
     "slowapi>=0.1.10",
 ]
