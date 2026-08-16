@@ -1,6 +1,6 @@
 FROM docker:27.5.1-cli AS docker_cli
 
-FROM python:3.12.10-slim-bookworm
+FROM python:3.14.7-slim-bookworm
 
 ARG GH_VERSION=2.67.0
 ARG GH_LINUX_AMD64_SHA256=d77623479bec017ef8eebadfefc785bafd4658343b3eb6d3f3e26fd5e11368d5
