@@ -1,4 +1,4 @@
-FROM docker:27.5.1-cli AS docker_cli
+FROM docker:29.7.2-cli AS docker_cli
 
 FROM python:3.12.10-slim-bookworm
 
