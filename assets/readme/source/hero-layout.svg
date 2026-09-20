@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="772" viewBox="0 0 1200 772" role="img" aria-labelledby="title desc">
+  <title id="title">Pix Forge · AI 像素资产工作台</title>
+  <desc id="desc">项目真实输出：六件物品与技能图标、重复铺设的苔藓石板纹理、创世录游戏 Logo，以及骑士的九帧动作序列。</desc>
+  <defs>
+    <pattern id="stone-tiles" x="480" y="350" width="64" height="64" patternUnits="userSpaceOnUse">
+      <image href="../../../apps/web/public/homepage-examples/textures/01_cobblestone_moss.png" width="64" height="64" style="image-rendering:pixelated"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="772" fill="#17191d"/>
+  <g font-family="'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif">
+    <g id="identity">
+      <image href="../../../apps/web/public/pix-logo-64.png" x="56" y="40" width="48" height="48" style="image-rendering:pixelated"/>
+      <text x="124" y="73" fill="#a7aab4" font-size="22">AI 像素资产工作台</text>
+      <text x="54" y="188" fill="#f4f5f8" font-size="104" font-weight="700">Pix Forge<tspan fill="#9e8bff">.</tspan></text>
+      <text x="60" y="249" fill="#f4f5f8" font-size="36">把 AI 生图，锻造成游戏像素资产。</text>
+      <text x="1144" y="72" text-anchor="end" fill="#83d9b4" font-family="Consolas, monospace" font-size="20">PNG / TILES / SPRITES</text>
+    </g>
+    <path d="M56 288H1144 M420 316V562 M758 316V562 M56 590H1144" stroke="#373a42" fill="none"/>
+    <g id="item-specimens">
+      <text x="56" y="329" fill="#f4f5f8" font-size="26" font-weight="600">物品与技能</text>
+      <g style="image-rendering:pixelated">
+        <image href="../../../apps/web/public/homepage-examples/items/09_highfantasy_item_01.png" x="60" y="350" width="96" height="96"/>
+        <image href="../../../apps/web/public/homepage-examples/items/09_highfantasy_item_02.png" x="180" y="350" width="96" height="96"/>
+        <image href="../../../apps/web/public/homepage-examples/items/09_highfantasy_item_03.png" x="300" y="350" width="96" height="96"/>
+        <image href="../../../apps/web/public/homepage-examples/items/09_highfantasy_item_04.png" x="60" y="464" width="96" height="96"/>
+        <image href="../../../apps/web/public/homepage-examples/items/02_xianxia_item_02.png" x="180" y="464" width="96" height="96"/>
+        <image href="../../../apps/web/public/homepage-examples/showcase/skillbook_ciyuanzhan_image2_job10_pixelized.png" x="300" y="464" width="96" height="96"/>
+      </g>
+    </g>
+    <g id="texture-specimen">
+      <text x="458" y="329" fill="#f4f5f8" font-size="26" font-weight="600">平铺纹理</text>
+      <rect x="480" y="350" width="192" height="192" fill="url(#stone-tiles)"/>
+      <text x="576" y="569" text-anchor="middle" fill="#a7aab4" font-size="20">同一纹理 · 3 × 3 铺设</text>
+    </g>
+    <g id="logo-specimen">
+      <text x="796" y="329" fill="#f4f5f8" font-size="26" font-weight="600">游戏 Logo</text>
+      <image href="../../../apps/web/public/homepage-examples/showcase/logo_chuangshilu_image2_job18_pixelized.png" x="796" y="322" width="336" height="252" preserveAspectRatio="xMidYMid meet" style="image-rendering:pixelated"/>
+    </g>
+    <g id="sprite-sequence">
+      <text x="56" y="632" fill="#f4f5f8" font-size="26" font-weight="600">序列帧</text>
+      <text x="166" y="632" fill="#a7aab4" font-size="22">一个角色，九帧动作。</text>
+      <image href="../../../apps/web/public/homepage-examples/sprites/04_knight_1x9.png" x="60" y="654" width="1080" height="96" style="image-rendering:pixelated"/>
+    </g>
+  </g>
+</svg>
