@@ -47,8 +47,12 @@ function shortDate(value?: string | null) {
 
 async function copyText(value: string) {
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value)
-    return true
+    try {
+      await navigator.clipboard.writeText(value)
+      return true
+    } catch {
+      // Some browsers deny clipboard access even when the API is available.
+    }
   }
   const area = document.createElement('textarea')
   area.value = value
@@ -57,9 +61,11 @@ async function copyText(value: string) {
   area.style.left = '-9999px'
   document.body.appendChild(area)
   area.select()
-  const ok = document.execCommand('copy')
-  area.remove()
-  return ok
+  try {
+    return document.execCommand('copy')
+  } finally {
+    area.remove()
+  }
 }
 
 function generateApiTokenCandidate() {
@@ -561,6 +567,47 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
   -H "Authorization: Bearer $PIX_API_KEY" \
   -o sprite-actions.zip`), [text])
 
+  const llmGuide = useMemo(() => [
+    text('# Pix API 调用指南（供 LLM 使用）', '# Pix API Guide for LLMs'),
+    `Base URL: ${baseUrl}`,
+    text(
+      '你可以使用以下 HTTP API 完成用户的图片生成需求。示例使用 Bash / curl 语法，也可以转换为你的 HTTP 工具或代码。',
+      'Use the following HTTP API to fulfill the user\'s image-generation request. Examples use Bash / curl syntax; adapt them to your HTTP tools or code.',
+    ),
+    text('## 调用规则', '## Calling rules'),
+    text(
+      '- 认证：Authorization: Bearer <PIX_API_KEY>；也支持 X-Pix-Api-Key。PIX_API_KEY 必须是用户已创建的有效 API Key。本指南不包含真实密钥；从运行环境读取，不要把占位符当成密钥。\n- 先查询 /me、/balance 和 /models，确认权限、余额、可用模型及 limits。创建任务会消耗当前账号点数。\n- JSON 请求设置 Content-Type: application/json；图片上传使用 multipart/form-data，字段名为 file。上传返回的 path 是服务端路径，不要使用本地文件路径代替。\n- POST /jobs 返回 202 和任务 id，表示已受理。每个新任务使用唯一的 Idempotency-Key；同一次请求的网络重试必须复用原 key。若提供 client_request_id，它优先于该请求头。批量请求为每个子任务提供独立且稳定的 client_request_id。不要原样复用示例中的固定 ID。\n- 用响应中的真实 id 替换示例的 123。每隔 2–5 秒 GET /jobs/{id}；pending / running / waiting 时继续轮询，succeeded 时下载，failed 时读取错误并停止。轮询超时应保留 id，稍后继续查询。\n- 使用 /jobs/{id}/outputs/{kind} 下载结果并携带认证头，需要 files:read。选择与任务类型对应的输出。\n- 遇到非 2xx 响应，读取 detail；401 检查密钥，403 检查权限，422 检查参数。不要盲目重复提交会扣点的任务。',
+      '- Auth: Authorization: Bearer <PIX_API_KEY>; X-Pix-Api-Key is also supported. PIX_API_KEY must be an active key created by the user. This guide contains no real secrets; read the key from the execution environment, never use the placeholder as a key.\n- First query /me, /balance, and /models for scopes, credits, available models, and limits. Creating jobs consumes account credits.\n- Set Content-Type: application/json for JSON requests. Upload images as multipart/form-data with the file field. The returned path is a server path; do not substitute a local file path.\n- POST /jobs returns 202 and a job id, meaning accepted. Use a unique Idempotency-Key for each new job and reuse it for network retries of that request. If supplied, client_request_id takes precedence over this header. Batch requests need a distinct, stable client_request_id per child job. Replace the fixed example IDs.\n- Replace example id 123 with the actual response id. Poll GET /jobs/{id} every 2–5 seconds; continue on pending / running / waiting, download on succeeded, and read the error and stop on failed. On polling timeout, retain the id and resume checking later.\n- Download through /jobs/{id}/outputs/{kind} with authentication and files:read scope. Choose an output matching the job type.\n- For non-2xx responses, inspect detail: check the key for 401, scopes for 403, and parameters for 422. Do not blindly resubmit billable jobs.',
+    ),
+    text('## 权限与接口', '## Scopes and endpoints'),
+    [
+      '| Scope | HTTP |',
+      '| --- | --- |',
+      '| me:read | GET /me |',
+      '| balance:read | GET /balance |',
+      '| models:read | GET /models |',
+      '| uploads:create | POST /uploads/images |',
+      '| jobs:create | POST /jobs; POST /jobs/batch |',
+      '| jobs:read | GET /jobs; GET /jobs/{id} |',
+      '| files:read | GET /jobs/{id}/outputs/{kind} |',
+      '| characters:read | GET /characters |',
+      '| characters:write | POST /characters; POST /characters/jobs/{id}; PATCH /characters/{id}; DELETE /characters/{id} |',
+    ].join('\n'),
+    ...[
+      [text('认证与环境变量', 'Authentication and environment'), authCurl],
+      [text('账号、余额与模型', 'Account, credits, and models'), inspectCurl],
+      [text('上传参考图', 'Upload references'), uploadCurl],
+      [text('角色库', 'Character library'), characterCurl],
+      [text('素材直出', 'Asset generation'), assetCurl],
+      [text('批量生成', 'Batch generation'), assetBatchCurl],
+      [text('图生图', 'Image-to-image'), imageCurl],
+      [text('去背景', 'Background removal'), bgRemoveCurl],
+      [text('序列帧', 'Sprite sheets'), spriteCurl],
+      [text('轮询与分页', 'Polling and pagination'), pollCurl],
+      [text('下载结果', 'Download outputs'), downloadCurl],
+    ].map(([title, code]) => `## ${title}\n\n\`\`\`bash\n${code}\n\`\`\``),
+  ].join('\n\n'), [baseUrl, text, authCurl, inspectCurl, uploadCurl, characterCurl, assetCurl, assetBatchCurl, imageCurl, bgRemoveCurl, spriteCurl, pollCurl, downloadCurl])
+
   async function load() {
     setLoading(true)
     try {
@@ -630,10 +677,13 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
   }
 
   async function copy(value: string, label: string) {
-    const ok = await copyText(value)
-    if (ok) {
+    try {
+      const ok = await copyText(value)
+      if (!ok) throw new Error('Clipboard unavailable')
       setCopied(label)
       window.setTimeout(() => setCopied(''), 1500)
+    } catch {
+      setError(text('复制失败，请检查浏览器剪贴板权限后重试。', 'Copy failed. Check your browser clipboard permissions and try again.'))
     }
   }
 
@@ -643,7 +693,15 @@ curl -L "$PIX_API_BASE/jobs/123/outputs/sprite-actions.zip" \
         eyebrow={text('开发者 API', 'Developer API')}
         title={text('让外部程序调用 Pix 生图能力', 'Call Pix generation from external programs')}
         description={text('创建长期 API Key，通过 /external/v1 上传参考图、创建生成任务、轮询状态并下载结果。调用会使用当前账号点数余额和同一套安全 / 队列 / 计费规则。', 'Create long-lived API keys to upload references, create generation jobs, poll status, and download outputs through /external/v1. Calls use your account credits and the same safety, queueing, and billing rules.')}
-        action={<Button variant="outline" onClick={() => void load()} disabled={loading}><RotateCw />{text('刷新', 'Refresh')}</Button>}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => void copy(llmGuide, 'llm-guide')}>
+              {copied === 'llm-guide' ? <Check /> : <Clipboard />}
+              <span aria-live="polite">{copied === 'llm-guide' ? text('已复制', 'Copied') : text('复制给 LLM', 'Copy for LLM')}</span>
+            </Button>
+            <Button variant="outline" onClick={() => void load()} disabled={loading}><RotateCw />{text('刷新', 'Refresh')}</Button>
+          </div>
+        }
       />
 
       {error && <Alert variant="destructive">{error}</Alert>}
