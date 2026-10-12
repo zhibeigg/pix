@@ -491,15 +491,6 @@ export const en = {
     checkout: {
       opened: 'The Alipay page opened. Return to Pix and refresh order status after payment.',
     },
-    community: {
-      title: 'User community',
-      description: 'Top-ups, refunds, bug reports and feature requests — all welcome. Share your sprites too.',
-      qqLabel: 'QQ group',
-      qqNumber: '293279981',
-      join: 'Join group',
-      copy: 'Copy group ID',
-      copied: 'Copied',
-    },
     orders: {
       title: 'Top-up orders',
       empty: 'No top-up orders yet.',
